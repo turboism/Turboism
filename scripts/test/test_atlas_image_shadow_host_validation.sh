@@ -1092,7 +1092,7 @@ if env "${runner_env[@]}" TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
     > "$test_root/tlindex-version.log" 2>&1; then
   fail 'wrapper accepted --tri-tlindex under 5203'
 fi
-grep -q 'tri-tlindex is 5303-only' "$test_root/tlindex-version.log"
+grep -q 'weave legs are 5303-only' "$test_root/tlindex-version.log"
 # tlindex label without the flag must not silently run uninstrumented
 if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
     "$wrapper" 5303 t029-tlindex-woven1-heavy-nolayout \
@@ -1172,5 +1172,305 @@ assert len(props) == 11, props
 assert not any("StartFlightRecording" in a for a in argv)
 print("T029_TLINDEX_BASE_PLAN PASS mode=tl-dump-only noJfr=true")
 PYTL2
+
+# T029-TLPROD: production-rollout legs. The aux agent stays tl-dump-only on both
+# legs; the production transformer differs. -off stages the pinned
+# meshTriangulationEdgeIndex=false home config and expects pristine class bytes;
+# -on relies on the default-on preference and expects the production-patched
+# digest. The family admits 5303/5302/5203 — the weave legs stay 5303-only.
+manifest_5302="$test_root/bundle-5302.manifest"
+sed -e 's|^scene=.*|scene=atlas-image-shadow:5302|' \
+    -e "s|^fixture=.*|fixture=$heavy_fixture_real|" \
+    -e 's|^fixtureName=.*|fixtureName=heavy.cmo3|' \
+    -e 's|^fixtureSha256=.*|fixtureSha256=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c|' \
+    -e 's|^officialJarSha256=.*|officialJarSha256=988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21|' \
+    -e '/^t039/d' \
+    "$manifest_heavy" > "$manifest_5302"
+manifest_5203="$test_root/bundle-5203.manifest"
+sed -e 's|^scene=.*|scene=atlas-image-shadow:5203|' \
+    -e "s|^fixture=.*|fixture=$heavy_fixture_real|" \
+    -e 's|^fixtureName=.*|fixtureName=heavy.cmo3|' \
+    -e 's|^fixtureSha256=.*|fixtureSha256=029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c|' \
+    -e 's|^officialJarSha256=.*|officialJarSha256=bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd|' \
+    -e '/^t039/d' \
+    "$manifest_heavy" > "$manifest_5203"
+# a tlprod label without the flag must not run uninstrumented
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    "$wrapper" 5303 t029-tlprod-on1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --dry-run \
+    > "$test_root/tlprod-noflag.log" 2>&1; then
+  fail 'wrapper accepted a t029-tlprod label without --tri-tlindex'
+fi
+grep -q 'requires --tri-tlindex' "$test_root/tlprod-noflag.log"
+# tlprod forbids the validation weave outright
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-tlprod-on1-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump+weave' --dry-run \
+    > "$test_root/tlprod-badmode.log" 2>&1; then
+  fail 'wrapper accepted tl-dump+weave on a tlprod leg'
+fi
+grep -q 'inconsistent with leg label' "$test_root/tlprod-badmode.log"
+# 5302 remains closed to every other label family
+if env "${runner_env[@]}" "$wrapper" 5302 offline \
+    --bundle-manifest "$manifest_5302" --dry-run \
+    > "$test_root/5302-label.log" 2>&1; then
+  fail 'wrapper accepted a non-tlprod label under 5302'
+fi
+grep -q 'admits only t029-tlprod' "$test_root/5302-label.log"
+# A production std leg cannot substitute an arbitrary 5203 environment hash/name.
+# Circle100 is a real immutable test fixture, but it is not the pinned opacity52 pair.
+if env "${runner_env[@]}" TURBOISM_HOST_VALIDATION_FIXTURE_5203="$fixture" \
+    TURBOISM_HOST_VALIDATION_FIXTURE_5203_SHA256="$fixture_sha256" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5203 t029-tlprod-on1-std-nolayout \
+    --bundle-manifest "$manifest_5203" --tri-tlindex tl-dump-only --dry-run \
+    > "$test_root/tlprod-5203-unreviewed-std.log" 2>&1; then
+  fail 'production std leg accepted an arbitrary 5203 environment fixture pair'
+fi
+grep -q 'allowlisted part-opacity-fixture-52-final.cmo3 hash mismatch' \
+  "$test_root/tlprod-5203-unreviewed-std.log"
+# the validation weave family still refuses non-5303 versions
+if env "${runner_env[@]}" TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5302 t029-tlindex-base1-heavy-nolayout \
+    --bundle-manifest "$manifest_5302" --tri-tlindex 'tl-dump-only' --dry-run \
+    > "$test_root/tlindex-5302.log" 2>&1; then
+  fail 'wrapper accepted a t029-tlindex leg under 5302'
+fi
+grep -q 'weave legs are 5303-only' "$test_root/tlindex-5302.log"
+# 5303 on leg: patched digest + no staged config + t039 pairing kept
+prepare_tlp_on="$test_root/prepare-tlprod-on"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-tlprod-on1-heavy-nolayout-jfr \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_tlp_on" > "$test_root/prepare-tlprod-on.log" 2>&1 \
+  || fail 'tlprod on-leg prepare failed'
+grep -q 'tlindexPreference=default-on' "$test_root/prepare-tlprod-on.log"
+grep -q 'tlWeaveExpectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec' \
+  "$test_root/prepare-tlprod-on.log"
+python3 - "$prepare_tlp_on/runner-request.json" <<'PYTP1'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["t039-shadow-agent.jar", "tri-weave-agent.jar",
+               "atlas-image-shadow-scene-driver.jar"], aux
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+expected = [
+    "-Dturboism.validation.tlWeave.enabled=true",
+    "-Dturboism.validation.tlWeave.mode=tl-dump-only",
+    "-Dturboism.validation.tlWeave.profile=tl-official",
+    "-Dturboism.validation.tlWeave.phase=t029-tlindex",
+    "-Dturboism.validation.tlWeave.runId=tlprod-on1",
+    "-Dturboism.validation.tlWeave.outputDir={HOME}/tl-weave",
+    "-Dturboism.validation.tlWeave.expectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec",
+    "-Dturboism.validation.tlWeave.expectCaptureClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec",
+    "-Dturboism.validation.tlWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader",
+    "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar",
+    "-Dturboism.validation.tlWeave.captureN=4",
+]
+assert props == expected, props
+assert "--home-config" not in argv, argv
+assert not any("triWeave." in a or "dmWeave." in a for a in argv)
+print("T029_TLPROD_ON5303_PLAN PASS expectSha=patched props=11")
+PYTP1
+# 5303 off leg: pristine digest + pinned home config staged
+prepare_tlp_off="$test_root/prepare-tlprod-off"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-tlprod-off1-heavy-nolayout \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_tlp_off" > "$test_root/prepare-tlprod-off.log" 2>&1 \
+  || fail 'tlprod off-leg prepare failed'
+grep -q 'tlindexPreference=off' "$test_root/prepare-tlprod-off.log"
+grep -q 'tlindexOffConfigSha256=47bb572625150b9f6a78a75be1e1b62cf1df0b179b58a2beffd7b568c4ae8c43' \
+  "$test_root/prepare-tlprod-off.log"
+python3 - "$prepare_tlp_off/runner-request.json" <<'PYTP2'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+home = [argv[i + 1] for i, flag in enumerate(argv) if flag == "--home-config"]
+assert len(home) == 1 and home[0].endswith("home-config-tlindexoff.json"), home
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+assert "-Dturboism.validation.tlWeave.expectClassSha256=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29" in props, props
+assert "-Dturboism.validation.tlWeave.runId=tlprod-off1" in props, props
+assert len(props) == 11, props
+print("T029_TLPROD_OFF5303_PLAN PASS expectSha=pristine homeConfig=staged")
+PYTP2
+# 5302 on leg: patched digest + 5.3 codeSource + no t039 staging
+prepare_tlp_5302="$test_root/prepare-tlprod-5302"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5302 t029-tlprod-on1-heavy-nolayout \
+  --bundle-manifest "$manifest_5302" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_tlp_5302" > "$test_root/prepare-tlprod-5302.log" 2>&1 \
+  || fail 'tlprod 5302-leg prepare failed'
+python3 - "$prepare_tlp_5302/runner-request.json" <<'PYTP3'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["tri-weave-agent.jar", "atlas-image-shadow-scene-driver.jar"], aux
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+assert "-Dturboism.validation.tlWeave.expectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec" in props, props
+assert "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3/app/lib/Live2D_Cubism.jar" in props, props
+assert not any("t039." in a or "aux-agent-before-main" in a for a in argv), argv
+print("T029_TLPROD_5302_PLAN PASS expectSha=patched53 codeSource=5.3")
+PYTP3
+# 5203 on leg: patched digest + 5.2 codeSource under the heavy fixture
+prepare_tlp_5203="$test_root/prepare-tlprod-5203"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5203="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5203 t029-tlprod-on1-heavy-nolayout \
+  --bundle-manifest "$manifest_5203" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_tlp_5203" > "$test_root/prepare-tlprod-5203.log" 2>&1 \
+  || fail 'tlprod 5203-leg prepare failed'
+python3 - "$prepare_tlp_5203/runner-request.json" <<'PYTP4'
+import json
+import sys
+from pathlib import Path
+
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--aux-agent"]
+assert aux == ["tri-weave-agent.jar", "atlas-image-shadow-scene-driver.jar"], aux
+props = [argv[i + 1] for i, flag in enumerate(argv)
+         if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
+assert "-Dturboism.validation.tlWeave.expectClassSha256=97e7ca33aa45135a7b0a4c6acb8b82da8be9f7f761cc2b0611a4b19155751844" in props, props
+assert "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.2/app/lib/Live2D_Cubism.jar" in props, props
+assert not any("t039." in a or "aux-agent-before-main" in a for a in argv), argv
+print("T029_TLPROD_5203_PLAN PASS expectSha=patched52 codeSource=5.2")
+PYTP4
+
+# The production opt-in token reaches the actual scene DriverConfig on all versions;
+# no missing wrapper->driver admission seam can masquerade as a prepared production leg.
+python3 - "$prepare_tlp_on" "$prepare_tlp_off" "$prepare_tlp_5302" "$prepare_tlp_5203" <<'PYTPTOKEN'
+import json, sys
+from pathlib import Path
+for root in sys.argv[1:]:
+    argv = json.loads((Path(root) / 'runner-request.json').read_text())['argv']
+    assert argv.count('-Dturboism.validation.atlasImageShadow.tlprodOptIn=TLPROD_EXPLICIT_OPT_IN') == 1, argv
+print('T029_TLPROD_DRIVER_TOKEN PASS allVersions=true')
+PYTPTOKEN
+
+# Replay those planned properties through the REAL DriverConfig, not just the
+# pure pair allowlist. Use a task-owned CoW copy of the pinned heavy model; no host
+# is launched and neither the original model nor the official installation changes.
+driver_admission_home="$test_root/tlprod-driver-home"
+driver_admission_fixture="$test_root/offline-tlprod-driver-heavy.cmo3"
+mkdir -p "$driver_admission_home"
+cp --reflink=auto -- "$heavy_fixture_real" "$driver_admission_fixture"
+for version_and_plan in "5203:$prepare_tlp_5203" "5302:$prepare_tlp_5302" "5303:$prepare_tlp_on"; do
+  version_under_test="${version_and_plan%%:*}"
+  plan_under_test="${version_and_plan#*:}"
+  property_file="$test_root/tlprod-driver-$version_under_test.properties"
+  python3 - "$plan_under_test/runner-request.json" "$driver_admission_home" \
+    "$driver_admission_fixture" "$version_under_test" "$property_file" <<'PYTPDRIVER'
+import json, sys
+from pathlib import Path
+argv = json.loads(Path(sys.argv[1]).read_text())['argv']
+values = {}
+for i, flag in enumerate(argv):
+    if flag == '--jvm-option' and argv[i+1].startswith('-D'):
+        key, value = argv[i+1][2:].split('=', 1)
+        for token, replacement in [('{HOME}', sys.argv[2]), ('{TASK_ID}', 'offline-tlprod-driver'),
+                                   ('{FIXTURE}', sys.argv[3]),
+                                   ('{FIXTURE_NAME}', Path(sys.argv[3]).name)]:
+            value = value.replace(token, replacement)
+        values[key] = value
+values.update({'turboism.home': sys.argv[2], 'turboism.validation.runId': 'offline-tlprod-driver',
+               'turboism.validation.hostVersion': sys.argv[4]})
+Path(sys.argv[5]).write_text(''.join(f'{k}={v}\n' for k, v in values.items()))
+PYTPDRIVER
+  run_launch_probe "$property_file" > "$test_root/tlprod-driver-$version_under_test.log" 2>&1 \
+    || fail "real DriverConfig rejected the pinned production launch on $version_under_test"
+  grep -q '^T040_LAUNCH_PROPERTY_CONTRACT PASS ' "$test_root/tlprod-driver-$version_under_test.log"
+done
+for token in absent wrong-token; do
+  grep -v '^turboism.validation.atlasImageShadow.tlprodOptIn=' \
+    "$test_root/tlprod-driver-5203.properties" > "$test_root/tlprod-driver-bad.properties"
+  if [[ "$token" != absent ]]; then
+    printf 'turboism.validation.atlasImageShadow.tlprodOptIn=%s\n' "$token" \
+      >> "$test_root/tlprod-driver-bad.properties"
+  fi
+  if run_launch_probe "$test_root/tlprod-driver-bad.properties" \
+      > "$test_root/tlprod-driver-bad.log" 2>&1; then
+    fail 'real DriverConfig accepted heavy on 5203 without the exact production token'
+  fi
+  grep -q '^T040_LAUNCH_PROPERTY_CONTRACT BLOCKED IllegalArgumentException:' \
+    "$test_root/tlprod-driver-bad.log"
+done
+printf 'T029_TLPROD_DRIVER_ADMISSION PASS realEntry=true allVersions=true noHost=true\n'
+# Publishing admission must match the runtime seam; ordinary 5203 heavy builds
+# remain blocked, while the explicit fixed token selects the per-version heavy key.
+if "$builder" --host-profile 5203 --fixture-profile heavy \
+    > "$test_root/tlprod-builder-no-token.log" 2>&1; then
+  fail 'ordinary 5203 build accepted heavy without production opt-in'
+fi
+grep -q 'single reviewed fixture' "$test_root/tlprod-builder-no-token.log"
+if "$builder" --host-profile 5203 --fixture-profile heavy --tlprod-opt-in wrong-token \
+    > "$test_root/tlprod-builder-bad-token.log" 2>&1; then
+  fail 'production builder accepted the wrong opt-in token'
+fi
+grep -q 'production opt-in token is invalid' "$test_root/tlprod-builder-bad-token.log"
+TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5203="$heavy_fixture_real" \
+  "$builder" --host-profile 5203 --fixture-profile heavy \
+  --tlprod-opt-in TLPROD_EXPLICIT_OPT_IN > "$test_root/tlprod-builder-5203.log" 2>&1 \
+  || fail 'explicit 5203 heavy build failed'
+grep -q '^T040_SHADOW_SCENE_SELFCHECK PASS ' "$test_root/tlprod-builder-5203.log"
+grep -q 'hostExecuted=false' "$test_root/tlprod-builder-5203.log"
+printf 'T029_TLPROD_BUILDER_ADMISSION PASS explicitOnly=true noHost=true\n'
+
+# Synthetic files exercise wrapper protocol only, not UI evidence. A real accepted
+# host result is still required before using an exported UI config for final A/B.
+ui_off="$test_root/ui-off.json"
+printf '{"meshTriangulationEdgeIndex":false}\n' > "$ui_off"
+prepare_tlp_ui="$test_root/prepare-tlprod-ui-off"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5303 t029-tlprod-off3-heavy-nolayout \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex tl-dump-only \
+  --tri-tlindex-home-config "$ui_off" --prepare-dir "$prepare_tlp_ui" \
+  > "$test_root/tlprod-ui-off.log" 2>&1 || fail 'UI off-config prepare failed'
+python3 - "$prepare_tlp_ui/runner-request.json" "$ui_off" <<'PYTPUI'
+import json, sys
+from pathlib import Path
+argv = json.loads(Path(sys.argv[1]).read_text())['argv']
+home = [argv[i + 1] for i, flag in enumerate(argv) if flag == '--home-config']
+assert home == [sys.argv[2]], home
+print('T029_TLPROD_UI_CONFIG PASS stagedOnce=true')
+PYTPUI
+for bad in '{"meshTriangulationEdgeIndex":true}' \
+           '{"meshTriangulationEdgeIndex":"false"}' \
+           '{"meshTriangulationEdgeIndex":true,"meshTriangulationEdgeIndex":false}' \
+           '{}'; do
+  printf '%s\n' "$bad" > "$test_root/ui-bad.json"
+  if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+      TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+      "$wrapper" 5303 t029-tlprod-off3-heavy-nolayout \
+      --bundle-manifest "$manifest_heavy" --tri-tlindex tl-dump-only \
+      --tri-tlindex-home-config "$test_root/ui-bad.json" --dry-run \
+      > "$test_root/tlprod-ui-bad.log" 2>&1; then
+    fail 'production leg accepted a missing, ambiguous or mismatched UI Boolean'
+  fi
+  grep -q 'production home config does not match the leg' "$test_root/tlprod-ui-bad.log"
+done
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5303 t029-tlindex-base3-heavy-nolayout \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex tl-dump-only \
+    --tri-tlindex-home-config "$ui_off" --dry-run > "$test_root/tlprod-ui-nonprod.log" 2>&1; then
+  fail 'nonproduction weave label accepted the production UI config option'
+fi
+grep -q 'requires a production capture leg' "$test_root/tlprod-ui-nonprod.log"
 
 printf 'ATLAS_IMAGE_SHADOW_HOST_VALIDATION_OFFLINE_TEST PASS hostLaunched=false\n'

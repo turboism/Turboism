@@ -69,7 +69,7 @@ public final class T040ShadowSceneDriverAgent {
         final long timeoutSeconds;
         final String version;
         final String scene;
-        /** The 5303 profile carries the T039 shadow capture; 5203 has no T039 agent. */
+        /** The 5303 profile carries the T039 shadow capture; other profiles have none. */
         final boolean shadow;
         final String profile;
         final String layoutScalePercent;

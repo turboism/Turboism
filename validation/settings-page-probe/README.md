@@ -6,6 +6,32 @@ and exits the Editor. Never install it in a user's everyday plugin directory.
 The shared exact-host queue, official launcher, isolated prefix/home and immutable
 fixture checks described in the host-validation runbook remain mandatory.
 
+## Triangulation edge-index mode (T029-TLPROD)
+
+Pass `-Dturboism.validation.settingsEdgeIndex=true` through the unified queue/Runner.
+It is mutually exclusive with `settingsPerformance`; without either property the
+original mesh-hash scenario is unchanged. This mode uses the actual Performance tab,
+identifies `triangulation-edge-index` by contribution ID, verifies its exact shipped
+i18n label and visible checkbox, then checks missing-key default-on or the exact
+persisted Boolean. Apply, an unsaved opposite change followed by Cancel, reopening,
+OK restoration and reopening again must preserve the corresponding values.
+
+The probe copies—not edits—the config files produced by those actual UI saves into
+`state/dev.turboism.validation.settingspage/edge-index-ui-{off,on}.json`, and reports
+each SHA-256 in `settings-result.txt`. Only snapshots from a standard-gate PASS and
+`status=PASS` result are admissible as UI evidence. The production capture wrapper's
+`--tri-tlindex-home-config` accepts the leg-matching explicit Boolean and freezes its
+SHA during prepare; that option alone does not establish that a file came from UI.
+Subsequent off/on host starts must use these verified snapshots and observe pristine/
+production-patched TriangleList bytes. A same-process save is not hot unweaving and
+cannot substitute for restart-dependent activation/deactivation evidence.
+
+2026-09-30 continuation: the extended probe compiles and the contribution/persistence
+regressions pass offline. Global queue seq2004 is orphaned after a disk-I/O failure,
+worker is offline and recovery is `safe=false`; the user chose offline convergence.
+No new real settings run or restart acceptance is claimed; no queue row was forced,
+no supervisor verdict was fabricated and no official host/model was modified.
+
 ## Performance settings mode
 
 Pass `-Dturboism.validation.settingsPerformance=true` through the common Runner.
