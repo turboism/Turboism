@@ -98,6 +98,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -141,7 +142,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -249,6 +249,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -292,7 +293,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -400,6 +400,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -443,7 +444,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -551,6 +551,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -594,7 +595,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -702,6 +702,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -745,7 +746,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -853,6 +853,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -896,7 +897,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1004,6 +1004,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1047,7 +1048,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1158,6 +1158,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1202,7 +1203,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1309,6 +1309,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1353,7 +1354,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1466,6 +1466,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1505,7 +1506,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1617,6 +1617,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1656,7 +1657,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.editor-model.write",
         "cubism.editor-ui.control-appearance.deformer-control-row",
         "cubism.editor-ui.control-appearance.deformer-label",
@@ -1777,6 +1777,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1817,7 +1818,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.geometry.read"
       ],
       "verifiedSupported": [],
@@ -1928,6 +1928,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -1968,7 +1969,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.geometry.read"
       ],
       "verifiedSupported": [],
@@ -2079,6 +2079,7 @@
         "cubism.editor-model.selection.read",
         "cubism.editor-model.statistics.read",
         "cubism.editor-model.texture.read",
+        "cubism.editor-model.texture.write",
         "cubism.editor-model.undo.revert",
         "cubism.editor-model.warp-deformer.parameter-bindings.write",
         "cubism.editor-model.warp-deformer.write",
@@ -2119,7 +2120,6 @@
         "cubism.editor-model.part-opacity.write",
         "cubism.editor-model.psd.raw-image.export",
         "cubism.editor-model.psd.raw-image.replace",
-        "cubism.editor-model.texture.write",
         "cubism.geometry.read"
       ],
       "verifiedSupported": [],
@@ -4913,6 +4913,20 @@
       "compatibility/cubism/verification/cubism-5.3.04-editor-model.json"
     ],
     "cubism.editor-model.texture.write": [
+      "compatibility/cubism/verification/cubism-5.0.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.02-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.03-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.04-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.05-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.06-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.02-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.03-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.02-editor-model.json",
       "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
       "compatibility/cubism/verification/cubism-5.3.00-editor-model.json",
       "compatibility/cubism/verification/cubism-5.3.01-editor-model.json",
@@ -6838,6 +6852,23 @@
         "5301",
         "5302",
         "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "core-owned-moc:default",
+      "task": "core-owned-moc",
+      "variant": "default",
+      "wrapper": "scripts/preview/run-core-owned-moc-host-validation.sh",
+      "catalogueVersions": [
+        "5100",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5300",
+        "5301",
         "5304"
       ],
       "coverageMapping": "PENDING_AUDIT"
@@ -9938,7 +9969,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.00-editor-model.json",
-      "sha256": "4f5b5cfb74f69c2a6711497e6e03f1d99c8149ca546cec67116022c980123624",
+      "sha256": "5a1601f1b6dae817bc9631f980ac7e7455799df3e8b8d85ff9961ecbda61193d",
       "version": "5.0.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10025,7 +10056,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10110,7 +10142,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.01-editor-model.json",
-      "sha256": "0e67d3e539228296275c235d81950490e7a363b9e40a9802506a65cca3c6dd5d",
+      "sha256": "25846f01b0d656b2d431ae876760c1225fdf9b7ed523b97fda61c68b48f33fde",
       "version": "5.0.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10197,7 +10229,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10282,7 +10315,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.02-editor-model.json",
-      "sha256": "6b3a498e267e71053bdd1dd673f82694501b52d974dae37ae0f8ef34d0fa8a38",
+      "sha256": "9f0e376f184f19173945e57d4947e83929f45d9262726a568c9659b54a91dc08",
       "version": "5.0.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10369,7 +10402,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10454,7 +10488,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.03-editor-model.json",
-      "sha256": "d08f0ce40028352c6b7de6f6646c756325fc8c0b5b27a1eb648606bafe1e3c3e",
+      "sha256": "8988936806752af7374548ea802f1203a7dc69b1279baf21aa31c352dcafd979",
       "version": "5.0.03",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10541,7 +10575,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10626,7 +10661,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.04-editor-model.json",
-      "sha256": "9de62c091450e428cdd1d4707b96321ab7ecad0d5ac5f9ea19bec58990a14228",
+      "sha256": "8534aa07af053fe7af7e823d7844aed3859349fe8cfdc2396eef0bc043f37a5e",
       "version": "5.0.04",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10713,7 +10748,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10798,7 +10834,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.05-editor-model.json",
-      "sha256": "1f8a32a0a518cf058c31358874fb8ad9445ea516908516b469f773f6ca1342cb",
+      "sha256": "7c977f8f09301d9c1d8bb60ebb4ea3a7de6a8fcc0338c564115af01914f04d58",
       "version": "5.0.05",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10885,7 +10921,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -10970,7 +11007,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.06-editor-model.json",
-      "sha256": "6d0031ca5d3aa0e181cd1947fa4074c14708e3b0512f4bfc361f359865135f4f",
+      "sha256": "a022333d7079ffc8d4047a886129046e96f4e85cf61bea82ebf08b231ecc5089",
       "version": "5.0.06",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11057,7 +11094,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -11156,7 +11194,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.00-editor-model.json",
-      "sha256": "6282b6283a7343b3b558fb83d55f474d5486b1cca217ad4d69d306f8fe757960",
+      "sha256": "8688b84abaca21a429b0573d4a0b298ddfc69b908a857a000cbd463a9bbf648e",
       "version": "5.1.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11245,7 +11283,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -11383,7 +11422,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.01-editor-model.json",
-      "sha256": "a71e8e7b0a70d0689efe463dfdb0cd9fa05a81c54f425026dfb8d07bedd39a94",
+      "sha256": "086bd1144b3669d04ed6f24df9ffe3ff855eb39fe2149018b9cb8cf17bda894e",
       "version": "5.1.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11472,7 +11511,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -11610,7 +11650,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.02-editor-model.json",
-      "sha256": "606486ef8ab8268564917ef3b078251dba36e4289269ba65bfcf68e022e375e3",
+      "sha256": "e8783243a22f630b17416bb346a0e3f3c024c819ad09a748b48eb0bf408e3398",
       "version": "5.1.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11706,7 +11746,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -11844,7 +11885,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.03-editor-model.json",
-      "sha256": "a31e5ef66365be94147e3cadc2e06d0ddbaaf9c883b3a516fee270df0e95d98e",
+      "sha256": "0ff429b28e59a832e034acd333a5f7700233d7b30e0d1bcbfdb2f2cb34fc734b",
       "version": "5.1.03",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11940,7 +11981,8 @@
         "cubism.texture-atlas.data-model-hook",
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -12078,7 +12120,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.00-editor-model.json",
-      "sha256": "3f7c3712c03dfca1785992f951fef44148a57e9b1370a436cbc0c87091681499",
+      "sha256": "6372dbfb6da029d4409caab841a50cf488b7fe85d2211fadd57ff18aed76779d",
       "version": "5.2.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12186,7 +12228,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -12355,7 +12398,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.01-editor-model.json",
-      "sha256": "44cce7acbd0ac8a0e0eaa954b594da5d8606bf4033141846122f9717825a18f0",
+      "sha256": "75ff4b21bee39afad894d140a405aa7baa52afcc00e04b3c1367b418c87bf82d",
       "version": "5.2.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12463,7 +12506,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {
@@ -12632,7 +12676,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.02-editor-model.json",
-      "sha256": "927f6fbb9aec4a638f1c57f3b0912a183185183b1a60d344ead8bccf008b3594",
+      "sha256": "af9e9402a297c9309637e1c5d2b041073a78122ca25c5f3ae54a924f90ca2755",
       "version": "5.2.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12740,7 +12784,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
-        "ui.object-context-menu.contribute"
+        "ui.object-context-menu.contribute",
+        "cubism.editor-model.texture.write"
       ]
     },
     {

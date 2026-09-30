@@ -16,7 +16,7 @@ import java.util.Set;
  * undo factories ({@code UndoAddOrRemove_ModelImageGroup}, {@code UndoAddOrRemove_ModelImage},
  * {@code UndoAddOrRemove_TextureAtlas}, {@code UndoAddOrRemove_RawImage}) whose
  * construct-and-redo objects are registered into the edit-mode {@code GroupUndo}.
- * Cubism 5.2.03 lacks the 5.3 non-dialog raw-image handler overload. Its adapter
+ * Cubism 5.0.00 through 5.2.03 lack the 5.3 non-dialog raw-image handler overload. Their adapter
  * instead composes the same native layer-input and raw-image Undo factories,
  * registering each prepared edit before forceRedo and never invoking a dialog
  * or deleting the owning model images, ArtMeshes or texture atlases.</p>
@@ -26,6 +26,12 @@ public final class EditorTextureSelectorContract {
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-editor-model.json:adapterSliceId}";
     public static final String READ_CAPABILITY_ID = "cubism.editor-model.texture.read";
     public static final String WRITE_CAPABILITY_ID = "cubism.editor-model.texture.write";
+
+    /** Exact installations reviewed for the legacy factory route; no version-range inference. */
+    public static final Set<String> LEGACY_RAW_IMAGE_REMOVAL_VERSIONS = Set.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+    );
 
     public static final Set<String> READ_REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.model-source.texture-manager",

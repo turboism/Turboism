@@ -30,7 +30,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 class EditorTextureAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void readsTextureLibraryProjection(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -65,7 +69,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void addsModelImageGroupInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -88,7 +96,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void addsTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -109,7 +121,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void removesModelImageInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -126,7 +142,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void removesTextureAtlasInsideUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -140,7 +160,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void absentTextureIdsFailClosed(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -152,7 +176,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void textureReadsFailClosedWithoutCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -162,7 +190,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void textureWritesFailClosedWithoutWriteCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -176,7 +208,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void rejectedUndoEntryRollsBackAndReportsFailure(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -189,7 +225,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+            })
     void removeRawImageFailsClosedWithoutThe52NativeUndoSelectors(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -207,7 +247,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void removeRawImageUsesUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -223,7 +267,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+            })
     void rawRemoval52PreservesOtherInputsImagesAndAtlasesAndIsReversible(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -249,7 +297,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+            })
     void rawRemoval52DoesNotMutateWhenUndoAdmissionIsRejected(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -264,7 +316,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+            })
     void missing52LayerInputMapRejectsBeforeRemoval(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -281,7 +337,11 @@ class EditorTextureAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void compatibleHostUsesItsMatchedTextureUndoRoute(final String sourceVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -530,14 +590,14 @@ class EditorTextureAccessTest {
                 HostTextureManagerHandler.class,
                 "removeAtlas",
                 "(" + type(HostTextureAtlas.class) + ")" + type(Undo.class)));
-        if (!version.equals("5.2.03")) {
+        if (!EditorTextureSelectorContract.LEGACY_RAW_IMAGE_REMOVAL_VERSIONS.contains(version)) {
             values.add(method(
                     "cubism.editor-model.texture-handler.remove-raw-image",
                     HostTextureManagerHandler.class,
                     "removeRawImage",
                     "(" + type(Id.class) + "Z)" + type(Undo.class)));
         }
-        if (version.equals("5.2.03") && include52Removal) {
+        if (EditorTextureSelectorContract.LEGACY_RAW_IMAGE_REMOVAL_VERSIONS.contains(version) && include52Removal) {
             values.add(method(
                     "cubism.editor-model.model-image.input-filter-env",
                     HostModelImage.class,

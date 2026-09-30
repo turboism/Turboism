@@ -37,7 +37,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "animation-timeline", "atlas", "backup", "backup-interactive", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition",
+            "animation-timeline", "atlas", "backup", "backup-interactive", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition", "core-owned-moc",
             "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "protected-export", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
@@ -67,6 +67,22 @@ class HostValidationSchedulerTest(unittest.TestCase):
                 self.assertEqual([version, "test-run"], command[2:])
         with self.assertRaises(scheduler.SchedulerError):
             self.request("mcp:5400")
+
+    def test_owned_moc_is_separate_from_mcp_and_requires_observed_core_tuple(self) -> None:
+        task = self.manifest.tasks["core-owned-moc"]
+        self.assertEqual(("5100", "5103", "5200", "5201", "5202", "5300", "5301", "5304"), task.versions)
+        self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
+        with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
+            for version in task.versions:
+                command = scheduler.render_command(self.request("core-owned-moc:" + version), self.manifest)
+                self.assertTrue(command[1].endswith("run-core-owned-moc-host-validation.sh"))
+                self.assertEqual([version, "test-run"], command[2:])
+        with self.assertRaises(scheduler.SchedulerError):
+            self.request("core-owned-moc:5000")
+        wrapper = (PREVIEW / "run-core-owned-moc-host-validation.sh").read_text()
+        self.assertIn("state/core-owned-moc-result.properties", wrapper)
+        self.assertIn("--require-fixture-unchanged", wrapper)
+        self.assertNotIn("--client-script", wrapper)
 
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
