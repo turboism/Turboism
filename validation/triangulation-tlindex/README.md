@@ -47,3 +47,10 @@ its owner; the user chose offline convergence. Final-artifact three-version A/B,
 SC-04a actual resources and real settings/restart acceptance remain blocked. No
 forced queue recovery, new host launch, main merge or readiness claim was made.
 The authoritative scope/evidence/task state remains Spec Kit `specs/020`.
+
+
+2026-10-01 update: the queue recovered under its owner's workflow. Real UI, final-agent
+three-version correctness A/B, and repaired-driver 5203 repeat completed. See
+[dated host evidence](host-evidence-20261001.md) for exact jobs, artifact hashes,
+resource observations and limitations. 5203 performance acceptance remains open;
+T044/T046 are not complete and nothing was merged to main.
