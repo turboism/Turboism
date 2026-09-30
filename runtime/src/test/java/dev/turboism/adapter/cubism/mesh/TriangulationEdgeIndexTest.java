@@ -24,6 +24,7 @@ final class TriangulationEdgeIndexTest {
     private static final class Tri {
         final int ia, ib, ic;
         final float[] coords;
+        int equalityCalls;
 
         Tri(final int ia, final int ib, final int ic, final float[] coords) {
             this.ia = ia;
@@ -42,6 +43,7 @@ final class TriangulationEdgeIndexTest {
 
         @Override
         public boolean equals(final Object other) {
+            equalityCalls++;
             if (!(other instanceof Tri o) || o.coords.length != coords.length) return false;
             for (int i = 0; i < coords.length; i++) {
                 if (Float.compare(coords[i], o.coords[i]) != 0) return false;
@@ -315,6 +317,70 @@ final class TriangulationEdgeIndexTest {
         // A null set is rejected inside the bookkeeping guard; it must still decline
         // without leaking that failure into the original scan's control flow.
         assertNull(TriangulationEdgeIndex.tryQuery(null, 1, 2));
+    }
+
+    @Test
+    void removalDoesNotAddAnEqualityScanAheadOfTheNativeOperation() {
+        final LinkedHashSet<Tri> nativeSet = new LinkedHashSet<>();
+        final LinkedHashSet<Tri> indexedSet = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 128; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            nativeSet.add(t);
+            TriangulationEdgeIndex.add(indexedSet, t, t.ia, t.ib, t.ic);
+            triangles.add(t);
+        }
+        TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
+        final Tri victim = triangles.get(triangles.size() - 1);
+        victim.equalityCalls = 0;
+        assertTrue(nativeSet.remove(victim));
+        final int nativeComparisons = victim.equalityCalls;
+        victim.equalityCalls = 0;
+        assertTrue(TriangulationEdgeIndex.remove(indexedSet, victim));
+        assertEquals(nativeComparisons, victim.equalityCalls,
+                "bookkeeping must not repeat the host's expensive element equality");
+        assertEquals(new ArrayList<>(nativeSet), TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2));
+    }
+
+    @Test
+    void removalReconcilesStaleIdentityKeysAndEqualReplacement() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri old = tri(1, 1, 2, 3);
+        final Tri survivor = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, old, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, survivor, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        final Iterator<Tri> iterator = set.iterator();
+        iterator.next();
+        iterator.remove();
+        final Tri replacement = tri(1, 40, 41, 42);
+        TriangulationEdgeIndex.add(set, replacement, 40, 41, 42);
+        assertTrue(TriangulationEdgeIndex.remove(set, old));
+        assertEquals(List.of(survivor), TriangulationEdgeIndex.tryQuery(set, 1, 2));
+        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 40, 41));
+    }
+
+    @Test
+    void nativeRemovalWinsWhenStoredEqualityHasMutated() {
+        final LinkedHashSet<Tri> nativeSet = new LinkedHashSet<>();
+        final LinkedHashSet<Tri> indexedSet = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 32; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            nativeSet.add(t);
+            TriangulationEdgeIndex.add(indexedSet, t, t.ia, t.ib, t.ic);
+            triangles.add(t);
+        }
+        TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
+        // Mutating equality can leave multiple equal identities in an existing hash tree.
+        // The exact native victim, not insertion order or the argument identity, must win.
+        for (Tri t : triangles) java.util.Arrays.fill(t.coords, 0f);
+        final Tri probe = triangles.get(triangles.size() - 1);
+        assertEquals(nativeSet.remove(probe), TriangulationEdgeIndex.remove(indexedSet, probe));
+        final List<?> actual = TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
+        final List<Tri> expected = new ArrayList<>(nativeSet);
+        assertEquals(expected.size(), actual.size());
+        for (int i = 0; i < expected.size(); i++) assertSame(expected.get(i), actual.get(i));
     }
 
     @Test

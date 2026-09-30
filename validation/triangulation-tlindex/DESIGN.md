@@ -104,3 +104,23 @@ tlWrongSha/tlShapePins），`hostExecuted=false officialClassLoaded=false`
 - dump 腿四序号 SHA 与基线逐字节一致（等价门，同 DWEAVE）。
 - 标准门全过；JFR 中 TriangleList.a/iterator 窗样本应塌缩至零头。
 - 任一 INVALID/reject/verdict 异常 → 停批。
+
+
+## 2026-10-01 生产 remove 修正（新工件待实机）
+
+旧文“按插入序 equals 扫描与 HashMap 删除选择完全一致”不是一般性保证：
+常数 hash 的桶会 treeify；如果已有对象的 equals 关系改变，原生树查找可能选中
+不同于插入序首个匹配的对象。即使宿主常见输入没有此退化，旧 helper 先做
+一次线性 equals 扫描，再经 iterator.remove 进入原生 removeNode，增加了成本。
+5203 两对实机观测未证明性能收益；第二对 on/off CPU 为308.4/287.8秒。
+
+生产修正先执行且只执行一次 s.remove(tri)，返回值和实际被删除对象由原生集合
+决定。簿记不再调用元素 equals：仅在状态干净、记录键数=当前集合大小+1、记录
+含 tri 时扫描所有存活身份。如果每个存活身份都已记录且 tri 不在其中，基数
+证明 tri 是唯一缺失记录，可按其自录键精确摘桶；否则标脏，下次查询按真实集合
+重建并清除消失记录，未知存活对象仍永久回退。不能根据参数 equals 或索引猜测
+被删对象。此证明不依赖坐标/equality 不变，也覆盖 iterator 移除后等值重加。
+
+测试先复现额外 equals 次数及可变 equality 下实际 victim 不同的失败，再验证
+修正与原生集合的逐对象身份顺序一致；既有等值异索引、弱身份生命周期、并发与
+织入回归保留。离线通过不代表新候选已取得实机性能验收。
