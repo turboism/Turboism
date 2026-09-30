@@ -33,6 +33,8 @@ exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   --jvm-option '-Dturboism.validation.startFree=true' \
   --jvm-option '-Dturboism.validation.ownedMocOnly=true' \
+  --jvm-option '-Dturboism.optimization.mesaGlThread=false' \
+  --linux-env 'mesa_glthread=false' \
   --jvm-option "-Dturboism.validation.expectedCoreVersion=$core_tuple" \
   --jvm-option '-Dturboism.validation.fixture={FIXTURE}' \
   --ready-marker 'MCP host validation probe initialized' \

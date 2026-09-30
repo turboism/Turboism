@@ -584,10 +584,22 @@
       "preparedDigest": "9645a25e36e4fbdf082c886c4b947a0bfaa1aa5f9933e6cee16db78e7a57b94a",
       "evidenceDirectory": "jobs/ba9eef36-9a0d-4c50-bcad-fffd118738f9/evidence",
       "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, texture persistence or all framework capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "Exact task-owned native prompt helper; loaded copied fixture required before assertions and normal close",
       "expectedNativeCoreVersion": "6.0.513",
-      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "reason": "Runner refused mesaGlThread effective on while deferred GL error check inactive, before Core assertions",
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-owned-r3",
+      "result": {
+        "runId": "queue-bfdd6c463e2b4f7483b700e09554d31e",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      }
     },
     {
       "version": "5.2.02",
@@ -597,9 +609,10 @@
       "preparedDigest": "721c838bd921792d19a323c5f0ca97a377023f6140d35d1c76ece394083086b9",
       "evidenceDirectory": "jobs/0338d230-9c33-4c1c-928b-e5617650dab6/evidence",
       "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, persistence or all capabilities",
-      "status": "SUBMITTED",
+      "status": "CANCELLED_BEFORE_RUN",
       "expectedNativeCoreVersion": "5.0.256",
-      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "reason": "Replaced after standalone Core render configuration gate failed on 5.3.04; no Core capability verdict"
     },
     {
       "version": "5.1.03",
@@ -609,9 +622,49 @@
       "preparedDigest": "cc0e1530d3d23f322a56199c0943626cb20cc96c42811b3cb48a83855307ccaf",
       "evidenceDirectory": "jobs/d032f280-aa99-4f08-ae31-cb14c8a39e29/evidence",
       "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, persistence or all capabilities",
+      "status": "CANCELLED_BEFORE_RUN",
+      "expectedNativeCoreVersion": "5.0.0",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "reason": "Replaced after standalone Core render configuration gate failed on 5.3.04; no Core capability verdict"
+    },
+    {
+      "version": "5.3.04",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r4",
+      "jobId": "3fbbe66f-1e62-41fc-a9e0-636b25878aaf",
+      "preparedDigest": "fe52569d8fa3527314fdcd9c4584ac9d980e14012fa80ac3a4af758c3a371667",
+      "evidenceDirectory": "jobs/3fbbe66f-1e62-41fc-a9e0-636b25878aaf/evidence",
+      "scope": "Standalone production SDK owned-MOC checks; Mesa glthread explicitly OFF, not Editor acquisition or all capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "6.0.513",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
+    },
+    {
+      "version": "5.2.02",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r2",
+      "jobId": "6964bd54-a1f1-45ea-8d90-e10035021dfa",
+      "preparedDigest": "01a08e47c51a3789323f2ff6340c8b2baa52bbce8d367b4e9643994287f48ea3",
+      "evidenceDirectory": "jobs/6964bd54-a1f1-45ea-8d90-e10035021dfa/evidence",
+      "scope": "Standalone production SDK owned MOC structure/update/ownership closure; not Editor acquisition or all capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "5.0.256",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
+    },
+    {
+      "version": "5.1.03",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r2",
+      "jobId": "74c74558-a712-46fe-b691-91b68b962f9d",
+      "preparedDigest": "ad00fdb8cd252c36877bfbce5e48b39192dfbc83fe9693491f2b35b3e8ff98ca",
+      "evidenceDirectory": "jobs/74c74558-a712-46fe-b691-91b68b962f9d/evidence",
+      "scope": "Standalone production SDK owned MOC structure/update/ownership closure; not Editor acquisition or all capabilities",
       "status": "SUBMITTED",
       "expectedNativeCoreVersion": "5.0.0",
-      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
     }
   ]
 }
