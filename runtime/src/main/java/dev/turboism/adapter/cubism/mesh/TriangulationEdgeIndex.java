@@ -172,15 +172,18 @@ public final class TriangulationEdgeIndex {
                     && t.keys.size() == s.size() + 1 && t.keys.containsKey(tri);
             if (exactVictim) {
                 for (final Object survivor : s) {
-                    if (survivor == tri || !t.keys.containsKey(survivor)) {
+                    if (survivor == tri) {
                         exactVictim = false;
                         break;
                     }
                 }
             }
-            // All n-1 surviving identities belong to the n recorded identities, and tri
-            // is absent: tri is exactly the missing entry. Otherwise do not guess from
-            // equals or the argument's vertex indices; rebuild prunes the actual victim.
+            // A clean state with the pre-removal cardinality covers all stored identities:
+            // all host adds/clears are woven, and the only unwoven write is iterator.remove
+            // (a shrink, caught here or by the next add's size precheck). Native remove only
+            // shrinks that known set. If tri survives it removed an equal different object;
+            // otherwise tri is the single missing identity. Do not redo a hash lookup for
+            // every survivor: that verification itself dominated the 5203 candidate JFR.
             final long[] ks = exactVictim ? t.keys.remove(victim) : null;
             if (ks == null || t.dead || t.dirty) {
                 t.dirty = true; // unknown keys or stale index -> resync on next query

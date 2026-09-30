@@ -124,3 +124,13 @@ tlWrongSha/tlShapePins），`hostExecuted=false officialClassLoaded=false`
 测试先复现额外 equals 次数及可变 equality 下实际 victim 不同的失败，再验证
 修正与原生集合的逐对象身份顺序一致；既有等值异索引、弱身份生命周期、并发与
 织入回归保留。离线通过不代表新候选已取得实机性能验收。
+
+
+第二轮候选640e3b1e…的5203 seq2063/2069标准门、边序及生产实跑PASS，但CPU/耗时
+仍退化，JFR新增IdentityHashMap.containsKey叶806样本。逐存活对象再次查身份表
+没有利用已验证变更协议：所有add/clear均织入，唯一未织入写是iterator.remove，
+其单调缩小由sz前检（或下一次add前检）检测。因此“干净且删除前基数吻合”已证明
+原集合成员身份完整登记；原生remove只从其中删除一个。只须用==确认参数身份
+是否仍存活：存活则实际victim是另一等值对象，置dirty重建；不存活则可摘参数
+的自录键。后续候选去掉逐存活对象的containsKey，不改变原生删除和回退路径。
+这依赖精确宿主的已审阅变更入口，不承诺支持未织入add隐藏的任意同尺寸替换。
