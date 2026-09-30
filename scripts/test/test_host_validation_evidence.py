@@ -2,6 +2,7 @@
 """Post-containment evidence tests use synthetic files, never a Cubism installation."""
 from pathlib import Path
 import copy
+import json
 import sys
 import tempfile
 import unittest
@@ -26,7 +27,7 @@ class EvidenceTest(unittest.TestCase):
         self.job = {"job_id": "job", "attempt_id": "attempt", "run_id": "queue-test", "digest": "digest"}
         self.identity = {"jobId": "job", "attemptId": "attempt", "runId": "queue-test", "preparedDigest": "digest"}
         self.proof = {"schemaVersion": 1, **self.identity, "cleanup": "safe", "testOnly": True}
-        self.descriptor = {"hostDependencies": [], "argv": ["--name", "test", "--version", "5302", "--run-label", "one",
+        self.descriptor = {"hostDependencies": [], "argv": ["--name", "test", "--version", getattr(self, "version", "5302"), "--run-label", "one",
             "--host-root", str(self.root / "host"), "--golden-prefix", str(self.root / "synthetic-golden"),
             "--fixture-host", str(self.source), "--agent", str(self.agent),
             "--result-file", "state/result.txt", "--result-pass-line", "status=PASS", "--result-fail-line", "status=FAIL"]}
@@ -39,7 +40,8 @@ class EvidenceTest(unittest.TestCase):
             (directory / "app/lib/Live2D_Cubism.jar").write_bytes(b"synthetic host, never executable")
             (directory / "CubismEditor5.bat").write_bytes(b"synthetic BAT, never executable")
         fake_hash = file_digest(self.paths["golden"] / "app/lib/Live2D_Cubism.jar")
-        patch = mock.patch.dict(evidence.HOSTS, {"5302": ("Live2D Cubism 5.3", fake_hash)})
+        version = getattr(self, "version", "5302")
+        patch = mock.patch.dict(evidence.HOSTS, {version: (evidence.HOSTS[version][0], fake_hash)})
         patch.start()
         self.addCleanup(patch.stop)
         self.preliminary = {"schemaVersion": 1, **self.identity, "cleanup": "unknown", "validationStatus": "UNKNOWN",
@@ -162,6 +164,25 @@ class EvidenceTest(unittest.TestCase):
         self.assertEqual("UNKNOWN", result["validationStatus"])
         self.assertFalse(result["identityVerified"])
         self.assertTrue(self.paths["prefix"].is_dir())
+
+
+class ExpandedEvidenceTest(EvidenceTest):
+    version = "5304"
+
+
+class HostIdentityMatrixTest(unittest.TestCase):
+    def test_every_reviewed_editor_record_has_exact_evidence_identity(self):
+        root = Path(__file__).resolve().parents[2]
+        records = list((root / "compatibility/cubism/verification").glob("cubism-*-editor-model.json"))
+        expected = {}
+        for path in records:
+            record = json.loads(path.read_text())
+            version = record["cubismVersion"]
+            directory = {"5.2.03": "Live2D Cubism 5.2", "5.3.02": "Live2D Cubism 5.3"}.get(
+                version, "Live2D Cubism " + version)
+            expected[version.replace(".", "")] = (directory, record["artifact"]["sha256"])
+        self.assertTrue(expected)
+        self.assertEqual(expected, evidence.HOSTS)
 
 
 if __name__ == "__main__":

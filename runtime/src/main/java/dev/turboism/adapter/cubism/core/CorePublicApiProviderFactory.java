@@ -35,7 +35,7 @@ public final class CorePublicApiProviderFactory {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
 
-        final String artifactProfile = artifactProfile(resolver.cubismVersion());
+        final String artifactProfile = artifactProfile(resolver.admittedCubismVersion());
         final Optional<String> providerId = CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<java.util.Set<String>> requiredAliases =
                 CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
@@ -73,7 +73,7 @@ public final class CorePublicApiProviderFactory {
             final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
-        final String artifactProfile = artifactProfile(resolver.cubismVersion());
+        final String artifactProfile = artifactProfile(resolver.admittedCubismVersion());
         final CoreProviderResult<CoreRuntimeVersion> probe = probeVersion(resolver, expectation);
         if (!probe.isSuccess()) {
             return CoreProviderResult.failed(probe.failure().orElseThrow());
