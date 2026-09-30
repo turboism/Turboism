@@ -19,6 +19,7 @@ final class HookManifestTest {
                         MeshMirrorHookContributor.class,
                         WarpAltMirrorHookContributor.class,
                         MeshTriangulationHashHookContributor.class,
+                        TriangulationEdgeIndexHookContributor.class,
                         AtlasTileBboxHookContributor.class,
                         AtlasCacheReuseHookContributor.class,
                         FpsHookContributor.class,

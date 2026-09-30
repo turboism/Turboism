@@ -5,6 +5,7 @@
 dev.turboism.bootstrap.MeshMirrorHookContributor
 dev.turboism.bootstrap.WarpAltMirrorHookContributor
 dev.turboism.bootstrap.MeshTriangulationHashHookContributor
+dev.turboism.bootstrap.TriangulationEdgeIndexHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor
 dev.turboism.bootstrap.AtlasCacheReuseHookContributor
 dev.turboism.bootstrap.FpsHookContributor
