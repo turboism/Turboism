@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.Drawable;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -50,10 +49,7 @@ public final class PsdClipMaskPlanner {
      * @throws IllegalArgumentException if two drawables share an id, or two PSD documents share a
      *     document id — either would let distinct sources be merged into one write
      */
-    public PsdClipMaskPlan plan(
-        final List<PsdClipMaskDocumentSnapshot> psdDocuments,
-        final List<Drawable> drawables
-    ) {
+    public PsdClipMaskPlan plan(final List<PsdClipMaskDocumentSnapshot> psdDocuments, final List<Drawable> drawables) {
         Objects.requireNonNull(psdDocuments, "psdDocuments");
         Objects.requireNonNull(drawables, "drawables");
 
@@ -75,17 +71,12 @@ public final class PsdClipMaskPlanner {
             // Two distinct documents must never share one stable identity: that
             // would be misread as a single document and merged into one write.
             if (!documentIds.add(document.documentId())) {
-                throw new IllegalArgumentException(
-                    "duplicate PSD document id: " + document.documentId()
-                );
+                throw new IllegalArgumentException("duplicate PSD document id: " + document.documentId());
             }
             final Map<String, PsdLayerSnapshot> layersById = new LinkedHashMap<>();
             index(document.layers(), layersById);
             for (PsdLayerSnapshot layer : document.layers()) {
-                planLayer(
-                    document, layer, layersById,
-                    modelDrawableIds, aggregates, candidates, skips
-                );
+                planLayer(document, layer, layersById, modelDrawableIds, aggregates, candidates, skips);
             }
         }
 
@@ -93,64 +84,73 @@ public final class PsdClipMaskPlanner {
         final List<PsdClipMaskPlan.Conflict> conflicts = new ArrayList<>();
         for (Map.Entry<ArtMeshId, List<PsdClipMaskPlan.SourceRef>> entry : candidates.entrySet()) {
             resolveTarget(
-                entry.getKey(), entry.getValue(), aggregates.get(entry.getKey()),
-                drawableById, assignments, conflicts, skips
-            );
+                    entry.getKey(),
+                    entry.getValue(),
+                    aggregates.get(entry.getKey()),
+                    drawableById,
+                    assignments,
+                    conflicts,
+                    skips);
         }
         return new PsdClipMaskPlan(assignments, conflicts, skips);
     }
 
     private void planLayer(
-        final PsdClipMaskDocumentSnapshot document,
-        final PsdLayerSnapshot layer,
-        final Map<String, PsdLayerSnapshot> layersById,
-        final Set<ArtMeshId> modelDrawableIds,
-        final Map<ArtMeshId, TargetAggregate> aggregates,
-        final Map<ArtMeshId, List<PsdClipMaskPlan.SourceRef>> candidates,
-        final List<PsdClipMaskPlan.Skip> skips
-    ) {
+            final PsdClipMaskDocumentSnapshot document,
+            final PsdLayerSnapshot layer,
+            final Map<String, PsdLayerSnapshot> layersById,
+            final Set<ArtMeshId> modelDrawableIds,
+            final Map<ArtMeshId, TargetAggregate> aggregates,
+            final Map<ArtMeshId, List<PsdClipMaskPlan.SourceRef>> candidates,
+            final List<PsdClipMaskPlan.Skip> skips) {
         if (layer.clipping()) {
             final String baseLayerId = layer.clippingBaseLayerId().orElse(null);
             final PsdLayerSnapshot baseLayer = baseLayerId == null ? null : layersById.get(baseLayerId);
-            final PsdClipMaskPlan.SourceRef ref =
-                new PsdClipMaskPlan.SourceRef(document.documentId(), layer.layerId());
+            final PsdClipMaskPlan.SourceRef ref = new PsdClipMaskPlan.SourceRef(document.documentId(), layer.layerId());
             for (ArtMeshId target : layer.artMeshIds()) {
                 if (!modelDrawableIds.contains(target)) {
-                    skips.add(skip(target, document, layer,
-                        PsdClipMaskPlan.SkipReason.TARGET_UNRESOLVED,
-                        "ArtMesh is bound to the PSD layer but does not exist in the model."));
+                    skips.add(skip(
+                            target,
+                            document,
+                            layer,
+                            PsdClipMaskPlan.SkipReason.TARGET_UNRESOLVED,
+                            "ArtMesh is bound to the PSD layer but does not exist in the model."));
                     continue;
                 }
                 // Record the clipping candidate before validity so cross-document
                 // ownership ambiguity is detected even when one side is invalid.
                 final List<PsdClipMaskPlan.SourceRef> targetCandidates =
-                    candidates.computeIfAbsent(target, ignored -> new ArrayList<>());
+                        candidates.computeIfAbsent(target, ignored -> new ArrayList<>());
                 if (!targetCandidates.contains(ref)) {
                     targetCandidates.add(ref);
                 }
                 if (baseLayer == null) {
-                    skips.add(skip(target, document, layer,
-                        PsdClipMaskPlan.SkipReason.BASE_LAYER_UNRESOLVED,
-                        "Clipping layer has no resolvable base layer in the document"
-                            + (baseLayerId == null ? "." : ": " + baseLayerId)));
+                    skips.add(skip(
+                            target,
+                            document,
+                            layer,
+                            PsdClipMaskPlan.SkipReason.BASE_LAYER_UNRESOLVED,
+                            "Clipping layer has no resolvable base layer in the document"
+                                    + (baseLayerId == null ? "." : ": " + baseLayerId)));
                     continue;
                 }
-                final List<ArtMeshId> usableMasks = usableMasks(
-                    target, baseLayer, modelDrawableIds, document, layer, skips
-                );
+                final List<ArtMeshId> usableMasks =
+                        usableMasks(target, baseLayer, modelDrawableIds, document, layer, skips);
                 if (usableMasks == null) {
                     continue;
                 }
                 if (usableMasks.isEmpty()) {
-                    skips.add(skip(target, document, layer,
-                        PsdClipMaskPlan.SkipReason.NO_RESOLVED_MASKS,
-                        "The clipping base subtree binds no usable ArtMesh masks (empty or self-only)."));
+                    skips.add(skip(
+                            target,
+                            document,
+                            layer,
+                            PsdClipMaskPlan.SkipReason.NO_RESOLVED_MASKS,
+                            "The clipping base subtree binds no usable ArtMesh masks (empty or self-only)."));
                     continue;
                 }
-                aggregates.computeIfAbsent(target, ignored -> new TargetAggregate()).add(
-                    ref,
-                    usableMasks
-                );
+                aggregates
+                        .computeIfAbsent(target, ignored -> new TargetAggregate())
+                        .add(ref, usableMasks);
             }
         }
         for (PsdLayerSnapshot child : layer.children()) {
@@ -164,22 +164,24 @@ public final class PsdClipMaskPlanner {
      * must be skipped for {@code MASK_UNRESOLVED}.
      */
     private List<ArtMeshId> usableMasks(
-        final ArtMeshId target,
-        final PsdLayerSnapshot baseLayer,
-        final Set<ArtMeshId> modelDrawableIds,
-        final PsdClipMaskDocumentSnapshot document,
-        final PsdLayerSnapshot layer,
-        final List<PsdClipMaskPlan.Skip> skips
-    ) {
+            final ArtMeshId target,
+            final PsdLayerSnapshot baseLayer,
+            final Set<ArtMeshId> modelDrawableIds,
+            final PsdClipMaskDocumentSnapshot document,
+            final PsdLayerSnapshot layer,
+            final List<PsdClipMaskPlan.Skip> skips) {
         List<ArtMeshId> usable = null;
         for (ArtMeshId mask : collectMasks(baseLayer)) {
             if (target.equals(mask)) {
                 continue; // an ArtMesh can never mask itself
             }
             if (!modelDrawableIds.contains(mask)) {
-                skips.add(skip(target, document, layer,
-                    PsdClipMaskPlan.SkipReason.MASK_UNRESOLVED,
-                    "Mask identity does not exist in the model: " + mask.value()));
+                skips.add(skip(
+                        target,
+                        document,
+                        layer,
+                        PsdClipMaskPlan.SkipReason.MASK_UNRESOLVED,
+                        "Mask identity does not exist in the model: " + mask.value()));
                 return null;
             }
             if (usable == null) {
@@ -191,25 +193,23 @@ public final class PsdClipMaskPlanner {
     }
 
     private void resolveTarget(
-        final ArtMeshId target,
-        final List<PsdClipMaskPlan.SourceRef> candidateRefs,
-        final TargetAggregate aggregate,
-        final Map<ArtMeshId, Drawable> drawableById,
-        final List<PsdClipMaskPlan.Assignment> assignments,
-        final List<PsdClipMaskPlan.Conflict> conflicts,
-        final List<PsdClipMaskPlan.Skip> skips
-    ) {
+            final ArtMeshId target,
+            final List<PsdClipMaskPlan.SourceRef> candidateRefs,
+            final TargetAggregate aggregate,
+            final Map<ArtMeshId, Drawable> drawableById,
+            final List<PsdClipMaskPlan.Assignment> assignments,
+            final List<PsdClipMaskPlan.Conflict> conflicts,
+            final List<PsdClipMaskPlan.Skip> skips) {
         final Set<String> documents = new LinkedHashSet<>();
         for (PsdClipMaskPlan.SourceRef ref : candidateRefs) {
             documents.add(ref.documentId());
         }
         if (documents.size() > 1) {
             skips.add(new PsdClipMaskPlan.Skip(
-                target,
-                candidateRefs,
-                PsdClipMaskPlan.SkipReason.AMBIGUOUS_DOCUMENT,
-                "Target has clipping relationships in multiple PSD documents: " + String.join(", ", documents)
-            ));
+                    target,
+                    candidateRefs,
+                    PsdClipMaskPlan.SkipReason.AMBIGUOUS_DOCUMENT,
+                    "Target has clipping relationships in multiple PSD documents: " + String.join(", ", documents)));
             return;
         }
         if (aggregate == null) {
@@ -222,35 +222,25 @@ public final class PsdClipMaskPlanner {
         final boolean existingInverted = drawable.invertedMask();
         if (existing.equals(planned) && !existingInverted) {
             skips.add(new PsdClipMaskPlan.Skip(
-                target,
-                refs,
-                PsdClipMaskPlan.SkipReason.ALREADY_MATCHES,
-                "The ArtMesh clip list already matches the planned ordered masks."
-            ));
+                    target,
+                    refs,
+                    PsdClipMaskPlan.SkipReason.ALREADY_MATCHES,
+                    "The ArtMesh clip list already matches the planned ordered masks."));
         } else if (!existing.isEmpty() || existingInverted) {
-            conflicts.add(new PsdClipMaskPlan.Conflict(
-                target, existing, existingInverted, planned, refs
-            ));
+            conflicts.add(new PsdClipMaskPlan.Conflict(target, existing, existingInverted, planned, refs));
         } else {
-            assignments.add(new PsdClipMaskPlan.Assignment(
-                target, planned, refs
-            ));
+            assignments.add(new PsdClipMaskPlan.Assignment(target, planned, refs));
         }
     }
 
     private static PsdClipMaskPlan.Skip skip(
-        final ArtMeshId target,
-        final PsdClipMaskDocumentSnapshot document,
-        final PsdLayerSnapshot layer,
-        final PsdClipMaskPlan.SkipReason reason,
-        final String detail
-    ) {
+            final ArtMeshId target,
+            final PsdClipMaskDocumentSnapshot document,
+            final PsdLayerSnapshot layer,
+            final PsdClipMaskPlan.SkipReason reason,
+            final String detail) {
         return new PsdClipMaskPlan.Skip(
-            target,
-            List.of(new PsdClipMaskPlan.SourceRef(document.documentId(), layer.layerId())),
-            reason,
-            detail
-        );
+                target, List.of(new PsdClipMaskPlan.SourceRef(document.documentId(), layer.layerId())), reason, detail);
     }
 
     private static List<ArtMeshId> dedupeFirstOccurrence(final List<ArtMeshId> masks) {
@@ -277,10 +267,7 @@ public final class PsdClipMaskPlanner {
         }
     }
 
-    private void index(
-        final List<PsdLayerSnapshot> layers,
-        final Map<String, PsdLayerSnapshot> layersById
-    ) {
+    private void index(final List<PsdLayerSnapshot> layers, final Map<String, PsdLayerSnapshot> layersById) {
         for (PsdLayerSnapshot layer : layers) {
             if (layersById.putIfAbsent(layer.layerId(), layer) != null) {
                 throw new IllegalArgumentException("duplicate PSD layer id: " + layer.layerId());

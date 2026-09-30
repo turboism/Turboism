@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.service.clipmask;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
@@ -8,22 +12,22 @@ import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
-import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelObjectSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.PsdDocumentSnapshot;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.id.ArtMeshId;
+import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -36,38 +40,29 @@ import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.cubism.id.ModelId;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class CubismClipMaskServiceImplTest {
 
     @Test
     void mapsSnapshotsWithJoinedNamesAndFieldSemantics() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(
-                new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-1", "guid-bbbb-2"), false),
-                new ClipMaskSnapshot("guid-cccc-1", List.of("guid-bbbb-1"), true)
-            ),
-            List.of(
-                new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true),
-                new ArtMeshSnapshot("guid-bbbb-1", "EyeL", Optional.empty(), true, true),
-                new ArtMeshSnapshot("guid-bbbb-2", "EyeR", Optional.empty(), true, true)
-            )
-        );
+                List.of(
+                        new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-1", "guid-bbbb-2"), false),
+                        new ClipMaskSnapshot("guid-cccc-1", List.of("guid-bbbb-1"), true)),
+                List.of(
+                        new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true),
+                        new ArtMeshSnapshot("guid-bbbb-1", "EyeL", Optional.empty(), true, true),
+                        new ArtMeshSnapshot("guid-bbbb-2", "EyeR", Optional.empty(), true, true)));
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess());
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
@@ -106,10 +101,8 @@ class CubismClipMaskServiceImplTest {
 
     @Test
     void fallsBackToShortGuidWhenMeshNameIsMissing() {
-        final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("01234567-89ab-cdef", List.of(), false)),
-            List.of()
-        );
+        final FakeCubismRead read =
+                new FakeCubismRead(List.of(new ClipMaskSnapshot("01234567-89ab-cdef", List.of(), false)), List.of());
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess());
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
@@ -121,10 +114,8 @@ class CubismClipMaskServiceImplTest {
 
     @Test
     void fallsBackToShortGuidWhenMeshReadFails() {
-        final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("01234567-89ab-cdef", List.of(), false)),
-            List.of()
-        );
+        final FakeCubismRead read =
+                new FakeCubismRead(List.of(new ClipMaskSnapshot("01234567-89ab-cdef", List.of(), false)), List.of());
         read.failMeshRead = true;
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess());
 
@@ -137,14 +128,10 @@ class CubismClipMaskServiceImplTest {
     @Test
     void deduplicatesByGuidKeepingFirstOccurrence() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(
-                new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-1"), false),
-                new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-2"), true)
-            ),
-            List.of(
-                new ArtMeshSnapshot("guid-aaaa-1", "First Name", Optional.empty(), true, true)
-            )
-        );
+                List.of(
+                        new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-1"), false),
+                        new ClipMaskSnapshot("guid-aaaa-1", List.of("guid-bbbb-2"), true)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "First Name", Optional.empty(), true, true)));
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess());
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
@@ -160,14 +147,12 @@ class CubismClipMaskServiceImplTest {
     @Test
     void referencedPureMasksResolveNameAndIdAfterTargets() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-t-1", List.of("guid-m-1"), false)),
-            List.of(
-                new ArtMeshSnapshot("guid-t-1", "Target", Optional.empty(), true, true),
-                new ArtMeshSnapshot("guid-m-1", "MaskMesh", Optional.empty(), true, true)
-            )
-        );
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(new FakeDrawable("guid-m-1", "网格蒙版", "ArtMesh_9")));
+                List.of(new ClipMaskSnapshot("guid-t-1", List.of("guid-m-1"), false)),
+                List.of(
+                        new ArtMeshSnapshot("guid-t-1", "Target", Optional.empty(), true, true),
+                        new ArtMeshSnapshot("guid-m-1", "MaskMesh", Optional.empty(), true, true)));
+        final CubismClipMaskServiceImpl service =
+                new CubismClipMaskServiceImpl(read, modelAccess(new FakeDrawable("guid-m-1", "网格蒙版", "ArtMesh_9")));
 
         final List<CubismClipMaskService.ClipMaskRecord> records = service.collectClipMaskRecords();
 
@@ -196,12 +181,13 @@ class CubismClipMaskServiceImplTest {
     @Test
     void drawableIndexProvidesDisplayNameBeforeMeshJoin() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(new FakeDrawable("guid-aaaa-1", "网格名")));
+                List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+        final CubismClipMaskServiceImpl service =
+                new CubismClipMaskServiceImpl(read, modelAccess(new FakeDrawable("guid-aaaa-1", "网格名")));
 
-        final CubismClipMaskService.ClipMaskRecord record = service.collectClipMaskRecords().get(0);
+        final CubismClipMaskService.ClipMaskRecord record =
+                service.collectClipMaskRecords().get(0);
         assertEquals("网格名", record.displayName());
         assertEquals("guid-aaaa-1", record.id());
     }
@@ -209,11 +195,12 @@ class CubismClipMaskServiceImplTest {
     @Test
     void drawableIdFeedsRecordId() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3")));
-        final CubismClipMaskService.ClipMaskRecord record = service.collectClipMaskRecords().get(0);
+                List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+        final CubismClipMaskServiceImpl service =
+                new CubismClipMaskServiceImpl(read, modelAccess(new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3")));
+        final CubismClipMaskService.ClipMaskRecord record =
+                service.collectClipMaskRecords().get(0);
         assertEquals("网格名", record.displayName());
         assertEquals("ArtMesh_3", record.id());
     }
@@ -221,13 +208,13 @@ class CubismClipMaskServiceImplTest {
     @Test
     void drawableIdUnavailableFallsBackToLegacyIdPath() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+                List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名", "ArtMesh_3");
         drawable.failId = true;
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(drawable));
-        final CubismClipMaskService.ClipMaskRecord record = service.collectClipMaskRecords().get(0);
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
+        final CubismClipMaskService.ClipMaskRecord record =
+                service.collectClipMaskRecords().get(0);
         assertEquals("网格名", record.displayName());
         assertEquals("guid-aaaa-1", record.id());
     }
@@ -235,25 +222,22 @@ class CubismClipMaskServiceImplTest {
     @Test
     void drawableGuidFailureFallsBackToMeshJoin() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+                List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名");
         drawable.failGuid = true;
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(drawable));
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
 
         assertEquals("Face", service.collectClipMaskRecords().get(0).displayName());
     }
 
     @Test
     void drawableNameFailureFallsBackToShortGuid() {
-        final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of());
+        final FakeCubismRead read =
+                new FakeCubismRead(List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)), List.of());
         final FakeDrawable drawable = new FakeDrawable("guid-aaaa-1", "网格名");
         drawable.failName = true;
-        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read, modelAccess(drawable));
+        final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess(drawable));
 
         assertEquals("guid-aaa", service.collectClipMaskRecords().get(0).displayName());
     }
@@ -261,8 +245,8 @@ class CubismClipMaskServiceImplTest {
     @Test
     void modelAccessFailureFallsBackToMeshJoin() {
         final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
+                List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
+                List.of(new ArtMeshSnapshot("guid-aaaa-1", "Face", Optional.empty(), true, true)));
         final FakeCubismModelAccess modelAccess = modelAccess();
         modelAccess.failActive = true;
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, modelAccess);
@@ -275,16 +259,13 @@ class CubismClipMaskServiceImplTest {
         final DisposableScope scope = new DisposableScope();
         final AtomicInteger modelReads = new AtomicInteger();
         final CubismModelAccess scoped = PluginScopedCubismModelAccess.bind(
-            () -> {
-                modelReads.incrementAndGet();
-                return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
-            },
-            scope
-        );
-        final FakeCubismRead read = new FakeCubismRead(
-            List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)),
-            List.of()
-        );
+                () -> {
+                    modelReads.incrementAndGet();
+                    return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
+                },
+                scope);
+        final FakeCubismRead read =
+                new FakeCubismRead(List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false)), List.of());
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(read, scoped);
 
         assertEquals("Scoped Name", service.collectClipMaskRecords().get(0).displayName());
@@ -310,33 +291,39 @@ class CubismClipMaskServiceImplTest {
         final AtomicInteger adapterReads = new AtomicInteger();
         final AtomicInteger modelReads = new AtomicInteger();
         final CubismReadCapabilityServiceImpl read = new CubismReadCapabilityServiceImpl(
-            new UnreadableFacade(),
-            M12ReadSnapshotSource.EMPTY,
-            ThemeStatusAdapterImpl.safeMode(),
-            RenderStatusAdapter.Impl.safeMode(),
-            ProjectWorkspaceAdapter.Impl.safeMode(),
-            ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
-                @Override public String hostVersion() { return "5.3.02"; }
-                @Override public boolean supportsClipMaskRead() { return true; }
-                @Override public List<ClipMaskSnapshot> clipMasks() {
-                    adapterReads.incrementAndGet();
-                    return List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false));
-                }
-            }),
-            "plugin.clipmask.test",
-            (permissionId, operationId, capabilityId) -> { },
-            scopeActive::get
-        );
+                new UnreadableFacade(),
+                M12ReadSnapshotSource.EMPTY,
+                ThemeStatusAdapterImpl.safeMode(),
+                RenderStatusAdapter.Impl.safeMode(),
+                ProjectWorkspaceAdapter.Impl.safeMode(),
+                ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
+                    @Override
+                    public String hostVersion() {
+                        return "5.3.02";
+                    }
+
+                    @Override
+                    public boolean supportsClipMaskRead() {
+                        return true;
+                    }
+
+                    @Override
+                    public List<ClipMaskSnapshot> clipMasks() {
+                        adapterReads.incrementAndGet();
+                        return List.of(new ClipMaskSnapshot("guid-aaaa-1", List.of(), false));
+                    }
+                }),
+                "plugin.clipmask.test",
+                (permissionId, operationId, capabilityId) -> {},
+                scopeActive::get);
         final CubismClipMaskServiceImpl service = new CubismClipMaskServiceImpl(
-            read,
-            PluginScopedCubismModelAccess.bind(
-                () -> {
-                    modelReads.incrementAndGet();
-                    return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
-                },
-                scope
-            )
-        );
+                read,
+                PluginScopedCubismModelAccess.bind(
+                        () -> {
+                            modelReads.incrementAndGet();
+                            return namedModel(new FakeDrawable("guid-aaaa-1", "Scoped Name", "ArtMesh_7"));
+                        },
+                        scope));
 
         assertEquals("Scoped Name", service.collectClipMaskRecords().get(0).displayName());
         assertEquals(1, adapterReads.get());
@@ -351,40 +338,88 @@ class CubismClipMaskServiceImplTest {
 
     private static CubismModel namedModel(final FakeDrawable... drawables) {
         return new CubismModel() {
-            @Override public ModelId id() { return new ModelId("model-1"); }
-            @Override public Parameters parameters() { throw new UnsupportedOperationException(); }
-            @Override public Parts parts() { throw new UnsupportedOperationException(); }
-            @Override public Drawables drawables() {
+            @Override
+            public ModelId id() {
+                return new ModelId("model-1");
+            }
+
+            @Override
+            public Parameters parameters() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Parts parts() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Drawables drawables() {
                 return new Drawables() {
-                    @Override public List<Drawable> all() { return List.of(drawables); }
-                    @Override public Drawable find(final ArtMeshId id) { throw new NoSuchElementException(); }
+                    @Override
+                    public List<Drawable> all() {
+                        return List.of(drawables);
+                    }
+
+                    @Override
+                    public Drawable find(final ArtMeshId id) {
+                        throw new NoSuchElementException();
+                    }
                 };
             }
-            @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
-            @Override public Glues glues() { throw new UnsupportedOperationException(); }
-            @Override public void update() { }
+
+            @Override
+            public Deformers deformers() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Glues glues() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void update() {}
         };
     }
 
     /** Facade serving an empty runtime; the host-specific snapshot reads do not go through it. */
     private static final class UnreadableFacade implements CubismFacade {
-        @Override public Optional<ProjectSnapshot> activeProject() { throw new AssertionError("facade must not be read"); }
-        @Override public Optional<DocumentSnapshot> activeDocument() { throw new AssertionError("facade must not be read"); }
-        @Override public Optional<ModelSnapshot> activeModel() { throw new AssertionError("facade must not be read"); }
-        @Override public CubismRuntimeSnapshot runtime() {
-            return new CubismRuntimeSnapshot(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of()
-            );
+        @Override
+        public Optional<ProjectSnapshot> activeProject() {
+            throw new AssertionError("facade must not be read");
         }
-        @Override public boolean isHostPresent() { return false; }
-        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
+            throw new AssertionError("facade must not be read");
+        }
+
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
+            throw new AssertionError("facade must not be read");
+        }
+
+        @Override
+        public CubismRuntimeSnapshot runtime() {
+            return new CubismRuntimeSnapshot(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    new SelectionSnapshot(List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of());
+        }
+
+        @Override
+        public boolean isHostPresent() {
+            return false;
+        }
+
+        @Override
+        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
             throw new UnsupportedOperationException();
         }
     }
@@ -472,7 +507,7 @@ class CubismClipMaskServiceImplTest {
         public Optional<ThemeStatusSnapshot> themeStatus() {
             return Optional.empty();
         }
-        }
+    }
 
     private static FakeCubismModelAccess modelAccess(final FakeDrawable... drawables) {
         return new FakeCubismModelAccess(List.of(drawables));
@@ -493,18 +528,48 @@ class CubismClipMaskServiceImplTest {
                 throw new IllegalStateException("no active model");
             }
             return new CubismModel() {
-                @Override public ModelId id() { throw new UnsupportedOperationException(); }
-                @Override public Parameters parameters() { throw new UnsupportedOperationException(); }
-                @Override public Parts parts() { throw new UnsupportedOperationException(); }
-                @Override public Drawables drawables() {
+                @Override
+                public ModelId id() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Parameters parameters() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Parts parts() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Drawables drawables() {
                     return new Drawables() {
-                        @Override public List<Drawable> all() { return drawables; }
-                        @Override public Drawable find(final ArtMeshId id) { throw new NoSuchElementException(); }
+                        @Override
+                        public List<Drawable> all() {
+                            return drawables;
+                        }
+
+                        @Override
+                        public Drawable find(final ArtMeshId id) {
+                            throw new NoSuchElementException();
+                        }
                     };
                 }
-                @Override public Deformers deformers() { throw new UnsupportedOperationException(); }
-                @Override public Glues glues() { throw new UnsupportedOperationException(); }
-                @Override public void update() { }
+
+                @Override
+                public Deformers deformers() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public Glues glues() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void update() {}
             };
         }
     }
@@ -528,39 +593,108 @@ class CubismClipMaskServiceImplTest {
             this.idValue = idValue;
         }
 
-        @Override public ArtMeshId id() {
+        @Override
+        public ArtMeshId id() {
             if (failId) {
                 throw new UnsupportedOperationException("id unavailable");
             }
             return idValue == null ? null : new ArtMeshId(idValue);
         }
-        @Override public String guid() {
+
+        @Override
+        public String guid() {
             if (failGuid) {
                 throw new UnsupportedOperationException("guid unavailable");
             }
             return guid;
         }
-        @Override public String name() {
+
+        @Override
+        public String name() {
             if (failName) {
                 throw new UnsupportedOperationException("name unavailable");
             }
             return name;
         }
-        @Override public byte constantFlag() { throw new UnsupportedOperationException(); }
-        @Override public byte dynamicFlag() { throw new UnsupportedOperationException(); }
-        @Override public BlendMode blendMode() { throw new UnsupportedOperationException(); }
-        @Override public int textureIndex() { throw new UnsupportedOperationException(); }
-        @Override public int drawOrder() { throw new UnsupportedOperationException(); }
-        @Override public int renderOrder() { throw new UnsupportedOperationException(); }
-        @Override public float getOpacity() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence masks() { throw new UnsupportedOperationException(); }
-        @Override public FloatSequence vertexPositions() { throw new UnsupportedOperationException(); }
-        @Override public FloatSequence vertexUvs() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence indices() { throw new UnsupportedOperationException(); }
-        @Override public Color multiplyColor() { throw new UnsupportedOperationException(); }
-        @Override public Color screenColor() { throw new UnsupportedOperationException(); }
-        @Override public int parentPartIndex() { throw new UnsupportedOperationException(); }
-        @Override public int parentDeformerIndex() { throw new UnsupportedOperationException(); }
-        @Override public IntSequence parameters() { throw new UnsupportedOperationException(); }
+
+        @Override
+        public byte constantFlag() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public byte dynamicFlag() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BlendMode blendMode() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int textureIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int drawOrder() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int renderOrder() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public float getOpacity() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence masks() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FloatSequence vertexPositions() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public FloatSequence vertexUvs() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence indices() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Color multiplyColor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Color screenColor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int parentPartIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public IntSequence parameters() {
+            throw new UnsupportedOperationException();
+        }
     }
 }

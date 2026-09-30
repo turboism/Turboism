@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
@@ -17,10 +16,7 @@ import java.util.Objects;
  * @param statuses per-document host status snapshot captured at completion
  */
 public record BackupRunResult(
-    long completedAtMillis,
-    List<File> newBackupFiles,
-    List<EditorAutoBackupStatus> statuses
-) {
+        long completedAtMillis, List<File> newBackupFiles, List<EditorAutoBackupStatus> statuses) {
     public BackupRunResult {
         if (completedAtMillis < 0L) {
             throw new IllegalArgumentException("completedAtMillis must not be negative");

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -24,72 +23,59 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
     private RuntimeSettings active;
 
     public RuntimeSettingsFileService(
-        final Path turboismHome,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance
-    ) {
+            final Path turboismHome, final RuntimeDockMaintenanceCoordinator dockMaintenance) {
         this(turboismHome, dockMaintenance, ignored -> {}, ignored -> {}, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
-        final Path turboismHome,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance,
-        final Consumer<String> logLevelChanged
-    ) {
+            final Path turboismHome,
+            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Consumer<String> logLevelChanged) {
         this(turboismHome, dockMaintenance, logLevelChanged, ignored -> {}, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
-        final Path turboismHome,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance,
-        final Consumer<String> logLevelChanged,
-        final IntConsumer logStorageLimitChanged
-    ) {
+            final Path turboismHome,
+            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Consumer<String> logLevelChanged,
+            final IntConsumer logStorageLimitChanged) {
         this(turboismHome, dockMaintenance, logLevelChanged, logStorageLimitChanged, ignored -> {});
     }
 
     public RuntimeSettingsFileService(
-        final Path turboismHome,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance,
-        final Consumer<String> logLevelChanged,
-        final IntConsumer logStorageLimitChanged,
-        final Consumer<String> configDiagnostic
-    ) {
+            final Path turboismHome,
+            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Consumer<String> logLevelChanged,
+            final IntConsumer logStorageLimitChanged,
+            final Consumer<String> configDiagnostic) {
         this(
-            new RuntimeConfigRepository(turboismHome, configDiagnostic),
-            dockMaintenance,
-            logLevelChanged,
-            logStorageLimitChanged
-        );
+                new RuntimeConfigRepository(turboismHome, configDiagnostic),
+                dockMaintenance,
+                logLevelChanged,
+                logStorageLimitChanged);
     }
 
     public RuntimeSettingsFileService(
-        final RuntimeConfigRepository config,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance
-    ) {
+            final RuntimeConfigRepository config, final RuntimeDockMaintenanceCoordinator dockMaintenance) {
         this(config, dockMaintenance, ignored -> {}, ignored -> {});
     }
 
     RuntimeSettingsFileService(
-        final RuntimeConfigRepository config,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance,
-        final Consumer<String> logLevelChanged
-    ) {
+            final RuntimeConfigRepository config,
+            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Consumer<String> logLevelChanged) {
         this(config, dockMaintenance, logLevelChanged, ignored -> {});
     }
 
     RuntimeSettingsFileService(
-        final RuntimeConfigRepository config,
-        final RuntimeDockMaintenanceCoordinator dockMaintenance,
-        final Consumer<String> logLevelChanged,
-        final IntConsumer logStorageLimitChanged
-    ) {
+            final RuntimeConfigRepository config,
+            final RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final Consumer<String> logLevelChanged,
+            final IntConsumer logStorageLimitChanged) {
         this.config = Objects.requireNonNull(config, "config");
         this.dockMaintenance = Objects.requireNonNull(dockMaintenance, "dockMaintenance");
         this.logLevelChanged = Objects.requireNonNull(logLevelChanged, "logLevelChanged");
-        this.logStorageLimitChanged = Objects.requireNonNull(
-            logStorageLimitChanged,
-            "logStorageLimitChanged"
-        );
+        this.logStorageLimitChanged = Objects.requireNonNull(logStorageLimitChanged, "logStorageLimitChanged");
     }
 
     @Override
@@ -114,16 +100,15 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
         final JsonNode root = config.read();
         final JsonNode startup = root.path("hooks").path("startup");
         return new RuntimeSettings(
-            root.path("safeMode").asBoolean(false),
-            root.path("logLevel").asText("INFO"),
-            root.path("maxLogStorageMiB").asInt(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB),
-            startup.path("skipUpdateCheck").asBoolean(true),
-            startup.path("skipSplash").asBoolean(true),
-            startup.path("skipInformation").asBoolean(true),
-            startup.path("separateExportSaveDirectory").asBoolean(false),
-            root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE),
-            root.path("useTextIcon").asBoolean(false)
-        );
+                root.path("safeMode").asBoolean(false),
+                root.path("logLevel").asText("INFO"),
+                root.path("maxLogStorageMiB").asInt(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB),
+                startup.path("skipUpdateCheck").asBoolean(true),
+                startup.path("skipSplash").asBoolean(true),
+                startup.path("skipInformation").asBoolean(true),
+                startup.path("separateExportSaveDirectory").asBoolean(false),
+                root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE),
+                root.path("useTextIcon").asBoolean(false));
     }
 
     @Override
@@ -163,8 +148,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             logStorageLimitChanged.accept(settings.maxLogStorageMiB());
         } catch (RuntimeException failure) {
             if (firstFailure != null) {
-                final PostCommitCallbackFailure postCommitFailure =
-                    new PostCommitCallbackFailure(firstFailure);
+                final PostCommitCallbackFailure postCommitFailure = new PostCommitCallbackFailure(firstFailure);
                 postCommitFailure.addSuppressed(failure);
                 throw postCommitFailure;
             }
@@ -197,7 +181,6 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             super("Runtime settings committed but post-commit callbacks failed", cause);
         }
     }
-
 
     @Override
     public DockCleanupResult cleanEmptyDocks() {

@@ -1,10 +1,11 @@
 package dev.turboism.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
 import java.util.spi.ToolProvider;
-import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Checks actual compiled call ordering without exporting ASM outside :runtime.
@@ -18,12 +19,16 @@ import static org.junit.jupiter.api.Assertions.*;
  * admission is checked before installation.</p>
  */
 final class NativeOptimizationStartupOrder {
-    private NativeOptimizationStartupOrder() { }
+    private NativeOptimizationStartupOrder() {}
 
     static void assertBeforeRuntime() throws Exception {
         var javap = ToolProvider.findFirst("javap").orElseThrow();
-        String classes = Path.of(TurboismAgent.class.getProtectionDomain().getCodeSource()
-            .getLocation().toURI()).toString();
+        String classes = Path.of(TurboismAgent.class
+                        .getProtectionDomain()
+                        .getCodeSource()
+                        .getLocation()
+                        .toURI())
+                .toString();
 
         String start = methodBody(javap, classes, "private static void start(");
         int resolution = start.indexOf("resolveHost:");
@@ -32,23 +37,31 @@ final class NativeOptimizationStartupOrder {
         assertTrue(resolution >= 0, "the verified host is resolved in start()");
         assertTrue(installation > resolution, "exact host resolution precedes the install phase");
         assertTrue(installation < runtimeStart, "host-resolved hooks precede initial document loading");
-        assertTrue(start.indexOf("closePhase:", runtimeStart) > runtimeStart,
-            "startup failure closes the host-resolved hooks");
-
-        String installPhaseHook = methodBody(
-            javap, classes, "private static boolean installPhaseHook(");
         assertTrue(
-            installPhaseHook.indexOf("admitted:") >= 0
-                && installPhaseHook.indexOf("install:") > installPhaseHook.indexOf("admitted:"),
-            "contributor admission is checked before installation");
+                start.indexOf("closePhase:", runtimeStart) > runtimeStart,
+                "startup failure closes the host-resolved hooks");
+
+        String installPhaseHook = methodBody(javap, classes, "private static boolean installPhaseHook(");
+        assertTrue(
+                installPhaseHook.indexOf("admitted:") >= 0
+                        && installPhaseHook.indexOf("install:") > installPhaseHook.indexOf("admitted:"),
+                "contributor admission is checked before installation");
     }
 
-    private static String methodBody(ToolProvider javap, String classes, String signature)
-            throws Exception {
+    private static String methodBody(ToolProvider javap, String classes, String signature) throws Exception {
         var output = new StringWriter();
         var errors = new StringWriter();
-        assertEquals(0, javap.run(new PrintWriter(output), new PrintWriter(errors),
-            "-p", "-c", "-classpath", classes, TurboismAgent.class.getName()), errors.toString());
+        assertEquals(
+                0,
+                javap.run(
+                        new PrintWriter(output),
+                        new PrintWriter(errors),
+                        "-p",
+                        "-c",
+                        "-classpath",
+                        classes,
+                        TurboismAgent.class.getName()),
+                errors.toString());
         String text = output.toString();
         int method = text.indexOf(signature);
         assertTrue(method >= 0, "missing method: " + signature);

@@ -41,10 +41,8 @@ public final class TextureAtlasPackingException extends IllegalArgumentException
 
     private static String message(final String textureId, final Reason reason) {
         return switch (Objects.requireNonNull(reason, "reason")) {
-            case PAGE_BUDGET_EXHAUSTED ->
-                "The issued atlas page budget cannot place every texture: " + textureId;
-            case ITEM_DOES_NOT_FIT ->
-                "The texture cannot fit inside one issued atlas page: " + textureId;
+            case PAGE_BUDGET_EXHAUSTED -> "The issued atlas page budget cannot place every texture: " + textureId;
+            case ITEM_DOES_NOT_FIT -> "The texture cannot fit inside one issued atlas page: " + textureId;
             case INVALID_RESERVED_SIZE ->
                 "Texture size plus padding exceeds the supported integer geometry: " + textureId;
         };

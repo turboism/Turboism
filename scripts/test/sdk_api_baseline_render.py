@@ -26,7 +26,6 @@ from sdk_api_baseline_common import (
     encode_float32_bits,
     encode_float64_bits,
     encode_list,
-    encode_name,
     encode_string,
 )
 from sdk_api_baseline_model import Annotation, Attributes, ClassInfo, ConstantPool

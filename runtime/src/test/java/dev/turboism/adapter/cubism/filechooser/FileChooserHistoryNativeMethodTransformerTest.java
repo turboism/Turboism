@@ -1,14 +1,12 @@
 package dev.turboism.adapter.cubism.filechooser;
 
-import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.Label;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -18,12 +16,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Label;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class FileChooserHistoryNativeMethodTransformerTest {
 
@@ -45,17 +44,11 @@ class FileChooserHistoryNativeMethodTransformerTest {
 
     private static FileChooserHistoryHostProfile profile() {
         return new FileChooserHistoryHostProfile(
-            "5.3.02",
-            List.of(
-                new FileChooserHistoryHostProfile.SaveDialogMethod(
-                    "c", "(Ljava/lang/Object;)Ljava/io/File;"
-                ),
-                new FileChooserHistoryHostProfile.SaveDialogMethod(
-                    "a", "(Ljava/lang/Object;Z)Ljava/io/File;"
-                )
-            ),
-            List.of(CONTEXT)
-        );
+                "5.3.02",
+                List.of(
+                        new FileChooserHistoryHostProfile.SaveDialogMethod("c", "(Ljava/lang/Object;)Ljava/io/File;"),
+                        new FileChooserHistoryHostProfile.SaveDialogMethod("a", "(Ljava/lang/Object;Z)Ljava/io/File;")),
+                List.of(CONTEXT));
     }
 
     private void installBridge(final FileChooserHistoryService service) {
@@ -63,19 +56,35 @@ class FileChooserHistoryNativeMethodTransformerTest {
         NativeFileChooserHistoryBridge.install(installedBridge);
     }
 
-    private FileChooserHistoryService enabledService(
-        final Path exportDirectory,
-        final AtomicReference<Path> captured
-    ) {
+    private FileChooserHistoryService enabledService(final Path exportDirectory, final AtomicReference<Path> captured) {
         return new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() {
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
                 return Optional.of(exportDirectory);
             }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
     }
 
@@ -83,11 +92,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     void recordsEachExactTransformedSelector() throws Exception {
         final AtomicInteger transformed = new AtomicInteger();
         final byte[] bytes = new FileChooserHistoryNativeMethodTransformer(
-            OWNER,
-            profile().saveDialogMethods(),
-            null,
-            ignored -> transformed.incrementAndGet()
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null, ignored -> transformed.incrementAndGet())
+                .transform(null, null, OWNER, null, null, fixtureClass());
 
         assertNotNull(bytes);
         assertEquals(2, transformed.get());
@@ -96,8 +102,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     @Test
     void transformedSaveDialogMethodsPreserveOriginalLogicAndPublishBeforeAfter() throws Exception {
         final byte[] transformed = new FileChooserHistoryNativeMethodTransformer(
-            OWNER, profile().saveDialogMethods(), null
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null)
+                .transform(null, null, OWNER, null, null, fixtureClass());
         assertNotNull(transformed);
 
         final FixtureLoader loader = new FixtureLoader();
@@ -131,8 +137,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     @Test
     void transformedMethodThrowsWhenOriginalThrows() throws Exception {
         final byte[] transformed = new FileChooserHistoryNativeMethodTransformer(
-            OWNER, profile().saveDialogMethods(), null
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null)
+                .transform(null, null, OWNER, null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader();
         final Class<?> hostType = loader.define(OWNER.replace('/', '.'), transformed);
         final Object host = hostType.getConstructor().newInstance();
@@ -152,8 +158,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     @Test
     void noBridgeInstalledMeansZeroBehaviorChange() throws Exception {
         final byte[] transformed = new FileChooserHistoryNativeMethodTransformer(
-            OWNER, profile().saveDialogMethods(), null
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null)
+                .transform(null, null, OWNER, null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader();
         final Class<?> hostType = loader.define(OWNER.replace('/', '.'), transformed);
         final Object host = hostType.getConstructor().newInstance();
@@ -170,8 +176,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     @Test
     void disabledSeparationLeavesChooserUntouched() throws Exception {
         final byte[] transformed = new FileChooserHistoryNativeMethodTransformer(
-            OWNER, profile().saveDialogMethods(), null
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null)
+                .transform(null, null, OWNER, null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader();
         final Class<?> hostType = loader.define(OWNER.replace('/', '.'), transformed);
         final Object host = hostType.getConstructor().newInstance();
@@ -182,12 +188,31 @@ class FileChooserHistoryNativeMethodTransformerTest {
         final FakeImpl impl = new FakeImpl();
         field(host, "d").set(host, impl);
         installBridge(new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.of(tempDir); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return false; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.of(tempDir);
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return false;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         });
 
         assertSame(chosen, hostType.getMethod("c", Object.class).invoke(host, new Object()));
@@ -198,10 +223,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
 
     @Test
     void nonTargetClassesAndLoadersAreNotTransformed() throws Exception {
-        final FileChooserHistoryNativeMethodTransformer transformer =
-            new FileChooserHistoryNativeMethodTransformer(
-                OWNER, profile().saveDialogMethods(), NativeFileChooserHistoryBridgeTest.class.getClassLoader()
-            );
+        final FileChooserHistoryNativeMethodTransformer transformer = new FileChooserHistoryNativeMethodTransformer(
+                OWNER, profile().saveDialogMethods(), NativeFileChooserHistoryBridgeTest.class.getClassLoader());
         assertNull(transformer.transform(null, null, "fixture/OtherHost", null, null, fixtureClass()));
         assertNull(transformer.transform(null, null, OWNER, null, null, null));
     }
@@ -209,8 +232,8 @@ class FileChooserHistoryNativeMethodTransformerTest {
     @Test
     void nonSaveDialogMethodsAreLeftAlone() throws Exception {
         final byte[] transformed = new FileChooserHistoryNativeMethodTransformer(
-            OWNER, profile().saveDialogMethods(), null
-        ).transform(null, null, OWNER, null, null, fixtureClass());
+                        OWNER, profile().saveDialogMethods(), null)
+                .transform(null, null, OWNER, null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader();
         final Class<?> hostType = loader.define(OWNER.replace('/', '.'), transformed);
         final Object host = hostType.getConstructor().newInstance();
@@ -227,13 +250,13 @@ class FileChooserHistoryNativeMethodTransformerTest {
 
     private static byte[] fixtureClass() {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        writer.visit(
-            Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null,
-            "java/lang/Object", null
-        );
-        writer.visitField(Opcodes.ACC_PUBLIC, "result", "Ljava/io/File;", null, null).visitEnd();
-        writer.visitField(Opcodes.ACC_PUBLIC, "b", "Ljava/util/List;", null, null).visitEnd();
-        writer.visitField(Opcodes.ACC_PUBLIC, "d", "Ljava/lang/Object;", null, null).visitEnd();
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
+        writer.visitField(Opcodes.ACC_PUBLIC, "result", "Ljava/io/File;", null, null)
+                .visitEnd();
+        writer.visitField(Opcodes.ACC_PUBLIC, "b", "Ljava/util/List;", null, null)
+                .visitEnd();
+        writer.visitField(Opcodes.ACC_PUBLIC, "d", "Ljava/lang/Object;", null, null)
+                .visitEnd();
         writer.visitField(Opcodes.ACC_PUBLIC, "fail", "Z", null, null).visitEnd();
 
         final MethodVisitor ctor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
@@ -259,11 +282,7 @@ class FileChooserHistoryNativeMethodTransformerTest {
         return writer.toByteArray();
     }
 
-    private static void saveDialogMethod(
-        final ClassWriter writer,
-        final String name,
-        final String descriptor
-    ) {
+    private static void saveDialogMethod(final ClassWriter writer, final String name, final String descriptor) {
         final MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, name, descriptor, null, null);
         method.visitCode();
         final Label success = new Label();
@@ -274,9 +293,7 @@ class FileChooserHistoryNativeMethodTransformerTest {
         method.visitInsn(Opcodes.DUP);
         method.visitLdcInsn("native failure");
         method.visitMethodInsn(
-            Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
-            "(Ljava/lang/String;)V", false
-        );
+                Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>", "(Ljava/lang/String;)V", false);
         method.visitInsn(Opcodes.ATHROW);
         method.visitLabel(success);
         method.visitVarInsn(Opcodes.ALOAD, 0);

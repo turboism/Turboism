@@ -2,7 +2,6 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-
 import java.util.List;
 
 /**
@@ -20,10 +19,7 @@ public interface ToolbarVisibilitySink {
      *     plugin now contributes nothing visible
      */
     default void onMainToolbarVisibilityChanged(
-        final String pluginId,
-        final List<MainToolbarRegistry.MainToolbarContribution> contributions
-    ) {
-    }
+            final String pluginId, final List<MainToolbarRegistry.MainToolbarContribution> contributions) {}
 
     /**
      * @param pluginId the plugin whose palette-toolbar visibility changed
@@ -31,8 +27,5 @@ public interface ToolbarVisibilitySink {
      *     plugin now contributes nothing visible
      */
     default void onPaletteToolbarVisibilityChanged(
-        final String pluginId,
-        final List<PaletteToolbarRegistry.PaletteToolbarContribution> contributions
-    ) {
-    }
+            final String pluginId, final List<PaletteToolbarRegistry.PaletteToolbarContribution> contributions) {}
 }

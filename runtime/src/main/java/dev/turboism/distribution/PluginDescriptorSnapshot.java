@@ -1,7 +1,6 @@
 package dev.turboism.distribution;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -41,103 +40,140 @@ public final class PluginDescriptorSnapshot {
         license = source.license();
         entrypoints = List.copyOf(source.entrypoints());
         authors = source.authors().stream()
-            .map(value -> new Author(value.name(), value.email()))
-            .toList();
+                .map(value -> new Author(value.name(), value.email()))
+                .toList();
         website = source.website();
         resources = List.copyOf(source.resources());
         i18n = new I18n(source.i18n().baseName(), source.i18n().locales());
         dependencies = source.dependencies().stream()
-            .map(value -> new Dependency(
-                value.id(), value.type(), value.version(), value.ordering(), value.reason()
-            ))
-            .toList();
+                .map(value ->
+                        new Dependency(value.id(), value.type(), value.version(), value.ordering(), value.reason()))
+                .toList();
         permissions = source.permissions().stream()
-            .map(value -> new Permission(value.id(), value.scope(), value.reason()))
-            .toList();
+                .map(value -> new Permission(value.id(), value.scope(), value.reason()))
+                .toList();
         capabilities = List.copyOf(source.capabilities());
         environment = new Environment(
-            source.environment().requiresCubism(),
-            source.environment().ui()
-        );
+                source.environment().requiresCubism(), source.environment().ui());
         category = source.category();
         tags = List.copyOf(source.tags());
         eventExports = source.eventExports().stream()
-            .map(value -> new EventExport(
-                value.id(), value.contractVersion(), value.eventType(), value.abiSha256()
-            ))
-            .toList();
+                .map(value ->
+                        new EventExport(value.id(), value.contractVersion(), value.eventType(), value.abiSha256()))
+                .toList();
         eventImports = source.eventImports().stream()
-            .map(value -> new EventImport(
-                value.providerId(), value.eventId(), value.contractVersion(), value.eventType(),
-                value.abiSha256(), value.required()
-            ))
-            .toList();
+                .map(value -> new EventImport(
+                        value.providerId(),
+                        value.eventId(),
+                        value.contractVersion(),
+                        value.eventType(),
+                        value.abiSha256(),
+                        value.required()))
+                .toList();
         eventContracts = source.eventContracts().stream()
-            .map(value -> new EventContract(
-                value.id(), value.version(), value.artifact(), value.sha256()
-            ))
-            .toList();
+                .map(value -> new EventContract(value.id(), value.version(), value.artifact(), value.sha256()))
+                .toList();
     }
 
     /** @return the plugin's declared identity */
-    public String id() { return id; }
+    public String id() {
+        return id;
+    }
 
     /** @return the display name */
-    public String name() { return name; }
+    public String name() {
+        return name;
+    }
 
     /** @return the declared plugin version */
-    public String version() { return version; }
+    public String version() {
+        return version;
+    }
 
     /** @return the human-readable description */
-    public String description() { return description; }
+    public String description() {
+        return description;
+    }
 
     /** @return entrypoint class names in manifest declaration order */
-    public List<String> entrypoints() { return entrypoints; }
+    public List<String> entrypoints() {
+        return entrypoints;
+    }
 
     /** @return the SDK version range this plugin declares compatibility with */
-    public String turboismApi() { return turboismApi; }
+    public String turboismApi() {
+        return turboismApi;
+    }
 
     /** @return the declared authors */
-    public List<Author> authors() { return authors; }
+    public List<Author> authors() {
+        return authors;
+    }
 
     /** @return the declared license */
-    public String license() { return license; }
+    public String license() {
+        return license;
+    }
 
     /** @return the project website, when declared */
-    public Optional<String> website() { return website; }
+    public Optional<String> website() {
+        return website;
+    }
 
     /** @return declared bundled resource paths */
-    public List<String> resources() { return resources; }
+    public List<String> resources() {
+        return resources;
+    }
 
     /** @return the localization bundle declaration */
-    public I18n i18n() { return i18n; }
+    public I18n i18n() {
+        return i18n;
+    }
 
     /** @return declared plugin dependencies */
-    public List<Dependency> dependencies() { return dependencies; }
+    public List<Dependency> dependencies() {
+        return dependencies;
+    }
 
     /** @return declared permissions with the reason each was requested */
-    public List<Permission> permissions() { return permissions; }
+    public List<Permission> permissions() {
+        return permissions;
+    }
 
     /** @return declared capability identities */
-    public List<String> capabilities() { return capabilities; }
+    public List<String> capabilities() {
+        return capabilities;
+    }
 
     /** @return declared runtime environment requirements */
-    public Environment environment() { return environment; }
+    public Environment environment() {
+        return environment;
+    }
 
     /** @return the directory category, when declared */
-    public Optional<String> category() { return category; }
+    public Optional<String> category() {
+        return category;
+    }
 
     /** @return declared directory tags */
-    public List<String> tags() { return tags; }
+    public List<String> tags() {
+        return tags;
+    }
 
     /** @return provider-owned public event contracts */
-    public List<EventExport> eventExports() { return eventExports; }
+    public List<EventExport> eventExports() {
+        return eventExports;
+    }
 
     /** @return dependency-owned public event contracts consumed by the plugin */
-    public List<EventImport> eventImports() { return eventImports; }
+    public List<EventImport> eventImports() {
+        return eventImports;
+    }
 
     /** @return published public event contract artifacts embedded in the plugin JAR */
-    public List<EventContract> eventContracts() { return eventContracts; }
+    public List<EventContract> eventContracts() {
+        return eventContracts;
+    }
 
     /**
      * One declared plugin author.
@@ -145,8 +181,7 @@ public final class PluginDescriptorSnapshot {
      * @param name the author's name
      * @param email contact address, when declared
      */
-    public record Author(String name, Optional<String> email) {
-    }
+    public record Author(String name, Optional<String> email) {}
 
     /**
      * The plugin's localization bundle declaration.
@@ -170,14 +205,7 @@ public final class PluginDescriptorSnapshot {
      * @param ordering load-order constraint relative to the dependency
      * @param reason why the dependency is needed, when declared
      */
-    public record Dependency(
-        String id,
-        String type,
-        String version,
-        String ordering,
-        Optional<String> reason
-    ) {
-    }
+    public record Dependency(String id, String type, String version, String ordering, Optional<String> reason) {}
 
     /**
      * One declared permission request.
@@ -186,37 +214,22 @@ public final class PluginDescriptorSnapshot {
      * @param scope the scope the permission is requested at
      * @param reason why the plugin needs it, when declared
      */
-    public record Permission(String id, String scope, Optional<String> reason) {
-    }
+    public record Permission(String id, String scope, Optional<String> reason) {}
 
     /** Public event exported by the provider plugin. */
-    public record EventExport(
-        String id,
-        String contractVersion,
-        String eventType,
-        String abiSha256
-    ) {
-    }
+    public record EventExport(String id, String contractVersion, String eventType, String abiSha256) {}
 
     /** Public event imported from a declared dependency. */
     public record EventImport(
-        String providerId,
-        String eventId,
-        String contractVersion,
-        String eventType,
-        String abiSha256,
-        boolean required
-    ) {
-    }
+            String providerId,
+            String eventId,
+            String contractVersion,
+            String eventType,
+            String abiSha256,
+            boolean required) {}
 
     /** Published public event contract artifact embedded in the plugin JAR. */
-    public record EventContract(
-        String id,
-        String version,
-        String artifact,
-        String sha256
-    ) {
-    }
+    public record EventContract(String id, String version, String artifact, String sha256) {}
 
     /**
      * Declared runtime environment requirements.
@@ -224,6 +237,5 @@ public final class PluginDescriptorSnapshot {
      * @param requiresCubism whether the plugin needs an admitted Cubism host
      * @param ui the UI mode the plugin declares
      */
-    public record Environment(boolean requiresCubism, String ui) {
-    }
+    public record Environment(boolean requiresCubism, String ui) {}
 }

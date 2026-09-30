@@ -1,26 +1,5 @@
 package dev.turboism.ui.panel;
 
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.CollapsibleSectionContribution;
-import dev.turboism.sdk.ui.EmbeddedPanelId;
-import dev.turboism.sdk.ui.PanelView;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import java.awt.Component;
-import java.awt.Graphics2D;
-import java.awt.Point;
-import java.awt.event.MouseEvent;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Locale;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -28,13 +7,32 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CollapsibleSectionContribution;
+import dev.turboism.sdk.ui.EmbeddedPanelId;
+import dev.turboism.sdk.ui.PanelView;
+import java.awt.Component;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 class PanelCollapsibleContentCoordinatorTest {
 
     private static final EmbeddedPanelId PANEL = EmbeddedPanelId.of("turboism.panel.main");
     private static final EmbeddedPanelId OTHER_PANEL = EmbeddedPanelId.of("plugin-a.panel");
 
-    private final PanelCollapsibleContentCoordinator coordinator =
-        new PanelCollapsibleContentCoordinator();
+    private final PanelCollapsibleContentCoordinator coordinator = new PanelCollapsibleContentCoordinator();
 
     private Locale savedLocale;
 
@@ -50,14 +48,9 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     private static CollapsibleSectionContribution section(
-        final EmbeddedPanelId panel,
-        final String sectionId,
-        final int order,
-        final String text
-    ) {
+            final EmbeddedPanelId panel, final String sectionId, final int order, final String text) {
         return new CollapsibleSectionContribution(
-            panel, sectionId, "Section " + sectionId, order, true,
-            PanelView.column(PanelView.text(text)));
+                panel, sectionId, "Section " + sectionId, order, true, PanelView.column(PanelView.text(text)));
     }
 
     @Test
@@ -68,8 +61,8 @@ class PanelCollapsibleContentCoordinatorTest {
     @Test
     void duplicateSectionIdInSamePanelIsRejected() {
         coordinator.register("plugin-a", section(PANEL, "s1", 0, "one"));
-        assertThrows(IllegalStateException.class,
-            () -> coordinator.register("plugin-a", section(PANEL, "s1", 0, "two")));
+        assertThrows(
+                IllegalStateException.class, () -> coordinator.register("plugin-a", section(PANEL, "s1", 0, "two")));
     }
 
     @Test
@@ -129,8 +122,9 @@ class PanelCollapsibleContentCoordinatorTest {
         coordinator.register("plugin-a", section(PANEL, "mid", 1, "m"));
 
         List<String> titles = coordinator.injectedSections(PANEL).stream()
-            .map(view -> assertInstanceOf(PanelView.CollapsibleSection.class, view).title())
-            .toList();
+                .map(view -> assertInstanceOf(PanelView.CollapsibleSection.class, view)
+                        .title())
+                .toList();
         assertEquals(List.of("Section mid", "Section alpha", "Section zebra"), titles);
     }
 
@@ -172,18 +166,30 @@ class PanelCollapsibleContentCoordinatorTest {
 
     @Test
     void actionOwnersMapsInjectedButtonsToContributorPluginId() {
-        coordinator.register("plugin-b", new CollapsibleSectionContribution(
-            PANEL, "b1", "Section b1", 0, true,
-            PanelView.column(
-                PanelView.text("plain"),
-                PanelView.row(
-                    PanelView.button("b1-a", "A", "clipmask-viewer.open.viewer"),
-                    PanelView.button("b1-b", "B", "other.action")),
-                PanelView.collapsibleSection(
-                    "nested", true, PanelView.button("b1-c", "C", "nested.action")))));
-        coordinator.register("plugin-c", new CollapsibleSectionContribution(
-            PANEL, "b2", "Section b2", 1, true,
-            PanelView.column(PanelView.button("b2-a", "D", "third.action"))));
+        coordinator.register(
+                "plugin-b",
+                new CollapsibleSectionContribution(
+                        PANEL,
+                        "b1",
+                        "Section b1",
+                        0,
+                        true,
+                        PanelView.column(
+                                PanelView.text("plain"),
+                                PanelView.row(
+                                        PanelView.button("b1-a", "A", "clipmask-viewer.open.viewer"),
+                                        PanelView.button("b1-b", "B", "other.action")),
+                                PanelView.collapsibleSection(
+                                        "nested", true, PanelView.button("b1-c", "C", "nested.action")))));
+        coordinator.register(
+                "plugin-c",
+                new CollapsibleSectionContribution(
+                        PANEL,
+                        "b2",
+                        "Section b2",
+                        1,
+                        true,
+                        PanelView.column(PanelView.button("b2-a", "D", "third.action"))));
 
         final Map<String, String> owners = coordinator.actionOwners(PANEL);
         assertEquals("plugin-b", owners.get("clipmask-viewer.open.viewer"));
@@ -203,13 +209,11 @@ class PanelCollapsibleContentCoordinatorTest {
     @Test
     void mergedRenderKeepsDeclaredSectionsFirstAndInjectedSectionsCollapsible() {
         PanelView content = PanelView.column(
-            PanelView.collapsibleSection("A 分区", true, PanelView.text("A-only")),
-            PanelView.text("A 尾部"));
+                PanelView.collapsibleSection("A 分区", true, PanelView.text("A-only")), PanelView.text("A 尾部"));
         coordinator.register("plugin-a", section(PANEL, "b-two", 10, "B-two"));
         coordinator.register("plugin-a", section(PANEL, "b-one", 5, "B-one"));
 
-        JComponent rendered = SwingPanelViewRenderer.render(
-            coordinator.merge(PANEL, content), (id, event) -> { });
+        JComponent rendered = SwingPanelViewRenderer.render(coordinator.merge(PANEL, content), (id, event) -> {});
 
         // A 分区（声明位置）在前，B 注入分区按 order 升序追加在后。
         List<JPanel> sections = sectionPanels(rendered);
@@ -243,7 +247,7 @@ class PanelCollapsibleContentCoordinatorTest {
 
     private static void collectSections(final Component component, final List<JPanel> found) {
         if (component instanceof JPanel panel
-            && panel.getBorder() instanceof CollapsibleSection.CollapsibleTitledBorder) {
+                && panel.getBorder() instanceof CollapsibleSection.CollapsibleTitledBorder) {
             found.add(panel);
         }
         if (component instanceof java.awt.Container container) {
@@ -254,8 +258,7 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     private static JLabel findLabel(final Component root, final String text) {
-        if (root instanceof JLabel label
-            && (text.equals(label.getText()) || text.equals(labelText(label)))) {
+        if (root instanceof JLabel label && (text.equals(label.getText()) || text.equals(labelText(label)))) {
             return label;
         }
         if (root instanceof java.awt.Container container) {
@@ -269,13 +272,13 @@ class PanelCollapsibleContentCoordinatorTest {
         return null;
     }
 
-
     private static String labelText(final JLabel label) {
         final String text = label.getText();
         return text.startsWith("<html>") && text.endsWith("</html>")
-            ? text.substring("<html>".length(), text.length() - "</html>".length())
-            : text;
+                ? text.substring("<html>".length(), text.length() - "</html>".length())
+                : text;
     }
+
     private static void paint(JPanel panel) {
         BufferedImage image = new BufferedImage(400, 200, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
@@ -284,8 +287,16 @@ class PanelCollapsibleContentCoordinatorTest {
     }
 
     private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
-            point.x, point.y, 1, false, MouseEvent.BUTTON1);
+        return new MouseEvent(
+                panel,
+                MouseEvent.MOUSE_CLICKED,
+                System.currentTimeMillis(),
+                0,
+                point.x,
+                point.y,
+                1,
+                false,
+                MouseEvent.BUTTON1);
     }
 
     private static Point centerOf(java.awt.Rectangle bounds) {

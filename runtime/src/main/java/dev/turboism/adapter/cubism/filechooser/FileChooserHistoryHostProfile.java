@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.filechooser;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -18,10 +17,7 @@ import java.util.Optional;
  * Lane C slice.
  */
 public record FileChooserHistoryHostProfile(
-    String hostVersion,
-    List<SaveDialogMethod> saveDialogMethods,
-    List<String> exportContextClassNames
-) {
+        String hostVersion, List<SaveDialogMethod> saveDialogMethods, List<String> exportContextClassNames) {
 
     private static final String FILE_CHOOSER_CLASS = "com/live2d/ui/window/n";
     private static final String EXPORTER_CONTEXT_CLASS = "com.live2d.cubism.doc.model.exporter.b";
@@ -29,21 +25,19 @@ public record FileChooserHistoryHostProfile(
     private static final String APP_CTRL_EXPORT_CONTEXT_CLASS_53 = "com.live2d.cubism.appCtrlImpl.al";
 
     private static final SaveDialogMethod GENERIC_DIALOG_METHOD =
-        new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;");
+            new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;");
 
     private static List<SaveDialogMethod> saveDialogMethods(final String dialogClass) {
         return List.of(
-            new SaveDialogMethod("c", "(Lcom/live2d/ui/window/" + dialogClass + ";)Ljava/io/File;"),
-            GENERIC_DIALOG_METHOD
-        );
+                new SaveDialogMethod("c", "(Lcom/live2d/ui/window/" + dialogClass + ";)Ljava/io/File;"),
+                GENERIC_DIALOG_METHOD);
     }
 
     public FileChooserHistoryHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
         saveDialogMethods = List.copyOf(Objects.requireNonNull(saveDialogMethods, "saveDialogMethods"));
-        exportContextClassNames = List.copyOf(
-            Objects.requireNonNull(exportContextClassNames, "exportContextClassNames")
-        );
+        exportContextClassNames =
+                List.copyOf(Objects.requireNonNull(exportContextClassNames, "exportContextClassNames"));
         if (saveDialogMethods.isEmpty()) {
             throw new IllegalArgumentException("saveDialogMethods must not be empty");
         }
@@ -73,7 +67,7 @@ public record FileChooserHistoryHostProfile(
     public static Optional<FileChooserHistoryHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         return ReviewedHostArtifacts.cubismVersionOf(artifact)
-            .flatMap(FileChooserHistoryHostProfile::forReviewedVersion);
+                .flatMap(FileChooserHistoryHostProfile::forReviewedVersion);
     }
 
     /**
@@ -99,14 +93,11 @@ public record FileChooserHistoryHostProfile(
         } else {
             dialogClass = "X";
             contextClass = ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)
-                ? APP_CTRL_EXPORT_CONTEXT_CLASS_52
-                : APP_CTRL_EXPORT_CONTEXT_CLASS_53;
+                    ? APP_CTRL_EXPORT_CONTEXT_CLASS_52
+                    : APP_CTRL_EXPORT_CONTEXT_CLASS_53;
         }
         return Optional.of(new FileChooserHistoryHostProfile(
-            cubismVersion,
-            saveDialogMethods(dialogClass),
-            List.of(EXPORTER_CONTEXT_CLASS, contextClass)
-        ));
+                cubismVersion, saveDialogMethods(dialogClass), List.of(EXPORTER_CONTEXT_CLASS, contextClass)));
     }
 
     /** One save-dialog method binding: name + descriptor (identical across versions). */

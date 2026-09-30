@@ -42,20 +42,19 @@ public interface AsyncHostReadService {
     enum Unavailable implements AsyncHostReadService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public AsyncHostReadSubmission submit(final AsyncHostReadRequest request) {
+        @Override
+        public AsyncHostReadSubmission submit(final AsyncHostReadRequest request) {
             java.util.Objects.requireNonNull(request, "request");
             return new AsyncHostReadSubmission(
-                AsyncHostReadSubmissionStatus.REJECTED,
-                Optional.empty(),
-                Optional.of(new AsyncHostReadError(
-                    AsyncHostReadErrorCode.RUNTIME_UNAVAILABLE,
-                    "async host read service is not available"
-                ))
-            );
+                    AsyncHostReadSubmissionStatus.REJECTED,
+                    Optional.empty(),
+                    Optional.of(new AsyncHostReadError(
+                            AsyncHostReadErrorCode.RUNTIME_UNAVAILABLE, "async host read service is not available")));
         }
     }
 }

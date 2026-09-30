@@ -1,17 +1,16 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-
-import java.lang.reflect.Method;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class FloatingTabCloseNativeMethodTransformerTest {
 
@@ -19,20 +18,13 @@ class FloatingTabCloseNativeMethodTransformerTest {
     void interceptsCloseWhenBridgeRequestsItAndPassesThroughOtherwise() throws Exception {
         final FixtureLoader loader = new FixtureLoader();
         final FloatingTabCloseNativeMethodTransformer transformer = new FloatingTabCloseNativeMethodTransformer(
-            "fixture/TabClose",
-            "a",
-            "(Ljava/lang/Object;)V",
-            "palette",
-            "Ljava/lang/Object;",
-            loader
-        );
+                "fixture/TabClose", "a", "(Ljava/lang/Object;)V", "palette", "Ljava/lang/Object;", loader);
 
-        assertNull(transformer.transform(null, getClass().getClassLoader(), "fixture/TabClose", null, null, closeClass()));
+        assertNull(
+                transformer.transform(null, getClass().getClassLoader(), "fixture/TabClose", null, null, closeClass()));
         assertNull(transformer.transform(null, loader, "fixture/Other", null, null, closeClass()));
 
-        final byte[] transformed = transformer.transform(
-            null, loader, "fixture/TabClose", null, null, closeClass()
-        );
+        final byte[] transformed = transformer.transform(null, loader, "fixture/TabClose", null, null, closeClass());
         assertNotNull(transformed);
 
         final Class<?> closeType = loader.define("fixture.TabClose", transformed);
@@ -75,12 +67,12 @@ class FloatingTabCloseNativeMethodTransformerTest {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/TabClose", null, "java/lang/Object", null);
         writer.visitField(Opcodes.ACC_PRIVATE | Opcodes.ACC_FINAL, "palette", "Ljava/lang/Object;", null, null)
-            .visitEnd();
-        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "closed", "I", null, null).visitEnd();
+                .visitEnd();
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "closed", "I", null, null)
+                .visitEnd();
 
-        final MethodVisitor constructor = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null
-        );
+        final MethodVisitor constructor =
+                writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "(Ljava/lang/Object;)V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
@@ -91,9 +83,7 @@ class FloatingTabCloseNativeMethodTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor close = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)V", null, null
-        );
+        final MethodVisitor close = writer.visitMethod(Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)V", null, null);
         close.visitCode();
         close.visitFieldInsn(Opcodes.GETSTATIC, "fixture/TabClose", "closed", "I");
         close.visitInsn(Opcodes.ICONST_1);

@@ -12,8 +12,6 @@ import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -34,9 +32,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     private long invalidationToken;
 
     private HostSessionSnapshotSource(
-        final ProjectWorkspaceAdapter projectWorkspace,
-        final Supplier<HostSelection> selectionReader
-    ) {
+            final ProjectWorkspaceAdapter projectWorkspace, final Supplier<HostSelection> selectionReader) {
         this.projectWorkspace = Objects.requireNonNull(projectWorkspace, "projectWorkspace");
         this.selectionReader = Objects.requireNonNull(selectionReader, "selectionReader");
     }
@@ -60,9 +56,7 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
      * @throws NullPointerException if any argument is null
      */
     public static HostSnapshotSource forSession(
-        final ProjectWorkspaceAdapter projectWorkspace,
-        final Supplier<HostSelection> selectionReader
-    ) {
+            final ProjectWorkspaceAdapter projectWorkspace, final Supplier<HostSelection> selectionReader) {
         return new HostSessionSnapshotSource(projectWorkspace, selectionReader);
     }
 
@@ -79,8 +73,8 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     @Override
     public Optional<HostModel> activeModel() {
         return activeDocument()
-            .filter(document -> document.kind() == DocumentKind.MODEL)
-            .flatMap(HostDocument::model);
+                .filter(document -> document.kind() == DocumentKind.MODEL)
+                .flatMap(HostDocument::model);
     }
 
     @Override
@@ -107,17 +101,15 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
         // comes from the verified selection read wired at construction.
         final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
         return new SdkRuntimeObservation(
-            null,
-            pair.project().orElse(null),
-            pair.document().orElse(null),
-            new dev.turboism.sdk.cubism.SelectionSnapshot(
-                selectionReader.get().selectedObjectIds(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-            ),
-            new ObservationEvidence(pair.project(), pair.document())
-        );
+                null,
+                pair.project().orElse(null),
+                pair.document().orElse(null),
+                new dev.turboism.sdk.cubism.SelectionSnapshot(
+                        selectionReader.get().selectedObjectIds(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                new ObservationEvidence(pair.project(), pair.document()));
     }
 
     @Override
@@ -140,16 +132,14 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
         final Optional<ProjectSnapshot> project = pair.project();
         final Optional<DocumentSnapshot> document = pair.document();
         final Optional<HostDocument> projected = document.map(this::document);
-        final Optional<HostModel> model = projected
-            .filter(active -> active.kind() == DocumentKind.MODEL)
-            .flatMap(HostDocument::model);
+        final Optional<HostModel> model =
+                projected.filter(active -> active.kind() == DocumentKind.MODEL).flatMap(HostDocument::model);
         return new Observation(
-            project.map(this::project),
-            projected,
-            model,
-            selectionReader.get(),
-            new ObservationEvidence(project, document)
-        );
+                project.map(this::project),
+                projected,
+                model,
+                selectionReader.get(),
+                new ObservationEvidence(project, document));
     }
 
     @Override
@@ -163,13 +153,9 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     }
 
     /** Shared token bookkeeping: bump when the observed pair differs from the last one. */
-    private long tokenFor(
-        final Optional<ProjectSnapshot> project,
-        final Optional<DocumentSnapshot> document
-    ) {
+    private long tokenFor(final Optional<ProjectSnapshot> project, final Optional<DocumentSnapshot> document) {
         synchronized (invalidationLock) {
-            if (!project.equals(lastProjectObservation)
-                || !document.equals(lastDocumentObservation)) {
+            if (!project.equals(lastProjectObservation) || !document.equals(lastDocumentObservation)) {
                 lastProjectObservation = project;
                 lastDocumentObservation = document;
                 invalidationToken++;
@@ -179,105 +165,91 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     }
 
     /** The unprojected pair behind one observation, comparable with the recorded baseline. */
-    private record ObservationEvidence(
-        Optional<ProjectSnapshot> project,
-        Optional<DocumentSnapshot> document
-    ) {
-    }
+    private record ObservationEvidence(Optional<ProjectSnapshot> project, Optional<DocumentSnapshot> document) {}
 
     /** One adapter read of the project/document pair; unavailable flattens to two empty halves. */
     private ProjectWorkspaceAdapter.ActiveProjectDocument observedPair() {
-        final ProjectWorkspaceAdapter.AdapterResult<ProjectWorkspaceAdapter.ActiveProjectDocument>
-            result = projectWorkspace.activeProjectAndDocument();
+        final ProjectWorkspaceAdapter.AdapterResult<ProjectWorkspaceAdapter.ActiveProjectDocument> result =
+                projectWorkspace.activeProjectAndDocument();
         return result.isAvailable()
-            ? result.value().orElseThrow()
-            : new ProjectWorkspaceAdapter.ActiveProjectDocument(
-                Optional.empty(), Optional.empty()
-            );
+                ? result.value().orElseThrow()
+                : new ProjectWorkspaceAdapter.ActiveProjectDocument(Optional.empty(), Optional.empty());
     }
 
     private HostProject project(final ProjectSnapshot source) {
         return new HostProject(
-            source.projectId(),
-            source.name(),
-            source.projectDirectory(),
-            source.contents().stream().map(this::content).toList(),
-            source.documents().stream().map(this::document).toList()
-        );
+                source.projectId(),
+                source.name(),
+                source.projectDirectory(),
+                source.contents().stream().map(this::content).toList(),
+                source.documents().stream().map(this::document).toList());
     }
 
     private HostProjectContent content(final ProjectContentSnapshot source) {
         return new HostProjectContent(
-            source.contentId(),
-            source.name(),
-            source.kind(),
-            source.filePath(),
-            source.documentIds(),
-            source.resources().stream().map(this::resource).toList()
-        );
+                source.contentId(),
+                source.name(),
+                source.kind(),
+                source.filePath(),
+                source.documentIds(),
+                source.resources().stream().map(this::resource).toList());
     }
 
     private HostProjectResource resource(final ProjectResourceSnapshot source) {
-        return new HostProjectResource(
-            source.resourceId(), source.name(), source.kind(), source.relativePath()
-        );
+        return new HostProjectResource(source.resourceId(), source.name(), source.kind(), source.relativePath());
     }
 
     private HostDocument document(final DocumentSnapshot source) {
         return new HostDocument(
-            source.documentId(),
-            source.name(),
-            source.kind(),
-            source.relativePath(),
-            source.filePath(),
-            source.contentId(),
-            source.model().map(this::model),
-            source.animation().map(this::animation)
-        );
+                source.documentId(),
+                source.name(),
+                source.kind(),
+                source.relativePath(),
+                source.filePath(),
+                source.contentId(),
+                source.model().map(this::model),
+                source.animation().map(this::animation));
     }
 
     private HostAnimation animation(final AnimationSnapshot source) {
         return new HostAnimation(
-            source.animationId(),
-            source.name(),
-            source.filePath(),
-            source.sceneDocumentIds(),
-            source.activeSceneDocumentId()
-        );
+                source.animationId(),
+                source.name(),
+                source.filePath(),
+                source.sceneDocumentIds(),
+                source.activeSceneDocumentId());
     }
 
     private HostModel model(final ModelSnapshot source) {
         return new HostModel(
-            source.modelId(),
-            source.name(),
-            source.parameters().stream().map(this::parameter).toList(),
-            source.artMeshes().stream().map(this::artMesh).toList(),
-            source.deformers().stream().map(this::deformer).toList()
-        );
+                source.modelId(),
+                source.name(),
+                source.parameters().stream().map(this::parameter).toList(),
+                source.artMeshes().stream().map(this::artMesh).toList(),
+                source.deformers().stream().map(this::deformer).toList());
     }
 
     private HostParameter parameter(final ParameterSnapshot source) {
         return new HostParameter(
-            source.id(), source.name(), source.value(), source.defaultValue(),
-            source.minValue(), source.maxValue(), source.visible(), source.editable()
-        );
+                source.id(),
+                source.name(),
+                source.value(),
+                source.defaultValue(),
+                source.minValue(),
+                source.maxValue(),
+                source.visible(),
+                source.editable());
     }
 
     private HostArtMesh artMesh(final ArtMeshSnapshot source) {
-        return new HostArtMesh(
-            source.id(), source.name(), source.textureId(), source.visible(), source.renderable()
-        );
+        return new HostArtMesh(source.id(), source.name(), source.textureId(), source.visible(), source.renderable());
     }
 
     private HostDeformer deformer(final DeformerSnapshot source) {
-        return new HostDeformer(
-            source.id(), source.name(), source.type(), source.parentId(), source.childIds()
-        );
+        return new HostDeformer(source.id(), source.name(), source.type(), source.parentId(), source.childIds());
     }
 
-    private static <T> Optional<T> available(
-        final ProjectWorkspaceAdapter.AdapterResult<Optional<T>> result
-    ) {
+    private static <T> Optional<T> available(final ProjectWorkspaceAdapter.AdapterResult<Optional<T>> result) {
         return result.isAvailable() ? result.value().orElse(Optional.empty()) : Optional.empty();
     }
 }

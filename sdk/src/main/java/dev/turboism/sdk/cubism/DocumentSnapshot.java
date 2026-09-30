@@ -12,15 +12,14 @@ import java.util.Optional;
  * as IMAGE documents even though their generic {@code getFileContent()} path is not implemented.</p>
  */
 public record DocumentSnapshot(
-    String documentId,
-    String name,
-    String relativePath,
-    Optional<Path> filePath,
-    Optional<ModelSnapshot> model,
-    DocumentKind kind,
-    Optional<String> contentId,
-    Optional<AnimationSnapshot> animation
-) {
+        String documentId,
+        String name,
+        String relativePath,
+        Optional<Path> filePath,
+        Optional<ModelSnapshot> model,
+        DocumentKind kind,
+        Optional<String> contentId,
+        Optional<AnimationSnapshot> animation) {
     public DocumentSnapshot {
         documentId = requireText(documentId, "documentId");
         name = requireText(name, "name");
@@ -40,30 +39,26 @@ public record DocumentSnapshot(
             throw new IllegalArgumentException("Only MODEL documents may expose a model snapshot");
         }
         if (kind != DocumentKind.ANIMATION_SCENE && animation.isPresent()) {
-            throw new IllegalArgumentException(
-                "Only ANIMATION_SCENE documents may expose an animation snapshot"
-            );
+            throw new IllegalArgumentException("Only ANIMATION_SCENE documents may expose an animation snapshot");
         }
     }
 
     /** Legacy constructor; model presence determines MODEL versus OTHER. */
     public DocumentSnapshot(
-        final String documentId,
-        final String name,
-        final String relativePath,
-        final Optional<Path> filePath,
-        final Optional<ModelSnapshot> model
-    ) {
+            final String documentId,
+            final String name,
+            final String relativePath,
+            final Optional<Path> filePath,
+            final Optional<ModelSnapshot> model) {
         this(
-            documentId,
-            name,
-            relativePath,
-            filePath,
-            model,
-            model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
-            Optional.empty(),
-            Optional.empty()
-        );
+                documentId,
+                name,
+                relativePath,
+                filePath,
+                model,
+                model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
+                Optional.empty(),
+                Optional.empty());
     }
 
     /** @return true when this document is a model document and may therefore expose {@link #model()} */

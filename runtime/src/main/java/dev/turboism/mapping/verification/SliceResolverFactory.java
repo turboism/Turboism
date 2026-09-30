@@ -25,11 +25,8 @@ public interface SliceResolverFactory {
      * @return the verified member resolver
      * @throws IOException if the record or artifact cannot be read
      */
-    VerifiedMemberResolver create(
-        Path reviewedRecord,
-        Path verifiedArtifact,
-        ClassLoader hostClassLoader
-    ) throws IOException;
+    VerifiedMemberResolver create(Path reviewedRecord, Path verifiedArtifact, ClassLoader hostClassLoader)
+            throws IOException;
 
     /**
      * Creates a resolver under an admitted compatibility contract.
@@ -42,9 +39,6 @@ public interface SliceResolverFactory {
      * @throws IOException if the record or artifact cannot be read
      */
     VerifiedMemberResolver createCompatible(
-        Path reviewedRecord,
-        Path hostArtifact,
-        ClassLoader hostClassLoader,
-        SliceContract contract
-    ) throws IOException;
+            Path reviewedRecord, Path hostArtifact, ClassLoader hostClassLoader, SliceContract contract)
+            throws IOException;
 }

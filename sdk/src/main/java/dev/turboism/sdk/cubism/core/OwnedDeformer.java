@@ -1,15 +1,10 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable adapter-owned projection of one evaluated Core deformer. */
-public record OwnedDeformer(
-    String id,
-    int parentDeformerIndex,
-    List<Integer> parameters
-) {
+public record OwnedDeformer(String id, int parentDeformerIndex, List<Integer> parameters) {
 
     public OwnedDeformer {
         Objects.requireNonNull(id, "id");

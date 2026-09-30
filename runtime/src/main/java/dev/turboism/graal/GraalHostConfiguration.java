@@ -11,13 +11,12 @@ import java.util.Optional;
 
 /** Process-only configuration for the optional Graal execution host. */
 public record GraalHostConfiguration(
-    boolean enabled,
-    String javaBinary,
-    String classpath,
-    String mainClass,
-    long startupTimeoutMillis,
-    Source source
-) {
+        boolean enabled,
+        String javaBinary,
+        String classpath,
+        String mainClass,
+        long startupTimeoutMillis,
+        Source source) {
 
     /** Authoritative origin of the Java executable selected for GraalJS. */
     public enum Source {
@@ -30,20 +29,18 @@ public record GraalHostConfiguration(
 
     /** Compatibility constructor retained for focused manager tests. */
     public GraalHostConfiguration(
-        final boolean enabled,
-        final String javaBinary,
-        final String classpath,
-        final String mainClass,
-        final long startupTimeoutMillis
-    ) {
+            final boolean enabled,
+            final String javaBinary,
+            final String classpath,
+            final String mainClass,
+            final long startupTimeoutMillis) {
         this(
-            enabled,
-            javaBinary,
-            classpath,
-            mainClass,
-            startupTimeoutMillis,
-            enabled ? Source.EXPLICIT : Source.DISABLED
-        );
+                enabled,
+                javaBinary,
+                classpath,
+                mainClass,
+                startupTimeoutMillis,
+                enabled ? Source.EXPLICIT : Source.DISABLED);
     }
 
     public static final String DEFAULT_MAIN_CLASS = "dev.turboism.graalhost.GraalHostMain";
@@ -81,32 +78,30 @@ public record GraalHostConfiguration(
      */
     public static GraalHostConfiguration resolve(final Path turboismHome) {
         final Path home = Objects.requireNonNull(turboismHome, "turboismHome")
-            .toAbsolutePath().normalize();
-        final boolean explicitlyDisabled = "false".equalsIgnoreCase(
-            System.getProperty("turboism.graal.enabled", "true")
-        );
+                .toAbsolutePath()
+                .normalize();
+        final boolean explicitlyDisabled =
+                "false".equalsIgnoreCase(System.getProperty("turboism.graal.enabled", "true"));
         if (explicitlyDisabled) {
             return disabled();
         }
 
-        final String explicitJava = System.getProperty("turboism.graal.java", "").trim();
-        final String externalGraalHome = firstNonBlank(
-            System.getenv("TURBOISM_GRAALVM_HOME"),
-            System.getenv("GRAALVM_HOME")
-        );
+        final String explicitJava =
+                System.getProperty("turboism.graal.java", "").trim();
+        final String externalGraalHome =
+                firstNonBlank(System.getenv("TURBOISM_GRAALVM_HOME"), System.getenv("GRAALVM_HOME"));
         final Selection selection;
         if (!explicitJava.isBlank()) {
             selection = validatedExplicitJava(explicitJava)
-                .map(java -> new Selection(java, Source.EXPLICIT))
-                .orElse(null);
+                    .map(java -> new Selection(java, Source.EXPLICIT))
+                    .orElse(null);
         } else {
             selection = managedJava(home)
-                .map(java -> new Selection(java, Source.MANAGED))
-                .or(() -> javaFromHome(home.resolve("graalvm").toString())
-                    .map(java -> new Selection(java, Source.LEGACY_PACKAGED)))
-                .or(() -> javaFromHome(externalGraalHome)
-                    .map(java -> new Selection(java, Source.EXTERNAL)))
-                .orElse(null);
+                    .map(java -> new Selection(java, Source.MANAGED))
+                    .or(() -> javaFromHome(home.resolve("graalvm").toString())
+                            .map(java -> new Selection(java, Source.LEGACY_PACKAGED)))
+                    .or(() -> javaFromHome(externalGraalHome).map(java -> new Selection(java, Source.EXTERNAL)))
+                    .orElse(null);
         }
         if (selection == null) {
             return disabled();
@@ -114,34 +109,25 @@ public record GraalHostConfiguration(
         final String javaBinary = selection.javaBinary();
 
         final String explicitClasspath = firstNonBlank(
-            System.getProperty("turboism.graal.classpath", ""),
-            System.getenv("TURBOISM_GRAAL_CLASSPATH")
-        );
+                System.getProperty("turboism.graal.classpath", ""), System.getenv("TURBOISM_GRAAL_CLASSPATH"));
         final String classpath = explicitClasspath.isBlank()
-            ? home.resolve("graal").resolve("lib").toString() + File.separator + "*"
-            : explicitClasspath;
-        final String mainClass = System.getProperty(
-            "turboism.graal.mainClass", DEFAULT_MAIN_CLASS
-        );
+                ? home.resolve("graal").resolve("lib").toString() + File.separator + "*"
+                : explicitClasspath;
+        final String mainClass = System.getProperty("turboism.graal.mainClass", DEFAULT_MAIN_CLASS);
         final long timeout = Long.getLong("turboism.graal.startupTimeoutMillis", 10_000L);
-        return new GraalHostConfiguration(
-            true, javaBinary, classpath, mainClass, timeout, selection.source()
-        );
+        return new GraalHostConfiguration(true, javaBinary, classpath, mainClass, timeout, selection.source());
     }
 
     /** @return a configuration that keeps the external Graal host disabled */
     public static GraalHostConfiguration disabled() {
-        return new GraalHostConfiguration(
-            false, "", "", DEFAULT_MAIN_CLASS, 10_000L, Source.DISABLED
-        );
+        return new GraalHostConfiguration(false, "", "", DEFAULT_MAIN_CLASS, 10_000L, Source.DISABLED);
     }
 
     private static Optional<String> managedJava(final Path turboismHome) {
-        final String executable = System.getProperty("os.name", "")
-            .toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
-        return ManagedGraalRuntimeService.managedJavaExecutableIfReady(
-            turboismHome, "bin/" + executable
-        ).map(Path::toString);
+        final String executable =
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
+        return ManagedGraalRuntimeService.managedJavaExecutableIfReady(turboismHome, "bin/" + executable)
+                .map(Path::toString);
     }
 
     private static Optional<String> validatedExplicitJava(final String rawJava) {
@@ -151,9 +137,9 @@ public record GraalHostConfiguration(
             final Path bin = candidate.getParent();
             final Path home = bin == null ? null : bin.getParent();
             return home == null
-                ? Optional.empty()
-                : javaFromHome(home.toString())
-                    .filter(validated -> Path.of(validated).equals(candidate));
+                    ? Optional.empty()
+                    : javaFromHome(home.toString())
+                            .filter(validated -> Path.of(validated).equals(candidate));
         } catch (RuntimeException invalid) {
             return Optional.empty();
         }
@@ -164,47 +150,43 @@ public record GraalHostConfiguration(
             return Optional.empty();
         }
         final Path home = Path.of(rawHome).toAbsolutePath().normalize();
-        final String executable = System.getProperty("os.name", "")
-            .toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
+        final String executable =
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
         final Path candidate = home.resolve("bin").resolve(executable);
-        if (Files.isSymbolicLink(candidate)
-            || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(candidate) || !Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
         final Path release = home.resolve("release");
-        if (Files.isSymbolicLink(release)
-            || !Files.isRegularFile(release, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(release) || !Files.isRegularFile(release, LinkOption.NOFOLLOW_LINKS)) {
             return Optional.empty();
         }
         try {
             if (Files.size(release) > 64 * 1024L) return Optional.empty();
             final String metadata = Files.readString(release, StandardCharsets.UTF_8);
-            return exactReleaseValue(metadata, "IMPLEMENTOR").orElse("")
-                    .equals("GraalVM Community")
-                && exactReleaseValue(metadata, "GRAALVM_VERSION").orElse("")
-                    .equals(ManagedGraalRuntimeService.GRAAL_VERSION)
-                && exactReleaseValue(metadata, "JAVA_VERSION").orElse("")
-                    .equals(ManagedGraalRuntimeService.JAVA_VERSION)
-                ? Optional.of(candidate.toString())
-                : Optional.empty();
+            return exactReleaseValue(metadata, "IMPLEMENTOR").orElse("").equals("GraalVM Community")
+                            && exactReleaseValue(metadata, "GRAALVM_VERSION")
+                                    .orElse("")
+                                    .equals(ManagedGraalRuntimeService.GRAAL_VERSION)
+                            && exactReleaseValue(metadata, "JAVA_VERSION")
+                                    .orElse("")
+                                    .equals(ManagedGraalRuntimeService.JAVA_VERSION)
+                    ? Optional.of(candidate.toString())
+                    : Optional.empty();
         } catch (java.io.IOException | RuntimeException invalid) {
             return Optional.empty();
         }
     }
 
-    private static Optional<String> exactReleaseValue(
-        final String metadata,
-        final String key
-    ) {
+    private static Optional<String> exactReleaseValue(final String metadata, final String key) {
         final String prefix = key + "=";
         return metadata.lines()
-            .map(String::trim)
-            .filter(line -> line.startsWith(prefix))
-            .map(line -> line.substring(prefix.length()).trim())
-            .map(value -> value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
-                ? value.substring(1, value.length() - 1)
-                : value)
-            .findFirst();
+                .map(String::trim)
+                .filter(line -> line.startsWith(prefix))
+                .map(line -> line.substring(prefix.length()).trim())
+                .map(value -> value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
+                        ? value.substring(1, value.length() - 1)
+                        : value)
+                .findFirst();
     }
 
     private record Selection(String javaBinary, Source source) {

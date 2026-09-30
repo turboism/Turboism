@@ -10,10 +10,7 @@ import java.util.Objects;
  * @param message human-readable detail, non-blank, at most 1024 characters and
  *                free of control characters
  */
-public record UserFileError(
-    UserFileErrorCode code,
-    String message
-) {
+public record UserFileError(UserFileErrorCode code, String message) {
     /**
      * Validates the record components.
      *

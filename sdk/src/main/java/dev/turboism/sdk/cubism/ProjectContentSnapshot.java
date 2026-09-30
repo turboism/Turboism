@@ -13,13 +13,12 @@ import java.util.Optional;
  * {@code IFileContent}, but they may own an IMAGE editor document and source resources.</p>
  */
 public record ProjectContentSnapshot(
-    String contentId,
-    String name,
-    ProjectContentKind kind,
-    Optional<Path> filePath,
-    List<String> documentIds,
-    List<ProjectResourceSnapshot> resources
-) {
+        String contentId,
+        String name,
+        ProjectContentKind kind,
+        Optional<Path> filePath,
+        List<String> documentIds,
+        List<ProjectResourceSnapshot> resources) {
     public ProjectContentSnapshot {
         contentId = requireText(contentId, "contentId");
         name = requireText(name, "name");
@@ -33,12 +32,11 @@ public record ProjectContentSnapshot(
     }
 
     public ProjectContentSnapshot(
-        final String contentId,
-        final String name,
-        final ProjectContentKind kind,
-        final Optional<Path> filePath,
-        final List<String> documentIds
-    ) {
+            final String contentId,
+            final String name,
+            final ProjectContentKind kind,
+            final Optional<Path> filePath,
+            final List<String> documentIds) {
         this(contentId, name, kind, filePath, documentIds, List.of());
     }
 

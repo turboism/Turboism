@@ -1,7 +1,7 @@
 package dev.turboism.plugin.clipmaskviewer.ui;
 
 import dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin.WindowView;
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -9,29 +9,9 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.ButtonGroup;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSlider;
-import javax.swing.JTextField;
-import javax.swing.JTable;
-import javax.swing.JToggleButton;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.TableCellRenderer;
 import java.awt.BorderLayout;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -47,6 +27,26 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSlider;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.JToggleButton;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
 
 /**
  * 剪贴蒙版检查器窗口（JDialog，MODELESS，只读）。
@@ -83,11 +83,10 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     private final List<Registration> statusRegistrations = new ArrayList<>();
 
     public ClipMaskViewerWindow(
-        final PluginLocalization localization,
-        final PluginContext context,
-        final Runnable refreshAction,
-        final Runnable onClosed
-    ) {
+            final PluginLocalization localization,
+            final PluginContext context,
+            final Runnable refreshAction,
+            final Runnable onClosed) {
         super((java.awt.Frame) null, localization.text("window.title"), false);
         TurboismWindowFactory.style(this);
         this.localization = Objects.requireNonNull(localization, "localization");
@@ -165,9 +164,20 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         filterField.setToolTipText(localization.text("filter.label"));
         final Runnable applyFilter = () -> graphPanel.setFilter(filterField.getText());
         filterField.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(final DocumentEvent event) { applyFilter.run(); }
-            @Override public void removeUpdate(final DocumentEvent event) { applyFilter.run(); }
-            @Override public void changedUpdate(final DocumentEvent event) { applyFilter.run(); }
+            @Override
+            public void insertUpdate(final DocumentEvent event) {
+                applyFilter.run();
+            }
+
+            @Override
+            public void removeUpdate(final DocumentEvent event) {
+                applyFilter.run();
+            }
+
+            @Override
+            public void changedUpdate(final DocumentEvent event) {
+                applyFilter.run();
+            }
         });
         zoomBar.add(filterField);
         final JSlider zoomSlider = new JSlider(20, 400, 100);
@@ -289,15 +299,9 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
     private void updateTopInfo() {
         countLabel.setText(localization.format(
-            "stats.summary",
-            state.countUniqueMasks(),
-            state.records().size(),
-            state.countWithMasks()
-        ));
+                "stats.summary", state.countUniqueMasks(), state.records().size(), state.countWithMasks()));
         final int conflicts = state.countOrderConflicts();
-        orderConflictLabel.setText(conflicts > 0
-            ? localization.format("stats.order.conflicts", conflicts)
-            : "");
+        orderConflictLabel.setText(conflicts > 0 ? localization.format("stats.order.conflicts", conflicts) : "");
     }
 
     // ── 选中桥接（只读）──────────────────────────────────────────────
@@ -331,9 +335,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
     private void copyGuid(final String guid) {
         try {
-            Toolkit.getDefaultToolkit()
-                .getSystemClipboard()
-                .setContents(new StringSelection(guid), null);
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(guid), null);
             notifyStatus(localization.format("status.copied", guid));
         } catch (RuntimeException failure) {
             logger.warn("Clip Mask Viewer GUID copy failed safely: " + failure.getMessage());
@@ -342,9 +344,9 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
     private void notifyStatus(final String message) {
         try {
-            statusRegistrations.add(context.uiHost().notifyStatus(
-                new StatusNotification(STATUS_NOTIFY_ID, "INFO", message)
-            ));
+            statusRegistrations.add(context.services()
+                    .require(UiHostCapabilityService.class)
+                    .notifyStatus(new StatusNotification(STATUS_NOTIFY_ID, "INFO", message)));
         } catch (RuntimeException unavailable) {
             logger.warn("Clip Mask Viewer status notification unavailable");
         }
@@ -360,20 +362,21 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         final DefaultTableCellRenderer renderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(
-                final JTable table,
-                final Object value,
-                final boolean isSelected,
-                final boolean hasFocus,
-                final int row,
-                final int column
-            ) {
-                final Component component = baseRenderer.getTableCellRendererComponent(
-                    table, value, isSelected, hasFocus, row, column);
-                if (!isSelected && model instanceof ClipMaskTableModels.MaskPrimaryTableModel mask
-                    && mask.isRowHighlighted(row)) {
+                    final JTable table,
+                    final Object value,
+                    final boolean isSelected,
+                    final boolean hasFocus,
+                    final int row,
+                    final int column) {
+                final Component component =
+                        baseRenderer.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected
+                        && model instanceof ClipMaskTableModels.MaskPrimaryTableModel mask
+                        && mask.isRowHighlighted(row)) {
                     component.setBackground(new Color(255, 244, 200));
-                } else if (!isSelected && model instanceof ClipMaskTableModels.UserPrimaryTableModel user
-                    && user.isRowHighlighted(row)) {
+                } else if (!isSelected
+                        && model instanceof ClipMaskTableModels.UserPrimaryTableModel user
+                        && user.isRowHighlighted(row)) {
                     component.setBackground(new Color(255, 244, 200));
                 }
                 return component;

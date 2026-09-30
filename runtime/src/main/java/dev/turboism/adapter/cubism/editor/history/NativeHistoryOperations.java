@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -34,8 +33,7 @@ import java.util.Optional;
  */
 public final class NativeHistoryOperations {
 
-    private NativeHistoryOperations() {
-    }
+    private NativeHistoryOperations() {}
 
     /**
      * Resolves the semantic operation and subject one decoded native entry proves.
@@ -50,11 +48,10 @@ public final class NativeHistoryOperations {
         if (relation.isPresent()) {
             final HistoryRelationChange value = relation.orElseThrow();
             return new Resolution(
-                value.after().state() == HistoryRelationChange.State.TARGET
-                    ? CubismOperation.SET_HIERARCHY_PARENT
-                    : CubismOperation.DETACH_HIERARCHY_PARENT,
-                subjectOf(detail)
-            );
+                    value.after().state() == HistoryRelationChange.State.TARGET
+                            ? CubismOperation.SET_HIERARCHY_PARENT
+                            : CubismOperation.DETACH_HIERARCHY_PARENT,
+                    subjectOf(detail));
         }
         if (isAppearanceOnly(detail)) {
             return new Resolution(appearanceOperation(detail), subjectOf(detail));
@@ -94,11 +91,8 @@ public final class NativeHistoryOperations {
         }
         final Optional<String> subject = subjectOf(leaves.get(0));
         if (subject.isEmpty()) return Optional.empty();
-        final boolean uniform = leaves.stream()
-            .allMatch(leaf -> subjectOf(leaf).equals(subject));
-        return uniform
-            ? Optional.of(new Resolution(appearanceOperation(leaves.get(0)), subject))
-            : Optional.empty();
+        final boolean uniform = leaves.stream().allMatch(leaf -> subjectOf(leaf).equals(subject));
+        return uniform ? Optional.of(new Resolution(appearanceOperation(leaves.get(0)), subject)) : Optional.empty();
     }
 
     /**
@@ -117,11 +111,8 @@ public final class NativeHistoryOperations {
         }
         final Optional<String> subject = subjectOf(leaves.get(0));
         if (subject.isEmpty()) return Optional.empty();
-        final boolean uniform = leaves.stream()
-            .allMatch(leaf -> subjectOf(leaf).equals(subject));
-        return uniform
-            ? Optional.of(new Resolution(moveOperation(leaves.get(0)), subject))
-            : Optional.empty();
+        final boolean uniform = leaves.stream().allMatch(leaf -> subjectOf(leaf).equals(subject));
+        return uniform ? Optional.of(new Resolution(moveOperation(leaves.get(0)), subject)) : Optional.empty();
     }
 
     /**
@@ -129,8 +120,8 @@ public final class NativeHistoryOperations {
      */
     private static CubismOperation moveOperation(final HistoryEntryDetail detail) {
         return "ART_MESH".equals(detail.targets().get(0).type())
-            ? CubismOperation.MOVE_DRAWABLE
-            : CubismOperation.MOVE_DEFORMER;
+                ? CubismOperation.MOVE_DRAWABLE
+                : CubismOperation.MOVE_DEFORMER;
     }
 
     /**
@@ -145,10 +136,8 @@ public final class NativeHistoryOperations {
             return CubismOperation.SET_DRAWABLE_COLOR;
         }
         final boolean opacityOnly = detail.changes().stream()
-            .allMatch(change -> change.property().filter("opacity"::equals).isPresent());
-        return opacityOnly
-            ? CubismOperation.SET_DEFORMER_OPACITY
-            : CubismOperation.EXECUTE_EDITOR_COMMAND;
+                .allMatch(change -> change.property().filter("opacity"::equals).isPresent());
+        return opacityOnly ? CubismOperation.SET_DEFORMER_OPACITY : CubismOperation.EXECUTE_EDITOR_COMMAND;
     }
 
     /**
@@ -157,11 +146,7 @@ public final class NativeHistoryOperations {
      * <p>A truncated group has children this projection never saw, so "every leaf proves the same
      * fact" cannot be established from what is here.</p>
      */
-    private static boolean flatten(
-        final HistoryGroup group,
-        final List<HistoryEntryDetail> leaves,
-        final int depth
-    ) {
+    private static boolean flatten(final HistoryGroup group, final List<HistoryEntryDetail> leaves, final int depth) {
         if (group.truncated() || group.children().isEmpty() || depth > MAX_GROUP_DEPTH) {
             return false;
         }
@@ -183,6 +168,7 @@ public final class NativeHistoryOperations {
      * detail that was built some other way.</p>
      */
     private static final int MAX_GROUP_DEPTH = 8;
+
     private static final int MAX_GROUP_LEAVES = 128;
 
     private static Optional<HistoryRelationChange> relationOf(final HistoryEntryDetail detail) {
@@ -205,12 +191,13 @@ public final class NativeHistoryOperations {
     }
 
     private static boolean isAppearanceChange(final String targetType, final HistoryChange change) {
-        if (change.operation() != HistoryChange.Operation.SET || change.relation().isPresent()) {
+        if (change.operation() != HistoryChange.Operation.SET
+                || change.relation().isPresent()) {
             return false;
         }
         final Optional<String> property = change.property();
         return property.isPresent()
-            && SemanticHistoryOperationCatalog.isAppearanceChannel(targetType, property.orElseThrow());
+                && SemanticHistoryOperationCatalog.isAppearanceChannel(targetType, property.orElseThrow());
     }
 
     /**
@@ -221,8 +208,9 @@ public final class NativeHistoryOperations {
      */
     private static boolean isMoveOnly(final HistoryEntryDetail detail) {
         if (detail.targets().size() != 1 || detail.changes().isEmpty()) return false;
-        return detail.changes().stream().allMatch(change ->
-            change.operation() == HistoryChange.Operation.MOVE && change.relation().isEmpty());
+        return detail.changes().stream()
+                .allMatch(change -> change.operation() == HistoryChange.Operation.MOVE
+                        && change.relation().isEmpty());
     }
 
     /**

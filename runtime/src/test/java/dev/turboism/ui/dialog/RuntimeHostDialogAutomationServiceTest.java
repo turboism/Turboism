@@ -1,23 +1,16 @@
 package dev.turboism.ui.dialog;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.dialog.HostDialogAction;
 import dev.turboism.sdk.ui.dialog.HostDialogMatcher;
 import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
 import dev.turboism.sdk.ui.dialog.HostDialogSnapshot;
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.swing.JButton;
-import javax.swing.JDialog;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
 import java.awt.Dialog;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.WindowAdapter;
@@ -30,11 +23,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Lane B/C focused tests: real Swing JDialog+JOptionPane dialogs driven through the
@@ -45,7 +44,7 @@ class RuntimeHostDialogAutomationServiceTest {
     private static final Duration SHORT_TIMEOUT = Duration.ofSeconds(2);
 
     private final RuntimeHostDialogAutomationService service =
-        new RuntimeHostDialogAutomationService(PermissionChecker.allowAll());
+            new RuntimeHostDialogAutomationService(PermissionChecker.allowAll());
 
     @BeforeEach
     void requireDisplay() {
@@ -53,35 +52,32 @@ class RuntimeHostDialogAutomationServiceTest {
     }
 
     /** One button per label; clicks recorded per label index. */
-    private record ShownDialog(JDialog dialog, List<JButton> buttons, List<AtomicBoolean> clicked) {
-    }
+    private record ShownDialog(JDialog dialog, List<JButton> buttons, List<AtomicBoolean> clicked) {}
 
-    private record LocalizedLabels(HostDialogAction action, List<String> labels) {
-    }
+    private record LocalizedLabels(HostDialogAction action, List<String> labels) {}
 
     static Stream<Arguments> localizedButtons() {
         return Stream.of(
-            Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("OK"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("确定"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("確定"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("はい"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("Yes"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("是"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("はい"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("No"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("不保存"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("不儲存"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("保存しない"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("Cancel"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("取消"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("キャンセル"))),
-            // Cubism-localized buttons carry a mnemonic suffix: word(letter) must still match.
-            Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("OK(&O)"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("Yes(Y)"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("No(N)"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("Cancel(C)"))),
-            Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("取消(C)")))
-        );
+                Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("OK"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("确定"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("確定"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("はい"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("Yes"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("是"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("はい"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("No"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("不保存"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("不儲存"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("保存しない"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("Cancel"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("取消"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("キャンセル"))),
+                // Cubism-localized buttons carry a mnemonic suffix: word(letter) must still match.
+                Arguments.of(new LocalizedLabels(HostDialogAction.OK, List.of("OK(&O)"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.YES, List.of("Yes(Y)"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.NO, List.of("No(N)"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("Cancel(C)"))),
+                Arguments.of(new LocalizedLabels(HostDialogAction.CANCEL, List.of("取消(C)"))));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -90,11 +86,13 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showOptionPaneDialog(localized.labels(), JOptionPane.YES_NO_OPTION);
         try {
             final HostDialogOutcome outcome =
-                service.act(HostDialogMatcher.anyConfirmation(), localized.action(), SHORT_TIMEOUT);
+                    service.act(HostDialogMatcher.anyConfirmation(), localized.action(), SHORT_TIMEOUT);
 
             assertEquals(HostDialogOutcome.ACTED, outcome);
-            assertEquals(1, shown.clicked().stream().filter(AtomicBoolean::get).count(),
-                "exactly the single matching button must be clicked");
+            assertEquals(
+                    1,
+                    shown.clicked().stream().filter(AtomicBoolean::get).count(),
+                    "exactly the single matching button must be clicked");
             assertTrue(shown.clicked().get(0).get(), "the matching button must be clicked");
             assertTrue(closed(shown.dialog()), "dialog must be closed after the action");
         } finally {
@@ -105,9 +103,8 @@ class RuntimeHostDialogAutomationServiceTest {
     @Test
     void noDialogAppearsWithinTheDeadlineReturnsNotFound() {
         assertEquals(
-            HostDialogOutcome.NOT_FOUND,
-            service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CANCEL, SHORT_TIMEOUT)
-        );
+                HostDialogOutcome.NOT_FOUND,
+                service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CANCEL, SHORT_TIMEOUT));
     }
 
     @Test
@@ -115,11 +112,10 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showOptionPaneDialog(List.of("OK", "OK"), JOptionPane.DEFAULT_OPTION);
         try {
             final HostDialogOutcome outcome =
-                service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, SHORT_TIMEOUT);
+                    service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, SHORT_TIMEOUT);
 
             assertEquals(HostDialogOutcome.AMBIGUOUS, outcome);
-            assertTrue(shown.clicked().stream().noneMatch(AtomicBoolean::get),
-                "no button may be clicked on ambiguity");
+            assertTrue(shown.clicked().stream().noneMatch(AtomicBoolean::get), "no button may be clicked on ambiguity");
             assertFalse(closed(shown.dialog()), "ambiguous dialog must stay open");
         } finally {
             dispose(shown.dialog());
@@ -131,7 +127,7 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showOptionPaneDialog(List.of("KEEP"), JOptionPane.DEFAULT_OPTION);
         try {
             final HostDialogOutcome outcome =
-                service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.NO, SHORT_TIMEOUT);
+                    service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.NO, SHORT_TIMEOUT);
 
             assertEquals(HostDialogOutcome.UNSUPPORTED, outcome);
             assertTrue(shown.clicked().stream().noneMatch(AtomicBoolean::get));
@@ -146,8 +142,12 @@ class RuntimeHostDialogAutomationServiceTest {
         final AtomicInteger closingEvents = new AtomicInteger();
         SwingUtilities.invokeAndWait(() -> {
             final JOptionPane pane = new JOptionPane(
-                "Unsaved changes", JOptionPane.WARNING_MESSAGE, JOptionPane.OK_CANCEL_OPTION,
-                null, new Object[]{"OK", "Cancel"}, "OK");
+                    "Unsaved changes",
+                    JOptionPane.WARNING_MESSAGE,
+                    JOptionPane.OK_CANCEL_OPTION,
+                    null,
+                    new Object[] {"OK", "Cancel"},
+                    "OK");
             final JDialog dialog = pane.createDialog(null, "Confirm");
             dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
             dialog.addWindowListener(new WindowAdapter() {
@@ -162,7 +162,7 @@ class RuntimeHostDialogAutomationServiceTest {
         SwingUtilities.invokeLater(() -> dialog.setVisible(true));
         try {
             final HostDialogOutcome outcome =
-                service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CLOSE, SHORT_TIMEOUT);
+                    service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CLOSE, SHORT_TIMEOUT);
 
             assertEquals(HostDialogOutcome.ACTED, outcome);
             assertTrue(closingEvents.get() >= 1, "WINDOW_CLOSING must be dispatched");
@@ -179,9 +179,9 @@ class RuntimeHostDialogAutomationServiceTest {
             final List<HostDialogSnapshot> snapshots = service.snapshots();
 
             final HostDialogSnapshot snapshot = snapshots.stream()
-                .filter(item -> item.windowClassName().equals("javax.swing.JDialog"))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("no JDialog snapshot in " + snapshots));
+                    .filter(item -> item.windowClassName().equals("javax.swing.JDialog"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("no JDialog snapshot in " + snapshots));
             assertTrue(snapshot.modal());
             assertEquals(JOptionPane.OK_CANCEL_OPTION, snapshot.optionType());
             assertEquals(List.of("OK", "Cancel"), snapshot.buttonLabels());
@@ -195,21 +195,17 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showOptionPaneDialog(List.of("Yes", "No"), JOptionPane.YES_NO_OPTION);
         try {
             assertEquals(
-                HostDialogOutcome.NOT_FOUND,
-                service.act(
-                    new HostDialogMatcher(Optional.empty(), Optional.of(JOptionPane.OK_CANCEL_OPTION)),
-                    HostDialogAction.YES,
-                    Duration.ofMillis(800)
-                )
-            );
+                    HostDialogOutcome.NOT_FOUND,
+                    service.act(
+                            new HostDialogMatcher(Optional.empty(), Optional.of(JOptionPane.OK_CANCEL_OPTION)),
+                            HostDialogAction.YES,
+                            Duration.ofMillis(800)));
             assertEquals(
-                HostDialogOutcome.ACTED,
-                service.act(
-                    new HostDialogMatcher(Optional.empty(), Optional.of(JOptionPane.YES_NO_OPTION)),
-                    HostDialogAction.NO,
-                    SHORT_TIMEOUT
-                )
-            );
+                    HostDialogOutcome.ACTED,
+                    service.act(
+                            new HostDialogMatcher(Optional.empty(), Optional.of(JOptionPane.YES_NO_OPTION)),
+                            HostDialogAction.NO,
+                            SHORT_TIMEOUT));
         } finally {
             dispose(shown.dialog());
         }
@@ -220,21 +216,17 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showOptionPaneDialog(List.of("OK"), JOptionPane.DEFAULT_OPTION);
         try {
             assertEquals(
-                HostDialogOutcome.NOT_FOUND,
-                service.act(
-                    new HostDialogMatcher(Optional.of("com.live2d.ui.window"), Optional.empty()),
-                    HostDialogAction.OK,
-                    Duration.ofMillis(800)
-                )
-            );
+                    HostDialogOutcome.NOT_FOUND,
+                    service.act(
+                            new HostDialogMatcher(Optional.of("com.live2d.ui.window"), Optional.empty()),
+                            HostDialogAction.OK,
+                            Duration.ofMillis(800)));
             assertEquals(
-                HostDialogOutcome.ACTED,
-                service.act(
-                    new HostDialogMatcher(Optional.of("javax.swing"), Optional.empty()),
-                    HostDialogAction.OK,
-                    SHORT_TIMEOUT
-                )
-            );
+                    HostDialogOutcome.ACTED,
+                    service.act(
+                            new HostDialogMatcher(Optional.of("javax.swing"), Optional.empty()),
+                            HostDialogAction.OK,
+                            SHORT_TIMEOUT));
         } finally {
             dispose(shown.dialog());
         }
@@ -245,9 +237,8 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showEmptyBareDialog();
         try {
             assertEquals(
-                HostDialogOutcome.UNSUPPORTED,
-                service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, SHORT_TIMEOUT)
-            );
+                    HostDialogOutcome.UNSUPPORTED,
+                    service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, SHORT_TIMEOUT));
         } finally {
             dispose(shown.dialog());
         }
@@ -260,13 +251,8 @@ class RuntimeHostDialogAutomationServiceTest {
             // Bare dialog (no JOptionPane) with a visible button: semantic matching applies,
             // the unique OK button is clicked; the click does not close it, so TIMEOUT proves the click.
             assertEquals(
-                HostDialogOutcome.TIMEOUT,
-                service.act(
-                    HostDialogMatcher.anyConfirmation(),
-                    HostDialogAction.OK,
-                    Duration.ofMillis(1200)
-                )
-            );
+                    HostDialogOutcome.TIMEOUT,
+                    service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, Duration.ofMillis(1200)));
             assertTrue(shown.clicked().get(0).get(), "the unique OK button must have been clicked");
         } finally {
             dispose(shown.dialog());
@@ -278,10 +264,9 @@ class RuntimeHostDialogAutomationServiceTest {
         final ShownDialog shown = showBareDialog("OK");
         try {
             final HostDialogOutcome outcome = service.act(
-                new HostDialogMatcher(Optional.of("javax.swing"), Optional.empty()),
-                HostDialogAction.OK,
-                Duration.ofMillis(1200)
-            );
+                    new HostDialogMatcher(Optional.of("javax.swing"), Optional.empty()),
+                    HostDialogAction.OK,
+                    Duration.ofMillis(1200));
 
             assertEquals(HostDialogOutcome.TIMEOUT, outcome);
             assertTrue(shown.clicked().get(0).get(), "the unique OK button must have been clicked");
@@ -294,19 +279,22 @@ class RuntimeHostDialogAutomationServiceTest {
     @Test
     void missingPermissionRejectsActAndSnapshots() {
         final RuntimeHostDialogAutomationService denied =
-            new RuntimeHostDialogAutomationService(PermissionChecker.from(List.of()));
+                new RuntimeHostDialogAutomationService(PermissionChecker.from(List.of()));
 
-        assertThrows(CubismPermissionException.class,
-            () -> denied.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CLOSE, SHORT_TIMEOUT));
+        assertThrows(
+                CubismPermissionException.class,
+                () -> denied.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.CLOSE, SHORT_TIMEOUT));
         assertThrows(CubismPermissionException.class, denied::snapshots);
     }
 
     @Test
     void illegalArgumentsThrowWithoutTouchingThePermissionPath() {
-        assertThrows(IllegalArgumentException.class,
-            () -> service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, Duration.ZERO));
-        assertThrows(IllegalArgumentException.class,
-            () -> service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, Duration.ofSeconds(-1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, Duration.ZERO));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.act(HostDialogMatcher.anyConfirmation(), HostDialogAction.OK, Duration.ofSeconds(-1)));
     }
 
     /**
@@ -319,8 +307,12 @@ class RuntimeHostDialogAutomationServiceTest {
             final AtomicReference<JDialog> dialogRef = new AtomicReference<>();
             SwingUtilities.invokeAndWait(() -> {
                 final JOptionPane pane = new JOptionPane(
-                    "Unsaved changes", JOptionPane.WARNING_MESSAGE, optionType,
-                    null, labels.toArray(), labels.get(0));
+                        "Unsaved changes",
+                        JOptionPane.WARNING_MESSAGE,
+                        optionType,
+                        null,
+                        labels.toArray(),
+                        labels.get(0));
                 final JDialog dialog = pane.createDialog(null, "Confirm");
                 dialog.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
                 dialogRef.set(dialog);
@@ -343,8 +335,7 @@ class RuntimeHostDialogAutomationServiceTest {
     private static List<JButton> awaitButtons(final JDialog dialog) throws Exception {
         final AtomicReference<List<JButton>> buttonsRef = new AtomicReference<>(List.of());
         for (int attempt = 0; attempt < 50; attempt++) {
-            SwingUtilities.invokeAndWait(() ->
-                buttonsRef.set(findButtons(dialog)));
+            SwingUtilities.invokeAndWait(() -> buttonsRef.set(findButtons(dialog)));
             if (!buttonsRef.get().isEmpty()) {
                 return buttonsRef.get();
             }
@@ -415,8 +406,7 @@ class RuntimeHostDialogAutomationServiceTest {
     private static boolean closed(final JDialog dialog) {
         try {
             final AtomicReference<Boolean> closedRef = new AtomicReference<>();
-            SwingUtilities.invokeAndWait(() ->
-                closedRef.set(!dialog.isDisplayable() || !dialog.isVisible()));
+            SwingUtilities.invokeAndWait(() -> closedRef.set(!dialog.isDisplayable() || !dialog.isVisible()));
             return closedRef.get();
         } catch (Exception exception) {
             throw new IllegalStateException("could not inspect the test dialog", exception);

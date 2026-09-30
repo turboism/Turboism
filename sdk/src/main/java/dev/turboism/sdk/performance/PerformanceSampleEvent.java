@@ -1,7 +1,6 @@
 package dev.turboism.sdk.performance;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /**
@@ -11,10 +10,7 @@ import java.util.Objects;
  * publication is still pending. {@link #coalescedSamples()} reports how many
  * snapshots were replaced since the preceding delivered observation.</p>
  */
-public record PerformanceSampleEvent(
-    PerformanceSnapshot snapshot,
-    long coalescedSamples
-) implements TurboismEvent {
+public record PerformanceSampleEvent(PerformanceSnapshot snapshot, long coalescedSamples) implements TurboismEvent {
 
     public PerformanceSampleEvent {
         snapshot = Objects.requireNonNull(snapshot, "snapshot");

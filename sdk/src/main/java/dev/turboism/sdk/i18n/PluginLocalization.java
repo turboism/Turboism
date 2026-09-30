@@ -48,23 +48,28 @@ public interface PluginLocalization {
     enum Unavailable implements PluginLocalization {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Locale locale() {
+        @Override
+        public Locale locale() {
             throw unavailable();
         }
 
-        @Override public String text(final String key) {
+        @Override
+        public String text(final String key) {
             throw unavailable();
         }
 
-        @Override public String format(final String key, final Object... arguments) {
+        @Override
+        public String format(final String key, final Object... arguments) {
             throw unavailable();
         }
 
-        @Override public boolean contains(final String key) {
+        @Override
+        public boolean contains(final String key) {
             throw unavailable();
         }
 

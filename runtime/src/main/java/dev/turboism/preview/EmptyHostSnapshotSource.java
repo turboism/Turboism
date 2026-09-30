@@ -1,19 +1,14 @@
 package dev.turboism.preview;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-
 import java.util.List;
 import java.util.Optional;
 
 enum EmptyHostSnapshotSource implements HostSnapshotSource {
     INSTANCE;
 
-    private static final HostSelection EMPTY_SELECTION = new HostSelection(
-        List.of(),
-        Optional.empty(),
-        Optional.empty(),
-        Optional.empty()
-    );
+    private static final HostSelection EMPTY_SELECTION =
+            new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
 
     @Override
     public Optional<HostProject> activeProject() {

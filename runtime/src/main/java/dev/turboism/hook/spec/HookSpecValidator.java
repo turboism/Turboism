@@ -3,7 +3,6 @@ package dev.turboism.hook.spec;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -14,9 +13,15 @@ import java.util.Set;
 public final class HookSpecValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "id", "phase", "kind", "required", "requiresMapping", "requiresCubismFacade", "requiresTransaction",
-        "description", "owners"
-    );
+            "id",
+            "phase",
+            "kind",
+            "required",
+            "requiresMapping",
+            "requiresCubismFacade",
+            "requiresTransaction",
+            "description",
+            "owners");
     private static final Set<String> ALLOWED_PHASES = Set.of("BEFORE", "AFTER", "REPLACE", "AROUND");
     private static final Set<String> ALLOWED_KINDS = Set.of("observing", "augmenting", "bridging", "patching");
 
@@ -43,21 +48,37 @@ public final class HookSpecValidator extends AbstractJsonValidator {
             }
         }
 
-        if (node.has("phase") && !node.get("phase").isNull() && !ALLOWED_PHASES.contains(node.get("phase").asText(""))) {
+        if (node.has("phase")
+                && !node.get("phase").isNull()
+                && !ALLOWED_PHASES.contains(node.get("phase").asText(""))) {
             errors.add(error("HOOK_SPEC_BAD_PHASE", "phase must be one of " + ALLOWED_PHASES, "phase", source));
         }
 
-        if (node.has("kind") && !node.get("kind").isNull() && !ALLOWED_KINDS.contains(node.get("kind").asText(""))) {
+        if (node.has("kind")
+                && !node.get("kind").isNull()
+                && !ALLOWED_KINDS.contains(node.get("kind").asText(""))) {
             errors.add(error("HOOK_SPEC_BAD_KIND", "kind must be one of " + ALLOWED_KINDS, "kind", source));
         }
 
         boolean required = node.has("required") && node.get("required").asBoolean(false);
         if (required) {
-            if (!node.has("description") || !node.get("description").isTextual() || node.get("description").asText().isBlank()) {
-                errors.add(error("HOOK_SPEC_REQUIRED_MISSING_META", "Required hooks must have a description", "description", source));
+            if (!node.has("description")
+                    || !node.get("description").isTextual()
+                    || node.get("description").asText().isBlank()) {
+                errors.add(error(
+                        "HOOK_SPEC_REQUIRED_MISSING_META",
+                        "Required hooks must have a description",
+                        "description",
+                        source));
             }
-            if (!node.has("owners") || !node.get("owners").isArray() || node.get("owners").size() == 0) {
-                errors.add(error("HOOK_SPEC_REQUIRED_MISSING_META", "Required hooks must have at least one owner", "owners", source));
+            if (!node.has("owners")
+                    || !node.get("owners").isArray()
+                    || node.get("owners").size() == 0) {
+                errors.add(error(
+                        "HOOK_SPEC_REQUIRED_MISSING_META",
+                        "Required hooks must have at least one owner",
+                        "owners",
+                        source));
             }
         }
 

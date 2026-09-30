@@ -1,12 +1,11 @@
 package dev.turboism.sdk.cubism.command;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class EditorCommandCatalogTest {
     @Test
@@ -21,9 +20,12 @@ class EditorCommandCatalogTest {
         assertTrue(Set.of(EditorCommand.values()).contains(EditorCommand.OPEN_LOG_FILE));
         assertTrue(EditorCommand.SHOW_FULL_SCENE.supports("5.3.02"));
         assertFalse(EditorCommand.SHOW_FULL_SCENE.supports("5.2.03"));
-        assertFalse(java.util.Arrays.stream(EditorCommand.values()).anyMatch(command -> command.name().equals("EXIT")));
-        assertFalse(java.util.Arrays.stream(EditorCommand.values()).anyMatch(command -> command.name().equals("CLOSE_ALL")));
-        assertFalse(java.util.Arrays.stream(EditorCommand.values()).anyMatch(command -> command.name().contains("LICENSE")));
+        assertFalse(java.util.Arrays.stream(EditorCommand.values())
+                .anyMatch(command -> command.name().equals("EXIT")));
+        assertFalse(java.util.Arrays.stream(EditorCommand.values())
+                .anyMatch(command -> command.name().equals("CLOSE_ALL")));
+        assertFalse(java.util.Arrays.stream(EditorCommand.values())
+                .anyMatch(command -> command.name().contains("LICENSE")));
     }
 
     @Test
@@ -39,8 +41,7 @@ class EditorCommandCatalogTest {
         EditorCommandService service = EditorCommandService.unavailable();
         assertTrue(service.available().isEmpty());
         assertEquals(
-            EditorCommandResult.Status.UNAVAILABLE,
-            service.execute(EditorCommand.NEXT_FRAME).status()
-        );
+                EditorCommandResult.Status.UNAVAILABLE,
+                service.execute(EditorCommand.NEXT_FRAME).status());
     }
 }

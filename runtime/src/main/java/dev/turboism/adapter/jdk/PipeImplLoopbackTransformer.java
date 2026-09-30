@@ -1,13 +1,12 @@
 package dev.turboism.adapter.jdk;
 
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.util.Objects;
 
 /**
  * In-memory JDK compatibility transform for {@code sun.nio.ch.PipeImpl}:
@@ -35,106 +34,95 @@ final class PipeImplLoopbackTransformer {
 
         final ClassReader reader = new ClassReader(original);
         final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access,
-                    name,
-                    descriptor,
-                    signature,
-                    exceptions
-                );
-                if (!name.equals(CLINIT) || !descriptor.equals("()V")) {
-                    return delegate;
-                }
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
-                    private boolean flagInjected = false;
-
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitCode() {
-                        super.visitCode();
-                        if (!flagInjected) {
-                            flagInjected = true;
-                            // noUnixDomainSockets = true; before any other
-                            // <clinit> work, so createListener() always takes
-                            // the AF_INET loopback branch.
-                            super.visitInsn(Opcodes.ICONST_1);
-                            super.visitFieldInsn(
-                                Opcodes.PUTSTATIC,
-                                TARGET_OWNER,
-                                FIELD_NAME,
-                                FIELD_DESCRIPTOR
-                            );
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (!name.equals(CLINIT) || !descriptor.equals("()V")) {
+                            return delegate;
                         }
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            private boolean flagInjected = false;
+
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                if (!flagInjected) {
+                                    flagInjected = true;
+                                    // noUnixDomainSockets = true; before any other
+                                    // <clinit> work, so createListener() always takes
+                                    // the AF_INET loopback branch.
+                                    super.visitInsn(Opcodes.ICONST_1);
+                                    super.visitFieldInsn(Opcodes.PUTSTATIC, TARGET_OWNER, FIELD_NAME, FIELD_DESCRIPTOR);
+                                }
+                            }
+                        };
                     }
-                };
-            }
-        }, 0);
+                },
+                0);
         return writer.toByteArray();
     }
 
     private static Shape inspect(final byte[] original) {
         final Shape shape = new Shape();
-        new ClassReader(original).accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override
-            public void visit(
-                final int version,
-                final int access,
-                final String name,
-                final String signature,
-                final String superName,
-                final String[] interfaces
-            ) {
-                if (TARGET_OWNER.equals(name)) {
-                    shape.ownerMatches++;
-                }
-            }
+        new ClassReader(original)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visit(
+                                    final int version,
+                                    final int access,
+                                    final String name,
+                                    final String signature,
+                                    final String superName,
+                                    final String[] interfaces) {
+                                if (TARGET_OWNER.equals(name)) {
+                                    shape.ownerMatches++;
+                                }
+                            }
 
-            @Override
-            public FieldVisitor visitField(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final Object value
-            ) {
-                if (FIELD_NAME.equals(name) && FIELD_DESCRIPTOR.equals(descriptor)) {
-                    shape.flagFields++;
-                }
-                return null;
-            }
+                            @Override
+                            public FieldVisitor visitField(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final Object value) {
+                                if (FIELD_NAME.equals(name) && FIELD_DESCRIPTOR.equals(descriptor)) {
+                                    shape.flagFields++;
+                                }
+                                return null;
+                            }
 
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                if (CLINIT.equals(name) && "()V".equals(descriptor)) {
-                    shape.clinits++;
-                }
-                return null;
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (CLINIT.equals(name) && "()V".equals(descriptor)) {
+                                    shape.clinits++;
+                                }
+                                return null;
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return shape;
     }
 
     private static void requireExactShape(final Shape shape) {
         if (shape.ownerMatches != 1 || shape.flagFields != 1 || shape.clinits != 1) {
-            throw new TransformationRejectedException(
-                "PipeImpl shape mismatch: owner=" + shape.ownerMatches
+            throw new TransformationRejectedException("PipeImpl shape mismatch: owner=" + shape.ownerMatches
                     + ", noUnixDomainSockets(Z)=" + shape.flagFields
-                    + ", <clinit>=" + shape.clinits
-            );
+                    + ", <clinit>=" + shape.clinits);
         }
     }
 

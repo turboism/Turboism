@@ -27,7 +27,7 @@ public final class RedundantStateElisionTarget {
     /** The bundled JOGL implementation owning the tracked setters. */
     public static final String OWNER = "jogamp/opengl/gl4/GL4bcImpl";
 
-    private RedundantStateElisionTarget() { }
+    private RedundantStateElisionTarget() {}
 
     /**
      * Tracked elision-capable methods. Site ids are stable and reported as
@@ -36,39 +36,55 @@ public final class RedundantStateElisionTarget {
      * fall through to {@link #invalidates(String)}.
      */
     public static final Map<String, Integer> SITES = Map.ofEntries(
-        Map.entry("glUseProgram(I)V", 0),
-        Map.entry("glEnable(I)V", 1),
-        Map.entry("glDisable(I)V", 2),
-        Map.entry("glBlendFunc(II)V", 3),
-        Map.entry("glBlendFuncSeparate(IIII)V", 4),
-        Map.entry("glBlendEquation(I)V", 5),
-        Map.entry("glBlendEquationSeparate(II)V", 6),
-        Map.entry("glCullFace(I)V", 7),
-        Map.entry("glFrontFace(I)V", 8),
-        Map.entry("glDepthMask(Z)V", 9),
-        Map.entry("glDepthFunc(I)V", 10),
-        Map.entry("glColorMask(ZZZZ)V", 11),
-        Map.entry("glStencilFunc(III)V", 12),
-        Map.entry("glStencilOp(III)V", 13),
-        Map.entry("glStencilMask(I)V", 14),
-        Map.entry("glActiveTexture(I)V", 15),
-        Map.entry("glBindTexture(II)V", 16),
-        Map.entry("glBindSampler(II)V", 17),
-        Map.entry("glEnableVertexAttribArray(I)V", 18),
-        Map.entry("glDisableVertexAttribArray(I)V", 19),
-        Map.entry("glBindBuffer(II)V", 20));
+            Map.entry("glUseProgram(I)V", 0),
+            Map.entry("glEnable(I)V", 1),
+            Map.entry("glDisable(I)V", 2),
+            Map.entry("glBlendFunc(II)V", 3),
+            Map.entry("glBlendFuncSeparate(IIII)V", 4),
+            Map.entry("glBlendEquation(I)V", 5),
+            Map.entry("glBlendEquationSeparate(II)V", 6),
+            Map.entry("glCullFace(I)V", 7),
+            Map.entry("glFrontFace(I)V", 8),
+            Map.entry("glDepthMask(Z)V", 9),
+            Map.entry("glDepthFunc(I)V", 10),
+            Map.entry("glColorMask(ZZZZ)V", 11),
+            Map.entry("glStencilFunc(III)V", 12),
+            Map.entry("glStencilOp(III)V", 13),
+            Map.entry("glStencilMask(I)V", 14),
+            Map.entry("glActiveTexture(I)V", 15),
+            Map.entry("glBindTexture(II)V", 16),
+            Map.entry("glBindSampler(II)V", 17),
+            Map.entry("glEnableVertexAttribArray(I)V", 18),
+            Map.entry("glDisableVertexAttribArray(I)V", 19),
+            Map.entry("glBindBuffer(II)V", 20));
 
     /** Human-readable stat prefix per tracked site id. */
     public static final String[] SITE_NAMES = {
-        "useProgram", "enable", "disable", "blendFunc", "blendFuncSeparate",
-        "blendEquation", "blendEquationSeparate", "cullFace", "frontFace",
-        "depthMask", "depthFunc", "colorMask", "stencilFunc", "stencilOp",
-        "stencilMask", "activeTexture", "bindTexture", "bindSampler",
-        "enableVertexAttribArray", "disableVertexAttribArray", "bindBuffer"};
+        "useProgram",
+        "enable",
+        "disable",
+        "blendFunc",
+        "blendFuncSeparate",
+        "blendEquation",
+        "blendEquationSeparate",
+        "cullFace",
+        "frontFace",
+        "depthMask",
+        "depthFunc",
+        "colorMask",
+        "stencilFunc",
+        "stencilOp",
+        "stencilMask",
+        "activeTexture",
+        "bindTexture",
+        "bindSampler",
+        "enableVertexAttribArray",
+        "disableVertexAttribArray",
+        "bindBuffer"
+    };
 
     /** Per-site int argument count, in declared order. */
-    public static final int[] SITE_ARITY = {
-        1, 1, 1, 2, 4, 1, 2, 1, 1, 1, 1, 4, 3, 3, 1, 1, 2, 2, 1, 1, 2};
+    public static final int[] SITE_ARITY = {1, 1, 1, 2, 4, 1, 2, 1, 1, 1, 1, 4, 3, 3, 1, 1, 2, 2, 1, 1, 2};
 
     /** First invalidator site id; invalidators report as {@code <name>Invalidations}. */
     public static final int INVALIDATOR_BASE = 1000;
@@ -92,40 +108,73 @@ public final class RedundantStateElisionTarget {
     }
 
     private static final String[] TRACKED_PREFIXES = {
-        "glUseProgram", "glEnable", "glDisable", "glBlendFunc", "glBlendEquation",
-        "glCullFace", "glFrontFace", "glDepthMask", "glDepthFunc", "glColorMask",
-        "glStencilFunc", "glStencilOp", "glStencilMask", "glActiveTexture",
-        "glBindTexture", "glBindSampler", "glEnableVertexAttrib",
-        "glDisableVertexAttrib", "glBindBuffer"};
+        "glUseProgram",
+        "glEnable",
+        "glDisable",
+        "glBlendFunc",
+        "glBlendEquation",
+        "glCullFace",
+        "glFrontFace",
+        "glDepthMask",
+        "glDepthFunc",
+        "glColorMask",
+        "glStencilFunc",
+        "glStencilOp",
+        "glStencilMask",
+        "glActiveTexture",
+        "glBindTexture",
+        "glBindSampler",
+        "glEnableVertexAttrib",
+        "glDisableVertexAttrib",
+        "glBindBuffer"
+    };
 
     private static final String[] INVALIDATOR_PREFIXES = {
         // Object deletion: names can be reused by a shared-group context.
         "glDelete",
         // Push/pop restores enables wholesale; matrix/name/debug variants are
         // harmless extra clears and keep the rule simple.
-        "glPush", "glPop",
+        "glPush",
+        "glPop",
         // VAO captures vertex-attrib enables and the element binding.
-        "glBindVertexArray", "glBindVertexBuffer", "glVertexArray",
+        "glBindVertexArray",
+        "glBindVertexBuffer",
+        "glVertexArray",
         // Framebuffer/renderbuffer binding is per-context; cleared defensively.
-        "glBindFramebuffer", "glBindRenderbuffer",
+        "glBindFramebuffer",
+        "glBindRenderbuffer",
         // Program lifecycle and alternate program-binding entry points.
-        "glLinkProgram", "glBindProgram", "glActiveShaderProgram",
-        "glBindFragDataLocation", "glBindVertexShader", "glBindFragmentShader",
+        "glLinkProgram",
+        "glBindProgram",
+        "glActiveShaderProgram",
+        "glBindFragDataLocation",
+        "glBindVertexShader",
+        "glBindFragmentShader",
         "glProgramBinary",
         // Indexed enable variants not caught by the glEnable/glDisable prefixes
         // would be impossible (they share them); keep the list honest anyway.
-        "glEnableVertexArray", "glDisableVertexArray",
+        "glEnableVertexArray",
+        "glDisableVertexArray",
         // Texture/sampler binding variants outside the tracked prefixes.
-        "glBindMultiTexture", "glBindImageTexture",
-        "glClientActiveTexture", "glActiveStencilFace",
+        "glBindMultiTexture",
+        "glBindImageTexture",
+        "glClientActiveTexture",
+        "glActiveStencilFace",
         // Miscellaneous domain writes the host could plausibly emit.
-        "glCullParameter", "glBindTransformFeedback", "glBindVideoCapture",
+        "glCullParameter",
+        "glBindTransformFeedback",
+        "glBindVideoCapture",
         // Display lists and NV command lists replay captured state writes.
-        "glNewList", "glEndList", "glCallList", "glGenLists",
-        "glDrawCommandsStates", "glCallCommandList",
-        "glListDrawCommandsStatesClient"};
+        "glNewList",
+        "glEndList",
+        "glCallList",
+        "glGenLists",
+        "glDrawCommandsStates",
+        "glCallCommandList",
+        "glListDrawCommandsStatesClient"
+    };
 
     private static final java.util.Set<String> INVALIDATOR_EXACT = java.util.Set.of(
-        "glClientAttribDefaultEXT", "glClientAttribDefaultNV",
-        "glEnableVariantClientStateEXT", "glDisableVariantClientStateEXT");
+            "glClientAttribDefaultEXT", "glClientAttribDefaultNV",
+            "glEnableVariantClientStateEXT", "glDisableVariantClientStateEXT");
 }

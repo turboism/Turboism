@@ -25,43 +25,61 @@ class VerifiedMatrixScratchInstallerTest {
     private static final String GATE = MatrixScratchTransformer.ADMISSION_PROPERTY;
     private final Object previousGate = System.getProperties().get(GATE);
 
-    @AfterEach void restore() {
+    @AfterEach
+    void restore() {
         if (previousGate == null) System.getProperties().remove(GATE);
         else System.getProperties().put(GATE, previousGate);
     }
 
-    @Test void admissionNeedsRequestPolicyJvmAndABoundReviewedContract() {
+    @Test
+    void admissionNeedsRequestPolicyJvmAndABoundReviewedContract() {
         var normal = new RuntimeStartupConfig(false, false, false, false);
         Path missing = Path.of("missing-cubism-host.jar");
         assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, false, 17));
         assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 16));
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing,
-            new RuntimeStartupConfig(true, false, false, false), true, 17));
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing,
-            new RuntimeStartupConfig(false, false, false, false, false, false, false,
-                Set.of(VerifiedMatrixScratchInstaller.HOOK_ID)), true, 17));
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 17),
-            "an artifact without a reviewed matrix contract must not admit");
-        assertFalse(VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 25),
-            "newer JVM still requires the reviewed target contract");
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(
+                missing, new RuntimeStartupConfig(true, false, false, false), true, 17));
+        assertFalse(VerifiedMatrixScratchInstaller.admitted(
+                missing,
+                new RuntimeStartupConfig(
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        Set.of(VerifiedMatrixScratchInstaller.HOOK_ID)),
+                true,
+                17));
+        assertFalse(
+                VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 17),
+                "an artifact without a reviewed matrix contract must not admit");
+        assertFalse(
+                VerifiedMatrixScratchInstaller.admitted(missing, normal, true, 25),
+                "newer JVM still requires the reviewed target contract");
     }
 
-    @Test void admitsRequestedArtifactWhoseMatrixClassesMatchAReviewedContract() {
+    @Test
+    void admitsRequestedArtifactWhoseMatrixClassesMatchAReviewedContract() {
         String supplied = System.getenv("TURBOISM_UNIFORM_HOST_JAR");
-        assumeTrue(supplied != null && !supplied.isBlank()
-            && Files.isRegularFile(Path.of(supplied)),
-            "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
+        assumeTrue(
+                supplied != null && !supplied.isBlank() && Files.isRegularFile(Path.of(supplied)),
+                "no TURBOISM_UNIFORM_HOST_JAR evidence supplied");
         assertTrue(VerifiedMatrixScratchInstaller.admitted(
-            Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
+                Path.of(supplied), new RuntimeStartupConfig(false, false, false, false), true, 17));
     }
 
-    @Test void startupFailureAndShutdownOwnTheMatrixInstallation() throws Exception {
+    @Test
+    void startupFailureAndShutdownOwnTheMatrixInstallation() throws Exception {
         NativeOptimizationStartupOrder.assertBeforeRuntime();
     }
 
-    @Test void armsOnlyAfterTransformAndRestoresBeforeRemovingOwnedGate() throws Exception {
+    @Test
+    void armsOnlyAfterTransformAndRestoresBeforeRemovingOwnedGate() throws Exception {
         System.getProperties().remove(GATE);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             assertFalse(System.getProperties().containsKey(GATE));
             installer.install();
             AtomicBoolean gate = (AtomicBoolean) System.getProperties().get(GATE);
@@ -79,9 +97,11 @@ class VerifiedMatrixScratchInstallerTest {
         }
     }
 
-    @Test void transformationFailureDisarmsAndRollsBack() throws Exception {
+    @Test
+    void transformationFailureDisarmsAndRollsBack() throws Exception {
         System.getProperties().remove(GATE);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             f.failTransform = true;
             assertThrows(Exception.class, installer::install);
             assertTrue(f.active.isEmpty());
@@ -90,10 +110,12 @@ class VerifiedMatrixScratchInstallerTest {
         }
     }
 
-    @Test void occupiedAdmissionIsPreservedAndNeverReused() throws Exception {
+    @Test
+    void occupiedAdmissionIsPreservedAndNeverReused() throws Exception {
         AtomicBoolean foreign = new AtomicBoolean(true);
         System.getProperties().put(GATE, foreign);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             assertThrows(IllegalStateException.class, installer::install);
             assertSame(foreign, System.getProperties().get(GATE));
             assertTrue(foreign.get());
@@ -101,20 +123,24 @@ class VerifiedMatrixScratchInstallerTest {
         }
     }
 
-    @Test void changedNativeMathCannotBeAdmitted() throws Exception {
+    @Test
+    void changedNativeMathCannotBeAdmitted() throws Exception {
         System.getProperties().remove(GATE);
         try (Fixture f = fixture()) {
             f.changeMatrixBody = true;
-            assertThrows(IllegalStateException.class,
-                () -> new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader));
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader));
             assertTrue(f.active.isEmpty());
             assertFalse(System.getProperties().containsKey(GATE));
         }
     }
 
-    @Test void dependencyChangeBetweenPreparationAndInstallIsRejected() throws Exception {
+    @Test
+    void dependencyChangeBetweenPreparationAndInstallIsRejected() throws Exception {
         System.getProperties().remove(GATE);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             f.changeMatrixBody = true;
             assertThrows(IllegalStateException.class, installer::install);
             assertTrue(f.active.isEmpty());
@@ -122,9 +148,11 @@ class VerifiedMatrixScratchInstallerTest {
         }
     }
 
-    @Test void laterObservedMathChangeRetiresReuseWithoutRewritingTheDependency() throws Exception {
+    @Test
+    void laterObservedMathChangeRetiresReuseWithoutRewritingTheDependency() throws Exception {
         System.getProperties().remove(GATE);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             installer.install();
             var gate = (AtomicBoolean) System.getProperties().get(GATE);
             assertTrue(gate.get());
@@ -137,9 +165,11 @@ class VerifiedMatrixScratchInstallerTest {
         }
     }
 
-    @Test void failedRemovalCannotBeReportedAsRestoredAndCanBeRetried() throws Exception {
+    @Test
+    void failedRemovalCannotBeReportedAsRestoredAndCanBeRetried() throws Exception {
         System.getProperties().remove(GATE);
-        try (Fixture f = fixture(); var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
+        try (Fixture f = fixture();
+                var installer = new VerifiedMatrixScratchInstaller(f.instrumentation, f.artifact, f.loader)) {
             installer.install();
             var gate = (AtomicBoolean) System.getProperties().get(GATE);
             f.failRemoval = true;
@@ -172,47 +202,68 @@ class VerifiedMatrixScratchInstallerTest {
             this.artifact = artifact;
             List<URL> urls = new ArrayList<>();
             try (var paths = Files.walk(artifact.getParent(), 3)) {
-                for (Path path : paths.filter(p -> p.toString().endsWith(".jar")).toList()) urls.add(path.toUri().toURL());
+                for (Path path :
+                        paths.filter(p -> p.toString().endsWith(".jar")).toList())
+                    urls.add(path.toUri().toURL());
             }
             loader = new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader());
-            instrumentation = (Instrumentation) Proxy.newProxyInstance(getClass().getClassLoader(),
-                new Class<?>[] {Instrumentation.class}, (proxy, method, args) -> switch (method.getName()) {
-                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
-                    case "addTransformer" -> { active.add((ClassFileTransformer) args[0]); yield null; }
-                    case "removeTransformer" -> {
-                        if (failRemoval && args[0] instanceof MatrixScratchTransformer) yield false;
-                        yield active.remove(args[0]);
-                    }
-                    case "retransformClasses" -> {
-                        boolean installing = active.stream().anyMatch(t -> t instanceof MatrixScratchTransformer);
-                        Object entry = System.getProperties().get(GATE);
-                        if (installing) {
-                            installObservedDisarmed = entry instanceof AtomicBoolean gate && !gate.get();
-                            observedInstallation = true;
-                            if (failTransform) { failTransform = false; throw new UnmodifiableClassException("injected failure"); }
-                        } else if (observedInstallation) {
-                            restoreObservedDisarmed = !(entry instanceof AtomicBoolean gate) || !gate.get();
+            instrumentation = (Instrumentation) Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] {Instrumentation.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                        case "addTransformer" -> {
+                            active.add((ClassFileTransformer) args[0]);
+                            yield null;
                         }
-                        for (Class<?> type : (Class<?>[]) args[0]) {
-                            byte[] bytes;
-                            try (var input = type.getResourceAsStream("/" + type.getName().replace('.', '/') + ".class")) {
-                                bytes = input.readAllBytes();
-                            }
-                            if (changeMatrixBody && type.getName().equals(MatrixScratchTransformer.MATRIX.replace('/', '.'))) {
-                                bytes = changeMatrix(bytes);
-                            }
-                            for (ClassFileTransformer transformer : List.copyOf(active)) {
-                                byte[] next = transformer.transform(type.getModule(), type.getClassLoader(),
-                                    type.getName().replace('.', '/'), type, type.getProtectionDomain(), bytes);
-                                if (next != null) bytes = next;
-                            }
+                        case "removeTransformer" -> {
+                            if (failRemoval && args[0] instanceof MatrixScratchTransformer) yield false;
+                            yield active.remove(args[0]);
                         }
-                        yield null;
-                    }
-                    default -> throw new UnsupportedOperationException(method.getName());
-                });
+                        case "retransformClasses" -> {
+                            boolean installing = active.stream().anyMatch(t -> t instanceof MatrixScratchTransformer);
+                            Object entry = System.getProperties().get(GATE);
+                            if (installing) {
+                                installObservedDisarmed = entry instanceof AtomicBoolean gate && !gate.get();
+                                observedInstallation = true;
+                                if (failTransform) {
+                                    failTransform = false;
+                                    throw new UnmodifiableClassException("injected failure");
+                                }
+                            } else if (observedInstallation) {
+                                restoreObservedDisarmed = !(entry instanceof AtomicBoolean gate) || !gate.get();
+                            }
+                            for (Class<?> type : (Class<?>[]) args[0]) {
+                                byte[] bytes;
+                                try (var input = type.getResourceAsStream(
+                                        "/" + type.getName().replace('.', '/') + ".class")) {
+                                    bytes = input.readAllBytes();
+                                }
+                                if (changeMatrixBody
+                                        && type.getName().equals(MatrixScratchTransformer.MATRIX.replace('/', '.'))) {
+                                    bytes = changeMatrix(bytes);
+                                }
+                                for (ClassFileTransformer transformer : List.copyOf(active)) {
+                                    byte[] next = transformer.transform(
+                                            type.getModule(),
+                                            type.getClassLoader(),
+                                            type.getName().replace('.', '/'),
+                                            type,
+                                            type.getProtectionDomain(),
+                                            bytes);
+                                    if (next != null) bytes = next;
+                                }
+                            }
+                            yield null;
+                        }
+                        default -> throw new UnsupportedOperationException(method.getName());
+                    });
         }
-        @Override public void close() throws Exception { loader.close(); }
+
+        @Override
+        public void close() throws Exception {
+            loader.close();
+        }
     }
 
     /** One schema-preserving instruction mutation in the trusted test reference, without ASM outside runtime. */
@@ -220,7 +271,8 @@ class VerifiedMatrixScratchInstallerTest {
         byte[] changed = original.clone();
         var in = java.nio.ByteBuffer.wrap(changed);
         assertEquals(0xcafebabe, in.getInt());
-        in.getShort(); in.getShort();
+        in.getShort();
+        in.getShort();
         String[] utf = new String[Short.toUnsignedInt(in.getShort())];
         for (int index = 1; index < utf.length; index++) {
             int tag = Byte.toUnsignedInt(in.get());
@@ -231,7 +283,10 @@ class VerifiedMatrixScratchInstallerTest {
                     utf[index] = new String(text, java.nio.charset.StandardCharsets.UTF_8);
                 }
                 case 3, 4, 9, 10, 11, 12, 17, 18 -> in.position(in.position() + 4);
-                case 5, 6 -> { in.position(in.position() + 8); index++; }
+                case 5, 6 -> {
+                    in.position(in.position() + 8);
+                    index++;
+                }
                 case 7, 8, 16, 19, 20 -> in.position(in.position() + 2);
                 case 15 -> in.position(in.position() + 3);
                 default -> throw new AssertionError("unexpected constant-pool tag: " + tag);

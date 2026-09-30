@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -21,16 +20,14 @@ import java.util.function.Consumer;
 
 /** Small bounded, symlink-rejecting atomic-file helper for update state. */
 final class UpdateFileSupport {
-    static final ObjectMapper JSON = new ObjectMapper(
-        JsonFactory.builder()
-            .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .build()
-    ).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final long MAX_FILE_BYTES = 1024L * 1024L;
     private static final Map<Path, Object> LOCKS = new ConcurrentHashMap<>();
 
-    private UpdateFileSupport() {
-    }
+    private UpdateFileSupport() {}
 
     static Path normalizeHome(final Path requestedHome) {
         return Objects.requireNonNull(requestedHome, "home").toAbsolutePath().normalize();
@@ -43,8 +40,7 @@ final class UpdateFileSupport {
     static ObjectNode readObject(final Path home, final Path path) throws IOException {
         rejectSymlinkChain(home, path);
         if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return null;
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-            || Files.size(path) > MAX_FILE_BYTES) {
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path) > MAX_FILE_BYTES) {
             throw new IOException("update state file rejected");
         }
         final byte[] bytes = Files.readAllBytes(path);
@@ -54,11 +50,7 @@ final class UpdateFileSupport {
         return object;
     }
 
-    static void writeAtomic(
-        final Path home,
-        final Path path,
-        final ObjectNode object
-    ) throws IOException {
+    static void writeAtomic(final Path home, final Path path, final ObjectNode object) throws IOException {
         Objects.requireNonNull(object, "object");
         final Path parent = path.getParent();
         if (parent == null || !path.startsWith(home)) throw new IOException("update path escaped home");
@@ -99,8 +91,7 @@ final class UpdateFileSupport {
         if (current == null || !current.equals(normalizedHome)) {
             throw new IOException("update path escaped home");
         }
-        if (Files.exists(normalizedHome, LinkOption.NOFOLLOW_LINKS)
-            && Files.isSymbolicLink(normalizedHome)) {
+        if (Files.exists(normalizedHome, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(normalizedHome)) {
             throw new IOException("update home is symbolic link");
         }
     }

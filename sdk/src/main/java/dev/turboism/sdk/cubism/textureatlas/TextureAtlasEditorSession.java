@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.Optional;
 
 /**

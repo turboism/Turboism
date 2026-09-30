@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /**
  * Evaluated auto-Yure configuration of one parameter binding on one Warp Deformer.
  *

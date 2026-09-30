@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
-import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
@@ -16,7 +16,6 @@ import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
 import dev.turboism.sdk.cubism.core.OwnedParameter;
 import dev.turboism.sdk.cubism.core.OwnedPart;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -46,11 +45,10 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
     private final int mocByteQuota;
 
     private OwnedMocRuntime(
-        final CorePublicApiProvider provider,
-        final CoreCallSiteTable callSites,
-        final Runnable freshness,
-        final int mocByteQuota
-    ) {
+            final CorePublicApiProvider provider,
+            final CoreCallSiteTable callSites,
+            final Runnable freshness,
+            final int mocByteQuota) {
         this.provider = Objects.requireNonNull(provider, "provider");
         this.callSites = Objects.requireNonNull(callSites, "callSites");
         this.freshness = Objects.requireNonNull(freshness, "freshness");
@@ -61,53 +59,36 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
     }
 
     static CoreProviderResult<OwnedMocRuntime> admit(
-        final CorePublicApiProvider provider,
-        final VerifiedMemberResolver resolver,
-        final Runnable freshness,
-        final int mocByteQuota
-    ) {
+            final CorePublicApiProvider provider,
+            final VerifiedMemberResolver resolver,
+            final Runnable freshness,
+            final int mocByteQuota) {
         Objects.requireNonNull(provider, "provider");
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(freshness, "freshness");
         if (!provider.available()) {
-            return failed(
-                CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-                "Core public API provider is unavailable."
-            );
+            return failed(CoreProviderFailure.Code.ADAPTER_UNAVAILABLE, "Core public API provider is unavailable.");
         }
         if (!resolver.authorizesFeature(
-            OwnedMocSelectorContract.ADAPTER_SLICE_ID,
-            OwnedMocSelectorContract.CAPABILITY_ID,
-            OwnedMocSelectorContract.REQUIRED_ALIASES
-        )) {
+                OwnedMocSelectorContract.ADAPTER_SLICE_ID,
+                OwnedMocSelectorContract.CAPABILITY_ID,
+                OwnedMocSelectorContract.REQUIRED_ALIASES)) {
             return failed(
-                CoreProviderFailure.Code.EVIDENCE_REJECTED,
-                "Verified resolver does not authorize the owned-Moc selector contract."
-            );
+                    CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                    "Verified resolver does not authorize the owned-Moc selector contract.");
         }
         try {
-            final CoreCallSiteTable callSites = CoreCallSiteTable.bind(
-                resolver,
-                provider.artifactProfile()
-            );
-            return CoreProviderResult.success(new OwnedMocRuntime(
-                provider,
-                callSites,
-                freshness,
-                mocByteQuota
-            ));
+            final CoreCallSiteTable callSites = CoreCallSiteTable.bind(resolver, provider.artifactProfile());
+            return CoreProviderResult.success(new OwnedMocRuntime(provider, callSites, freshness, mocByteQuota));
         } catch (VerifiedAccessException exception) {
             return failed(
-                exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
-                    ? CoreProviderFailure.Code.RESOLUTION_FAILED
-                    : CoreProviderFailure.Code.INVOCATION_FAILED,
-                "Core owned-Moc call sites could not be bound safely."
-            );
+                    exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                            ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                            : CoreProviderFailure.Code.INVOCATION_FAILED,
+                    "Core owned-Moc call sites could not be bound safely.");
         } catch (RuntimeException exception) {
             return failed(
-                CoreProviderFailure.Code.RESOLUTION_FAILED,
-                "Core owned-Moc call-site admission failed safely."
-            );
+                    CoreProviderFailure.Code.RESOLUTION_FAILED, "Core owned-Moc call-site admission failed safely.");
         }
     }
 
@@ -115,29 +96,15 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
     public OwnedMoc load(final MocData data) {
         final MocData value = Objects.requireNonNull(data, "data");
         if (value.size() > mocByteQuota) {
-            throw new IllegalArgumentException(
-                "MOC data exceeds the configured byte quota of " + mocByteQuota + "."
-            );
+            throw new IllegalArgumentException("MOC data exceeds the configured byte quota of " + mocByteQuota + ".");
         }
         freshness.run();
         final byte[] bytes = value.toByteArray();
-        final MocVersion version = normalizeVersion(requireValue(
-            provider.mocVersion(bytes.clone()),
-            "Core MOC version"
-        ));
-        final boolean consistent = requireValue(
-            provider.hasMocConsistency(bytes.clone()),
-            "Core MOC consistency"
-        );
-        final Object rawMoc = requireValue(
-            provider.instantiateMoc(bytes.clone()),
-            "Core MOC instantiation"
-        );
-        return new OwnedMocImpl(
-            rawMoc,
-            version,
-            consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT
-        );
+        final MocVersion version =
+                normalizeVersion(requireValue(provider.mocVersion(bytes.clone()), "Core MOC version"));
+        final boolean consistent = requireValue(provider.hasMocConsistency(bytes.clone()), "Core MOC consistency");
+        final Object rawMoc = requireValue(provider.instantiateMoc(bytes.clone()), "Core MOC instantiation");
+        return new OwnedMocImpl(rawMoc, version, consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT);
     }
 
     private static MocVersion normalizeVersion(final int version) {
@@ -160,36 +127,25 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
      * sites; nothing here reaches the public SDK surface.
      */
     @Override
-    public void writeParameterValue(
-        final OwnedModel model,
-        final String parameterId,
-        final float value
-    ) {
+    public void writeParameterValue(final OwnedModel model, final String parameterId, final float value) {
         Objects.requireNonNull(parameterId, "parameterId");
         if (!Float.isFinite(value)) {
             throw new IllegalArgumentException("value must be finite");
         }
-        if (!(model instanceof OwnedModelImpl impl)
-            || impl.owner() != this) {
-            throw new IllegalStateException(
-                "Model is not owned by this runtime.");
+        if (!(model instanceof OwnedModelImpl impl) || impl.owner() != this) {
+            throw new IllegalStateException("Model is not owned by this runtime.");
         }
         impl.requireOpen();
         final Object parameters = requireObject(
-            callSites.invokeRaw(
-                CorePublicApiSelectorContract.MODEL_GET_PARAMETERS, impl.rawModel),
-            "Core parameters are unavailable.");
-        final Object idsValue = callSites.invokeRaw(
-            CorePublicApiSelectorContract.PARAMETERS_GET_IDS, parameters);
+                callSites.invokeRaw(CorePublicApiSelectorContract.MODEL_GET_PARAMETERS, impl.rawModel),
+                "Core parameters are unavailable.");
+        final Object idsValue = callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_IDS, parameters);
         if (!(idsValue instanceof String[] ids)) {
-            throw new IllegalStateException(
-                "Core parameter identifiers have an invalid representation.");
+            throw new IllegalStateException("Core parameter identifiers have an invalid representation.");
         }
-        final Object valuesValue = callSites.invokeRaw(
-            CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, parameters);
+        final Object valuesValue = callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, parameters);
         if (!(valuesValue instanceof float[] values) || values.length != ids.length) {
-            throw new IllegalStateException(
-                "Core parameter current values have an invalid representation.");
+            throw new IllegalStateException("Core parameter current values have an invalid representation.");
         }
         int index = -1;
         for (int i = 0; i < ids.length; i++) {
@@ -199,8 +155,7 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
             }
         }
         if (index < 0) {
-            throw new IllegalStateException(
-                "Core parameter is absent: " + parameterId);
+            throw new IllegalStateException("Core parameter is absent: " + parameterId);
         }
         values[index] = value;
     }
@@ -219,11 +174,7 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         private final MocConsistency consistency;
         private boolean closed;
 
-        private OwnedMocImpl(
-            final Object rawMoc,
-            final MocVersion version,
-            final MocConsistency consistency
-        ) {
+        private OwnedMocImpl(final Object rawMoc, final MocVersion version, final MocConsistency consistency) {
             this.rawMoc = Objects.requireNonNull(rawMoc, "rawMoc");
             this.version = Objects.requireNonNull(version, "version");
             this.consistency = Objects.requireNonNull(consistency, "consistency");
@@ -248,10 +199,8 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         @Override
         public OwnedModel instantiateModel() {
             requireOpen();
-            final Object rawModel = requireValue(
-                provider.instantiateOwnedModel(rawMoc),
-                "Core owned model instantiation"
-            );
+            final Object rawModel =
+                    requireValue(provider.instantiateOwnedModel(rawMoc), "Core owned model instantiation");
             return new OwnedModelImpl(rawModel);
         }
 
@@ -301,15 +250,14 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
             final List<OwnedParameter> values = new ArrayList<>();
             for (CoreParameterDefinition parameter : snapshot().parameters()) {
                 values.add(new OwnedParameter(
-                    parameter.id(),
-                    parameter.typeNumber(),
-                    parameter.minimumValue(),
-                    parameter.maximumValue(),
-                    parameter.defaultValue(),
-                    parameter.currentValue(),
-                    List.copyOf(parameter.keyValues()),
-                    parameter.repeat()
-                ));
+                        parameter.id(),
+                        parameter.typeNumber(),
+                        parameter.minimumValue(),
+                        parameter.maximumValue(),
+                        parameter.defaultValue(),
+                        parameter.currentValue(),
+                        List.copyOf(parameter.keyValues()),
+                        parameter.repeat()));
             }
             return List.copyOf(values);
         }
@@ -328,24 +276,23 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
             final List<OwnedDrawable> values = new ArrayList<>();
             for (CoreDrawableDefinition drawable : snapshot().drawables()) {
                 values.add(new OwnedDrawable(
-                    drawable.id(),
-                    drawable.constantFlag(),
-                    drawable.dynamicFlag(),
-                    drawable.blendMode(),
-                    drawable.textureIndex(),
-                    drawable.drawOrder(),
-                    drawable.renderOrder(),
-                    drawable.opacity(),
-                    List.copyOf(drawable.masks()),
-                    List.copyOf(drawable.vertexPositions()),
-                    List.copyOf(drawable.vertexUvs()),
-                    List.copyOf(drawable.indices()),
-                    drawable.multiplyColor(),
-                    drawable.screenColor(),
-                    drawable.parentPartIndex(),
-                    drawable.parentDeformerIndex(),
-                    List.copyOf(drawable.parameters())
-                ));
+                        drawable.id(),
+                        drawable.constantFlag(),
+                        drawable.dynamicFlag(),
+                        drawable.blendMode(),
+                        drawable.textureIndex(),
+                        drawable.drawOrder(),
+                        drawable.renderOrder(),
+                        drawable.opacity(),
+                        List.copyOf(drawable.masks()),
+                        List.copyOf(drawable.vertexPositions()),
+                        List.copyOf(drawable.vertexUvs()),
+                        List.copyOf(drawable.indices()),
+                        drawable.multiplyColor(),
+                        drawable.screenColor(),
+                        drawable.parentPartIndex(),
+                        drawable.parentDeformerIndex(),
+                        List.copyOf(drawable.parameters())));
             }
             return List.copyOf(values);
         }
@@ -354,12 +301,8 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         public List<OwnedGlue> glues() {
             final List<OwnedGlue> values = new ArrayList<>();
             for (CoreGlueDefinition glue : snapshot().glues()) {
-                values.add(new OwnedGlue(
-                    glue.id(),
-                    glue.drawableA(),
-                    glue.drawableB(),
-                    List.copyOf(glue.parameters())
-                ));
+                values.add(
+                        new OwnedGlue(glue.id(), glue.drawableA(), glue.drawableB(), List.copyOf(glue.parameters())));
             }
             return List.copyOf(values);
         }
@@ -369,10 +312,7 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
             final List<OwnedDeformer> values = new ArrayList<>();
             for (CoreDeformerDefinition deformer : snapshot().deformers()) {
                 values.add(new OwnedDeformer(
-                    deformer.id(),
-                    deformer.parentDeformerIndex(),
-                    List.copyOf(deformer.parameters())
-                ));
+                        deformer.id(), deformer.parentDeformerIndex(), List.copyOf(deformer.parameters())));
             }
             return List.copyOf(values);
         }
@@ -395,17 +335,9 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         private CoreStructuralSnapshot snapshot() {
             requireOpen();
             try {
-                return callSites.project(
-                    rawModel,
-                    0L,
-                    "owned-moc",
-                    provider.providerId(),
-                    provider.artifactProfile()
-                );
+                return callSites.project(rawModel, 0L, "owned-moc", provider.providerId(), provider.artifactProfile());
             } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
-                throw new IllegalStateException(
-                    "Core owned model read failed safely: " + exception
-                );
+                throw new IllegalStateException("Core owned model read failed safely: " + exception);
             }
         }
 
@@ -418,34 +350,27 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
     private OwnedCanvasInfo toCanvas(final CoreCanvasSnapshot canvas) {
         return new OwnedCanvasInfo(
-            canvas.widthPixels(),
-            canvas.heightPixels(),
-            canvas.originXPixels(),
-            canvas.originYPixels(),
-            canvas.pixelsPerUnit()
-        );
+                canvas.widthPixels(),
+                canvas.heightPixels(),
+                canvas.originXPixels(),
+                canvas.originYPixels(),
+                canvas.pixelsPerUnit());
     }
 
-    private static <T> T requireValue(
-        final CoreProviderResult<T> result,
-        final String feature
-    ) {
-        final CoreProviderFailure failure = Objects.requireNonNull(result, "result")
-            .failure().orElse(null);
+    private static <T> T requireValue(final CoreProviderResult<T> result, final String feature) {
+        final CoreProviderFailure failure =
+                Objects.requireNonNull(result, "result").failure().orElse(null);
         if (failure == null) {
             return result.value().orElseThrow();
         }
         if (failure.code() == CoreProviderFailure.Code.ADAPTER_UNAVAILABLE
-            || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
+                || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
             throw new UnsupportedOperationException(feature + " is unavailable.");
         }
         throw new IllegalStateException(feature + " failed: " + failure.code());
     }
 
-    private static <T> CoreProviderResult<T> failed(
-        final CoreProviderFailure.Code code,
-        final String message
-    ) {
+    private static <T> CoreProviderResult<T> failed(final CoreProviderFailure.Code code, final String message) {
         return CoreProviderResult.failed(new CoreProviderFailure(code, message));
     }
 }

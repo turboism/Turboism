@@ -17,7 +17,6 @@ import dev.turboism.sdk.cubism.edit.PartObjectOps;
 import dev.turboism.sdk.cubism.edit.SelectionOps;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.DocumentId;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -46,8 +45,7 @@ final class RuntimeEditSession implements EditSession {
     private final EditSessionUiLock uiLock;
     private final HistorySnapshot historyBefore;
 
-    private final AtomicReference<EditSessionState> state =
-        new AtomicReference<>(EditSessionState.OPEN);
+    private final AtomicReference<EditSessionState> state = new AtomicReference<>(EditSessionState.OPEN);
     private volatile CancelSource cancelSource;
 
     private final ParameterKeyOps parameterKeys;
@@ -57,14 +55,13 @@ final class RuntimeEditSession implements EditSession {
     private final DeformerOps deformers;
 
     RuntimeEditSession(
-        final RuntimeEditSessionManager manager,
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object editToken,
-        final DocumentId document,
-        final EditSessionOptions options,
-        final EditSessionUiLock uiLock,
-        final HistorySnapshot historyBefore
-    ) {
+            final RuntimeEditSessionManager manager,
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final Object editToken,
+            final DocumentId document,
+            final EditSessionOptions options,
+            final EditSessionUiLock uiLock,
+            final HistorySnapshot historyBefore) {
         this.manager = Objects.requireNonNull(manager, "manager");
         this.binding = Objects.requireNonNull(binding, "binding");
         this.editToken = Objects.requireNonNull(editToken, "editToken");
@@ -74,16 +71,12 @@ final class RuntimeEditSession implements EditSession {
         this.historyBefore = Objects.requireNonNull(historyBefore, "historyBefore");
         this.openResult = new EditSessionOpenResult(document, options);
         final EditSessionOps ops = new EditSessionOps(this);
-        this.parameterKeys =
-            SessionOpsGate.bind(ParameterKeyOps.class, new SessionParameterKeyOps(ops), this);
-        this.parameterStructure = SessionOpsGate.bind(
-            ParameterStructureOps.class, new SessionParameterStructureOps(ops), this);
-        this.selection =
-            SessionOpsGate.bind(SelectionOps.class, new SessionSelectionOps(ops), this);
-        this.partObjects =
-            SessionOpsGate.bind(PartObjectOps.class, new SessionPartObjectOps(ops), this);
-        this.deformers =
-            SessionOpsGate.bind(DeformerOps.class, new SessionDeformerOps(ops), this);
+        this.parameterKeys = SessionOpsGate.bind(ParameterKeyOps.class, new SessionParameterKeyOps(ops), this);
+        this.parameterStructure =
+                SessionOpsGate.bind(ParameterStructureOps.class, new SessionParameterStructureOps(ops), this);
+        this.selection = SessionOpsGate.bind(SelectionOps.class, new SessionSelectionOps(ops), this);
+        this.partObjects = SessionOpsGate.bind(PartObjectOps.class, new SessionPartObjectOps(ops), this);
+        this.deformers = SessionOpsGate.bind(DeformerOps.class, new SessionDeformerOps(ops), this);
     }
 
     @Override
@@ -179,8 +172,7 @@ final class RuntimeEditSession implements EditSession {
             }
         }
         if (state.get() == EditSessionState.CANCELLED) {
-            throw new EditCancelledException(
-                Objects.requireNonNullElse(cancelSource, CancelSource.HOST));
+            throw new EditCancelledException(Objects.requireNonNullElse(cancelSource, CancelSource.HOST));
         }
         throw new EditUnavailableException("EditSession operation");
     }
@@ -193,10 +185,7 @@ final class RuntimeEditSession implements EditSession {
      * Dispatches one operation family call to the host UI thread (spec 046, T3). The session
      * gate already re-validated the session state; the host dispatch bounds the wait.
      */
-    <T> T dispatchToHost(
-        final String label,
-        final EditorEditSessionHost.HostTask<T> task
-    ) throws EditSessionException {
+    <T> T dispatchToHost(final String label, final EditorEditSessionHost.HostTask<T> task) throws EditSessionException {
         return manager.host().dispatch(label, task);
     }
 

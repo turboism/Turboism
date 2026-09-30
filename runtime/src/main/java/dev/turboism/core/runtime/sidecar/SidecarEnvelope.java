@@ -9,13 +9,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * that must be validated by {@link SidecarEnvelopeValidator} before dispatch.
  */
 public record SidecarEnvelope(
-    @JsonProperty("pluginId") String pluginId,
-    @JsonProperty("taskId") String taskId,
-    @JsonProperty("taskType") String taskType,
-    @JsonProperty("payload") String payload,
-    @JsonProperty("declaredCapability") String declaredCapability,
-    @JsonProperty("timestampUtc") String timestampUtc
-) {
+        @JsonProperty("pluginId") String pluginId,
+        @JsonProperty("taskId") String taskId,
+        @JsonProperty("taskType") String taskType,
+        @JsonProperty("payload") String payload,
+        @JsonProperty("declaredCapability") String declaredCapability,
+        @JsonProperty("timestampUtc") String timestampUtc) {
 
     public SidecarEnvelope {
         if (pluginId == null || pluginId.isBlank()) {

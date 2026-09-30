@@ -2,7 +2,6 @@ package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.archive.StrictZipArchive;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -19,7 +18,9 @@ import java.util.Set;
 final class PluginArtifactInspector {
     private final StrictZipArchive archive;
 
-    PluginArtifactInspector(StrictZipArchive archive) { this.archive = archive; }
+    PluginArtifactInspector(StrictZipArchive archive) {
+        this.archive = archive;
+    }
 
     Inspected inspect(JsonNode manifest) throws Exception {
         List<PlannedFile> files = new ArrayList<>();
@@ -52,14 +53,15 @@ final class PluginArtifactInspector {
     private Observation copy(StrictZipArchive.Entry entry, Path snapshot) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (OutputStream file = Files.newOutputStream(snapshot);
-             OutputStream output = new DigestingOutputStream(file, digest)) {
+                OutputStream output = new DigestingOutputStream(file, digest)) {
             StrictZipArchive.Observation observed = archive.consume(entry, output);
             return new Observation(observed.size(), HexFormat.of().formatHex(digest.digest()));
         }
     }
 
-    private static PluginJarInspector.Inspected inspectJar(PluginJarInspector jars, Path snapshot,
-            String path, String role, PluginJarInspector.Inspected existing) throws Exception {
+    private static PluginJarInspector.Inspected inspectJar(
+            PluginJarInspector jars, Path snapshot, String path, String role, PluginJarInspector.Inspected existing)
+            throws Exception {
         if ("PLUGIN_JAR".equals(role)) {
             require(existing == null, "ARTIFACT_ROLES_INVALID", "files");
             return jars.inspect(snapshot, path);
@@ -69,10 +71,11 @@ final class PluginArtifactInspector {
     }
 
     private static void verifyDeclaration(JsonNode node, Observation observed, int index) throws Exception {
-        require(node.path("sha256").textValue().equals(observed.sha256()),
-            "ARTIFACT_HASH_MISMATCH", field(index, "sha256"));
-        require(node.path("size").longValue() == observed.size(),
-            "ARTIFACT_SIZE_MISMATCH", field(index, "size"));
+        require(
+                node.path("sha256").textValue().equals(observed.sha256()),
+                "ARTIFACT_HASH_MISMATCH",
+                field(index, "sha256"));
+        require(node.path("size").longValue() == observed.size(), "ARTIFACT_SIZE_MISMATCH", field(index, "size"));
     }
 
     private void exactInventory(Set<String> declaredFiles) throws Exception {
@@ -81,8 +84,8 @@ final class PluginArtifactInspector {
         allowedDirectories.add("META-INF/turboism/");
         for (String path : declaredFiles) addParents(path, allowedDirectories);
         for (StrictZipArchive.Entry entry : archive.entries()) {
-            boolean allowedFile = entry.name().equals(PluginManifestReader.NAME)
-                || declaredFiles.contains(entry.name());
+            boolean allowedFile =
+                    entry.name().equals(PluginManifestReader.NAME) || declaredFiles.contains(entry.name());
             boolean allowedDirectory = entry.directory() && allowedDirectories.contains(entry.name());
             require(allowedFile || allowedDirectory, "ARCHIVE_UNDECLARED_FILE", entry.name());
         }
@@ -96,20 +99,25 @@ final class PluginArtifactInspector {
 
     private static Path privateSnapshot() throws IOException {
         try {
-            return Files.createTempFile("turboism-plugin-artifact-", ".jar",
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            return Files.createTempFile(
+                    "turboism-plugin-artifact-",
+                    ".jar",
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
         } catch (UnsupportedOperationException exception) {
             return Files.createTempFile("turboism-plugin-artifact-", ".jar");
         }
     }
 
-    private static String field(int index, String name) { return "files[" + index + "]." + name; }
+    private static String field(int index, String name) {
+        return "files[" + index + "]." + name;
+    }
 
     private static void require(boolean valid, String code, String path) throws Exception {
         if (!valid) throw ArchivePolicy.problem(code, "Invalid plugin artifact", path);
     }
 
     record Inspected(List<PlannedFile> files, PluginJarInspector.Inspected plugin) {}
+
     private record Observation(long size, String sha256) {}
 
     private static final class DigestingOutputStream extends OutputStream {
@@ -121,16 +129,21 @@ final class PluginArtifactInspector {
             this.digest = digest;
         }
 
-        @Override public void write(int value) throws IOException {
+        @Override
+        public void write(int value) throws IOException {
             delegate.write(value);
             digest.update((byte) value);
         }
 
-        @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
             delegate.write(bytes, offset, length);
             digest.update(bytes, offset, length);
         }
 
-        @Override public void close() throws IOException { delegate.close(); }
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
     }
 }

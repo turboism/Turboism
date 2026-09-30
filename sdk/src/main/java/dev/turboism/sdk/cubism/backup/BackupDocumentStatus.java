@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-
 import java.util.Objects;
 
 /**
@@ -10,11 +9,7 @@ import java.util.Objects;
  * omits the host document path.</p>
  */
 public record BackupDocumentStatus(
-    String documentName,
-    long lastAutoBackupTimeMillis,
-    long lastSavedTimeMillis,
-    boolean modifiedAfterSaving
-) {
+        String documentName, long lastAutoBackupTimeMillis, long lastSavedTimeMillis, boolean modifiedAfterSaving) {
     public BackupDocumentStatus {
         Objects.requireNonNull(documentName, "documentName");
         if (documentName.isBlank()) {

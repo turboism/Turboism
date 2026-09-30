@@ -7,7 +7,6 @@ import dev.turboism.adapter.cubism.RenderStatusAdapter;
 import dev.turboism.adapter.ui.BoundedKeyedStore;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.adapter.ui.ThemeStatusAdapter;
-import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -25,7 +24,6 @@ import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -51,35 +49,33 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     private final BooleanSupplier scopeActive;
 
     private final BoundedKeyedStore<String, SafeModeDiagnostic> themeStatusDiagnostics =
-        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+            new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
     private final BoundedKeyedStore<String, SafeModeDiagnostic> renderStatusDiagnostics =
-        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+            new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
     private final BoundedKeyedStore<String, SafeModeDiagnostic> projectWorkspaceDiagnostics =
-        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+            new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
     private final BoundedKeyedStore<String, SafeModeDiagnostic> clipMaskDiagnostics =
-        new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
+            new BoundedKeyedStore<>(MAX_DIAGNOSTICS);
 
     public CubismReadCapabilityServiceImpl(
-        final CubismFacade facade,
-        final M12ReadSnapshotSource m12Source,
-        final ThemeStatusAdapter themeStatusAdapter,
-        final RenderStatusAdapter renderStatusAdapter,
-        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
-        final ClipMaskReadAdapter clipMaskReadAdapter,
-        final String ownerPluginId,
-        final CubismReadPermissionGate permissionGate
-    ) {
+            final CubismFacade facade,
+            final M12ReadSnapshotSource m12Source,
+            final ThemeStatusAdapter themeStatusAdapter,
+            final RenderStatusAdapter renderStatusAdapter,
+            final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+            final ClipMaskReadAdapter clipMaskReadAdapter,
+            final String ownerPluginId,
+            final CubismReadPermissionGate permissionGate) {
         this(
-            facade,
-            m12Source,
-            themeStatusAdapter,
-            renderStatusAdapter,
-            projectWorkspaceAdapter,
-            clipMaskReadAdapter,
-            ownerPluginId,
-            permissionGate,
-            () -> true
-        );
+                facade,
+                m12Source,
+                themeStatusAdapter,
+                renderStatusAdapter,
+                projectWorkspaceAdapter,
+                clipMaskReadAdapter,
+                ownerPluginId,
+                permissionGate,
+                () -> true);
     }
 
     /**
@@ -87,16 +83,15 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
      *     closed before touching a source or adapter once the scope is closed
      */
     public CubismReadCapabilityServiceImpl(
-        final CubismFacade facade,
-        final M12ReadSnapshotSource m12Source,
-        final ThemeStatusAdapter themeStatusAdapter,
-        final RenderStatusAdapter renderStatusAdapter,
-        final ProjectWorkspaceAdapter projectWorkspaceAdapter,
-        final ClipMaskReadAdapter clipMaskReadAdapter,
-        final String ownerPluginId,
-        final CubismReadPermissionGate permissionGate,
-        final BooleanSupplier scopeActive
-    ) {
+            final CubismFacade facade,
+            final M12ReadSnapshotSource m12Source,
+            final ThemeStatusAdapter themeStatusAdapter,
+            final RenderStatusAdapter renderStatusAdapter,
+            final ProjectWorkspaceAdapter projectWorkspaceAdapter,
+            final ClipMaskReadAdapter clipMaskReadAdapter,
+            final String ownerPluginId,
+            final CubismReadPermissionGate permissionGate,
+            final BooleanSupplier scopeActive) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.m12Source = Objects.requireNonNull(m12Source, "m12Source");
         this.themeStatusAdapter = Objects.requireNonNull(themeStatusAdapter, "themeStatusAdapter");
@@ -180,7 +175,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     public Optional<RenderStatusSnapshot> renderStatus() {
         requireModelRead("renderStatus");
         final RenderStatusAdapter.AdapterResult<Optional<RenderStatusSnapshot>> adapterResult =
-            renderStatusAdapter.renderStatus();
+                renderStatusAdapter.renderStatus();
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
@@ -192,7 +187,7 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     public Optional<WorkspaceSnapshot> workspace() {
         requireProjectRead("workspace");
         final ProjectWorkspaceAdapter.AdapterResult<Optional<WorkspaceSnapshot>> adapterResult =
-            projectWorkspaceAdapter.workspace();
+                projectWorkspaceAdapter.workspace();
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
@@ -203,7 +198,8 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     @Override
     public Optional<ThemeStatusSnapshot> themeStatus() {
         requireProjectRead("themeStatus");
-        final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> adapterResult = themeStatusAdapter.themeStatus();
+        final ThemeStatusAdapter.AdapterResult<Optional<ThemeStatusSnapshot>> adapterResult =
+                themeStatusAdapter.themeStatus();
         if (adapterResult.isAvailable()) {
             return adapterResult.value().orElseThrow();
         }
@@ -256,13 +252,8 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     }
 
     private void record(
-        final BoundedKeyedStore<String, SafeModeDiagnostic> store,
-        final SafeModeDiagnostic diagnostic
-    ) {
-        store.put(
-            ownerPluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(),
-            diagnostic
-        );
+            final BoundedKeyedStore<String, SafeModeDiagnostic> store, final SafeModeDiagnostic diagnostic) {
+        store.put(ownerPluginId + "|" + diagnostic.code().name() + "|" + diagnostic.capability(), diagnostic);
     }
 
     private static String requireText(final String value, final String name) {
@@ -278,34 +269,20 @@ public final class CubismReadCapabilityServiceImpl implements CubismReadCapabili
     }
 
     private void requireModelRead(final String operation) {
-        requireCapability(
-            CubismFacadeImpl.MODEL_READ_PERMISSION,
-            operation,
-            capabilityIdFor(operation)
-        );
+        requireCapability(CubismFacadeImpl.MODEL_READ_PERMISSION, operation, capabilityIdFor(operation));
     }
 
     private void requireProjectRead(final String operation) {
-        requireCapability(
-            CubismFacadeImpl.PROJECT_READ_PERMISSION,
-            operation,
-            capabilityIdFor(operation)
-        );
+        requireCapability(CubismFacadeImpl.PROJECT_READ_PERMISSION, operation, capabilityIdFor(operation));
     }
 
-    private void requireCapability(
-        final String permissionId,
-        final String operation,
-        final String capabilityId
-    ) {
+    private void requireCapability(final String permissionId, final String operation, final String capabilityId) {
         if (!scopeActive.getAsBoolean()) {
             throw new IllegalStateException(
-                "Cubism read service reference is stale because the owning plugin is disabled."
-            );
+                    "Cubism read service reference is stale because the owning plugin is disabled.");
         }
         permissionGate.require(permissionId, "cubismRead." + operation, capabilityId);
     }
-
 
     private static String capabilityIdFor(final String operation) {
         return switch (operation) {

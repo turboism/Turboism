@@ -1,12 +1,11 @@
 package dev.turboism.runtime.log;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeDiagnosticsTest {
 
@@ -18,17 +17,17 @@ class RuntimeDiagnosticsTest {
     @Test
     void routesFrameworkDiagnosticsOnlyToTheInstalledSink() {
         final List<String> records = new ArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-            records.add(level + ":" + component + ":" + message)
-        );
+        RuntimeDiagnostics.install(
+                (level, component, message, failure) -> records.add(level + ":" + component + ":" + message));
 
         RuntimeDiagnostics.debug("lifecycle", "Installed verified lifecycle hooks");
         RuntimeDiagnostics.warn("physics-editor", "Physics editor unavailable");
 
-        assertEquals(List.of(
-            "DEBUG:lifecycle:Installed verified lifecycle hooks",
-            "WARN:physics-editor:Physics editor unavailable"
-        ), records);
+        assertEquals(
+                List.of(
+                        "DEBUG:lifecycle:Installed verified lifecycle hooks",
+                        "WARN:physics-editor:Physics editor unavailable"),
+                records);
 
         RuntimeDiagnostics.clear();
         RuntimeDiagnostics.info("bootstrap", "not routed");
@@ -41,14 +40,14 @@ class RuntimeDiagnosticsTest {
         RuntimeDiagnostics.warn("bootstrap", "premain warning");
 
         final List<String> records = new ArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-            records.add(level + ":" + component + ":" + message)
-        );
+        RuntimeDiagnostics.install(
+                (level, component, message, failure) -> records.add(level + ":" + component + ":" + message));
 
-        assertEquals(List.of(
-            "DEBUG:bootstrap:Startup suppression: STARTUP_SUPPRESSION_INSTALLED_5303",
-            "WARN:bootstrap:premain warning"
-        ), records);
+        assertEquals(
+                List.of(
+                        "DEBUG:bootstrap:Startup suppression: STARTUP_SUPPRESSION_INSTALLED_5303",
+                        "WARN:bootstrap:premain warning"),
+                records);
 
         RuntimeDiagnostics.info("bootstrap", "after install");
         assertEquals(3, records.size());
@@ -60,9 +59,8 @@ class RuntimeDiagnosticsTest {
 
         RuntimeDiagnostics.clear();
         final List<String> records = new ArrayList<>();
-        RuntimeDiagnostics.install((level, component, message, failure) ->
-            records.add(level + ":" + component + ":" + message)
-        );
+        RuntimeDiagnostics.install(
+                (level, component, message, failure) -> records.add(level + ":" + component + ":" + message));
 
         assertEquals(List.of(), records);
     }

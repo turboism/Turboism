@@ -1,10 +1,9 @@
 package dev.turboism.ui.toolbar;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.image.MultiResolutionImage;
 import java.io.IOException;
@@ -13,10 +12,9 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import javax.imageio.ImageIO;
+import javax.swing.ImageIcon;
+import org.junit.jupiter.api.Test;
 
 class ToolbarIconLoaderTest {
 
@@ -30,41 +28,29 @@ class ToolbarIconLoaderTest {
         writePng(root, "icons/action.scale-200.png", 64);
 
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[] {root.toUri().toURL()},
-            getClass().getClassLoader()
-        ); EditorUiPluginResourceRegistry resources = new EditorUiPluginResourceRegistry()) {
+                        new URL[] {root.toUri().toURL()}, getClass().getClassLoader());
+                EditorUiPluginResourceRegistry resources = new EditorUiPluginResourceRegistry()) {
             try (var registration = resources.register("fixture", loader)) {
                 final ImageIcon icon = assertInstanceOf(
-                    ImageIcon.class,
-                    ToolbarIconLoader.load(resources, "fixture", "icons/action.png")
-                );
-                final MultiResolutionImage image = assertInstanceOf(
-                    MultiResolutionImage.class,
-                    icon.getImage()
-                );
+                        ImageIcon.class, ToolbarIconLoader.load(resources, "fixture", "icons/action.png"));
+                final MultiResolutionImage image = assertInstanceOf(MultiResolutionImage.class, icon.getImage());
 
                 assertEquals(
-                    List.of(32, 40, 48, 56, 64),
-                    image.getResolutionVariants().stream().map(value -> value.getWidth(null)).toList()
-                );
+                        List.of(32, 40, 48, 56, 64),
+                        image.getResolutionVariants().stream()
+                                .map(value -> value.getWidth(null))
+                                .toList());
             }
         }
     }
 
     @Test
     void derivesScaleVariantPathsBeforeTheExtension() {
-        assertEquals(
-            "icons/action.scale-150.png",
-            ToolbarIconLoader.scaleVariantPath("icons/action.png", "150")
-        );
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> ToolbarIconLoader.scaleVariantPath("icons/action", "150")
-        );
+        assertEquals("icons/action.scale-150.png", ToolbarIconLoader.scaleVariantPath("icons/action.png", "150"));
+        assertThrows(IllegalArgumentException.class, () -> ToolbarIconLoader.scaleVariantPath("icons/action", "150"));
     }
 
-    private static void writePng(final Path root, final String resource, final int size)
-        throws IOException {
+    private static void writePng(final Path root, final String resource, final int size) throws IOException {
         final Path path = root.resolve(resource);
         Files.createDirectories(path.getParent());
         final BufferedImage image = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);

@@ -1,17 +1,16 @@
 package dev.turboism.core.runtime.sidecar;
 
-import dev.turboism.core.runtime.PluginTask;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.core.runtime.PluginTask;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProcessSidecarDispatcherTest {
 
@@ -19,19 +18,19 @@ class ProcessSidecarDispatcherTest {
     void disabledDispatcherFailsFastWithoutLaunchingProcess() {
         // Given
         ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(new SidecarDispatcherConfiguration(
-            false,
-            "/path/to/java-that-must-not-launch",
-            List.of("runtime.jar"),
-            "dev.turboism.sidecar.Main",
-            1_000L
-        ));
+                false,
+                "/path/to/java-that-must-not-launch",
+                List.of("runtime.jar"),
+                "dev.turboism.sidecar.Main",
+                1_000L));
         AtomicInteger callbacks = new AtomicInteger();
 
         // When
         CompletionException exception = assertThrows(CompletionException.class, () -> {
-            dispatcher.dispatch(task(), callbacks::incrementAndGet)
-                .toCompletableFuture()
-                .join();
+            dispatcher
+                    .dispatch(task(), callbacks::incrementAndGet)
+                    .toCompletableFuture()
+                    .join();
         });
 
         // Then
@@ -43,18 +42,18 @@ class ProcessSidecarDispatcherTest {
     void failingExecutableReturnsErrorAndDoesNotRunCallback() {
         // Given
         ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(new SidecarDispatcherConfiguration(
-            true,
-            "/path/to/java-that-does-not-exist",
-            List.of("runtime.jar"),
-            "dev.turboism.sidecar.Main",
-            1_000L
-        ));
+                true,
+                "/path/to/java-that-does-not-exist",
+                List.of("runtime.jar"),
+                "dev.turboism.sidecar.Main",
+                1_000L));
         AtomicInteger callbacks = new AtomicInteger();
 
         // When
-        SidecarResult result = dispatcher.dispatch(task(), callbacks::incrementAndGet)
-            .toCompletableFuture()
-            .join();
+        SidecarResult result = dispatcher
+                .dispatch(task(), callbacks::incrementAndGet)
+                .toCompletableFuture()
+                .join();
 
         // Then
         assertEquals(SidecarResult.Kind.ERROR, result.kind());
@@ -66,16 +65,17 @@ class ProcessSidecarDispatcherTest {
     void callbackRunsOnlyOnSuccessfulResult() {
         // Given
         ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(
-            new SidecarDispatcherConfiguration(true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
-            command -> new ProcessSidecarDispatcher.LaunchResult(0, "{\"ok\":true}", "")
-        );
+                new SidecarDispatcherConfiguration(
+                        true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
+                command -> new ProcessSidecarDispatcher.LaunchResult(0, "{\"ok\":true}", ""));
         AtomicInteger callbacks = new AtomicInteger();
 
         // When
-        SidecarResult result = dispatcher.dispatch(task(), callbacks::incrementAndGet)
-            .toCompletableFuture()
-            .orTimeout(1, TimeUnit.SECONDS)
-            .join();
+        SidecarResult result = dispatcher
+                .dispatch(task(), callbacks::incrementAndGet)
+                .toCompletableFuture()
+                .orTimeout(1, TimeUnit.SECONDS)
+                .join();
 
         // Then
         assertEquals(SidecarResult.Kind.SUCCESS, result.kind());
@@ -88,18 +88,19 @@ class ProcessSidecarDispatcherTest {
         // Given
         AtomicReference<String> launchThread = new AtomicReference<>();
         ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(
-            new SidecarDispatcherConfiguration(true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
-            command -> {
-                launchThread.set(Thread.currentThread().getName());
-                return new ProcessSidecarDispatcher.LaunchResult(0, "{\"ok\":true}", "");
-            }
-        );
+                new SidecarDispatcherConfiguration(
+                        true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
+                command -> {
+                    launchThread.set(Thread.currentThread().getName());
+                    return new ProcessSidecarDispatcher.LaunchResult(0, "{\"ok\":true}", "");
+                });
 
         // When
-        SidecarResult result = dispatcher.dispatch(task(), () -> { })
-            .toCompletableFuture()
-            .orTimeout(1, TimeUnit.SECONDS)
-            .join();
+        SidecarResult result = dispatcher
+                .dispatch(task(), () -> {})
+                .toCompletableFuture()
+                .orTimeout(1, TimeUnit.SECONDS)
+                .join();
 
         // Then
         assertEquals(SidecarResult.Kind.SUCCESS, result.kind());
@@ -110,22 +111,22 @@ class ProcessSidecarDispatcherTest {
     void payloadWithHostReferenceReturnsErrorAndDoesNotRunCallback() {
         // Given
         ProcessSidecarDispatcher dispatcher = new ProcessSidecarDispatcher(
-            new SidecarDispatcherConfiguration(true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
-            command -> new ProcessSidecarDispatcher.LaunchResult(0, "", "")
-        );
+                new SidecarDispatcherConfiguration(
+                        true, "/unused/java", List.of("runtime.jar"), "sidecar.Main", 1_000L),
+                command -> new ProcessSidecarDispatcher.LaunchResult(0, "", ""));
         AtomicInteger callbacks = new AtomicInteger();
         PluginTask contaminatedTask = new PluginTask(
-            SidecarWorkAction.EXECUTE.name(),
-            "dev.turboism.plugin.demo",
-            "{\"className\":\"com.live2d.cubism.editor.Parameter\"}",
-            "sidecar"
-        );
+                SidecarWorkAction.EXECUTE.name(),
+                "dev.turboism.plugin.demo",
+                "{\"className\":\"com.live2d.cubism.editor.Parameter\"}",
+                "sidecar");
 
         // When
-        SidecarResult result = dispatcher.dispatch(contaminatedTask, callbacks::incrementAndGet)
-            .toCompletableFuture()
-            .orTimeout(1, TimeUnit.SECONDS)
-            .join();
+        SidecarResult result = dispatcher
+                .dispatch(contaminatedTask, callbacks::incrementAndGet)
+                .toCompletableFuture()
+                .orTimeout(1, TimeUnit.SECONDS)
+                .join();
 
         // Then
         assertEquals(SidecarResult.Kind.ERROR, result.kind());
@@ -135,10 +136,6 @@ class ProcessSidecarDispatcherTest {
 
     private static PluginTask task() {
         return new PluginTask(
-            SidecarWorkAction.EXECUTE.name(),
-            "dev.turboism.plugin.demo",
-            "{\"message\":\"hello\"}",
-            "sidecar"
-        );
+                SidecarWorkAction.EXECUTE.name(), "dev.turboism.plugin.demo", "{\"message\":\"hello\"}", "sidecar");
     }
 }

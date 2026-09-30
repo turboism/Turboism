@@ -1,12 +1,11 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 import java.awt.Shape;
 import java.awt.geom.Area;
 import java.awt.geom.PathIterator;
 import java.util.ArrayList;
 import java.util.List;
-
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline;
 
 /**
  * Converts host {@code drawDataShapes} (material-local {@link Shape}s) into
@@ -24,13 +23,10 @@ final class TextureAtlasOutlineExtractor {
     private static final double FLATNESS = 0.5;
     private static final double MIN_AREA = 1e-6;
 
-    private TextureAtlasOutlineExtractor() {
-    }
+    private TextureAtlasOutlineExtractor() {}
 
     /** Outcome of converting one item's host shapes. */
-    record Extraction(TextureAtlasOutline outline, boolean holesFilled,
-        int ringCount) {
-    }
+    record Extraction(TextureAtlasOutline outline, boolean holesFilled, int ringCount) {}
 
     /**
      * Extracts outer rings from the given shapes; {@code null}/empty input yields
@@ -87,8 +83,7 @@ final class TextureAtlasOutlineExtractor {
         if (outer.isEmpty()) {
             return null;
         }
-        return new Extraction(new TextureAtlasOutline(List.copyOf(outer)),
-            holes, outer.size());
+        return new Extraction(new TextureAtlasOutline(List.copyOf(outer)), holes, outer.size());
     }
 
     private static List<double[][]> flatten(final Shape shape) {
@@ -113,7 +108,9 @@ final class TextureAtlasOutlineExtractor {
                     }
                     current = null;
                 }
-                default -> { /* flatness eliminates curve segments */ }
+                default -> {
+                    /* flatness eliminates curve segments */
+                }
             }
             it.next();
         }

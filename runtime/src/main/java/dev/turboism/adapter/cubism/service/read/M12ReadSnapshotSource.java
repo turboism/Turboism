@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -16,8 +15,7 @@ import java.util.Optional;
  */
 public interface M12ReadSnapshotSource {
 
-    M12ReadSnapshotSource EMPTY = new M12ReadSnapshotSource() {
-    };
+    M12ReadSnapshotSource EMPTY = new M12ReadSnapshotSource() {};
 
     /**
      * @return the PSD document snapshots for the current project; the default reports none

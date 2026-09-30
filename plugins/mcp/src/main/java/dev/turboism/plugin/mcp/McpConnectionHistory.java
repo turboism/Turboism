@@ -13,12 +13,8 @@ final class McpConnectionHistory {
     private final ArrayDeque<Entry> entries = new ArrayDeque<>();
 
     synchronized void record(final Event event, final String client, final String detail) {
-        entries.addLast(new Entry(
-            Instant.now(),
-            Objects.requireNonNull(event, "event"),
-            bounded(client),
-            bounded(detail)
-        ));
+        entries.addLast(
+                new Entry(Instant.now(), Objects.requireNonNull(event, "event"), bounded(client), bounded(detail)));
         while (entries.size() > MAX_ENTRIES) entries.removeFirst();
     }
 
@@ -44,9 +40,8 @@ final class McpConnectionHistory {
     }
 
     private static String bounded(final String value) {
-        final String text = Objects.requireNonNullElse(value, "").strip()
-            .replace('\r', ' ')
-            .replace('\n', ' ');
+        final String text =
+                Objects.requireNonNullElse(value, "").strip().replace('\r', ' ').replace('\n', ' ');
         return text.length() <= 160 ? text : text.substring(0, 160);
     }
 }

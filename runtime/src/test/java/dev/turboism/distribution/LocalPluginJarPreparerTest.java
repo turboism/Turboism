@@ -1,10 +1,12 @@
 package dev.turboism.distribution;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,16 +19,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class LocalPluginJarPreparerTest {
-    @TempDir Path root;
+    @TempDir
+    Path root;
 
     @Test
     void stagesAValidDirectPluginJar() throws Exception {
@@ -34,9 +34,8 @@ class LocalPluginJarPreparerTest {
         Files.write(source, pluginJar("example.plugin", "1.0.0"));
 
         final LocalPluginJarPreparer.Prepared result = assertInstanceOf(
-            LocalPluginJarPreparer.Prepared.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.Prepared.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
 
         assertEquals("example.plugin", result.value().descriptor().id());
         assertEquals("1.0.0", result.value().descriptor().version());
@@ -50,16 +49,17 @@ class LocalPluginJarPreparerTest {
         final Path source = root.resolve("sample.jar");
         Files.write(source, pluginJar("example.plugin", "1.0.0"));
         final PackageAccess mutating = new PackageAccess() {
-            @Override public void afterInitialHash(final Path path) throws java.io.IOException {
+            @Override
+            public void afterInitialHash(final Path path) throws java.io.IOException {
                 Files.writeString(path, "changed");
             }
         };
 
         final LocalPluginJarPreparer.Preparation result =
-            new LocalPluginJarPreparer(mutating).prepare(source, root.resolve("staging"));
+                new LocalPluginJarPreparer(mutating).prepare(source, root.resolve("staging"));
 
-        final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class, result);
+        final LocalPluginJarPreparer.PreparationRejected rejected =
+                assertInstanceOf(LocalPluginJarPreparer.PreparationRejected.class, result);
         assertEquals(DistributionErrors.PACKAGE_CHANGED, rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -76,7 +76,7 @@ class LocalPluginJarPreparerTest {
         }
 
         final LocalPluginJarPreparer.Preparation result =
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"));
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging"));
 
         assertInstanceOf(LocalPluginJarPreparer.PreparationRejected.class, result);
         assertFalse(hasJar(root.resolve("staging")));
@@ -94,9 +94,8 @@ class LocalPluginJarPreparerTest {
         Files.write(source, new byte[21]);
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PACKAGE_TOO_LARGE", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -111,9 +110,8 @@ class LocalPluginJarPreparerTest {
         Files.write(source, new byte[21]);
 
         final DistributionValidationException failure = assertThrows(
-            DistributionValidationException.class,
-            () -> new PluginJarInspector().inspect(source, "logical-name.jar")
-        );
+                DistributionValidationException.class,
+                () -> new PluginJarInspector().inspect(source, "logical-name.jar"));
         assertEquals("PACKAGE_TOO_LARGE", failure.code());
         assertEquals(source.toString(), failure.problemPath());
     }
@@ -128,14 +126,11 @@ class LocalPluginJarPreparerTest {
     void rejectsTruncatedDeclaredContractArtifactAsInvalid() throws Exception {
         final byte[] artifact = new byte[21];
         final Path source = root.resolve("truncated-contract.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -147,26 +142,20 @@ class LocalPluginJarPreparerTest {
      */
     @Test
     void stagesSchemaV5PluginWithDeclaredContractArtifact() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.acme.events.GreetingPayload payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """,
-            "com.acme.events.GreetingPayload", """
+                """, "com.acme.events.GreetingPayload", """
                 package com.acme.events;
                 public record GreetingPayload(String text) {}
-                """
-        ));
+                """));
         final Path source = root.resolve("contracted.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.Prepared result = assertInstanceOf(
-            LocalPluginJarPreparer.Prepared.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.Prepared.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
 
         assertEquals("dev.example.provider", result.value().descriptor().id());
         assertTrue(Files.isRegularFile(result.value().stagedJar()));
@@ -180,15 +169,12 @@ class LocalPluginJarPreparerTest {
      * declaration bound precedes reads.
      */
     @Test
-    void rejectsOversizedContractDeclarationCountBeforeReadingArtifacts()
-            throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+    void rejectsOversizedContractDeclarationCountBeforeReadingArtifacts() throws Exception {
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         final String wrongSha = "0".repeat(64);
         final StringBuilder contracts = new StringBuilder();
         for (int i = 0; i < 33; i++) {
@@ -197,8 +183,7 @@ class LocalPluginJarPreparerTest {
             }
             contracts.append("""
                 {"id":"acme.events.c%d","version":"1.0.0",
-                  "artifact":"META-INF/turboism/contracts/acme-%d.jar","sha256":"%s"}"""
-                .formatted(i, i, wrongSha));
+                  "artifact":"META-INF/turboism/contracts/acme-%d.jar","sha256":"%s"}""".formatted(i, i, wrongSha));
         }
         final String descriptor = """
             {"format":"turboism.plugin.meta","schemaVersion":5,
@@ -213,90 +198,78 @@ class LocalPluginJarPreparerTest {
             """.formatted(contracts);
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
-            add(jar, "META-INF/turboism/plugin.json",
-                descriptor.getBytes(StandardCharsets.UTF_8));
-            add(jar, "META-INF/turboism/i18n/messages.properties",
-                "plugin.name=Contracted\n".getBytes(StandardCharsets.UTF_8));
-            add(jar, "dev/example/provider/ProviderPlugin.class", new byte[]{0});
+            add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
+            add(
+                    jar,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Contracted\n".getBytes(StandardCharsets.UTF_8));
+            add(jar, "dev/example/provider/ProviderPlugin.class", new byte[] {0});
             for (int i = 0; i < 33; i++) {
-                add(jar, "META-INF/turboism/contracts/acme-" + i + ".jar",
-                    artifact);
+                add(jar, "META-INF/turboism/contracts/acme-" + i + ".jar", artifact);
             }
         }
         final Path source = root.resolve("overdeclared.jar");
         Files.write(source, output.toByteArray());
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsUndeclaredContractArtifact() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         final Path source = root.resolve("undeclared-contract.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, null, Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, null, Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_UNDECLARED", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsNestedJarOutsideContractsDirectory() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         final Path source = root.resolve("nested-outside.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact),
-            Map.of("lib/helper.jar", new byte[]{1, 2, 3})
-        ));
+        Files.write(
+                source,
+                v5ContractPluginJar(
+                        "dev.example.provider", artifact, sha256Hex(artifact), Map.of("lib/helper.jar", new byte[] {
+                            1, 2, 3
+                        })));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTENT_CONTAMINATION", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsContractArtifactWithMismatchedSha256() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ));
+                """));
         final Path source = root.resolve("wrong-hash.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, "0".repeat(64), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, "0".repeat(64), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_HASH_MISMATCH", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -307,75 +280,61 @@ class LocalPluginJarPreparerTest {
      */
     @Test
     void rejectsContractArtifactViolatingPayloadClosure() throws Exception {
-        final Path foreign = compileSources(root, Map.of(
-            "com.evil.External", """
+        final Path foreign = compileSources(root, Map.of("com.evil.External", """
                 package com.evil;
                 public record External(String marker) {}
-                """
-        ));
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+                """));
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.evil.External smuggled)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ), foreign);
+                """), foreign);
         final Path source = root.resolve("bad-payload.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsContractArtifactWithNonClassEntry() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(
+                root,
+                Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ), Map.of("com/acme/events/config.json", "{}".getBytes(StandardCharsets.UTF_8)));
+                """),
+                Map.of("com/acme/events/config.json", "{}".getBytes(StandardCharsets.UTF_8)));
         final Path source = root.resolve("non-class.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
 
     @Test
     void rejectsContractArtifactWithMalformedClass() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(
+                root,
+                Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ), Map.of(
-            "com/acme/events/Broken.class",
-            "not a class file".getBytes(StandardCharsets.UTF_8)
-        ));
+                """),
+                Map.of("com/acme/events/Broken.class", "not a class file".getBytes(StandardCharsets.UTF_8)));
         final Path source = root.resolve("malformed.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_INVALID", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -386,22 +345,18 @@ class LocalPluginJarPreparerTest {
         // must be incompressible to inflate the archive past the limit.
         final byte[] padding = new byte[9 * 1024 * 1024];
         new java.util.Random(7).nextBytes(padding);
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact =
+                contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(String payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """
-        ), Map.of("com/acme/events/Padding.class", padding));
+                """), Map.of("com/acme/events/Padding.class", padding));
         final Path source = root.resolve("oversized.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-        ));
+        Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_TOO_LARGE", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -413,27 +368,26 @@ class LocalPluginJarPreparerTest {
      */
     @Test
     void rejectsLoosePluginClassShadowingContractMember() throws Exception {
-        final byte[] artifact = contractArtifact(root, Map.of(
-            EVENT_TYPE, """
+        final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                 package com.acme.events;
                 public record Greeting(com.acme.events.GreetingPayload payload)
                     implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                """,
-            "com.acme.events.GreetingPayload", """
+                """, "com.acme.events.GreetingPayload", """
                 package com.acme.events;
                 public record GreetingPayload(String text) {}
-                """
-        ));
+                """));
         final Path source = root.resolve("shadowed.jar");
-        Files.write(source, v5ContractPluginJar(
-            "dev.example.provider", artifact, sha256Hex(artifact),
-            Map.of("com/acme/events/GreetingPayload.class", new byte[]{0})
-        ));
+        Files.write(
+                source,
+                v5ContractPluginJar(
+                        "dev.example.provider",
+                        artifact,
+                        sha256Hex(artifact),
+                        Map.of("com/acme/events/GreetingPayload.class", new byte[] {0})));
 
         final LocalPluginJarPreparer.PreparationRejected rejected = assertInstanceOf(
-            LocalPluginJarPreparer.PreparationRejected.class,
-            new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-        );
+                LocalPluginJarPreparer.PreparationRejected.class,
+                new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
         assertEquals("PLUGIN_CONTRACT_ARTIFACT_CLASS_COLLISION", rejected.code());
         assertFalse(hasJar(root.resolve("staging")));
     }
@@ -448,13 +402,11 @@ class LocalPluginJarPreparerTest {
         final String marker = "turboism.contract.preflight.clinit";
         System.clearProperty(marker);
         try {
-            final byte[] artifact = contractArtifact(root, Map.of(
-                EVENT_TYPE, """
+            final byte[] artifact = contractArtifact(root, Map.of(EVENT_TYPE, """
                     package com.acme.events;
                     public record Greeting(String payload)
                         implements dev.turboism.sdk.event.EventBus.TurboismEvent {}
-                    """,
-                "com.acme.events.Armed", """
+                    """, "com.acme.events.Armed", """
                     package com.acme.events;
                     public final class Armed {
                         static {
@@ -462,21 +414,15 @@ class LocalPluginJarPreparerTest {
                                 "turboism.contract.preflight.clinit", "fired");
                         }
                     }
-                    """
-            ));
+                    """));
             final Path source = root.resolve("armed.jar");
-            Files.write(source, v5ContractPluginJar(
-                "dev.example.provider", artifact, sha256Hex(artifact), Map.of()
-            ));
+            Files.write(source, v5ContractPluginJar("dev.example.provider", artifact, sha256Hex(artifact), Map.of()));
 
             assertInstanceOf(
-                LocalPluginJarPreparer.Prepared.class,
-                new LocalPluginJarPreparer().prepare(source, root.resolve("staging"))
-            );
+                    LocalPluginJarPreparer.Prepared.class,
+                    new LocalPluginJarPreparer().prepare(source, root.resolve("staging")));
             assertNull(
-                System.getProperty(marker),
-                "admission must inspect contract bytes without initializing classes"
-            );
+                    System.getProperty(marker), "admission must inspect contract bytes without initializing classes");
         } finally {
             System.clearProperty(marker);
         }
@@ -491,19 +437,21 @@ class LocalPluginJarPreparerTest {
 
     private static byte[] pluginJar(final String id, final String version) throws Exception {
         final String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":2,"
-            + "\"id\":\"" + id + "\",\"name\":\"Example\",\"version\":\"" + version + "\","
-            + "\"description\":\"Example\",\"entrypoints\":[\"example.Plugin\"],"
-            + "\"turboismApi\":\"[0.1.0,0.2.0)\",\"authors\":[{\"name\":\"Test\"}],"
-            + "\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
-            + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
-            + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"
-            + "\"environment\":{\"requiresCubism\":false,\"ui\":\"none\"}}";
+                + "\"id\":\"" + id + "\",\"name\":\"Example\",\"version\":\"" + version + "\","
+                + "\"description\":\"Example\",\"entrypoints\":[\"example.Plugin\"],"
+                + "\"turboismApi\":\"[0.1.0,0.2.0)\",\"authors\":[{\"name\":\"Test\"}],"
+                + "\"license\":\"Test\",\"website\":\"https://example.test\",\"resources\":[],"
+                + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
+                + "\"dependencies\":[],\"permissions\":[],\"capabilities\":[],"
+                + "\"environment\":{\"requiresCubism\":false,\"ui\":\"none\"}}";
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
-            add(jar, "META-INF/turboism/i18n/messages.properties",
-                "plugin.name=Example\nplugin.description=Example\n".getBytes(StandardCharsets.UTF_8));
-            add(jar, "example/Plugin.class", new byte[]{0});
+            add(
+                    jar,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Example\nplugin.description=Example\n".getBytes(StandardCharsets.UTF_8));
+            add(jar, "example/Plugin.class", new byte[] {0});
         }
         return output.toByteArray();
     }
@@ -517,8 +465,7 @@ class LocalPluginJarPreparerTest {
     // -- schema-v5 contract fixtures, shared with PluginPackageRaceRegressionTest --
 
     static final String EVENT_TYPE = "com.acme.events.Greeting";
-    static final String CONTRACT_ARTIFACT_PATH =
-        "META-INF/turboism/contracts/acme-events-1.0.0.jar";
+    static final String CONTRACT_ARTIFACT_PATH = "META-INF/turboism/contracts/acme-events-1.0.0.jar";
 
     /**
      * Builds a schema-v5 plugin JAR embedding {@code contractBytes} at
@@ -526,18 +473,22 @@ class LocalPluginJarPreparerTest {
      * descriptor; {@code null} embeds the bytes undeclared.
      */
     static byte[] v5ContractPluginJar(
-        final String pluginId,
-        final byte[] contractBytes,
-        final String declaredSha256,
-        final Map<String, byte[]> extraEntries
-    ) throws Exception {
+            final String pluginId,
+            final byte[] contractBytes,
+            final String declaredSha256,
+            final Map<String, byte[]> extraEntries)
+            throws Exception {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
-            add(jar, "META-INF/turboism/plugin.json",
-                v5Descriptor(pluginId, declaredSha256).getBytes(StandardCharsets.UTF_8));
-            add(jar, "META-INF/turboism/i18n/messages.properties",
-                "plugin.name=Contracted\n".getBytes(StandardCharsets.UTF_8));
-            add(jar, "dev/example/provider/ProviderPlugin.class", new byte[]{0});
+            add(
+                    jar,
+                    "META-INF/turboism/plugin.json",
+                    v5Descriptor(pluginId, declaredSha256).getBytes(StandardCharsets.UTF_8));
+            add(
+                    jar,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Contracted\n".getBytes(StandardCharsets.UTF_8));
+            add(jar, "dev/example/provider/ProviderPlugin.class", new byte[] {0});
             if (contractBytes != null) {
                 add(jar, CONTRACT_ARTIFACT_PATH, contractBytes);
             }
@@ -548,11 +499,9 @@ class LocalPluginJarPreparerTest {
         return output.toByteArray();
     }
 
-    static String v5Descriptor(
-        final String pluginId,
-        final String declaredSha256
-    ) {
-        final String contracts = declaredSha256 == null ? "" : """
+    static String v5Descriptor(final String pluginId, final String declaredSha256) {
+        final String contracts =
+                declaredSha256 == null ? "" : """
             ,"eventExports":[{"id":"greeting","contractVersion":"1.0.0",
               "eventType":"com.acme.events.Greeting","abiSha256":"%s"}],
             "eventContracts":[{"id":"acme.events","version":"1.0.0",
@@ -572,28 +521,25 @@ class LocalPluginJarPreparerTest {
     }
 
     /** Compiles and packages a class-only contract artifact. */
-    static byte[] contractArtifact(
-        final Path workDir,
-        final Map<String, String> sources,
-        final Path... extraClasspath
-    ) throws Exception {
+    static byte[] contractArtifact(final Path workDir, final Map<String, String> sources, final Path... extraClasspath)
+            throws Exception {
         return contractArtifact(workDir, sources, Map.of(), extraClasspath);
     }
 
     static byte[] contractArtifact(
-        final Path workDir,
-        final Map<String, String> sources,
-        final Map<String, byte[]> extraEntries,
-        final Path... extraClasspath
-    ) throws Exception {
+            final Path workDir,
+            final Map<String, String> sources,
+            final Map<String, byte[]> extraEntries,
+            final Path... extraClasspath)
+            throws Exception {
         final Path classes = compileSources(workDir, sources, extraClasspath);
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
             try (var paths = Files.walk(classes)) {
                 for (final Path file : paths.filter(Files::isRegularFile)
-                    .sorted(Comparator.naturalOrder()).toList()) {
-                    add(jar, classes.relativize(file).toString().replace('\\', '/'),
-                        Files.readAllBytes(file));
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
+                    add(jar, classes.relativize(file).toString().replace('\\', '/'), Files.readAllBytes(file));
                 }
             }
             for (final Map.Entry<String, byte[]> entry : extraEntries.entrySet()) {
@@ -603,31 +549,24 @@ class LocalPluginJarPreparerTest {
         return output.toByteArray();
     }
 
-    static Path compileSources(
-        final Path workDir,
-        final Map<String, String> sources,
-        final Path... extraClasspath
-    ) throws Exception {
-        final Path sourceRoot = Files.createDirectories(
-            workDir.resolve("src-" + System.nanoTime()));
-        final Path classes = Files.createDirectories(
-            workDir.resolve("classes-" + System.nanoTime()));
+    static Path compileSources(final Path workDir, final Map<String, String> sources, final Path... extraClasspath)
+            throws Exception {
+        final Path sourceRoot = Files.createDirectories(workDir.resolve("src-" + System.nanoTime()));
+        final Path classes = Files.createDirectories(workDir.resolve("classes-" + System.nanoTime()));
         final List<String> files = new ArrayList<>();
         for (final Map.Entry<String, String> source : sources.entrySet()) {
-            final Path file = sourceRoot.resolve(
-                source.getKey().replace('.', '/') + ".java");
+            final Path file = sourceRoot.resolve(source.getKey().replace('.', '/') + ".java");
             Files.createDirectories(file.getParent());
             Files.writeString(file, source.getValue(), StandardCharsets.UTF_8);
             files.add(file.toString());
         }
-        final StringBuilder classpath = new StringBuilder(
-            System.getProperty("java.class.path"));
+        final StringBuilder classpath = new StringBuilder(System.getProperty("java.class.path"));
         for (final Path extra : extraClasspath) {
             classpath.append(java.io.File.pathSeparator).append(extra);
         }
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        final List<String> arguments = new ArrayList<>(List.of(
-            "-classpath", classpath.toString(), "-d", classes.toString()));
+        final List<String> arguments =
+                new ArrayList<>(List.of("-classpath", classpath.toString(), "-d", classes.toString()));
         arguments.addAll(files);
         if (compiler.run(null, null, null, arguments.toArray(new String[0])) != 0) {
             throw new IllegalStateException("fixture compilation failed");
@@ -636,7 +575,6 @@ class LocalPluginJarPreparerTest {
     }
 
     static String sha256Hex(final byte[] bytes) throws Exception {
-        return HexFormat.of().formatHex(
-            MessageDigest.getInstance("SHA-256").digest(bytes));
+        return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 }

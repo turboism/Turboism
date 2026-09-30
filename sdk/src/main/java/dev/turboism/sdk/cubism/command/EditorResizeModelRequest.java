@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-
 /** Resizes the active model document by a verified percentage scale. */
 public record EditorResizeModelRequest(int percent) implements EditorParameterizedRequest {
     /** Host-verified bounds: the native percentage input dialog accepts 1..5000. */

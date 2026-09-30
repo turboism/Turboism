@@ -1,11 +1,7 @@
 package dev.turboism.adapter.cubism.edit;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assumptions;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.JDialog;
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.lang.reflect.InvocationTargetException;
@@ -13,8 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Exercises {@link SwingEditSessionDialogPrimitives} through {@link EditSessionDialogLock}
@@ -32,6 +31,7 @@ final class SwingEditSessionDialogPrimitivesTest {
 
     /** Mirrors the leaked-dialog count observed on the 5.3.03 probe run. */
     private static final int TRANSIENT_SESSIONS = 15;
+
     private static final long AWAIT_TIMEOUT_MS = 10_000L;
     private static final String STATUS_DIALOG_TITLE = "Cubism Edit Session";
 
@@ -46,8 +46,8 @@ final class SwingEditSessionDialogPrimitivesTest {
                     // One WS request is one dispatch task: the transient silent session
                     // engages and disengages before the modal's queued show can run.
                     final EditSessionDialogLock lock = new EditSessionDialogLock(
-                        new SwingEditSessionDialogPrimitives(),
-                        new EditSessionUiLockContext(Optional.of(owner), () -> {}));
+                            new SwingEditSessionDialogPrimitives(),
+                            new EditSessionUiLockContext(Optional.of(owner), () -> {}));
                     lock.engage(true);
                     lock.disengage();
                 });
@@ -55,9 +55,8 @@ final class SwingEditSessionDialogPrimitivesTest {
             // Drain: every show/hide runnable queued by the sessions above has now run.
             onEdt(() -> {});
             onEdt(() -> assertTrue(
-                visibleSessionDialogs().isEmpty(),
-                "visible session dialogs after transient sessions: "
-                    + visibleSessionDialogs()));
+                    visibleSessionDialogs().isEmpty(),
+                    "visible session dialogs after transient sessions: " + visibleSessionDialogs()));
         } finally {
             onEdt(() -> {
                 disposeSessionDialogs();
@@ -73,8 +72,7 @@ final class SwingEditSessionDialogPrimitivesTest {
         onEdt(() -> owner.setVisible(true));
         try {
             final EditSessionDialogLock lock = new EditSessionDialogLock(
-                new SwingEditSessionDialogPrimitives(),
-                new EditSessionUiLockContext(Optional.of(owner), () -> {}));
+                    new SwingEditSessionDialogPrimitives(), new EditSessionUiLockContext(Optional.of(owner), () -> {}));
             onEdt(() -> lock.engage(true));
             // The queued APPLICATION_MODAL show blocks in a nested event pump; a scan
             // queued after it still runs inside that pump and observes the dialog while
@@ -83,8 +81,8 @@ final class SwingEditSessionDialogPrimitivesTest {
             onEdt(lock::disengage);
             onEdt(() -> {});
             onEdt(() -> assertTrue(
-                visibleSessionDialogs().isEmpty(),
-                "visible session dialogs after disengage: " + visibleSessionDialogs()));
+                    visibleSessionDialogs().isEmpty(),
+                    "visible session dialogs after disengage: " + visibleSessionDialogs()));
         } finally {
             onEdt(() -> {
                 disposeSessionDialogs();
@@ -99,20 +97,17 @@ final class SwingEditSessionDialogPrimitivesTest {
         final JFrame owner = new JFrame("owner");
         onEdt(() -> owner.setVisible(true));
         try {
-            final EditSessionDialogPrimitives primitives =
-                new SwingEditSessionDialogPrimitives();
-            final EditSessionUiLockContext context =
-                new EditSessionUiLockContext(Optional.of(owner), () -> {});
-            final EditSessionDialogPrimitives.InvisibleModal modal =
-                primitives.createInvisibleModal(context);
+            final EditSessionDialogPrimitives primitives = new SwingEditSessionDialogPrimitives();
+            final EditSessionUiLockContext context = new EditSessionUiLockContext(Optional.of(owner), () -> {});
+            final EditSessionDialogPrimitives.InvisibleModal modal = primitives.createInvisibleModal(context);
             onEdt(() -> {
                 modal.hide();
                 modal.dispose();
             });
             onEdt(() -> {});
             onEdt(() -> assertTrue(
-                visibleSessionDialogs().isEmpty(),
-                "visible session dialogs after hide+dispose: " + visibleSessionDialogs()));
+                    visibleSessionDialogs().isEmpty(),
+                    "visible session dialogs after hide+dispose: " + visibleSessionDialogs()));
         } finally {
             onEdt(() -> {
                 disposeSessionDialogs();
@@ -140,7 +135,7 @@ final class SwingEditSessionDialogPrimitivesTest {
     /** Runs work on the EDT and returns its result. */
     private static <T> T onEdt(final java.util.concurrent.Callable<T> work) {
         final java.util.concurrent.atomic.AtomicReference<T> result =
-            new java.util.concurrent.atomic.AtomicReference<>();
+                new java.util.concurrent.atomic.AtomicReference<>();
         onEdt(() -> {
             try {
                 result.set(work.call());
@@ -152,8 +147,7 @@ final class SwingEditSessionDialogPrimitivesTest {
     }
 
     private static void awaitTrue(final java.util.function.Supplier<Boolean> condition) {
-        final long deadlineNanos =
-            System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(AWAIT_TIMEOUT_MS);
+        final long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(AWAIT_TIMEOUT_MS);
         while (System.nanoTime() < deadlineNanos) {
             if (Boolean.TRUE.equals(condition.get())) {
                 return;
@@ -172,12 +166,11 @@ final class SwingEditSessionDialogPrimitivesTest {
     private static List<String> visibleSessionDialogs() {
         final List<String> showing = new ArrayList<>();
         for (final Window window : Window.getWindows()) {
-            if (window instanceof JDialog dialog && dialog.isShowing()
-                && (SwingEditSessionDialogPrimitives.INVISIBLE_MODAL_TITLE.equals(
-                        dialog.getTitle())
-                    || STATUS_DIALOG_TITLE.equals(dialog.getTitle()))) {
-                showing.add(dialog.getTitle() + "@" + Integer.toHexString(
-                    System.identityHashCode(dialog)));
+            if (window instanceof JDialog dialog
+                    && dialog.isShowing()
+                    && (SwingEditSessionDialogPrimitives.INVISIBLE_MODAL_TITLE.equals(dialog.getTitle())
+                            || STATUS_DIALOG_TITLE.equals(dialog.getTitle()))) {
+                showing.add(dialog.getTitle() + "@" + Integer.toHexString(System.identityHashCode(dialog)));
             }
         }
         return showing;
@@ -187,9 +180,8 @@ final class SwingEditSessionDialogPrimitivesTest {
     private static void disposeSessionDialogs() {
         for (final Window window : Window.getWindows()) {
             if (window instanceof JDialog dialog
-                && (SwingEditSessionDialogPrimitives.INVISIBLE_MODAL_TITLE.equals(
-                        dialog.getTitle())
-                    || STATUS_DIALOG_TITLE.equals(dialog.getTitle()))) {
+                    && (SwingEditSessionDialogPrimitives.INVISIBLE_MODAL_TITLE.equals(dialog.getTitle())
+                            || STATUS_DIALOG_TITLE.equals(dialog.getTitle()))) {
                 dialog.setVisible(false);
                 dialog.dispose();
             }

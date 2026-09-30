@@ -16,8 +16,7 @@ public final class g {
 
     public static final g a = new g();
 
-    private g() {
-    }
+    private g() {}
 
     /** Public entry mirroring how the kernel is reached. The real class's
      *  public {@code a(BI,Graphics,BI,int,int,double,boolean)} carries two
@@ -29,8 +28,14 @@ public final class g {
         a(dst, (java.awt.Graphics) pageG, src, x, y, 1.0, true);
     }
 
-    public void a(BufferedImage dst, java.awt.Graphics pageG, BufferedImage src,
-                  int x, int y, double scale, boolean highQuality) {
+    public void a(
+            BufferedImage dst,
+            java.awt.Graphics pageG,
+            BufferedImage src,
+            int x,
+            int y,
+            double scale,
+            boolean highQuality) {
         if (scale >= 0.45 || !highQuality) {
             a(dst, (Graphics2D) pageG, src, x, y);
         } else {
@@ -41,14 +46,12 @@ public final class g {
     }
 
     private void a(BufferedImage dst, Graphics2D pageG, BufferedImage src, int x, int y) {
-        BufferedImage s7 = jp.noids.util.UtCache.getBufferedImage(
-            src.getWidth(), src.getHeight(), src.getType());
-        BufferedImage s8 = jp.noids.util.UtCache.getBufferedImage(
-            s7.getWidth(), s7.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-        BufferedImage s9 = jp.noids.util.UtCache.getBufferedImage(
-            dst.getWidth(), dst.getHeight(), dst.getType());
-        BufferedImage s10 = jp.noids.util.UtCache.getBufferedImage(
-            dst.getWidth(), dst.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        BufferedImage s7 = jp.noids.util.UtCache.getBufferedImage(src.getWidth(), src.getHeight(), src.getType());
+        BufferedImage s8 =
+                jp.noids.util.UtCache.getBufferedImage(s7.getWidth(), s7.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+        BufferedImage s9 = jp.noids.util.UtCache.getBufferedImage(dst.getWidth(), dst.getHeight(), dst.getType());
+        BufferedImage s10 =
+                jp.noids.util.UtCache.getBufferedImage(dst.getWidth(), dst.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
         try {
             byte[] b11 = jp.noids.graphics.f.f(s8);
             int[] i12 = jp.noids.graphics.f.c(s7);
@@ -69,7 +72,7 @@ public final class g {
                 }
             }
             jp.noids.graphics.f.a(s9, 0);
-            Arrays.fill(jp.noids.graphics.f.f(s10), (byte) 0);   // third f.f call site
+            Arrays.fill(jp.noids.graphics.f.f(s10), (byte) 0); // third f.f call site
             g16.setTransform(pageG.getTransform());
             jp.noids.graphics.i.a(g16);
             g16.drawImage(s7, x, y, null);

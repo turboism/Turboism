@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.sdk.io.BoundedLineReader;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,38 +56,33 @@ public final class GraalHostMain {
     }
 
     GraalHostMain(final InputStream input, final OutputStream output) {
-        this(input, output, () -> { });
+        this(input, output, () -> {});
     }
 
-    GraalHostMain(
-        final InputStream input,
-        final OutputStream output,
-        final Runnable beforeExecution
-    ) {
+    GraalHostMain(final InputStream input, final OutputStream output, final Runnable beforeExecution) {
         this.input = new BoundedLineReader(
-            new InputStreamReader(Objects.requireNonNull(input, "input"), StandardCharsets.UTF_8),
-            MAX_MESSAGE_CHARS
-        );
-        this.output = new BufferedWriter(new OutputStreamWriter(
-            Objects.requireNonNull(output, "output"), StandardCharsets.UTF_8
-        ));
-        this.beforeExecution = Objects.requireNonNull(
-            beforeExecution,
-            "beforeExecution"
-        );
+                new InputStreamReader(Objects.requireNonNull(input, "input"), StandardCharsets.UTF_8),
+                MAX_MESSAGE_CHARS);
+        this.output = new BufferedWriter(
+                new OutputStreamWriter(Objects.requireNonNull(output, "output"), StandardCharsets.UTF_8));
+        this.beforeExecution = Objects.requireNonNull(beforeExecution, "beforeExecution");
         this.executions = new ThreadPoolExecutor(
-            1, 1, 0L, TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(EXECUTION_QUEUE_CAPACITY),
-            runnable -> {
-                final Thread thread = new Thread(() -> {
-                    this.beforeExecution.run();
-                    runnable.run();
-                }, "turboism-graal-execution");
-                thread.setDaemon(false);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(EXECUTION_QUEUE_CAPACITY),
+                runnable -> {
+                    final Thread thread = new Thread(
+                            () -> {
+                                this.beforeExecution.run();
+                                runnable.run();
+                            },
+                            "turboism-graal-execution");
+                    thread.setDaemon(false);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     public static void main(final String[] args) throws Exception {
@@ -132,9 +126,10 @@ public final class GraalHostMain {
             queuedExecutions.clear();
             executions.shutdownNow();
             executions.awaitTermination(2, TimeUnit.SECONDS);
-            hostCalls.values().forEach(future -> future.completeExceptionally(
-                new IllegalStateException("Graal host is shutting down")
-            ));
+            hostCalls
+                    .values()
+                    .forEach(future ->
+                            future.completeExceptionally(new IllegalStateException("Graal host is shutting down")));
             hostCalls.clear();
             runtime.close();
         }
@@ -162,13 +157,7 @@ public final class GraalHostMain {
             return;
         }
         if (source.length() > MAX_SOURCE_CHARS) {
-            send(executionFailure(
-                executionId,
-                "FAILED",
-                "SCRIPT_TOO_LARGE",
-                "Script source exceeded 384 KiB.",
-                ""
-            ));
+            send(executionFailure(executionId, "FAILED", "SCRIPT_TOO_LARGE", "Script source exceeded 384 KiB.", ""));
             return;
         }
         final Map<String, String> arguments;
@@ -191,29 +180,26 @@ public final class GraalHostMain {
             queuedExecutions.remove(executionId, task);
             active.remove(executionId, control);
             send(executionFailure(
-                executionId,
-                "REJECTED",
-                "GRAAL_HOST_EXECUTION_QUEUE_FULL",
-                "Graal host execution queue is full.",
-                ""
-            ));
+                    executionId,
+                    "REJECTED",
+                    "GRAAL_HOST_EXECUTION_QUEUE_FULL",
+                    "Graal host execution queue is full.",
+                    ""));
         }
     }
 
     private void execute(
-        final String executionId,
-        final String scriptId,
-        final String source,
-        final Map<String, String> arguments,
-        final ReflectiveGraalJsRuntime.ExecutionControl control
-    ) {
+            final String executionId,
+            final String scriptId,
+            final String source,
+            final Map<String, String> arguments,
+            final ReflectiveGraalJsRuntime.ExecutionControl control) {
         try {
             final ReflectiveGraalJsRuntime.ExecutionResult result = runtime.execute(
-                source,
-                arguments,
-                (operation, payloadJson) -> callHost(executionId, operation, payloadJson),
-                control
-            );
+                    source,
+                    arguments,
+                    (operation, payloadJson) -> callHost(executionId, operation, payloadJson),
+                    control);
             final ObjectNode message;
             if (result.status() == ReflectiveGraalJsRuntime.Status.SUCCEEDED) {
                 message = mapper.createObjectNode();
@@ -224,24 +210,20 @@ public final class GraalHostMain {
                 message.put("output", result.output());
             } else {
                 message = executionFailure(
-                    executionId,
-                    result.status().name(),
-                    result.code(),
-                    result.message(),
-                    result.output()
-                );
+                        executionId, result.status().name(), result.code(), result.message(), result.output());
                 message.put("scriptId", scriptId);
             }
             send(message);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             try {
                 send(executionFailure(
-                    executionId,
-                    "FAILED",
-                    "GRAAL_HOST_EXECUTION_FAILED",
-                    safeMessage(failure, "Graal host execution failed."),
-                    ""
-                ));
+                        executionId,
+                        "FAILED",
+                        "GRAAL_HOST_EXECUTION_FAILED",
+                        safeMessage(failure, "Graal host execution failed."),
+                        ""));
             } catch (IOException ignored) {
                 closing = true;
             }
@@ -251,11 +233,8 @@ public final class GraalHostMain {
         }
     }
 
-    private String callHost(
-        final String executionId,
-        final String operation,
-        final String payloadJson
-    ) throws Exception {
+    private String callHost(final String executionId, final String operation, final String payloadJson)
+            throws Exception {
         if (operation == null || operation.isBlank() || operation.length() > 256) {
             throw new IllegalArgumentException("Invalid host operation");
         }
@@ -306,10 +285,7 @@ public final class GraalHostMain {
         final String callId = text(message, "callId");
         final CompletableFuture<String> future = hostCalls.remove(callId);
         if (future != null) {
-            future.completeExceptionally(new HostCallException(
-                text(message, "code"),
-                text(message, "message")
-            ));
+            future.completeExceptionally(new HostCallException(text(message, "code"), text(message, "message")));
         }
     }
 
@@ -352,12 +328,11 @@ public final class GraalHostMain {
         private final AtomicBoolean consumed = new AtomicBoolean(false);
 
         private ExecutionTask(
-            final String executionId,
-            final String scriptId,
-            final String source,
-            final Map<String, String> arguments,
-            final ReflectiveGraalJsRuntime.ExecutionControl control
-        ) {
+                final String executionId,
+                final String scriptId,
+                final String source,
+                final Map<String, String> arguments,
+                final ReflectiveGraalJsRuntime.ExecutionControl control) {
             this.executionId = executionId;
             this.scriptId = scriptId;
             this.source = source;
@@ -367,8 +342,7 @@ public final class GraalHostMain {
 
         @Override
         public void run() {
-            if (!queuedExecutions.remove(executionId, this)
-                || !consumed.compareAndSet(false, true)) {
+            if (!queuedExecutions.remove(executionId, this) || !consumed.compareAndSet(false, true)) {
                 return;
             }
             execute(executionId, scriptId, source, arguments, control);
@@ -380,12 +354,11 @@ public final class GraalHostMain {
             }
             try {
                 send(executionFailure(
-                    executionId,
-                    "CANCELLED",
-                    "SCRIPT_CANCELLED",
-                    "Script execution was cancelled before it started.",
-                    ""
-                ));
+                        executionId,
+                        "CANCELLED",
+                        "SCRIPT_CANCELLED",
+                        "Script execution was cancelled before it started.",
+                        ""));
             } catch (IOException failure) {
                 closing = true;
             }
@@ -419,12 +392,11 @@ public final class GraalHostMain {
     }
 
     private ObjectNode executionFailure(
-        final String executionId,
-        final String status,
-        final String code,
-        final String message,
-        final String outputText
-    ) {
+            final String executionId,
+            final String status,
+            final String code,
+            final String message,
+            final String outputText) {
         final ObjectNode node = mapper.createObjectNode();
         node.put("type", "FAILED");
         node.put("executionId", executionId == null ? "" : executionId);
@@ -476,10 +448,13 @@ public final class GraalHostMain {
     }
 
     private static String safeMessage(final Throwable failure, final String fallback) {
-        if (failure == null || failure.getMessage() == null || failure.getMessage().isBlank()) {
+        if (failure == null
+                || failure.getMessage() == null
+                || failure.getMessage().isBlank()) {
             return fallback;
         }
-        final String normalized = failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim();
+        final String normalized =
+                failure.getMessage().replace('\r', ' ').replace('\n', ' ').trim();
         return normalized.length() <= 1024 ? normalized : normalized.substring(0, 1024);
     }
 

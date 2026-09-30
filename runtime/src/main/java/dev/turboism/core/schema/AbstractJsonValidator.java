@@ -1,7 +1,6 @@
 package dev.turboism.core.schema;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -20,7 +19,8 @@ public abstract class AbstractJsonValidator implements JsonSchemaValidator {
     protected final int expectedSchemaVersion;
     protected final Set<String> allowedTopLevelFields;
 
-    protected AbstractJsonValidator(String format, String errorCodePrefix, int expectedSchemaVersion, Set<String> allowedTopLevelFields) {
+    protected AbstractJsonValidator(
+            String format, String errorCodePrefix, int expectedSchemaVersion, Set<String> allowedTopLevelFields) {
         this.format = format;
         this.errorCodePrefix = errorCodePrefix;
         this.expectedSchemaVersion = expectedSchemaVersion;
@@ -48,7 +48,11 @@ public abstract class AbstractJsonValidator implements JsonSchemaValidator {
         if (node.has("schemaVersion") && !node.get("schemaVersion").isNull()) {
             int actualVersion = node.get("schemaVersion").asInt(-1);
             if (actualVersion != expectedSchemaVersion) {
-                errors.add(error(errorCodePrefix + "_BAD_SCHEMA_VERSION", "schemaVersion must be " + expectedSchemaVersion, "schemaVersion", source));
+                errors.add(error(
+                        errorCodePrefix + "_BAD_SCHEMA_VERSION",
+                        "schemaVersion must be " + expectedSchemaVersion,
+                        "schemaVersion",
+                        source));
             }
         }
 
@@ -56,32 +60,43 @@ public abstract class AbstractJsonValidator implements JsonSchemaValidator {
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> entry = fields.next();
             if (!allowedTopLevelFields.contains(entry.getKey())) {
-                errors.add(error(errorCodePrefix + "_UNKNOWN_FIELD", "Unknown top-level field: " + entry.getKey(), entry.getKey(), source));
+                errors.add(error(
+                        errorCodePrefix + "_UNKNOWN_FIELD",
+                        "Unknown top-level field: " + entry.getKey(),
+                        entry.getKey(),
+                        source));
             }
         }
 
         return errors;
     }
 
-    protected void requireStringField(JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
-        if (!node.has(field) || node.get(field).isNull() || !node.get(field).isTextual() || node.get(field).asText().isBlank()) {
+    protected void requireStringField(
+            JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
+        if (!node.has(field)
+                || node.get(field).isNull()
+                || !node.get(field).isTextual()
+                || node.get(field).asText().isBlank()) {
             errors.add(error(missingCode, "Missing required string field: " + field, field, source));
         }
     }
 
-    protected void requireIntegerField(JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
+    protected void requireIntegerField(
+            JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
         if (!node.has(field) || node.get(field).isNull() || !node.get(field).isIntegralNumber()) {
             errors.add(error(missingCode, "Missing required integer field: " + field, field, source));
         }
     }
 
-    protected void requireArrayField(JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
+    protected void requireArrayField(
+            JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
         if (!node.has(field) || node.get(field).isNull() || !node.get(field).isArray()) {
             errors.add(error(missingCode, "Missing required array field: " + field, field, source));
         }
     }
 
-    protected void requireObjectField(JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
+    protected void requireObjectField(
+            JsonNode node, String field, String missingCode, List<SchemaValidationError> errors, String source) {
         if (!node.has(field) || node.get(field).isNull() || !node.get(field).isObject()) {
             errors.add(error(missingCode, "Missing required object field: " + field, field, source));
         }

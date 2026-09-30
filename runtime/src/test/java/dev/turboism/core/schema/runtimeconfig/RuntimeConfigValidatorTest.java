@@ -1,14 +1,12 @@
 package dev.turboism.core.schema.runtimeconfig;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.schema.SchemaValidationError;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeConfigValidatorTest {
 
@@ -34,8 +32,8 @@ class RuntimeConfigValidatorTest {
 
     private List<String> codes(final ObjectNode root) {
         return validator.validate(root, "test.json").stream()
-            .map(SchemaValidationError::code)
-            .toList();
+                .map(SchemaValidationError::code)
+                .toList();
     }
 
     @Test
@@ -73,10 +71,7 @@ class RuntimeConfigValidatorTest {
     @Test
     void acceptsOptionalCustomGraalVmPath() {
         final ObjectNode root = base();
-        root.withObject("launcher").put(
-            "graalVmPath",
-            "C:\\Program Files\\GraalVM\\bin\\java.exe"
-        );
+        root.withObject("launcher").put("graalVmPath", "C:\\Program Files\\GraalVM\\bin\\java.exe");
 
         assertTrue(validator.validate(root, "test.json").isEmpty());
     }

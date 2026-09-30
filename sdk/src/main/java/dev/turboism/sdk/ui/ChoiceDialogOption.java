@@ -1,17 +1,11 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.List;
 import java.util.Objects;
 
 /** One bounded SDK-owned option rendered by a runtime-owned choice dialog. */
 public record ChoiceDialogOption(
-    String id,
-    String label,
-    String detail,
-    boolean enabled,
-    List<ChoiceDialogDetailRow> detailRows
-) {
+        String id, String label, String detail, boolean enabled, List<ChoiceDialogDetailRow> detailRows) {
     public ChoiceDialogOption {
         id = requireText(id, "id", 128);
         label = requireText(label, "label", 256);
@@ -25,12 +19,7 @@ public record ChoiceDialogOption(
         }
     }
 
-    public ChoiceDialogOption(
-        final String id,
-        final String label,
-        final String detail,
-        final boolean enabled
-    ) {
+    public ChoiceDialogOption(final String id, final String label, final String detail, final boolean enabled) {
         this(id, label, detail, enabled, List.of());
     }
 

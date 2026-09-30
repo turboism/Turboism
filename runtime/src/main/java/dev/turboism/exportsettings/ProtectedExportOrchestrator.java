@@ -1,5 +1,6 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -58,14 +59,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     /** Bounded failure identities reported per run. */
     public static final String NOT_ADMITTED_KEY = "protected-export.not-admitted";
+
     public static final String PREFLIGHT_FAILED_KEY = "protected-export.preflight-failed";
     public static final String BIND_FAILED_KEY = "protected-export.bind-failed";
     public static final String FLATTEN_FAILED_KEY = "protected-export.flatten-failed";
     public static final String OBFUSCATE_FAILED_KEY = "protected-export.obfuscation-failed";
-    public static final String BEHAVIOR_CAPTURE_FAILED_KEY =
-        "protected-export.behavior-capture-failed";
-    public static final String BEHAVIOR_MISMATCH_KEY =
-        "protected-export.behavior-mismatch";
+    public static final String BEHAVIOR_CAPTURE_FAILED_KEY = "protected-export.behavior-capture-failed";
+    public static final String BEHAVIOR_MISMATCH_KEY = "protected-export.behavior-mismatch";
     public static final String EXPORT_CANCELLED_KEY = "protected-export.export-cancelled";
     public static final String EXPORT_FAILED_KEY = "protected-export.export-failed";
     public static final String REVOKED_KEY = "protected-export.revoked";
@@ -112,15 +112,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * {@code FAILED} or {@code CANCELLED} phase never implies either by itself.</p>
      */
     public record Report(
-        long sessionId,
-        Phase reached,
-        boolean published,
-        String failureKey,
-        List<Path> publishedFiles,
-        String failureDetail,
-        boolean originalRestored,
-        List<String> cleanupErrors
-    ) {
+            long sessionId,
+            Phase reached,
+            boolean published,
+            String failureKey,
+            List<Path> publishedFiles,
+            String failureDetail,
+            boolean originalRestored,
+            List<String> cleanupErrors) {
         /** Whether task-owned state was verifiably removed without error. */
         public boolean cleanedUp() {
             return cleanupErrors.isEmpty();
@@ -142,8 +141,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * bounded gate it stopped at; the default sink is a no-op so the orchestrator stays
      * inert without a product surface.
      */
-    private volatile Consumer<ExportSettingsVetoDiagnostic> refusalReporter =
-        diagnostic -> { };
+    private volatile Consumer<ExportSettingsVetoDiagnostic> refusalReporter = diagnostic -> {};
+
     private final long bindTimeoutMillis;
     private final long exportCallbackTimeoutMillis;
     private final ExecutorService worker;
@@ -151,31 +150,29 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private final AtomicReference<Session> armed = new AtomicReference<>();
     /** Hot only while our own native re-drive executes on the EDT. */
     private final AtomicBoolean exportWindow = new AtomicBoolean();
+
     private final AtomicBoolean closed = new AtomicBoolean();
 
     public ProtectedExportOrchestrator(
-        final ProtectedExportHostOperations host,
-        final ProtectedExportStaging staging,
-        final Path stagingRoot,
-        final String orchestratedPluginId,
-        final String orchestratedOptionId,
-        final BooleanSupplier redirectSeamInstalled,
-        final BooleanSupplier optionBindingLive,
-        final LongSupplier hostGeneration,
-        final EdtDispatcher edt,
-        final Consumer<Report> reporter,
-        final long bindTimeoutMillis,
-        final long exportCallbackTimeoutMillis
-    ) {
+            final ProtectedExportHostOperations host,
+            final ProtectedExportStaging staging,
+            final Path stagingRoot,
+            final String orchestratedPluginId,
+            final String orchestratedOptionId,
+            final BooleanSupplier redirectSeamInstalled,
+            final BooleanSupplier optionBindingLive,
+            final LongSupplier hostGeneration,
+            final EdtDispatcher edt,
+            final Consumer<Report> reporter,
+            final long bindTimeoutMillis,
+            final long exportCallbackTimeoutMillis) {
         this.host = Objects.requireNonNull(host, "host");
         this.staging = Objects.requireNonNull(staging, "staging");
         this.stagingRoot = Objects.requireNonNull(stagingRoot, "stagingRoot");
         this.orchestratedPluginId = requireText(orchestratedPluginId, "orchestratedPluginId");
         this.orchestratedOptionId = requireText(orchestratedOptionId, "orchestratedOptionId");
-        this.redirectSeamInstalled =
-            Objects.requireNonNull(redirectSeamInstalled, "redirectSeamInstalled");
-        this.optionBindingLive =
-            Objects.requireNonNull(optionBindingLive, "optionBindingLive");
+        this.redirectSeamInstalled = Objects.requireNonNull(redirectSeamInstalled, "redirectSeamInstalled");
+        this.optionBindingLive = Objects.requireNonNull(optionBindingLive, "optionBindingLive");
         this.hostGeneration = Objects.requireNonNull(hostGeneration, "hostGeneration");
         this.edt = Objects.requireNonNull(edt, "edt");
         this.reporter = Objects.requireNonNull(reporter, "reporter");
@@ -205,9 +202,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     private boolean refuse(final String detail) {
         try {
-            refusalReporter.accept(
-                new ExportSettingsVetoDiagnostic(NOT_ADMITTED_KEY, detail));
+            refusalReporter.accept(new ExportSettingsVetoDiagnostic(NOT_ADMITTED_KEY, detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Reporting must never flip the fixed fail-closed refusal.
         }
         return false;
@@ -240,6 +237,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             document = modelSource == null ? null : host.modelSourceDocument(modelSource);
             sourceFile = document == null ? null : host.documentFile(document);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return refuse("host-read-failed");
         }
         if (modelSource == null || document == null || sourceFile == null) {
@@ -255,14 +253,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             return refuse("document-not-in-project");
         }
         final Session session = new Session(
-            sessionIds.incrementAndGet(), dialogOwner, document, modelSource, sourceFile,
-            hostGeneration.getAsLong());
+                sessionIds.incrementAndGet(),
+                dialogOwner,
+                document,
+                modelSource,
+                sourceFile,
+                hostGeneration.getAsLong());
         if (!armed.compareAndSet(null, session)) {
             return refuse("busy");
         }
         try {
             worker.execute(() -> run(session));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             armed.compareAndSet(session, null);
             return refuse("worker-rejected");
         }
@@ -336,8 +339,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         } catch (SessionRejection rejection) {
             session.fail(rejection.failureKey, rejection.detail);
         } catch (Throwable failure) {
-            session.fail("protected-export.internal-failure",
-                session.phase + " " + describe(failure));
+            FatalErrors.rethrowIfFatal(failure);
+            session.fail("protected-export.internal-failure", session.phase + " " + describe(failure));
         } finally {
             // Every terminal path — published, failed, cancelled — runs the same
             // teardown: put the original document back, verify its invariants,
@@ -346,11 +349,10 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             try {
                 session.cleanupErrors = restoreSession(session);
             } catch (Throwable teardown) {
-                session.cleanupErrors =
-                    List.of("teardown-threw: " + describe(teardown));
+                FatalErrors.rethrowIfFatal(teardown);
+                session.cleanupErrors = List.of("teardown-threw: " + describe(teardown));
                 if (session.pendingReport == null) {
-                    session.report(Phase.FAILED, false,
-                        "protected-export.internal-failure", describe(teardown));
+                    session.report(Phase.FAILED, false, "protected-export.internal-failure", describe(teardown));
                 }
             }
             armed.compareAndSet(session, null);
@@ -371,7 +373,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // The full census resolves on the original source before any copy exists.
             try {
                 session.plan = ProtectedExportDeformerPlan.plan(host, session.modelSource)
-                    .leafToRootGuids();
+                        .leafToRootGuids();
             } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
                 throw new SessionRejection(PREFLIGHT_FAILED_KEY, rejection.getMessage());
             }
@@ -395,8 +397,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final Path stagingDir;
         try {
             Files.createDirectories(stagingRoot);
-            stagingDir = Files.createTempDirectory(
-                stagingRoot, "protected-export-" + session.id + "-");
+            stagingDir = Files.createTempDirectory(stagingRoot, "protected-export-" + session.id + "-");
             session.stagingDir = stagingDir;
             session.copyFile = stagingDir.resolve(session.sourceFile.getName()).toFile();
         } catch (IOException failure) {
@@ -408,8 +409,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // flag, undo state or file binding.
         onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
-            if (!host.serializeModelSource(session.modelSource, session.copyFile)
-                || !session.copyFile.isFile()) {
+            if (!host.serializeModelSource(session.modelSource, session.copyFile) || !session.copyFile.isFile()) {
                 throw new SessionRejection(BIND_FAILED_KEY);
             }
             host.openFile(session.copyFile);
@@ -440,8 +440,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // Binding confirmation: the copy census must reproduce the plan exactly.
         final List<String> copyOrder;
         try {
-            copyOrder = onEdt(() ->
-                ProtectedExportDeformerPlan.plan(host, copySource).leafToRootGuids());
+            copyOrder = onEdt(
+                    () -> ProtectedExportDeformerPlan.plan(host, copySource).leafToRootGuids());
         } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
             throw new SessionRejection(BIND_FAILED_KEY);
         }
@@ -486,9 +486,10 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 // selection entry rejects before any apply can run.
                 final List<?> selected = host.selectedDeformers(context.selector());
                 context = requireFlattenContext(session, context);
-                if (selected.size() != 1 || selected.get(0) != source
-                    || !guid.equals(host.deformerGuid(selected.get(0)))
-                    || host.selectedCount(context.selector()) != 1) {
+                if (selected.size() != 1
+                        || selected.get(0) != source
+                        || !guid.equals(host.deformerGuid(selected.get(0)))
+                        || host.selectedCount(context.selector()) != 1) {
                     throw new SessionRejection(FLATTEN_FAILED_KEY);
                 }
                 // A deformer with no keyform bindings contributes nothing the
@@ -499,12 +500,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 // be caught by the post-flatten behavior oracle — there is no
                 // correct position-rewrite primitive for it (the deformer
                 // transform operates in grid-local space, not canvas space).
-                diag(session, "deformer d=" + guid
-                    + " bindings=" + host.keyformBindings(source).size()
-                    + " children=" + host.deformerChildren(source).size());
+                diag(
+                        session,
+                        "deformer d=" + guid
+                                + " bindings=" + host.keyformBindings(source).size()
+                                + " children=" + host.deformerChildren(source).size());
                 host.applyDeformerToParameters(context.editMode());
-                return resolveDeformer(context.liveSource(), guid) == null
-                    ? Boolean.TRUE : Boolean.FALSE;
+                return resolveDeformer(context.liveSource(), guid) == null ? Boolean.TRUE : Boolean.FALSE;
             });
             if (!Boolean.TRUE.equals(applied)) {
                 throw new SessionRejection(FLATTEN_FAILED_KEY);
@@ -544,28 +546,26 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             plan = onEdt(() -> {
                 requireGeneration(session, session.hostGeneration);
                 requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
-                return ProtectedExportObfuscationPlan.plan(
-                    host, requireCopyModelSource(session, OBFUSCATE_FAILED_KEY));
+                return ProtectedExportObfuscationPlan.plan(host, requireCopyModelSource(session, OBFUSCATE_FAILED_KEY));
             });
         } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
         }
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
-                : plan.byGuid().entrySet()) {
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+                plan.byGuid().entrySet()) {
             final String guid = entry.getKey();
             final ProtectedExportObfuscationPlan.Target target = entry.getValue();
             final boolean applied = onEdt(() -> {
                 requireGeneration(session, session.hostGeneration);
                 requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
-                final Object mesh = resolveArtMesh(
-                    requireCopyModelSource(session, OBFUSCATE_FAILED_KEY), guid);
+                final Object mesh = resolveArtMesh(requireCopyModelSource(session, OBFUSCATE_FAILED_KEY), guid);
                 if (mesh == null || !host.isArtMeshSource(mesh)) {
                     return Boolean.FALSE;
                 }
                 host.setObjectLocalName(mesh, target.name());
                 host.setDrawableId(mesh, target.idToken());
                 return target.name().equals(host.objectLocalName(mesh))
-                    && target.idToken().equals(host.drawableIdString(mesh));
+                        && target.idToken().equals(host.drawableIdString(mesh));
             });
             if (!Boolean.TRUE.equals(applied)) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY);
@@ -573,25 +573,24 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
         // Physics and motion-sync settings: same GUID-hash obfuscation — name
         // and ID only; every behavior value is pinned by the content signature.
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
-                : plan.physicsSettings().entrySet()) {
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+                plan.physicsSettings().entrySet()) {
             applySettingsRewrite(session, entry, true);
         }
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
-                : plan.motionSyncSettings().entrySet()) {
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+                plan.motionSyncSettings().entrySet()) {
             applySettingsRewrite(session, entry, false);
         }
         final boolean consistent = onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
             requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
-            final Object liveSource = requireCopyModelSource(
-                session, OBFUSCATE_FAILED_KEY);
+            final Object liveSource = requireCopyModelSource(session, OBFUSCATE_FAILED_KEY);
             for (Object mesh : host.allArtMeshes(liveSource)) {
                 final ProtectedExportObfuscationPlan.Target target =
-                    plan.byGuid().get(host.objectGuid(mesh));
+                        plan.byGuid().get(host.objectGuid(mesh));
                 if (target == null
-                    || !target.name().equals(host.objectLocalName(mesh))
-                    || !target.idToken().equals(host.drawableIdString(mesh))) {
+                        || !target.name().equals(host.objectLocalName(mesh))
+                        || !target.idToken().equals(host.drawableIdString(mesh))) {
                     return Boolean.FALSE;
                 }
             }
@@ -649,8 +648,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
         }
         final Map<String, String> tokenKeys = new LinkedHashMap<>();
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
-                : plan.byGuid().entrySet()) {
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+                plan.byGuid().entrySet()) {
             tokenKeys.put(entry.getKey(), entry.getValue().idToken());
         }
         session.behavior = captureBehaviorSnapshot(session, tokenKeys);
@@ -666,16 +665,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      */
     private void compareBehavior(final Session session) {
         final Map<String, String> guidToToken = new LinkedHashMap<>();
-        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
-                : session.obfuscationPlan.byGuid().entrySet()) {
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry :
+                session.obfuscationPlan.byGuid().entrySet()) {
             guidToToken.put(entry.getKey(), entry.getValue().idToken());
         }
-        final String drift = ProtectedExportStaging.behaviorDrift(
-            session.originalBehavior, session.behavior, guidToToken);
+        final String drift =
+                ProtectedExportStaging.behaviorDrift(session.originalBehavior, session.behavior, guidToToken);
         if (drift != null) {
             final String diagText = session.flattenDiag.toString();
-            throw new SessionRejection(BEHAVIOR_MISMATCH_KEY,
-                drift + (diagText.isEmpty() ? "" : " |flatten:" + diagText));
+            throw new SessionRejection(
+                    BEHAVIOR_MISMATCH_KEY, drift + (diagText.isEmpty() ? "" : " |flatten:" + diagText));
         }
         session.phase = Phase.BEHAVIOR_COMPARED;
     }
@@ -690,60 +689,48 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * key (the GUID itself pre-flatten, the drawable-ID token post-obfuscation).
      */
     private ProtectedExportStaging.BehaviorSnapshot captureBehaviorSnapshot(
-        final Session session,
-        final Map<String, String> guidToKey
-    ) throws Exception {
-        final List<ProtectedExportStaging.BehaviorSample> samples =
-            behaviorSamples(session.expectedParameters);
+            final Session session, final Map<String, String> guidToKey) throws Exception {
+        final List<ProtectedExportStaging.BehaviorSample> samples = behaviorSamples(session.expectedParameters);
         final ProtectedExportStaging.BehaviorSnapshot snapshot = onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
             requireLiveCopy(session, BEHAVIOR_CAPTURE_FAILED_KEY);
-            final Object source =
-                requireCopyModelSource(session, BEHAVIOR_CAPTURE_FAILED_KEY);
+            final Object source = requireCopyModelSource(session, BEHAVIOR_CAPTURE_FAILED_KEY);
             final Object instance = session.copyModelInstance;
             if (instance == null) {
                 throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY);
             }
-            final Map<String, ProtectedExportStaging.ParameterExpectation>
-                expected = session.expectedParameters;
+            final Map<String, ProtectedExportStaging.ParameterExpectation> expected = session.expectedParameters;
             // Record the pre-capture state of every parameter we will touch so
             // it can be restored exactly — defaults are the sampling baseline,
             // not necessarily the live state.
             final Map<String, Object> params = new LinkedHashMap<>();
             final Map<String, Float> priorValues = new LinkedHashMap<>();
             for (var expectation : expected.values()) {
-                final Object parameter =
-                    requireLiveParameter(session, source, expectation.id());
+                final Object parameter = requireLiveParameter(session, source, expectation.id());
                 params.put(expectation.id(), parameter);
-                priorValues.put(expectation.id(),
-                    host.parameterInstanceValue(parameter));
+                priorValues.put(expectation.id(), host.parameterInstanceValue(parameter));
             }
             try {
                 for (Map.Entry<String, Object> entry : params.entrySet()) {
-                    host.setParameterInstanceValue(entry.getValue(),
-                        expected.get(entry.getKey()).defaultValue());
+                    host.setParameterInstanceValue(
+                            entry.getValue(), expected.get(entry.getKey()).defaultValue());
                 }
                 host.evaluateModelInstance(instance);
-                final Map<String, float[]> baseline =
-                    captureFrame(instance, guidToKey);
-                final List<Map<String, float[]>> frames =
-                    new ArrayList<>(samples.size());
+                final Map<String, float[]> baseline = captureFrame(instance, guidToKey);
+                final List<Map<String, float[]>> frames = new ArrayList<>(samples.size());
                 for (var sample : samples) {
-                    host.setParameterInstanceValue(
-                        params.get(sample.parameterId()), sample.value());
+                    host.setParameterInstanceValue(params.get(sample.parameterId()), sample.value());
                     host.evaluateModelInstance(instance);
                     frames.add(captureFrame(instance, guidToKey));
                     // Isolate the next sample: return this parameter to default.
                     host.setParameterInstanceValue(
-                        params.get(sample.parameterId()),
-                        expected.get(sample.parameterId()).defaultValue());
+                            params.get(sample.parameterId()),
+                            expected.get(sample.parameterId()).defaultValue());
                 }
-                return new ProtectedExportStaging.BehaviorSnapshot(
-                    samples, baseline, frames);
+                return new ProtectedExportStaging.BehaviorSnapshot(samples, baseline, frames);
             } finally {
                 for (Map.Entry<String, Object> entry : params.entrySet()) {
-                    host.setParameterInstanceValue(
-                        entry.getValue(), priorValues.get(entry.getKey()));
+                    host.setParameterInstanceValue(entry.getValue(), priorValues.get(entry.getKey()));
                 }
                 host.evaluateModelInstance(instance);
             }
@@ -761,11 +748,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * model cannot turn validation into an unbounded sampling run.
      */
     private List<ProtectedExportStaging.BehaviorSample> behaviorSamples(
-        final Map<String, ProtectedExportStaging.ParameterExpectation> expected
-    ) {
+            final Map<String, ProtectedExportStaging.ParameterExpectation> expected) {
         final int maxSamples = 64;
-        final List<ProtectedExportStaging.BehaviorSample> samples =
-            new ArrayList<>();
+        final List<ProtectedExportStaging.BehaviorSample> samples = new ArrayList<>();
         final List<String> ids = new ArrayList<>(expected.keySet());
         Collections.sort(ids);
         for (String id : ids) {
@@ -781,19 +766,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 if (samples.size() >= maxSamples) {
                     return List.copyOf(samples);
                 }
-                samples.add(
-                    new ProtectedExportStaging.BehaviorSample(id, point));
+                samples.add(new ProtectedExportStaging.BehaviorSample(id, point));
             }
         }
         return List.copyOf(samples);
     }
 
     /** Resolves a live parameter instance on the copy's source by ID. */
-    private Object requireLiveParameter(
-        final Session session,
-        final Object modelSource,
-        final String parameterId
-    ) {
+    private Object requireLiveParameter(final Session session, final Object modelSource, final String parameterId) {
         for (Object parameter : host.liveParameters(modelSource)) {
             if (parameterId.equals(host.parameterInstanceId(parameter))) {
                 return parameter;
@@ -810,29 +790,22 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * because host evaluation may rebuild instance objects; a mapped mesh that
      * cannot be resolved or read fails the capture.
      */
-    private Map<String, float[]> captureFrame(
-        final Object modelInstance,
-        final Map<String, String> guidToKey
-    ) {
+    private Map<String, float[]> captureFrame(final Object modelInstance, final Map<String, String> guidToKey) {
         final Map<String, float[]> frame = new LinkedHashMap<>();
         for (Object mesh : host.modelInstanceArtMeshes(modelInstance)) {
             final Object meshSource = host.artMeshInstanceSource(mesh);
-            final String guid = meshSource == null
-                ? null : host.objectGuid(meshSource);
+            final String guid = meshSource == null ? null : host.objectGuid(meshSource);
             final String key = guid == null ? null : guidToKey.get(guid);
             if (key == null) {
                 continue;
             }
             final float[] positions = host.evaluatedArtMeshPositions(mesh);
-            if (positions == null || positions.length == 0
-                || (positions.length & 1) != 0) {
-                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
-                    "invalid-positions:" + key);
+            if (positions == null || positions.length == 0 || (positions.length & 1) != 0) {
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY, "invalid-positions:" + key);
             }
             for (float position : positions) {
                 if (!Float.isFinite(position)) {
-                    throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
-                        "non-finite-positions:" + key);
+                    throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY, "non-finite-positions:" + key);
                 }
             }
             frame.put(key, positions);
@@ -841,8 +814,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // is a capture failure, not a silently narrower comparison surface.
         for (String key : guidToKey.values()) {
             if (!frame.containsKey(key)) {
-                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY,
-                    "uncaptured-drawable:" + key);
+                throw new SessionRejection(BEHAVIOR_CAPTURE_FAILED_KEY, "uncaptured-drawable:" + key);
             }
         }
         return Map.copyOf(frame);
@@ -853,10 +825,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // Late or foreign completions must not revive a session: only an
             // armed, still-admitted session inside its own export window may
             // record staged output.
-            if (armed.get() != session || !exportWindow.get() || closed.get()
-                || session.aborted.get()
-                || hostGeneration.getAsLong() != session.hostGeneration
-                || !optionBindingLive.getAsBoolean()) {
+            if (armed.get() != session
+                    || !exportWindow.get()
+                    || closed.get()
+                    || session.aborted.get()
+                    || hostGeneration.getAsLong() != session.hostGeneration
+                    || !optionBindingLive.getAsBoolean()) {
                 return;
             }
             session.stagedPick = file;
@@ -880,12 +854,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     if (driver == null) {
                         throw new SessionRejection(EXPORT_FAILED_KEY);
                     }
-                    host.invokeNativeExport(
-                        driver, session.copyModelSource, host.mainFrame(),
-                        callback);
+                    host.invokeNativeExport(driver, session.copyModelSource, host.mainFrame(), callback);
                     requireExportLive(session);
                     session.exportDone.complete(null);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     session.exportDone.completeExceptionally(failure);
                 }
             });
@@ -904,11 +877,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             // Bound the whole modal export flow, not just the write callback:
             // al.a only returns after every prompt it raised was dismissed. One
             // shared deadline covers the EDT flow and the completion callback.
-            final long deadline = System.nanoTime()
-                + TimeUnit.MILLISECONDS.toNanos(exportCallbackTimeoutMillis);
+            final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(exportCallbackTimeoutMillis);
             try {
-                session.exportDone.get(
-                    exportCallbackTimeoutMillis, TimeUnit.MILLISECONDS);
+                session.exportDone.get(exportCallbackTimeoutMillis, TimeUnit.MILLISECONDS);
             } catch (TimeoutException timeout) {
                 throw new SessionRejection(EXPORT_TIMEOUT_KEY);
             } catch (ExecutionException wrapped) {
@@ -934,10 +905,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (!session.innerDialogSeen.get() || !session.redirectFired.get()) {
                 throw new SessionRejection(EXPORT_FAILED_KEY);
             }
-            final long remaining = TimeUnit.NANOSECONDS.toMillis(
-                deadline - System.nanoTime());
-            if (remaining <= 0 || !session.completion.await(
-                remaining, TimeUnit.MILLISECONDS)) {
+            final long remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime());
+            if (remaining <= 0 || !session.completion.await(remaining, TimeUnit.MILLISECONDS)) {
                 throw new SessionRejection(EXPORT_TIMEOUT_KEY);
             }
             requireExportLive(session);
@@ -954,14 +923,18 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private void validate(final Session session) throws Exception {
         requireSessionAdmittedOnEdt(session, true);
         final ProtectedExportStaging.Validation validation = staging.validate(
-            session.stagedPick, session.stagedPaths, session.expectedDrawableIds,
-            session.stagedParameters, session.expectedPartIds,
-            session.expectedGlueIds, session.expectedPhysicsSettings,
-            session.expectedPhysicsSet, session.behavior);
+                session.stagedPick,
+                session.stagedPaths,
+                session.expectedDrawableIds,
+                session.stagedParameters,
+                session.expectedPartIds,
+                session.expectedGlueIds,
+                session.expectedPhysicsSettings,
+                session.expectedPhysicsSet,
+                session.behavior);
         if (!validation.valid()) {
             throw new SessionRejection(
-                VALIDATION_FAILED_KEY + ":" + validation.failureKey(),
-                validation.failureDetail());
+                    VALIDATION_FAILED_KEY + ":" + validation.failureKey(), validation.failureDetail());
         }
         session.stagedFiles = validation.stagedFiles();
         session.phase = Phase.VALIDATED;
@@ -995,10 +968,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         restoreOriginalDocument(session, false);
     }
 
-    private void restoreOriginalDocument(
-        final Session session,
-        final boolean cleanupContext
-    ) throws Exception {
+    private void restoreOriginalDocument(final Session session, final boolean cleanupContext) throws Exception {
         onEdt(() -> {
             host.openFile(session.sourceFile);
             return null;
@@ -1020,11 +990,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             return null;
         });
         try {
-            session.publishedFiles =
-                staging.publish(session.stagedPick, session.stagedFiles, session.realPick);
+            session.publishedFiles = staging.publish(session.stagedPick, session.stagedFiles, session.realPick);
         } catch (IOException failure) {
-            throw new SessionRejection(
-                PUBLISH_FAILED_KEY, describePublishFailure(failure));
+            throw new SessionRejection(PUBLISH_FAILED_KEY, describePublishFailure(failure));
         }
         session.phase = Phase.PUBLISHED;
     }
@@ -1035,8 +1003,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     private void requireGeneration(final Session session, final long expected) {
         if (hostGeneration.getAsLong() != expected
-            || !optionBindingLive.getAsBoolean()
-            || closed.get() || session.aborted.get()) {
+                || !optionBindingLive.getAsBoolean()
+                || closed.get()
+                || session.aborted.get()) {
             throw new SessionRejection(NOT_ADMITTED_KEY);
         }
     }
@@ -1060,10 +1029,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * instead of a generic failure.
      */
     private void requireSessionAdmitted(final Session session) {
-        if (closed.get() || armed.get() != session
-            || hostGeneration.getAsLong() != session.hostGeneration
-            || !optionBindingLive.getAsBoolean()
-            || session.aborted.get() || session.chooserCancelled.get()) {
+        if (closed.get()
+                || armed.get() != session
+                || hostGeneration.getAsLong() != session.hostGeneration
+                || !optionBindingLive.getAsBoolean()
+                || session.aborted.get()
+                || session.chooserCancelled.get()) {
             throw new SessionRejection(REVOKED_KEY);
         }
     }
@@ -1075,15 +1046,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * afterwards only the original's presence is required — the active-document
      * check belongs to the caller.
      */
-    private void requireSessionAdmittedOnEdt(
-        final Session session,
-        final boolean copyExpectedOpen
-    ) throws Exception {
+    private void requireSessionAdmittedOnEdt(final Session session, final boolean copyExpectedOpen) throws Exception {
         onEdt(() -> {
             requireSessionAdmitted(session);
             if (!host.projectContains(session.document)
-                || (copyExpectedOpen && session.copyDocument != null
-                    && !host.projectContains(session.copyDocument))) {
+                    || (copyExpectedOpen
+                            && session.copyDocument != null
+                            && !host.projectContains(session.copyDocument))) {
                 throw new SessionRejection(REVOKED_KEY);
             }
             return null;
@@ -1091,8 +1060,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     private void requireLiveDocument(final Session session) {
-        if (host.currentDocument() != session.document
-            || !host.projectContains(session.document)) {
+        if (host.currentDocument() != session.document || !host.projectContains(session.document)) {
             throw new SessionRejection(NOT_ADMITTED_KEY);
         }
     }
@@ -1102,8 +1070,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * main selector and the document's main edit mode — re-resolved from the
      * document each call.
      */
-    private record FlattenContext(Object liveSource, Object selector, Object editMode) {
-    }
+    private record FlattenContext(Object liveSource, Object selector, Object editMode) {}
 
     /**
      * Re-reads and re-verifies the whole flatten context on the EDT: binding
@@ -1113,20 +1080,18 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * selector and edit mode must be the same objects — a swapped selector would
      * make the apply command act on a selection this session never made.
      */
-    private FlattenContext requireFlattenContext(
-        final Session session,
-        final FlattenContext expected
-    ) {
+    private FlattenContext requireFlattenContext(final Session session, final FlattenContext expected) {
         requireGeneration(session, session.hostGeneration);
         requireLiveCopy(session);
         final Object liveSource = requireCopyModelSource(session);
         final Object selector = host.documentSelector(session.copyDocument);
         final Object editMode = host.documentMainEditMode(session.copyDocument);
-        if (!host.isMainSelector(selector) || !host.isMainEditMode(editMode)
-            || (expected != null
-                && (selector != expected.selector()
-                    || editMode != expected.editMode()
-                    || liveSource != expected.liveSource()))) {
+        if (!host.isMainSelector(selector)
+                || !host.isMainEditMode(editMode)
+                || (expected != null
+                        && (selector != expected.selector()
+                                || editMode != expected.editMode()
+                                || liveSource != expected.liveSource()))) {
             throw new SessionRejection(FLATTEN_FAILED_KEY);
         }
         return new FlattenContext(liveSource, selector, editMode);
@@ -1138,8 +1103,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     private void requireLiveCopy(final Session session, final String failureKey) {
         if (host.currentDocument() != session.copyDocument
-            || !host.projectContains(session.copyDocument)
-            || !host.projectContains(session.document)) {
+                || !host.projectContains(session.copyDocument)
+                || !host.projectContains(session.document)) {
             throw new SessionRejection(failureKey);
         }
     }
@@ -1153,13 +1118,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         return requireCopyModelSource(session, FLATTEN_FAILED_KEY);
     }
 
-    private Object requireCopyModelSource(
-        final Session session,
-        final String failureKey
-    ) {
+    private Object requireCopyModelSource(final Session session, final String failureKey) {
         final Object liveSource = host.documentModelSource(session.copyDocument);
-        if (liveSource == null || liveSource != session.copyModelSource
-            || host.modelSourceCurrentInstance(liveSource) != session.copyModelInstance) {
+        if (liveSource == null
+                || liveSource != session.copyModelSource
+                || host.modelSourceCurrentInstance(liveSource) != session.copyModelInstance) {
             throw new SessionRejection(failureKey);
         }
         return liveSource;
@@ -1183,14 +1146,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * membership, parent edge, clip references and host content flags.
      */
     private record PartIdentity(
-        String id,
-        String name,
-        List<String> childGuids,
-        String targetDeformerGuid,
-        List<String> referenceGuids,
-        List<String> flags
-    ) {
-    }
+            String id,
+            String name,
+            List<String> childGuids,
+            String targetDeformerGuid,
+            List<String> referenceGuids,
+            List<String> flags) {}
 
     /**
      * Parameter contract: evaluable range/default/repeat plus the authored
@@ -1200,27 +1161,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * and is excluded from post-mutation identity equality because flatten
      * legitimately rewrites binding-key disposition.
      */
-    private record ParameterIdentity(
-        float min,
-        float max,
-        float defaultValue,
-        Boolean repeat,
-        List<Float> keys
-    ) {
-    }
+    private record ParameterIdentity(float min, float max, float defaultValue, Boolean repeat, List<Float> keys) {}
 
     /**
      * ArtMesh identity: serialized name and drawable ID under the stable GUID,
      * plus the clip-mask references and drawable flags obfuscation must leave
      * untouched.
      */
-    private record ArtMeshIdentity(
-        String name,
-        String drawableId,
-        List<String> referenceGuids,
-        List<String> flags
-    ) {
-    }
+    private record ArtMeshIdentity(String name, String drawableId, List<String> referenceGuids, List<String> flags) {}
 
     /**
      * One pass-through census member's pinned identity: family token, ID, local
@@ -1232,14 +1180,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * whose parent deformer was removed.
      */
     private record PassThroughIdentity(
-        String family,
-        String id,
-        String name,
-        String targetDeformerGuid,
-        List<String> referenceGuids,
-        List<String> flags
-    ) {
-    }
+            String family,
+            String id,
+            String name,
+            String targetDeformerGuid,
+            List<String> referenceGuids,
+            List<String> flags) {}
 
     /**
      * One settings object's pinned identity — a physics or motion-sync setting:
@@ -1249,12 +1195,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * planned tokens; the signature must compare identical across it, and any
      * other drift fails closed.
      */
-    private record SettingsIdentity(
-        String id,
-        String name,
-        List<String> signature
-    ) {
-    }
+    private record SettingsIdentity(String id, String name, List<String> signature) {}
 
     /**
      * Identity snapshot of one model source: parts, ArtMeshes and pass-through
@@ -1264,17 +1205,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * content signature, and the host-reported content feature flags.
      */
     private record ModelCensus(
-        Map<String, PartIdentity> parts,
-        Map<String, ParameterIdentity> parameters,
-        Map<String, ArtMeshIdentity> artMeshes,
-        Map<String, PassThroughIdentity> passThrough,
-        Map<String, SettingsIdentity> physicsSettings,
-        Map<String, SettingsIdentity> motionSyncSettings,
-        List<String> physicsSetSignature,
-        Map<String, List<String>> embeddedContent,
-        List<String> featureFlags
-    ) {
-    }
+            Map<String, PartIdentity> parts,
+            Map<String, ParameterIdentity> parameters,
+            Map<String, ArtMeshIdentity> artMeshes,
+            Map<String, PassThroughIdentity> passThrough,
+            Map<String, SettingsIdentity> physicsSettings,
+            Map<String, SettingsIdentity> motionSyncSettings,
+            List<String> physicsSetSignature,
+            Map<String, List<String>> embeddedContent,
+            List<String> featureFlags) {}
 
     /**
      * Bounded family token for census diagnostics; degrades to a short
@@ -1315,10 +1254,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         for (Object object : objects) {
             final String family = censusFamilyToken(object);
             final boolean pinnableFamily = object != null
-                && (host.isWarpDeformer(object) || host.isRotationDeformer(object)
-                    || host.isArtMeshSource(object) || host.isPartSource(object)
-                    || "glue".equals(family) || "art-path".equals(family)
-                    || "alias".equals(family));
+                    && (host.isWarpDeformer(object)
+                            || host.isRotationDeformer(object)
+                            || host.isArtMeshSource(object)
+                            || host.isPartSource(object)
+                            || "glue".equals(family)
+                            || "art-path".equals(family)
+                            || "alias".equals(family));
             String guid = null;
             if (pinnableFamily && host.isControllableSource(object)) {
                 try {
@@ -1332,8 +1274,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 }
             }
             if (guid == null) {
-                final String key = unpinnable.size() < 12
-                        || unpinnable.containsKey(family) ? family : "other";
+                final String key = unpinnable.size() < 12 || unpinnable.containsKey(family) ? family : "other";
                 unpinnable.merge(key, 1, Integer::sum);
                 continue;
             }
@@ -1343,19 +1284,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
         }
         if (!unpinnable.isEmpty()) {
-            final StringBuilder detail =
-                new StringBuilder("protected-export.unpinnable-structure:");
+            final StringBuilder detail = new StringBuilder("protected-export.unpinnable-structure:");
             for (Map.Entry<String, Integer> entry : unpinnable.entrySet()) {
-                detail.append(entry.getKey()).append('=').append(entry.getValue())
-                    .append(',');
+                detail.append(entry.getKey())
+                        .append('=')
+                        .append(entry.getValue())
+                        .append(',');
             }
             detail.setLength(detail.length() - 1);
             throw new SessionRejection(failureKey, detail.toString());
         }
         if (!duplicateGuids.isEmpty()) {
-            throw new SessionRejection(failureKey,
-                "protected-export.duplicate-guid:"
-                    + String.join(",", new TreeSet<>(duplicateGuids)));
+            throw new SessionRejection(
+                    failureKey, "protected-export.duplicate-guid:" + String.join(",", new TreeSet<>(duplicateGuids)));
         }
 
         final Map<String, PartIdentity> parts = new LinkedHashMap<>();
@@ -1371,12 +1312,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (guid == null || guid.isBlank() || id == null || id.isBlank()) {
                 throw new SessionRejection(failureKey);
             }
-            if (parts.put(guid, new PartIdentity(
-                id, host.objectLocalName(part),
-                List.copyOf(host.partChildGuids(part)),
-                host.sourceTargetDeformerGuid(part),
-                host.passThroughReferenceGuids(part),
-                host.passThroughFlagSignature(part))) != null) {
+            if (parts.put(
+                            guid,
+                            new PartIdentity(
+                                    id,
+                                    host.objectLocalName(part),
+                                    List.copyOf(host.partChildGuids(part)),
+                                    host.sourceTargetDeformerGuid(part),
+                                    host.passThroughReferenceGuids(part),
+                                    host.passThroughFlagSignature(part)))
+                    != null) {
                 throw new SessionRejection(failureKey);
             }
         }
@@ -1388,7 +1333,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     continue;
                 }
                 keyUnion.computeIfAbsent(parameterId, id -> new java.util.TreeSet<>())
-                    .addAll(host.keyformBindingKeys(binding));
+                        .addAll(host.keyformBindingKeys(binding));
             }
         }
         final Map<String, ParameterIdentity> parameters = new LinkedHashMap<>();
@@ -1397,14 +1342,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             final Float min = host.parameterSourceMinValue(parameter);
             final Float max = host.parameterSourceMaxValue(parameter);
             final Float def = host.parameterSourceDefaultValue(parameter);
-            if (id == null || id.isBlank() || min == null || max == null
-                || def == null) {
+            if (id == null || id.isBlank() || min == null || max == null || def == null) {
                 throw new SessionRejection(failureKey);
             }
             final java.util.TreeSet<Float> keys = keyUnion.get(id);
             final ParameterIdentity identity = new ParameterIdentity(
-                min, max, def, host.parameterSourceRepeat(parameter),
-                keys == null ? List.of() : List.copyOf(keys));
+                    min, max, def, host.parameterSourceRepeat(parameter), keys == null ? List.of() : List.copyOf(keys));
             final ParameterIdentity prior = parameters.put(id, identity);
             if (prior != null && !prior.equals(identity)) {
                 // Duplicate parameter IDs with diverging contracts are ambiguous.
@@ -1418,10 +1361,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (guid == null || guid.isBlank() || drawableId == null) {
                 throw new SessionRejection(failureKey);
             }
-            if (artMeshes.put(guid, new ArtMeshIdentity(
-                host.objectLocalName(mesh), drawableId,
-                host.passThroughReferenceGuids(mesh),
-                host.passThroughFlagSignature(mesh))) != null) {
+            if (artMeshes.put(
+                            guid,
+                            new ArtMeshIdentity(
+                                    host.objectLocalName(mesh),
+                                    drawableId,
+                                    host.passThroughReferenceGuids(mesh),
+                                    host.passThroughFlagSignature(mesh)))
+                    != null) {
                 throw new SessionRejection(failureKey);
             }
         }
@@ -1437,14 +1384,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             if (guid == null) {
                 continue; // unpinnable members already rejected above
             }
-            embedded.put(guid,
-                List.copyOf(host.embeddedContentFamilies(object)));
-            if (host.isWarpDeformer(object) || host.isRotationDeformer(object)
-                || host.isArtMeshSource(object) || host.isPartSource(object)) {
+            embedded.put(guid, List.copyOf(host.embeddedContentFamilies(object)));
+            if (host.isWarpDeformer(object)
+                    || host.isRotationDeformer(object)
+                    || host.isArtMeshSource(object)
+                    || host.isPartSource(object)) {
                 continue;
             }
-            final List<String> references =
-                new ArrayList<>(host.passThroughReferenceGuids(object));
+            final List<String> references = new ArrayList<>(host.passThroughReferenceGuids(object));
             if ("glue".equals(censusFamilyToken(object))) {
                 for (String targetGuid : references) {
                     if (targetGuid == null || !artMeshes.containsKey(targetGuid)) {
@@ -1452,40 +1399,43 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                     }
                 }
             }
-            passThrough.put(guid, new PassThroughIdentity(
-                censusFamilyToken(object),
-                host.objectIdString(object),
-                host.objectLocalName(object),
-                host.sourceTargetDeformerGuid(object),
-                java.util.Collections.unmodifiableList(references),
-                host.passThroughFlagSignature(object)));
+            passThrough.put(
+                    guid,
+                    new PassThroughIdentity(
+                            censusFamilyToken(object),
+                            host.objectIdString(object),
+                            host.objectLocalName(object),
+                            host.sourceTargetDeformerGuid(object),
+                            java.util.Collections.unmodifiableList(references),
+                            host.passThroughFlagSignature(object)));
         }
 
         // Physics and motion-sync settings live outside the object census. Each
         // must carry a pinnable identity — anything else rejects rather than
         // pass through untracked.
         final Map<String, SettingsIdentity> physicsSettings =
-            settingsCensus(modelSource, host.allPhysicsSettings(modelSource), failureKey);
+                settingsCensus(modelSource, host.allPhysicsSettings(modelSource), failureKey);
         final Map<String, SettingsIdentity> motionSyncSettings =
-            settingsCensus(modelSource, host.allMotionSyncSettings(modelSource), failureKey);
-        final List<String> physicsSet =
-            host.physicsSettingsSetSignature(modelSource);
+                settingsCensus(modelSource, host.allMotionSyncSettings(modelSource), failureKey);
+        final List<String> physicsSet = host.physicsSettingsSetSignature(modelSource);
         if (physicsSet == null) {
-            throw new SessionRejection(failureKey,
-                "protected-export.unpinnable-settings:set");
+            throw new SessionRejection(failureKey, "protected-export.unpinnable-settings:set");
         }
-        final List<String> featureFlags = new ArrayList<>(
-            host.modelFeatureFlags(modelSource));
+        final List<String> featureFlags = new ArrayList<>(host.modelFeatureFlags(modelSource));
         java.util.Collections.sort(featureFlags);
         // Settings maps stay in the host's list order (settingsCensus returns
         // an unmodifiable insertion-ordered map) — physics3.json enumerates
         // settings in that order, so positional artifact IDs map by index.
         return new ModelCensus(
-            Map.copyOf(parts), Map.copyOf(parameters), Map.copyOf(artMeshes),
-            Map.copyOf(passThrough), physicsSettings,
-            motionSyncSettings, List.copyOf(physicsSet),
-            Map.copyOf(embedded),
-            List.copyOf(featureFlags));
+                Map.copyOf(parts),
+                Map.copyOf(parameters),
+                Map.copyOf(artMeshes),
+                Map.copyOf(passThrough),
+                physicsSettings,
+                motionSyncSettings,
+                List.copyOf(physicsSet),
+                Map.copyOf(embedded),
+                List.copyOf(featureFlags));
     }
 
     /**
@@ -1494,25 +1444,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * cannot be pinned rejects the session rather than riding through unseen.
      */
     private Map<String, SettingsIdentity> settingsCensus(
-        final Object modelSource,
-        final List<?> settings,
-        final String failureKey
-    ) {
+            final Object modelSource, final List<?> settings, final String failureKey) {
         final Map<String, SettingsIdentity> pinned = new LinkedHashMap<>();
         for (Object setting : settings) {
             final String guid = host.settingsGuid(setting);
             final String id = host.settingsIdString(setting);
             final List<String> signature = host.settingsSignature(modelSource, setting);
-            if (guid == null || guid.isBlank() || id == null || id.isBlank()
-                || signature == null) {
-                throw new SessionRejection(failureKey,
-                    "protected-export.unpinnable-settings:"
-                        + settingsFamilyToken(setting));
+            if (guid == null || guid.isBlank() || id == null || id.isBlank() || signature == null) {
+                throw new SessionRejection(
+                        failureKey, "protected-export.unpinnable-settings:" + settingsFamilyToken(setting));
             }
-            if (pinned.put(guid, new SettingsIdentity(
-                id, host.settingsName(setting), List.copyOf(signature))) != null) {
-                throw new SessionRejection(failureKey,
-                    "protected-export.unpinnable-settings:duplicate-guid");
+            if (pinned.put(guid, new SettingsIdentity(id, host.settingsName(setting), List.copyOf(signature)))
+                    != null) {
+                throw new SessionRejection(failureKey, "protected-export.unpinnable-settings:duplicate-guid");
             }
         }
         // Insertion order is the host's settings-list order — the staged
@@ -1533,16 +1477,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     /** Expected staged parameter contracts from the pre-mutation census. */
-    private Map<String, ProtectedExportStaging.ParameterExpectation>
-            parameterExpectations(final ModelCensus census) {
-        final Map<String, ProtectedExportStaging.ParameterExpectation> expectations =
-            new LinkedHashMap<>();
+    private Map<String, ProtectedExportStaging.ParameterExpectation> parameterExpectations(final ModelCensus census) {
+        final Map<String, ProtectedExportStaging.ParameterExpectation> expectations = new LinkedHashMap<>();
         for (Map.Entry<String, ParameterIdentity> entry : census.parameters().entrySet()) {
             final ParameterIdentity identity = entry.getValue();
-            expectations.put(entry.getKey(),
-                new ProtectedExportStaging.ParameterExpectation(
-                    entry.getKey(), identity.min(), identity.max(),
-                    identity.defaultValue(), identity.repeat(), identity.keys()));
+            expectations.put(
+                    entry.getKey(),
+                    new ProtectedExportStaging.ParameterExpectation(
+                            entry.getKey(),
+                            identity.min(),
+                            identity.max(),
+                            identity.defaultValue(),
+                            identity.repeat(),
+                            identity.keys()));
         }
         return Map.copyOf(expectations);
     }
@@ -1572,23 +1519,18 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * entry pairs the planned token identity with the post-mutation behavior
      * signature the staged {@code physics3.json} must reproduce verbatim.
      */
-    private static List<ProtectedExportStaging.PhysicsSettingExpectation>
-            physicsExpectations(
-        final ModelCensus census,
-        final ProtectedExportObfuscationPlan.Plan plan
-    ) {
-        final List<ProtectedExportStaging.PhysicsSettingExpectation>
-            expectations = new ArrayList<>();
-        for (Map.Entry<String, SettingsIdentity> entry
-                : census.physicsSettings().entrySet()) {
+    private static List<ProtectedExportStaging.PhysicsSettingExpectation> physicsExpectations(
+            final ModelCensus census, final ProtectedExportObfuscationPlan.Plan plan) {
+        final List<ProtectedExportStaging.PhysicsSettingExpectation> expectations = new ArrayList<>();
+        for (Map.Entry<String, SettingsIdentity> entry :
+                census.physicsSettings().entrySet()) {
             final ProtectedExportObfuscationPlan.Target target =
-                plan.physicsSettings().get(entry.getKey());
+                    plan.physicsSettings().get(entry.getKey());
             if (target == null) {
-                throw new SessionRejection(OBFUSCATE_FAILED_KEY,
-                    "settings-identity-drift");
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
             }
             expectations.add(new ProtectedExportStaging.PhysicsSettingExpectation(
-                target.idToken(), target.name(), entry.getValue().signature()));
+                    target.idToken(), target.name(), entry.getValue().signature()));
         }
         return List.copyOf(expectations);
     }
@@ -1602,10 +1544,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * what the bound snapshot recorded.
      */
     private void verifyPostMutationCensus(
-        final Session session,
-        final ModelCensus after,
-        final ProtectedExportObfuscationPlan.Plan plan
-    ) {
+            final Session session, final ModelCensus after, final ProtectedExportObfuscationPlan.Plan plan) {
         final ModelCensus before = session.censusBefore;
         if (before == null) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
@@ -1619,14 +1558,13 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (!before.parameters().keySet().equals(after.parameters().keySet())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "parameter-identity-drift");
         }
-        for (Map.Entry<String, ParameterIdentity> entry
-                : before.parameters().entrySet()) {
+        for (Map.Entry<String, ParameterIdentity> entry : before.parameters().entrySet()) {
             final ParameterIdentity prior = entry.getValue();
             final ParameterIdentity current = after.parameters().get(entry.getKey());
             if (Float.compare(prior.min(), current.min()) != 0
-                || Float.compare(prior.max(), current.max()) != 0
-                || Float.compare(prior.defaultValue(), current.defaultValue()) != 0
-                || !Objects.equals(prior.repeat(), current.repeat())) {
+                    || Float.compare(prior.max(), current.max()) != 0
+                    || Float.compare(prior.defaultValue(), current.defaultValue()) != 0
+                    || !Objects.equals(prior.repeat(), current.repeat())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "parameter-identity-drift");
             }
         }
@@ -1637,8 +1575,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         for (Map.Entry<String, PartIdentity> entry : before.parts().entrySet()) {
             final PartIdentity prior = entry.getValue();
             final PartIdentity current = after.parts().get(entry.getKey());
-            if (!prior.id().equals(current.id())
-                || !Objects.equals(prior.name(), current.name())) {
+            if (!prior.id().equals(current.id()) || !Objects.equals(prior.name(), current.name())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "part-identity-drift");
             }
             final List<String> priorChildren = new ArrayList<>(prior.childGuids());
@@ -1647,11 +1584,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "part-hierarchy-drift");
             }
             if (!Objects.equals(prior.targetDeformerGuid(), current.targetDeformerGuid())
-                && current.targetDeformerGuid() != null) {
+                    && current.targetDeformerGuid() != null) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "part-parent-drift");
             }
             if (!prior.referenceGuids().equals(current.referenceGuids())
-                || !prior.flags().equals(current.flags())) {
+                    || !prior.flags().equals(current.flags())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "part-reference-drift");
             }
         }
@@ -1659,17 +1596,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "artmesh-identity-drift");
         }
         for (Map.Entry<String, ArtMeshIdentity> entry : after.artMeshes().entrySet()) {
-            final ProtectedExportObfuscationPlan.Target target =
-                plan.byGuid().get(entry.getKey());
+            final ProtectedExportObfuscationPlan.Target target = plan.byGuid().get(entry.getKey());
             final ArtMeshIdentity current = entry.getValue();
-            if (target == null || !target.name().equals(current.name())
-                || !target.idToken().equals(current.drawableId())) {
+            if (target == null
+                    || !target.name().equals(current.name())
+                    || !target.idToken().equals(current.drawableId())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "artmesh-identity-drift");
             }
             final ArtMeshIdentity prior = before.artMeshes().get(entry.getKey());
             if (prior != null
-                && (!prior.referenceGuids().equals(current.referenceGuids())
-                    || !prior.flags().equals(current.flags()))) {
+                    && (!prior.referenceGuids().equals(current.referenceGuids())
+                            || !prior.flags().equals(current.flags()))) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "artmesh-reference-drift");
             }
         }
@@ -1680,17 +1617,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (!before.passThrough().keySet().equals(after.passThrough().keySet())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "pass-through-identity-drift");
         }
-        for (Map.Entry<String, PassThroughIdentity> entry
-                : before.passThrough().entrySet()) {
+        for (Map.Entry<String, PassThroughIdentity> entry : before.passThrough().entrySet()) {
             final PassThroughIdentity prior = entry.getValue();
             final PassThroughIdentity current = after.passThrough().get(entry.getKey());
             if (!prior.family().equals(current.family())
-                || !prior.id().equals(current.id())
-                || !Objects.equals(prior.name(), current.name())) {
+                    || !prior.id().equals(current.id())
+                    || !Objects.equals(prior.name(), current.name())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "pass-through-identity-drift");
             }
             if (!Objects.equals(prior.targetDeformerGuid(), current.targetDeformerGuid())
-                && current.targetDeformerGuid() != null) {
+                    && current.targetDeformerGuid() != null) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "pass-through-parent-drift");
             }
             if (!prior.referenceGuids().equals(current.referenceGuids())) {
@@ -1703,10 +1639,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // Settings carry their planned obfuscated identity after obfuscation:
         // name and ID must equal the plan exactly, and the behavior signature —
         // every physics value and reference — must equal the bound snapshot.
-        verifySettingsDrift(before.physicsSettings(), after.physicsSettings(),
-            plan.physicsSettings());
-        verifySettingsDrift(before.motionSyncSettings(), after.motionSyncSettings(),
-            plan.motionSyncSettings());
+        verifySettingsDrift(before.physicsSettings(), after.physicsSettings(), plan.physicsSettings());
+        verifySettingsDrift(before.motionSyncSettings(), after.motionSyncSettings(), plan.motionSyncSettings());
         if (!before.physicsSetSignature().equals(after.physicsSetSignature())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
         }
@@ -1714,8 +1648,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         // original) but cannot be asserted post-mutation: the flags derive from
         // deformer-owned content that flatten legitimately consumes, so a flag
         // may disappear or appear as a flatten effect rather than a defect.
-        final Map<String, List<String>> survivingEmbedded =
-            new LinkedHashMap<>(before.embeddedContent());
+        final Map<String, List<String>> survivingEmbedded = new LinkedHashMap<>(before.embeddedContent());
         flattened.forEach(survivingEmbedded::remove);
         for (Map.Entry<String, List<String>> entry : survivingEmbedded.entrySet()) {
             final List<String> current = after.embeddedContent().get(entry.getKey());
@@ -1741,22 +1674,19 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * else is a hard rejection.
      */
     private static void verifySettingsDrift(
-        final Map<String, SettingsIdentity> before,
-        final Map<String, SettingsIdentity> after,
-        final Map<String, ProtectedExportObfuscationPlan.Target> planned
-    ) {
-        if (!before.keySet().equals(after.keySet())
-            || !before.keySet().equals(planned.keySet())) {
+            final Map<String, SettingsIdentity> before,
+            final Map<String, SettingsIdentity> after,
+            final Map<String, ProtectedExportObfuscationPlan.Target> planned) {
+        if (!before.keySet().equals(after.keySet()) || !before.keySet().equals(planned.keySet())) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
         }
         for (Map.Entry<String, SettingsIdentity> entry : after.entrySet()) {
             final SettingsIdentity prior = before.get(entry.getKey());
             final SettingsIdentity current = entry.getValue();
-            final ProtectedExportObfuscationPlan.Target target =
-                planned.get(entry.getKey());
+            final ProtectedExportObfuscationPlan.Target target = planned.get(entry.getKey());
             if (!prior.signature().equals(current.signature())
-                || !target.name().equals(current.name())
-                || !target.idToken().equals(current.id())) {
+                    || !target.name().equals(current.name())
+                    || !target.idToken().equals(current.id())) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY, "settings-identity-drift");
             }
         }
@@ -1777,19 +1707,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * Runs on the EDT like every other copy mutation.
      */
     private void applySettingsRewrite(
-        final Session session,
-        final Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry,
-        final boolean physics
-    ) throws Exception {
+            final Session session,
+            final Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry,
+            final boolean physics)
+            throws Exception {
         final boolean applied = onEdt(() -> {
             requireGeneration(session, session.hostGeneration);
             requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
-            final Object liveSource =
-                requireCopyModelSource(session, OBFUSCATE_FAILED_KEY);
+            final Object liveSource = requireCopyModelSource(session, OBFUSCATE_FAILED_KEY);
             final Object source = resolveSettings(
-                physics ? host.allPhysicsSettings(liveSource)
-                    : host.allMotionSyncSettings(liveSource),
-                entry.getKey());
+                    physics ? host.allPhysicsSettings(liveSource) : host.allMotionSyncSettings(liveSource),
+                    entry.getKey());
             if (source == null) {
                 return Boolean.FALSE;
             }
@@ -1797,7 +1725,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             host.setSettingsName(source, target.name());
             host.setSettingsId(source, target.idToken());
             return target.name().equals(host.settingsName(source))
-                && target.idToken().equals(host.settingsIdString(source));
+                    && target.idToken().equals(host.settingsIdString(source));
         });
         if (!Boolean.TRUE.equals(applied)) {
             throw new SessionRejection(OBFUSCATE_FAILED_KEY);
@@ -1827,21 +1755,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         return awaitBound(session, file, false);
     }
 
-    private Object awaitBound(
-        final Session session,
-        final File file,
-        final boolean cleanupContext
-    ) throws Exception {
-        final long deadline = System.nanoTime()
-            + TimeUnit.MILLISECONDS.toNanos(bindTimeoutMillis);
+    private Object awaitBound(final Session session, final File file, final boolean cleanupContext) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(bindTimeoutMillis);
         while (System.nanoTime() < deadline) {
             if (!cleanupContext && session.aborted.get()) {
                 return null;
             }
             final Object document = onEdt(() -> {
                 final Object current = host.currentDocument();
-                return current != null && host.isModelingDocument(current)
-                    && file.equals(host.documentFile(current)) ? current : null;
+                return current != null && host.isModelingDocument(current) && file.equals(host.documentFile(current))
+                        ? current
+                        : null;
             });
             if (document != null) {
                 return document;
@@ -1863,7 +1787,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private static void sleepDuringCleanup(final long millis) {
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
         boolean interrupted = false;
-        for (;;) {
+        for (; ; ) {
             final long remaining = deadline - System.nanoTime();
             if (remaining <= 0L) {
                 break;
@@ -1890,8 +1814,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         closeCopy(session, false);
     }
 
-    private void closeCopy(final Session session, final boolean cleanupContext)
-            throws Exception {
+    private void closeCopy(final Session session, final boolean cleanupContext) throws Exception {
         Object copy = session.copyDocument;
         if (copy == null && session.copyFile != null) {
             copy = onEdt(() -> {
@@ -1921,8 +1844,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             }
             return null;
         });
-        final long deadline = System.nanoTime()
-            + TimeUnit.MILLISECONDS.toNanos(bindTimeoutMillis);
+        final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(bindTimeoutMillis);
         while (System.nanoTime() < deadline) {
             final boolean detached = onEdt(() -> !host.projectContains(target));
             if (detached) {
@@ -1937,8 +1859,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (onEdt(() -> host.projectContains(target))) {
             throw new SessionRejection(RESTORE_FAILED_KEY);
         }
-        if (session.copyFile != null && session.copyFile.isFile()
-            && !host.releaseFileHandleFor(session.copyFile)) {
+        if (session.copyFile != null && session.copyFile.isFile() && !host.releaseFileHandleFor(session.copyFile)) {
             throw new SessionRejection(RESTORE_FAILED_KEY);
         }
         if (session.copyFile != null) {
@@ -1971,20 +1892,15 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
      * EDT call would otherwise park {@code close()} forever on the teardown
      * monitor. A failed acquisition surfaces as a cleanup error instead.
      */
-    private List<String> restoreSessionBounded(
-        final Session session,
-        final long timeoutMillis
-    ) {
+    private List<String> restoreSessionBounded(final Session session, final long timeoutMillis) {
         boolean acquired = false;
         try {
-            acquired = session.teardownLock.tryLock(
-                timeoutMillis, TimeUnit.MILLISECONDS);
+            acquired = session.teardownLock.tryLock(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
         if (!acquired) {
-            return List.of(
-                "teardown-busy: worker still holds session teardown");
+            return List.of("teardown-busy: worker still holds session teardown");
         }
         try {
             return restoreSessionLocked(session);
@@ -1994,32 +1910,35 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     private List<String> restoreSessionLocked(final Session session) {
-            final List<String> errors = new ArrayList<>();
-            if (session.copyFile != null) {
-                try {
-                    restoreOriginalDocument(session, true);
-                } catch (Throwable failure) {
-                    errors.add("restore-original: " + describe(failure));
-                }
-            }
+        final List<String> errors = new ArrayList<>();
+        if (session.copyFile != null) {
             try {
-                closeCopy(session, true);
+                restoreOriginalDocument(session, true);
             } catch (Throwable failure) {
-                errors.add("close-copy: " + describe(failure));
+                FatalErrors.rethrowIfFatal(failure);
+                errors.add("restore-original: " + describe(failure));
             }
-            try {
-                ProtectedExportStaging.deleteRecursively(session.stagingDir);
-            } catch (Throwable failure) {
-                errors.add("staging: " + describe(failure));
-            }
-            session.originalRestored = verifyRestored(session, errors);
-            if (session.copyFile != null && session.copyFile.isFile()) {
-                errors.add("copy-file remains: " + session.copyFile);
-            }
-            if (session.stagingDir != null && Files.isDirectory(session.stagingDir)) {
-                errors.add("staging remains: " + session.stagingDir);
-            }
-            return List.copyOf(errors);
+        }
+        try {
+            closeCopy(session, true);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            errors.add("close-copy: " + describe(failure));
+        }
+        try {
+            ProtectedExportStaging.deleteRecursively(session.stagingDir);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            errors.add("staging: " + describe(failure));
+        }
+        session.originalRestored = verifyRestored(session, errors);
+        if (session.copyFile != null && session.copyFile.isFile()) {
+            errors.add("copy-file remains: " + session.copyFile);
+        }
+        if (session.stagingDir != null && Files.isDirectory(session.stagingDir)) {
+            errors.add("staging remains: " + session.stagingDir);
+        }
+        return List.copyOf(errors);
     }
 
     /**
@@ -2031,8 +1950,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private boolean verifyRestored(final Session session, final List<String> errors) {
         try {
             return Boolean.TRUE.equals(onEdt(() -> {
-                if (host.currentDocument() != session.document
-                    || !host.projectContains(session.document)) {
+                if (host.currentDocument() != session.document || !host.projectContains(session.document)) {
                     return false;
                 }
                 if (session.sourceSha256 == null) {
@@ -2045,6 +1963,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 }
             }));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             errors.add("verify-restored: " + describe(failure));
             return false;
         }
@@ -2058,8 +1977,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final String undoSignature = undoPositionSignature(undo);
         final String selectionSignature = selectionSignature(session.document);
         if (session.originalModified != modified
-            || !Objects.equals(session.originalUndoSignature, undoSignature)
-            || !Objects.equals(session.originalSelectionSignature, selectionSignature)) {
+                || !Objects.equals(session.originalUndoSignature, undoSignature)
+                || !Objects.equals(session.originalSelectionSignature, selectionSignature)) {
             return false;
         }
         return sha256(session.sourceFile.toPath()).equals(session.sourceSha256);
@@ -2067,10 +1986,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
 
     private void snapshotInvariants(final Session session) throws IOException {
         final Object content = host.documentFileContent(session.document);
-        session.originalModified =
-            content != null && host.fileContentModified(content);
-        session.originalUndoSignature =
-            undoPositionSignature(host.documentUndoManager(session.document));
+        session.originalModified = content != null && host.fileContentModified(content);
+        session.originalUndoSignature = undoPositionSignature(host.documentUndoManager(session.document));
         session.originalSelectionSignature = selectionSignature(session.document);
     }
 
@@ -2079,8 +1996,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             return "none";
         }
         return host.undoPosition(undoManager) + ":"
-            + host.undoEditCount(undoManager) + ":"
-            + host.undoCanUndo(undoManager);
+                + host.undoEditCount(undoManager) + ":"
+                + host.undoCanUndo(undoManager);
     }
 
     private String selectionSignature(final Object document) {
@@ -2088,8 +2005,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         if (selector == null) {
             return "none";
         }
-        final StringBuilder signature = new StringBuilder()
-            .append(host.selectedCount(selector)).append(':');
+        final StringBuilder signature =
+                new StringBuilder().append(host.selectedCount(selector)).append(':');
         for (Object item : host.selectedDeformers(selector)) {
             signature.append(System.identityHashCode(item)).append(',');
         }
@@ -2103,8 +2020,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private <T> T onEdt(final Callable<T> action) throws Exception {
         try {
             return edt.call(action);
-        } catch (java.lang.reflect.InvocationTargetException
-                 | java.util.concurrent.ExecutionException wrapped) {
+        } catch (java.lang.reflect.InvocationTargetException | java.util.concurrent.ExecutionException wrapped) {
             final Throwable cause = wrapped.getCause();
             if (cause instanceof SessionRejection rejection) {
                 throw rejection;
@@ -2180,16 +2096,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final File sourceFile;
         final long hostGeneration;
         final CountDownLatch completion = new CountDownLatch(1);
-        final java.util.concurrent.CompletableFuture<Void> exportDone =
-            new java.util.concurrent.CompletableFuture<>();
+        final java.util.concurrent.CompletableFuture<Void> exportDone = new java.util.concurrent.CompletableFuture<>();
         final AtomicBoolean innerDialogSeen = new AtomicBoolean();
         final AtomicBoolean aborted = new AtomicBoolean();
         final AtomicBoolean chooserCancelled = new AtomicBoolean();
         final AtomicBoolean redirectFired = new AtomicBoolean();
         final AtomicReference<Object> innerDialogOwner = new AtomicReference<>();
         final AtomicBoolean reportDelivered = new AtomicBoolean();
-        final java.util.concurrent.locks.ReentrantLock teardownLock =
-            new java.util.concurrent.locks.ReentrantLock();
+        final java.util.concurrent.locks.ReentrantLock teardownLock = new java.util.concurrent.locks.ReentrantLock();
         volatile Phase phase = Phase.ARMED;
         volatile List<String> plan = List.of();
         volatile String sourceSha256;
@@ -2211,15 +2125,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile ProtectedExportObfuscationPlan.Plan obfuscationPlan;
         volatile ProtectedExportStaging.BehaviorSnapshot originalBehavior;
         volatile ProtectedExportStaging.BehaviorSnapshot behavior;
-        volatile Map<String, ProtectedExportStaging.ParameterExpectation>
-            expectedParameters = Map.of();
+        volatile Map<String, ProtectedExportStaging.ParameterExpectation> expectedParameters = Map.of();
         /**
          * Post-mutation staged contract: same identity fields as
          * {@link #expectedParameters} but key positions from the ArtMesh-carrier
          * union only — the sole carriers that serialize moc3 key positions.
          */
-        volatile Map<String, ProtectedExportStaging.ParameterExpectation>
-            stagedParameters = Map.of();
+        volatile Map<String, ProtectedExportStaging.ParameterExpectation> stagedParameters = Map.of();
+
         volatile Set<String> expectedPartIds = Set.of();
         volatile Set<String> expectedGlueIds = Set.of();
         /**
@@ -2228,8 +2141,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
          * behavior signature, and the Meta block must reproduce the
          * settings-set tokens in {@link #expectedPhysicsSet}.
          */
-        volatile List<ProtectedExportStaging.PhysicsSettingExpectation>
-            expectedPhysicsSettings = List.of();
+        volatile List<ProtectedExportStaging.PhysicsSettingExpectation> expectedPhysicsSettings = List.of();
+
         volatile List<String> expectedPhysicsSet = List.of();
         volatile List<Path> publishedFiles = List.of();
         volatile boolean originalRestored;
@@ -2240,16 +2153,16 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
          * which deformer diverged on the real host.
          */
         final StringBuilder flattenDiag = new StringBuilder(4096);
+
         volatile Report pendingReport;
 
         Session(
-            final long id,
-            final Object dialogOwner,
-            final Object document,
-            final Object modelSource,
-            final File sourceFile,
-            final long hostGeneration
-        ) {
+                final long id,
+                final Object dialogOwner,
+                final Object document,
+                final Object modelSource,
+                final File sourceFile,
+                final long hostGeneration) {
             this.id = id;
             this.dialogOwner = dialogOwner;
             this.document = document;
@@ -2263,21 +2176,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             return dir.resolve(realPick.getName()).toFile();
         }
 
-        void report(final Phase reached, final boolean published,
-            final String failureKey
-        ) {
+        void report(final Phase reached, final boolean published, final String failureKey) {
             report(reached, published, failureKey, null);
         }
 
-        void report(final Phase reached, final boolean published,
-            final String failureKey, final String failureDetail
-        ) {
+        void report(final Phase reached, final boolean published, final String failureKey, final String failureDetail) {
             phase = reached;
             // The terminal report is delivered only after teardown: restoration
             // and cleanup outcomes are attached at delivery time so a published,
             // failed or cancelled report always carries verified cleanup state.
-            pendingReport = new Report(id, reached, published, failureKey,
-                publishedFiles, failureDetail, false, List.of());
+            pendingReport =
+                    new Report(id, reached, published, failureKey, publishedFiles, failureDetail, false, List.of());
         }
 
         void deliverReport() {
@@ -2286,13 +2195,20 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 return;
             }
             pendingReport = null;
-            final Report report = new Report(pending.sessionId(), pending.reached(),
-                pending.published(), pending.failureKey(), pending.publishedFiles(),
-                pending.failureDetail(), originalRestored, cleanupErrors);
+            final Report report = new Report(
+                    pending.sessionId(),
+                    pending.reached(),
+                    pending.published(),
+                    pending.failureKey(),
+                    pending.publishedFiles(),
+                    pending.failureDetail(),
+                    originalRestored,
+                    cleanupErrors);
             reportDelivered.set(true);
             try {
                 reporter.accept(report);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Reporting must never disturb session teardown.
             }
         }
@@ -2302,8 +2218,11 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
 
         void fail(final String failureKey, final String failureDetail) {
-            report(EXPORT_CANCELLED_KEY.equals(failureKey) ? Phase.CANCELLED : Phase.FAILED,
-                false, failureKey, failureDetail);
+            report(
+                    EXPORT_CANCELLED_KEY.equals(failureKey) ? Phase.CANCELLED : Phase.FAILED,
+                    false,
+                    failureKey,
+                    failureDetail);
         }
     }
 
@@ -2335,8 +2254,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         int reported = 0;
         int omitted = 0;
         for (final Throwable entry : failure.getSuppressed()) {
-            if (entry
-                instanceof ProtectedExportStaging.RetainedRecoveryException retained) {
+            if (entry instanceof ProtectedExportStaging.RetainedRecoveryException retained) {
                 detail.append(" | recovery-path: ").append(retained.retainedPath());
             } else if (reported < 4) {
                 reported++;
@@ -2358,7 +2276,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     private static String describe(final Throwable failure) {
         final String message = failure.getMessage();
         final String text = failure.getClass().getName()
-            + (message == null ? "" : ": " + message.replaceAll("\\s+", " ").strip());
+                + (message == null ? "" : ": " + message.replaceAll("\\s+", " ").strip());
         return text.length() > 200 ? text.substring(0, 200) : text;
     }
 

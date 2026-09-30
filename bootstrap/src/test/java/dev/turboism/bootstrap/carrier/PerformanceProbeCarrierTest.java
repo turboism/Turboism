@@ -1,14 +1,13 @@
 package dev.turboism.bootstrap.carrier;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /** Focused test against the production carrier: cleanup races must never escape into Cubism. */
 class PerformanceProbeCarrierTest {
@@ -38,8 +37,15 @@ class PerformanceProbeCarrierTest {
     void nonzeroTokenExitAfterClearIsANoOp() {
         final AtomicInteger exits = new AtomicInteger();
         installed = new PerformanceProbeCallback() {
-            @Override public long enter(final int metricId) { return 1L; }
-            @Override public void exit(final int metricId, final long startedNanos) { exits.incrementAndGet(); }
+            @Override
+            public long enter(final int metricId) {
+                return 1L;
+            }
+
+            @Override
+            public void exit(final int metricId, final long startedNanos) {
+                exits.incrementAndGet();
+            }
         };
         PerformanceProbeCarrier.install(installed);
         PerformanceProbeCarrier.clear(installed);
@@ -53,8 +59,15 @@ class PerformanceProbeCarrierTest {
         final AtomicLong entered = new AtomicLong();
         final AtomicInteger exits = new AtomicInteger();
         installed = new PerformanceProbeCallback() {
-            @Override public long enter(final int metricId) { return entered.incrementAndGet(); }
-            @Override public void exit(final int metricId, final long startedNanos) { exits.incrementAndGet(); }
+            @Override
+            public long enter(final int metricId) {
+                return entered.incrementAndGet();
+            }
+
+            @Override
+            public void exit(final int metricId, final long startedNanos) {
+                exits.incrementAndGet();
+            }
         };
         assertThrows(IllegalStateException.class, () -> {
             PerformanceProbeCarrier.install(installed);

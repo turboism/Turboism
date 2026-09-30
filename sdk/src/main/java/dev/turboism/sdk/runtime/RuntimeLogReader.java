@@ -17,11 +17,7 @@ public interface RuntimeLogReader {
     }
 
     /** Point-in-time view of the runtime log directory, active file, and buffered lines. */
-    record Snapshot(
-        Optional<Path> directory,
-        Optional<Path> currentFile,
-        List<String> lines
-    ) {
+    record Snapshot(Optional<Path> directory, Optional<Path> currentFile, List<String> lines) {
         public Snapshot {
             directory = Objects.requireNonNull(directory, "directory");
             currentFile = Objects.requireNonNull(currentFile, "currentFile");

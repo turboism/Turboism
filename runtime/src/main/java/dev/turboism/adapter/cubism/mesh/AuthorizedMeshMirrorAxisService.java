@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.permission.PermissionIds;
-
 import java.util.Objects;
 
 /** Per-plugin permission boundary over the shared session-owned mirror-axis state. */
@@ -12,9 +11,7 @@ public final class AuthorizedMeshMirrorAxisService implements MeshMirrorAxisServ
     private final PermissionChecker permissions;
 
     public AuthorizedMeshMirrorAxisService(
-        final RuntimeMeshMirrorAxisService delegate,
-        final PermissionChecker permissions
-    ) {
+            final RuntimeMeshMirrorAxisService delegate, final PermissionChecker permissions) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
     }

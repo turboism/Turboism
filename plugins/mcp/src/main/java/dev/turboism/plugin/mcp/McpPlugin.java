@@ -1,15 +1,15 @@
 package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
-import javax.swing.SwingUtilities;
 import java.awt.GraphicsEnvironment;
 import java.util.Objects;
+import javax.swing.SwingUtilities;
 
 /** Plugin lifecycle owner of the loopback MCP transport and its local connection window. */
 public final class McpPlugin implements TurboismPlugin {
@@ -44,10 +44,9 @@ public final class McpPlugin implements TurboismPlugin {
         Registration action = null;
         Registration menu = null;
         try {
-            publication = context.mcpConnections().publish(new McpHttpConnection(
-                started.endpoint(),
-                McpProtocol.VERSION
-            ));
+            publication = context.services()
+                    .require(McpConnectionService.class)
+                    .publish(new McpHttpConnection(started.endpoint(), McpProtocol.VERSION));
             action = context.actions().register(CONNECTION_ACTION_ID, connectionAction());
             menu = context.menus().contribute(connectionMenu());
             connectionPublication = publication;
@@ -79,11 +78,18 @@ public final class McpPlugin implements TurboismPlugin {
 
     private ActionRegistry.Action connectionAction() {
         return new ActionRegistry.Action() {
-            @Override public String id() { return CONNECTION_ACTION_ID; }
-            @Override public String label() {
+            @Override
+            public String id() {
+                return CONNECTION_ACTION_ID;
+            }
+
+            @Override
+            public String label() {
                 return text("menu.connection", "MCP Connection");
             }
-            @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+
+            @Override
+            public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                 return ignored -> showConnectionWindow();
             }
         };
@@ -91,11 +97,20 @@ public final class McpPlugin implements TurboismPlugin {
 
     private MenuRegistry.MenuContribution connectionMenu() {
         return new MenuRegistry.MenuContribution() {
-            @Override public String menuPath() {
+            @Override
+            public String menuPath() {
                 return "Turboism/" + text("menu.connection", "MCP Connection");
             }
-            @Override public String actionId() { return CONNECTION_ACTION_ID; }
-            @Override public int order() { return MENU_ORDER; }
+
+            @Override
+            public String actionId() {
+                return CONNECTION_ACTION_ID;
+            }
+
+            @Override
+            public int order() {
+                return MENU_ORDER;
+            }
         };
     }
 
@@ -123,10 +138,7 @@ public final class McpPlugin implements TurboismPlugin {
         if (current == null) {
             return new McpConnectionWindow.McpConnectionSnapshot(null, java.util.List.of());
         }
-        return new McpConnectionWindow.McpConnectionSnapshot(
-            current.endpoint(),
-            current.connectionHistory()
-        );
+        return new McpConnectionWindow.McpConnectionSnapshot(current.endpoint(), current.connectionHistory());
     }
 
     private String text(final String key, final String fallback) {

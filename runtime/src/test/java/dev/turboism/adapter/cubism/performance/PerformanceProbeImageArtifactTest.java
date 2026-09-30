@@ -1,10 +1,11 @@
 package dev.turboism.adapter.cubism.performance;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassReader;
-
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,10 +13,8 @@ import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.security.cert.Certificate;
 import java.util.jar.JarFile;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
 
 /** Opt-in static check; reads exact class bytes but never starts or initializes Cubism. */
 class PerformanceProbeImageArtifactTest {
@@ -27,17 +26,21 @@ class PerformanceProbeImageArtifactTest {
         org.junit.jupiter.api.Assertions.assertTrue(Files.isRegularFile(artifact));
         assertEquals(ReviewedHostArtifacts.CUBISM_5_3_02, HostArtifactDigest.from(artifact));
         final var url = artifact.toUri().toURL();
-        try (var loader = new URLClassLoader(new java.net.URL[]{url}, getClass().getClassLoader());
-             var jar = new JarFile(artifact.toFile())) {
+        try (var loader =
+                        new URLClassLoader(new java.net.URL[] {url}, getClass().getClassLoader());
+                var jar = new JarFile(artifact.toFile())) {
             final var targets = PerformanceProbeTargets.cubism5302Images();
             final var transformer = new PerformanceProbeMethodTransformer(loader, artifact, targets);
             final var domain = new ProtectionDomain(new CodeSource(url, (Certificate[]) null), null, loader, null);
-            for (String owner : targets.stream().map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
-                .distinct().toList()) {
+            for (String owner : targets.stream()
+                    .map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
+                    .distinct()
+                    .toList()) {
                 final var entry = jar.getJarEntry(owner + ".class");
                 assertNotNull(entry, owner);
                 try (var input = jar.getInputStream(entry)) {
-                    final byte[] transformed = transformer.transform(null, loader, owner, null, domain, input.readAllBytes());
+                    final byte[] transformed =
+                            transformer.transform(null, loader, owner, null, domain, input.readAllBytes());
                     assertNotNull(transformed, owner);
                     assertEquals(owner, new ClassReader(transformed).getClassName());
                 }

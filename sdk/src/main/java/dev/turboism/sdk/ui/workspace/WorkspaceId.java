@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-
 import java.util.Objects;
 
 /**

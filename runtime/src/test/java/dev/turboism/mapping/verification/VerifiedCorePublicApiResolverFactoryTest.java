@@ -1,22 +1,20 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class VerifiedCorePublicApiResolverFactoryTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
     private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
-    private final VerifiedCorePublicApiResolverFactory factory =
-        new VerifiedCorePublicApiResolverFactory();
+    private final VerifiedCorePublicApiResolverFactory factory = new VerifiedCorePublicApiResolverFactory();
 
     @Test
     void admitsPinnedCoreArtifactsForBothSupportedProfiles() throws Exception {
@@ -28,9 +26,8 @@ class VerifiedCorePublicApiResolverFactoryTest {
     void rejectsArtifactForTheWrongProfile() throws Exception {
         Path artifact = coreArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
-            assertThrows(IllegalArgumentException.class, () -> factory.create(
-                "5.2.03", record("5.2.03"), artifact, loader
-            ));
+            assertThrows(
+                    IllegalArgumentException.class, () -> factory.create("5.2.03", record("5.2.03"), artifact, loader));
         }
     }
 
@@ -38,61 +35,49 @@ class VerifiedCorePublicApiResolverFactoryTest {
     void rejectsRuntimeClassesFromAnotherCoreArtifact() throws Exception {
         Path reviewed = coreArtifact("5.3.02");
         try (URLClassLoader wrongLoader = loader(coreArtifact("5.2.03"))) {
-            assertThrows(IllegalArgumentException.class, () -> factory.create(
-                "5.3.02", record("5.3.02"), reviewed, wrongLoader
-            ));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> factory.create("5.3.02", record("5.3.02"), reviewed, wrongLoader));
         }
     }
 
     @Test
     void rejectsUnknownProfileBeforeReadingEvidence() {
-        assertThrows(IllegalArgumentException.class, () -> factory.create(
-            "5.4", Path.of("missing-record"), Path.of("missing-artifact"),
-            ClassLoader.getPlatformClassLoader()
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(
+                        "5.4",
+                        Path.of("missing-record"),
+                        Path.of("missing-artifact"),
+                        ClassLoader.getPlatformClassLoader()));
     }
 
-    private void assertAdmitted(
-        final String profile,
-        final String exactVersion
-    ) throws Exception {
+    private void assertAdmitted(final String profile, final String exactVersion) throws Exception {
         Path artifact = coreArtifact(profile);
         assertTrue(Files.isRegularFile(artifact), "missing local Core evidence artifact " + artifact);
         try (URLClassLoader loader = loader(artifact)) {
-            VerifiedMemberResolver resolver = factory.create(
-                profile, record(profile), artifact, loader
-            );
+            VerifiedMemberResolver resolver = factory.create(profile, record(profile), artifact, loader);
             assertEquals(exactVersion, resolver.cubismVersion());
             assertTrue(resolver.isExactCubismVersion(exactVersion));
             assertTrue(resolver.authorizes(
-                "adapter.core-model.readonly",
-                java.util.Set.of("cubism.geometry.read"),
-                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
-                    .requiredAliasesFor(profile)
-                    .orElseThrow()
-            ));
+                    "adapter.core-model.readonly",
+                    java.util.Set.of("cubism.geometry.read"),
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(profile)
+                            .orElseThrow()));
         }
     }
 
     private static Path record(final String profile) {
-        return PROJECT_ROOT.resolve(Path.of(
-            "cubism-ref", "verification",
-            "cubism-" + profile + "-core-model-read.json"
-        ));
+        return PROJECT_ROOT.resolve(
+                Path.of("cubism-ref", "verification", "cubism-" + profile + "-core-model-read.json"));
     }
 
     private static Path coreArtifact(final String profile) {
         final String evidenceDirectory = "5.2.03".equals(profile) ? "5.2" : profile;
-        return LEGACY_EVIDENCE.resolve(
-            "Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar"
-        );
+        return LEGACY_EVIDENCE.resolve("Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar");
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
-        return new URLClassLoader(
-            new URL[]{artifact.toUri().toURL()},
-            ClassLoader.getPlatformClassLoader()
-        );
+        return new URLClassLoader(new URL[] {artifact.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
     }
-
 }

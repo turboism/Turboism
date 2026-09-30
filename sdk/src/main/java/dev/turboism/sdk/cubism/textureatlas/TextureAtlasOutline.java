@@ -30,8 +30,7 @@ public record TextureAtlasOutline(List<double[][]> rings) {
             final double[][] copy = new double[ring.length][];
             for (int i = 0; i < ring.length; i++) {
                 final double[] point = ring[i];
-                if (point == null || point.length != 2
-                    || !Double.isFinite(point[0]) || !Double.isFinite(point[1])) {
+                if (point == null || point.length != 2 || !Double.isFinite(point[0]) || !Double.isFinite(point[1])) {
                     throw new IllegalArgumentException("ring vertices must be finite [x,y]");
                 }
                 copy[i] = point.clone();
@@ -53,5 +52,4 @@ public record TextureAtlasOutline(List<double[][]> rings) {
         }
         return of(new double[][] {{0, 0}, {width, 0}, {width, height}, {0, height}});
     }
-
 }

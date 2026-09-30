@@ -1,15 +1,14 @@
 package dev.turboism.exportsettings;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
 
 /**
  * Exact-owner transformer for the embedded-model Export Settings dialog on the reviewed
@@ -55,18 +54,17 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
     private final ClassLoader expectedClassLoader;
 
     public ExportSettingsNativeMethodTransformer(
-        final String ownerInternalName,
-        final String attachMethodName,
-        final String attachMethodDescriptor,
-        final String gateMethodName,
-        final String gateMethodDescriptor,
-        final String windowFieldName,
-        final String windowFieldDescriptor,
-        final String jdialogMethodOwner,
-        final String jdialogMethodName,
-        final String jdialogMethodDescriptor,
-        final ClassLoader expectedClassLoader
-    ) {
+            final String ownerInternalName,
+            final String attachMethodName,
+            final String attachMethodDescriptor,
+            final String gateMethodName,
+            final String gateMethodDescriptor,
+            final String windowFieldName,
+            final String windowFieldDescriptor,
+            final String jdialogMethodOwner,
+            final String jdialogMethodName,
+            final String jdialogMethodDescriptor,
+            final ClassLoader expectedClassLoader) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.attachMethodName = requireText(attachMethodName, "attachMethodName");
         this.attachMethodDescriptor = requireText(attachMethodDescriptor, "attachMethodDescriptor");
@@ -82,46 +80,41 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        if (!ownerInternalName.equals(className)
-            || loader != expectedClassLoader
-            || classfileBuffer == null) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        if (!ownerInternalName.equals(className) || loader != expectedClassLoader || classfileBuffer == null) {
             return null;
         }
         final boolean[] markerFound = {false};
         final boolean[] attachShape = {false};
         final boolean[] gateShape = {false};
         final ClassReader reader = new ClassReader(classfileBuffer);
-        final ClassWriter writer = new ClassWriter(
-            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        );
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String descriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, descriptor, signature, exceptions
-                );
-                if (attachMethodName.equals(name) && attachMethodDescriptor.equals(descriptor)) {
-                    return new AttachMethodVisitor(delegate, markerFound, attachShape);
-                }
-                if (gateMethodName.equals(name) && gateMethodDescriptor.equals(descriptor)) {
-                    return new GateMethodVisitor(delegate, markerFound, gateShape);
-                }
-                return delegate;
-            }
-        }, ClassReader.EXPAND_FRAMES);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String descriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (attachMethodName.equals(name) && attachMethodDescriptor.equals(descriptor)) {
+                            return new AttachMethodVisitor(delegate, markerFound, attachShape);
+                        }
+                        if (gateMethodName.equals(name) && gateMethodDescriptor.equals(descriptor)) {
+                            return new GateMethodVisitor(delegate, markerFound, gateShape);
+                        }
+                        return delegate;
+                    }
+                },
+                ClassReader.EXPAND_FRAMES);
         if (markerFound[0] || !attachShape[0] || !gateShape[0]) {
             return null;
         }
@@ -139,11 +132,7 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
         private boolean emitting;
         private int returns;
 
-        private AttachMethodVisitor(
-            final MethodVisitor delegate,
-            final boolean[] markerFound,
-            final boolean[] shape
-        ) {
+        private AttachMethodVisitor(final MethodVisitor delegate, final boolean[] markerFound, final boolean[] shape) {
             super(Opcodes.ASM9, delegate);
             this.markerFound = markerFound;
             this.shape = shape;
@@ -202,33 +191,17 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiFunction");
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitVarInsn(Opcodes.ALOAD, 0);
-            super.visitFieldInsn(
-                Opcodes.GETFIELD,
-                ownerInternalName,
-                windowFieldName,
-                windowFieldDescriptor
-            );
+            super.visitFieldInsn(Opcodes.GETFIELD, ownerInternalName, windowFieldName, windowFieldDescriptor);
             super.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                jdialogMethodOwner,
-                jdialogMethodName,
-                jdialogMethodDescriptor,
-                false
-            );
+                    Opcodes.INVOKEVIRTUAL, jdialogMethodOwner, jdialogMethodName, jdialogMethodDescriptor, false);
             super.visitMethodInsn(
-                Opcodes.INVOKEVIRTUAL,
-                "javax/swing/JDialog",
-                "getContentPane",
-                "()Ljava/awt/Container;",
-                false
-            );
+                    Opcodes.INVOKEVIRTUAL, "javax/swing/JDialog", "getContentPane", "()Ljava/awt/Container;", false);
             super.visitMethodInsn(
-                Opcodes.INVOKEINTERFACE,
-                "java/util/function/BiFunction",
-                "apply",
-                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                true
-            );
+                    Opcodes.INVOKEINTERFACE,
+                    "java/util/function/BiFunction",
+                    "apply",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                    true);
             super.visitInsn(Opcodes.POP);
             super.visitJumpInsn(Opcodes.GOTO, tryEnd);
             super.visitLabel(noBridge);
@@ -257,11 +230,7 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
         private Integer buffered;
         private int ireturnCount;
 
-        private GateMethodVisitor(
-            final MethodVisitor delegate,
-            final boolean[] markerFound,
-            final boolean[] shape
-        ) {
+        private GateMethodVisitor(final MethodVisitor delegate, final boolean[] markerFound, final boolean[] shape) {
             super(Opcodes.ASM9, delegate);
             this.markerFound = markerFound;
             this.shape = shape;
@@ -272,8 +241,8 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
             // Same marker discipline as the attach site: only an LDC present in the
             // original class bytes counts; the transformer's own emission is guarded.
             if (!emitting
-                && (NativeExportSettingsDialogBridge.CANCEL_KEY.equals(value)
-                    || NativeExportSettingsDialogBridge.DECIDE_KEY.equals(value))) {
+                    && (NativeExportSettingsDialogBridge.CANCEL_KEY.equals(value)
+                            || NativeExportSettingsDialogBridge.DECIDE_KEY.equals(value))) {
                 sawMarker = true;
                 markerFound[0] = true;
                 super.visitLdcInsn(value);
@@ -356,21 +325,18 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
         }
 
         @Override
-        public void visitFieldInsn(
-            final int opcode, final String owner, final String name, final String descriptor
-        ) {
+        public void visitFieldInsn(final int opcode, final String owner, final String name, final String descriptor) {
             beforeOtherInstruction();
             super.visitFieldInsn(opcode, owner, name, descriptor);
         }
 
         @Override
         public void visitMethodInsn(
-            final int opcode,
-            final String owner,
-            final String name,
-            final String descriptor,
-            final boolean isInterface
-        ) {
+                final int opcode,
+                final String owner,
+                final String name,
+                final String descriptor,
+                final boolean isInterface) {
             beforeOtherInstruction();
             super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
         }
@@ -401,15 +367,12 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
 
         @Override
         public void visitInvokeDynamicInsn(
-            final String name,
-            final String descriptor,
-            final org.objectweb.asm.Handle bootstrapMethodHandle,
-            final Object... bootstrapMethodArguments
-        ) {
+                final String name,
+                final String descriptor,
+                final org.objectweb.asm.Handle bootstrapMethodHandle,
+                final Object... bootstrapMethodArguments) {
             beforeOtherInstruction();
-            super.visitInvokeDynamicInsn(
-                name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments
-            );
+            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
         }
 
         @Override
@@ -433,12 +396,7 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
 
         @Override
         public void visitFrame(
-            final int type,
-            final int numLocal,
-            final Object[] local,
-            final int numStack,
-            final Object[] stack
-        ) {
+                final int type, final int numLocal, final Object[] local, final int numStack, final Object[] stack) {
             if (sawMarker) {
                 super.visitFrame(type, numLocal, local, numStack, stack);
                 return;
@@ -465,11 +423,7 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
 
         @Override
         public void visitMaxs(final int maxStack, final int maxLocals) {
-            if (!sawMarker
-                && !invalid
-                && sawFirstIreturn
-                && ireturnCount == 2
-                && gateEmitted) {
+            if (!sawMarker && !invalid && sawFirstIreturn && ireturnCount == 2 && gateEmitted) {
                 shape[0] = true;
             }
             super.visitMaxs(maxStack, maxLocals);
@@ -519,12 +473,11 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    "java/util/function/Consumer",
-                    "accept",
-                    "(Ljava/lang/Object;)V",
-                    true
-                );
+                        Opcodes.INVOKEINTERFACE,
+                        "java/util/function/Consumer",
+                        "accept",
+                        "(Ljava/lang/Object;)V",
+                        true);
                 super.visitJumpInsn(Opcodes.GOTO, tryEnd);
                 super.visitLabel(noBridge);
                 super.visitInsn(Opcodes.POP);
@@ -559,16 +512,13 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Function");
                 super.visitVarInsn(Opcodes.ALOAD, 0);
                 super.visitMethodInsn(
-                    Opcodes.INVOKEINTERFACE,
-                    "java/util/function/Function",
-                    "apply",
-                    "(Ljava/lang/Object;)Ljava/lang/Object;",
-                    true
-                );
+                        Opcodes.INVOKEINTERFACE,
+                        "java/util/function/Function",
+                        "apply",
+                        "(Ljava/lang/Object;)Ljava/lang/Object;",
+                        true);
                 super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
-                super.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false
-                );
+                super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false);
                 // Every path into the native continuation below carries an empty stack:
                 // false decision and throwing/null bridge all return false from the modal
                 // method, and a true decision falls through with the stack untouched.
@@ -596,20 +546,10 @@ public final class ExportSettingsNativeMethodTransformer implements ClassFileTra
     /** Loader-neutral property lookup leaving {@code [value, value]} on the stack. */
     private static void emitPropertyLookup(final MethodVisitor mv, final String key) {
         mv.visitMethodInsn(
-            Opcodes.INVOKESTATIC,
-            "java/lang/System",
-            "getProperties",
-            "()Ljava/util/Properties;",
-            false
-        );
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(key);
         mv.visitMethodInsn(
-            Opcodes.INVOKEVIRTUAL,
-            "java/util/Properties",
-            "get",
-            "(Ljava/lang/Object;)Ljava/lang/Object;",
-            false
-        );
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
         mv.visitInsn(Opcodes.DUP);
     }
 

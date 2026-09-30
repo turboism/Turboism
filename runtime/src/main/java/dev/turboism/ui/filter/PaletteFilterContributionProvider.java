@@ -6,7 +6,6 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,9 +17,7 @@ public final class PaletteFilterContributionProvider implements EditorUiContribu
     private final PaletteFilterHostOperations host;
 
     public PaletteFilterContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final PaletteFilterHostOperations host
-    ) {
+            final EditorUiProviderAdmission admission, final PaletteFilterHostOperations host) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.PALETTE_FILTER) {
             throw new IllegalArgumentException("palette-filter provider requires PALETTE_FILTER admission");
@@ -44,10 +41,7 @@ public final class PaletteFilterContributionProvider implements EditorUiContribu
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         requireAdmission(hostGeneration);
         host.setFilterContributions(descriptors(contributions));
         final AtomicBoolean closed = new AtomicBoolean();
@@ -60,10 +54,7 @@ public final class PaletteFilterContributionProvider implements EditorUiContribu
 
     @Override
     public Registration reconcile(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions,
-        final Registration existing
-    ) {
+            final long hostGeneration, final List<EditorUiContribution<?>> contributions, final Registration existing) {
         requireAdmission(hostGeneration);
         if (existing == null) {
             return apply(hostGeneration, contributions);
@@ -79,13 +70,15 @@ public final class PaletteFilterContributionProvider implements EditorUiContribu
     }
 
     private static List<PaletteFilterRegistry.PaletteFilterContribution> descriptors(
-        final List<EditorUiContribution<?>> contributions
-    ) {
-        return contributions.stream().map(contribution -> {
-            if (!(contribution.descriptor() instanceof PaletteFilterRegistry.PaletteFilterContribution descriptor)) {
-                throw new IllegalArgumentException("Unsupported palette filter contribution descriptor");
-            }
-            return descriptor;
-        }).toList();
+            final List<EditorUiContribution<?>> contributions) {
+        return contributions.stream()
+                .map(contribution -> {
+                    if (!(contribution.descriptor()
+                            instanceof PaletteFilterRegistry.PaletteFilterContribution descriptor)) {
+                        throw new IllegalArgumentException("Unsupported palette filter contribution descriptor");
+                    }
+                    return descriptor;
+                })
+                .toList();
     }
 }

@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.command;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-
 import java.util.Set;
 
 /** Versioned host seam for safe no-argument Editor commands. */

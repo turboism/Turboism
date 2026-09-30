@@ -34,7 +34,7 @@ public record CanvasCompositeElisionTarget(String version, HostArtifactDigest di
     public static final String PAINT_METHOD = "paint";
     /** Reviewed descriptor of the paint dispatcher entry. */
     public static final String PAINT_DESCRIPTOR =
-        "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)Z";
+            "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)Z";
 
     /**
      * The {@code RepaintManager.paint} fallback that the false return selects;
@@ -46,15 +46,14 @@ public record CanvasCompositeElisionTarget(String version, HostArtifactDigest di
     public static final String PAINT_CALLER_METHOD = "paint";
     /** Reviewed caller descriptor. */
     public static final String PAINT_CALLER_DESCRIPTOR =
-        "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)V";
+            "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)V";
 
     /** Internal name of the FlatLaf panel background update consulted for elision. */
     public static final String FILL_OWNER = "com/formdev/flatlaf/ui/FlatPanelUI";
     /** Reviewed fill method name. */
     public static final String FILL_METHOD = "update";
     /** Reviewed fill descriptor. */
-    public static final String FILL_DESCRIPTOR =
-        "(Ljava/awt/Graphics;Ljavax/swing/JComponent;)V";
+    public static final String FILL_DESCRIPTOR = "(Ljava/awt/Graphics;Ljavax/swing/JComponent;)V";
 
     /** Host widget subtree marker the bridge searches for. */
     public static final String GL_PANEL_OWNER = "com/jogamp/opengl/awt/GLJPanel";

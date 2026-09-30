@@ -1,16 +1,12 @@
 package dev.turboism.sdk.ui.settings;
 
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
 /** Toolkit-neutral controls supported by the shared Turboism settings window. */
-public sealed interface SettingsControl permits
-    SettingsControl.Choice,
-    SettingsControl.Toggle,
-    SettingsControl.Text,
-    SettingsControl.Note {
+public sealed interface SettingsControl
+        permits SettingsControl.Choice, SettingsControl.Toggle, SettingsControl.Text, SettingsControl.Note {
 
     /** Returns the control's stable identifier within its tab. */
     String id();
@@ -24,17 +20,21 @@ public sealed interface SettingsControl permits
             value = requireText(value, "value", 256);
             label = requireText(label, "label", 256);
         }
-        @Override public String toString() { return label; }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 
     /** Single-select dropdown control bound to a {@code String} value. */
     record Choice(
-        String id,
-        String label,
-        List<Option> options,
-        SettingsBinding<String> binding,
-        SettingsChangeValidator<String> validator
-    ) implements SettingsControl {
+            String id,
+            String label,
+            List<Option> options,
+            SettingsBinding<String> binding,
+            SettingsChangeValidator<String> validator)
+            implements SettingsControl {
         public Choice {
             id = requireId(id);
             label = requireText(label, "label", 256);
@@ -54,22 +54,17 @@ public sealed interface SettingsControl permits
         }
 
         public Choice(
-            final String id,
-            final String label,
-            final List<Option> options,
-            final SettingsBinding<String> binding
-        ) {
+                final String id,
+                final String label,
+                final List<Option> options,
+                final SettingsBinding<String> binding) {
             this(id, label, options, binding, SettingsChangeValidator.acceptAll());
         }
     }
 
     /** Checkbox control bound to a {@code Boolean} value. */
-    record Toggle(
-        String id,
-        String label,
-        SettingsBinding<Boolean> binding,
-        SettingsChangeValidator<Boolean> validator
-    ) implements SettingsControl {
+    record Toggle(String id, String label, SettingsBinding<Boolean> binding, SettingsChangeValidator<Boolean> validator)
+            implements SettingsControl {
         public Toggle {
             id = requireId(id);
             label = requireText(label, "label", 256);
@@ -77,23 +72,19 @@ public sealed interface SettingsControl permits
             validator = Objects.requireNonNull(validator, "validator");
         }
 
-        public Toggle(
-            final String id,
-            final String label,
-            final SettingsBinding<Boolean> binding
-        ) {
+        public Toggle(final String id, final String label, final SettingsBinding<Boolean> binding) {
             this(id, label, binding, SettingsChangeValidator.acceptAll());
         }
     }
 
     /** Free-text input control bound to a {@code String} value; {@code columns} sizes the field. */
     record Text(
-        String id,
-        String label,
-        int columns,
-        SettingsBinding<String> binding,
-        SettingsChangeValidator<String> validator
-    ) implements SettingsControl {
+            String id,
+            String label,
+            int columns,
+            SettingsBinding<String> binding,
+            SettingsChangeValidator<String> validator)
+            implements SettingsControl {
         public Text {
             id = requireId(id);
             label = requireText(label, "label", 256);
@@ -104,21 +95,13 @@ public sealed interface SettingsControl permits
             validator = Objects.requireNonNull(validator, "validator");
         }
 
-        public Text(
-            final String id,
-            final String label,
-            final int columns,
-            final SettingsBinding<String> binding
-        ) {
+        public Text(final String id, final String label, final int columns, final SettingsBinding<String> binding) {
             this(id, label, columns, binding, SettingsChangeValidator.acceptAll());
         }
     }
 
     /** Read-only annotation rendered as small supporting text; has no binding. */
-    record Note(
-        String id,
-        String label
-    ) implements SettingsControl {
+    record Note(String id, String label) implements SettingsControl {
         public Note {
             id = requireId(id);
             label = requireText(label, "label", 512);

@@ -1,15 +1,21 @@
 package dev.turboism.config;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.config.ConfigCodecs;
 import dev.turboism.sdk.config.ConfigDocument;
-import dev.turboism.sdk.config.ConfigMigration;
 import dev.turboism.sdk.config.ConfigErrorCode;
 import dev.turboism.sdk.config.ConfigKey;
+import dev.turboism.sdk.config.ConfigMigration;
 import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigRegistrationError;
 import dev.turboism.sdk.config.ConfigRegistrationException;
@@ -23,16 +29,12 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.settings.SettingsContributionStore;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,16 +43,16 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeTypedPluginConfigRegistryTest {
 
-    private enum Mode { SAFE, FAST }
+    private enum Mode {
+        SAFE,
+        FAST
+    }
 
     @TempDir
     Path temporary;
@@ -76,55 +78,45 @@ class RuntimeTypedPluginConfigRegistryTest {
         assertFalse(Files.exists(root));
 
         registry.registerSchema(
-            new ConfigSchema("main", "settings/main.cfg", 1, List.of(new ConfigKey<>(
-                "main", "enabled", true, ConfigCodecs.booleanValue()
-            ))),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                        new ConfigSchema(
+                                "main",
+                                "settings/main.cfg",
+                                1,
+                                List.of(new ConfigKey<>("main", "enabled", true, ConfigCodecs.booleanValue()))),
+                        List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         assertTrue(Files.isRegularFile(root.resolve("settings/main.cfg")));
     }
 
     @Test
     void registersMaterializesDefaultsPersistsCasWritesAndSurvivesRestart() throws Exception {
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "main",
-            "enabled",
-            true,
-            ConfigCodecs.booleanValue()
-        );
-        final ConfigSchema schema = new ConfigSchema(
-            "main",
-            "settings/main.cfg",
-            1,
-            List.of(enabled)
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("main", "enabled", true, ConfigCodecs.booleanValue());
+        final ConfigSchema schema = new ConfigSchema("main", "settings/main.cfg", 1, List.of(enabled));
         RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
-        registry.registerSchema(schema, List.of()).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        registry.registerSchema(schema, List.of()).toCompletableFuture().get(2, TimeUnit.SECONDS);
 
-        ConfigReadResult<Boolean> materialized = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        ConfigReadResult<Boolean> materialized =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertTrue(materialized.value().value());
         assertEquals(ConfigValueSource.STORED, materialized.value().source());
         assertEquals(0, materialized.value().revision());
-        assertTrue(Files.isRegularFile(
-            temporary.resolve("typed-config/settings/main.cfg")
-        ));
+        assertTrue(Files.isRegularFile(temporary.resolve("typed-config/settings/main.cfg")));
 
-        var written = registry.write(enabled, false, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        var written = registry.write(enabled, false, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertTrue(written.written());
         assertEquals(1, written.revision());
 
-        var conflict = registry.write(enabled, true, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        var conflict = registry.write(enabled, true, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(conflict.written());
-        assertEquals(ConfigErrorCode.REVISION_CONFLICT, conflict.error().orElseThrow().code());
+        assertEquals(
+                ConfigErrorCode.REVISION_CONFLICT,
+                conflict.error().orElseThrow().code());
         assertEquals(1, conflict.revision());
 
-        ConfigReadResult<Boolean> stored = registry.read(enabled).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        ConfigReadResult<Boolean> stored =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(stored.value().value());
         assertEquals(ConfigValueSource.STORED, stored.value().source());
         assertEquals(1, stored.value().revision());
@@ -135,8 +127,7 @@ class RuntimeTypedPluginConfigRegistryTest {
         runtimeScheduler = null;
 
         registry = registry(allPermissions());
-        registry.registerSchema(schema, List.of()).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        registry.registerSchema(schema, List.of()).toCompletableFuture().get(2, TimeUnit.SECONDS);
         stored = registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(stored.value().value());
         assertEquals(1, stored.value().revision());
@@ -145,38 +136,23 @@ class RuntimeTypedPluginConfigRegistryTest {
     @Test
     void validatesSchemaSynchronouslyBeforePermissionOrPublication() {
         final RuntimeTypedPluginConfigRegistry registry = registry(Set.of());
-        final ConfigKey<Boolean> first = new ConfigKey<>(
-            "main", "enabled", true, ConfigCodecs.booleanValue()
-        );
-        final ConfigKey<Boolean> duplicate = new ConfigKey<>(
-            "main", "enabled", false, ConfigCodecs.booleanValue()
-        );
+        final ConfigKey<Boolean> first = new ConfigKey<>("main", "enabled", true, ConfigCodecs.booleanValue());
+        final ConfigKey<Boolean> duplicate = new ConfigKey<>("main", "enabled", false, ConfigCodecs.booleanValue());
 
         final ConfigSchemaValidationException duplicateFailure = assertThrows(
-            ConfigSchemaValidationException.class,
-            () -> registry.registerSchema(
-                new ConfigSchema("main", "main.cfg", 1, List.of(first, duplicate)),
-                List.of()
-            )
-        );
+                ConfigSchemaValidationException.class,
+                () -> registry.registerSchema(
+                        new ConfigSchema("main", "main.cfg", 1, List.of(first, duplicate)), List.of()));
         assertEquals(ConfigSchemaValidationError.DUPLICATE_KEY, duplicateFailure.error());
 
         final ConfigSchemaValidationException pathFailure = assertThrows(
-            ConfigSchemaValidationException.class,
-            () -> registry.registerSchema(
-                new ConfigSchema("main", "../escape.cfg", 1, List.of(first)),
-                List.of()
-            )
-        );
+                ConfigSchemaValidationException.class,
+                () -> registry.registerSchema(new ConfigSchema("main", "../escape.cfg", 1, List.of(first)), List.of()));
         assertEquals(ConfigSchemaValidationError.INVALID_PATH, pathFailure.error());
 
         final ConfigSchemaValidationException gapFailure = assertThrows(
-            ConfigSchemaValidationException.class,
-            () -> registry.registerSchema(
-                new ConfigSchema("main", "main.cfg", 2, List.of(first)),
-                List.of()
-            )
-        );
+                ConfigSchemaValidationException.class,
+                () -> registry.registerSchema(new ConfigSchema("main", "main.cfg", 2, List.of(first)), List.of()));
         assertEquals(ConfigSchemaValidationError.MIGRATION_GAP, gapFailure.error());
     }
 
@@ -184,202 +160,163 @@ class RuntimeTypedPluginConfigRegistryTest {
     void registrationPermissionFailureUsesExactOperationalException() throws Exception {
         final RuntimeTypedPluginConfigRegistry registry = registry(Set.of());
         final ConfigSchema schema = new ConfigSchema(
-            "main",
-            "main.cfg",
-            1,
-            List.of(new ConfigKey<>(
-                "main", "enabled", true, ConfigCodecs.booleanValue()
-            ))
-        );
+                "main", "main.cfg", 1, List.of(new ConfigKey<>("main", "enabled", true, ConfigCodecs.booleanValue())));
 
         final ExecutionException failure = assertThrows(
-            ExecutionException.class,
-            () -> registry.registerSchema(schema, List.of()).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS)
-        );
-        final ConfigRegistrationException cause =
-            (ConfigRegistrationException) failure.getCause();
+                ExecutionException.class,
+                () -> registry.registerSchema(schema, List.of())
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS));
+        final ConfigRegistrationException cause = (ConfigRegistrationException) failure.getCause();
         assertEquals(ConfigRegistrationError.PERMISSION_DENIED, cause.error());
-        assertEquals(
-            "typed config schema registration failed: PERMISSION_DENIED",
-            cause.getMessage()
-        );
+        assertEquals("typed config schema registration failed: PERMISSION_DENIED", cause.getMessage());
     }
 
     @Test
     void typedConfigFailuresUseExactPublicCodesWithoutExposingValuesOrPaths() throws Exception {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final RuntimeTypedPluginConfigRegistry registry = registry(Set.of(), failures);
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "private-config", "enabled", true, ConfigCodecs.booleanValue()
-        );
+        final ConfigKey<Boolean> enabled =
+                new ConfigKey<>("private-config", "enabled", true, ConfigCodecs.booleanValue());
 
         final ExecutionException failure = assertThrows(
-            ExecutionException.class,
-            () -> registry.registerSchema(
-                new ConfigSchema(
-                    "private-config",
-                    "private/settings.cfg",
-                    1,
-                    List.of(enabled)
-                ),
-                List.of()
-            ).toCompletableFuture().get(2, TimeUnit.SECONDS)
-        );
+                ExecutionException.class,
+                () -> registry.registerSchema(
+                                new ConfigSchema("private-config", "private/settings.cfg", 1, List.of(enabled)),
+                                List.of())
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS));
 
-        assertEquals(ConfigRegistrationError.PERMISSION_DENIED,
-            ((ConfigRegistrationException) failure.getCause()).error());
+        assertEquals(
+                ConfigRegistrationError.PERMISSION_DENIED, ((ConfigRegistrationException) failure.getCause()).error());
         final var collected = failures.snapshot().configFailures();
         assertEquals(1, collected.size());
         assertEquals("PERMISSION_DENIED", collected.get(0).code());
         assertEquals("config.registerSchema", collected.get(0).operationId());
-        assertEquals(PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE, collected.get(0).permissionId());
+        assertEquals(
+                PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE, collected.get(0).permissionId());
         assertEquals(null, collected.get(0).relativePath());
         assertFalse(collected.get(0).message().contains("Users"));
     }
 
     @Test
     void migrationFutureVersionAndMalformedPersistenceFailClosed() throws Exception {
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "migrated",
-            "enabled",
-            false,
-            ConfigCodecs.booleanValue()
-        );
-        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(
-            temporary.resolve("typed-config")
-        );
-        store.writeAtomic(
-            "migrated.cfg",
-            new TypedConfigDocumentStore.StoredDocument(
-                1,
-                7,
-                Map.of("enabled", "true")
-            )
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("migrated", "enabled", false, ConfigCodecs.booleanValue());
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(temporary.resolve("typed-config"));
+        store.writeAtomic("migrated.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "true")));
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
         final ConfigMigration migration = new ConfigMigration() {
-            @Override public int fromVersion() { return 1; }
-            @Override public int toVersion() { return 2; }
-            @Override public ConfigDocument migrate(ConfigDocument input) {
+            @Override
+            public int fromVersion() {
+                return 1;
+            }
+
+            @Override
+            public int toVersion() {
+                return 2;
+            }
+
+            @Override
+            public ConfigDocument migrate(ConfigDocument input) {
                 return new ConfigDocument(2, input.encodedValues());
             }
         };
-        registry.registerSchema(
-            new ConfigSchema("migrated", "migrated.cfg", 2, List.of(enabled)),
-            List.of(migration)
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerSchema(new ConfigSchema("migrated", "migrated.cfg", 2, List.of(enabled)), List.of(migration))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
-        final ConfigReadResult<Boolean> migrated = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> migrated =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertTrue(migrated.value().value());
         assertEquals(ConfigValueSource.STORED, migrated.value().source());
         assertEquals(8, migrated.value().revision());
 
         store.writeAtomic(
-            "migrated.cfg",
-            new TypedConfigDocumentStore.StoredDocument(
-                3,
-                8,
-                Map.of("enabled", "false")
-            )
-        );
-        final ConfigReadResult<Boolean> future = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                "migrated.cfg", new TypedConfigDocumentStore.StoredDocument(3, 8, Map.of("enabled", "false")));
+        final ConfigReadResult<Boolean> future =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(ConfigValueSource.DEFAULT_FUTURE_VERSION, future.value().source());
         assertEquals(
-            ConfigErrorCode.FUTURE_SCHEMA_VERSION,
-            future.error().orElseThrow().code()
-        );
+                ConfigErrorCode.FUTURE_SCHEMA_VERSION,
+                future.error().orElseThrow().code());
 
-        final ConfigKey<Boolean> broken = new ConfigKey<>(
-            "broken", "enabled", true, ConfigCodecs.booleanValue()
-        );
-        store.writeAtomic(
-            "broken.cfg",
-            new TypedConfigDocumentStore.StoredDocument(1, 2, Map.of("enabled", "true"))
-        );
+        final ConfigKey<Boolean> broken = new ConfigKey<>("broken", "enabled", true, ConfigCodecs.booleanValue());
+        store.writeAtomic("broken.cfg", new TypedConfigDocumentStore.StoredDocument(1, 2, Map.of("enabled", "true")));
         registry.registerSchema(
-            new ConfigSchema("broken", "broken.cfg", 2, List.of(broken)),
-            List.of(new ConfigMigration() {
-                @Override public int fromVersion() { return 1; }
-                @Override public int toVersion() { return 2; }
-                @Override public ConfigDocument migrate(ConfigDocument input)
-                    throws dev.turboism.sdk.config.ConfigMigrationException {
-                    throw new dev.turboism.sdk.config.ConfigMigrationException("private migration detail");
-                }
-            })
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
-        final ConfigReadResult<Boolean> failedMigration = registry.read(broken)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertEquals(
-            ConfigValueSource.DEFAULT_MIGRATION_FAILED,
-            failedMigration.value().source()
-        );
-        assertEquals(
-            ConfigErrorCode.MIGRATION_FAILED,
-            failedMigration.error().orElseThrow().code()
-        );
+                        new ConfigSchema("broken", "broken.cfg", 2, List.of(broken)), List.of(new ConfigMigration() {
+                            @Override
+                            public int fromVersion() {
+                                return 1;
+                            }
 
-        final ConfigKey<Boolean> malformed = new ConfigKey<>(
-            "malformed", "enabled", true, ConfigCodecs.booleanValue()
-        );
-        registry.registerSchema(
-            new ConfigSchema("malformed", "malformed.cfg", 1, List.of(malformed)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
-        Files.write(
-            temporary.resolve("typed-config/malformed.cfg"),
-            new byte[] {(byte) 0xC3, 0x28}
-        );
-        final ConfigReadResult<Boolean> malformedResult = registry.read(malformed)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertEquals(ConfigValueSource.DEFAULT_UNAVAILABLE, malformedResult.value().source());
+                            @Override
+                            public int toVersion() {
+                                return 2;
+                            }
+
+                            @Override
+                            public ConfigDocument migrate(ConfigDocument input)
+                                    throws dev.turboism.sdk.config.ConfigMigrationException {
+                                throw new dev.turboism.sdk.config.ConfigMigrationException("private migration detail");
+                            }
+                        }))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> failedMigration =
+                registry.read(broken).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(
-            ConfigErrorCode.PERSISTENCE_FAILED,
-            malformedResult.error().orElseThrow().code()
-        );
+                ConfigValueSource.DEFAULT_MIGRATION_FAILED,
+                failedMigration.value().source());
+        assertEquals(
+                ConfigErrorCode.MIGRATION_FAILED,
+                failedMigration.error().orElseThrow().code());
+
+        final ConfigKey<Boolean> malformed = new ConfigKey<>("malformed", "enabled", true, ConfigCodecs.booleanValue());
+        registry.registerSchema(new ConfigSchema("malformed", "malformed.cfg", 1, List.of(malformed)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        Files.write(temporary.resolve("typed-config/malformed.cfg"), new byte[] {(byte) 0xC3, 0x28});
+        final ConfigReadResult<Boolean> malformedResult =
+                registry.read(malformed).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                ConfigValueSource.DEFAULT_UNAVAILABLE, malformedResult.value().source());
+        assertEquals(
+                ConfigErrorCode.PERSISTENCE_FAILED,
+                malformedResult.error().orElseThrow().code());
     }
 
     @Test
     void closedRegistryReturnsStructuredRuntimeUnavailable() throws Exception {
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "closed", "enabled", true, ConfigCodecs.booleanValue()
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("closed", "enabled", true, ConfigCodecs.booleanValue());
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
-        registry.registerSchema(
-            new ConfigSchema("closed", "closed.cfg", 1, List.of(enabled)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerSchema(new ConfigSchema("closed", "closed.cfg", 1, List.of(enabled)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         registry.close();
 
-        final ConfigReadResult<Boolean> read = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> read =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(ConfigValueSource.DEFAULT_UNAVAILABLE, read.value().source());
-        assertEquals(ConfigErrorCode.RUNTIME_UNAVAILABLE, read.error().orElseThrow().code());
-        final var write = registry.write(enabled, false, 0)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertEquals(ConfigErrorCode.RUNTIME_UNAVAILABLE, write.error().orElseThrow().code());
+        assertEquals(
+                ConfigErrorCode.RUNTIME_UNAVAILABLE, read.error().orElseThrow().code());
+        final var write =
+                registry.write(enabled, false, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                ConfigErrorCode.RUNTIME_UNAVAILABLE, write.error().orElseThrow().code());
     }
 
     @Test
     void invalidWriteIsStructuredAndLateContinuationUsesPluginExecutor() throws Exception {
-        final ConfigKey<Integer> count = new ConfigKey<>(
-            "main",
-            "count",
-            2,
-            ConfigCodecs.boundedInt(0, 4)
-        );
+        final ConfigKey<Integer> count = new ConfigKey<>("main", "count", 2, ConfigCodecs.boundedInt(0, 4));
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
-        registry.registerSchema(
-            new ConfigSchema("main", "main.cfg", 1, List.of(count)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerSchema(new ConfigSchema("main", "main.cfg", 1, List.of(count)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
-        final var invalid = registry.write(count, 9, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        final var invalid = registry.write(count, 9, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(invalid.written());
-        assertEquals(ConfigErrorCode.INVALID_VALUE, invalid.error().orElseThrow().code());
+        assertEquals(
+                ConfigErrorCode.INVALID_VALUE, invalid.error().orElseThrow().code());
 
         final var stage = registry.read(count);
         stage.toCompletableFuture().get(2, TimeUnit.SECONDS);
@@ -395,50 +332,45 @@ class RuntimeTypedPluginConfigRegistryTest {
 
     @Test
     void registrationMaterializesEveryDeclaredDefaultBeforeCompletion() throws Exception {
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "widget", "enabled", true, ConfigCodecs.booleanValue()
-        );
-        final ConfigKey<Integer> count = new ConfigKey<>(
-            "widget", "count", 2, ConfigCodecs.boundedInt(0, 4)
-        );
-        final ConfigKey<List<String>> tags = new ConfigKey<>(
-            "widget", "tags", List.of("a"), ConfigCodecs.boundedStringList(8, 16)
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("widget", "enabled", true, ConfigCodecs.booleanValue());
+        final ConfigKey<Integer> count = new ConfigKey<>("widget", "count", 2, ConfigCodecs.boundedInt(0, 4));
+        final ConfigKey<List<String>> tags =
+                new ConfigKey<>("widget", "tags", List.of("a"), ConfigCodecs.boundedStringList(8, 16));
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
 
         registry.registerSchema(
-            new ConfigSchema("widget", "widget/settings.cfg", 1, List.of(enabled, count, tags)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                        new ConfigSchema("widget", "widget/settings.cfg", 1, List.of(enabled, count, tags)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         final Path document = temporary.resolve("typed-config/widget/settings.cfg");
         assertTrue(Files.isRegularFile(document));
         final TypedConfigDocumentStore.StoredDocument stored = new TypedConfigDocumentStore(
-            temporary.resolve("typed-config")
-        ).read("widget/settings.cfg").orElseThrow();
+                        temporary.resolve("typed-config"))
+                .read("widget/settings.cfg")
+                .orElseThrow();
         assertEquals(1, stored.schemaVersion());
         assertEquals(0, stored.revision());
-        assertEquals(
-            Map.of("enabled", "true", "count", "2", "tags", "[\"a\"]"),
-            stored.encodedValues()
-        );
+        assertEquals(Map.of("enabled", "true", "count", "2", "tags", "[\"a\"]"), stored.encodedValues());
 
-        final ConfigReadResult<Boolean> read = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> read =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertTrue(read.value().value());
         assertEquals(ConfigValueSource.STORED, read.value().source());
         assertEquals(0, read.value().revision());
         assertTrue(read.error().isEmpty());
 
-        final var written = registry.write(enabled, false, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        final var written =
+                registry.write(enabled, false, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertTrue(written.written());
         assertEquals(1, written.revision());
 
-        final var conflict = registry.write(enabled, false, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        final var conflict =
+                registry.write(enabled, false, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(conflict.written());
-        assertEquals(ConfigErrorCode.REVISION_CONFLICT, conflict.error().orElseThrow().code());
+        assertEquals(
+                ConfigErrorCode.REVISION_CONFLICT,
+                conflict.error().orElseThrow().code());
         assertEquals(1, conflict.revision());
     }
 
@@ -447,23 +379,18 @@ class RuntimeTypedPluginConfigRegistryTest {
         final Path root = temporary.resolve("typed-config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
         store.writeAtomic(
-            "existing.cfg",
-            new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "false"))
-        );
+                "existing.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("enabled", "false")));
         final byte[] before = Files.readAllBytes(root.resolve("existing.cfg"));
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "existing", "enabled", true, ConfigCodecs.booleanValue()
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("existing", "enabled", true, ConfigCodecs.booleanValue());
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
 
-        registry.registerSchema(
-            new ConfigSchema("existing", "existing.cfg", 1, List.of(enabled)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerSchema(new ConfigSchema("existing", "existing.cfg", 1, List.of(enabled)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         assertArrayEquals(before, Files.readAllBytes(root.resolve("existing.cfg")));
-        final ConfigReadResult<Boolean> read = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> read =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertFalse(read.value().value());
         assertEquals(ConfigValueSource.STORED, read.value().source());
         assertEquals(7, read.value().revision());
@@ -474,21 +401,17 @@ class RuntimeTypedPluginConfigRegistryTest {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions(), failures);
         Files.createDirectories(temporary.resolve("typed-config/blocked.cfg"));
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "blocked", "enabled", true, ConfigCodecs.booleanValue()
-        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("blocked", "enabled", true, ConfigCodecs.booleanValue());
 
         final ExecutionException failure = assertThrows(
-            ExecutionException.class,
-            () -> registry.registerSchema(
-                new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)),
-                List.of()
-            ).toCompletableFuture().get(2, TimeUnit.SECONDS)
-        );
+                ExecutionException.class,
+                () -> registry.registerSchema(
+                                new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)), List.of())
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS));
         assertEquals(
-            ConfigRegistrationError.REGISTRATION_FAILED,
-            ((ConfigRegistrationException) failure.getCause()).error()
-        );
+                ConfigRegistrationError.REGISTRATION_FAILED,
+                ((ConfigRegistrationException) failure.getCause()).error());
         final var collected = failures.snapshot().configFailures();
         assertEquals(1, collected.size());
         assertEquals("REGISTRATION_FAILED", collected.get(0).code());
@@ -496,20 +419,18 @@ class RuntimeTypedPluginConfigRegistryTest {
         assertEquals(null, collected.get(0).permissionId());
         assertFalse(collected.get(0).message().contains("blocked.cfg"));
 
-        final ConfigReadResult<Boolean> unregistered = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> unregistered =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(
-            ConfigErrorCode.SCHEMA_NOT_REGISTERED,
-            unregistered.error().orElseThrow().code()
-        );
+                ConfigErrorCode.SCHEMA_NOT_REGISTERED,
+                unregistered.error().orElseThrow().code());
 
         Files.delete(temporary.resolve("typed-config/blocked.cfg"));
-        registry.registerSchema(
-            new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)),
-            List.of()
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
-        final ConfigReadResult<Boolean> stored = registry.read(enabled)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerSchema(new ConfigSchema("blocked", "blocked.cfg", 1, List.of(enabled)), List.of())
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<Boolean> stored =
+                registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(ConfigValueSource.STORED, stored.value().source());
         assertEquals(0, stored.value().revision());
     }
@@ -517,79 +438,86 @@ class RuntimeTypedPluginConfigRegistryTest {
     @Test
     void editableSchemasCoalesceIntoOnePluginNamedTabAndShareRevision() throws Exception {
         final SettingsContributionStore settingsStore = new SettingsContributionStore();
-        final RuntimeTypedPluginConfigRegistry registry = registry(
-            allPermissions(),
-            new RuntimeFailureCollector(),
-            settingsStore,
-            "Typed Config Test"
-        );
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "general", "enabled", true, ConfigCodecs.booleanValue()
-        );
-        final ConfigKey<Integer> count = new ConfigKey<>(
-            "general", "count", 2, ConfigCodecs.boundedInt(1, 5)
-        );
-        final ConfigKey<Mode> mode = new ConfigKey<>(
-            "advanced", "mode", Mode.SAFE, ConfigCodecs.enumValue(Mode.class)
-        );
+        final RuntimeTypedPluginConfigRegistry registry =
+                registry(allPermissions(), new RuntimeFailureCollector(), settingsStore, "Typed Config Test");
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("general", "enabled", true, ConfigCodecs.booleanValue());
+        final ConfigKey<Integer> count = new ConfigKey<>("general", "count", 2, ConfigCodecs.boundedInt(1, 5));
+        final ConfigKey<Mode> mode = new ConfigKey<>("advanced", "mode", Mode.SAFE, ConfigCodecs.enumValue(Mode.class));
 
         registry.registerUserEditableSchema(
-            new ConfigSchema("general", "general.cfg", 1, List.of(enabled, count)),
-            List.of(),
-            new ConfigSchemaEditor(List.of(
-                new ConfigSchemaEditor.Text("count", "Count", 6, java.util.OptionalInt.of(20)),
-                new ConfigSchemaEditor.Toggle("enabled", "Enabled", java.util.OptionalInt.of(10))
-            ))
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                        new ConfigSchema("general", "general.cfg", 1, List.of(enabled, count)),
+                        List.of(),
+                        new ConfigSchemaEditor(List.of(
+                                new ConfigSchemaEditor.Text("count", "Count", 6, java.util.OptionalInt.of(20)),
+                                new ConfigSchemaEditor.Toggle("enabled", "Enabled", java.util.OptionalInt.of(10)))))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         registry.registerUserEditableSchema(
-            new ConfigSchema("advanced", "advanced.cfg", 1, List.of(mode)),
-            List.of(),
-            new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
-                "mode",
-                "Mode",
-                List.of(
-                    new ConfigSchemaEditor.Option("SAFE", "Safe"),
-                    new ConfigSchemaEditor.Option("FAST", "Fast")
-                ),
-                java.util.OptionalInt.empty()
-            )))
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                        new ConfigSchema("advanced", "advanced.cfg", 1, List.of(mode)),
+                        List.of(),
+                        new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                                "mode",
+                                "Mode",
+                                List.of(
+                                        new ConfigSchemaEditor.Option("SAFE", "Safe"),
+                                        new ConfigSchemaEditor.Option("FAST", "Fast")),
+                                java.util.OptionalInt.empty()))))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         final var snapshot = settingsStore.snapshot();
         assertEquals(1, snapshot.size());
         assertEquals("Typed Config Test", snapshot.get(0).title());
-        assertEquals(ConfigSchemaSettingsPublisher.tabId(
-            "dev.turboism.plugin.typed-config-test"
-        ), snapshot.get(0).id());
-        assertEquals(List.of("Enabled", "Count", "Mode"), snapshot.get(0).contributions().stream()
-            .map(entry -> entry.contribution().control().label()).toList());
+        assertEquals(
+                ConfigSchemaSettingsPublisher.tabId("dev.turboism.plugin.typed-config-test"),
+                snapshot.get(0).id());
+        assertEquals(
+                List.of("Enabled", "Count", "Mode"),
+                snapshot.get(0).contributions().stream()
+                        .map(entry -> entry.contribution().control().label())
+                        .toList());
 
-        final SettingsControl.Toggle toggle = (SettingsControl.Toggle) snapshot.get(0)
-            .contributions().get(0).contribution().control();
-        final SettingsControl.Text text = (SettingsControl.Text) snapshot.get(0)
-            .contributions().get(1).contribution().control();
-        final SettingsControl.Choice choice = (SettingsControl.Choice) snapshot.get(0)
-            .contributions().get(2).contribution().control();
+        final SettingsControl.Toggle toggle = (SettingsControl.Toggle)
+                snapshot.get(0).contributions().get(0).contribution().control();
+        final SettingsControl.Text text = (SettingsControl.Text)
+                snapshot.get(0).contributions().get(1).contribution().control();
+        final SettingsControl.Choice choice = (SettingsControl.Choice)
+                snapshot.get(0).contributions().get(2).contribution().control();
         assertTrue(toggle.binding().read());
         assertEquals("2", text.binding().read());
         assertEquals("SAFE", choice.binding().read());
-        assertTrue(registry.write(count, 3, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS).written());
+        assertTrue(registry.write(count, 3, 0)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .written());
         toggle.binding().write(false);
         text.binding().write("2");
-        assertEquals(3, registry.read(count).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS).value().value());
+        assertEquals(
+                3,
+                registry.read(count)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .value()
+                        .value());
         text.binding().write("4");
         choice.binding().write("FAST");
 
-        assertFalse(registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS)
-            .value().value());
-        final ConfigReadResult<Integer> storedCount = registry.read(count)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertFalse(registry.read(enabled)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .value()
+                .value());
+        final ConfigReadResult<Integer> storedCount =
+                registry.read(count).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(4, storedCount.value().value());
         assertEquals(3, storedCount.value().revision());
-        assertEquals(Mode.FAST, registry.read(mode).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS).value().value());
+        assertEquals(
+                Mode.FAST,
+                registry.read(mode)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .value()
+                        .value());
         assertThrows(IllegalArgumentException.class, () -> text.binding().write("6"));
 
         scope.close();
@@ -600,96 +528,77 @@ class RuntimeTypedPluginConfigRegistryTest {
     @Test
     void incompatibleEditorMetadataFailsBeforeSchemaOrSettingsPublication() throws Exception {
         final SettingsContributionStore settingsStore = new SettingsContributionStore();
-        final RuntimeTypedPluginConfigRegistry registry = registry(
-            allPermissions(),
-            new RuntimeFailureCollector(),
-            settingsStore,
-            "Typed Config Test"
-        );
-        final ConfigKey<Boolean> enabled = new ConfigKey<>(
-            "main", "enabled", true, ConfigCodecs.booleanValue()
-        );
+        final RuntimeTypedPluginConfigRegistry registry =
+                registry(allPermissions(), new RuntimeFailureCollector(), settingsStore, "Typed Config Test");
+        final ConfigKey<Boolean> enabled = new ConfigKey<>("main", "enabled", true, ConfigCodecs.booleanValue());
         final ConfigSchema schema = new ConfigSchema("main", "main.cfg", 1, List.of(enabled));
 
         final IllegalArgumentException failure = assertThrows(
-            IllegalArgumentException.class,
-            () -> registry.registerUserEditableSchema(
-                schema,
-                List.of(),
-                new ConfigSchemaEditor(List.of(
-                    new ConfigSchemaEditor.Text(
-                        "enabled", "Enabled", 12, java.util.OptionalInt.empty()
-                    )
-                ))
-            )
-        );
+                IllegalArgumentException.class,
+                () -> registry.registerUserEditableSchema(
+                        schema,
+                        List.of(),
+                        new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Text(
+                                "enabled", "Enabled", 12, java.util.OptionalInt.empty())))));
         assertTrue(failure.getMessage().contains("text requires a string or bounded-int codec"));
         assertTrue(settingsStore.snapshot().isEmpty());
 
-        final ConfigKey<String> mode = new ConfigKey<>(
-            "choice", "mode", "safe", ConfigCodecs.stringValue(16)
-        );
+        final ConfigKey<String> mode = new ConfigKey<>("choice", "mode", "safe", ConfigCodecs.stringValue(16));
         final IllegalArgumentException missingDefault = assertThrows(
-            IllegalArgumentException.class,
-            () -> registry.registerUserEditableSchema(
-                new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
-                List.of(),
-                new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
-                    "mode",
-                    "Mode",
-                    List.of(new ConfigSchemaEditor.Option("fast", "Fast")),
-                    java.util.OptionalInt.empty()
-                )))
-            )
-        );
+                IllegalArgumentException.class,
+                () -> registry.registerUserEditableSchema(
+                        new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
+                        List.of(),
+                        new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                                "mode",
+                                "Mode",
+                                List.of(new ConfigSchemaEditor.Option("fast", "Fast")),
+                                java.util.OptionalInt.empty())))));
         assertTrue(missingDefault.getMessage().contains("must include the key default value"));
         assertTrue(settingsStore.snapshot().isEmpty());
 
         registry.registerSchema(schema, List.of()).toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertTrue(registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS)
-            .value().value());
+        assertTrue(registry.read(enabled)
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .value()
+                .value());
     }
 
     @Test
     void choiceBindingFallsBackToDeclaredDefaultWithoutOverwritingLegacyValue() throws Exception {
-        final TypedConfigDocumentStore documents = new TypedConfigDocumentStore(
-            temporary.resolve("typed-config")
-        );
+        final TypedConfigDocumentStore documents = new TypedConfigDocumentStore(temporary.resolve("typed-config"));
         documents.writeAtomic(
-            "choice.cfg",
-            new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("mode", "legacy"))
-        );
+                "choice.cfg", new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("mode", "legacy")));
         final SettingsContributionStore settingsStore = new SettingsContributionStore();
-        final RuntimeTypedPluginConfigRegistry registry = registry(
-            allPermissions(),
-            new RuntimeFailureCollector(),
-            settingsStore,
-            "Typed Config Test"
-        );
-        final ConfigKey<String> mode = new ConfigKey<>(
-            "choice", "mode", "safe", ConfigCodecs.stringValue(16)
-        );
+        final RuntimeTypedPluginConfigRegistry registry =
+                registry(allPermissions(), new RuntimeFailureCollector(), settingsStore, "Typed Config Test");
+        final ConfigKey<String> mode = new ConfigKey<>("choice", "mode", "safe", ConfigCodecs.stringValue(16));
         registry.registerUserEditableSchema(
-            new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
-            List.of(),
-            new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
-                "mode",
-                "Mode",
-                List.of(
-                    new ConfigSchemaEditor.Option("safe", "Safe"),
-                    new ConfigSchemaEditor.Option("fast", "Fast")
-                ),
-                java.util.OptionalInt.empty()
-            )))
-        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                        new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
+                        List.of(),
+                        new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                                "mode",
+                                "Mode",
+                                List.of(
+                                        new ConfigSchemaEditor.Option("safe", "Safe"),
+                                        new ConfigSchemaEditor.Option("fast", "Fast")),
+                                java.util.OptionalInt.empty()))))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
-        final SettingsControl.Choice choice = (SettingsControl.Choice) settingsStore.snapshot()
-            .get(0).contributions().get(0).contribution().control();
+        final SettingsControl.Choice choice = (SettingsControl.Choice) settingsStore
+                .snapshot()
+                .get(0)
+                .contributions()
+                .get(0)
+                .contribution()
+                .control();
         assertEquals("safe", choice.binding().read());
         choice.binding().write("safe");
 
-        final ConfigReadResult<String> stored = registry.read(mode).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        final ConfigReadResult<String> stored =
+                registry.read(mode).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals("legacy", stored.value().value());
         assertEquals(7, stored.value().revision());
     }
@@ -711,59 +620,57 @@ class RuntimeTypedPluginConfigRegistryTest {
     }
 
     private RuntimeTypedPluginConfigRegistry registry(
-        final Set<String> permissions,
-        final RuntimeFailureCollector failures
-    ) {
+            final Set<String> permissions, final RuntimeFailureCollector failures) {
         return registry(permissions, failures, null, null);
     }
 
     private RuntimeTypedPluginConfigRegistry registry(
-        final Set<String> permissions,
-        final RuntimeFailureCollector failures,
-        final SettingsContributionStore settingsStore,
-        final String pluginName
-    ) {
+            final Set<String> permissions,
+            final RuntimeFailureCollector failures,
+            final SettingsContributionStore settingsStore,
+            final String pluginName) {
         scope = new DisposableScope();
         runtimeScheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
-        final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler(
-            "dev.turboism.plugin.typed-config-test",
-            runtimeScheduler,
-            scope
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
+        final RuntimePluginTaskScheduler tasks =
+                new RuntimePluginTaskScheduler("dev.turboism.plugin.typed-config-test", runtimeScheduler, scope);
         return new RuntimeTypedPluginConfigRegistry(
-            new NoopLegacyRegistry(),
-            "dev.turboism.plugin.typed-config-test",
-            temporary.resolve("typed-config"),
-            permissions,
-            tasks,
-            scope,
-            new dev.turboism.cleanup.CleanupEvidenceCollector(),
-            failures,
-            pluginName,
-            settingsStore
-        );
+                new NoopLegacyRegistry(),
+                "dev.turboism.plugin.typed-config-test",
+                temporary.resolve("typed-config"),
+                permissions,
+                tasks,
+                scope,
+                new dev.turboism.cleanup.CleanupEvidenceCollector(),
+                failures,
+                pluginName,
+                settingsStore);
     }
 
     private static Set<String> allPermissions() {
-        return Set.of(
-            PermissionIds.TURBOISM_CONFIG_PLUGIN_READ,
-            PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE
-        );
+        return Set.of(PermissionIds.TURBOISM_CONFIG_PLUGIN_READ, PermissionIds.TURBOISM_CONFIG_PLUGIN_WRITE);
     }
 
     private static final class NoopLegacyRegistry implements PluginConfigRegistry {
-        @Override public Registration readScope(String relativePath) { return () -> { }; }
-        @Override public Registration writeScope(String relativePath) { return () -> { }; }
-        @Override public Optional<String> readString(String relativePath, String key) {
+        @Override
+        public Registration readScope(String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Registration writeScope(String relativePath) {
+            return () -> {};
+        }
+
+        @Override
+        public Optional<String> readString(String relativePath, String key) {
             return Optional.empty();
         }
-        @Override public void writeString(String relativePath, String key, String value)
-            throws PluginConfigException {
-        }
+
+        @Override
+        public void writeString(String relativePath, String key, String value) throws PluginConfigException {}
     }
 }

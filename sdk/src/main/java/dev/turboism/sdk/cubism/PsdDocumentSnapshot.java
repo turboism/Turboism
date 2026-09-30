@@ -14,11 +14,7 @@ import java.util.List;
  *     free of parent segments
  * @param layers unmodifiable copy of the document's layers, in host order
  */
-public record PsdDocumentSnapshot(
-    String documentId,
-    String relativePath,
-    List<PsdLayerSnapshot> layers
-) {
+public record PsdDocumentSnapshot(String documentId, String relativePath, List<PsdLayerSnapshot> layers) {
     /**
      * Validates the record components.
      *
@@ -30,7 +26,10 @@ public record PsdDocumentSnapshot(
         if (documentId == null || documentId.isBlank()) {
             throw new IllegalArgumentException("documentId must not be null or blank");
         }
-        if (relativePath == null || relativePath.isBlank() || relativePath.startsWith("/") || relativePath.contains("..")) {
+        if (relativePath == null
+                || relativePath.isBlank()
+                || relativePath.startsWith("/")
+                || relativePath.contains("..")) {
             throw new IllegalArgumentException("relativePath must be relative and must not contain parent segments");
         }
         layers = List.copyOf(layers);

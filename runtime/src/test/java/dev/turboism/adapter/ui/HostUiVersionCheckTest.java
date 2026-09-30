@@ -1,10 +1,9 @@
 package dev.turboism.adapter.ui;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class HostUiVersionCheckTest {
 
@@ -17,27 +16,28 @@ class HostUiVersionCheckTest {
     @Test
     void admitsOnlyReviewedExactHostVersions() {
         for (String version : HostUiVersionCheck.REVIEWED_HOST_VERSIONS) {
-            assertTrue(HostUiVersionCheck.diagnosticFor("test.capability", version).isEmpty());
+            assertTrue(
+                    HostUiVersionCheck.diagnosticFor("test.capability", version).isEmpty());
         }
     }
 
     @Test
     void rejectsUnreviewedPatchesInsidePreviouslyAcceptedRanges() {
-        for (String version : new String[]{"5.0.07", "5.1.04", "5.2.04", "5.3.05", "5.4.00"}) {
-            SafeModeDiagnostic diagnostic = HostUiVersionCheck
-                .diagnosticFor("test.capability", version)
-                .orElseThrow();
+        for (String version : new String[] {"5.0.07", "5.1.04", "5.2.04", "5.3.05", "5.4.00"}) {
+            SafeModeDiagnostic diagnostic =
+                    HostUiVersionCheck.diagnosticFor("test.capability", version).orElseThrow();
             assertEquals(SafeModeDiagnostic.Code.HOST_VERSION_UNSUPPORTED, diagnostic.code());
         }
     }
 
     @Test
     void rejectsMalformedAndBlankVersionsWithoutThrowing() {
-        for (String version : new String[]{"", "5.3", "not-a-version"}) {
+        for (String version : new String[] {"", "5.3", "not-a-version"}) {
             assertEquals(
-                SafeModeDiagnostic.Code.HOST_VERSION_UNSUPPORTED,
-                HostUiVersionCheck.diagnosticFor("test.capability", version).orElseThrow().code()
-            );
+                    SafeModeDiagnostic.Code.HOST_VERSION_UNSUPPORTED,
+                    HostUiVersionCheck.diagnosticFor("test.capability", version)
+                            .orElseThrow()
+                            .code());
         }
     }
 }

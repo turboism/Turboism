@@ -6,7 +6,7 @@ import java.util.Objects;
 /** Verifies the helper linkage contract before host methods are transformed. */
 public final class MeshMirrorHelperBootstrap {
 
-    private MeshMirrorHelperBootstrap() { }
+    private MeshMirrorHelperBootstrap() {}
 
     /**
      * Fails fast unless the host class loader resolves the mesh-mirror bridge to the very same
@@ -24,18 +24,11 @@ public final class MeshMirrorHelperBootstrap {
      * @throws IllegalStateException if the bridge class is invisible to the host loader, or visible
      *                               as a different class identity
      */
-    public static void ensureAvailable(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader
-    ) {
+    public static void ensureAvailable(final Instrumentation instrumentation, final ClassLoader hostClassLoader) {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         try {
-            final Class<?> visible = Class.forName(
-                NativeMeshMirrorBridge.class.getName(),
-                false,
-                hostClassLoader
-            );
+            final Class<?> visible = Class.forName(NativeMeshMirrorBridge.class.getName(), false, hostClassLoader);
             if (visible != NativeMeshMirrorBridge.class) {
                 throw new IllegalStateException("mesh mirror bridge class identity mismatch");
             }

@@ -1,13 +1,12 @@
 package dev.turboism.plugin.mcp;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class McpModelObjectApplySchemaTest {
 
@@ -21,9 +20,8 @@ final class McpModelObjectApplySchemaTest {
             final Map<String, Object> alternative = object(value);
             assertTrue(Boolean.FALSE.equals(alternative.get("additionalProperties")));
             assertTrue(list(alternative.get("required")).contains("operation"));
-            final Map<String, Object> operation = object(
-                object(alternative.get("properties")).get("operation")
-            );
+            final Map<String, Object> operation =
+                    object(object(alternative.get("properties")).get("operation"));
             assertTrue(list(operation.get("enum")).size() == 1);
         }
     }
@@ -32,23 +30,34 @@ final class McpModelObjectApplySchemaTest {
     void schemaAcceptsEveryMinimalRuntimeOperation() throws Exception {
         final Map<String, Object> schema = operationSchema();
         for (Map<String, Object> input : List.<Map<String, Object>>of(
-            Map.of("operation", "create", "kind", "part", "name", "Part"),
-            Map.of("operation", "create", "kind", "art_mesh", "name", "Mesh"),
-            Map.of(
-                "operation", "create", "kind", "art_mesh", "name", "Mesh",
-                "positions", List.of(point(0, 0), point(1, 0), point(0, 1)),
-                "uvs", List.of(point(0, 0), point(1, 0), point(0, 1)),
-                "triangleIndices", List.of(0, 1, 2)
-            ),
-            Map.of("operation", "create", "kind", "warp_deformer", "name", "Warp"),
-            Map.of("operation", "create", "kind", "rotation_deformer", "name", "Rotation"),
-            Map.of("operation", "rename", "kind", "part", "id", "Part1", "name", "Renamed"),
-            Map.of(
-                "operation", "reparent", "kind", "art_mesh", "id", "Mesh1",
-                "parent", Map.of("kind", "part", "id", "Part1")
-            ),
-            Map.of("operation", "delete", "kind", "part", "id", "Part1")
-        )) {
+                Map.of("operation", "create", "kind", "part", "name", "Part"),
+                Map.of("operation", "create", "kind", "art_mesh", "name", "Mesh"),
+                Map.of(
+                        "operation",
+                        "create",
+                        "kind",
+                        "art_mesh",
+                        "name",
+                        "Mesh",
+                        "positions",
+                        List.of(point(0, 0), point(1, 0), point(0, 1)),
+                        "uvs",
+                        List.of(point(0, 0), point(1, 0), point(0, 1)),
+                        "triangleIndices",
+                        List.of(0, 1, 2)),
+                Map.of("operation", "create", "kind", "warp_deformer", "name", "Warp"),
+                Map.of("operation", "create", "kind", "rotation_deformer", "name", "Rotation"),
+                Map.of("operation", "rename", "kind", "part", "id", "Part1", "name", "Renamed"),
+                Map.of(
+                        "operation",
+                        "reparent",
+                        "kind",
+                        "art_mesh",
+                        "id",
+                        "Mesh1",
+                        "parent",
+                        Map.of("kind", "part", "id", "Part1")),
+                Map.of("operation", "delete", "kind", "part", "id", "Part1"))) {
             assertTrue(accepts(schema, input), () -> "schema rejected " + input);
         }
     }
@@ -57,22 +66,27 @@ final class McpModelObjectApplySchemaTest {
     void schemaRejectsRuntimeForbiddenOrIncompleteCombinations() throws Exception {
         final Map<String, Object> schema = operationSchema();
         for (Map<String, Object> input : List.<Map<String, Object>>of(
-            Map.of("operation", "create", "kind", "part", "name", "Part", "id", "client-id"),
-            Map.of("operation", "create", "kind", "part", "name", "Part", "rows", 2),
-            Map.of("operation", "create", "kind", "art_mesh", "name", "Mesh", "positions", List.of()),
-            Map.of(
-                "operation", "create", "kind", "art_mesh", "name", "Mesh",
-                "positions", List.of(), "uvs", List.of(), "triangleIndices", List.of()
-            ),
-            Map.of(
-                "operation", "create", "kind", "warp_deformer", "name", "Warp",
-                "controlPoints", List.of()
-            ),
-            Map.of("operation", "rename", "kind", "part", "name", "Renamed"),
-            Map.of("operation", "reparent", "kind", "part", "id", "Part1"),
-            Map.of("operation", "delete", "kind", "part", "id", "Part1", "name", "forbidden"),
-            Map.of("operation", "unknown")
-        )) {
+                Map.of("operation", "create", "kind", "part", "name", "Part", "id", "client-id"),
+                Map.of("operation", "create", "kind", "part", "name", "Part", "rows", 2),
+                Map.of("operation", "create", "kind", "art_mesh", "name", "Mesh", "positions", List.of()),
+                Map.of(
+                        "operation",
+                        "create",
+                        "kind",
+                        "art_mesh",
+                        "name",
+                        "Mesh",
+                        "positions",
+                        List.of(),
+                        "uvs",
+                        List.of(),
+                        "triangleIndices",
+                        List.of()),
+                Map.of("operation", "create", "kind", "warp_deformer", "name", "Warp", "controlPoints", List.of()),
+                Map.of("operation", "rename", "kind", "part", "name", "Renamed"),
+                Map.of("operation", "reparent", "kind", "part", "id", "Part1"),
+                Map.of("operation", "delete", "kind", "part", "id", "Part1", "name", "forbidden"),
+                Map.of("operation", "unknown"))) {
             assertFalse(accepts(schema, input), () -> "schema accepted " + input);
         }
     }
@@ -102,9 +116,9 @@ final class McpModelObjectApplySchemaTest {
             final Map<String, Object> objectValue = stringMap(raw);
             final Map<String, Object> properties = object(schema.get("properties"));
             if (schema.get("required") instanceof List<?> required
-                && !objectValue.keySet().containsAll(required)) return false;
+                    && !objectValue.keySet().containsAll(required)) return false;
             if (Boolean.FALSE.equals(schema.get("additionalProperties"))
-                && !properties.keySet().containsAll(objectValue.keySet())) return false;
+                    && !properties.keySet().containsAll(objectValue.keySet())) return false;
             for (Map.Entry<String, Object> entry : objectValue.entrySet()) {
                 final Object propertySchema = properties.get(entry.getKey());
                 if (propertySchema != null && !accepts(object(propertySchema), entry.getValue())) {
@@ -115,22 +129,19 @@ final class McpModelObjectApplySchemaTest {
         }
         if ("array".equals(type)) {
             if (!(value instanceof List<?> values)) return false;
-            if (schema.get("minItems") instanceof Number minimum
-                && values.size() < minimum.intValue()) return false;
+            if (schema.get("minItems") instanceof Number minimum && values.size() < minimum.intValue()) return false;
             final Map<String, Object> items = object(schema.get("items"));
             return values.stream().allMatch(item -> accepts(items, item));
         }
         if ("string".equals(type)) {
             if (!(value instanceof String text)) return false;
-            if (schema.get("minLength") instanceof Number minimum
-                && text.length() < minimum.intValue()) return false;
-            if (schema.get("maxLength") instanceof Number maximum
-                && text.length() > maximum.intValue()) return false;
+            if (schema.get("minLength") instanceof Number minimum && text.length() < minimum.intValue()) return false;
+            if (schema.get("maxLength") instanceof Number maximum && text.length() > maximum.intValue()) return false;
             return true;
         }
         if ("integer".equals(type)) {
-            if (!(value instanceof Byte || value instanceof Short
-                || value instanceof Integer || value instanceof Long)) return false;
+            if (!(value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long))
+                return false;
             return inRange(schema, ((Number) value).doubleValue());
         }
         if ("number".equals(type)) {
@@ -141,10 +152,8 @@ final class McpModelObjectApplySchemaTest {
     }
 
     private static boolean inRange(final Map<String, Object> schema, final double value) {
-        if (schema.get("minimum") instanceof Number minimum
-            && value < minimum.doubleValue()) return false;
-        return !(schema.get("maximum") instanceof Number maximum)
-            || value <= maximum.doubleValue();
+        if (schema.get("minimum") instanceof Number minimum && value < minimum.doubleValue()) return false;
+        return !(schema.get("maximum") instanceof Number maximum) || value <= maximum.doubleValue();
     }
 
     private static Map<String, Object> stringMap(final Map<?, ?> raw) {

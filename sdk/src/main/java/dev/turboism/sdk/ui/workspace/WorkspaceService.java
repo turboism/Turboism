@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui.workspace;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,7 +24,10 @@ public interface WorkspaceService {
      *         {@link WorkspaceStatus.Availability#UNAVAILABLE} rather than failing when the host
      *         cannot be queried
      */
-    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     CompletionStage<WorkspaceStatus> current();
 
     /**
@@ -35,7 +37,10 @@ public interface WorkspaceService {
      * @return a stage completing with the outcome; an unknown id yields
      *         {@link WorkspaceOperationResult.Outcome#NOT_FOUND} rather than a failed stage
      */
-    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     CompletionStage<WorkspaceOperationResult> switchTo(WorkspaceId workspaceId);
 
     /**
@@ -82,36 +87,37 @@ public interface WorkspaceService {
         INSTANCE;
 
         private static final WorkspaceStatus STATUS = new WorkspaceStatus(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            Optional.empty(),
-            List.of(),
-            Optional.of("workspace.unavailable")
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                Optional.empty(),
+                List.of(),
+                Optional.of("workspace.unavailable"));
 
         private static final WorkspaceOperationResult RESULT = new WorkspaceOperationResult(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            STATUS,
-            Optional.of("workspace.unavailable")
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE, STATUS, Optional.of("workspace.unavailable"));
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public CompletionStage<WorkspaceStatus> current() {
+        @Override
+        public CompletionStage<WorkspaceStatus> current() {
             return CompletableFuture.completedFuture(STATUS);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
             Objects.requireNonNull(workspaceId, "workspaceId");
             return CompletableFuture.completedFuture(RESULT);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> updateDefault() {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> updateDefault() {
             return CompletableFuture.completedFuture(RESULT);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> resetToDefault() {
             return CompletableFuture.completedFuture(RESULT);
         }
     }

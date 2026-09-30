@@ -14,10 +14,7 @@ public final class StaticVerificationCli {
         this(new StaticVerificationRecordLoader(), new StaticSelectorVerifier());
     }
 
-    StaticVerificationCli(
-        final StaticVerificationRecordLoader loader,
-        final StaticSelectorVerifier verifier
-    ) {
+    StaticVerificationCli(final StaticVerificationRecordLoader loader, final StaticSelectorVerifier verifier) {
         this.loader = Objects.requireNonNull(loader, "loader");
         this.verifier = Objects.requireNonNull(verifier, "verifier");
     }
@@ -57,10 +54,7 @@ public final class StaticVerificationCli {
             System.err.println("usage: StaticVerificationCli <verification-record.json> <host-artifact.jar>");
             System.exit(2);
         }
-        final StaticVerificationReport report = new StaticVerificationCli().verify(
-            Path.of(args[0]),
-            Path.of(args[1])
-        );
+        final StaticVerificationReport report = new StaticVerificationCli().verify(Path.of(args[0]), Path.of(args[1]));
         for (StaticSelectorResult result : report.results()) {
             System.out.println(result.alias() + "\t" + result.status() + "\t" + result.message());
         }

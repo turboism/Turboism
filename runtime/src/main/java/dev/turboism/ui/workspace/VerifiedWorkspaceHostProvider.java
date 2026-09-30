@@ -19,8 +19,23 @@ final class VerifiedWorkspaceHostProvider implements WorkspaceHostProvider {
         engine = new WorkspaceReflectionEngine(resolver);
     }
 
-    @Override public WorkspaceStatus readStatus() { return engine.readStatus(); }
-    @Override public WorkspaceOperationResult.Outcome switchTo(WorkspaceId id) { return engine.switchTo(id); }
-    @Override public WorkspaceOperationResult.Outcome updateDefault() { return engine.updateDefault(); }
-    @Override public WorkspaceOperationResult.Outcome resetToDefault() { return engine.resetToDefault(); }
+    @Override
+    public WorkspaceStatus readStatus() {
+        return engine.readStatus();
+    }
+
+    @Override
+    public WorkspaceOperationResult.Outcome switchTo(WorkspaceId id) {
+        return engine.switchTo(id);
+    }
+
+    @Override
+    public WorkspaceOperationResult.Outcome updateDefault() {
+        return engine.updateDefault();
+    }
+
+    @Override
+    public WorkspaceOperationResult.Outcome resetToDefault() {
+        return engine.resetToDefault();
+    }
 }

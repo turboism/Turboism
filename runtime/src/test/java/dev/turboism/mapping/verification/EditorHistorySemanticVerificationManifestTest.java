@@ -1,14 +1,13 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class EditorHistorySemanticVerificationManifestTest {
 
@@ -16,56 +15,45 @@ class EditorHistorySemanticVerificationManifestTest {
     void semanticFamiliesArePinnedFor5203And5302And5303() {
         final Set<String> semanticAliases = semanticAliases();
 
-        assertTrue(EditorModelVerificationManifest.cubism52Capabilities().contains(
-            EditorHistorySemanticSelectorContract.CAPABILITY_ID
-        ));
+        assertTrue(EditorModelVerificationManifest.cubism52Capabilities()
+                .contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
         assertTrue(EditorModelVerificationManifest.CAPABILITY_IDS.contains(
-            EditorHistorySemanticSelectorContract.CAPABILITY_ID
-        ));
+                EditorHistorySemanticSelectorContract.CAPABILITY_ID));
         assertTrue(
-            EditorModelVerificationManifest.cubism52Aliases().containsAll(semanticAliases),
-            () -> "5.2.03 missing " + missing(EditorModelVerificationManifest.cubism52Aliases(), semanticAliases)
-        );
+                EditorModelVerificationManifest.cubism52Aliases().containsAll(semanticAliases),
+                () -> "5.2.03 missing " + missing(EditorModelVerificationManifest.cubism52Aliases(), semanticAliases));
         assertTrue(
-            EditorModelVerificationManifest.cubism5302Aliases().containsAll(semanticAliases),
-            () -> "5.3.02 missing " + missing(EditorModelVerificationManifest.cubism5302Aliases(), semanticAliases)
-        );
+                EditorModelVerificationManifest.cubism5302Aliases().containsAll(semanticAliases),
+                () -> "5.3.02 missing "
+                        + missing(EditorModelVerificationManifest.cubism5302Aliases(), semanticAliases));
 
-        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities().contains(
-            EditorHistorySemanticSelectorContract.CAPABILITY_ID
-        ));
+        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities()
+                .contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
         assertTrue(
-            EditorModelVerificationManifest.cubism5303StaticAliases().containsAll(semanticAliases),
-            () -> "5.3.03 missing " + missing(
-                EditorModelVerificationManifest.cubism5303StaticAliases(), semanticAliases
-            )
-        );
+                EditorModelVerificationManifest.cubism5303StaticAliases().containsAll(semanticAliases),
+                () -> "5.3.03 missing "
+                        + missing(EditorModelVerificationManifest.cubism5303StaticAliases(), semanticAliases));
         final PinnedVerifiedResolverWorkflow.RuntimeScope runtimeScope =
-            EditorModelVerificationManifest.cubism5303RuntimeScope();
+                EditorModelVerificationManifest.cubism5303RuntimeScope();
         assertTrue(runtimeScope.capabilityIds().contains(EditorHistorySemanticSelectorContract.CAPABILITY_ID));
         assertTrue(
-            runtimeScope.requiredAliases().containsAll(semanticAliases),
-            () -> "5.3.03 runtime scope missing " + missing(
-                runtimeScope.requiredAliases(), semanticAliases
-            )
-        );
+                runtimeScope.requiredAliases().containsAll(semanticAliases),
+                () -> "5.3.03 runtime scope missing " + missing(runtimeScope.requiredAliases(), semanticAliases));
     }
 
     @Test
     void eachDecoderFamilyRetainsAnIndependentAuthorizationSet() {
         final List<Set<String>> baseFamilies = List.of(
-            EditorHistorySemanticSelectorContract.GROUP_REQUIRED_ALIASES,
-            EditorHistorySemanticSelectorContract.PROPERTY_REQUIRED_ALIASES,
-            EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES,
-            EditorHistorySemanticSelectorContract.LIST_REQUIRED_ALIASES,
-            EditorHistorySemanticSelectorContract.ADD_REMOVE_REQUIRED_ALIASES
-        );
+                EditorHistorySemanticSelectorContract.GROUP_REQUIRED_ALIASES,
+                EditorHistorySemanticSelectorContract.PROPERTY_REQUIRED_ALIASES,
+                EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES,
+                EditorHistorySemanticSelectorContract.LIST_REQUIRED_ALIASES,
+                EditorHistorySemanticSelectorContract.ADD_REMOVE_REQUIRED_ALIASES);
         for (int left = 0; left < baseFamilies.size(); left++) {
             for (int right = left + 1; right < baseFamilies.size(); right++) {
                 assertTrue(
-                    java.util.Collections.disjoint(baseFamilies.get(left), baseFamilies.get(right)),
-                    "decoder base families must not share authorization aliases"
-                );
+                        java.util.Collections.disjoint(baseFamilies.get(left), baseFamilies.get(right)),
+                        "decoder base families must not share authorization aliases");
             }
         }
         assertFalse(EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_REQUIRED_ALIASES.isEmpty());
@@ -73,14 +61,9 @@ class EditorHistorySemanticVerificationManifestTest {
         assertFalse(EditorHistorySemanticSelectorContract.ADD_REMOVE_DRAWABLE_REQUIRED_ALIASES.isEmpty());
         assertFalse(EditorHistorySemanticSelectorContract.ADD_REMOVE_DEFORMER_REQUIRED_ALIASES.isEmpty());
         assertFalse(EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_GROUP_REQUIRED_ALIASES.isEmpty());
-        assertTrue(
-            EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES.containsAll(
-                Set.of(
-                    "cubism.editor-history.semantic.art-mesh-form.class",
-                    "cubism.editor-model.drawable-form.multiply-color"
-                )
-            )
-        );
+        assertTrue(EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES.containsAll(Set.of(
+                "cubism.editor-history.semantic.art-mesh-form.class",
+                "cubism.editor-model.drawable-form.multiply-color")));
     }
 
     private static Set<String> semanticAliases() {

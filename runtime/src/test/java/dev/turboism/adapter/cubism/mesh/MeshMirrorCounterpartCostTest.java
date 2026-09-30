@@ -1,18 +1,17 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * The cost boundary the API documents, asserted rather than promised.
@@ -34,9 +33,7 @@ final class MeshMirrorCounterpartCostTest {
 
         // A deletion carrying no snapshot is what the runtime builds when no override exists.
         final MeshDeletion deletion = new MeshDeletion(
-            List.of(new MeshPointRef(0, -1.0f, 0.0f)), List.of(),
-            new MirrorAxisState(true, 0.0f), null
-        );
+                List.of(new MeshPointRef(0, -1.0f, 0.0f)), List.of(), new MirrorAxisState(true, 0.0f), null);
 
         assertTrue(deletion.mesh().points().isEmpty(), "the default path must carry no mesh copy");
         assertEquals(dev.turboism.sdk.cubism.mesh.MeshEditContribution.none(), counterparts.mirrorOf(deletion));
@@ -54,17 +51,17 @@ final class MeshMirrorCounterpartCostTest {
         };
 
         final List<MeshPointRef> sources = List.of(
-            new MeshPointRef(0, -1.0f, 0.0f),
-            new MeshPointRef(1, -2.0f, 0.0f),
-            new MeshPointRef(2, -3.0f, 0.0f)
-        );
+                new MeshPointRef(0, -1.0f, 0.0f), new MeshPointRef(1, -2.0f, 0.0f), new MeshPointRef(2, -3.0f, 0.0f));
         final List<MeshPointRef> copied = new ArrayList<>();
         for (int id = 0; id < 500; id++) copied.add(new MeshPointRef(id, id, 0.0f));
 
-        counterparts.mirrorOf(new MeshDeletion(
-            sources, List.of(), new MirrorAxisState(true, 0.0f),
-            new dev.turboism.sdk.cubism.mesh.MeshSnapshot(copied, List.of())
-        ), resolver);
+        counterparts.mirrorOf(
+                new MeshDeletion(
+                        sources,
+                        List.of(),
+                        new MirrorAxisState(true, 0.0f),
+                        new dev.turboism.sdk.cubism.mesh.MeshSnapshot(copied, List.of())),
+                resolver);
 
         // No live host edit is published here, so resolution stops before dispatching; that is
         // itself the guard the runtime relies on outside a dispatch.

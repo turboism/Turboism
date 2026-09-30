@@ -10,10 +10,7 @@ import java.util.Optional;
  *                as it was
  * @param error   the failure, present exactly when {@code written} is {@code false}
  */
-public record UserFileWriteResult(
-    boolean written,
-    Optional<UserFileError> error
-) {
+public record UserFileWriteResult(boolean written, Optional<UserFileError> error) {
     /**
      * Validates the record components.
      *
@@ -24,9 +21,7 @@ public record UserFileWriteResult(
     public UserFileWriteResult {
         error = UserFileContracts.optional(error, "error");
         if (written == error.isPresent()) {
-            throw new IllegalArgumentException(
-                "user-file write success/error algebra is invalid"
-            );
+            throw new IllegalArgumentException("user-file write success/error algebra is invalid");
         }
     }
 }

@@ -19,10 +19,7 @@ public interface PaletteToolbarHostOperations {
     boolean hasLiveButtons();
 
     /** One normalized button and its routed plugin action. */
-    record ButtonContribution(
-        PaletteToolbarContributionDescriptor descriptor,
-        Runnable action
-    ) {
+    record ButtonContribution(PaletteToolbarContributionDescriptor descriptor, Runnable action) {
         public ButtonContribution {
             Objects.requireNonNull(descriptor, "descriptor");
             Objects.requireNonNull(action, "action");

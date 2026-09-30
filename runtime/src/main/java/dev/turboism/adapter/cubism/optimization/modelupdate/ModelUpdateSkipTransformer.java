@@ -51,14 +51,14 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
      * @param target the reviewed target for this artifact
      * @throws IllegalArgumentException when the reviewed method is absent from the reference
      */
-    public ModelUpdateSkipTransformer(final ClassLoader loader, final Path artifact,
-                                      final byte[] reference, final ModelUpdateSkipTarget target) {
+    public ModelUpdateSkipTransformer(
+            final ClassLoader loader, final Path artifact, final byte[] reference, final ModelUpdateSkipTarget target) {
         this.target = Objects.requireNonNull(target, "target");
         this.loader = loader;
         this.artifact = artifact == null ? null : artifact.toAbsolutePath().normalize();
         Objects.requireNonNull(reference, "reference");
-        shape = ReviewedMethodShape.read(reference, target.owner(),
-            ModelUpdateSkipTarget.METHOD, target.methodDescriptor());
+        shape = ReviewedMethodShape.read(
+                reference, target.owner(), ModelUpdateSkipTarget.METHOD, target.methodDescriptor());
         if (shape == null) {
             throw new IllegalArgumentException("reviewed model-update entry absent");
         }
@@ -79,48 +79,61 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
         return failure;
     }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         if (actualLoader != loader || name == null || !target.owner().equals(name) || bytes == null) {
             return null;
         }
         try {
-            if (artifact == null || domain == null
-                || !artifact.equals(Path.of(domain.getCodeSource().getLocation().toURI())
-                    .toAbsolutePath().normalize())) {
+            if (artifact == null
+                    || domain == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 failure = "model-update entry source is not the reviewed artifact";
                 return null;
             }
-            if (!shape.equals(ReviewedMethodShape.read(bytes, target.owner(),
-                    ModelUpdateSkipTarget.METHOD, target.methodDescriptor()))) {
+            if (!shape.equals(ReviewedMethodShape.read(
+                    bytes, target.owner(), ModelUpdateSkipTarget.METHOD, target.methodDescriptor()))) {
                 failure = "model-update entry method shape mismatch";
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() {
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
                     return loader;
                 }
             };
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    final MethodVisitor visitor = super.visitMethod(
-                        access, method, descriptor, signature, exceptions);
-                    if (!ModelUpdateSkipTarget.METHOD.equals(method)
-                        || !target.methodDescriptor().equals(descriptor)) {
-                        return visitor;
-                    }
-                    return new EntryVisitor(visitor, descriptor);
-                }
-            }, ClassReader.EXPAND_FRAMES);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor visitor =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            if (!ModelUpdateSkipTarget.METHOD.equals(method)
+                                    || !target.methodDescriptor().equals(descriptor)) {
+                                return visitor;
+                            }
+                            return new EntryVisitor(visitor, descriptor);
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes));
+                beforeSha256 = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             }
             matches++;
             return writer.toByteArray();
@@ -149,25 +162,27 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
             modelSlot = model;
         }
 
-        @Override public void visitTryCatchBlock(final Label start, final Label end,
-                                                 final Label handler, final String type) {
+        @Override
+        public void visitTryCatchBlock(final Label start, final Label end, final Label handler, final String type) {
             handlers.add(new Handler(start, end, handler, type));
         }
 
-        @Override public void visitCode() {
+        @Override
+        public void visitCode() {
             super.visitCode();
             emitEntryGuard();
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             if (opcode == Opcodes.RETURN) emitAfterUpdate();
             super.visitInsn(opcode);
         }
 
-        @Override public void visitMaxs(final int stack, final int locals) {
+        @Override
+        public void visitMaxs(final int stack, final int locals) {
             for (final Handler handler : handlers) {
-                super.visitTryCatchBlock(handler.start(), handler.end(), handler.target(),
-                    handler.type());
+                super.visitTryCatchBlock(handler.start(), handler.end(), handler.target(), handler.type());
             }
             super.visitMaxs(stack, locals);
         }
@@ -181,18 +196,22 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
             final Label discard = new Label(), nativePath = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(ModelUpdateSkipBridge.CALLBACK_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Predicate");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Predicate");
             emitArgumentsArray();
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/Predicate", "test",
-                "(Ljava/lang/Object;)Z", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/function/Predicate", "test", "(Ljava/lang/Object;)Z", true);
             super.visitJumpInsn(Opcodes.IFEQ, nativePath);
             super.visitInsn(Opcodes.RETURN);
             super.visitLabel(end);
@@ -210,18 +229,22 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(ModelUpdateSkipBridge.AFTER_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
             super.visitVarInsn(Opcodes.ALOAD, modelSlot);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept",
-                "(Ljava/lang/Object;)V", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE, "java/util/function/Consumer", "accept", "(Ljava/lang/Object;)V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(discard);
@@ -249,8 +272,8 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
                 pushInt(index + 1);
                 if (arguments[index].equals(Type.BOOLEAN_TYPE)) {
                     super.visitVarInsn(Opcodes.ILOAD, local);
-                    super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf",
-                        "(Z)Ljava/lang/Boolean;", false);
+                    super.visitMethodInsn(
+                            Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;", false);
                 } else {
                     super.visitVarInsn(Opcodes.ALOAD, local);
                 }
@@ -268,5 +291,5 @@ public final class ModelUpdateSkipTransformer implements ClassFileTransformer {
         }
     }
 
-    private record Handler(Label start, Label end, Label target, String type) { }
+    private record Handler(Label start, Label end, Label target, String type) {}
 }

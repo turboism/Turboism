@@ -1,25 +1,25 @@
 package dev.turboism.plugin.perfstats;
 
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
-import dev.turboism.sdk.menu.MenuRegistry;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.awt.GraphicsEnvironment;
 import java.time.Duration;
-import java.util.Map;
-import java.util.function.Consumer;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import javax.swing.SwingUtilities;
 
 /**
  * Performance Statistics plugin: live CPU / FPS / JVM memory charts in an
@@ -76,8 +76,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private boolean initialized;
     private boolean enabled;
 
-    public PerfStatsPlugin() {
-    }
+    public PerfStatsPlugin() {}
 
     @Override
     public void init(final PluginContext context) {
@@ -85,7 +84,8 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         synchronized (lifecycleLock) {
             initialized = true;
         }
-        final Registration panel = context.uiHost().contributeEmbeddedPanel(embeddedPanel());
+        final Registration panel =
+                context.services().require(UiHostCapabilityService.class).contributeEmbeddedPanel(embeddedPanel());
         context.disposableScope().register(panel);
         context.disposableScope().register(this::stopSampling);
         context.disposableScope().register(this::disposeWindow);
@@ -94,58 +94,48 @@ public final class PerfStatsPlugin implements TurboismPlugin {
 
     private EmbeddedPanelContribution embeddedPanel() {
         return new EmbeddedPanelContribution(
-            PANEL_ID,
-            text("panel.title", PANEL_TITLE),
-            PANEL_PLACEMENT,
-            PANEL_PRIORITY,
-            PanelView.column(
-                PanelView.collapsibleSection(
-                    text("chart.cpu.title", "CPU"),
-                    true,
-                    PanelView.chart(
-                        "cpu",
-                        text("chart.cpu.title", "CPU"),
-                        PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0")
-                    )
-                ),
-                PanelView.collapsibleSection(
-                    text("chart.fps.title", CHART_TITLE_FPS),
-                    true,
-                    PanelView.chart(
-                        "fps",
-                        text("chart.fps.title", CHART_TITLE_FPS),
-                        PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0")
-                    )
-                ),
-                PanelView.collapsibleSection(
-                    text("chart.heap.title", SERIES_HEAP),
-                    true,
-                    PanelView.chart(
-                        "heap",
-                        text("chart.heap.title", SERIES_HEAP),
-                        PanelView.series(text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0")
-                    )
-                ),
-                PanelView.collapsibleSection(
-                    text("chart.nonheap.title", SERIES_NONHEAP),
-                    true,
-                    PanelView.chart(
-                        "nonheap",
-                        text("chart.nonheap.title", SERIES_NONHEAP),
-                        PanelView.series(text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0")
-                    )
-                ),
-                PanelView.collapsibleSection(
-                    text("chart.gc.title", SERIES_GC),
-                    true,
-                    PanelView.chart(
-                        "gc",
-                        text("chart.gc.title", SERIES_GC),
-                        PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")
-                    )
-                )
-            )
-        );
+                PANEL_ID,
+                text("panel.title", PANEL_TITLE),
+                PANEL_PLACEMENT,
+                PANEL_PRIORITY,
+                PanelView.column(
+                        PanelView.collapsibleSection(
+                                text("chart.cpu.title", "CPU"),
+                                true,
+                                PanelView.chart(
+                                        "cpu",
+                                        text("chart.cpu.title", "CPU"),
+                                        PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0"))),
+                        PanelView.collapsibleSection(
+                                text("chart.fps.title", CHART_TITLE_FPS),
+                                true,
+                                PanelView.chart(
+                                        "fps",
+                                        text("chart.fps.title", CHART_TITLE_FPS),
+                                        PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0"))),
+                        PanelView.collapsibleSection(
+                                text("chart.heap.title", SERIES_HEAP),
+                                true,
+                                PanelView.chart(
+                                        "heap",
+                                        text("chart.heap.title", SERIES_HEAP),
+                                        PanelView.series(
+                                                text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0"))),
+                        PanelView.collapsibleSection(
+                                text("chart.nonheap.title", SERIES_NONHEAP),
+                                true,
+                                PanelView.chart(
+                                        "nonheap",
+                                        text("chart.nonheap.title", SERIES_NONHEAP),
+                                        PanelView.series(
+                                                text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0"))),
+                        PanelView.collapsibleSection(
+                                text("chart.gc.title", SERIES_GC),
+                                true,
+                                PanelView.chart(
+                                        "gc",
+                                        text("chart.gc.title", SERIES_GC),
+                                        PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")))));
     }
 
     /**
@@ -165,16 +155,14 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         }
     }
 
-
     /** Row titles for the standalone window: the same chart.*.title copy as the embedded sections. */
     Map<String, String> chartTitles() {
         return Map.of(
-            ChartStore.KEY_CPU, text("chart.cpu.title", "CPU"),
-            ChartStore.KEY_FPS, text("chart.fps.title", CHART_TITLE_FPS),
-            ChartStore.KEY_HEAP, text("chart.heap.title", SERIES_HEAP),
-            ChartStore.KEY_NONHEAP, text("chart.nonheap.title", SERIES_NONHEAP),
-            ChartStore.KEY_GC, text("chart.gc.title", SERIES_GC)
-        );
+                ChartStore.KEY_CPU, text("chart.cpu.title", "CPU"),
+                ChartStore.KEY_FPS, text("chart.fps.title", CHART_TITLE_FPS),
+                ChartStore.KEY_HEAP, text("chart.heap.title", SERIES_HEAP),
+                ChartStore.KEY_NONHEAP, text("chart.nonheap.title", SERIES_NONHEAP),
+                ChartStore.KEY_GC, text("chart.gc.title", SERIES_GC));
     }
 
     @Override
@@ -187,7 +175,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final PerformanceProbeService stats = context.performanceStats();
+        final PerformanceProbeService stats = context.services().require(PerformanceProbeService.class);
         sampling = stats.sample(SAMPLE_INTERVAL, this::onSnapshot);
         synchronized (lifecycleLock) {
             enabled = true;
@@ -280,12 +268,10 @@ public final class PerfStatsPlugin implements TurboismPlugin {
                 return;
             }
         }
-        final Registration next = context.uiHost().notifyStatus(new StatusNotification(
-            CPU_STATUS_ID,
-            CPU_STATUS_SEVERITY,
-            message,
-            StatusNotification.Presentation.COMPACT_METRIC
-        ));
+        final Registration next = context.services()
+                .require(UiHostCapabilityService.class)
+                .notifyStatus(new StatusNotification(
+                        CPU_STATUS_ID, CPU_STATUS_SEVERITY, message, StatusNotification.Presentation.COMPACT_METRIC));
         final Registration previous;
         final boolean canceled;
         synchronized (lifecycleLock) {
@@ -324,12 +310,11 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             return;
         }
         final PerfStatsWindow created = new PerfStatsWindow(
-            text("window.title", WINDOW_TITLE),
-            chartTitles(),
-            text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
-            text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
-            store
-        );
+                text("window.title", WINDOW_TITLE),
+                chartTitles(),
+                text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
+                text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
+                store);
         if (window.compareAndSet(null, created)) {
             created.start();
             created.showAndFront();

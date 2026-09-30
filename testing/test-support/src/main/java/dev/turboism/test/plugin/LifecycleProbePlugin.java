@@ -2,7 +2,6 @@ package dev.turboism.test.plugin;
 
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.ArrayList;
 import java.util.List;
 

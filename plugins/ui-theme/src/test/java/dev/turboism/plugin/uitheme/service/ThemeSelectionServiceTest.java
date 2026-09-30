@@ -1,33 +1,31 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeIcons;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemeIcons;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-import org.junit.jupiter.api.Test;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class ThemeSelectionServiceTest {
 
     @Test
     void failedHostApplyDoesNotCommitTheSelectedTheme() {
         RecordingSelectionStore selections = new RecordingSelectionStore("turboism.slate");
-        RecordingAppearanceService appearance = new RecordingAppearanceService(
-            AppearanceApplyResult.Outcome.FAILED_RESTORED
-        );
+        RecordingAppearanceService appearance =
+                new RecordingAppearanceService(AppearanceApplyResult.Outcome.FAILED_RESTORED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
         ThemeSelectionService.SelectionResult result = service.select(theme("turboism.nord"));
@@ -42,9 +40,7 @@ final class ThemeSelectionServiceTest {
     @Test
     void successfulHostApplyCommitsTheSelectedTheme() {
         RecordingSelectionStore selections = new RecordingSelectionStore("turboism.slate");
-        RecordingAppearanceService appearance = new RecordingAppearanceService(
-            AppearanceApplyResult.Outcome.APPLIED
-        );
+        RecordingAppearanceService appearance = new RecordingAppearanceService(AppearanceApplyResult.Outcome.APPLIED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
         ThemeSelectionService.SelectionResult result = service.select(theme("turboism.nord"));
@@ -58,14 +54,10 @@ final class ThemeSelectionServiceTest {
     void missingPersistedThemeRestoresOwnedAppearanceAndClearsSelection() {
         RecordingSelectionStore selections = new RecordingSelectionStore("missing.theme");
         RecordingAppearanceService appearance = new RecordingAppearanceService(
-            AppearanceApplyResult.Outcome.APPLIED,
-            AppearanceRestoreResult.Outcome.RESTORED
-        );
+                AppearanceApplyResult.Outcome.APPLIED, AppearanceRestoreResult.Outcome.RESTORED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
 
-        ThemeSelectionService.SelectionResult result = service.restoreIfSelectionIsMissing(
-            themeId -> Optional.empty()
-        );
+        ThemeSelectionService.SelectionResult result = service.restoreIfSelectionIsMissing(themeId -> Optional.empty());
 
         assertEquals(ThemeSelectionService.SelectionOutcome.INVALID_SELECTION_CLEARED, result.outcome());
         assertTrue(selections.selectedThemeId().isEmpty());
@@ -77,16 +69,11 @@ final class ThemeSelectionServiceTest {
     void deletingTheSelectedThemeRestoresBeforeDeletingAndClearingSelection() {
         RecordingSelectionStore selections = new RecordingSelectionStore("turboism.nord");
         RecordingAppearanceService appearance = new RecordingAppearanceService(
-            AppearanceApplyResult.Outcome.APPLIED,
-            AppearanceRestoreResult.Outcome.RESTORED
-        );
+                AppearanceApplyResult.Outcome.APPLIED, AppearanceRestoreResult.Outcome.RESTORED);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
         java.util.List<String> deleted = new java.util.ArrayList<>();
 
-        ThemeSelectionService.SelectionResult result = service.delete(
-            "turboism.nord",
-            deleted::add
-        );
+        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", deleted::add);
 
         assertEquals(ThemeSelectionService.SelectionOutcome.DELETED, result.outcome());
         assertEquals(java.util.List.of("turboism.nord"), deleted);
@@ -98,16 +85,11 @@ final class ThemeSelectionServiceTest {
     void selectedThemeIsNotDeletedWhenRestoreFails() {
         RecordingSelectionStore selections = new RecordingSelectionStore("turboism.nord");
         RecordingAppearanceService appearance = new RecordingAppearanceService(
-            AppearanceApplyResult.Outcome.APPLIED,
-            AppearanceRestoreResult.Outcome.FAILED_RESTORE
-        );
+                AppearanceApplyResult.Outcome.APPLIED, AppearanceRestoreResult.Outcome.FAILED_RESTORE);
         ThemeSelectionService service = new ThemeSelectionService(appearance, selections);
         java.util.List<String> deleted = new java.util.ArrayList<>();
 
-        ThemeSelectionService.SelectionResult result = service.delete(
-            "turboism.nord",
-            deleted::add
-        );
+        ThemeSelectionService.SelectionResult result = service.delete("turboism.nord", deleted::add);
 
         assertEquals(ThemeSelectionService.SelectionOutcome.RESTORE_FAILED, result.outcome());
         assertEquals(java.util.List.of(), deleted);
@@ -117,34 +99,22 @@ final class ThemeSelectionServiceTest {
 
     private static ThemePackageData theme(final String id) {
         return new ThemePackageData(
-            new ThemePackageMetadata(
-                id,
-                "Nord",
+                new ThemePackageMetadata(
+                        id, "Nord", "", "Turboism", "", "1", null, ThemeBase.DARK, ThemeIcons.LIGHT, true),
+                Map.of(
+                        "accent", "#88C0D0",
+                        "background", "#2E3440",
+                        "surface", "#3B4252",
+                        "input.background", "#434C5E",
+                        "foreground", "#ECEFF4",
+                        "foreground.muted", "#D8DEE9",
+                        "selection.background", "#4C566A",
+                        "selection.foreground", "#ECEFF4",
+                        "border", "#4C566A",
+                        "viewport.background", "#242933"),
+                Map.of(),
                 "",
-                "Turboism",
-                "",
-                "1",
-                null,
-                ThemeBase.DARK,
-                ThemeIcons.LIGHT,
-                true
-            ),
-            Map.of(
-                "accent", "#88C0D0",
-                "background", "#2E3440",
-                "surface", "#3B4252",
-                "input.background", "#434C5E",
-                "foreground", "#ECEFF4",
-                "foreground.muted", "#D8DEE9",
-                "selection.background", "#4C566A",
-                "selection.foreground", "#ECEFF4",
-                "border", "#4C566A",
-                "viewport.background", "#242933"
-            ),
-            Map.of(),
-            "",
-            ""
-        );
+                "");
     }
 
     private static final class RecordingSelectionStore implements ThemeSelectionService.SelectionStore {
@@ -188,22 +158,19 @@ final class ThemeSelectionServiceTest {
         private AppearanceRequest lastRequest;
         private int restoreCount;
         private final AppearanceStatus status = new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            Optional.empty(),
-            AppearanceBase.NATIVE,
-            7,
-            Optional.empty()
-        );
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.NATIVE,
+                Optional.empty(),
+                AppearanceBase.NATIVE,
+                7,
+                Optional.empty());
 
         private RecordingAppearanceService(final AppearanceApplyResult.Outcome outcome) {
             this(outcome, AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE);
         }
 
         private RecordingAppearanceService(
-            final AppearanceApplyResult.Outcome outcome,
-            final AppearanceRestoreResult.Outcome restoreOutcome
-        ) {
+                final AppearanceApplyResult.Outcome outcome, final AppearanceRestoreResult.Outcome restoreOutcome) {
             this.outcome = outcome;
             this.restoreOutcome = restoreOutcome;
         }
@@ -220,25 +187,19 @@ final class ThemeSelectionServiceTest {
         @Override
         public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
             lastRequest = request;
-            return CompletableFuture.completedFuture(new AppearanceApplyResult(
-                outcome,
-                status,
-                Optional.of("appearance.apply.failed-restored")
-            ));
+            return CompletableFuture.completedFuture(
+                    new AppearanceApplyResult(outcome, status, Optional.of("appearance.apply.failed-restored")));
         }
 
         @Override
         public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
             restoreCount++;
-            return CompletableFuture.completedFuture(new AppearanceRestoreResult(
-                restoreOutcome,
-                status,
-                Optional.empty()
-            ));
+            return CompletableFuture.completedFuture(
+                    new AppearanceRestoreResult(restoreOutcome, status, Optional.empty()));
         }
 
         int restoreCount() {
             return restoreCount;
-    }
+        }
     }
 }

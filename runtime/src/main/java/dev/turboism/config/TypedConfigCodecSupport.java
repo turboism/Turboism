@@ -2,7 +2,6 @@ package dev.turboism.config;
 
 import dev.turboism.sdk.config.ConfigCodec;
 import dev.turboism.sdk.config.ConfigKey;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -18,8 +17,7 @@ final class TypedConfigCodecSupport {
     private static final Pattern LIST_CODEC = Pattern.compile("string-list:([0-9]+):([1-9][0-9]*)");
     private static final Pattern STRING_CODEC = Pattern.compile("string:([1-9][0-9]*)");
 
-    private TypedConfigCodecSupport() {
-    }
+    private TypedConfigCodecSupport() {}
 
     static boolean isRecognized(final ConfigCodec<?> codec) {
         if (codec == null || codec.typeId() == null) {
@@ -27,10 +25,10 @@ final class TypedConfigCodecSupport {
         }
         final String id = codec.typeId();
         return id.equals("boolean")
-            || INTEGER_CODEC.matcher(id).matches()
-            || id.startsWith("enum:") && id.length() > "enum:".length()
-            || LIST_CODEC.matcher(id).matches()
-            || STRING_CODEC.matcher(id).matches();
+                || INTEGER_CODEC.matcher(id).matches()
+                || id.startsWith("enum:") && id.length() > "enum:".length()
+                || LIST_CODEC.matcher(id).matches()
+                || STRING_CODEC.matcher(id).matches();
     }
 
     static boolean isValidDefault(final ConfigKey<?> key) {
@@ -41,9 +39,7 @@ final class TypedConfigCodecSupport {
         Objects.requireNonNull(key, "key");
         final String id = key.codec() == null ? "" : key.codec().typeId();
         if (id.equals("boolean")) {
-            return value instanceof Boolean booleanValue
-                ? Optional.of(booleanValue.toString())
-                : Optional.empty();
+            return value instanceof Boolean booleanValue ? Optional.of(booleanValue.toString()) : Optional.empty();
         }
         final Matcher stringCodec = STRING_CODEC.matcher(id);
         if (stringCodec.matches()) {
@@ -60,14 +56,14 @@ final class TypedConfigCodecSupport {
             final int minimum = Integer.parseInt(integerCodec.group(1));
             final int maximum = Integer.parseInt(integerCodec.group(2));
             return integerValue >= minimum && integerValue <= maximum
-                ? Optional.of(Integer.toString(integerValue))
-                : Optional.empty();
+                    ? Optional.of(Integer.toString(integerValue))
+                    : Optional.empty();
         }
         if (id.startsWith("enum:")) {
             if (!(key.defaultValue() instanceof Enum<?> defaultEnum)
-                || !(value instanceof Enum<?> enumValue)
-                || enumValue.getDeclaringClass() != defaultEnum.getDeclaringClass()
-                || !id.equals("enum:" + defaultEnum.getDeclaringClass().getName())) {
+                    || !(value instanceof Enum<?> enumValue)
+                    || enumValue.getDeclaringClass() != defaultEnum.getDeclaringClass()
+                    || !id.equals("enum:" + defaultEnum.getDeclaringClass().getName())) {
                 return Optional.empty();
             }
             return Optional.of(enumValue.name());
@@ -76,10 +72,11 @@ final class TypedConfigCodecSupport {
         if (listCodec.matches() && value instanceof List<?> raw) {
             final int maximumEntries = Integer.parseInt(listCodec.group(1));
             final int maximumLength = Integer.parseInt(listCodec.group(2));
-            if (raw.size() > maximumEntries || raw.stream().anyMatch(item ->
-                !(item instanceof String text)
-                    || text.length() > maximumLength
-                    || containsUnpairedSurrogate(text))) {
+            if (raw.size() > maximumEntries
+                    || raw.stream()
+                            .anyMatch(item -> !(item instanceof String text)
+                                    || text.length() > maximumLength
+                                    || containsUnpairedSurrogate(text))) {
                 return Optional.empty();
             }
             @SuppressWarnings("unchecked")
@@ -116,9 +113,7 @@ final class TypedConfigCodecSupport {
                 final int value = Integer.parseInt(encoded);
                 final int minimum = Integer.parseInt(integerCodec.group(1));
                 final int maximum = Integer.parseInt(integerCodec.group(2));
-                return value >= minimum && value <= maximum
-                    ? Optional.of(value)
-                    : Optional.empty();
+                return value >= minimum && value <= maximum ? Optional.of(value) : Optional.empty();
             } catch (NumberFormatException exception) {
                 return Optional.empty();
             }
@@ -139,8 +134,7 @@ final class TypedConfigCodecSupport {
         if (listCodec.matches()) {
             final int maximumEntries = Integer.parseInt(listCodec.group(1));
             final int maximumLength = Integer.parseInt(listCodec.group(2));
-            return decodeStringList(encoded, maximumEntries, maximumLength)
-                .map(value -> (Object) value);
+            return decodeStringList(encoded, maximumEntries, maximumLength).map(value -> (Object) value);
         }
         return Optional.empty();
     }
@@ -186,17 +180,14 @@ final class TypedConfigCodecSupport {
     }
 
     private static Optional<List<String>> decodeStringList(
-        final String encoded,
-        final int maximumEntries,
-        final int maximumLength
-    ) {
+            final String encoded, final int maximumEntries, final int maximumLength) {
         try {
             final JsonStringListParser parser = new JsonStringListParser(encoded);
             final List<String> values = parser.parse();
             if (values.size() > maximumEntries
-                || values.stream().anyMatch(value ->
-                    value.length() > maximumLength || containsUnpairedSurrogate(value))
-                || !encodeStringList(values).equals(encoded)) {
+                    || values.stream()
+                            .anyMatch(value -> value.length() > maximumLength || containsUnpairedSurrogate(value))
+                    || !encodeStringList(values).equals(encoded)) {
                 return Optional.empty();
             }
             return Optional.of(List.copyOf(values));
@@ -209,8 +200,7 @@ final class TypedConfigCodecSupport {
         for (int index = 0; index < value.length(); index++) {
             final char character = value.charAt(index);
             if (Character.isHighSurrogate(character)) {
-                if (index + 1 >= value.length()
-                    || !Character.isLowSurrogate(value.charAt(++index))) {
+                if (index + 1 >= value.length() || !Character.isLowSurrogate(value.charAt(++index))) {
                     return true;
                 }
             } else if (Character.isLowSurrogate(character)) {
@@ -290,8 +280,7 @@ final class TypedConfigCodecSupport {
                 throw invalid();
             }
             final char value = (char) Integer.parseInt(hex, 16);
-            if (value >= 0x20 || value == '\b' || value == '\f'
-                || value == '\n' || value == '\r' || value == '\t') {
+            if (value >= 0x20 || value == '\b' || value == '\f' || value == '\n' || value == '\r' || value == '\t') {
                 throw invalid();
             }
             return value;

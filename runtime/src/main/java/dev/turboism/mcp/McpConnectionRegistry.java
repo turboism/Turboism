@@ -2,7 +2,6 @@ package dev.turboism.mcp;
 
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Optional;
 
 /** Process-owned, non-persistent loopback MCP connection slot. */
@@ -17,10 +16,7 @@ public final class McpConnectionRegistry implements AutoCloseable {
      * A second publisher is rejected so a consumer can never be silently redirected to another
      * plugin's endpoint.
      */
-    public synchronized Registration publish(
-        final String ownerPluginId,
-        final McpHttpConnection connection
-    ) {
+    public synchronized Registration publish(final String ownerPluginId, final McpHttpConnection connection) {
         if (closed) {
             throw new IllegalStateException("MCP connection registry is closed");
         }
@@ -67,11 +63,7 @@ public final class McpConnectionRegistry implements AutoCloseable {
         return value;
     }
 
-    private record Published(
-        String ownerPluginId,
-        McpHttpConnection connection,
-        long generation
-    ) {
+    private record Published(String ownerPluginId, McpHttpConnection connection, long generation) {
         private Published {
             java.util.Objects.requireNonNull(connection, "connection");
         }

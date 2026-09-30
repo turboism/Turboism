@@ -16,12 +16,7 @@ import java.util.Objects;
  * @param date declared release date
  * @param build declared release build integer
  */
-public record CubismEditorReleaseDeclaration(
-    String product,
-    String version,
-    String date,
-    int build
-) {
+public record CubismEditorReleaseDeclaration(String product, String version, String date, int build) {
 
     /** Validates that the release declaration is complete and has a positive build. */
     public CubismEditorReleaseDeclaration {

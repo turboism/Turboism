@@ -2,9 +2,6 @@ package dev.turboism.tests.preview;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -12,22 +9,19 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 
 /** Builds a real plugin JAR with two ordered lifecycle entrypoints. */
 final class MultiEntrypointPluginJarFixture {
 
     static final String PLUGIN_ID = "dev.example.multi-entrypoint";
-    static final String MARKER_PROPERTY =
-        "dev.turboism.tests.preview.multi-entrypoint.marker";
-    static final String FAIL_PROPERTY =
-        "dev.turboism.tests.preview.multi-entrypoint.fail-second-enable";
-    private static final String FIRST =
-        "dev.example.multientrypoint.FirstEntrypoint";
-    private static final String SECOND =
-        "dev.example.multientrypoint.SecondEntrypoint";
+    static final String MARKER_PROPERTY = "dev.turboism.tests.preview.multi-entrypoint.marker";
+    static final String FAIL_PROPERTY = "dev.turboism.tests.preview.multi-entrypoint.fail-second-enable";
+    private static final String FIRST = "dev.example.multientrypoint.FirstEntrypoint";
+    private static final String SECOND = "dev.example.multientrypoint.SecondEntrypoint";
 
-    private MultiEntrypointPluginJarFixture() {
-    }
+    private MultiEntrypointPluginJarFixture() {}
 
     static Path write(final Path plugins, final Path temporary) throws Exception {
         final Path sourceRoot = temporary.resolve("multi-entrypoint-source");
@@ -40,33 +34,28 @@ final class MultiEntrypointPluginJarFixture {
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             try (var paths = Files.walk(classes)) {
                 for (Path path : paths.filter(Files::isRegularFile)
-                    .sorted(Comparator.naturalOrder()).toList()) {
-                    add(
-                        output,
-                        classes.relativize(path).toString().replace('\\', '/'),
-                        Files.readAllBytes(path)
-                    );
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
+                    add(output, classes.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
                 }
             }
             add(output, "META-INF/turboism/plugin.json", descriptor());
-            add(output, "META-INF/turboism/i18n/messages.properties", "plugin.name=Multi Entrypoint Fixture".getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "plugin.name=Multi Entrypoint Fixture".getBytes(StandardCharsets.UTF_8));
         }
         return jar;
     }
 
-    private static void writeSource(
-        final Path root,
-        final String simpleName,
-        final boolean second
-    ) throws IOException {
-        final Path source = root.resolve(
-            "dev/example/multientrypoint/" + simpleName + ".java"
-        );
+    private static void writeSource(final Path root, final String simpleName, final boolean second) throws IOException {
+        final Path source = root.resolve("dev/example/multientrypoint/" + simpleName + ".java");
         Files.createDirectories(source.getParent());
         final String id = second ? "B" : "A";
         final String fail = second
-            ? "if (Boolean.getBoolean(\"" + FAIL_PROPERTY + "\")) throw new IllegalStateException(\"second enable failed\");"
-            : "";
+                ? "if (Boolean.getBoolean(\"" + FAIL_PROPERTY
+                        + "\")) throw new IllegalStateException(\"second enable failed\");"
+                : "";
         Files.writeString(source, """
             package dev.example.multientrypoint;
 
@@ -108,8 +97,7 @@ final class MultiEntrypointPluginJarFixture {
             """.formatted(simpleName, MARKER_PROPERTY, id, fail), StandardCharsets.UTF_8);
     }
 
-    private static void compile(final Path sourceRoot, final Path classes)
-        throws IOException {
+    private static void compile(final Path sourceRoot, final Path classes) throws IOException {
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             throw new IOException("JDK compiler is unavailable");
@@ -118,9 +106,9 @@ final class MultiEntrypointPluginJarFixture {
         final String[] sources;
         try (var paths = Files.walk(sourceRoot)) {
             sources = paths.filter(path -> path.toString().endsWith(".java"))
-                .sorted()
-                .map(Path::toString)
-                .toArray(String[]::new);
+                    .sorted()
+                    .map(Path::toString)
+                    .toArray(String[]::new);
         }
         final String[] arguments = new String[5 + sources.length];
         arguments[0] = "-classpath";
@@ -149,23 +137,18 @@ final class MultiEntrypointPluginJarFixture {
         descriptor.put("license", "Test License");
         descriptor.put("website", "https://turboism.dev/tests");
         descriptor.putArray("resources");
-        descriptor.putObject("i18n")
-            .put("baseName", "META-INF/turboism/i18n/messages")
-            .putArray("locales");
+        descriptor
+                .putObject("i18n")
+                .put("baseName", "META-INF/turboism/i18n/messages")
+                .putArray("locales");
         descriptor.putArray("dependencies");
         descriptor.putArray("permissions");
         descriptor.putArray("capabilities");
-        descriptor.putObject("environment")
-            .put("requiresCubism", false)
-            .put("ui", "none");
+        descriptor.putObject("environment").put("requiresCubism", false).put("ui", "none");
         return new ObjectMapper().writeValueAsBytes(descriptor);
     }
 
-    private static void add(
-        final JarOutputStream output,
-        final String name,
-        final byte[] content
-    ) throws IOException {
+    private static void add(final JarOutputStream output, final String name, final byte[] content) throws IOException {
         output.putNextEntry(new JarEntry(name));
         output.write(content);
         output.closeEntry();

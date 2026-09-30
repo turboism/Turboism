@@ -12,5 +12,4 @@ package dev.turboism.sdk.ui;
  * @param x horizontal position in the drawing area's component space
  * @param y vertical position in the drawing area's component space
  */
-public record CanvasHintPosition(float x, float y) {
-}
+public record CanvasHintPosition(float x, float y) {}

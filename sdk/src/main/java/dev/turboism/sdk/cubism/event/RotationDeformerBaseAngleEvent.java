@@ -2,14 +2,13 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /** Typed states of the Rotation Deformer base-angle write event family. */
 public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
-    permits RotationDeformerBaseAngleEvent.Before,
-            RotationDeformerBaseAngleEvent.On,
-            RotationDeformerBaseAngleEvent.After {
+        permits RotationDeformerBaseAngleEvent.Before,
+                RotationDeformerBaseAngleEvent.On,
+                RotationDeformerBaseAngleEvent.After {
 
     /** Returns the detached Rotation Deformer projection participating in the operation. */
     RotationDeformer deformer();
@@ -21,20 +20,15 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
         private final CallbackScope callbackScope;
         private float angle;
 
-        public Before(
-            final RotationDeformer deformer,
-            final float requestedAngle,
-            final float angle
-        ) {
+        public Before(final RotationDeformer deformer, final float requestedAngle, final float angle) {
             this(deformer, requestedAngle, angle, null);
         }
 
         private Before(
-            final RotationDeformer deformer,
-            final float requestedAngle,
-            final float angle,
-            final CallbackScope callbackScope
-        ) {
+                final RotationDeformer deformer,
+                final float requestedAngle,
+                final float angle,
+                final CallbackScope callbackScope) {
             this.deformer = Objects.requireNonNull(deformer, "deformer");
             this.requestedAngle = requestedAngle;
             this.angle = angle;
@@ -43,18 +37,22 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted base-angle edit. */
         public static Callback openCallback(
-            final RotationDeformer deformer,
-            final float requestedAngle,
-            final float angle
-        ) {
+                final RotationDeformer deformer, final float requestedAngle, final float angle) {
             return new Callback(deformer, requestedAngle, angle);
         }
 
-        @Override public RotationDeformer deformer() { return deformer; }
+        @Override
+        public RotationDeformer deformer() {
+            return deformer;
+        }
         /** Returns the base-angle value, in degrees, originally requested by the write call. */
-        public float requestedAngle() { return requestedAngle; }
+        public float requestedAngle() {
+            return requestedAngle;
+        }
         /** Returns the candidate base-angle value that will be applied. */
-        public float angle() { return angle; }
+        public float angle() {
+            return angle;
+        }
 
         /** Replaces the candidate base-angle value for the current callback. */
         public void setAngle(final float angle) {
@@ -67,11 +65,7 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final RotationDeformer deformer,
-                final float requestedAngle,
-                final float angle
-            ) {
+            private Callback(final RotationDeformer deformer, final float requestedAngle, final float angle) {
                 event = new Before(deformer, requestedAngle, angle, scope);
             }
 
@@ -81,20 +75,24 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
                 return event;
             }
 
-            @Override public void close() { scope.close(); }
+            @Override
+            public void close() {
+                scope.close();
+            }
         }
 
         private static final class CallbackScope {
             private final Thread ownerThread;
             private boolean open = true;
 
-            private CallbackScope(final Thread ownerThread) { this.ownerThread = ownerThread; }
+            private CallbackScope(final Thread ownerThread) {
+                this.ownerThread = ownerThread;
+            }
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Rotation base-angle before-event mutation is outside its callback scope."
-                    );
+                            "Rotation base-angle before-event mutation is outside its callback scope.");
                 }
             }
 
@@ -106,14 +104,16 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
     }
 
     /** State published after a successful base-angle write that changed the value. */
-    record On(RotationDeformer deformer, float oldAngle, float newAngle)
-        implements RotationDeformerBaseAngleEvent {
-        public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record On(RotationDeformer deformer, float oldAngle, float newAngle) implements RotationDeformerBaseAngleEvent {
+        public On {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 
     /** State published after every successful base-angle write. */
-    record After(RotationDeformer deformer, float finalAngle)
-        implements RotationDeformerBaseAngleEvent {
-        public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record After(RotationDeformer deformer, float finalAngle) implements RotationDeformerBaseAngleEvent {
+        public After {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 }

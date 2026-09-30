@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /**
  * Render kind of one Editor model instance.
  *

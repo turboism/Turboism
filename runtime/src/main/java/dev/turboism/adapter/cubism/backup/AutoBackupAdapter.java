@@ -83,8 +83,12 @@ public interface AutoBackupAdapter {
     }
 
     /** Immutable per-document host snapshot; {@code file} may be null (fail closed). */
-    record Document(String name, File file, long lastAutoBackupTimeMillis, long lastSavedTimeMillis,
-                    boolean modifiedAfterSaving) {
+    record Document(
+            String name,
+            File file,
+            long lastAutoBackupTimeMillis,
+            long lastSavedTimeMillis,
+            boolean modifiedAfterSaving) {
 
         public Document {
             if (name == null || name.isBlank()) {
@@ -117,7 +121,6 @@ public interface AutoBackupAdapter {
          * updateAutoBackup.
          */
         void triggerBackupNow();
-
 
         /** Saves one matched file content to the host backup directory; see {@link AutoBackupAdapter#saveDocumentFor}. */
         File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
@@ -153,9 +156,7 @@ public interface AutoBackupAdapter {
         }
 
         @Override
-        public File saveDocumentFor(
-            final File matchFile, final List<String> documentUids, final long timestampMillis
-        ) {
+        public File saveDocumentFor(final File matchFile, final List<String> documentUids, final long timestampMillis) {
             Objects.requireNonNull(matchFile, "matchFile");
             Objects.requireNonNull(documentUids, "documentUids");
             throw new UnsupportedOperationException("auto-backup is not available");

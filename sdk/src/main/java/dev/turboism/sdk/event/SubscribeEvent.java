@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event;
 
-
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -35,5 +34,4 @@ public @interface SubscribeEvent {
      * @return the subscriber priority
      */
     EventPriority priority() default EventPriority.NORMAL;
-
 }

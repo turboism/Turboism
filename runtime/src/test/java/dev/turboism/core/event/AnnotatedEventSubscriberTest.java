@@ -1,5 +1,8 @@
 package dev.turboism.core.event;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
@@ -15,8 +18,6 @@ import dev.turboism.sdk.failure.FailureBoundary;
 import dev.turboism.sdk.failure.FailureContext;
 import dev.turboism.sdk.failure.HandlesException;
 import dev.turboism.sdk.failure.NoFailureInterception;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -26,16 +27,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class AnnotatedEventSubscriberTest {
 
-    private static final Clock CLOCK = Clock.fixed(
-        Instant.parse("2026-08-23T00:00:00Z"),
-        ZoneOffset.UTC
-    );
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
     void brokerInvokesAnnotatedEntrypointsInPriorityThenCanonicalOrder() throws Exception {
@@ -45,11 +41,10 @@ class AnnotatedEventSubscriberTest {
         final CountDownLatch delivered = new CountDownLatch(3);
         final Subscriber entrypoint = new Subscriber(calls, delivered);
         broker.registerAnnotated(
-            "dev.example.subscriber",
-            new EntrypointSubscriberCatalog().inspect(List.of(entrypoint))
-        );
+                broker.pluginOwner("dev.example.subscriber"),
+                new EntrypointSubscriberCatalog().inspect(List.of(entrypoint)));
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("highest", "alpha", "zeta"), calls);
@@ -59,24 +54,17 @@ class AnnotatedEventSubscriberTest {
     @Test
     void failureAdviceReceivesPrivacySafeContextAndBrokerStillContainsFailure() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
-        final List<RuntimeEventBroker.SubscriberFailure> failures =
-            new CopyOnWriteArrayList<>();
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler,
-            8,
-            ignored -> { },
-            failures::add
-        );
+        final List<RuntimeEventBroker.SubscriberFailure> failures = new CopyOnWriteArrayList<>();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 8, ignored -> {}, failures::add);
         final CountDownLatch advised = new CountDownLatch(1);
         final FailureAdvice advice = new FailureAdvice(advised);
         final FailingSubscriber subscriber = new FailingSubscriber();
         broker.registerAnnotated(
-            broker.legacyOwner("dev.example.failure"),
-            new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
-            List.of(subscriber, advice)
-        );
+                broker.pluginOwner("dev.example.failure"),
+                new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
+                List.of(subscriber, advice));
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(advised.await(1, TimeUnit.SECONDS));
         assertEquals("event.test", advice.context.operationId());
@@ -90,24 +78,17 @@ class AnnotatedEventSubscriberTest {
     @Test
     void noFailureInterceptionSkipsAdviceButPreservesStructuredContainment() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
-        final List<RuntimeEventBroker.SubscriberFailure> failures =
-            new CopyOnWriteArrayList<>();
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler,
-            8,
-            ignored -> { },
-            failures::add
-        );
+        final List<RuntimeEventBroker.SubscriberFailure> failures = new CopyOnWriteArrayList<>();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 8, ignored -> {}, failures::add);
         final CountDownLatch adviceCalls = new CountDownLatch(1);
         final FailureAdvice advice = new FailureAdvice(adviceCalls);
         final UninterceptedSubscriber subscriber = new UninterceptedSubscriber();
         broker.registerAnnotated(
-            broker.legacyOwner("dev.example.unintercepted"),
-            new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
-            List.of(subscriber, advice)
-        );
+                broker.pluginOwner("dev.example.unintercepted"),
+                new EntrypointSubscriberCatalog().inspect(List.of(subscriber, advice)),
+                List.of(subscriber, advice));
 
-        broker.publish("turboism.core", new TestEvent("value"));
+        broker.publish(broker.pluginOwner("turboism.core"), new TestEvent("value"));
 
         assertTrue(awaitSize(failures, 1));
         assertEquals(1L, adviceCalls.getCount());
@@ -115,8 +96,7 @@ class AnnotatedEventSubscriberTest {
         scheduler.shutdown();
     }
 
-    private static boolean awaitSize(final List<?> values, final int size)
-        throws InterruptedException {
+    private static boolean awaitSize(final List<?> values, final int size) throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
         while (values.size() < size && System.nanoTime() < deadline) {
             Thread.sleep(5L);
@@ -127,11 +107,10 @@ class AnnotatedEventSubscriberTest {
     private static RuntimeScheduler scheduler() {
         final List<PluginWorkBudgetEvent> diagnostics = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
-            new NoOpSidecarDispatcher(),
-            diagnostics::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
+                new NoOpSidecarDispatcher(),
+                diagnostics::add);
     }
 
     public static final class Subscriber {
@@ -190,24 +169,17 @@ class AnnotatedEventSubscriberTest {
         }
 
         @HandlesException(IllegalStateException.class)
-        public void handle(
-            final IllegalStateException failure,
-            final FailureContext context
-        ) {
+        public void handle(final IllegalStateException failure, final FailureContext context) {
             this.context = context;
             called.countDown();
         }
     }
 
-    public record TestEvent(String value) implements TurboismEvent {
-    }
+    public record TestEvent(String value) implements TurboismEvent {}
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }

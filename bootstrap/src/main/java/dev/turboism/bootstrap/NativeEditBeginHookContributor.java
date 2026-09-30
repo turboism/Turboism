@@ -11,42 +11,44 @@ import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookIns
  */
 final class NativeEditBeginHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_NATIVE_EDIT_BEGIN_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean closesOnProcessExit() {
+    @Override
+    public boolean closesOnProcessExit() {
         return true;
     }
 
-    @Override public java.util.Set<String> runtimeHookIds() {
+    @Override
+    public java.util.Set<String> runtimeHookIds() {
         return java.util.Set.of("native-edit-begin");
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.runtimeSliceAdmitted("editor-model");
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         VerifiedNativeEditBeginHookInstaller installer = null;
         try {
             installer = VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                environment.instrumentation(),
-                runtime.editorModelResolver(),
-                host.classLoader()
-            );
+                    environment.instrumentation(), runtime.editorModelResolver(), host.classLoader());
             installer.install(NativeEditBeginBridge.ingress());
             NativeOptimizationHookContributor.log(
-                environment,
-                "TURBOISM_NATIVE_EDIT_BEGIN_HOOK installation=COMPLETE retransformed="
-                    + String.join(",", installer.retransformedClassNames())
-            );
+                    environment,
+                    "TURBOISM_NATIVE_EDIT_BEGIN_HOOK installation=COMPLETE retransformed="
+                            + String.join(",", installer.retransformedClassNames()));
             final VerifiedNativeEditBeginHookInstaller installed = installer;
             return () -> {
                 NativeEditBeginBridge.unbind();
@@ -61,10 +63,9 @@ final class NativeEditBeginHookContributor implements HookContributor {
                 }
             }
             NativeOptimizationHookContributor.log(
-                environment,
-                "Turboism native edit entry hook disabled safely: "
-                    + failure.getClass().getName()
-            );
+                    environment,
+                    "Turboism native edit entry hook disabled safely: "
+                            + failure.getClass().getName());
             throw new IllegalStateException("Native edit entry hook installation failed", failure);
         }
     }

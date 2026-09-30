@@ -1,18 +1,17 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 public class NativeUndoIngressObserverTest {
 
@@ -20,8 +19,7 @@ public class NativeUndoIngressObserverTest {
     void classifiesNativeEditUndoAndRedoWithoutReadingTheEventBody() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
 
         assertEquals(1, manager.listenerCount());
@@ -34,10 +32,9 @@ public class NativeUndoIngressObserverTest {
         assertEquals(NativeUndoIngressObserver.Kind.COMMITTED, observed.get(0).kind());
         assertEquals(Optional.of("Set Parent Drawable"), observed.get(0).label());
         assertEquals(
-            Optional.of(admitted),
-            observed.get(0).entry(),
-            "the consumer needs the admitted entry identity, not just its label"
-        );
+                Optional.of(admitted),
+                observed.get(0).entry(),
+                "the consumer needs the admitted entry identity, not just its label");
 
         manager.undo();
         assertEquals(1, observer.drain());
@@ -56,8 +53,7 @@ public class NativeUndoIngressObserverTest {
     void commitAfterUndoIsNotMisreportedAsRedo() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
 
         manager.commit(new Entry("First"));
@@ -81,8 +77,7 @@ public class NativeUndoIngressObserverTest {
     void coalescesSeveralHostTransitionsIntoOneNetObservation() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
 
         manager.commit(new Entry("First"));
@@ -96,8 +91,7 @@ public class NativeUndoIngressObserverTest {
     void clearingTheWholeHistoryIsNotReportedAsAUserEdit() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
 
         manager.commit(new Entry("First"));
@@ -112,10 +106,9 @@ public class NativeUndoIngressObserverTest {
     @Test
     void sinkFailuresAreRaisedToTheOwnerAndNotIntoTheHost() {
         final Manager manager = new Manager();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, ignored -> {
-                throw new IllegalStateException("sink failure");
-            });
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, ignored -> {
+            throw new IllegalStateException("sink failure");
+        });
         observer.attach();
 
         // The host fires listeners inline without exception isolation: this must not throw.
@@ -131,8 +124,7 @@ public class NativeUndoIngressObserverTest {
     void closeDetachesTheListenerAndIgnoresLaterCallbacks() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
         assertEquals(1, manager.listenerCount());
 
@@ -150,8 +142,7 @@ public class NativeUndoIngressObserverTest {
     void aCallbackThatArrivesAfterCloseIsRejectedInsteadOfReachingTheSink() {
         final Manager manager = new Manager();
         final List<NativeUndoIngressObserver.Event> observed = new ArrayList<>();
-        final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolver(), manager, observed::add);
+        final NativeUndoIngressObserver observer = new NativeUndoIngressObserver(resolver(), manager, observed::add);
         observer.attach();
         // The host may keep the listener until the document closes, so a callback can still arrive
         // after the observer has been closed; that must not reach the sink.
@@ -170,7 +161,7 @@ public class NativeUndoIngressObserverTest {
     void attachFailsClosedWhenTheListenerSelectorsAreNotAdmitted() {
         final Manager manager = new Manager();
         final NativeUndoIngressObserver observer =
-            new NativeUndoIngressObserver(resolverWithoutIngress(), manager, ignored -> { });
+                new NativeUndoIngressObserver(resolverWithoutIngress(), manager, ignored -> {});
 
         assertThrows(RuntimeException.class, observer::attach);
         assertEquals(0, manager.listenerCount());
@@ -178,63 +169,46 @@ public class NativeUndoIngressObserverTest {
 
     static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-history.read"),
-            List.of(
-                method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
-                method("cubism.editor-history.manager.position", Manager.class, "position", "()I"),
-                StaticSelector.classSelector(
-                    "cubism.editor-history.entry.class", internal(Entry.class)
-                ),
-                method(
-                    "cubism.editor-history.entry.presentation-name",
-                    Entry.class,
-                    "presentationName",
-                    "()Ljava/lang/String;"
-                ),
-                StaticSelector.classSelector(
-                    NativeUndoIngressObserver.LISTENER_CLASS_ALIAS, internal(Listener.class)
-                ),
-                method(
-                    NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
-                    Manager.class,
-                    "addUndoStateChangeListener",
-                    "(L" + internal(Listener.class) + ";)V"
-                ),
-                method(
-                    NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
-                    Manager.class,
-                    "removeUndoStateChangeListener",
-                    "(L" + internal(Listener.class) + ";)V"
-                )
-            ),
-            Manager.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-history.read"),
+                List.of(
+                        method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
+                        method("cubism.editor-history.manager.position", Manager.class, "position", "()I"),
+                        StaticSelector.classSelector("cubism.editor-history.entry.class", internal(Entry.class)),
+                        method(
+                                "cubism.editor-history.entry.presentation-name",
+                                Entry.class,
+                                "presentationName",
+                                "()Ljava/lang/String;"),
+                        StaticSelector.classSelector(
+                                NativeUndoIngressObserver.LISTENER_CLASS_ALIAS, internal(Listener.class)),
+                        method(
+                                NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
+                                Manager.class,
+                                "addUndoStateChangeListener",
+                                "(L" + internal(Listener.class) + ";)V"),
+                        method(
+                                NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
+                                Manager.class,
+                                "removeUndoStateChangeListener",
+                                "(L" + internal(Listener.class) + ";)V")),
+                Manager.class.getClassLoader());
     }
 
     private static VerifiedMemberResolver resolverWithoutIngress() {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-history.read"),
-            List.of(
-                method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
-                method("cubism.editor-history.manager.position", Manager.class, "position", "()I")
-            ),
-            Manager.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-history.read"),
+                List.of(
+                        method("cubism.editor-history.manager.entries", Manager.class, "entries", "()Ljava/util/List;"),
+                        method("cubism.editor-history.manager.position", Manager.class, "position", "()I")),
+                Manager.class.getClassLoader());
     }
 
-    static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC
-        );
+    static StaticSelector method(final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     static String internal(final Class<?> type) {

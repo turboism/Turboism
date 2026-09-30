@@ -1,10 +1,10 @@
 package dev.turboism.sdk.ui;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import org.junit.jupiter.api.Test;
 
 /**
  * Contract for the backward-compatible {@link StatusNotification} presentation
@@ -25,21 +25,14 @@ class StatusNotificationContractTest {
 
     @Test
     void fourArgumentConstructorAcceptsCompactMetricPresentation() {
-        StatusNotification notification = new StatusNotification(
-            "perf.cpu",
-            "INFO",
-            "CPU 12.3%",
-            StatusNotification.Presentation.COMPACT_METRIC
-        );
+        StatusNotification notification =
+                new StatusNotification("perf.cpu", "INFO", "CPU 12.3%", StatusNotification.Presentation.COMPACT_METRIC);
         assertEquals(StatusNotification.Presentation.COMPACT_METRIC, notification.presentation());
     }
 
     @Test
     void nullPresentationIsRejected() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> new StatusNotification("id", "INFO", "message", null)
-        );
+        assertThrows(IllegalArgumentException.class, () -> new StatusNotification("id", "INFO", "message", null));
     }
 
     @Test
@@ -52,12 +45,8 @@ class StatusNotificationContractTest {
     @Test
     void presentationParticipatesInRecordEquality() {
         StatusNotification plain = new StatusNotification("id", "INFO", "message");
-        StatusNotification compact = new StatusNotification(
-            "id",
-            "INFO",
-            "message",
-            StatusNotification.Presentation.COMPACT_METRIC
-        );
+        StatusNotification compact =
+                new StatusNotification("id", "INFO", "message", StatusNotification.Presentation.COMPACT_METRIC);
         assertNotEquals(plain, compact);
     }
 }

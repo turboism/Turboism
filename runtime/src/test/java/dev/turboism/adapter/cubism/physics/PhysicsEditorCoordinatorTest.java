@@ -1,38 +1,44 @@
 package dev.turboism.adapter.cubism.physics;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.DisposableScope;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.AbstractButton;
-import javax.swing.JButton;
-import javax.swing.Icon;
-import javax.swing.JLabel;
-import javax.swing.JTable;
-import javax.swing.SwingUtilities;
-import javax.swing.table.DefaultTableModel;
-import java.awt.event.MouseEvent;
 import java.awt.Component;
 import java.awt.Graphics2D;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.AbstractButton;
+import javax.swing.Icon;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableModel;
+import org.junit.jupiter.api.Test;
 
 class PhysicsEditorCoordinatorTest {
 
     private static final PhysicsEditorHostProfile PROFILE = new PhysicsEditorHostProfile(
-        Panel.class.getName().replace('.', '/'),
-        "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",
-        "b", "n", "d"
-    );
+            Panel.class.getName().replace('.', '/'),
+            "getTableArea",
+            "this$0",
+            "l",
+            "getSources",
+            "getEnable",
+            "setEnable",
+            "getGuid",
+            "b",
+            "n",
+            "d");
 
     @Test
     void headerToggleUsesOneHostTransactionAndRestoresFlagsWhenThePanelReopens() throws Exception {
@@ -79,9 +85,10 @@ class PhysicsEditorCoordinatorTest {
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
         coordinator.contribute(new PhysicsEditorContribution(true, false));
         final Panel panel = onEdt(() -> new Panel(new Outer(false, false)));
-        onEdt(() -> panel.table.getTableHeader().setDefaultRenderer(
-            (table, value, selected, focused, row, column) -> focused ? new JButton(value.toString()) : new JLabel(value.toString())
-        ));
+        onEdt(() -> panel.table
+                .getTableHeader()
+                .setDefaultRenderer((table, value, selected, focused, row, column) ->
+                        focused ? new JButton(value.toString()) : new JLabel(value.toString())));
         onEdt(() -> coordinator.onPanelConstructed(panel, PROFILE));
         flushEdt();
 
@@ -171,8 +178,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service =
-            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
         service.contribute(new PhysicsEditorContribution(true, true));
         final Outer outer = new Outer(false, false);
         final Panel panel = onEdt(() -> new Panel(outer));
@@ -197,14 +203,10 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service =
-            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
         scope.close();
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> service.contribute(new PhysicsEditorContribution(true, false))
-        );
+        assertThrows(IllegalStateException.class, () -> service.contribute(new PhysicsEditorContribution(true, false)));
 
         coordinator.contribute(new PhysicsEditorContribution(false, true)).close();
     }
@@ -217,8 +219,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service =
-            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
         final var registration = service.contribute(new PhysicsEditorContribution(true, false));
 
         registration.close();
@@ -237,8 +238,7 @@ class PhysicsEditorCoordinatorTest {
             scopeActive.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService service =
-            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final PhysicsEditorService service = new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
         final AtomicBoolean contributed = new AtomicBoolean();
         scope.register(() -> {
             try {
@@ -269,10 +269,8 @@ class PhysicsEditorCoordinatorTest {
             activeB.set(false);
         });
         final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
-        final PhysicsEditorService serviceA =
-            new PluginScopedPhysicsEditorService(coordinator, scopeA, activeA::get);
-        final PhysicsEditorService serviceB =
-            new PluginScopedPhysicsEditorService(coordinator, scopeB, activeB::get);
+        final PhysicsEditorService serviceA = new PluginScopedPhysicsEditorService(coordinator, scopeA, activeA::get);
+        final PhysicsEditorService serviceB = new PluginScopedPhysicsEditorService(coordinator, scopeB, activeB::get);
 
         serviceA.contribute(new PhysicsEditorContribution(true, false));
         scopeA.close();
@@ -287,9 +285,15 @@ class PhysicsEditorCoordinatorTest {
         onEdt(() -> {
             final int x = table.getTableHeader().getHeaderRect(0).x + 2;
             final MouseEvent event = new MouseEvent(
-                table.getTableHeader(), MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
-                x, 2, 1, false, MouseEvent.BUTTON1
-            );
+                    table.getTableHeader(),
+                    MouseEvent.MOUSE_CLICKED,
+                    System.currentTimeMillis(),
+                    0,
+                    x,
+                    2,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1);
             for (var listener : table.getTableHeader().getMouseListeners()) listener.mouseClicked(event);
         });
         flushEdt();
@@ -298,12 +302,16 @@ class PhysicsEditorCoordinatorTest {
     private static int headerIconPixels(final JTable table, final boolean focused) {
         final var renderer = table.getTableHeader().getDefaultRenderer();
         final Component component = renderer.getTableCellRendererComponent(
-            table, table.getColumnModel().getColumn(0).getHeaderValue(), false, focused, -1, 0
-        );
+                table, table.getColumnModel().getColumn(0).getHeaderValue(), false, focused, -1, 0);
         final Icon icon = component instanceof JLabel label ? label.getIcon() : ((AbstractButton) component).getIcon();
-        final BufferedImage image = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
+        final BufferedImage image =
+                new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = image.createGraphics();
-        try { icon.paintIcon(component, graphics, 0, 0); } finally { graphics.dispose(); }
+        try {
+            icon.paintIcon(component, graphics, 0, 0);
+        } finally {
+            graphics.dispose();
+        }
         int pixels = 1;
         for (int y = 0; y < image.getHeight(); y++) {
             for (int x = 0; x < image.getWidth(); x++) pixels = 31 * pixels + image.getRGB(x, y);
@@ -312,7 +320,7 @@ class PhysicsEditorCoordinatorTest {
     }
 
     private static void flushEdt() throws Exception {
-        onEdt(() -> { });
+        onEdt(() -> {});
     }
 
     private static <T> T onEdt(final ThrowingSupplier<T> supplier) throws Exception {
@@ -320,19 +328,34 @@ class PhysicsEditorCoordinatorTest {
         final Object[] result = new Object[1];
         final Throwable[] failure = new Throwable[1];
         SwingUtilities.invokeAndWait(() -> {
-            try { result[0] = supplier.get(); } catch (Throwable throwable) { failure[0] = throwable; }
+            try {
+                result[0] = supplier.get();
+            } catch (Throwable throwable) {
+                failure[0] = throwable;
+            }
         });
         if (failure[0] != null) throw new RuntimeException(failure[0]);
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
+        @SuppressWarnings("unchecked")
+        final T value = (T) result[0];
         return value;
     }
 
     private static void onEdt(final ThrowingRunnable runnable) throws Exception {
-        onEdt(() -> { runnable.run(); return null; });
+        onEdt(() -> {
+            runnable.run();
+            return null;
+        });
     }
 
-    @FunctionalInterface private interface ThrowingSupplier<T> { T get() throws Exception; }
-    @FunctionalInterface private interface ThrowingRunnable { void run() throws Exception; }
+    @FunctionalInterface
+    private interface ThrowingSupplier<T> {
+        T get() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
+    }
 
     static final class Panel {
         private final Outer this$0;
@@ -342,28 +365,39 @@ class PhysicsEditorCoordinatorTest {
         Panel(final Outer outer) {
             this.this$0 = outer;
             this.model = new CountingTableModel(
-                outer.sources.stream().map(source -> new Object[]{source.getEnable(), 1, source.getGuid(), "", "", "", ""}).toArray(Object[][]::new),
-                new Object[]{"Enabled", "Priority", "Name", "Input", "Output", "Normalization", "Preview"}
-            );
+                    outer.sources.stream()
+                            .map(source -> new Object[] {source.getEnable(), 1, source.getGuid(), "", "", "", ""})
+                            .toArray(Object[][]::new),
+                    new Object[] {"Enabled", "Priority", "Name", "Input", "Output", "Normalization", "Preview"});
             this.table = new JTable(model);
             outer.model = model;
         }
 
-        public TableArea getTableArea() { return new TableArea(table); }
+        public TableArea getTableArea() {
+            return new TableArea(table);
+        }
     }
 
-    record TableArea(JTable table) { public JTable getJTable() { return table; } }
+    record TableArea(JTable table) {
+        public JTable getJTable() {
+            return table;
+        }
+    }
 
     static final class CountingTableModel extends DefaultTableModel {
         private int writes;
 
-        CountingTableModel(final Object[][] data, final Object[] columns) { super(data, columns); }
+        CountingTableModel(final Object[][] data, final Object[] columns) {
+            super(data, columns);
+        }
 
-        @Override public Class<?> getColumnClass(final int columnIndex) {
+        @Override
+        public Class<?> getColumnClass(final int columnIndex) {
             return columnIndex == 0 ? Boolean.class : columnIndex == 1 ? Integer.class : String.class;
         }
 
-        @Override public void setValueAt(final Object value, final int row, final int column) {
+        @Override
+        public void setValueAt(final Object value, final int row, final int column) {
             writes++;
             super.setValueAt(value, row, column);
         }
@@ -378,25 +412,44 @@ class PhysicsEditorCoordinatorTest {
         private CountingTableModel model;
 
         Outer(final boolean... values) {
-            for (int index = 0; index < values.length; index++) sources.add(new Source(this, "g" + index, values[index]));
+            for (int index = 0; index < values.length; index++)
+                sources.add(new Source(this, "g" + index, values[index]));
         }
 
-        private SourceSet l() { return new SourceSet(sources); }
-        private Object b() { transactions.add("begin"); checkpoint = values(); writes = 0; return new Object(); }
+        private SourceSet l() {
+            return new SourceSet(sources);
+        }
+
+        private Object b() {
+            transactions.add("begin");
+            checkpoint = values();
+            writes = 0;
+            return new Object();
+        }
+
         private void n() {
             transactions.add("commit");
             if (model != null) {
-                for (int index = 0; index < sources.size(); index++) model.setValueAt(sources.get(index).getEnable(), index, 0);
+                for (int index = 0; index < sources.size(); index++)
+                    model.setValueAt(sources.get(index).getEnable(), index, 0);
             }
         }
+
         private void d() {
             transactions.add("rollback");
             for (int index = 0; index < sources.size(); index++) sources.get(index).enabled = checkpoint.get(index);
         }
-        private List<Boolean> values() { return sources.stream().map(Source::getEnable).toList(); }
+
+        private List<Boolean> values() {
+            return sources.stream().map(Source::getEnable).toList();
+        }
     }
 
-    record SourceSet(List<Source> sources) { public List<Source> getSources() { return sources; } }
+    record SourceSet(List<Source> sources) {
+        public List<Source> getSources() {
+            return sources;
+        }
+    }
 
     static final class Source {
         private final Outer owner;
@@ -409,8 +462,14 @@ class PhysicsEditorCoordinatorTest {
             this.enabled = enabled;
         }
 
-        public String getGuid() { return guid; }
-        public boolean getEnable() { return enabled; }
+        public String getGuid() {
+            return guid;
+        }
+
+        public boolean getEnable() {
+            return enabled;
+        }
+
         public void setEnable(final boolean value) {
             if (owner.writes++ == owner.failAt) throw new IllegalStateException("fixture failure");
             enabled = value;

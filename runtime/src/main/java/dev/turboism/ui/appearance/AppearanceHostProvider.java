@@ -37,8 +37,7 @@ public interface AppearanceHostProvider {
     void restore(RestorePoint restorePoint);
 
     /** Opaque host appearance state captured for later restoration. */
-    interface RestorePoint {
-    }
+    interface RestorePoint {}
 
     /** Whether an {@link #apply} call changed host appearance state. */
     enum ApplyOutcome {

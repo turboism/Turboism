@@ -20,20 +20,16 @@ final class ChartSeriesColors {
     private static final Color GC = new Color(140, 86, 75);
     private static final Color SAFE_DEFAULT = new Color(148, 103, 189);
 
-    private static final Color[] ORDINAL = {
-        CPU, FPS, HEAP, NONHEAP, SAFE_DEFAULT, GC
-    };
+    private static final Color[] ORDINAL = {CPU, FPS, HEAP, NONHEAP, SAFE_DEFAULT, GC};
 
     private static final Map<String, Color> BY_CHART_ID = Map.of(
-        "cpu", CPU,
-        "fps", FPS,
-        "heap", HEAP,
-        "nonheap", NONHEAP,
-        "gc", GC
-    );
+            "cpu", CPU,
+            "fps", FPS,
+            "heap", HEAP,
+            "nonheap", NONHEAP,
+            "gc", GC);
 
-    private ChartSeriesColors() {
-    }
+    private ChartSeriesColors() {}
 
     /**
      * Color for one series of one chart: the first series uses the fixed

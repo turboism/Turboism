@@ -1,14 +1,13 @@
 package dev.turboism;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.sdk.plugin.PluginDescriptor;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class PluginLifecycleIntegrationTest {
 

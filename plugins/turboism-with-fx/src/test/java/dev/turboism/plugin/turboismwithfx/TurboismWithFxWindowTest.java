@@ -1,24 +1,23 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.Action;
-import javax.swing.JComboBox;
-import javax.swing.JPanel;
-import javax.swing.JTextArea;
-import javax.swing.KeyStroke;
-import javax.swing.text.DefaultEditorKit;
 import java.awt.Dimension;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.text.AttributedString;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.Action;
+import javax.swing.JComboBox;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
+import javax.swing.text.DefaultEditorKit;
+import org.junit.jupiter.api.Test;
 
 final class TurboismWithFxWindowTest {
 
@@ -35,37 +34,23 @@ final class TurboismWithFxWindowTest {
         assertEquals(1, submissions.get());
 
         assertEquals(
-            DefaultEditorKit.insertBreakAction,
-            input.getInputMap().get(KeyStroke.getKeyStroke(
-                KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK
-            ))
-        );
+                DefaultEditorKit.insertBreakAction,
+                input.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK)));
         assertEquals(
-            DefaultEditorKit.insertBreakAction,
-            input.getInputMap().get(KeyStroke.getKeyStroke(
-                KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK
-            ))
-        );
+                DefaultEditorKit.insertBreakAction,
+                input.getInputMap().get(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, InputEvent.CTRL_DOWN_MASK)));
         assertEquals(
-            DefaultEditorKit.insertBreakAction,
-            input.getInputMap().get(KeyStroke.getKeyStroke(
-                KeyEvent.VK_ENTER,
-                InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK
-            ))
-        );
+                DefaultEditorKit.insertBreakAction,
+                input.getInputMap()
+                        .get(KeyStroke.getKeyStroke(
+                                KeyEvent.VK_ENTER, InputEvent.SHIFT_DOWN_MASK | InputEvent.CTRL_DOWN_MASK)));
     }
 
     @Test
     void inputMethodCompositionDistinguishesCommittedAndUncommittedText() {
         final AttributedString composed = new AttributedString("中文");
-        assertTrue(TurboismWithFxWindow.hasUncommittedText(
-            composed.getIterator(),
-            0
-        ));
-        assertFalse(TurboismWithFxWindow.hasUncommittedText(
-            composed.getIterator(),
-            2
-        ));
+        assertTrue(TurboismWithFxWindow.hasUncommittedText(composed.getIterator(), 0));
+        assertFalse(TurboismWithFxWindow.hasUncommittedText(composed.getIterator(), 2));
         assertFalse(TurboismWithFxWindow.hasUncommittedText(null, 0));
     }
 
@@ -103,20 +88,11 @@ final class TurboismWithFxWindowTest {
         final JComboBox<FxAcpConfigOption.Choice> choices = new JComboBox<>();
         choices.setEditable(true);
         choices.getEditor().setItem("custom-model-id");
-        assertEquals(
-            "custom-model-id",
-            TurboismWithFxWindow.selectedConfigValue(choices)
-        );
+        assertEquals("custom-model-id", TurboismWithFxWindow.selectedConfigValue(choices));
 
-        choices.addItem(new FxAcpConfigOption.Choice(
-            "opaque-catalog-id",
-            "Display label"
-        ));
+        choices.addItem(new FxAcpConfigOption.Choice("opaque-catalog-id", "Display label"));
         choices.setSelectedIndex(0);
-        assertEquals(
-            "opaque-catalog-id",
-            TurboismWithFxWindow.selectedConfigValue(choices)
-        );
+        assertEquals("opaque-catalog-id", TurboismWithFxWindow.selectedConfigValue(choices));
     }
 
     @Test
@@ -126,10 +102,7 @@ final class TurboismWithFxWindowTest {
         choices.setSelectedIndex(0);
 
         assertEquals("Codex subscription", selectedDisplay(choices, "Unavailable"));
-        assertEquals(
-            "opaque-provider-id",
-            ((FxAcpConfigOption.Choice) choices.getSelectedItem()).value()
-        );
+        assertEquals("opaque-provider-id", ((FxAcpConfigOption.Choice) choices.getSelectedItem()).value());
     }
 
     @Test
@@ -144,18 +117,11 @@ final class TurboismWithFxWindowTest {
     @Test
     void lifecycleMessagesRecordTransitionsWithoutRepeatingTheSameState() {
         assertTrue(TurboismWithFxWindow.recordLifecycleMessage("", "Connecting to fx…"));
-        assertFalse(TurboismWithFxWindow.recordLifecycleMessage(
-            "Connecting to fx…",
-            "Connecting to fx…"
-        ));
+        assertFalse(TurboismWithFxWindow.recordLifecycleMessage("Connecting to fx…", "Connecting to fx…"));
         assertTrue(TurboismWithFxWindow.recordLifecycleMessage(
-            "Connecting to fx…",
-            "fx started but ACP initialization failed."
-        ));
+                "Connecting to fx…", "fx started but ACP initialization failed."));
         assertFalse(TurboismWithFxWindow.recordLifecycleMessage(
-            "fx started but ACP initialization failed.",
-            "fx started but ACP initialization failed."
-        ));
+                "fx started but ACP initialization failed.", "fx started but ACP initialization failed."));
     }
 
     @Test
@@ -174,13 +140,10 @@ final class TurboismWithFxWindowTest {
         assertFalse(Character.isHighSurrogate(bounded.charAt(bounded.length() - 1)));
     }
 
-    private static String selectedDisplay(
-        final JComboBox<FxAcpConfigOption.Choice> choices,
-        final String fallback
-    ) throws Exception {
-        final Method method = TurboismWithFxWindow.class.getDeclaredMethod(
-            "selectedDisplay", JComboBox.class, String.class
-        );
+    private static String selectedDisplay(final JComboBox<FxAcpConfigOption.Choice> choices, final String fallback)
+            throws Exception {
+        final Method method =
+                TurboismWithFxWindow.class.getDeclaredMethod("selectedDisplay", JComboBox.class, String.class);
         method.setAccessible(true);
         return (String) method.invoke(null, choices, fallback);
     }

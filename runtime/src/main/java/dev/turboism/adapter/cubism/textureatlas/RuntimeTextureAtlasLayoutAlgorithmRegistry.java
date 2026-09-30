@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -72,23 +71,15 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
      * @param ownerActive owner liveness probe, or {@code null} for a registration
      *                    without an owner (never expires by owner)
      */
-    public Registration register(
-        final TextureAtlasLayoutAlgorithm algorithm,
-        final BooleanSupplier ownerActive
-    ) {
+    public Registration register(final TextureAtlasLayoutAlgorithm algorithm, final BooleanSupplier ownerActive) {
         Objects.requireNonNull(algorithm, "algorithm");
         // The native choice is reserved: it must always resolve to the host's
         // own packing and can never be claimed by a plugin registration.
         if (TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID.equals(algorithm.id())) {
             throw new IllegalArgumentException(
-                "Texture-atlas algorithm id is reserved for the native layout: "
-                    + algorithm.id()
-            );
+                    "Texture-atlas algorithm id is reserved for the native layout: " + algorithm.id());
         }
-        final RegisteredAlgorithm registration = new RegisteredAlgorithm(
-            algorithm,
-            ownerActive
-        );
+        final RegisteredAlgorithm registration = new RegisteredAlgorithm(algorithm, ownerActive);
         final RegisteredAlgorithm previous;
         synchronized (this) {
             previous = algorithms.put(algorithm.id(), registration);
@@ -184,8 +175,7 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
      *     RegisteredAlgorithm#commitGate()}.
      */
     synchronized boolean isCurrent(final RegisteredAlgorithm registration) {
-        return registration.live()
-            && algorithms.get(registration.algorithm().id()) == registration;
+        return registration.live() && algorithms.get(registration.algorithm().id()) == registration;
     }
 
     /** Removes a dead entry and revokes it so no new dispatch can acquire it. Caller holds the lock. */
@@ -209,14 +199,12 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
                 // falsely report quiescence. The registration is already revoked and
                 // removed, so scope cleanup is still safe; reject explicitly instead.
                 final IllegalStateException rejection = new IllegalStateException(
-                    "A texture-atlas registration cannot be closed from its own dispatch."
-                );
+                        "A texture-atlas registration cannot be closed from its own dispatch.");
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "texture-atlas",
-                    "Texture-atlas planner closed its own registration during dispatch; "
-                        + "registration revoked without waiting",
-                    rejection
-                );
+                        "texture-atlas",
+                        "Texture-atlas planner closed its own registration during dispatch; "
+                                + "registration revoked without waiting",
+                        rejection);
                 throw rejection;
             }
             while (registration.inFlight > 0) {
@@ -244,15 +232,12 @@ public final class RuntimeTextureAtlasLayoutAlgorithmRegistry implements Texture
         private int inFlight;
         private final Set<Thread> inFlightThreads = new HashSet<>();
 
-        private RegisteredAlgorithm(
-            final TextureAtlasLayoutAlgorithm algorithm,
-            final BooleanSupplier ownerActive
-        ) {
+        private RegisteredAlgorithm(final TextureAtlasLayoutAlgorithm algorithm, final BooleanSupplier ownerActive) {
             this.algorithm = algorithm;
             this.ownerActive = ownerActive;
             this.ownerLoader = algorithm.planner() == null
-                ? null
-                : algorithm.planner().getClass().getClassLoader();
+                    ? null
+                    : algorithm.planner().getClass().getClassLoader();
         }
 
         TextureAtlasLayoutAlgorithm algorithm() {

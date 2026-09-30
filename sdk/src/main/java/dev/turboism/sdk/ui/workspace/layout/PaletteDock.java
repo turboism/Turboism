@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-
 import java.util.List;
 import java.util.Objects;
 

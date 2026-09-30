@@ -1,17 +1,19 @@
 package dev.turboism.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.CancellationContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,11 +27,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 class RuntimeUiSchedulerTest {
 
@@ -76,9 +75,8 @@ class RuntimeUiSchedulerTest {
             assertTrue(enteredEdt.await(1, TimeUnit.SECONDS));
 
             assertTrue(runtimeScheduler.dispatch(
-                new PluginTask("action.handle", "dev.turboism.plugin.demo", "work after UI callback", "none"),
-                nextWorkStarted::countDown
-            ));
+                    new PluginTask("action.handle", "dev.turboism.plugin.demo", "work after UI callback", "none"),
+                    nextWorkStarted::countDown));
 
             assertFalse(nextWorkStarted.await(200, TimeUnit.MILLISECONDS));
             releaseEdt.countDown();
@@ -98,16 +96,19 @@ class RuntimeUiSchedulerTest {
         RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(runtimeScheduler, "dev.turboism.plugin.demo");
 
         try {
-            uiScheduler.runOnUiThread(() -> { throw new IllegalStateException("boom"); });
+            uiScheduler.runOnUiThread(() -> {
+                throw new IllegalStateException("boom");
+            });
 
             awaitEvent(events, PluginWorkBudgetEvent.Phase.FAILED);
-            assertTrue(events.contains(new PluginWorkBudgetEvent(
-                "dev.turboism.plugin.demo",
-                "ui.schedule",
-                PluginWorkBudgetEvent.Phase.FAILED,
-                PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
-                PluginWorkBudgetEvent.Severity.ERROR
-            )), events.toString());
+            assertTrue(
+                    events.contains(new PluginWorkBudgetEvent(
+                            "dev.turboism.plugin.demo",
+                            "ui.schedule",
+                            PluginWorkBudgetEvent.Phase.FAILED,
+                            PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                            PluginWorkBudgetEvent.Severity.ERROR)),
+                    events.toString());
         } finally {
             uiScheduler.close();
             runtimeScheduler.shutdown();
@@ -122,15 +123,19 @@ class RuntimeUiSchedulerTest {
 
         try {
             for (int index = 0; index < 4; index++) {
-                uiScheduler.runOnUiThread(() -> { throw new IllegalStateException("boom"); });
+                uiScheduler.runOnUiThread(() -> {
+                    throw new IllegalStateException("boom");
+                });
                 awaitEventCount(events, index + 1);
-                assertEquals(PluginWorkBudgetEvent.Phase.FAILED, events.get(index).phase(), events.toString());
+                assertEquals(
+                        PluginWorkBudgetEvent.Phase.FAILED, events.get(index).phase(), events.toString());
             }
 
             assertThrows(
-                IllegalStateException.class,
-                () -> uiScheduler.runOnUiThread(() -> { throw new AssertionError("circuit must reject this callback"); })
-            );
+                    IllegalStateException.class,
+                    () -> uiScheduler.runOnUiThread(() -> {
+                        throw new AssertionError("circuit must reject this callback");
+                    }));
 
             awaitEventCount(events, 5);
             assertEquals(PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, events.get(4).phase(), events.toString());
@@ -285,9 +290,7 @@ class RuntimeUiSchedulerTest {
         runtimeScheduler.shutdown();
 
         IllegalStateException failure = org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalStateException.class,
-            () -> uiScheduler.runOnUiThread(() -> { })
-        );
+                IllegalStateException.class, () -> uiScheduler.runOnUiThread(() -> {}));
 
         assertEquals("UI_SCHEDULER_REJECTED", failure.getMessage());
         uiScheduler.close();
@@ -300,10 +303,12 @@ class RuntimeUiSchedulerTest {
         CountDownLatch completed = new CountDownLatch(1);
         AtomicBoolean onEdt = new AtomicBoolean();
 
-        uiScheduler.runOnUiThreadLater(() -> {
-            onEdt.set(SwingUtilities.isEventDispatchThread());
-            completed.countDown();
-        }, Duration.ZERO);
+        uiScheduler.runOnUiThreadLater(
+                () -> {
+                    onEdt.set(SwingUtilities.isEventDispatchThread());
+                    completed.countDown();
+                },
+                Duration.ZERO);
 
         assertTrue(completed.await(1, TimeUnit.SECONDS));
         assertTrue(onEdt.get());
@@ -360,16 +365,12 @@ class RuntimeUiSchedulerTest {
         return runtimeScheduler(new CopyOnWriteArrayList<>(), 500L);
     }
 
-    private static RuntimeScheduler runtimeScheduler(
-        List<PluginWorkBudgetEvent> events,
-        long timeoutMillis
-    ) {
+    private static RuntimeScheduler runtimeScheduler(List<PluginWorkBudgetEvent> events, long timeoutMillis) {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(timeoutMillis, 1, 4, events::add, CLOCK),
-            new NoopSidecarDispatcher(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(timeoutMillis, 1, 4, events::add, CLOCK),
+                new NoopSidecarDispatcher(),
+                events::add);
     }
 
     private static void await(CountDownLatch latch) {
@@ -398,10 +399,7 @@ class RuntimeUiSchedulerTest {
         throw new AssertionError("Expected at least " + expectedCount + " plugin work budget events in " + events);
     }
 
-    private static void awaitEvent(
-        List<PluginWorkBudgetEvent> events,
-        PluginWorkBudgetEvent.Phase phase
-    ) {
+    private static void awaitEvent(List<PluginWorkBudgetEvent> events, PluginWorkBudgetEvent.Phase phase) {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
         while (System.nanoTime() < deadline) {
             if (events.stream().anyMatch(event -> event.phase() == phase)) {

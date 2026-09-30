@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.export;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.Objects;
 
 /**
@@ -14,11 +13,17 @@ import java.util.Objects;
  * <p>An option is default-off by construction: this type exposes no default value
  * and no selection state. The host export flow reports selection at decision time.</p>
  */
-@CubismEditor({"5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor({
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+    "5.3.03", "5.3.04"
+})
 public record ExportSettingsDecision(Outcome outcome, String messageKey) {
 
     /** The two possible decisions for an embedded-model Export Settings option. */
-    @CubismEditor({"5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+        "5.3.03", "5.3.04"
+    })
     public enum Outcome {
         /** Leave the native export unchanged; no message key is carried. */
         PROCEED_UNCHANGED,
@@ -44,9 +49,7 @@ public record ExportSettingsDecision(Outcome outcome, String messageKey) {
         outcome = Objects.requireNonNull(outcome, "outcome");
         messageKey = Objects.requireNonNull(messageKey, "messageKey");
         if (outcome == Outcome.PROCEED_UNCHANGED && !messageKey.isEmpty()) {
-            throw new IllegalArgumentException(
-                "PROCEED_UNCHANGED decision must not carry a message key"
-            );
+            throw new IllegalArgumentException("PROCEED_UNCHANGED decision must not carry a message key");
         }
         if (outcome == Outcome.REJECT && messageKey.isBlank()) {
             throw new IllegalArgumentException("REJECT decision requires a message key");

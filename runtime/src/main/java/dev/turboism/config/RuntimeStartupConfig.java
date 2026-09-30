@@ -3,7 +3,6 @@ package dev.turboism.config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -14,36 +13,33 @@ import java.util.function.Consumer;
 
 /** Early immutable subset of the global runtime configuration needed during premain. */
 public record RuntimeStartupConfig(
-    boolean safeMode,
-    boolean requestedSkipStartupUpdateCheck,
-    boolean requestedSkipStartupSplash,
-    boolean requestedSkipStartupInformation,
-    boolean skipStartupUpdateCheck,
-    boolean skipStartupSplash,
-    boolean skipStartupInformation,
-    Set<String> disabledHookIds
-) {
+        boolean safeMode,
+        boolean requestedSkipStartupUpdateCheck,
+        boolean requestedSkipStartupSplash,
+        boolean requestedSkipStartupInformation,
+        boolean skipStartupUpdateCheck,
+        boolean skipStartupSplash,
+        boolean skipStartupInformation,
+        Set<String> disabledHookIds) {
 
     public RuntimeStartupConfig {
         disabledHookIds = Set.copyOf(Objects.requireNonNull(disabledHookIds, "disabledHookIds"));
     }
 
     public RuntimeStartupConfig(
-        final boolean safeMode,
-        final boolean skipStartupUpdateCheck,
-        final boolean skipStartupSplash,
-        final boolean skipStartupInformation
-    ) {
+            final boolean safeMode,
+            final boolean skipStartupUpdateCheck,
+            final boolean skipStartupSplash,
+            final boolean skipStartupInformation) {
         this(
-            safeMode,
-            skipStartupUpdateCheck,
-            skipStartupSplash,
-            skipStartupInformation,
-            !safeMode && skipStartupUpdateCheck,
-            !safeMode && skipStartupSplash,
-            !safeMode && skipStartupInformation,
-            Set.of()
-        );
+                safeMode,
+                skipStartupUpdateCheck,
+                skipStartupSplash,
+                skipStartupInformation,
+                !safeMode && skipStartupUpdateCheck,
+                !safeMode && skipStartupSplash,
+                !safeMode && skipStartupInformation,
+                Set.of());
     }
 
     /**
@@ -57,10 +53,8 @@ public record RuntimeStartupConfig(
     }
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final RuntimeStartupConfig DISABLED =
-        new RuntimeStartupConfig(false, false, false, false);
-    private static final RuntimeStartupConfig DEFAULTS =
-        new RuntimeStartupConfig(false, true, true, true);
+    private static final RuntimeStartupConfig DISABLED = new RuntimeStartupConfig(false, false, false, false);
+    private static final RuntimeStartupConfig DEFAULTS = new RuntimeStartupConfig(false, true, true, true);
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;
 
     /**
@@ -72,7 +66,7 @@ public record RuntimeStartupConfig(
      * @throws NullPointerException if {@code turboismHome} is null
      */
     public static RuntimeStartupConfig load(final Path turboismHome) {
-        return load(turboismHome, ignored -> { });
+        return load(turboismHome, ignored -> {});
     }
 
     /**
@@ -93,10 +87,7 @@ public record RuntimeStartupConfig(
      *     the all-disabled configuration when anything else was wrong
      * @throws NullPointerException if either argument is null
      */
-    public static RuntimeStartupConfig load(
-        final Path turboismHome,
-        final Consumer<String> diagnostic
-    ) {
+    public static RuntimeStartupConfig load(final Path turboismHome, final Consumer<String> diagnostic) {
         Objects.requireNonNull(turboismHome, "turboismHome");
         Objects.requireNonNull(diagnostic, "diagnostic");
         final Path home = turboismHome.toAbsolutePath().normalize();
@@ -110,13 +101,13 @@ public record RuntimeStartupConfig(
         }
         try {
             if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(configPath) > MAX_CONFIG_BYTES) {
+                    || Files.size(configPath) > MAX_CONFIG_BYTES) {
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_FILE_REJECTED");
                 return DISABLED;
             }
             final JsonNode root = JSON.readTree(Files.readAllBytes(configPath));
             final java.util.List<dev.turboism.core.schema.SchemaValidationError> configErrors =
-                new RuntimeConfigValidator().validate(root, configPath.toString());
+                    new RuntimeConfigValidator().validate(root, configPath.toString());
             if (!configErrors.isEmpty()) {
                 report(diagnostic, "RUNTIME_STARTUP_CONFIG_INVALID");
                 return DISABLED;
@@ -129,15 +120,14 @@ public record RuntimeStartupConfig(
             final java.util.Set<String> disabledHookIds = new java.util.LinkedHashSet<>();
             root.path("hooks").path("disabledIds").forEach(value -> disabledHookIds.add(value.asText()));
             return new RuntimeStartupConfig(
-                safeMode,
-                requestedUpdate,
-                requestedSplash,
-                requestedInformation,
-                !safeMode && requestedUpdate,
-                !safeMode && requestedSplash,
-                !safeMode && requestedInformation,
-                disabledHookIds
-            );
+                    safeMode,
+                    requestedUpdate,
+                    requestedSplash,
+                    requestedInformation,
+                    !safeMode && requestedUpdate,
+                    !safeMode && requestedSplash,
+                    !safeMode && requestedInformation,
+                    disabledHookIds);
         } catch (IOException | RuntimeException failure) {
             report(diagnostic, "RUNTIME_STARTUP_CONFIG_UNREADABLE");
             return DISABLED;
@@ -150,6 +140,5 @@ public record RuntimeStartupConfig(
         } catch (RuntimeException ignored) {
             // Diagnostics must never block the official host startup path.
         }
-}
-
+    }
 }

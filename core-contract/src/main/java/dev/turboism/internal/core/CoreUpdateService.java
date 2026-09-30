@@ -1,7 +1,6 @@
 package dev.turboism.internal.core;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -42,13 +41,12 @@ public interface CoreUpdateService extends AutoCloseable {
 
     /** Immutable state safe to hand to UI code. */
     record Snapshot(
-        Status status,
-        String localVersion,
-        Optional<String> availableVersion,
-        OptionalLong availableBuildNumber,
-        boolean userInitiated,
-        boolean reminder
-    ) {
+            Status status,
+            String localVersion,
+            Optional<String> availableVersion,
+            OptionalLong availableBuildNumber,
+            boolean userInitiated,
+            boolean reminder) {
         public Snapshot {
             status = Objects.requireNonNull(status, "status");
             localVersion = Objects.requireNonNull(localVersion, "localVersion");
@@ -58,10 +56,8 @@ public interface CoreUpdateService extends AutoCloseable {
                 throw new IllegalArgumentException("availableVersion must not be blank");
             }
             if (status != Status.UPDATE_AVAILABLE
-                && (availableVersion.isPresent() || availableBuildNumber.isPresent())) {
-                throw new IllegalArgumentException(
-                    "an available candidate is only valid for UPDATE_AVAILABLE"
-                );
+                    && (availableVersion.isPresent() || availableBuildNumber.isPresent())) {
+                throw new IllegalArgumentException("an available candidate is only valid for UPDATE_AVAILABLE");
             }
             if (availableBuildNumber.isPresent() && availableBuildNumber.getAsLong() <= 0) {
                 throw new IllegalArgumentException("availableBuildNumber must be positive");
@@ -73,24 +69,19 @@ public interface CoreUpdateService extends AutoCloseable {
 
         /** Creates an idle snapshot for a local framework identity. */
         public static Snapshot idle(final String localVersion) {
-            return new Snapshot(
-                Status.IDLE, localVersion, Optional.empty(), OptionalLong.empty(), false, false
-            );
+            return new Snapshot(Status.IDLE, localVersion, Optional.empty(), OptionalLong.empty(), false, false);
         }
 
         /** Returns the advertised candidate identity for display, e.g. {@code 0.43.11 (Build 5)}. */
         public Optional<String> availableIdentity() {
             if (availableVersion.isEmpty()) return Optional.empty();
             if (availableBuildNumber.isEmpty()) return availableVersion;
-            return Optional.of(
-                availableVersion.orElseThrow() + " (Build " + availableBuildNumber.getAsLong() + ")"
-            );
+            return Optional.of(availableVersion.orElseThrow() + " (Build " + availableBuildNumber.getAsLong() + ")");
         }
     }
 
     /** The update preferences exposed to the shell: whether automatic checks may run. */
-    record Preferences(boolean automaticChecksEnabled) {
-    }
+    record Preferences(boolean automaticChecksEnabled) {}
 
     /** Result of a preference write; false never claims that the value was saved. */
     record PreferenceSaveResult(boolean saved, String message) {
@@ -163,13 +154,11 @@ public interface CoreUpdateService extends AutoCloseable {
      */
     final class Unavailable implements CoreUpdateService {
         private static final Unavailable INSTANCE = new Unavailable();
-        private static final Snapshot SNAPSHOT = new Snapshot(
-            Status.UNAVAILABLE, "unknown", Optional.empty(), OptionalLong.empty(), false, false
-        );
+        private static final Snapshot SNAPSHOT =
+                new Snapshot(Status.UNAVAILABLE, "unknown", Optional.empty(), OptionalLong.empty(), false, false);
         private static final Preferences PREFERENCES = new Preferences(true);
 
-        private Unavailable() {
-        }
+        private Unavailable() {}
 
         @Override
         public boolean available() {
@@ -187,8 +176,7 @@ public interface CoreUpdateService extends AutoCloseable {
         }
 
         @Override
-        public void start() {
-        }
+        public void start() {}
 
         @Override
         public CompletionStage<Snapshot> checkManual() {
@@ -204,11 +192,10 @@ public interface CoreUpdateService extends AutoCloseable {
         @Override
         public Registration subscribe(final Consumer<Snapshot> listener) {
             Objects.requireNonNull(listener, "listener");
-            return () -> { };
+            return () -> {};
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 }

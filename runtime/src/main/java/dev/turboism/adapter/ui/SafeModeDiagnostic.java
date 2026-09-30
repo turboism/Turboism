@@ -13,11 +13,7 @@ import java.util.Objects;
  * @param capability ID of the capability that degraded, never blank
  * @param message human-readable explanation, never blank
  */
-public record SafeModeDiagnostic(
-    Code code,
-    String capability,
-    String message
-) {
+public record SafeModeDiagnostic(Code code, String capability, String message) {
 
     public SafeModeDiagnostic {
         code = Objects.requireNonNull(code, "code");
@@ -32,10 +28,7 @@ public record SafeModeDiagnostic(
      */
     public static SafeModeDiagnostic adapterUnavailable(final String capabilityId) {
         return new SafeModeDiagnostic(
-            Code.ADAPTER_UNAVAILABLE,
-            capabilityId,
-            "Host adapter is not connected; safe-mode fallback is active."
-        );
+                Code.ADAPTER_UNAVAILABLE, capabilityId, "Host adapter is not connected; safe-mode fallback is active.");
     }
 
     /**
@@ -43,15 +36,11 @@ public record SafeModeDiagnostic(
      * @param hostVersion version the host reported, echoed into the message
      * @return diagnostic for a host outside the version scope this capability was reviewed against
      */
-    public static SafeModeDiagnostic hostVersionUnsupported(
-        final String capabilityId,
-        final String hostVersion
-    ) {
+    public static SafeModeDiagnostic hostVersionUnsupported(final String capabilityId, final String hostVersion) {
         return new SafeModeDiagnostic(
-            Code.HOST_VERSION_UNSUPPORTED,
-            capabilityId,
-            "Host Cubism version " + hostVersion + " is outside the adapter's supported scope."
-        );
+                Code.HOST_VERSION_UNSUPPORTED,
+                capabilityId,
+                "Host Cubism version " + hostVersion + " is outside the adapter's supported scope.");
     }
 
     /** @deprecated use {@link #hostVersionUnsupported(String, String)} */
@@ -66,10 +55,9 @@ public record SafeModeDiagnostic(
      */
     public static SafeModeDiagnostic capabilityUnavailable(final String capabilityId) {
         return new SafeModeDiagnostic(
-            Code.CAPABILITY_UNAVAILABLE,
-            capabilityId,
-            "Host adapter does not provide capability " + capabilityId + "."
-        );
+                Code.CAPABILITY_UNAVAILABLE,
+                capabilityId,
+                "Host adapter does not provide capability " + capabilityId + ".");
     }
 
     /**
@@ -96,10 +84,7 @@ public record SafeModeDiagnostic(
      */
     public static SafeModeDiagnostic mappingNotVerified(final String capabilityId) {
         return new SafeModeDiagnostic(
-            Code.MAPPING_NOT_VERIFIED,
-            capabilityId,
-            "Required mapping/profile evidence is not verified."
-        );
+                Code.MAPPING_NOT_VERIFIED, capabilityId, "Required mapping/profile evidence is not verified.");
     }
 
     /**
@@ -107,11 +92,7 @@ public record SafeModeDiagnostic(
      * @return diagnostic for a capability blocked because its host hook has not been verified
      */
     public static SafeModeDiagnostic hookNotVerified(final String capabilityId) {
-        return new SafeModeDiagnostic(
-            Code.HOOK_NOT_VERIFIED,
-            capabilityId,
-            "Required hook evidence is not verified."
-        );
+        return new SafeModeDiagnostic(Code.HOOK_NOT_VERIFIED, capabilityId, "Required hook evidence is not verified.");
     }
 
     /**
@@ -120,10 +101,7 @@ public record SafeModeDiagnostic(
      */
     public static SafeModeDiagnostic permissionDenied(final String capabilityId) {
         return new SafeModeDiagnostic(
-            Code.PERMISSION_DENIED,
-            capabilityId,
-            "Permission denied for host adapter capability."
-        );
+                Code.PERMISSION_DENIED, capabilityId, "Permission denied for host adapter capability.");
     }
 
     private static String requireText(final String value, final String name) {

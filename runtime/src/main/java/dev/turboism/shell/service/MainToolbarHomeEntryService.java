@@ -1,8 +1,9 @@
 package dev.turboism.shell.service;
 
+import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
-import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -12,14 +13,12 @@ import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.imageio.ImageIO;
 
 /**
  * Builds the framework shell's entry points into the Editor: the Turboism embedded panel, the main
@@ -41,9 +40,11 @@ public final class MainToolbarHomeEntryService {
     public static final String ACTION_LABEL = "Open Turboism";
     /** Internal catalog key for the home action label; used only by production localization. */
     public static final String ACTION_LABEL_KEY = "main-toolbar.home.action";
+
     public static final String SETTINGS_ACTION_ID = "turboism.core.settings.open";
     public static final String PLUGINS_ACTION_ID = "turboism.core.plugins.open";
     public static final String LOGS_ACTION_ID = "turboism.core.logs.open";
+    public static final String KEYBINDINGS_ACTION_ID = "turboism.core.keybindings.open";
     public static final String ABOUT_ACTION_ID = "turboism.core.about.open";
     public static final String INSTALL_ACTION_ID = "turboism.core.plugins.install";
     public static final EmbeddedPanelId TURBOISM_PANEL_ID = EmbeddedPanelId.of("turboism.panel.main");
@@ -54,6 +55,7 @@ public final class MainToolbarHomeEntryService {
     private static final String SETTINGS_MENU_LABEL_KEY = "main-toolbar.settings-menu.label";
     private static final String PLUGINS_MENU_LABEL_KEY = "main-toolbar.plugins-menu.label";
     private static final String LOGS_MENU_LABEL_KEY = "main-toolbar.logs-menu.label";
+    private static final String KEYBINDINGS_MENU_LABEL_KEY = "main-toolbar.keybindings-menu.label";
     private static final String ABOUT_MENU_LABEL_KEY = "main-toolbar.about-menu.label";
     private static final String TURBOISM_MENU_ROOT_KEY = "main-toolbar.menu-root.label";
     private static final String TURBOISM_PANEL_TITLE_KEY = "common.turboism";
@@ -69,39 +71,64 @@ public final class MainToolbarHomeEntryService {
     private final CorePluginManagement plugins;
 
     public MainToolbarHomeEntryService(
-        final UiHostCapabilityService uiHost,
-        final MainToolbarRegistry mainToolbar,
-        final MenuRegistry menus,
-        final PluginLocalization localization
-    ) {
+            final UiHostCapabilityService uiHost,
+            final MainToolbarRegistry mainToolbar,
+            final MenuRegistry menus,
+            final PluginLocalization localization) {
         this(
-            uiHost, mainToolbar, menus, localization,
-            new RuntimeSettingsService() {
-                private RuntimeSettings settings = new RuntimeSettings(false, "INFO", true, true, true);
-                @Override public RuntimeSettings read() { return settings; }
-                @Override public RuntimeSettings save(final RuntimeSettings value) { settings = value; return value; }
-                @Override public DockCleanupResult cleanEmptyDocks() {
-                    return new DockCleanupResult("Empty dock cleanup completed.");
-                }
-            },
-            new CorePluginManagement() {
-                @Override public List<PluginInfo> plugins() { return List.of(); }
-                @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
-                @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
-                @Override public OperationResult setEnabled(final String id, final boolean enabled) {
-                    return OperationResult.rejected("Unavailable");
-                }
-            }
-        );
+                uiHost,
+                mainToolbar,
+                menus,
+                localization,
+                new RuntimeSettingsService() {
+                    private RuntimeSettings settings = new RuntimeSettings(false, "INFO", true, true, true);
+
+                    @Override
+                    public RuntimeSettings read() {
+                        return settings;
+                    }
+
+                    @Override
+                    public RuntimeSettings save(final RuntimeSettings value) {
+                        settings = value;
+                        return value;
+                    }
+
+                    @Override
+                    public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("Empty dock cleanup completed.");
+                    }
+                },
+                new CorePluginManagement() {
+                    @Override
+                    public List<PluginInfo> plugins() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public OperationResult install() {
+                        return OperationResult.rejected("Unavailable");
+                    }
+
+                    @Override
+                    public OperationResult uninstall(final String id) {
+                        return OperationResult.rejected("Unavailable");
+                    }
+
+                    @Override
+                    public OperationResult setEnabled(final String id, final boolean enabled) {
+                        return OperationResult.rejected("Unavailable");
+                    }
+                });
     }
+
     public MainToolbarHomeEntryService(
-        final UiHostCapabilityService uiHost,
-        final MainToolbarRegistry mainToolbar,
-        final MenuRegistry menus,
-        final PluginLocalization localization,
-        final RuntimeSettingsService runtimeSettings,
-        final CorePluginManagement plugins
-    ) {
+            final UiHostCapabilityService uiHost,
+            final MainToolbarRegistry mainToolbar,
+            final MenuRegistry menus,
+            final PluginLocalization localization,
+            final RuntimeSettingsService runtimeSettings,
+            final CorePluginManagement plugins) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         this.menus = Objects.requireNonNull(menus, "menus");
@@ -117,9 +144,7 @@ public final class MainToolbarHomeEntryService {
      */
     public Registration registerTurboismPanel() {
         return uiHost.contributeEmbeddedPanel(new EmbeddedPanelContribution(
-            TURBOISM_PANEL_ID.value(), localized(TURBOISM_PANEL_TITLE_KEY, "Turboism"), "right", 0,
-            panelView()
-        ));
+                TURBOISM_PANEL_ID.value(), localized(TURBOISM_PANEL_TITLE_KEY, "Turboism"), "right", 0, panelView()));
     }
 
     /**
@@ -131,16 +156,22 @@ public final class MainToolbarHomeEntryService {
         final boolean textIcon = runtimeSettings.read().useTextIcon();
         installWindowIcon(textIcon);
         final MainToolbarRegistry.IconVariants icons = textIcon
-            ? new MainToolbarRegistry.IconVariants(
-                ICON_RESOURCE_PATH, Optional.of("icons/main-toolbar-home-hover.png"),
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
-            )
-            : MainToolbarRegistry.IconVariants.normal(INSTALLER_ICON_RESOURCE_PATH);
+                ? new MainToolbarRegistry.IconVariants(
+                        ICON_RESOURCE_PATH,
+                        Optional.of("icons/main-toolbar-home-hover.png"),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty())
+                : MainToolbarRegistry.IconVariants.normal(INSTALLER_ICON_RESOURCE_PATH);
         return mainToolbar.contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
-            CONTRIBUTION_ID, ACTION_ID, LABEL_KEY, TOOLTIP_KEY,
-            icons,
-            MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY), ORDER
-        ));
+                CONTRIBUTION_ID,
+                ACTION_ID,
+                LABEL_KEY,
+                TOOLTIP_KEY,
+                icons,
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                ORDER));
     }
 
     /**
@@ -171,12 +202,21 @@ public final class MainToolbarHomeEntryService {
     }
 
     /**
-     * Contributes the About item under the Turboism menu, last of the four.
+     * Contributes the Keybindings item under the Turboism menu, ordered after Logs.
+     *
+     * @return the menu registration; closing it removes the item
+     */
+    public Registration registerKeybindingsMenu() {
+        return menu(localization.text(KEYBINDINGS_MENU_LABEL_KEY), KEYBINDINGS_ACTION_ID, ORDER + 3);
+    }
+
+    /**
+     * Contributes the About item under the Turboism menu, last of the core items.
      *
      * @return the menu registration; closing it removes the item
      */
     public Registration registerAboutMenu() {
-        return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 3);
+        return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 4);
     }
 
     /**
@@ -201,6 +241,7 @@ public final class MainToolbarHomeEntryService {
                 TurboismWindowFactory.installWindowIcon(icon);
             }
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // window branding must never block the toolbar contribution
         }
     }
@@ -208,9 +249,20 @@ public final class MainToolbarHomeEntryService {
     private Registration menu(final String label, final String actionId, final int order) {
         final String menuPath = localized(TURBOISM_MENU_ROOT_KEY, "Plugins") + "/" + label;
         return menus.contribute(new MenuRegistry.MenuContribution() {
-            @Override public String menuPath() { return menuPath; }
-            @Override public String actionId() { return actionId; }
-            @Override public int order() { return order; }
+            @Override
+            public String menuPath() {
+                return menuPath;
+            }
+
+            @Override
+            public String actionId() {
+                return actionId;
+            }
+
+            @Override
+            public int order() {
+                return order;
+            }
         });
     }
 
@@ -232,5 +284,4 @@ public final class MainToolbarHomeEntryService {
     private static PanelView panelView() {
         return PanelView.column(PanelView.text(""));
     }
-
 }

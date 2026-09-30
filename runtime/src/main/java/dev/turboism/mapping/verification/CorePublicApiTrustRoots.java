@@ -5,8 +5,7 @@ import java.util.Objects;
 /** Public non-secret identities of the reviewed Core verification trust roots. */
 public final class CorePublicApiTrustRoots {
 
-    private CorePublicApiTrustRoots() {
-    }
+    private CorePublicApiTrustRoots() {}
 
     /**
      * @param profile Cubism Core profile, {@code "5.2.03"} or {@code "5.3.02"}
@@ -20,9 +19,7 @@ public final class CorePublicApiTrustRoots {
         return switch (profile) {
             case "5.2.03" -> "cubism-5.2.03.core-model-read.static";
             case "5.3.02" -> "cubism-5.3.02.core-model-read.static";
-            default -> throw new IllegalArgumentException(
-                "unsupported Cubism Core profile: " + profile
-            );
+            default -> throw new IllegalArgumentException("unsupported Cubism Core profile: " + profile);
         };
     }
 }

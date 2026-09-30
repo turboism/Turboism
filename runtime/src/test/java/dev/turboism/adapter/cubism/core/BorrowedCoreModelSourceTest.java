@@ -1,13 +1,5 @@
 package dev.turboism.adapter.cubism.core;
 
-import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Modifier;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -15,6 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+
+import java.lang.reflect.Modifier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 class BorrowedCoreModelSourceTest {
 
@@ -24,17 +23,13 @@ class BorrowedCoreModelSourceTest {
         final SyntheticModel model = new SyntheticModel("model-a");
         source.publishBorrowedModel(model, "model-a");
 
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
 
         assertEquals(1L, lease.generation());
         assertEquals("model-a", lease.modelIdentity());
         assertEquals("cubism-core-public-5.2.03", lease.providerId());
         assertEquals("5.2.03", lease.artifactProfile());
-        assertEquals(
-            "model-a",
-            lease.readForProvider(raw -> ((SyntheticModel) raw).identity())
-        );
+        assertEquals("model-a", lease.readForProvider(raw -> ((SyntheticModel) raw).identity()));
         assertFalse(Modifier.isPublic(CoreModelLease.class.getModifiers()));
         assertFalse(Modifier.isPublic(ActiveCoreModelSource.class.getModifiers()));
         assertFalse(Modifier.isPublic(BorrowedCoreModelSource.class.getModifiers()));
@@ -50,12 +45,8 @@ class BorrowedCoreModelSourceTest {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
 
-        final CoreModelAcquisition unavailable =
-            source.acquire(CorePublicApiProvider.safeMode());
-        assertEquals(
-            CoreModelFailure.Code.ADAPTER_UNAVAILABLE,
-            failureCode(unavailable)
-        );
+        final CoreModelAcquisition unavailable = source.acquire(CorePublicApiProvider.safeMode());
+        assertEquals(CoreModelFailure.Code.ADAPTER_UNAVAILABLE, failureCode(unavailable));
 
         source.clearBorrowedModel();
         final CoreModelAcquisition missing = source.acquire(provider("5.3.02"));
@@ -69,40 +60,28 @@ class BorrowedCoreModelSourceTest {
         final SyntheticModel first = new SyntheticModel("model-a");
         final SyntheticModel second = new SyntheticModel("model-b");
         source.publishBorrowedModel(first, "model-a");
-        final CoreModelLease firstLease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease firstLease =
+                source.acquire(provider("5.2.03")).lease().orElseThrow();
 
         final AtomicReference<Throwable> replacementFailure = new AtomicReference<>();
         final Thread replacement = new Thread(
-            () -> captureFailure(
-                () -> source.publishBorrowedModel(second, "model-b"),
-                replacementFailure
-            ),
-            "core-model-replacement"
-        );
+                () -> captureFailure(() -> source.publishBorrowedModel(second, "model-b"), replacementFailure),
+                "core-model-replacement");
         replacement.start();
         awaitWaiting(replacement);
 
-        assertEquals(
-            CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
-            failureCode(source.acquire(provider("5.2.03")))
-        );
-        assertEquals("model-a", firstLease.readForProvider(
-            raw -> ((SyntheticModel) raw).identity()
-        ));
+        assertEquals(CoreModelFailure.Code.TRANSITION_IN_PROGRESS, failureCode(source.acquire(provider("5.2.03"))));
+        assertEquals("model-a", firstLease.readForProvider(raw -> ((SyntheticModel) raw).identity()));
 
         firstLease.close();
         join(replacement);
         assertNull(replacementFailure.get());
 
-        final CoreModelLease secondLease = source.acquire(provider("5.3.02"))
-            .lease().orElseThrow();
+        final CoreModelLease secondLease =
+                source.acquire(provider("5.3.02")).lease().orElseThrow();
         assertEquals(2L, secondLease.generation());
         assertEquals("model-b", secondLease.modelIdentity());
-        assertEquals(
-            "model-b",
-            secondLease.readForProvider(raw -> ((SyntheticModel) raw).identity())
-        );
+        assertEquals("model-b", secondLease.readForProvider(raw -> ((SyntheticModel) raw).identity()));
         secondLease.close();
         source.close();
 
@@ -115,28 +94,18 @@ class BorrowedCoreModelSourceTest {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         final SyntheticModel model = new SyntheticModel("model-a");
         source.publishBorrowedModel(model, "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
 
         final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
-        final Thread closing = new Thread(
-            () -> captureFailure(source::close, closeFailure),
-            "core-model-source-close"
-        );
+        final Thread closing = new Thread(() -> captureFailure(source::close, closeFailure), "core-model-source-close");
         closing.start();
         awaitWaiting(closing);
-        assertEquals(
-            CoreModelFailure.Code.TRANSITION_IN_PROGRESS,
-            failureCode(source.acquire(provider("5.2.03")))
-        );
+        assertEquals(CoreModelFailure.Code.TRANSITION_IN_PROGRESS, failureCode(source.acquire(provider("5.2.03"))));
 
         lease.close();
         join(closing);
         assertNull(closeFailure.get());
-        assertEquals(
-            CoreModelFailure.Code.SOURCE_CLOSED,
-            failureCode(source.acquire(provider("5.2.03")))
-        );
+        assertEquals(CoreModelFailure.Code.SOURCE_CLOSED, failureCode(source.acquire(provider("5.2.03"))));
         source.close();
         assertNoLifecycleCalls(model);
     }
@@ -146,32 +115,24 @@ class BorrowedCoreModelSourceTest {
         final AtomicLong currentGeneration = new AtomicLong(2L);
         final AtomicInteger releases = new AtomicInteger();
         final CoreModelLease lease = new CoreModelLease(
-            1L,
-            "model-a",
-            "cubism-core-fake",
-            "synthetic",
-            new SyntheticModel("model-a"),
-            currentGeneration::get,
-            releases::incrementAndGet
-        );
+                1L,
+                "model-a",
+                "cubism-core-fake",
+                "synthetic",
+                new SyntheticModel("model-a"),
+                currentGeneration::get,
+                releases::incrementAndGet);
 
-        final CoreModelLeaseException stale = assertThrows(
-            CoreModelLeaseException.class,
-            () -> lease.readForProvider(raw -> "unused")
-        );
-        assertEquals(
-            CoreModelFailure.Code.STALE_GENERATION,
-            stale.failure().code()
-        );
+        final CoreModelLeaseException stale =
+                assertThrows(CoreModelLeaseException.class, () -> lease.readForProvider(raw -> "unused"));
+        assertEquals(CoreModelFailure.Code.STALE_GENERATION, stale.failure().code());
 
         currentGeneration.set(1L);
         lease.close();
         lease.close();
         assertEquals(1, releases.get());
-        final CoreModelLeaseException closed = assertThrows(
-            CoreModelLeaseException.class,
-            () -> lease.readForProvider(raw -> "unused")
-        );
+        final CoreModelLeaseException closed =
+                assertThrows(CoreModelLeaseException.class, () -> lease.readForProvider(raw -> "unused"));
         assertEquals(CoreModelFailure.Code.LEASE_CLOSED, closed.failure().code());
     }
 
@@ -179,29 +140,24 @@ class BorrowedCoreModelSourceTest {
     void leaseCloseWaitsForInFlightScopedRead() {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
-        final java.util.concurrent.CountDownLatch readEntered =
-            new java.util.concurrent.CountDownLatch(1);
-        final java.util.concurrent.CountDownLatch releaseRead =
-            new java.util.concurrent.CountDownLatch(1);
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
+        final java.util.concurrent.CountDownLatch readEntered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseRead = new java.util.concurrent.CountDownLatch(1);
         final AtomicReference<Throwable> readFailure = new AtomicReference<>();
         final AtomicReference<Throwable> closeFailure = new AtomicReference<>();
 
         final Thread reader = new Thread(
-            () -> captureFailure(() -> lease.readForProvider(raw -> {
-                readEntered.countDown();
-                await(releaseRead);
-                return null;
-            }), readFailure),
-            "core-model-reader"
-        );
+                () -> captureFailure(
+                        () -> lease.readForProvider(raw -> {
+                            readEntered.countDown();
+                            await(releaseRead);
+                            return null;
+                        }),
+                        readFailure),
+                "core-model-reader");
         reader.start();
         await(readEntered);
-        final Thread closing = new Thread(
-            () -> captureFailure(lease::close, closeFailure),
-            "core-model-lease-close"
-        );
+        final Thread closing = new Thread(() -> captureFailure(lease::close, closeFailure), "core-model-lease-close");
         closing.start();
         awaitBlocked(closing);
 
@@ -227,10 +183,7 @@ class BorrowedCoreModelSourceTest {
 
         assertNull(source.publishedModel());
         assertEquals(1, cleared.get(), "a repeated idle release stays idempotent");
-        assertEquals(
-            CoreModelFailure.Code.MODEL_UNAVAILABLE,
-            failureCode(source.acquire(provider("5.3.02")))
-        );
+        assertEquals(CoreModelFailure.Code.MODEL_UNAVAILABLE, failureCode(source.acquire(provider("5.3.02"))));
         source.close();
         assertNoLifecycleCalls(model);
     }
@@ -242,24 +195,17 @@ class BorrowedCoreModelSourceTest {
         source.onModelCleared(cleared::incrementAndGet);
         final SyntheticModel model = new SyntheticModel("model-a");
         source.publishBorrowedModel(model, "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
 
         source.releaseWhenIdle();
         assertSame(model, source.publishedModel(), "a held lease keeps the model published");
-        assertEquals(
-            "model-a",
-            lease.readForProvider(raw -> ((SyntheticModel) raw).identity())
-        );
+        assertEquals("model-a", lease.readForProvider(raw -> ((SyntheticModel) raw).identity()));
         assertEquals(0, cleared.get());
 
         lease.close();
         assertNull(source.publishedModel());
         assertEquals(1, cleared.get());
-        assertEquals(
-            CoreModelFailure.Code.MODEL_UNAVAILABLE,
-            failureCode(source.acquire(provider("5.3.02")))
-        );
+        assertEquals(CoreModelFailure.Code.MODEL_UNAVAILABLE, failureCode(source.acquire(provider("5.3.02"))));
         source.close();
     }
 
@@ -267,31 +213,23 @@ class BorrowedCoreModelSourceTest {
     void aLaterPublicationCancelsAPendingIdleRelease() {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
         source.releaseWhenIdle();
 
         final AtomicReference<Throwable> publishFailure = new AtomicReference<>();
         final Thread publishing = new Thread(
-            () -> captureFailure(
-                () -> source.publishBorrowedModel(new SyntheticModel("model-b"), "model-b"),
-                publishFailure
-            ),
-            "core-model-republish"
-        );
+                () -> captureFailure(
+                        () -> source.publishBorrowedModel(new SyntheticModel("model-b"), "model-b"), publishFailure),
+                "core-model-republish");
         publishing.start();
         awaitWaiting(publishing);
 
         lease.close();
         join(publishing);
         assertNull(publishFailure.get());
-        final CoreModelLease republished = source.acquire(provider("5.3.02"))
-            .lease().orElseThrow();
-        assertEquals(
-            "model-b",
-            republished.modelIdentity(),
-            "the pending release must not forget the replacement"
-        );
+        final CoreModelLease republished =
+                source.acquire(provider("5.3.02")).lease().orElseThrow();
+        assertEquals("model-b", republished.modelIdentity(), "the pending release must not forget the replacement");
         republished.close();
         source.close();
     }
@@ -301,17 +239,12 @@ class BorrowedCoreModelSourceTest {
         final BorrowedCoreModelSource source = new BorrowedCoreModelSource();
         final SyntheticModel replacement = new SyntheticModel("model-b");
         source.publishBorrowedModel(new SyntheticModel("model-a"), "model-a");
-        final CoreModelLease lease = source.acquire(provider("5.2.03"))
-            .lease().orElseThrow();
+        final CoreModelLease lease = source.acquire(provider("5.2.03")).lease().orElseThrow();
 
         final AtomicReference<Throwable> publishFailure = new AtomicReference<>();
         final Thread publishing = new Thread(
-            () -> captureFailure(
-                () -> source.publishBorrowedModel(replacement, "model-b"),
-                publishFailure
-            ),
-            "core-model-republish"
-        );
+                () -> captureFailure(() -> source.publishBorrowedModel(replacement, "model-b"), publishFailure),
+                "core-model-republish");
         publishing.start();
         awaitWaiting(publishing);
 
@@ -323,14 +256,13 @@ class BorrowedCoreModelSourceTest {
         join(publishing);
         assertNull(publishFailure.get());
 
-        final CoreModelLease republished = source.acquire(provider("5.3.02"))
-            .lease().orElseThrow();
+        final CoreModelLease republished =
+                source.acquire(provider("5.3.02")).lease().orElseThrow();
         republished.close();
         assertSame(
-            replacement,
-            source.publishedModel(),
-            "a release racing a blocked publication must not forget the new model"
-        );
+                replacement,
+                source.publishedModel(),
+                "a release racing a blocked publication must not forget the new model");
         source.close();
     }
 
@@ -355,18 +287,15 @@ class BorrowedCoreModelSourceTest {
 
     private static int readMethodModifiers() {
         try {
-            return CoreModelLease.class.getDeclaredMethod(
-                "readForProvider",
-                java.util.function.Function.class
-            ).getModifiers();
+            return CoreModelLease.class
+                    .getDeclaredMethod("readForProvider", java.util.function.Function.class)
+                    .getModifiers();
         } catch (NoSuchMethodException exception) {
             throw new AssertionError(exception);
         }
     }
 
-    private static CoreModelFailure.Code failureCode(
-        final CoreModelAcquisition acquisition
-    ) {
+    private static CoreModelFailure.Code failureCode(final CoreModelAcquisition acquisition) {
         assertFalse(acquisition.isAcquired());
         return acquisition.failure().orElseThrow().code();
     }
@@ -380,10 +309,7 @@ class BorrowedCoreModelSourceTest {
         assertEquals(0, model.deleteCalls.get());
     }
 
-    private static void captureFailure(
-        final Runnable operation,
-        final AtomicReference<Throwable> failure
-    ) {
+    private static void captureFailure(final Runnable operation, final AtomicReference<Throwable> failure) {
         try {
             operation.run();
         } catch (Throwable throwable) {
@@ -429,8 +355,7 @@ class BorrowedCoreModelSourceTest {
         assertFalse(thread.isAlive(), "thread did not terminate");
     }
 
-    private record TestProvider(String artifactProfile)
-        implements CorePublicApiProvider {
+    private record TestProvider(String artifactProfile) implements CorePublicApiProvider {
 
         @Override
         public String providerId() {

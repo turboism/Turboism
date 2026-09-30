@@ -17,7 +17,6 @@ import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,17 +31,13 @@ final class PermissionCheckedCubismReadCapabilityService implements CubismReadCa
     private final CubismReadCapabilityService delegate;
 
     private PermissionCheckedCubismReadCapabilityService(
-        final PermissionChecker permissions,
-        final CubismReadCapabilityService delegate
-    ) {
+            final PermissionChecker permissions, final CubismReadCapabilityService delegate) {
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.delegate = Objects.requireNonNull(delegate, "delegate");
     }
 
     static CubismReadCapabilityService wrap(
-        final PermissionChecker permissions,
-        final CubismReadCapabilityService delegate
-    ) {
+            final PermissionChecker permissions, final CubismReadCapabilityService delegate) {
         if (delegate == null) {
             return null;
         }

@@ -1,7 +1,6 @@
 package dev.turboism.task;
 
 import dev.turboism.sdk.task.TaskId;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
@@ -16,10 +15,7 @@ final class ActiveTaskAdmission {
     private AbstractRuntimeTaskHandle candidate;
 
     ActiveTaskAdmission(
-        final TaskId id,
-        final Map<TaskId, AbstractRuntimeTaskHandle> activeTasks,
-        final Semaphore permits
-    ) {
+            final TaskId id, final Map<TaskId, AbstractRuntimeTaskHandle> activeTasks, final Semaphore permits) {
         this.id = Objects.requireNonNull(id, "id");
         this.activeTasks = Objects.requireNonNull(activeTasks, "activeTasks");
         this.permits = Objects.requireNonNull(permits, "permits");

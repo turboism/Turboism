@@ -1,22 +1,21 @@
 package dev.turboism.adapter.cubism.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.cubism.model.Parameter;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
+import dev.turboism.sdk.permission.PluginPermission;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeCoreModelBackendTest {
 
@@ -28,18 +27,18 @@ class RuntimeCoreModelBackendTest {
     @Test
     void rejectsEditorObjectsBeforePublishingOrReplacingACoreGeneration() {
         try (RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolver("5.3.02"),
-            CoreVersionExpectation.exact(11, 12, 13)
-        ).value().orElseThrow()) {
+                        TestCoreApiFixture.resolver("5.3.02"), CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow()) {
             final Object editorModel = new Object();
-            assertThrows(IllegalArgumentException.class,
-                () -> backend.publishBorrowedModel(editorModel, "editor-model"));
-            assertThrows(IllegalStateException.class, () -> backend.modelAccess().active());
-            backend.publishBorrowedModel(coreModel(new float[]{10.0F}), "core-model");
-            final var parameter = backend.modelAccess().active().parameters()
-                .find(new ParameterId("ParamAngleX"));
-            assertThrows(IllegalArgumentException.class,
-                () -> backend.publishBorrowedModel(editorModel, "editor-model"));
+            assertThrows(
+                    IllegalArgumentException.class, () -> backend.publishBorrowedModel(editorModel, "editor-model"));
+            assertThrows(
+                    IllegalStateException.class, () -> backend.modelAccess().active());
+            backend.publishBorrowedModel(coreModel(new float[] {10.0F}), "core-model");
+            final var parameter = backend.modelAccess().active().parameters().find(new ParameterId("ParamAngleX"));
+            assertThrows(
+                    IllegalArgumentException.class, () -> backend.publishBorrowedModel(editorModel, "editor-model"));
             assertEquals(10.0F, parameter.getValue());
         }
     }
@@ -47,68 +46,53 @@ class RuntimeCoreModelBackendTest {
     @Test
     void admitsPublishesClearsAndClosesOneRuntimeOwnedBackend() {
         final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolver("5.3.02"),
-            CoreVersionExpectation.exact(11, 12, 13)
-        ).value().orElseThrow();
+                        TestCoreApiFixture.resolver("5.3.02"), CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
         final AtomicInteger hostCloseCalls = new AtomicInteger();
-        final BorrowedModel model = new BorrowedModel(
-            coreModel(new float[]{10.0F}),
-            hostCloseCalls
-        );
+        final BorrowedModel model = new BorrowedModel(coreModel(new float[] {10.0F}), hostCloseCalls);
 
         backend.publishBorrowedModel(model.coreModel, "model-a");
         final CubismFacadeImpl facade = new CubismFacadeImpl(
-            emptyHostSource(),
-            new CubismPermissionGate(
-                "plugin.demo",
-                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
-                ignored -> { },
-                Clock.systemUTC()
-            ),
-            backend
-        );
+                emptyHostSource(),
+                new CubismPermissionGate(
+                        "plugin.demo",
+                        List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                        ignored -> {},
+                        Clock.systemUTC()),
+                backend);
         final var runtimeInfo = facade.coreRuntime();
-        assertEquals(
-            new dev.turboism.sdk.cubism.core.CoreVersion(11, 12, 13),
-            runtimeInfo.version()
-        );
-        final Parameter parameter = facade.model().active()
-            .parameters()
-            .find(new ParameterId("ParamAngleX"));
+        assertEquals(new dev.turboism.sdk.cubism.core.CoreVersion(11, 12, 13), runtimeInfo.version());
+        final Parameter parameter = facade.model().active().parameters().find(new ParameterId("ParamAngleX"));
         assertEquals(10.0F, parameter.getValue());
         assertEquals(0, parameter.index());
         assertEquals(0, parameter.keyValues().size());
 
         backend.clearBorrowedModel();
-        final IllegalStateException stale = assertThrows(
-            IllegalStateException.class,
-            parameter::getValue
-        );
+        final IllegalStateException stale = assertThrows(IllegalStateException.class, parameter::getValue);
         assertTrue(stale.getMessage().contains("No verified active")
-            || stale.getMessage().contains("stale"));
+                || stale.getMessage().contains("stale"));
 
         backend.close();
         backend.close();
         assertEquals(0, hostCloseCalls.get());
         assertThrows(IllegalStateException.class, () -> backend.modelAccess().active());
         assertThrows(IllegalStateException.class, runtimeInfo::version);
-        assertThrows(
-            IllegalStateException.class,
-            () -> backend.publishBorrowedModel(model.coreModel, "model-b")
-        );
+        assertThrows(IllegalStateException.class, () -> backend.publishBorrowedModel(model.coreModel, "model-b"));
     }
-
 
     @Test
     void admitsReviewedRecordVersionsThroughCanonicalStructuralProfiles() {
         final RuntimeCoreModelBackend backend52 = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.2.03", "5.2.03"),
-            CoreVersionExpectation.exact(11, 12, 13)
-        ).value().orElseThrow();
+                        TestCoreApiFixture.resolverForReviewedVersion("5.2.03", "5.2.03"),
+                        CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
         final RuntimeCoreModelBackend backend53 = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.3.02", "5.3.02"),
-            CoreVersionExpectation.exact(11, 12, 13)
-        ).value().orElseThrow();
+                        TestCoreApiFixture.resolverForReviewedVersion("5.3.02", "5.3.02"),
+                        CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
 
         backend52.close();
         backend53.close();
@@ -117,20 +101,19 @@ class RuntimeCoreModelBackendTest {
     @Test
     void publishedBorrowedModelBecomesReadableThroughTheEvaluatedJoin() {
         final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolver("5.3.02"),
-            CoreVersionExpectation.exact(11, 12, 13)
-        ).value().orElseThrow();
+                        TestCoreApiFixture.resolver("5.3.02"), CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
         try {
-            backend.publishBorrowedModel(coreModel(new float[]{10.0F}), "session:model");
+            backend.publishBorrowedModel(coreModel(new float[] {10.0F}), "session:model");
             final CoreEvaluatedJoin.CoreEvaluatedSnapshot snapshot =
-                backend.evaluatedJoin().evaluated("session:model:1");
+                    backend.evaluatedJoin().evaluated("session:model:1");
             assertEquals(1, snapshot.generation());
             assertTrue(snapshot.drawablesById().isEmpty());
             // The same identity re-reads the pinned generation without re-tracing.
             assertEquals(
-                snapshot.generation(),
-                backend.evaluatedJoin().evaluated("session:model:1").generation()
-            );
+                    snapshot.generation(),
+                    backend.evaluatedJoin().evaluated("session:model:1").generation());
         } finally {
             backend.close();
         }
@@ -138,20 +121,17 @@ class RuntimeCoreModelBackendTest {
 
     @Test
     void rejectedProviderDoesNotPublishPartialBackend() {
-        final CoreProviderResult<RuntimeCoreModelBackend> result =
-            RuntimeCoreModelBackend.admit(
+        final CoreProviderResult<RuntimeCoreModelBackend> result = RuntimeCoreModelBackend.admit(
                 TestCoreApiFixture.resolver(
-                    "5.3.02",
-                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
-                ),
-                CoreVersionExpectation.exact(11, 12, 13)
-            );
+                        "5.3.02",
+                        dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
+                                .PARAMETERS_GET_REPEATS),
+                CoreVersionExpectation.exact(11, 12, 13));
 
         assertTrue(result.value().isEmpty());
         assertEquals(
-            CoreProviderFailure.Code.EVIDENCE_REJECTED,
-            result.failure().orElseThrow().code()
-        );
+                CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                result.failure().orElseThrow().code());
     }
 
     private static PluginPermission permission(final String id) {
@@ -192,12 +172,7 @@ class RuntimeCoreModelBackendTest {
 
             @Override
             public HostSelection selection() {
-                return new HostSelection(
-                    List.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                );
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
             }
 
             @Override
@@ -214,31 +189,20 @@ class RuntimeCoreModelBackendTest {
 
     private static TestCoreApiFixture.Model coreModel(final float[] values) {
         return new TestCoreApiFixture.Model(
-            new TestCoreApiFixture.CanvasInfo(
-                new float[]{1000.0F, 500.0F},
-                new float[]{500.0F, 250.0F},
-                100.0F
-            ),
-            new TestCoreApiFixture.Parameters(
-                new String[]{"ParamAngleX"},
-                new TestCoreApiFixture.ParameterType[]{
-                    new TestCoreApiFixture.ParameterType(0)
-                },
-                new float[]{-30.0F},
-                new float[]{30.0F},
-                new float[]{0.0F},
-                values,
-                new int[]{0},
-                new float[][]{new float[0]},
-                new boolean[]{false}
-            )
-        );
+                new TestCoreApiFixture.CanvasInfo(new float[] {1000.0F, 500.0F}, new float[] {500.0F, 250.0F}, 100.0F),
+                new TestCoreApiFixture.Parameters(
+                        new String[] {"ParamAngleX"},
+                        new TestCoreApiFixture.ParameterType[] {new TestCoreApiFixture.ParameterType(0)},
+                        new float[] {-30.0F},
+                        new float[] {30.0F},
+                        new float[] {0.0F},
+                        values,
+                        new int[] {0},
+                        new float[][] {new float[0]},
+                        new boolean[] {false}));
     }
 
-    private record BorrowedModel(
-        TestCoreApiFixture.Model coreModel,
-        AtomicInteger closeCalls
-    ) {
+    private record BorrowedModel(TestCoreApiFixture.Model coreModel, AtomicInteger closeCalls) {
         @SuppressWarnings("unused")
         void close() {
             closeCalls.incrementAndGet();

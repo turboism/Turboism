@@ -15,11 +15,7 @@ import java.util.Optional;
  * @param identity the declared identity; present only for {@link Status#DECLARED}
  * @param detail stable lower-case diagnostic detail, never blank
  */
-public record HostIdentityProbe(
-    Status status,
-    Optional<CubismHostIdentity> identity,
-    String detail
-) {
+public record HostIdentityProbe(Status status, Optional<CubismHostIdentity> identity, String detail) {
 
     public HostIdentityProbe {
         status = Objects.requireNonNull(status, "status");

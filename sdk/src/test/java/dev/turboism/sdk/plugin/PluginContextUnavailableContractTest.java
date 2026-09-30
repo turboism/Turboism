@@ -58,12 +58,11 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -74,17 +73,60 @@ import org.junit.jupiter.api.Test;
 class PluginContextUnavailableContractTest {
 
     private final PluginContext context = new PluginContext() {
-        @Override public PluginDescriptor descriptor() { return null; }
-        @Override public PluginLogger logger() { return null; }
-        @Override public PluginPaths paths() { return null; }
-        @Override public CubismFacade cubism() { return null; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public EventBus eventBus() { return null; }
-        @Override public ActionRegistry actions() { return null; }
-        @Override public MenuRegistry menus() { return null; }
-        @Override public UiScheduler uiScheduler() { return null; }
-        @Override public DiagnosticReport diagnostics() { return null; }
-        @Override public DisposableScope disposableScope() { return null; }
+        @Override
+        public PluginDescriptor descriptor() {
+            return null;
+        }
+
+        @Override
+        public PluginLogger logger() {
+            return null;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            return null;
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            return null;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            return null;
+        }
+
+        @Override
+        public ActionRegistry actions() {
+            return null;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            return null;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            return null;
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            return null;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return null;
+        }
     };
 
     @Test
@@ -125,9 +167,7 @@ class PluginContextUnavailableContractTest {
         assertSame(PaletteFilterRegistry.unavailable(), context.paletteFilter());
         assertSame(SceneTableService.unavailable(), context.sceneTable());
         assertSame(UiHostCapabilityService.unavailable(), context.uiHost());
-        assertSame(
-            dev.turboism.sdk.ui.resource.UiResourceService.unavailable(),
-            context.uiResources());
+        assertSame(dev.turboism.sdk.ui.resource.UiResourceService.unavailable(), context.uiResources());
         assertSame(HostDialogAutomationService.unavailable(), context.hostDialogs());
         assertSame(AppearanceService.unavailable(), context.appearance());
         assertSame(WorkspaceService.unavailable(), context.workspace());
@@ -197,49 +237,41 @@ class PluginContextUnavailableContractTest {
     void everyOptionalServiceAccessorHasExactlyOnePluginServiceMember() {
         int optionalAccessors = 0;
         for (Method method : PluginContext.class.getDeclaredMethods()) {
-            if (!method.isDefault()
-                || !exposesUnavailableSentinel(method.getReturnType())) {
+            if (!method.isDefault() || !exposesUnavailableSentinel(method.getReturnType())) {
                 continue;
             }
             optionalAccessors++;
             final String memberName = toMemberName(method.getName());
             assertDoesNotThrow(
-                () -> PluginService.valueOf(memberName),
-                "optional accessor " + method.getName()
-                    + "() has no PluginService." + memberName + " member"
-            );
+                    () -> PluginService.valueOf(memberName),
+                    "optional accessor " + method.getName() + "() has no PluginService." + memberName + " member");
         }
         for (PluginService service : PluginService.values()) {
             final String accessorName = toAccessorName(service.name());
             final Method accessor = assertDoesNotThrow(
-                () -> PluginContext.class.getDeclaredMethod(accessorName),
-                "PluginService." + service.name()
-                    + " has no PluginContext." + accessorName + "() accessor"
-            );
+                    () -> PluginContext.class.getDeclaredMethod(accessorName),
+                    "PluginService." + service.name() + " has no PluginContext." + accessorName + "() accessor");
             assertTrue(
-                accessor.isDefault(),
-                "PluginService." + service.name() + " maps to guaranteed accessor "
-                    + accessorName + "(), which must not carry a member"
-            );
+                    accessor.isDefault(),
+                    "PluginService." + service.name() + " maps to guaranteed accessor " + accessorName
+                            + "(), which must not carry a member");
             assertTrue(
-                exposesUnavailableSentinel(accessor.getReturnType()),
-                "PluginService." + service.name() + " maps to accessor " + accessorName
-                    + "() whose return type exposes no unavailable() sentinel"
-            );
+                    exposesUnavailableSentinel(accessor.getReturnType()),
+                    "PluginService." + service.name() + " maps to accessor " + accessorName
+                            + "() whose return type exposes no unavailable() sentinel");
         }
         assertEquals(
-            optionalAccessors,
-            PluginService.values().length,
-            "optional accessors and PluginService members must be a bijection"
-        );
+                optionalAccessors,
+                PluginService.values().length,
+                "optional accessors and PluginService members must be a bijection");
     }
 
     private static boolean exposesUnavailableSentinel(final Class<?> serviceType) {
         for (Method method : serviceType.getMethods()) {
             if (method.getName().equals("unavailable")
-                && Modifier.isStatic(method.getModifiers())
-                && method.getParameterCount() == 0
-                && serviceType.isAssignableFrom(method.getReturnType())) {
+                    && Modifier.isStatic(method.getModifiers())
+                    && method.getParameterCount() == 0
+                    && serviceType.isAssignableFrom(method.getReturnType())) {
                 return true;
             }
         }
@@ -247,9 +279,7 @@ class PluginContextUnavailableContractTest {
     }
 
     private static String toMemberName(final String accessorName) {
-        return accessorName
-            .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
-            .toUpperCase(Locale.ROOT);
+        return accessorName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toUpperCase(Locale.ROOT);
     }
 
     private static String toAccessorName(final String memberName) {
@@ -266,20 +296,22 @@ class PluginContextUnavailableContractTest {
 
     @Test
     void unavailableSentinelsFailClosedOnDomainCalls() {
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().participate());
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().setArmedAxis(1));
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().nativeMirrorActive());
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.viewContextMenu().contributeStateButtons(
-                new ViewContextMenuRegistry.StateButtonContribution(
-                    "id",
-                    Map.of(0, new UiRasterImage(1, 1, new int[1])),
-                    0,
-                    ignored -> { })));
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.viewContextMenu().updateButtonState("id", 1));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> context.warpAltMirrorParticipation().participate());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> context.warpAltMirrorParticipation().setArmedAxis(1));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> context.warpAltMirrorParticipation().nativeMirrorActive());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> context.viewContextMenu()
+                        .contributeStateButtons(new ViewContextMenuRegistry.StateButtonContribution(
+                                "id", Map.of(0, new UiRasterImage(1, 1, new int[1])), 0, ignored -> {})));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> context.viewContextMenu().updateButtonState("id", 1));
     }
 }

@@ -1,15 +1,14 @@
 package dev.turboism.failure;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeFailureCollectorTest {
 
@@ -24,16 +23,12 @@ class RuntimeFailureCollectorTest {
         collector.record(RuntimeFailureDomain.TASK, zeta);
 
         final RuntimeFailureSnapshot snapshot = collector.snapshot();
-        assertEquals(List.of(
-            alpha.withCount(1),
-            zeta.withCount(2)
-        ), snapshot.taskFailures());
+        assertEquals(List.of(alpha.withCount(1), zeta.withCount(2)), snapshot.taskFailures());
         assertTrue(snapshot.storageFailures().isEmpty());
         assertTrue(snapshot.configFailures().isEmpty());
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> snapshot.taskFailures().add(alpha)
-        );
+                UnsupportedOperationException.class,
+                () -> snapshot.taskFailures().add(alpha));
     }
 
     @Test
@@ -47,11 +42,7 @@ class RuntimeFailureCollectorTest {
             final RuntimeFailure overflow = overflow(failures);
             assertEquals(RuntimeFailureCollector.ENTRY_LIMIT, failures.size(), domain.name());
             assertEquals(3, overflow.count(), domain.name());
-            assertEquals(
-                258,
-                failures.stream().mapToLong(RuntimeFailure::count).sum(),
-                domain.name()
-            );
+            assertEquals(258, failures.stream().mapToLong(RuntimeFailure::count).sum(), domain.name());
             assertTrue(failures.stream().noneMatch(value -> value.code().equals("ZZZ_EVICTED")));
         }
     }
@@ -61,9 +52,8 @@ class RuntimeFailureCollectorTest {
         final RuntimeFailureCollector collector = new RuntimeFailureCollector();
         fillToLimit(collector, RuntimeFailureDomain.STORAGE, 2);
         collector.record(
-            RuntimeFailureDomain.STORAGE,
-            failure("NEW_FAILURE", pluginId(RuntimeFailureDomain.STORAGE), "operation")
-        );
+                RuntimeFailureDomain.STORAGE,
+                failure("NEW_FAILURE", pluginId(RuntimeFailureDomain.STORAGE), "operation"));
 
         final List<RuntimeFailure> failures = collector.snapshot().storageFailures();
         final List<RuntimeFailure> expected = new ArrayList<>(failures);
@@ -80,14 +70,14 @@ class RuntimeFailureCollectorTest {
         final RuntimeFailureCollector collector = new RuntimeFailureCollector();
         fillToLimit(collector, RuntimeFailureDomain.TASK, Long.MAX_VALUE - 2);
         collector.record(
-            RuntimeFailureDomain.TASK,
-            failure("NEW_FAILURE", pluginId(RuntimeFailureDomain.TASK), "operation").withCount(10)
-        );
+                RuntimeFailureDomain.TASK,
+                failure("NEW_FAILURE", pluginId(RuntimeFailureDomain.TASK), "operation")
+                        .withCount(10));
 
         assertEquals(
-            Long.MAX_VALUE,
-            overflow(failures(collector.snapshot(), RuntimeFailureDomain.TASK)).count()
-        );
+                Long.MAX_VALUE,
+                overflow(failures(collector.snapshot(), RuntimeFailureDomain.TASK))
+                        .count());
     }
 
     @Test
@@ -118,33 +108,27 @@ class RuntimeFailureCollectorTest {
         }
 
         assertEquals(
-            (long) workers * iterations,
-            collector.snapshot().taskFailures().get(0).count()
-        );
+                (long) workers * iterations,
+                collector.snapshot().taskFailures().get(0).count());
     }
 
     private static void fillToLimit(
-        final RuntimeFailureCollector collector,
-        final RuntimeFailureDomain domain,
-        final long evictedCount
-    ) {
+            final RuntimeFailureCollector collector, final RuntimeFailureDomain domain, final long evictedCount) {
         for (int index = 0; index < RuntimeFailureCollector.ENTRY_LIMIT - 2; index++) {
-            collector.record(domain, failure(
-                "ENTRY_%03d".formatted(index),
-                pluginId(domain),
-                "operation"
-            ));
+            collector.record(domain, failure("ENTRY_%03d".formatted(index), pluginId(domain), "operation"));
         }
-        collector.record(domain, failure("OTHER_AGGREGATE", pluginId(domain), "operation").withCount(2));
-        collector.record(domain, failure("ZZZ_EVICTED", pluginId(domain), "operation")
-            .withCount(evictedCount));
+        collector.record(
+                domain,
+                failure("OTHER_AGGREGATE", pluginId(domain), "operation").withCount(2));
+        collector.record(
+                domain, failure("ZZZ_EVICTED", pluginId(domain), "operation").withCount(evictedCount));
     }
 
     private static RuntimeFailure overflow(final List<RuntimeFailure> failures) {
         return failures.stream()
-            .filter(value -> value.code().equals("FAILURE_COLLECTOR_ENTRY_LIMIT"))
-            .findFirst()
-            .orElseThrow();
+                .filter(value -> value.code().equals("FAILURE_COLLECTOR_ENTRY_LIMIT"))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static String pluginId(final RuntimeFailureDomain domain) {
@@ -152,9 +136,7 @@ class RuntimeFailureCollectorTest {
     }
 
     private static List<RuntimeFailure> failures(
-        final RuntimeFailureSnapshot snapshot,
-        final RuntimeFailureDomain domain
-    ) {
+            final RuntimeFailureSnapshot snapshot, final RuntimeFailureDomain domain) {
         return switch (domain) {
             case TASK -> snapshot.taskFailures();
             case STORAGE -> snapshot.storageFailures();
@@ -163,22 +145,9 @@ class RuntimeFailureCollectorTest {
         };
     }
 
-    private static RuntimeFailure failure(
-        final String code,
-        final String pluginId,
-        final String operationId
-    ) {
+    private static RuntimeFailure failure(final String code, final String pluginId, final String operationId) {
         return new RuntimeFailure(
-            code,
-            "ERROR",
-            "execution",
-            pluginId,
-            operationId,
-            null,
-            "Runtime operation failed safely.",
-            null,
-            1
-        );
+                code, "ERROR", "execution", pluginId, operationId, null, "Runtime operation failed safely.", null, 1);
     }
 
     private static void await(final CountDownLatch latch) {

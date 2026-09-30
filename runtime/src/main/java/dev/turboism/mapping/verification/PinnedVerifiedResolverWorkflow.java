@@ -13,21 +13,21 @@ final class PinnedVerifiedResolverWorkflow {
     private final HostClassSourceAttestor attestor = new HostClassSourceAttestor();
 
     VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader,
-        final Manifest manifest
-    ) throws IOException {
+            final Path reviewedRecord,
+            final Path verifiedArtifact,
+            final ClassLoader hostClassLoader,
+            final Manifest manifest)
+            throws IOException {
         return create(reviewedRecord, verifiedArtifact, hostClassLoader, manifest, null);
     }
 
     VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader,
-        final Manifest manifest,
-        final RuntimeScope runtimeScope
-    ) throws IOException {
+            final Path reviewedRecord,
+            final Path verifiedArtifact,
+            final ClassLoader hostClassLoader,
+            final Manifest manifest,
+            final RuntimeScope runtimeScope)
+            throws IOException {
         Objects.requireNonNull(reviewedRecord, "reviewedRecord");
         Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -40,27 +40,17 @@ final class PinnedVerifiedResolverWorkflow {
         final StaticVerificationRecord record = loaded.record();
         requireManifestRecord(record, manifest);
         final HostArtifactDigest before = HostArtifactDigest.from(verifiedArtifact);
-        if (before.size() != manifest.artifactSize()
-            || !before.sha256().equals(manifest.artifactSha256())) {
+        if (before.size() != manifest.artifactSize() || !before.sha256().equals(manifest.artifactSha256())) {
             throw new IllegalArgumentException("host artifact is not the reviewed Cubism artifact");
         }
-        final StaticVerificationReport report = verifier.verify(
-            verifiedArtifact,
-            record.artifact(),
-            record.selectors()
-        );
+        final StaticVerificationReport report =
+                verifier.verify(verifiedArtifact, record.artifact(), record.selectors());
         final VerifiedAccessPlan verifiedPlan = VerifiedAccessPlan.from(record, report);
         final boolean manifestMatches = runtimeScope == null
-            ? verifiedPlan.authorizes(
-                manifest.adapterSliceId(),
-                manifest.capabilityIds(),
-                manifest.requiredAliases()
-            )
-            : verifiedPlan.authorizesFeatureSet(
-                manifest.adapterSliceId(),
-                manifest.capabilityIds(),
-                manifest.requiredAliases()
-            );
+                ? verifiedPlan.authorizes(
+                        manifest.adapterSliceId(), manifest.capabilityIds(), manifest.requiredAliases())
+                : verifiedPlan.authorizesFeatureSet(
+                        manifest.adapterSliceId(), manifest.capabilityIds(), manifest.requiredAliases());
         if (!manifestMatches) {
             throw new IllegalArgumentException("record selectors do not match the runtime-owned manifest");
         }
@@ -70,11 +60,8 @@ final class PinnedVerifiedResolverWorkflow {
             throw new IllegalArgumentException("verified artifact changed during runtime attestation");
         }
         final VerifiedAccessPlan accessPlan = runtimeScope == null
-            ? verifiedPlan
-            : verifiedPlan.restrictTo(
-                runtimeScope.capabilityIds(),
-                runtimeScope.requiredAliases()
-            );
+                ? verifiedPlan
+                : verifiedPlan.restrictTo(runtimeScope.capabilityIds(), runtimeScope.requiredAliases());
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);
     }
 
@@ -86,11 +73,11 @@ final class PinnedVerifiedResolverWorkflow {
      * unchanged-artifact post-check are identical to the exact path.
      */
     VerifiedMemberResolver createCompatible(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final SliceContract contract
-    ) throws IOException {
+            final Path reviewedRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final SliceContract contract)
+            throws IOException {
         Objects.requireNonNull(reviewedRecord, "reviewedRecord");
         Objects.requireNonNull(hostArtifact, "hostArtifact");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -104,8 +91,8 @@ final class PinnedVerifiedResolverWorkflow {
         }
         final StaticVerificationRecord record = loaded.record();
         if (!record.verificationId().equals(contract.verificationId())
-            || !record.adapterSliceId().equals(contract.adapterSliceId())
-            || !record.cubismVersion().equals(contract.sourceVersion())) {
+                || !record.adapterSliceId().equals(contract.adapterSliceId())
+                || !record.cubismVersion().equals(contract.sourceVersion())) {
             throw new IllegalArgumentException("verification record does not match the admitted contract");
         }
         final HostArtifactDigest before = HostArtifactDigest.from(hostArtifact);
@@ -113,44 +100,38 @@ final class PinnedVerifiedResolverWorkflow {
             throw new IllegalArgumentException("host artifact changed since compatibility probing");
         }
         final StaticSelectorVerifier.StructureVerificationReport report =
-            verifier.verifyStructure(hostArtifact, record.selectors());
+                verifier.verifyStructure(hostArtifact, record.selectors());
         final VerifiedAccessPlan verifiedPlan = VerifiedAccessPlan.fromCompatibility(
-            record,
-            report,
-            contract.declaredVersion(),
-            new HostArtifactFingerprint(contract.declaredVersion(), before.size(), before.sha256())
-        );
+                record,
+                report,
+                contract.declaredVersion(),
+                new HostArtifactFingerprint(contract.declaredVersion(), before.size(), before.sha256()));
         attestor.attest(hostArtifact, hostClassLoader, verifiedPlan.selectors());
         final HostArtifactDigest after = HostArtifactDigest.from(hostArtifact);
         if (!after.equals(before)) {
             throw new IllegalArgumentException("admitted artifact changed during runtime attestation");
         }
         final VerifiedAccessPlan accessPlan = verifiedPlan.restrictTo(
-            contract.capabilities(),
-            verifiedPlan.selectors().stream().map(StaticSelector::alias).collect(java.util.stream.Collectors.toSet())
-        );
+                contract.capabilities(),
+                verifiedPlan.selectors().stream()
+                        .map(StaticSelector::alias)
+                        .collect(java.util.stream.Collectors.toSet()));
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);
     }
 
-    private static void requireManifestRecord(
-        final StaticVerificationRecord record,
-        final Manifest manifest
-    ) {
+    private static void requireManifestRecord(final StaticVerificationRecord record, final Manifest manifest) {
         if (!record.verificationId().equals(manifest.verificationId())
-            || !record.adapterSliceId().equals(manifest.adapterSliceId())
-            || !record.cubismVersion().equals(manifest.cubismVersion())
-            || !record.profileId().equals(manifest.profileId())
-            || !Set.copyOf(record.capabilityIds()).equals(manifest.capabilityIds())
-            || record.artifact().size() != manifest.artifactSize()
-            || !record.artifact().sha256().equals(manifest.artifactSha256())) {
+                || !record.adapterSliceId().equals(manifest.adapterSliceId())
+                || !record.cubismVersion().equals(manifest.cubismVersion())
+                || !record.profileId().equals(manifest.profileId())
+                || !Set.copyOf(record.capabilityIds()).equals(manifest.capabilityIds())
+                || record.artifact().size() != manifest.artifactSize()
+                || !record.artifact().sha256().equals(manifest.artifactSha256())) {
             throw new IllegalArgumentException("verification record fields do not match the reviewed manifest");
         }
     }
 
-    record RuntimeScope(
-        Set<String> capabilityIds,
-        Set<String> requiredAliases
-    ) {
+    record RuntimeScope(Set<String> capabilityIds, Set<String> requiredAliases) {
         RuntimeScope {
             capabilityIds = Set.copyOf(capabilityIds);
             requiredAliases = Set.copyOf(requiredAliases);
@@ -158,16 +139,15 @@ final class PinnedVerifiedResolverWorkflow {
     }
 
     record Manifest(
-        String verificationId,
-        String recordSha256,
-        String cubismVersion,
-        String profileId,
-        long artifactSize,
-        String artifactSha256,
-        String adapterSliceId,
-        Set<String> capabilityIds,
-        Set<String> requiredAliases
-    ) {
+            String verificationId,
+            String recordSha256,
+            String cubismVersion,
+            String profileId,
+            long artifactSize,
+            String artifactSha256,
+            String adapterSliceId,
+            Set<String> capabilityIds,
+            Set<String> requiredAliases) {
         Manifest {
             Objects.requireNonNull(verificationId, "verificationId");
             Objects.requireNonNull(recordSha256, "recordSha256");

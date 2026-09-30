@@ -10,8 +10,7 @@ public final class CEAppCtrl {
     private final ViewContext currentViewContext = new ViewContext();
     private boolean repainted;
 
-    private CEAppCtrl() {
-    }
+    private CEAppCtrl() {}
 
     public ViewContext getCurrentViewContext() {
         return currentViewContext;
@@ -32,7 +31,7 @@ public final class CEAppCtrl {
         INSTANCE.repainted = false;
         INSTANCE.currentViewContext.appearance.renderer.material = null;
         INSTANCE.currentViewContext.appearance.renderer.sharedMaterial =
-            twoArgumentMaterialOnly ? new TwoArgumentMaterial() : new Material();
+                twoArgumentMaterialOnly ? new TwoArgumentMaterial() : new Material();
     }
 
     public static Material material() {

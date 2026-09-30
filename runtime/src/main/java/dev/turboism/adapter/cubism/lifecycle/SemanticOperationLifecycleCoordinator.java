@@ -1,16 +1,16 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
-import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
+import dev.turboism.sdk.cubism.event.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
+import dev.turboism.sdk.cubism.event.ModelUpdateEvent;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
@@ -29,11 +29,11 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     private final AtomicLong sequence = new AtomicLong();
     private volatile RuntimeEventBroker eventBroker;
     private final ThreadLocal<EnumSet<CubismOperation>> active =
-        ThreadLocal.withInitial(() -> EnumSet.noneOf(CubismOperation.class));
+            ThreadLocal.withInitial(() -> EnumSet.noneOf(CubismOperation.class));
 
     /** Creates a coordinator with the standard bounded callback executor. */
     public SemanticOperationLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     /** Creates a coordinator with an explicit bounded callback executor. */
@@ -46,9 +46,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Semantic lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Semantic lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -59,7 +57,11 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -67,10 +69,8 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -78,7 +78,8 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -87,13 +88,12 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -104,12 +104,11 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
      * {@code on} is emitted only when the two immutable snapshots differ.
      */
     public <T> void runComparing(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Supplier<T> state,
-        final Runnable invocation
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Supplier<T> state,
+            final Runnable invocation) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
         run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
@@ -123,13 +122,12 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
      * post-invocation read. Use only when normal completion guarantees that state.
      */
     public <T> void runComparingTo(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Supplier<T> state,
-        final T finalState,
-        final Runnable invocation
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Supplier<T> state,
+            final T finalState,
+            final Runnable invocation) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
         run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
@@ -140,11 +138,10 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
 
     /** Runs one operation whose normal completion is itself the confirmed semantic fact. */
     public void runConfirmed(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Runnable invocation
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Runnable invocation) {
         run(operation, origin, subjectId, Optional.empty(), () -> {
             Objects.requireNonNull(invocation, "invocation").run();
             return true;
@@ -165,10 +162,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
      * @param subjectId optional Turboism-owned object identity the edit applies to
      */
     public void publishObserved(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId
-    ) {
+            final CubismOperation operation, final CubismOperationOrigin origin, final Optional<String> subjectId) {
         publishObserved(operation, origin, subjectId, Optional.empty());
     }
 
@@ -186,25 +180,21 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
      * @param label optional human-readable name of the observed edit
      */
     public void publishObserved(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Optional<String> label
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Optional<String> label) {
         final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
         final EnumSet<CubismOperation> operations = active.get();
         if (!operations.add(semantic)) {
-            throw new IllegalStateException(
-                "Recursive Cubism semantic lifecycle is not allowed: " + semantic.id()
-            );
+            throw new IllegalStateException("Recursive Cubism semantic lifecycle is not allowed: " + semantic.id());
         }
         final CubismOperationEvent event = new CubismOperationEvent(
-            sequence.incrementAndGet(),
-            semantic,
-            Objects.requireNonNull(origin, "origin"),
-            Objects.requireNonNull(subjectId, "subjectId"),
-            Objects.requireNonNull(label, "label")
-        );
+                sequence.incrementAndGet(),
+                semantic,
+                Objects.requireNonNull(origin, "origin"),
+                Objects.requireNonNull(subjectId, "subjectId"),
+                Objects.requireNonNull(label, "label"));
         try {
             publishCompletion(event, true);
             final RuntimeEventBroker broker = eventBroker;
@@ -237,12 +227,11 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
      */
     public void publishObservedStart(final Optional<String> label) {
         final CubismOperationEvent event = new CubismOperationEvent(
-            sequence.incrementAndGet(),
-            CubismOperation.EXECUTE_EDITOR_COMMAND,
-            CubismOperationOrigin.HOST_UI,
-            Optional.empty(),
-            Objects.requireNonNull(label, "label")
-        );
+                sequence.incrementAndGet(),
+                CubismOperation.EXECUTE_EDITOR_COMMAND,
+                CubismOperationOrigin.HOST_UI,
+                Optional.empty(),
+                Objects.requireNonNull(label, "label"));
         final RuntimeEventBroker broker = eventBroker;
         if (broker == null) return;
         broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
@@ -250,26 +239,22 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     }
 
     private void run(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Optional<String> label,
-        final Supplier<Boolean> invocation
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Optional<String> label,
+            final Supplier<Boolean> invocation) {
         final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
         final EnumSet<CubismOperation> operations = active.get();
         if (!operations.add(semantic)) {
-            throw new IllegalStateException(
-                "Recursive Cubism semantic lifecycle is not allowed: " + semantic.id()
-            );
+            throw new IllegalStateException("Recursive Cubism semantic lifecycle is not allowed: " + semantic.id());
         }
         final CubismOperationEvent event = new CubismOperationEvent(
-            sequence.incrementAndGet(),
-            semantic,
-            Objects.requireNonNull(origin, "origin"),
-            Objects.requireNonNull(subjectId, "subjectId"),
-            Objects.requireNonNull(label, "label")
-        );
+                sequence.incrementAndGet(),
+                semantic,
+                Objects.requireNonNull(origin, "origin"),
+                Objects.requireNonNull(subjectId, "subjectId"),
+                Objects.requireNonNull(label, "label"));
         try {
             invokeBefore(event);
             final RuntimeEventBroker broker = eventBroker;
@@ -277,16 +262,15 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
                 broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
                 publishModelUpdateBefore(broker, event);
             }
-            final boolean confirmed = Objects.requireNonNull(invocation, "invocation").get();
+            final boolean confirmed =
+                    Objects.requireNonNull(invocation, "invocation").get();
             publishCompletion(event, confirmed);
             if (broker != null) {
                 if (confirmed) {
                     broker.publishRuntime(new CubismOperationLifecycleEvent.On(event));
                     publishModelUpdateOn(broker, event);
                 }
-                broker.publishRuntime(new CubismOperationLifecycleEvent.After(
-                    event, confirmed
-                ));
+                broker.publishRuntime(new CubismOperationLifecycleEvent.After(event, confirmed));
                 publishModelUpdateAfter(broker, event, confirmed);
             }
         } finally {
@@ -295,29 +279,20 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         }
     }
 
-    private static void publishModelUpdateBefore(
-        final RuntimeEventBroker broker,
-        final CubismOperationEvent event
-    ) {
+    private static void publishModelUpdateBefore(final RuntimeEventBroker broker, final CubismOperationEvent event) {
         if (event.operation() == CubismOperation.UPDATE_MODEL) {
             broker.publishRuntime(new ModelUpdateEvent.Before(event));
         }
     }
 
-    private static void publishModelUpdateOn(
-        final RuntimeEventBroker broker,
-        final CubismOperationEvent event
-    ) {
+    private static void publishModelUpdateOn(final RuntimeEventBroker broker, final CubismOperationEvent event) {
         if (event.operation() == CubismOperation.UPDATE_MODEL) {
             broker.publishRuntime(new ModelUpdateEvent.On(event));
         }
     }
 
     private static void publishModelUpdateAfter(
-        final RuntimeEventBroker broker,
-        final CubismOperationEvent event,
-        final boolean confirmed
-    ) {
+            final RuntimeEventBroker broker, final CubismOperationEvent event, final boolean confirmed) {
         if (confirmed && event.operation() == CubismOperation.UPDATE_MODEL) {
             broker.publishRuntime(new ModelUpdateEvent.After(event));
         }
@@ -331,6 +306,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
                 try {
                     hook.beforeCubismOperation(event);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeCubismOperation", failure);
                 }
             }
@@ -348,12 +324,14 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
                         try {
                             hook.onCubismOperationConfirmed(event);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onCubismOperationConfirmed", failure);
                         }
                     }
                     try {
                         hook.afterCubismOperation(event);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterCubismOperation", failure);
                     }
                 }
@@ -375,31 +353,20 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         }
     }
 
-    private void submit(
-        final Registration registration,
-        final String operationId,
-        final Runnable callback
-    ) {
+    private void submit(final Registration registration, final String operationId, final Runnable callback) {
         synchronized (registrationLock) {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                operationId,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), operationId, callback);
         }
     }
 
-    private static void logHookFailure(
-        final PluginHooks plugin,
-        final String phase,
-        final Throwable failure
-    ) {
+    private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try {
             plugin.logger().error("Cubism semantic lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook diagnostics must not escape into the Cubism operation.
         }
     }
@@ -410,22 +377,20 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         return value;
     }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     /** Ordered hook entrypoints and their permission-derived execution rights. */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends SemanticOperationHooks> entrypoints,
-        PluginLogger logger,
-        boolean interceptAllowed,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends SemanticOperationHooks> entrypoints,
+            PluginLogger logger,
+            boolean interceptAllowed,
+            boolean observeAllowed) {
         /** Creates a fully enabled hook set for internal tests and trusted wiring. */
         public PluginHooks(
-            final PluginDescriptor descriptor,
-            final List<? extends SemanticOperationHooks> entrypoints,
-            final PluginLogger logger
-        ) {
+                final PluginDescriptor descriptor,
+                final List<? extends SemanticOperationHooks> entrypoints,
+                final PluginLogger logger) {
             this(descriptor, entrypoints, logger, true, true);
         }
 

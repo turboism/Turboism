@@ -12,7 +12,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionIdentity;
 import dev.turboism.ui.host.EditorUiFamily;
 import dev.turboism.ui.host.RuntimeEditorUiHostLifecycle;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,29 +35,34 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
     private boolean localizationLocked;
 
     public RuntimePaletteFilterRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId
-    ) {
-        this(permissionChecker, scheduler, pluginId, null, new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
+            final PermissionChecker permissionChecker, final RuntimeScheduler scheduler, final String pluginId) {
+        this(
+                permissionChecker,
+                scheduler,
+                pluginId,
+                null,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimePaletteFilterRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final PaletteFilterVisibilitySink visibilitySink
-    ) {
-        this(permissionChecker, scheduler, pluginId, visibilitySink, new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final PaletteFilterVisibilitySink visibilitySink) {
+        this(
+                permissionChecker,
+                scheduler,
+                pluginId,
+                visibilitySink,
+                new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()));
     }
 
     public RuntimePaletteFilterRegistry(
-        final PermissionChecker permissionChecker,
-        final RuntimeScheduler scheduler,
-        final String pluginId,
-        final PaletteFilterVisibilitySink visibilitySink,
-        final EditorUiContributionAuthority contributionAuthority
-    ) {
+            final PermissionChecker permissionChecker,
+            final RuntimeScheduler scheduler,
+            final String pluginId,
+            final PaletteFilterVisibilitySink visibilitySink,
+            final EditorUiContributionAuthority contributionAuthority) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
@@ -134,10 +138,9 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
         final Registration authorityRegistration;
         try {
             authorityRegistration = contributionAuthority.contribute(new EditorUiContribution<>(
-                new EditorUiContributionIdentity(pluginId, EditorUiFamily.PALETTE_FILTER, id),
-                resolved.order(),
-                resolved
-            ));
+                    new EditorUiContributionIdentity(pluginId, EditorUiFamily.PALETTE_FILTER, id),
+                    resolved.order(),
+                    resolved));
         } catch (RuntimeException | Error failure) {
             contributions.remove(id, stored);
             throw failure;
@@ -161,11 +164,10 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
             return contribution;
         }
         return new PaletteFilterContribution(
-            contribution.contributionId(),
-            contribution.paletteId(),
-            pluginLocalization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
-            contribution.order()
-        );
+                contribution.contributionId(),
+                contribution.paletteId(),
+                pluginLocalization.text(requireText(contribution.placeholderKey(), "placeholderKey")),
+                contribution.order());
     }
 
     private synchronized PluginLocalization lockLocalizationForContribution() {
@@ -175,8 +177,8 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
 
     private void dispatchVisibilityUpdate(final PaletteFilterContribution contribution) {
         final List<PaletteFilterContribution> snapshot = contributions.values().stream()
-            .map(StoredContribution::contribution)
-            .toList();
+                .map(StoredContribution::contribution)
+                .toList();
         scheduler.dispatch(task(contribution), () -> updateVisibility(snapshot));
     }
 
@@ -186,11 +188,10 @@ public final class RuntimePaletteFilterRegistry implements PaletteFilterRegistry
 
     private PluginTask task(final PaletteFilterContribution contribution) {
         return new PluginTask(
-            UI_TASK_TYPE,
-            pluginId,
-            "palette filter visibility for " + contribution.paletteId() + ":" + contribution.contributionId(),
-            DEFAULT_CAPABILITY
-        );
+                UI_TASK_TYPE,
+                pluginId,
+                "palette filter visibility for " + contribution.paletteId() + ":" + contribution.contributionId(),
+                DEFAULT_CAPABILITY);
     }
 
     private static String requireText(final String value, final String name) {

@@ -8,8 +8,6 @@ import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
-
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,13 +22,11 @@ import java.util.Optional;
 final class PartMembershipRelations {
 
     private static final List<String> SOURCE_TYPE_ALIASES = List.of(
-        "cubism.editor-model.art-mesh-source.class",
-        "cubism.editor-model.warp-source.class",
-        "cubism.editor-model.rotation-source.class"
-    );
+            "cubism.editor-model.art-mesh-source.class",
+            "cubism.editor-model.warp-source.class",
+            "cubism.editor-model.rotation-source.class");
 
-    private PartMembershipRelations() {
-    }
+    private PartMembershipRelations() {}
 
     /**
      * Reads the child endpoint: whatever the Part-membership entry moved into or out of a Part.
@@ -41,10 +37,7 @@ final class PartMembershipRelations {
      * further admission is needed to read either: the Part aliases are already required by the
      * Part-membership family because the parent endpoint is read through them.</p>
      */
-    static Optional<HistoryTarget> target(
-        final VerifiedMemberResolver resolver,
-        final Object source
-    ) {
+    static Optional<HistoryTarget> target(final VerifiedMemberResolver resolver, final Object source) {
         if (resolver.isInstance("cubism.editor-model.part-source.class", source)) {
             return partTarget(resolver, source);
         }
@@ -57,10 +50,7 @@ final class PartMembershipRelations {
     }
 
     /** Reads the parent Part endpoint. */
-    static Optional<HistoryTarget> partTarget(
-        final VerifiedMemberResolver resolver,
-        final Object part
-    ) {
+    static Optional<HistoryTarget> partTarget(final VerifiedMemberResolver resolver, final Object part) {
         if (!resolver.isInstance("cubism.editor-model.part-source.class", part)) return Optional.empty();
         final Object id = resolver.invoke("cubism.editor-model.part-source.id", part);
         final Object value = id == null ? null : resolver.invoke("cubism.editor-model.part-id.value", id);
@@ -68,10 +58,7 @@ final class PartMembershipRelations {
     }
 
     static HistoryRelationChange.Endpoint unknownEndpoint() {
-        return new HistoryRelationChange.Endpoint(
-            HistoryRelationChange.State.UNKNOWN,
-            Optional.empty()
-        );
+        return new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty());
     }
 
     static boolean sameIdentity(final HistoryTarget left, final HistoryTarget right) {
@@ -80,30 +67,27 @@ final class PartMembershipRelations {
     }
 
     static HistoryEntryDetail detail(
-        final String label,
-        final HistoryTarget child,
-        final HistoryRelationChange relation,
-        final HistoryAction.DetailLevel level,
-        final Optional<String> degradation
-    ) {
+            final String label,
+            final HistoryTarget child,
+            final HistoryRelationChange relation,
+            final HistoryAction.DetailLevel level,
+            final Optional<String> degradation) {
         final HistoryChange change = new HistoryChange(
-            HistoryChange.Operation.SET,
-            Optional.of(0),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
-            Optional.of(relation)
-        );
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+                Optional.of(relation));
         return new HistoryEntryDetail(
-            label,
-            level,
-            HistoryOrigin.hostUnattributed(),
-            List.of(child),
-            List.of(change),
-            Optional.empty(),
-            degradation
-        );
+                label,
+                level,
+                HistoryOrigin.hostUnattributed(),
+                List.of(child),
+                List.of(change),
+                Optional.empty(),
+                degradation);
     }
 
     /**
@@ -115,87 +99,53 @@ final class PartMembershipRelations {
      * instead of two one-sided halves. A group that contains anything else is left untouched: the
      * SDK group contract requires every observed child to remain projected.</p>
      */
-    static Optional<HistoryEntryDetail> coalesce(
-        final List<HistoryEntryDetail> children,
-        final String groupLabel
-    ) {
+    static Optional<HistoryEntryDetail> coalesce(final List<HistoryEntryDetail> children, final String groupLabel) {
         if (children.size() != 2) return Optional.empty();
         final Optional<HistoryEntryDetail> combined = combine(children.get(0), children.get(1));
         if (combined.isEmpty()) return Optional.empty();
         final HistoryEntryDetail relation = combined.orElseThrow();
         return Optional.of(new HistoryEntryDetail(
-            groupLabel,
-            relation.detailLevel(),
-            relation.origin(),
-            relation.targets(),
-            relation.changes(),
-            Optional.empty(),
-            relation.degradationCode()
-        ));
+                groupLabel,
+                relation.detailLevel(),
+                relation.origin(),
+                relation.targets(),
+                relation.changes(),
+                Optional.empty(),
+                relation.degradationCode()));
     }
 
-    private static Optional<HistoryEntryDetail> combine(
-        final HistoryEntryDetail left,
-        final HistoryEntryDetail right
-    ) {
+    private static Optional<HistoryEntryDetail> combine(final HistoryEntryDetail left, final HistoryEntryDetail right) {
         final Optional<RelationView> leftView = RelationView.of(left);
         final Optional<RelationView> rightView = RelationView.of(right);
         if (leftView.isEmpty() || rightView.isEmpty()) return Optional.empty();
-        final RelationView join = leftView.orElseThrow().join()
-            ? leftView.orElseThrow()
-            : rightView.orElseThrow();
-        final RelationView leave = leftView.orElseThrow().join()
-            ? rightView.orElseThrow()
-            : leftView.orElseThrow();
+        final RelationView join = leftView.orElseThrow().join() ? leftView.orElseThrow() : rightView.orElseThrow();
+        final RelationView leave = leftView.orElseThrow().join() ? rightView.orElseThrow() : leftView.orElseThrow();
         if (!join.join() || leave.join()) return Optional.empty();
         if (!sameIdentity(join.child(), leave.child())) return Optional.empty();
         final HistoryTarget previous = leave.parent();
         final HistoryTarget next = join.parent();
         if (sameIdentity(previous, next)) return Optional.empty();
         final HistoryRelationChange relation = new HistoryRelationChange(
-            HistoryRelationChange.Kind.PART_MEMBERSHIP,
-            new HistoryRelationChange.Endpoint(
-                HistoryRelationChange.State.TARGET,
-                Optional.of(previous)
-            ),
-            new HistoryRelationChange.Endpoint(
-                HistoryRelationChange.State.TARGET,
-                Optional.of(next)
-            )
-        );
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(previous)),
+                new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(next)));
         return Optional.of(detail(
-            join.detail().summary(),
-            join.child(),
-            relation,
-            HistoryAction.DetailLevel.FULL,
-            Optional.empty()
-        ));
+                join.detail().summary(), join.child(), relation, HistoryAction.DetailLevel.FULL, Optional.empty()));
     }
 
     private static Optional<HistoryTarget> targetFor(
-        final VerifiedMemberResolver resolver,
-        final Object source,
-        final String type
-    ) {
+            final VerifiedMemberResolver resolver, final Object source, final String type) {
         final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
         final Object value = id == null ? null : resolver.invoke("cubism.editor-model.id.value", id);
         return build(resolver, type, value, source);
     }
 
     private static Optional<HistoryTarget> build(
-        final VerifiedMemberResolver resolver,
-        final String type,
-        final Object rawValue,
-        final Object source
-    ) {
+            final VerifiedMemberResolver resolver, final String type, final Object rawValue, final Object source) {
         if (!(rawValue instanceof String value) || value.isBlank()) return Optional.empty();
-        final Object rawName = resolver.invoke(
-            "cubism.editor-model.parameter-controllable-source.local-name",
-            source
-        );
-        final Optional<String> displayName = rawName instanceof String name && !name.isBlank()
-            ? Optional.of(name)
-            : Optional.empty();
+        final Object rawName = resolver.invoke("cubism.editor-model.parameter-controllable-source.local-name", source);
+        final Optional<String> displayName =
+                rawName instanceof String name && !name.isBlank() ? Optional.of(name) : Optional.empty();
         try {
             return Optional.of(new HistoryTarget(type, Optional.of(value), displayName));
         } catch (IllegalArgumentException invalid) {
@@ -213,12 +163,7 @@ final class PartMembershipRelations {
     }
 
     /** One decoded child of a group, read back from the immutable SDK detail. */
-    private record RelationView(
-        HistoryEntryDetail detail,
-        HistoryTarget child,
-        HistoryTarget parent,
-        boolean join
-    ) {
+    private record RelationView(HistoryEntryDetail detail, HistoryTarget child, HistoryTarget parent, boolean join) {
 
         /**
          * Resolves the relation one native group child establishes, looking through a wrapper.
@@ -234,37 +179,33 @@ final class PartMembershipRelations {
             final Optional<RelationView> direct = direct(detail);
             if (direct.isPresent()) return direct;
             return detail.group()
-                .filter(group -> !group.truncated())
-                .filter(group -> group.observedChildCount() == 1)
-                .filter(group -> group.children().size() == 1)
-                .flatMap(group -> direct(group.children().get(0)));
+                    .filter(group -> !group.truncated())
+                    .filter(group -> group.observedChildCount() == 1)
+                    .filter(group -> group.children().size() == 1)
+                    .flatMap(group -> direct(group.children().get(0)));
         }
 
         private static Optional<RelationView> direct(final HistoryEntryDetail detail) {
             if (detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
-                || detail.targets().size() != 1
-                || detail.changes().size() != 1) {
+                    || detail.targets().size() != 1
+                    || detail.changes().size() != 1) {
                 return Optional.empty();
             }
-            final Optional<HistoryRelationChange> relation = detail.changes().get(0).relation();
-            if (relation.isEmpty()
-                || relation.orElseThrow().kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
+            final Optional<HistoryRelationChange> relation =
+                    detail.changes().get(0).relation();
+            if (relation.isEmpty() || relation.orElseThrow().kind() != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
                 return Optional.empty();
             }
             final HistoryRelationChange.Endpoint before = relation.orElseThrow().before();
             final HistoryRelationChange.Endpoint after = relation.orElseThrow().after();
             final boolean join = before.state() == HistoryRelationChange.State.UNKNOWN
-                && after.state() == HistoryRelationChange.State.TARGET;
+                    && after.state() == HistoryRelationChange.State.TARGET;
             final boolean leave = before.state() == HistoryRelationChange.State.TARGET
-                && after.state() == HistoryRelationChange.State.UNKNOWN;
+                    && after.state() == HistoryRelationChange.State.UNKNOWN;
             if (!join && !leave) return Optional.empty();
             final HistoryTarget parent = (join ? after : before).target().orElseThrow();
             return Optional.of(new RelationView(
-                Objects.requireNonNull(detail, "detail"),
-                detail.targets().get(0),
-                parent,
-                join
-            ));
+                    Objects.requireNonNull(detail, "detail"), detail.targets().get(0), parent, join));
         }
     }
 }

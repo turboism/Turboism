@@ -1,28 +1,26 @@
 package dev.turboism.plugin.mcp;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class McpSchemaValidationRegressionTest {
     @Test
     void oneOfRequiresExactlyOneMatchAndStillAppliesSiblingConstraints() {
-        assertFalse(McpJsonSchema.validates(2, Map.of("oneOf", List.of(
-            Map.of("type", "integer"), Map.of("type", "number")))));
-        assertTrue(McpJsonSchema.validates(2.5, Map.of("oneOf", List.of(
-            Map.of("type", "integer"), Map.of("type", "number")))));
-        assertFalse(McpJsonSchema.validates(2, Map.of("minimum", 3, "oneOf", List.of(
-            Map.of("type", "integer"), Map.of("type", "string")))));
+        assertFalse(McpJsonSchema.validates(
+                2, Map.of("oneOf", List.of(Map.of("type", "integer"), Map.of("type", "number")))));
+        assertTrue(McpJsonSchema.validates(
+                2.5, Map.of("oneOf", List.of(Map.of("type", "integer"), Map.of("type", "number")))));
+        assertFalse(McpJsonSchema.validates(
+                2, Map.of("minimum", 3, "oneOf", List.of(Map.of("type", "integer"), Map.of("type", "string")))));
     }
 
     @Test
     void strictNumericBoundsDoNotAdmitZeroSizedGeometry() {
-        final Map<String, Object> schema = Map.of("type", "number", "exclusiveMinimum", 0,
-            "exclusiveMaximum", 10);
+        final Map<String, Object> schema = Map.of("type", "number", "exclusiveMinimum", 0, "exclusiveMaximum", 10);
         assertFalse(McpJsonSchema.validates(0, schema));
         assertFalse(McpJsonSchema.validates(10, schema));
         assertTrue(McpJsonSchema.validates(0.5, schema));

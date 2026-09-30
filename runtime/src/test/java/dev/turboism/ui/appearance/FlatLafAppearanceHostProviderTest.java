@@ -1,23 +1,21 @@
 package dev.turboism.ui.appearance;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearancePalette;
 import dev.turboism.sdk.appearance.AppearanceRequest;
-import org.junit.jupiter.api.Test;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 class FlatLafAppearanceHostProviderTest {
 
     @Test
     void appliesLegacyUiDefaultsAndRestoresTheCapturedBaseline() {
         RecordingHost host = new RecordingHost(Map.of(
-            "CubismCommon.blue", "#010203",
-            "Panel.background", "#040506"
-        ));
+                "CubismCommon.blue", "#010203",
+                "Panel.background", "#040506"));
         FlatLafAppearanceHostProvider provider = new FlatLafAppearanceHostProvider("5.3.02", host);
         AppearanceHostProvider.RestorePoint baseline = provider.captureRestorePoint();
 
@@ -59,40 +57,30 @@ class FlatLafAppearanceHostProviderTest {
     @Test
     void restorableHostOperationsReapplyTheCapturedBaseline() {
         RestorableRecordingHost host = new RestorableRecordingHost(Map.of(
-            "CubismCommon.blue", "#010203",
-            "Panel.background", "#040506"
-        ));
+                "CubismCommon.blue", "#010203",
+                "Panel.background", "#040506"));
         FlatLafAppearanceHostProvider provider = new FlatLafAppearanceHostProvider("5.3.03", host);
         AppearanceHostProvider.RestorePoint baseline = provider.captureRestorePoint();
 
         provider.apply(request());
         provider.restore(baseline);
 
-        assertEquals(Map.of(
-            "CubismCommon.blue", "#010203",
-            "Panel.background", "#040506"
-        ), host.values);
+        assertEquals(
+                Map.of(
+                        "CubismCommon.blue", "#010203",
+                        "Panel.background", "#040506"),
+                host.values);
         assertEquals(0, host.nativeRestores);
     }
 
     private static AppearanceRequest request() {
         return new AppearanceRequest(
-            "nord",
-            AppearanceBase.DARK,
-            new AppearancePalette(
-                "#112233",
-                "#223344",
-                "#334455",
-                "#556677",
-                "#DDEEFF",
-                "#778899",
-                "#445566",
-                "#FFFFFF",
-                "#445566",
-                "#AABBCC"
-            ),
-            0
-        );
+                "nord",
+                AppearanceBase.DARK,
+                new AppearancePalette(
+                        "#112233", "#223344", "#334455", "#556677", "#DDEEFF", "#778899", "#445566", "#FFFFFF",
+                        "#445566", "#AABBCC"),
+                0);
     }
 
     private static class RecordingHost implements FlatLafAppearanceHostProvider.HostOperations {

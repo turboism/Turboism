@@ -1,15 +1,14 @@
 package dev.turboism.shell;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class SaveDirectoryHistoryProviderTest {
 
@@ -74,11 +73,12 @@ class SaveDirectoryHistoryProviderTest {
     @Test
     void corruptedLinesAreIgnoredOnLoad() throws IOException {
         final Path file = configDir.resolve(SaveDirectoryHistoryProvider.FILE_NAME);
-        Files.writeString(file,
-            "projectRecentDirectory=C:/good-saves\n"
-                + "exportRecentDirectory=\\u12zz-broken-escape\n"
-                + "garbage line without separator\n",
-            StandardCharsets.ISO_8859_1);
+        Files.writeString(
+                file,
+                "projectRecentDirectory=C:/good-saves\n"
+                        + "exportRecentDirectory=\\u12zz-broken-escape\n"
+                        + "garbage line without separator\n",
+                StandardCharsets.ISO_8859_1);
 
         assertEquals(Path.of("C:/good-saves"), provider().loadProjectDirectory().orElseThrow());
         assertTrue(provider().loadExportDirectory().isEmpty());
@@ -87,9 +87,9 @@ class SaveDirectoryHistoryProviderTest {
     @Test
     void nullDirectoryIsRejected() {
         final SaveDirectoryHistoryProvider provider = provider();
-        org.junit.jupiter.api.Assertions.assertThrows(NullPointerException.class,
-            () -> provider.saveProjectDirectory(null));
-        org.junit.jupiter.api.Assertions.assertThrows(NullPointerException.class,
-            () -> provider.saveExportDirectory(null));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                NullPointerException.class, () -> provider.saveProjectDirectory(null));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                NullPointerException.class, () -> provider.saveExportDirectory(null));
     }
 }

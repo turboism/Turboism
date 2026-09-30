@@ -15,24 +15,23 @@ import java.util.Objects;
 /** Small dependency-free strict JSON codec used only by the MCP transport. */
 final class Json {
 
-    private Json() {
-    }
+    private Json() {}
 
     static Object parse(final byte[] bytes) {
         Objects.requireNonNull(bytes, "bytes");
         if (bytes.length == 0) {
             throw new IllegalArgumentException("JSON body is empty");
         }
-        if (bytes.length >= 3 && (bytes[0] & 0xff) == 0xef
-            && (bytes[1] & 0xff) == 0xbb && (bytes[2] & 0xff) == 0xbf) {
+        if (bytes.length >= 3 && (bytes[0] & 0xff) == 0xef && (bytes[1] & 0xff) == 0xbb && (bytes[2] & 0xff) == 0xbf) {
             throw new IllegalArgumentException("UTF-8 BOM is not allowed");
         }
         final String input;
         try {
-            final CharBuffer decoded = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes));
+            final CharBuffer decoded = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes));
             input = decoded.toString();
         } catch (CharacterCodingException failure) {
             throw new IllegalArgumentException("JSON body must be valid UTF-8", failure);
@@ -60,8 +59,11 @@ final class Json {
             writeString(text, output);
         } else if (value instanceof Boolean flag) {
             output.append(flag.booleanValue());
-        } else if (value instanceof Byte || value instanceof Short || value instanceof Integer
-            || value instanceof Long || value instanceof BigDecimal) {
+        } else if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long
+                || value instanceof BigDecimal) {
             output.append(value);
         } else if (value instanceof Float number) {
             if (!Float.isFinite(number)) {
@@ -105,14 +107,13 @@ final class Json {
             output.append(']');
         } else {
             throw new IllegalArgumentException(
-                "Unsupported JSON value type: " + value.getClass().getName()
-            );
+                    "Unsupported JSON value type: " + value.getClass().getName());
         }
     }
 
     private static void writeString(final String value, final StringBuilder output) {
         output.append('"');
-        for (int offset = 0; offset < value.length();) {
+        for (int offset = 0; offset < value.length(); ) {
             final int codePoint = value.codePointAt(offset);
             offset += Character.charCount(codePoint);
             switch (codePoint) {
@@ -246,8 +247,7 @@ final class Json {
         private void appendUnicodeEscape(final StringBuilder result) {
             final char first = unicodeUnit();
             if (Character.isHighSurrogate(first)) {
-                if (offset + 1 >= input.length() || input.charAt(offset) != '\\'
-                    || input.charAt(offset + 1) != 'u') {
+                if (offset + 1 >= input.length() || input.charAt(offset) != '\\' || input.charAt(offset + 1) != 'u') {
                     throw error("unpaired high surrogate escape");
                 }
                 offset += 2;

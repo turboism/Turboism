@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.edit;
 
 import dev.turboism.sdk.cubism.edit.EditSessionService;
 import dev.turboism.sdk.cubism.id.DocumentId;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -23,8 +22,5 @@ public interface RuntimeEditSessionProvider {
      *     no document is active, so {@code open} fails closed
      * @return service that resolves the current host binding on each invocation
      */
-    EditSessionService editSessions(
-        String pluginId,
-        Supplier<Optional<DocumentId>> activeDocumentId
-    );
+    EditSessionService editSessions(String pluginId, Supplier<Optional<DocumentId>> activeDocumentId);
 }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /** Session-scoped angle of Cubism's mesh-edit mirror axis. */
 public interface MeshMirrorAxisService {
 
@@ -36,15 +35,18 @@ public interface MeshMirrorAxisService {
     enum Unavailable implements MeshMirrorAxisService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public float currentAngleDegrees() {
+        @Override
+        public float currentAngleDegrees() {
             throw unavailable();
         }
 
-        @Override public void setCurrentAngleDegrees(final float angleDegrees) {
+        @Override
+        public void setCurrentAngleDegrees(final float angleDegrees) {
             throw unavailable();
         }
 

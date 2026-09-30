@@ -40,21 +40,23 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
     private boolean installed, restored;
 
     private static final List<ReviewedHostContract.Candidate<IncrementalUpdateTarget>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            IncrementalUpdateTarget.reviewedClassSha256(),
-            version -> IncrementalUpdateTarget.forReviewedVersion(version).orElse(null));
+            ReviewedHostContract.candidates(
+                    IncrementalUpdateTarget.reviewedClassSha256(),
+                    version ->
+                            IncrementalUpdateTarget.forReviewedVersion(version).orElse(null));
 
-    static boolean admitted(final Path artifact, final RuntimeStartupConfig config,
-                            final boolean requested, final int jvm) {
-        return requested && jvm >= 17 && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+    static boolean admitted(
+            final Path artifact, final RuntimeStartupConfig config, final boolean requested, final int jvm) {
+        return requested
+                && jvm >= 17
+                && config.hookEnabled(HOOK_ID)
+                && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedIncrementalUpdateInstaller(final Instrumentation instrumentation,
-                                       final Path artifact, final ClassLoader loader)
-            throws Exception {
+    VerifiedIncrementalUpdateInstaller(
+            final Instrumentation instrumentation, final Path artifact, final ClassLoader loader) throws Exception {
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "incremental update");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "incremental update");
         target = contract.contract();
         if (Runtime.version().feature() < 17) {
             throw new IllegalArgumentException("incremental update requires JVM17+");
@@ -87,17 +89,25 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         contract.requireUnchanged(artifact);
     }
 
-    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact)
-            throws Exception {
+    private static void attest(final Class<?> type, final ClassLoader loader, final Path artifact) throws Exception {
         if (type.getClassLoader() != loader
-            || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-                .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
             throw new IllegalArgumentException("incremental-update dependency loader/source mismatch");
         }
     }
 
-    private void verifyMethod(final JarFile jar, final Class<?> type, final String name,
-                              final String descriptor, final Map<Class<?>, byte[]> observed)
+    private void verifyMethod(
+            final JarFile jar,
+            final Class<?> type,
+            final String name,
+            final String descriptor,
+            final Map<Class<?>, byte[]> observed)
             throws Exception {
         byte[] actual = observed.get(type);
         if (actual == null) {
@@ -111,30 +121,27 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             return;
         }
         if (!expected.equals(ReviewedMethodShape.read(actual, owner, name, descriptor))) {
-            throw new IllegalStateException("incremental-update dependency body changed: "
-                + owner + "." + name);
+            throw new IllegalStateException("incremental-update dependency body changed: " + owner + "." + name);
         }
     }
 
-    private static void verifyAbstract(final Class<?> type, final String name,
-                                       final String descriptor) throws NoSuchMethodException {
+    private static void verifyAbstract(final Class<?> type, final String name, final String descriptor)
+            throws NoSuchMethodException {
         for (final java.lang.reflect.Method method : type.getMethods()) {
             if (!method.getName().equals(name)) continue;
             final String actual = java.lang.invoke.MethodType.methodType(
-                method.getReturnType(), method.getParameterTypes()).descriptorString();
-            if (actual.equals(descriptor)
-                && java.lang.reflect.Modifier.isAbstract(method.getModifiers())) {
+                            method.getReturnType(), method.getParameterTypes())
+                    .descriptorString();
+            if (actual.equals(descriptor) && java.lang.reflect.Modifier.isAbstract(method.getModifiers())) {
                 return;
             }
         }
-        throw new NoSuchMethodException(
-            "abstract incremental-update dependency absent or concrete: "
-                + type.getName() + "." + name + descriptor);
+        throw new NoSuchMethodException("abstract incremental-update dependency absent or concrete: " + type.getName()
+                + "." + name + descriptor);
     }
 
     private static byte[] reference(final JarFile jar, final Class<?> type) throws Exception {
-        try (var input = jar.getInputStream(
-                jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
+        try (var input = jar.getInputStream(jar.getJarEntry(type.getName().replace('.', '/') + ".class"))) {
             return input.readAllBytes();
         }
     }
@@ -145,9 +152,14 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         }
         final AtomicReference<byte[]> result = new AtomicReference<>();
         final ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(final Module module, final ClassLoader loader,
-                                              final String name, final Class<?> redefined,
-                                              final ProtectionDomain domain, final byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    final Module module,
+                    final ClassLoader loader,
+                    final String name,
+                    final Class<?> redefined,
+                    final ProtectionDomain domain,
+                    final byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
@@ -176,10 +188,10 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
             instrumentation.addTransformer(transformer, true);
             installed = true;
             instrumentation.retransformClasses(entries);
-            if (transformer.matches() != 6 || transformer.failure() != null
-                || transformer.touchedClasses().size() != 4) {
-                throw new IllegalStateException("incremental-update entry not admitted: "
-                    + transformer.failure());
+            if (transformer.matches() != 6
+                    || transformer.failure() != null
+                    || transformer.touchedClasses().size() != 4) {
+                throw new IllegalStateException("incremental-update entry not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
             try {
@@ -192,20 +204,19 @@ final class VerifiedIncrementalUpdateInstaller implements AutoCloseable {
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         try {
             for (final String owner : transformer.touchedClasses()) {
-                final Class<?> type = Class.forName(owner.replace('/', '.'), false,
-                    entries[0].getClassLoader());
+                final Class<?> type = Class.forName(owner.replace('/', '.'), false, entries[0].getClassLoader());
                 final byte[] original = capture(type);
-                final String hash = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(original));
+                final String hash = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
                 if (!hash.equals(transformer.beforeSha256(owner))) {
-                    throw new IllegalStateException(
-                        "native incremental-update restoration not proven: " + owner);
+                    throw new IllegalStateException("native incremental-update restoration not proven: " + owner);
                 }
             }
             restored = true;

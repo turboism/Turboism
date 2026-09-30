@@ -1,7 +1,6 @@
 package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;

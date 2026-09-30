@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -8,26 +12,21 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.cubism.event.RotationDeformerBaseAngleEvent;
-import dev.turboism.sdk.cubism.event.RotationDeformerFormEvent;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RotationDeformerLifecycleContractTest {
     @Test
@@ -35,16 +34,14 @@ class RotationDeformerLifecycleContractTest {
         final RuntimeScheduler scheduler = scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-            final DeformerLifecycleCoordinator coordinator =
-                new DeformerLifecycleCoordinator();
+            final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
             coordinator.attachEventBroker(broker);
             final RuntimeEventBroker.Owner owner = broker.admit("rotation-events");
             final CountDownLatch completion = new CountDownLatch(4);
             final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
             final RotationDeformerForm replacement = form(20.0F);
-            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-                new Subscriber(events, completion, replacement)
-            )));
+            owner.registerAnnotated(new EntrypointSubscriberCatalog()
+                    .inspect(List.of(new Subscriber(events, completion, replacement))));
             owner.activate();
             final MutableRotation deformer = new MutableRotation();
 
@@ -66,10 +63,7 @@ class RotationDeformerLifecycleContractTest {
         private final RotationDeformerForm replacement;
 
         private Subscriber(
-            final List<String> events,
-            final CountDownLatch completion,
-            final RotationDeformerForm replacement
-        ) {
+                final List<String> events, final CountDownLatch completion, final RotationDeformerForm replacement) {
             this.events = events;
             this.completion = completion;
             this.replacement = replacement;
@@ -90,9 +84,7 @@ class RotationDeformerLifecycleContractTest {
         public void afterAngle(final RotationDeformerBaseAngleEvent.After event) {
             events.add("angle-after");
             assertThrows(
-                UnsupportedOperationException.class,
-                () -> event.deformer().setBaseAngle(30.0F)
-            );
+                    UnsupportedOperationException.class, () -> event.deformer().setBaseAngle(30.0F));
             completion.countDown();
         }
 
@@ -111,28 +103,22 @@ class RotationDeformerLifecycleContractTest {
         public void afterForm(final RotationDeformerFormEvent.After event) {
             events.add("form-after");
             assertThrows(
-                UnsupportedOperationException.class,
-                () -> event.deformer().replaceForm(replacement)
-            );
+                    UnsupportedOperationException.class, () -> event.deformer().replaceForm(replacement));
             completion.countDown();
         }
     }
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
@@ -144,25 +130,82 @@ class RotationDeformerLifecycleContractTest {
     private static final class MutableRotation implements RotationDeformer {
         private float angle;
         private RotationDeformerForm form = RotationDeformerLifecycleContractTest.form(0.0F);
-        private void writeAngle(final float value) { angle = value; }
-        private void writeForm(final RotationDeformerForm value) { form = value; }
-        @Override public DeformerId id() { return new DeformerId("RotationA"); }
-        @Override public float getOpacity() { return 1.0F; }
-        @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
-        @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
-        @Override public int parentPartIndex() { return -1; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return ints(); }
-        @Override public float baseAngle() { return angle; }
-        @Override public void setBaseAngle(final float value) { writeAngle(value); }
-        @Override public RotationDeformerForm form() { return form; }
-        @Override public void replaceForm(final RotationDeformerForm value) { writeForm(value); }
+
+        private void writeAngle(final float value) {
+            angle = value;
+        }
+
+        private void writeForm(final RotationDeformerForm value) {
+            form = value;
+        }
+
+        @Override
+        public DeformerId id() {
+            return new DeformerId("RotationA");
+        }
+
+        @Override
+        public float getOpacity() {
+            return 1.0F;
+        }
+
+        @Override
+        public Color multiplyColor() {
+            return new Color(1, 1, 1, 1);
+        }
+
+        @Override
+        public Color screenColor() {
+            return new Color(0, 0, 0, 1);
+        }
+
+        @Override
+        public int parentPartIndex() {
+            return -1;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return ints();
+        }
+
+        @Override
+        public float baseAngle() {
+            return angle;
+        }
+
+        @Override
+        public void setBaseAngle(final float value) {
+            writeAngle(value);
+        }
+
+        @Override
+        public RotationDeformerForm form() {
+            return form;
+        }
+
+        @Override
+        public void replaceForm(final RotationDeformerForm value) {
+            writeForm(value);
+        }
     }
 
     private static IntSequence ints() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(final int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 }

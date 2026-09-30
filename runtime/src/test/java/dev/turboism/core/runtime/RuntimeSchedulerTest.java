@@ -1,11 +1,17 @@
 package dev.turboism.core.runtime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
-import org.junit.jupiter.api.Test;
-
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,14 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeSchedulerTest {
 
@@ -67,13 +66,14 @@ class RuntimeSchedulerTest {
 
         // Then
         assertEquals(0, executions.get());
-        assertEquals(List.of(new PluginWorkBudgetEvent(
-            PLUGIN_ID,
-            "network",
-            PluginWorkBudgetEvent.Phase.REJECTED,
-            PluginWorkBudgetEvent.Decision.REJECTED,
-            PluginWorkBudgetEvent.Severity.WARNING
-        )), events);
+        assertEquals(
+                List.of(new PluginWorkBudgetEvent(
+                        PLUGIN_ID,
+                        "network",
+                        PluginWorkBudgetEvent.Phase.REJECTED,
+                        PluginWorkBudgetEvent.Decision.REJECTED,
+                        PluginWorkBudgetEvent.Severity.WARNING)),
+                events);
         scheduler.shutdown();
     }
 
@@ -86,7 +86,7 @@ class RuntimeSchedulerTest {
         PluginTask task = task("ai", "sidecar");
 
         // When
-        scheduler.dispatch(task, () -> { });
+        scheduler.dispatch(task, () -> {});
 
         // Then
         assertSame(task, sidecar.task.get());
@@ -130,20 +130,18 @@ class RuntimeSchedulerTest {
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
-            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> { });
+            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> {});
             assertTrue(submission.accepted(), "timer " + index + " should be accepted");
             timers.add(submission);
         }
 
         final long startedAt = System.nanoTime();
-        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> {}).accepted());
         assertTrue(
-            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 100,
-            "timer admission must not block"
-        );
+                TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt) < 100, "timer admission must not block");
         assertTrue(timers.get(0).handle().cancel());
         assertFalse(timers.get(0).handle().cancel());
-        assertTrue(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        assertTrue(scheduler.schedule(Duration.ofHours(1), () -> {}).accepted());
         scheduler.shutdown();
     }
 
@@ -155,9 +153,9 @@ class RuntimeSchedulerTest {
         assertTrue(scheduler.schedule(Duration.ZERO, executed::countDown).accepted());
         assertTrue(executed.await(1, TimeUnit.SECONDS));
         for (int index = 0; index < 1024; index++) {
-            assertTrue(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+            assertTrue(scheduler.schedule(Duration.ofHours(1), () -> {}).accepted());
         }
-        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> { }).accepted());
+        assertFalse(scheduler.schedule(Duration.ofHours(1), () -> {}).accepted());
         scheduler.shutdown();
     }
 
@@ -167,7 +165,7 @@ class RuntimeSchedulerTest {
         final RuntimeScheduler scheduler = scheduler(events, new RecordingSidecarDispatcher());
         final java.util.ArrayList<RuntimeTimerSubmission> timers = new java.util.ArrayList<>();
         for (int index = 0; index < 1024; index++) {
-            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> { });
+            final RuntimeTimerSubmission submission = scheduler.schedule(Duration.ofHours(1), () -> {});
             assertTrue(submission.accepted());
             timers.add(submission);
         }
@@ -221,7 +219,8 @@ class RuntimeSchedulerTest {
             completed.countDown();
         });
         assertTrue(firstStarted.await(1, TimeUnit.SECONDS));
-        scheduler.dispatch(new PluginTask("action.handle", "dev.turboism.plugin.other", "payload", "none"), completed::countDown);
+        scheduler.dispatch(
+                new PluginTask("action.handle", "dev.turboism.plugin.other", "payload", "none"), completed::countDown);
 
         // When
         releaseFirst.countDown();
@@ -284,20 +283,22 @@ class RuntimeSchedulerTest {
     void sidecarFailureEmitsDiagnosticEvent() {
         // Given
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
-        RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher(SidecarResult.error("SIDECAR_EXIT_FAILED", "boom"));
+        RecordingSidecarDispatcher sidecar =
+                new RecordingSidecarDispatcher(SidecarResult.error("SIDECAR_EXIT_FAILED", "boom"));
         RuntimeScheduler scheduler = scheduler(events, sidecar);
 
         // When
-        scheduler.dispatch(task("ai", "sidecar"), () -> { });
+        scheduler.dispatch(task("ai", "sidecar"), () -> {});
 
         // Then
-        assertEquals(List.of(new PluginWorkBudgetEvent(
-            PLUGIN_ID,
-            "ai",
-            PluginWorkBudgetEvent.Phase.FAILED,
-            PluginWorkBudgetEvent.Decision.SIDECAR,
-            PluginWorkBudgetEvent.Severity.ERROR
-        )), events);
+        assertEquals(
+                List.of(new PluginWorkBudgetEvent(
+                        PLUGIN_ID,
+                        "ai",
+                        PluginWorkBudgetEvent.Phase.FAILED,
+                        PluginWorkBudgetEvent.Decision.SIDECAR,
+                        PluginWorkBudgetEvent.Severity.ERROR)),
+                events);
         scheduler.shutdown();
     }
 
@@ -307,8 +308,7 @@ class RuntimeSchedulerTest {
         final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
         final CountDownLatch ran = new CountDownLatch(1);
         final AtomicReference<String> workerThread = new AtomicReference<>();
-        final PluginTask csvImport = new PluginTask(
-            "action.handle", PLUGIN_ID, "action:parameter.csv.import", "none");
+        final PluginTask csvImport = new PluginTask("action.handle", PLUGIN_ID, "action:parameter.csv.import", "none");
 
         final boolean accepted = scheduler.dispatch(csvImport, () -> {
             workerThread.set(Thread.currentThread().getName());
@@ -317,8 +317,8 @@ class RuntimeSchedulerTest {
 
         assertTrue(accepted, "HEAVY non-transaction work falls back to the long lane");
         assertTrue(ran.await(1, TimeUnit.SECONDS));
-        assertTrue(workerThread.get().contains("-long-"),
-            "expected a long-lane worker thread, got " + workerThread.get());
+        assertTrue(
+                workerThread.get().contains("-long-"), "expected a long-lane worker thread, got " + workerThread.get());
         scheduler.shutdown();
     }
 
@@ -328,8 +328,7 @@ class RuntimeSchedulerTest {
         final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         final RuntimeScheduler scheduler = scheduler(events, sidecar);
         final AtomicInteger executions = new AtomicInteger();
-        final PluginTask csvExport = new PluginTask(
-            "action.handle", PLUGIN_ID, "action:parameter.csv.export", "none");
+        final PluginTask csvExport = new PluginTask("action.handle", PLUGIN_ID, "action:parameter.csv.export", "none");
 
         scheduler.dispatch(csvExport, executions::incrementAndGet);
 
@@ -367,8 +366,8 @@ class RuntimeSchedulerTest {
         assertTrue(accepted);
         assertTrue(ran.await(1, TimeUnit.SECONDS));
         assertNull(sidecar.task.get(), "plugin.long.* never reaches the sidecar");
-        assertTrue(workerThread.get().contains("-long-"),
-            "expected a long-lane worker thread, got " + workerThread.get());
+        assertTrue(
+                workerThread.get().contains("-long-"), "expected a long-lane worker thread, got " + workerThread.get());
         scheduler.shutdown();
     }
 
@@ -395,16 +394,12 @@ class RuntimeSchedulerTest {
         scheduler.shutdown();
     }
 
-    private static RuntimeScheduler scheduler(
-        List<PluginWorkBudgetEvent> events,
-        SidecarDispatcher sidecarDispatcher
-    ) {
+    private static RuntimeScheduler scheduler(List<PluginWorkBudgetEvent> events, SidecarDispatcher sidecarDispatcher) {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
-            sidecarDispatcher,
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+                sidecarDispatcher,
+                events::add);
     }
 
     private static PluginTask task(String type, String capability) {

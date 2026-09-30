@@ -1,17 +1,15 @@
 package dev.turboism.adapter.cubism.startup;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class StartupSuppressionInstallerTest {
 
@@ -22,15 +20,13 @@ class StartupSuppressionInstallerTest {
     void missingConfigDefaultsToRequestedAndRejectsTheMissingArtifact() {
         final List<String> calls = new ArrayList<>();
 
-        final StartupSuppressionInstaller.Installation installation =
-            StartupSuppressionInstaller.install(
+        final StartupSuppressionInstaller.Installation installation = StartupSuppressionInstaller.install(
                 StartupSuppressionInstaller.AttachmentMode.PREMAIN,
                 instrumentation(calls),
                 temporaryHome,
                 "",
                 temporaryHome,
-                ignored -> { }
-            );
+                ignored -> {});
 
         assertEquals(StartupSuppressionInstaller.Status.ARTIFACT_REJECTED, installation.status());
         assertEquals(List.of(), calls);
@@ -54,15 +50,13 @@ class StartupSuppressionInstallerTest {
             """);
         final List<String> calls = new ArrayList<>();
 
-        final StartupSuppressionInstaller.Installation installation =
-            StartupSuppressionInstaller.install(
+        final StartupSuppressionInstaller.Installation installation = StartupSuppressionInstaller.install(
                 StartupSuppressionInstaller.AttachmentMode.PREMAIN,
                 instrumentation(calls),
                 temporaryHome,
                 "",
                 temporaryHome,
-                ignored -> { }
-            );
+                ignored -> {});
 
         assertEquals(StartupSuppressionInstaller.Status.NOT_REQUESTED, installation.status());
         assertEquals(List.of(), calls);
@@ -73,15 +67,13 @@ class StartupSuppressionInstallerTest {
         writeEnabledConfig();
         final List<String> calls = new ArrayList<>();
 
-        final StartupSuppressionInstaller.Installation installation =
-            StartupSuppressionInstaller.install(
+        final StartupSuppressionInstaller.Installation installation = StartupSuppressionInstaller.install(
                 StartupSuppressionInstaller.AttachmentMode.AGENTMAIN,
                 instrumentation(calls),
                 temporaryHome,
                 "not-a-real-classpath",
                 temporaryHome,
-                ignored -> { }
-            );
+                ignored -> {});
 
         assertEquals(StartupSuppressionInstaller.Status.AGENTMAIN_REFUSED, installation.status());
         assertEquals(List.of(), calls);
@@ -104,23 +96,20 @@ class StartupSuppressionInstallerTest {
 
     private Instrumentation instrumentation(final List<String> calls) {
         return (Instrumentation) Proxy.newProxyInstance(
-            getClass().getClassLoader(),
-            new Class<?>[]{Instrumentation.class},
-            (proxy, method, arguments) -> {
-                if (method.getName().equals("addTransformer")) {
-                    calls.add("add:" + arguments[1]);
-                    return null;
-                }
-                if (method.getName().equals("removeTransformer")) {
-                    calls.add("remove");
-                    return true;
-                }
-                if (method.getName().equals("getAllLoadedClasses")) {
-                    return new Class<?>[0];
-                }
-                return defaultValue(method.getReturnType());
-            }
-        );
+                getClass().getClassLoader(), new Class<?>[] {Instrumentation.class}, (proxy, method, arguments) -> {
+                    if (method.getName().equals("addTransformer")) {
+                        calls.add("add:" + arguments[1]);
+                        return null;
+                    }
+                    if (method.getName().equals("removeTransformer")) {
+                        calls.add("remove");
+                        return true;
+                    }
+                    if (method.getName().equals("getAllLoadedClasses")) {
+                        return new Class<?>[0];
+                    }
+                    return defaultValue(method.getReturnType());
+                });
     }
 
     private static Object defaultValue(final Class<?> type) {

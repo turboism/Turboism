@@ -3,10 +3,7 @@ package dev.turboism.sdk.cubism.history;
 import java.util.Objects;
 
 /** One exact parameter key-point coordinate used to address a parameter-bound keyform. */
-public record HistoryParameterCoordinate(
-    HistoryTarget parameter,
-    String value
-) {
+public record HistoryParameterCoordinate(HistoryTarget parameter, String value) {
 
     private static final int MAX_VALUE_LENGTH = 256;
 
@@ -24,9 +21,7 @@ public record HistoryParameterCoordinate(
             throw new IllegalArgumentException("value must not be blank");
         }
         if (normalized.length() > MAX_VALUE_LENGTH) {
-            throw new IllegalArgumentException(
-                "value must not exceed " + MAX_VALUE_LENGTH + " characters"
-            );
+            throw new IllegalArgumentException("value must not exceed " + MAX_VALUE_LENGTH + " characters");
         }
         if (normalized.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("value must not contain control characters");

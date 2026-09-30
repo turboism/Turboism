@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
@@ -14,11 +13,10 @@ import java.util.Objects;
 /** Deterministic runtime-owned builders for closed preview report documents. */
 public final class PreviewReportDocuments {
 
-    static final ObjectMapper JSON = new ObjectMapper(new JsonFactory())
-        .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
+    static final ObjectMapper JSON =
+            new ObjectMapper(new JsonFactory()).enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
-    private PreviewReportDocuments() {
-    }
+    private PreviewReportDocuments() {}
 
     /**
      * Builds one empty document per report type, so a preview run always emits the full closed set
@@ -30,12 +28,8 @@ public final class PreviewReportDocuments {
      * @throws NullPointerException if {@code runtimeId} or {@code createdAt} is {@code null}
      * @throws IllegalArgumentException if {@code runtimeId} is blank
      */
-    public static Map<PreviewReportType, ObjectNode> emptyReportSet(
-        final String runtimeId,
-        final Instant createdAt
-    ) {
-        final EnumMap<PreviewReportType, ObjectNode> reports =
-            new EnumMap<>(PreviewReportType.class);
+    public static Map<PreviewReportType, ObjectNode> emptyReportSet(final String runtimeId, final Instant createdAt) {
+        final EnumMap<PreviewReportType, ObjectNode> reports = new EnumMap<>(PreviewReportType.class);
         for (PreviewReportType type : PreviewReportType.values()) {
             reports.put(type, emptyReport(type, runtimeId, createdAt));
         }
@@ -54,21 +48,17 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if {@code runtimeId} is blank
      */
     public static ObjectNode emptyReport(
-        final PreviewReportType type,
-        final String runtimeId,
-        final Instant createdAt
-    ) {
+            final PreviewReportType type, final String runtimeId, final Instant createdAt) {
         return envelope(
-            type,
-            runtimeId,
-            createdAt,
-            switch (type) {
-                case PREVIEW_RUNTIME -> emptyPreviewRuntimePayload();
-                case PLUGIN_LOAD -> objectWithArray("plugins");
-                case CAPABILITY -> objectWithArray("capabilities");
-                case I18N -> objectWithArray("plugins");
-            }
-        );
+                type,
+                runtimeId,
+                createdAt,
+                switch (type) {
+                    case PREVIEW_RUNTIME -> emptyPreviewRuntimePayload();
+                    case PLUGIN_LOAD -> objectWithArray("plugins");
+                    case CAPABILITY -> objectWithArray("capabilities");
+                    case I18N -> objectWithArray("plugins");
+                });
     }
 
     /**
@@ -88,11 +78,7 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if {@code runtimeId} is blank
      */
     public static ObjectNode envelope(
-        final PreviewReportType type,
-        final String runtimeId,
-        final Instant createdAt,
-        final ObjectNode payload
-    ) {
+            final PreviewReportType type, final String runtimeId, final Instant createdAt, final ObjectNode payload) {
         final ObjectNode report = JSON.createObjectNode();
         report.put("format", "turboism.preview.report");
         report.put("schemaVersion", 1);
@@ -127,14 +113,13 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if a required argument is blank
      */
     public static ObjectNode pluginLoadEntry(
-        final String pluginId,
-        final String artifactRelativePath,
-        final String artifactSha256,
-        final String discoveryState,
-        final String dependencyState,
-        final String lifecycleState,
-        final boolean badNeighbor
-    ) {
+            final String pluginId,
+            final String artifactRelativePath,
+            final String artifactSha256,
+            final String discoveryState,
+            final String dependencyState,
+            final String lifecycleState,
+            final boolean badNeighbor) {
         final ObjectNode entry = JSON.createObjectNode();
         entry.put("pluginId", requireText(pluginId, "pluginId"));
         if (artifactRelativePath != null) {
@@ -179,14 +164,13 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if a required argument is blank
      */
     public static ObjectNode capabilityEntry(
-        final String pluginId,
-        final String capabilityId,
-        final String operationId,
-        final String permissionId,
-        final String capabilityAvailability,
-        final String permissionAvailability,
-        final String registrationState
-    ) {
+            final String pluginId,
+            final String capabilityId,
+            final String operationId,
+            final String permissionId,
+            final String capabilityAvailability,
+            final String permissionAvailability,
+            final String registrationState) {
         final ObjectNode entry = JSON.createObjectNode();
         if (pluginId != null) {
             entry.put("pluginId", pluginId);
@@ -196,14 +180,8 @@ public final class PreviewReportDocuments {
         if (permissionId != null) {
             entry.put("permissionId", permissionId);
         }
-        entry.put(
-            "capabilityAvailability",
-            requireText(capabilityAvailability, "capabilityAvailability")
-        );
-        entry.put(
-            "permissionAvailability",
-            requireText(permissionAvailability, "permissionAvailability")
-        );
+        entry.put("capabilityAvailability", requireText(capabilityAvailability, "capabilityAvailability"));
+        entry.put("permissionAvailability", requireText(permissionAvailability, "permissionAvailability"));
         entry.put("registrationState", requireText(registrationState, "registrationState"));
         entry.set("registrationCounts", emptyRegistrationCounts());
         entry.set("evidence", JSON.createArrayNode());
@@ -228,12 +206,11 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if a required argument is blank
      */
     public static ObjectNode evidence(
-        final String kind,
-        final String state,
-        final String summary,
-        final String relativeRecordPath,
-        final String digestSha256
-    ) {
+            final String kind,
+            final String state,
+            final String summary,
+            final String relativeRecordPath,
+            final String digestSha256) {
         final ObjectNode evidence = JSON.createObjectNode();
         evidence.put("kind", requireText(kind, "kind"));
         evidence.put("state", requireText(state, "state"));
@@ -268,16 +245,15 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if a required argument is blank
      */
     public static ObjectNode failure(
-        final String code,
-        final String severity,
-        final String phase,
-        final String pluginId,
-        final String operationId,
-        final String permissionId,
-        final String message,
-        final String relativePath,
-        final long count
-    ) {
+            final String code,
+            final String severity,
+            final String phase,
+            final String pluginId,
+            final String operationId,
+            final String permissionId,
+            final String message,
+            final String relativePath,
+            final long count) {
         final ObjectNode failure = JSON.createObjectNode();
         failure.put("code", requireText(code, "code"));
         failure.put("severity", requireText(severity, "severity"));
@@ -319,12 +295,11 @@ public final class PreviewReportDocuments {
      * @throws IllegalArgumentException if a required argument or any fallback locale is blank
      */
     public static ObjectNode i18nPluginEntry(
-        final String pluginId,
-        final String localeSource,
-        final String requestedLocale,
-        final String normalizedLocale,
-        final Iterable<String> fallbackChain
-    ) {
+            final String pluginId,
+            final String localeSource,
+            final String requestedLocale,
+            final String normalizedLocale,
+            final Iterable<String> fallbackChain) {
         final ObjectNode entry = JSON.createObjectNode();
         entry.put("pluginId", requireText(pluginId, "pluginId"));
         entry.put("localeSource", requireText(localeSource, "localeSource"));
@@ -355,11 +330,7 @@ public final class PreviewReportDocuments {
      * @throws NullPointerException if {@code locale} or {@code state} is {@code null}
      * @throws IllegalArgumentException if either is blank
      */
-    public static ObjectNode catalogEntry(
-        final String locale,
-        final String state,
-        final long keyCount
-    ) {
+    public static ObjectNode catalogEntry(final String locale, final String state, final long keyCount) {
         final ObjectNode entry = JSON.createObjectNode();
         entry.put("locale", requireText(locale, "locale"));
         entry.put("state", requireText(state, "state"));
@@ -419,11 +390,7 @@ public final class PreviewReportDocuments {
      * @return a mutable counts node
      */
     public static ObjectNode shutdownCounts(
-        final long attempted,
-        final long succeeded,
-        final long failed,
-        final long timedOut
-    ) {
+            final long attempted, final long succeeded, final long failed, final long timedOut) {
         final ObjectNode counts = JSON.createObjectNode();
         counts.put("attempted", attempted);
         counts.put("succeeded", succeeded);

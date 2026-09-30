@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.List;
 
 /**

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Allocate a product build on the main workflow, or write the matching candidate receipt."""
-import argparse, json, os
+import argparse
+import json
+import os
 from pathlib import Path
 from turboism_release.build_identity import identity, allocate, decode_file
 from turboism_release.promotion import GitHub

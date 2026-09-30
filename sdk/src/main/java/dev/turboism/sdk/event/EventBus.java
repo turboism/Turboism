@@ -1,7 +1,6 @@
 package dev.turboism.sdk.event;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.function.Consumer;
 
 /**

@@ -1,9 +1,7 @@
 package dev.turboism.preview.report;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,8 +21,9 @@ final class PreviewReportTruncator {
 
         long droppedEntries = 0;
         for (Phase phase : phases(document)) {
-            for (int attempt = 0; attempt < MAX_PHASE_ATTEMPTS
-                && bytes.length > PreviewReportValidator.MAX_REPORT_BYTES; attempt++) {
+            for (int attempt = 0;
+                    attempt < MAX_PHASE_ATTEMPTS && bytes.length > PreviewReportValidator.MAX_REPORT_BYTES;
+                    attempt++) {
                 final int excess = bytes.length - PreviewReportValidator.MAX_REPORT_BYTES;
                 final long dropped = prunePhase(phase, excess + SIZE_MARGIN_BYTES);
                 if (dropped == 0) {
@@ -40,22 +39,16 @@ final class PreviewReportTruncator {
         }
 
         throw new PreviewReportValidationException(
-            "REPORT_SIZE",
-            "Preview report minimum summary exceeds the runtime bound."
-        );
+                "REPORT_SIZE", "Preview report minimum summary exceeds the runtime bound.");
     }
 
-    private static long prunePhase(final Phase phase, final int bytesToRemove)
-        throws IOException {
+    private static long prunePhase(final Phase phase, final int bytesToRemove) throws IOException {
         final int available = removableCount(phase);
         if (available == 0) {
             return 0;
         }
         final int averageBytes = sampleAverageBytes(phase);
-        final int requested = Math.min(
-            available,
-            Math.max(1, (bytesToRemove + averageBytes - 1) / averageBytes)
-        );
+        final int requested = Math.min(available, Math.max(1, (bytesToRemove + averageBytes - 1) / averageBytes));
         return removeEntries(phase, requested);
     }
 
@@ -74,9 +67,8 @@ final class PreviewReportTruncator {
             final ArrayNode array = target.array();
             final int removable = Math.max(0, array.size() - target.minimumSize());
             for (int offset = 0; offset < removable && samples < SAMPLE_LIMIT; offset++) {
-                bytes += PreviewReportDocuments.JSON.writeValueAsBytes(
-                    array.get(array.size() - 1 - offset)
-                ).length + 1L;
+                bytes +=
+                        PreviewReportDocuments.JSON.writeValueAsBytes(array.get(array.size() - 1 - offset)).length + 1L;
                 samples++;
             }
             if (samples == SAMPLE_LIMIT) {
@@ -113,12 +105,12 @@ final class PreviewReportTruncator {
     private static List<Phase> phases(final ObjectNode document) {
         final ObjectNode payload = (ObjectNode) document.path("payload");
         return switch (document.path("reportType").asText()) {
-            case "PREVIEW_RUNTIME" -> List.of(
-                phase(target(payload, "taskFailures", 0)),
-                phase(target(payload, "storageFailures", 0)),
-                phase(target(payload, "configFailures", 0)),
-                phase(target(payload, "eventFailures", 0))
-            );
+            case "PREVIEW_RUNTIME" ->
+                List.of(
+                        phase(target(payload, "taskFailures", 0)),
+                        phase(target(payload, "storageFailures", 0)),
+                        phase(target(payload, "configFailures", 0)),
+                        phase(target(payload, "eventFailures", 0)));
             case "PLUGIN_LOAD" -> pluginLoadPhases(payload);
             case "CAPABILITY" -> capabilityPhases(payload);
             case "I18N" -> i18nPhases(payload);
@@ -128,36 +120,27 @@ final class PreviewReportTruncator {
 
     private static List<Phase> pluginLoadPhases(final ObjectNode payload) {
         final ArrayNode plugins = array(payload, "plugins");
-        return List.of(
-            nestedPhase(plugins, "failures", 0),
-            phase(new Target(plugins, 1))
-        );
+        return List.of(nestedPhase(plugins, "failures", 0), phase(new Target(plugins, 1)));
     }
 
     private static List<Phase> capabilityPhases(final ObjectNode payload) {
         final ArrayNode capabilities = array(payload, "capabilities");
         return List.of(
-            nestedPhase(capabilities, "failures", 0),
-            nestedPhase(capabilities, "evidence", 1),
-            phase(new Target(capabilities, 1))
-        );
+                nestedPhase(capabilities, "failures", 0),
+                nestedPhase(capabilities, "evidence", 1),
+                phase(new Target(capabilities, 1)));
     }
 
     private static List<Phase> i18nPhases(final ObjectNode payload) {
         final ArrayNode plugins = array(payload, "plugins");
         return List.of(
-            nestedPhase(plugins, "missingKeys", 0),
-            nestedPhase(plugins, "malformedPatterns", 0),
-            nestedPhase(plugins, "catalogs", 1),
-            phase(new Target(plugins, 1))
-        );
+                nestedPhase(plugins, "missingKeys", 0),
+                nestedPhase(plugins, "malformedPatterns", 0),
+                nestedPhase(plugins, "catalogs", 1),
+                phase(new Target(plugins, 1)));
     }
 
-    private static Phase nestedPhase(
-        final ArrayNode parents,
-        final String field,
-        final int minimum
-    ) {
+    private static Phase nestedPhase(final ArrayNode parents, final String field, final int minimum) {
         final List<Target> targets = new ArrayList<>(parents.size());
         for (int index = parents.size() - 1; index >= 0; index--) {
             targets.add(target((ObjectNode) parents.get(index), field, minimum));
@@ -184,9 +167,7 @@ final class PreviewReportTruncator {
         truncation.put("reason", "WRITER_LIMIT");
     }
 
-    private record Phase(List<Target> targets) {
-    }
+    private record Phase(List<Target> targets) {}
 
-    private record Target(ArrayNode array, int minimumSize) {
-    }
+    private record Target(ArrayNode array, int minimumSize) {}
 }

@@ -13,13 +13,7 @@ import java.util.Objects;
  * @param severity how prominently the event should be reported
  * @throws NullPointerException when any component is {@code null}
  */
-public record PluginWorkBudgetEvent(
-    String pluginId,
-    String taskId,
-    Phase phase,
-    Decision decision,
-    Severity severity
-) {
+public record PluginWorkBudgetEvent(String pluginId, String taskId, Phase phase, Decision decision, Severity severity) {
 
     public static final String CODE = "PLUGIN_WORK_BUDGET_EVENT";
 

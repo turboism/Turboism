@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.Objects;
@@ -52,6 +51,7 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
 
     /** Bounded number of coalesced drains performed by one {@link #drain()} call. */
     private static final int MAX_DRAIN_ROUNDS = 8;
+
     private static final int MAX_LABEL_LENGTH = 256;
 
     /** One classified native history state change. */
@@ -117,11 +117,8 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
      * @param sink     receives classified changes during {@link #drain()}
      */
     public NativeUndoIngressObserver(
-        final VerifiedMemberResolver resolver,
-        final Object manager,
-        final Consumer<Event> sink
-    ) {
-        this(resolver, manager, sink, () -> { });
+            final VerifiedMemberResolver resolver, final Object manager, final Consumer<Event> sink) {
+        this(resolver, manager, sink, () -> {});
     }
 
     /**
@@ -138,19 +135,20 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
      * @param onNotification enqueue-only signal that a change is pending; never reads the host
      */
     public NativeUndoIngressObserver(
-        final VerifiedMemberResolver resolver,
-        final Object manager,
-        final Consumer<Event> sink,
-        final Runnable onNotification
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Object manager,
+            final Consumer<Event> sink,
+            final Runnable onNotification) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.manager = Objects.requireNonNull(manager, "manager");
         this.sink = Objects.requireNonNull(sink, "sink");
         this.onNotification = Objects.requireNonNull(onNotification, "onNotification");
         final Object entries = this.resolver.invoke("cubism.editor-history.manager.entries", this.manager);
         final Object index = this.resolver.invoke("cubism.editor-history.manager.position", this.manager);
-        if (entries instanceof List<?> values && index instanceof Number number
-            && number.intValue() >= 0 && number.intValue() <= values.size()) {
+        if (entries instanceof List<?> values
+                && index instanceof Number number
+                && number.intValue() >= 0
+                && number.intValue() <= values.size()) {
             record(values, values.size(), number.intValue());
         } else {
             // Without a baseline the first observed change cannot be classified; record it only.
@@ -172,13 +170,10 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         if (listener != null) {
             throw new IllegalStateException("listener is already attached");
         }
-        final Object proxy = resolver.createFunctionalProxy(
-            LISTENER_CLASS_ALIAS,
-            ignored -> {
-                onNativeStateChanged();
-                return null;
-            }
-        );
+        final Object proxy = resolver.createFunctionalProxy(LISTENER_CLASS_ALIAS, ignored -> {
+            onNativeStateChanged();
+            return null;
+        });
         resolver.invoke(LISTENER_ADD_ALIAS, manager, proxy);
         listener = proxy;
     }
@@ -289,9 +284,8 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
             record(values, size, position);
             return Optional.empty();
         }
-        final Kind kind = size != previousSize
-            ? Kind.COMMITTED
-            : classifyUnchangedSize(values, position, previousPosition);
+        final Kind kind =
+                size != previousSize ? Kind.COMMITTED : classifyUnchangedSize(values, position, previousPosition);
         if (kind == null) {
             record(values, size, position);
             return Optional.empty();
@@ -326,8 +320,8 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         this.lastSize = size;
         this.lastPosition = position;
         this.redoTarget = position >= 0 && position < size
-            ? new WeakReference<>(values.get(position))
-            : new WeakReference<>(null);
+                ? new WeakReference<>(values.get(position))
+                : new WeakReference<>(null);
     }
 
     private static Optional<Object> entryAt(final List<?> values, final int position) {
@@ -343,8 +337,6 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         if (!(name instanceof String text)) return Optional.empty();
         final String stripped = text.strip();
         if (stripped.isEmpty()) return Optional.empty();
-        return Optional.of(
-            stripped.length() <= MAX_LABEL_LENGTH ? stripped : stripped.substring(0, MAX_LABEL_LENGTH)
-        );
+        return Optional.of(stripped.length() <= MAX_LABEL_LENGTH ? stripped : stripped.substring(0, MAX_LABEL_LENGTH));
     }
 }

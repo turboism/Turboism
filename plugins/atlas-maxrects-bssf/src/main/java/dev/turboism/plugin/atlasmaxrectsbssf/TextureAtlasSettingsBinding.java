@@ -7,7 +7,6 @@ import dev.turboism.sdk.config.ConfigMigration;
 import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.PluginConfigRegistry;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,11 +19,10 @@ final class TextureAtlasSettingsBinding {
     static final String CONFIG_ID = "texture-atlas.layout";
     static final String CONFIG_PATH = "texture-atlas/layout.cfg";
     private static final ConfigKey<TextureAtlasLayoutMode> MODE = new ConfigKey<>(
-        CONFIG_ID,
-        "layout-mode",
-        TextureAtlasLayoutMode.PART_BUCKET,
-        ConfigCodecs.enumValue(TextureAtlasLayoutMode.class)
-    );
+            CONFIG_ID,
+            "layout-mode",
+            TextureAtlasLayoutMode.PART_BUCKET,
+            ConfigCodecs.enumValue(TextureAtlasLayoutMode.class));
     // Migrations: every intermediate document is validated against the final v4 schema,
     // so each step emits only the surviving layout-mode key. The legacy algorithm and
     // parallel values are captured into pendingLegacySelection at whichever step first
@@ -45,9 +43,7 @@ final class TextureAtlasSettingsBinding {
         public ConfigDocument migrate(final ConfigDocument input) {
             // v1 predates the algorithm keys; the effective choice was the v2 default.
             pendingLegacySelection = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection(
-                TextureAtlasPlugin.ALGORITHM_MAXRECTS,
-                false
-            );
+                    TextureAtlasPlugin.ALGORITHM_MAXRECTS, false);
             return new ConfigDocument(2, retained(input));
         }
     };
@@ -89,8 +85,7 @@ final class TextureAtlasSettingsBinding {
     /** @return only the keys that survive into the v4 schema. */
     private Map<String, String> retained(final ConfigDocument input) {
         final Map<String, String> values = new LinkedHashMap<>();
-        final Map<String, String> encoded =
-            input.encodedValues() == null ? Map.of() : input.encodedValues();
+        final Map<String, String> encoded = input.encodedValues() == null ? Map.of() : input.encodedValues();
         final String mode = encoded.get(MODE.name());
         if (mode != null) {
             values.put(MODE.name(), mode);
@@ -103,36 +98,26 @@ final class TextureAtlasSettingsBinding {
      * the runtime-owned selection. {@code enumNames} is true for v2 documents, which
      * stored the algorithm enum name rather than the algorithm id.
      */
-    private void captureLegacySelection(
-        final ConfigDocument input,
-        final boolean enumNames
-    ) {
-        final Map<String, String> encoded =
-            input.encodedValues() == null ? Map.of() : input.encodedValues();
+    private void captureLegacySelection(final ConfigDocument input, final boolean enumNames) {
+        final Map<String, String> encoded = input.encodedValues() == null ? Map.of() : input.encodedValues();
         final String stored = encoded.get("algorithm");
         if (stored == null) {
             return;
         }
-        final String algorithmId = !enumNames ? stored
-            : "NATIVE".equals(stored) ? TextureAtlasPlugin.ALGORITHM_NATIVE
-            : "MAXRECTS".equals(stored) ? TextureAtlasPlugin.ALGORITHM_MAXRECTS
-            : stored;
+        final String algorithmId = !enumNames
+                ? stored
+                : "NATIVE".equals(stored)
+                        ? TextureAtlasPlugin.ALGORITHM_NATIVE
+                        : "MAXRECTS".equals(stored) ? TextureAtlasPlugin.ALGORITHM_MAXRECTS : stored;
         pendingLegacySelection = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection(
-            algorithmId,
-            "true".equals(encoded.get("parallel"))
-        );
+                algorithmId, "true".equals(encoded.get("parallel")));
     }
-    private static final ConfigSchema SCHEMA = new ConfigSchema(
-        CONFIG_ID,
-        CONFIG_PATH,
-        4,
-        List.of(MODE)
-    );
+
+    private static final ConfigSchema SCHEMA = new ConfigSchema(CONFIG_ID, CONFIG_PATH, 4, List.of(MODE));
 
     private PluginConfigRegistry registry;
     private volatile TextureAtlasSettings confirmed = TextureAtlasSettings.defaults();
-    private volatile dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection
-        pendingLegacySelection;
+    private volatile dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection pendingLegacySelection;
     private long revision;
     private long epoch;
     private boolean initialized;
@@ -142,10 +127,10 @@ final class TextureAtlasSettingsBinding {
         registry = Objects.requireNonNull(value, "value");
         try {
             return registry.registerSchema(SCHEMA, List.of(V1_TO_V2, V2_TO_V3, V3_TO_V4))
-                .handle((ignored, failure) -> {
-                    initialized = failure == null;
-                    return initialized;
-                });
+                    .handle((ignored, failure) -> {
+                        initialized = failure == null;
+                        return initialized;
+                    });
         } catch (ConfigRegistrationException | UnsupportedOperationException failure) {
             return CompletableFuture.completedStage(false);
         }
@@ -196,8 +181,7 @@ final class TextureAtlasSettingsBinding {
      * null} when there is nothing to migrate or it was already consumed.
      */
     dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection consumeLegacySelection() {
-        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection captured =
-            pendingLegacySelection;
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection captured = pendingLegacySelection;
         pendingLegacySelection = null;
         return captured;
     }

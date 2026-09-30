@@ -1,12 +1,10 @@
 package dev.turboism.ui.appearance;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
-import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -15,11 +13,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import javax.swing.UIDefaults;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Focused tests for the one-shot L&F readiness repair: the repair runs
@@ -35,8 +34,7 @@ class LafReadinessRepairTest {
         thread.setDaemon(true);
         return thread;
     });
-    private final List<String> logLines =
-        Collections.synchronizedList(new java.util.ArrayList<>());
+    private final List<String> logLines = Collections.synchronizedList(new java.util.ArrayList<>());
 
     @AfterEach
     void tearDown() throws Exception {
@@ -60,10 +58,10 @@ class LafReadinessRepairTest {
         });
         final LafReadinessRepair repair = newRepair(5_000L);
         invokeRun(repair);
-        assertEquals(1, com.formdev.flatlaf.FlatLaf.updateUiCalls(),
-            "updateUI must be invoked once on a ready host");
-        assertTrue(logLines.stream().anyMatch(line -> line.contains("FlatLaf.updateUI applied")),
-            "the repair must log its action");
+        assertEquals(1, com.formdev.flatlaf.FlatLaf.updateUiCalls(), "updateUI must be invoked once on a ready host");
+        assertTrue(
+                logLines.stream().anyMatch(line -> line.contains("FlatLaf.updateUI applied")),
+                "the repair must log its action");
     }
 
     @Test
@@ -75,23 +73,19 @@ class LafReadinessRepairTest {
         final LafReadinessRepair repair = newRepair(5_000L);
         invokeRun(repair);
         invokeRun(repair);
-        assertEquals(1, com.formdev.flatlaf.FlatLaf.updateUiCalls(),
-            "a second invocation must not repeat the repair");
+        assertEquals(1, com.formdev.flatlaf.FlatLaf.updateUiCalls(), "a second invocation must not repeat the repair");
     }
 
     @Test
     void repairTimesOutFailOpenAndNeverRetries() throws Exception {
-        SwingUtilities.invokeAndWait(() ->
-            installLookAndFeel(new javax.swing.plaf.metal.MetalLookAndFeel()));
+        SwingUtilities.invokeAndWait(() -> installLookAndFeel(new javax.swing.plaf.metal.MetalLookAndFeel()));
         final LafReadinessRepair repair = newRepair(200L);
         invokeRun(repair);
-        assertEquals(0, com.formdev.flatlaf.FlatLaf.updateUiCalls(),
-            "no updateUI may run when FlatLaf never becomes ready");
-        assertTrue(logLines.stream().anyMatch(line -> line.contains("not ready within")),
-            "the timeout must be logged");
+        assertEquals(
+                0, com.formdev.flatlaf.FlatLaf.updateUiCalls(), "no updateUI may run when FlatLaf never becomes ready");
+        assertTrue(logLines.stream().anyMatch(line -> line.contains("not ready within")), "the timeout must be logged");
         invokeRun(repair);
-        assertEquals(0, com.formdev.flatlaf.FlatLaf.updateUiCalls(),
-            "the repair must not retry after a timeout");
+        assertEquals(0, com.formdev.flatlaf.FlatLaf.updateUiCalls(), "the repair must not retry after a timeout");
     }
 
     @Test
@@ -103,12 +97,12 @@ class LafReadinessRepairTest {
         com.formdev.flatlaf.FlatLaf.throwOnUpdateUi(true);
         final LafReadinessRepair repair = newRepair(5_000L);
         invokeRun(repair);
-        assertTrue(logLines.stream().anyMatch(line -> line.contains("failed safely")),
-            "an updateUI failure must be logged and swallowed");
+        assertTrue(
+                logLines.stream().anyMatch(line -> line.contains("failed safely")),
+                "an updateUI failure must be logged and swallowed");
         com.formdev.flatlaf.FlatLaf.throwOnUpdateUi(false);
         invokeRun(repair);
-        assertEquals(0, com.formdev.flatlaf.FlatLaf.updateUiCalls(),
-            "the repair must not retry after a failure");
+        assertEquals(0, com.formdev.flatlaf.FlatLaf.updateUiCalls(), "the repair must not retry after a failure");
     }
 
     @Test
@@ -143,12 +137,12 @@ class LafReadinessRepairTest {
         });
         assertTrue(pollStarted.await(2, TimeUnit.SECONDS), "poll worker must start");
         assertNotSame(edtThread.get(), pollThread.get(), "poll must run on a non-EDT worker");
-        assertTrue(awaitPollingSleep(pollThread.get(), 2_000L),
-            "polling sleep must be observed on the poll worker's own stack");
+        assertTrue(
+                awaitPollingSleep(pollThread.get(), 2_000L),
+                "polling sleep must be observed on the poll worker's own stack");
         final CountDownLatch edtProbe = new CountDownLatch(1);
         SwingUtilities.invokeLater(edtProbe::countDown);
-        assertTrue(edtProbe.await(2, TimeUnit.SECONDS),
-            "EDT must remain responsive while the poll is active");
+        assertTrue(edtProbe.await(2, TimeUnit.SECONDS), "EDT must remain responsive while the poll is active");
         assertFalse(poll.isDone(), "poll must remain active while the probe fires");
         poll.cancel(true);
     }
@@ -159,11 +153,10 @@ class LafReadinessRepairTest {
      * {@code waitForFlatLaf} stack). No latency threshold is asserted.
      */
     private static boolean awaitPollingSleep(final Thread worker, final long timeoutMillis)
-        throws InterruptedException {
+            throws InterruptedException {
         final long deadline = System.currentTimeMillis() + timeoutMillis;
         while (System.currentTimeMillis() < deadline) {
-            if (worker.getState() == Thread.State.TIMED_WAITING
-                && isPollingSleep(worker.getStackTrace())) {
+            if (worker.getState() == Thread.State.TIMED_WAITING && isPollingSleep(worker.getStackTrace())) {
                 return true;
             }
             Thread.sleep(5L);
@@ -175,20 +168,15 @@ class LafReadinessRepairTest {
         boolean sleeping = false;
         boolean polling = false;
         for (StackTraceElement element : stack) {
-            sleeping |= "java.lang.Thread".equals(element.getClassName())
-                && "sleep".equals(element.getMethodName());
+            sleeping |= "java.lang.Thread".equals(element.getClassName()) && "sleep".equals(element.getMethodName());
             polling |= LafReadinessRepair.class.getName().equals(element.getClassName())
-                && "waitForFlatLaf".equals(element.getMethodName());
+                    && "waitForFlatLaf".equals(element.getMethodName());
         }
         return sleeping && polling;
     }
 
     private LafReadinessRepair newRepair(final long timeoutMillis) {
-        return new LafReadinessRepair(
-            LafReadinessRepairTest.class.getClassLoader(),
-            logLines::add,
-            timeoutMillis
-        );
+        return new LafReadinessRepair(LafReadinessRepairTest.class.getClassLoader(), logLines::add, timeoutMillis);
     }
 
     /** Invokes the private bootstrap run path; no production seam is changed. */

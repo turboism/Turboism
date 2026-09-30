@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /**
  * Called synchronously while the host is deleting mesh geometry, before anything is removed.
  *

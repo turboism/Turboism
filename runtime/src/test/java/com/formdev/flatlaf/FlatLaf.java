@@ -5,8 +5,7 @@ public final class FlatLaf {
     private static int updateUiCalls;
     private static boolean throwOnUpdateUi;
 
-    private FlatLaf() {
-    }
+    private FlatLaf() {}
 
     public static void updateUI() {
         if (throwOnUpdateUi) {

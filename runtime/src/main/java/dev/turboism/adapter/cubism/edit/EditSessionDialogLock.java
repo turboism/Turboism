@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.edit;
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.InvisibleModal;
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.StatusDialog;
 import dev.turboism.adapter.cubism.edit.EditSessionDialogPrimitives.TimerHandle;
-
 import java.util.Objects;
 import java.util.function.LongSupplier;
 
@@ -57,18 +56,14 @@ public final class EditSessionDialogLock implements EditSessionUiLock {
     private TimerHandle pulseTimer;
     private long modalShownAtMs;
 
-    public EditSessionDialogLock(
-        final EditSessionDialogPrimitives primitives,
-        final EditSessionUiLockContext context
-    ) {
+    public EditSessionDialogLock(final EditSessionDialogPrimitives primitives, final EditSessionUiLockContext context) {
         this(primitives, context, System::currentTimeMillis);
     }
 
     EditSessionDialogLock(
-        final EditSessionDialogPrimitives primitives,
-        final EditSessionUiLockContext context,
-        final LongSupplier millis
-    ) {
+            final EditSessionDialogPrimitives primitives,
+            final EditSessionUiLockContext context,
+            final LongSupplier millis) {
         this.primitives = Objects.requireNonNull(primitives, "primitives");
         this.context = Objects.requireNonNull(context, "context");
         this.millis = Objects.requireNonNull(millis, "millis");

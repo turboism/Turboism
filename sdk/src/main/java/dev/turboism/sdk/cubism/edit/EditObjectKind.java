@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+
 /**
  * The six object types the editor's parts palette can report, matching the official
  * {@code ModelObjectType} enumeration.

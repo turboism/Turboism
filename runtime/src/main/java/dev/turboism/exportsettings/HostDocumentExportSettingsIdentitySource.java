@@ -3,7 +3,6 @@ package dev.turboism.exportsettings;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.id.ModelId;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -20,8 +19,7 @@ import java.util.function.Supplier;
  * identity is only valid for the moment it was read; the authority compares it against the identity
  * captured when the dialog was attached.</p>
  */
-public final class HostDocumentExportSettingsIdentitySource
-    implements Supplier<Optional<ExportSettingsIdentity>> {
+public final class HostDocumentExportSettingsIdentitySource implements Supplier<Optional<ExportSettingsIdentity>> {
 
     private final HostSnapshotSource snapshots;
 
@@ -31,11 +29,10 @@ public final class HostDocumentExportSettingsIdentitySource
 
     @Override
     public Optional<ExportSettingsIdentity> get() {
-        return snapshots.activeDocument()
-            .filter(document -> document.kind() == DocumentKind.MODEL)
-            .flatMap(document -> document.model()
-                .map(model -> new ExportSettingsIdentity(
-                    document.documentId(), new ModelId(model.modelId())
-                )));
+        return snapshots
+                .activeDocument()
+                .filter(document -> document.kind() == DocumentKind.MODEL)
+                .flatMap(document -> document.model()
+                        .map(model -> new ExportSettingsIdentity(document.documentId(), new ModelId(model.modelId()))));
     }
 }

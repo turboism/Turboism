@@ -28,7 +28,8 @@ public final class RetryableCleanup implements AutoCloseable {
      * Reentrant close calls return to the active pass. A fatal error remains the primary failure;
      * other failures are suppressed on it. Ordinary failures are reported with a diagnostic wrapper.
      */
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         if (running) return;
         running = true;
         Throwable failure = null;
@@ -39,6 +40,8 @@ public final class RetryableCleanup implements AutoCloseable {
                     step.action.close();
                     step.action = null;
                 } catch (Throwable next) {
+                    // @containment-exempt: stages collect and rank failures; the loop
+                    // rethrows the highest-priority one only after every stage ran.
                     failure = append(failure, next);
                 }
             }
@@ -72,6 +75,9 @@ public final class RetryableCleanup implements AutoCloseable {
 
     private static final class Step {
         private AutoCloseable action;
-        private Step(final AutoCloseable action) { this.action = action; }
+
+        private Step(final AutoCloseable action) {
+            this.action = action;
+        }
     }
 }

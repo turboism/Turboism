@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -8,27 +13,21 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.event.DeformerLockEvent;
+import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.cubism.event.DeformerLockEvent;
-import dev.turboism.sdk.cubism.event.DeformerVisibilityEvent;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class DeformerStateLifecycleContractTest {
     @Test
@@ -36,15 +35,13 @@ class DeformerStateLifecycleContractTest {
         final RuntimeScheduler scheduler = scheduler();
         try {
             final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-            final DeformerLifecycleCoordinator coordinator =
-                new DeformerLifecycleCoordinator();
+            final DeformerLifecycleCoordinator coordinator = new DeformerLifecycleCoordinator();
             coordinator.attachEventBroker(broker);
             final RuntimeEventBroker.Owner owner = broker.admit("deformer-state");
             final CountDownLatch completion = new CountDownLatch(4);
             final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
-            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-                new Subscriber(events, completion)
-            )));
+            owner.registerAnnotated(
+                    new EntrypointSubscriberCatalog().inspect(List.of(new Subscriber(events, completion))));
             owner.activate();
             final MutableWarp deformer = new MutableWarp();
 
@@ -54,10 +51,11 @@ class DeformerStateLifecycleContractTest {
             assertTrue(completion.await(1, TimeUnit.SECONDS));
             assertFalse(deformer.visible());
             assertFalse(deformer.locked());
-            assertEquals(List.of(
-                "visibility-on:true->false", "visibility-after:false",
-                "lock-on:true->false", "lock-after:false"
-            ), events);
+            assertEquals(
+                    List.of(
+                            "visibility-on:true->false", "visibility-after:false",
+                            "lock-on:true->false", "lock-after:false"),
+                    events);
         } finally {
             scheduler.shutdown();
         }
@@ -87,9 +85,7 @@ class DeformerStateLifecycleContractTest {
         public void afterVisibility(final DeformerVisibilityEvent.After event) {
             events.add("visibility-after:" + event.finalVisible());
             assertThrows(
-                UnsupportedOperationException.class,
-                () -> event.deformer().setVisible(true)
-            );
+                    UnsupportedOperationException.class, () -> event.deformer().setVisible(true));
             completion.countDown();
         }
 
@@ -108,28 +104,22 @@ class DeformerStateLifecycleContractTest {
         public void afterLock(final DeformerLockEvent.After event) {
             events.add("lock-after:" + event.finalLocked());
             assertThrows(
-                UnsupportedOperationException.class,
-                () -> event.deformer().setLocked(true)
-            );
+                    UnsupportedOperationException.class, () -> event.deformer().setLocked(true));
             completion.countDown();
         }
     }
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
@@ -137,27 +127,82 @@ class DeformerStateLifecycleContractTest {
     private static final class MutableWarp implements WarpDeformer {
         private boolean visible = true;
         private boolean locked = true;
-        private void writeVisible(final boolean value) { visible = value; }
-        private void writeLocked(final boolean value) { locked = value; }
-        @Override public DeformerId id() { return new DeformerId("WarpA"); }
-        @Override public boolean visible() { return visible; }
-        @Override public boolean locked() { return locked; }
-        @Override public float getOpacity() { return 1.0F; }
-        @Override public Color multiplyColor() { return new Color(1, 1, 1, 1); }
-        @Override public Color screenColor() { return new Color(0, 0, 0, 1); }
-        @Override public int parentPartIndex() { return -1; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return ints(); }
-        @Override public WarpGrid grid() { throw new UnsupportedOperationException(); }
-        @Override public void replaceGrid(final WarpGrid grid) {
+
+        private void writeVisible(final boolean value) {
+            visible = value;
+        }
+
+        private void writeLocked(final boolean value) {
+            locked = value;
+        }
+
+        @Override
+        public DeformerId id() {
+            return new DeformerId("WarpA");
+        }
+
+        @Override
+        public boolean visible() {
+            return visible;
+        }
+
+        @Override
+        public boolean locked() {
+            return locked;
+        }
+
+        @Override
+        public float getOpacity() {
+            return 1.0F;
+        }
+
+        @Override
+        public Color multiplyColor() {
+            return new Color(1, 1, 1, 1);
+        }
+
+        @Override
+        public Color screenColor() {
+            return new Color(0, 0, 0, 1);
+        }
+
+        @Override
+        public int parentPartIndex() {
+            return -1;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return ints();
+        }
+
+        @Override
+        public WarpGrid grid() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void replaceGrid(final WarpGrid grid) {
             throw new UnsupportedOperationException();
         }
     }
 
     private static IntSequence ints() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(final int index) {
+                throw new IndexOutOfBoundsException(index);
+            }
         };
     }
 }

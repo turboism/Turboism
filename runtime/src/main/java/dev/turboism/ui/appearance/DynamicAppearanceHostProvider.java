@@ -2,7 +2,6 @@ package dev.turboism.ui.appearance;
 
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-
 import java.util.Objects;
 
 /** Session-owned stable provider view whose exact-host delegate is replaceable. */
@@ -71,18 +70,14 @@ public final class DynamicAppearanceHostProvider implements AppearanceHostProvid
     @Override
     public void restore(final RestorePoint restorePoint) {
         synchronized (monitor) {
-            if (!(restorePoint instanceof GenerationRestorePoint point)
-                || point.generation() != generation) {
+            if (!(restorePoint instanceof GenerationRestorePoint point) || point.generation() != generation) {
                 throw new IllegalStateException("Appearance restore point is stale");
             }
             delegate.restore(point.delegate());
         }
     }
 
-    private record GenerationRestorePoint(
-        long generation,
-        RestorePoint delegate
-    ) implements RestorePoint {
+    private record GenerationRestorePoint(long generation, RestorePoint delegate) implements RestorePoint {
         private GenerationRestorePoint {
             delegate = Objects.requireNonNull(delegate, "delegate");
         }

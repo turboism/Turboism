@@ -2,14 +2,11 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer visibility write event family. */
 public sealed interface DeformerVisibilityEvent extends TurboismEvent
-    permits DeformerVisibilityEvent.Before,
-            DeformerVisibilityEvent.On,
-            DeformerVisibilityEvent.After {
+        permits DeformerVisibilityEvent.Before, DeformerVisibilityEvent.On, DeformerVisibilityEvent.After {
 
     /** Returns the detached Deformer projection participating in the operation. */
     Deformer deformer();
@@ -21,20 +18,15 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         private final CallbackScope callbackScope;
         private boolean visible;
 
-        public Before(
-            final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible
-        ) {
+        public Before(final Deformer deformer, final boolean requestedVisible, final boolean visible) {
             this(deformer, requestedVisible, visible, null);
         }
 
         private Before(
-            final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible,
-            final CallbackScope callbackScope
-        ) {
+                final Deformer deformer,
+                final boolean requestedVisible,
+                final boolean visible,
+                final CallbackScope callbackScope) {
             this.deformer = Objects.requireNonNull(deformer, "deformer");
             this.requestedVisible = requestedVisible;
             this.visible = visible;
@@ -43,18 +35,22 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
 
         /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
         public static Callback openCallback(
-            final Deformer deformer,
-            final boolean requestedVisible,
-            final boolean visible
-        ) {
+                final Deformer deformer, final boolean requestedVisible, final boolean visible) {
             return new Callback(deformer, requestedVisible, visible);
         }
 
-        @Override public Deformer deformer() { return deformer; }
+        @Override
+        public Deformer deformer() {
+            return deformer;
+        }
         /** Returns the visibility value originally requested by the write call. */
-        public boolean requestedVisible() { return requestedVisible; }
+        public boolean requestedVisible() {
+            return requestedVisible;
+        }
         /** Returns the candidate visibility value that will be applied. */
-        public boolean visible() { return visible; }
+        public boolean visible() {
+            return visible;
+        }
 
         /** Replaces the candidate visibility value for the current callback. */
         public void setVisible(final boolean visible) {
@@ -67,11 +63,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final Deformer deformer,
-                final boolean requestedVisible,
-                final boolean visible
-            ) {
+            private Callback(final Deformer deformer, final boolean requestedVisible, final boolean visible) {
                 event = new Before(deformer, requestedVisible, visible, scope);
             }
 
@@ -81,20 +73,24 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
                 return event;
             }
 
-            @Override public void close() { scope.close(); }
+            @Override
+            public void close() {
+                scope.close();
+            }
         }
 
         private static final class CallbackScope {
             private final Thread ownerThread;
             private boolean open = true;
 
-            private CallbackScope(final Thread ownerThread) { this.ownerThread = ownerThread; }
+            private CallbackScope(final Thread ownerThread) {
+                this.ownerThread = ownerThread;
+            }
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
                     throw new IllegalStateException(
-                        "Deformer visibility before-event mutation is outside its callback scope."
-                    );
+                            "Deformer visibility before-event mutation is outside its callback scope.");
                 }
             }
 
@@ -106,14 +102,16 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
     }
 
     /** State published after a successful visibility write that changed the value. */
-    record On(Deformer deformer, boolean oldVisible, boolean newVisible)
-        implements DeformerVisibilityEvent {
-        public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record On(Deformer deformer, boolean oldVisible, boolean newVisible) implements DeformerVisibilityEvent {
+        public On {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 
     /** State published after every successful visibility write. */
-    record After(Deformer deformer, boolean finalVisible)
-        implements DeformerVisibilityEvent {
-        public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
+    record After(Deformer deformer, boolean finalVisible) implements DeformerVisibilityEvent {
+        public After {
+            deformer = Objects.requireNonNull(deformer, "deformer");
+        }
     }
 }

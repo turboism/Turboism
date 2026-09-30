@@ -70,8 +70,7 @@ public interface ParameterStructureOps {
         }
 
         @Override
-        public boolean addParameterGroup(final AddParameterGroup request)
-                throws EditSessionException {
+        public boolean addParameterGroup(final AddParameterGroup request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterStructureOps.addParameterGroup");
         }
@@ -83,8 +82,7 @@ public interface ParameterStructureOps {
         }
 
         @Override
-        public boolean editParameterGroup(final EditParameterGroup request)
-                throws EditSessionException {
+        public boolean editParameterGroup(final EditParameterGroup request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterStructureOps.editParameterGroup");
         }
@@ -96,8 +94,7 @@ public interface ParameterStructureOps {
         }
 
         @Override
-        public boolean deleteParameterGroup(final DeleteParameterGroup request)
-                throws EditSessionException {
+        public boolean deleteParameterGroup(final DeleteParameterGroup request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterStructureOps.deleteParameterGroup");
         }
@@ -109,8 +106,7 @@ public interface ParameterStructureOps {
         }
 
         @Override
-        public boolean moveParameterGroup(final MoveParameterGroup request)
-                throws EditSessionException {
+        public boolean moveParameterGroup(final MoveParameterGroup request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterStructureOps.moveParameterGroup");
         }

@@ -1,15 +1,11 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
-
 import java.util.Objects;
 
 /** Generation-bound, owner-preserving, host-neutral panel-tab menu contribution. */
 public record PanelTabMenuContribution(
-    long hostGeneration,
-    String pluginId,
-    ContextMenuRegistry.ContextMenuContribution contribution
-) {
+        long hostGeneration, String pluginId, ContextMenuRegistry.ContextMenuContribution contribution) {
     public PanelTabMenuContribution {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");

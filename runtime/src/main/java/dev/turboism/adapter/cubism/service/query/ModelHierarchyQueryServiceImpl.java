@@ -13,7 +13,6 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,11 +71,7 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
     }
 
     private void requireModelRead(final String operationId) {
-        permissionGate.require(
-            CubismFacadeImpl.MODEL_READ_PERMISSION,
-            operationId,
-            MODEL_TREE_READ_CAPABILITY
-        );
+        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, operationId, MODEL_TREE_READ_CAPABILITY);
     }
 
     private Optional<ModelHierarchy> hierarchy() throws CubismServiceException {
@@ -94,33 +89,49 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
         try {
             return facade.runtimeWithVersion();
         } catch (IllegalArgumentException | IllegalStateException error) {
-            throw new CubismServiceException(ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
+            throw new CubismServiceException(
+                    ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
         }
     }
 
-    private Optional<ModelHierarchy> buildHierarchy(final CubismRuntimeSnapshot snapshot) throws CubismServiceException {
+    private Optional<ModelHierarchy> buildHierarchy(final CubismRuntimeSnapshot snapshot)
+            throws CubismServiceException {
         if (snapshot.model().isEmpty()) {
             return Optional.empty();
         }
         final ModelSnapshot model = snapshot.model().orElseThrow();
         final boolean canReadMesh = canReadMesh();
         final ModelObjectId rootId = new ModelObjectId(model.modelId());
-        final Map<String, List<ModelObjectId>> childrenByParentId = childrenByParentId(model, rootId.value(), canReadMesh);
+        final Map<String, List<ModelObjectId>> childrenByParentId =
+                childrenByParentId(model, rootId.value(), canReadMesh);
         final List<HierarchyNode> nodes = new ArrayList<>();
-        nodes.add(new HierarchyNode(rootId, model.name(), HierarchyNode.Kind.MODEL, Optional.empty(), childIds(childrenByParentId, rootId.value())));
+        nodes.add(new HierarchyNode(
+                rootId,
+                model.name(),
+                HierarchyNode.Kind.MODEL,
+                Optional.empty(),
+                childIds(childrenByParentId, rootId.value())));
         for (ParameterSnapshot parameter : model.parameters()) {
             final ModelObjectId id = new ModelObjectId(parameter.id());
-            nodes.add(new HierarchyNode(id, parameter.name(), HierarchyNode.Kind.PARAMETER, Optional.of(rootId), List.of()));
+            nodes.add(new HierarchyNode(
+                    id, parameter.name(), HierarchyNode.Kind.PARAMETER, Optional.of(rootId), List.of()));
         }
         for (DeformerSnapshot deformer : model.deformers()) {
             final ModelObjectId id = new ModelObjectId(deformer.id());
-            final Optional<ModelObjectId> parentId = Optional.of(new ModelObjectId(deformer.parentId().orElse(rootId.value())));
-            nodes.add(new HierarchyNode(id, deformer.name(), HierarchyNode.Kind.DEFORMER, parentId, childIds(childrenByParentId, deformer.id())));
+            final Optional<ModelObjectId> parentId =
+                    Optional.of(new ModelObjectId(deformer.parentId().orElse(rootId.value())));
+            nodes.add(new HierarchyNode(
+                    id,
+                    deformer.name(),
+                    HierarchyNode.Kind.DEFORMER,
+                    parentId,
+                    childIds(childrenByParentId, deformer.id())));
         }
         if (canReadMesh) {
             for (ArtMeshSnapshot artMesh : model.artMeshes()) {
                 final ModelObjectId id = new ModelObjectId(artMesh.id());
-                final Optional<ModelObjectId> parentId = Optional.of(new ModelObjectId(parentIdForArtMesh(childrenByParentId, rootId.value(), artMesh.id())));
+                final Optional<ModelObjectId> parentId = Optional.of(
+                        new ModelObjectId(parentIdForArtMesh(childrenByParentId, rootId.value(), artMesh.id())));
                 nodes.add(new HierarchyNode(id, artMesh.name(), HierarchyNode.Kind.ART_MESH, parentId, List.of()));
             }
         }
@@ -132,32 +143,43 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
         return permissionGate.hasPermission(CubismFacadeImpl.MESH_READ_PERMISSION);
     }
 
-    private Map<String, List<ModelObjectId>> childrenByParentId(final ModelSnapshot model, final String rootId, final boolean canReadMesh) {
+    private Map<String, List<ModelObjectId>> childrenByParentId(
+            final ModelSnapshot model, final String rootId, final boolean canReadMesh) {
         final Map<String, List<ModelObjectId>> childrenByParentId = new LinkedHashMap<>();
         for (ParameterSnapshot parameter : model.parameters()) {
-            childrenByParentId.computeIfAbsent(rootId, ignored -> new ArrayList<>()).add(new ModelObjectId(parameter.id()));
+            childrenByParentId
+                    .computeIfAbsent(rootId, ignored -> new ArrayList<>())
+                    .add(new ModelObjectId(parameter.id()));
         }
         for (DeformerSnapshot deformer : model.deformers()) {
-            childrenByParentId.computeIfAbsent(deformer.parentId().orElse(rootId), ignored -> new ArrayList<>()).add(new ModelObjectId(deformer.id()));
+            childrenByParentId
+                    .computeIfAbsent(deformer.parentId().orElse(rootId), ignored -> new ArrayList<>())
+                    .add(new ModelObjectId(deformer.id()));
             for (String childId : deformer.childIds()) {
-                childrenByParentId.computeIfAbsent(deformer.id(), ignored -> new ArrayList<>()).add(new ModelObjectId(childId));
+                childrenByParentId
+                        .computeIfAbsent(deformer.id(), ignored -> new ArrayList<>())
+                        .add(new ModelObjectId(childId));
             }
         }
         if (canReadMesh) {
             for (ArtMeshSnapshot artMesh : model.artMeshes()) {
                 if (!hasParent(childrenByParentId, artMesh.id())) {
-                    childrenByParentId.computeIfAbsent(rootId, ignored -> new ArrayList<>()).add(new ModelObjectId(artMesh.id()));
+                    childrenByParentId
+                            .computeIfAbsent(rootId, ignored -> new ArrayList<>())
+                            .add(new ModelObjectId(artMesh.id()));
                 }
             }
         }
         return childrenByParentId;
     }
 
-    private List<ModelObjectId> childIds(final Map<String, List<ModelObjectId>> childrenByParentId, final String parentId) {
+    private List<ModelObjectId> childIds(
+            final Map<String, List<ModelObjectId>> childrenByParentId, final String parentId) {
         return List.copyOf(childrenByParentId.getOrDefault(parentId, List.of()));
     }
 
-    private String parentIdForArtMesh(final Map<String, List<ModelObjectId>> childrenByParentId, final String rootId, final String artMeshId) {
+    private String parentIdForArtMesh(
+            final Map<String, List<ModelObjectId>> childrenByParentId, final String rootId, final String artMeshId) {
         for (Map.Entry<String, List<ModelObjectId>> entry : childrenByParentId.entrySet()) {
             if (!entry.getKey().equals(rootId) && entry.getValue().contains(new ModelObjectId(artMeshId))) {
                 return entry.getKey();
@@ -174,7 +196,9 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
         final Map<ModelObjectId, HierarchyNode> nodesById = new LinkedHashMap<>();
         for (HierarchyNode node : nodes) {
             if (nodesById.put(node.id(), node) != null) {
-                throw new CubismServiceException(ServiceError.INVALID_SNAPSHOT, "Duplicate hierarchy node id " + node.id().value());
+                throw new CubismServiceException(
+                        ServiceError.INVALID_SNAPSHOT,
+                        "Duplicate hierarchy node id " + node.id().value());
             }
         }
     }

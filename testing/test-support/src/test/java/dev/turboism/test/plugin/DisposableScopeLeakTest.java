@@ -1,11 +1,10 @@
 package dev.turboism.test.plugin;
 
-import dev.turboism.sdk.plugin.DisposableScope;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.*;
+
+import dev.turboism.sdk.plugin.DisposableScope;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests that DisposableScope closes registered resources in reverse order and allows removal.

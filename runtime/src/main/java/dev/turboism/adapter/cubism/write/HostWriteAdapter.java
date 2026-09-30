@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.write;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
-
 import java.util.List;
 
 /**

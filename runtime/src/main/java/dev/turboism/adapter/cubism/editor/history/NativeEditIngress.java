@@ -2,12 +2,12 @@ package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -43,11 +43,10 @@ public final class NativeEditIngress implements AutoCloseable {
     public interface Publisher {
         /** Publishes one observed native edit into the Turboism ingress pipeline. */
         void publish(
-            CubismOperation operation,
-            CubismOperationOrigin origin,
-            Optional<String> subjectId,
-            Optional<String> label
-        );
+                CubismOperation operation,
+                CubismOperationOrigin origin,
+                Optional<String> subjectId,
+                Optional<String> label);
     }
 
     private final VerifiedMemberResolver resolver;
@@ -73,12 +72,8 @@ public final class NativeEditIngress implements AutoCloseable {
      * @param manager  the active document's native undo manager
      * @param publisher receives confirmed host-observed operations
      */
-    public NativeEditIngress(
-        final VerifiedMemberResolver resolver,
-        final Object manager,
-        final Publisher publisher
-    ) {
-        this(resolver, manager, publisher, () -> { });
+    public NativeEditIngress(final VerifiedMemberResolver resolver, final Object manager, final Publisher publisher) {
+        this(resolver, manager, publisher, () -> {});
     }
 
     /**
@@ -88,20 +83,18 @@ public final class NativeEditIngress implements AutoCloseable {
      *     must never read the host and never run plugin logic
      */
     public NativeEditIngress(
-        final VerifiedMemberResolver resolver,
-        final Object manager,
-        final Publisher publisher,
-        final Runnable onNotification
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Object manager,
+            final Publisher publisher,
+            final Runnable onNotification) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.manager = Objects.requireNonNull(manager, "manager");
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.observer = new NativeUndoIngressObserver(
-            this.resolver,
-            Objects.requireNonNull(manager, "manager"),
-            this::accept,
-            Objects.requireNonNull(onNotification, "onNotification")
-        );
+                this.resolver,
+                Objects.requireNonNull(manager, "manager"),
+                this::accept,
+                Objects.requireNonNull(onNotification, "onNotification"));
     }
 
     /**
@@ -159,16 +152,8 @@ public final class NativeEditIngress implements AutoCloseable {
         try {
             switch (event.kind()) {
                 case COMMITTED -> acceptCommit(event);
-                case UNDO -> publish(
-                    CubismOperation.UNDO,
-                    CubismOperationOrigin.UNDO,
-                    event.label()
-                );
-                case REDO -> publish(
-                    CubismOperation.REDO,
-                    CubismOperationOrigin.REDO,
-                    event.label()
-                );
+                case UNDO -> publish(CubismOperation.UNDO, CubismOperationOrigin.UNDO, event.label());
+                case REDO -> publish(CubismOperation.REDO, CubismOperationOrigin.REDO, event.label());
             }
         } catch (VirtualMachineError fatal) {
             throw fatal;
@@ -180,11 +165,7 @@ public final class NativeEditIngress implements AutoCloseable {
     private void acceptCommit(final NativeUndoIngressObserver.Event event) {
         final Optional<Object> entry = event.entry();
         if (entry.isEmpty()) {
-            publish(
-                CubismOperation.EXECUTE_EDITOR_COMMAND,
-                CubismOperationOrigin.HOST_UI,
-                event.label()
-            );
+            publish(CubismOperation.EXECUTE_EDITOR_COMMAND, CubismOperationOrigin.HOST_UI, event.label());
             return;
         }
         if (EditorHistoryMetadataRegistry.claimsProvenance(entry.orElseThrow())) {
@@ -192,15 +173,11 @@ public final class NativeEditIngress implements AutoCloseable {
             return;
         }
         final boolean tip = isCurrentTip(entry.orElseThrow());
-        final NativeHistoryDecodeResult decoded = decoders.decode(
-            resolver,
-            entry.orElseThrow(),
-            event.label().orElse("History entry"),
-            tip
-        );
+        final NativeHistoryDecodeResult decoded =
+                decoders.decode(resolver, entry.orElseThrow(), event.label().orElse("History entry"), tip);
         final HistoryEntryDetail detail = decoded.outcome() == NativeHistoryDecodeResult.Outcome.DECODED
-            ? decoded.detail().orElse(null)
-            : null;
+                ? decoded.detail().orElse(null)
+                : null;
         // The snapshot projection runs later, when this entry may no longer be the tip and its
         // post state is no longer provably this entry's own. Persisting the commit-time decode is
         // the only way a later projection can still show what the commit actually did.
@@ -209,12 +186,7 @@ public final class NativeEditIngress implements AutoCloseable {
         }
         final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(detail);
         diagnose(tip, decoded, detail, resolution);
-        publish(
-            resolution.operation(),
-            CubismOperationOrigin.HOST_UI,
-            resolution.subjectId(),
-            event.label()
-        );
+        publish(resolution.operation(), CubismOperationOrigin.HOST_UI, resolution.subjectId(), event.label());
     }
 
     /**
@@ -225,24 +197,23 @@ public final class NativeEditIngress implements AutoCloseable {
      * which is enough to tell a refused live-target read from a refusal by the mapping.</p>
      */
     private void diagnose(
-        final boolean tip,
-        final NativeHistoryDecodeResult decoded,
-        final HistoryEntryDetail detail,
-        final NativeHistoryOperations.Resolution resolution
-    ) {
+            final boolean tip,
+            final NativeHistoryDecodeResult decoded,
+            final HistoryEntryDetail detail,
+            final NativeHistoryOperations.Resolution resolution) {
         try {
             diagnosed.increment();
             if (diagnosed.sum() > MAX_DIAGNOSED_COMMITS) return;
             RuntimeDiagnostics.info(
-                COMPONENT,
-                "classified entry tip=" + tip
-                    + " outcome=" + decoded.outcome()
-                    + " diagnostic=" + decoded.diagnosticId()
-                    + " detail=" + (detail == null ? "none" : detail.detailLevel())
-                    + " group=" + (detail != null && detail.group().isPresent())
-                    + " operation=" + resolution.operation()
-            );
+                    COMPONENT,
+                    "classified entry tip=" + tip
+                            + " outcome=" + decoded.outcome()
+                            + " diagnostic=" + decoded.diagnosticId()
+                            + " detail=" + (detail == null ? "none" : detail.detailLevel())
+                            + " group=" + (detail != null && detail.group().isPresent())
+                            + " operation=" + resolution.operation());
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Diagnostics must never disturb classification.
         }
     }
@@ -257,8 +228,7 @@ public final class NativeEditIngress implements AutoCloseable {
     private boolean isCurrentTip(final Object entry) {
         try {
             final Object raw = resolver.invoke("cubism.editor-history.manager.entries", manager);
-            final Object positionValue =
-                resolver.invoke("cubism.editor-history.manager.position", manager);
+            final Object positionValue = resolver.invoke("cubism.editor-history.manager.position", manager);
             if (!(raw instanceof List<?> values) || !(positionValue instanceof Number number)) {
                 return false;
             }
@@ -281,31 +251,20 @@ public final class NativeEditIngress implements AutoCloseable {
      * @param entry    the entry being decoded
      * @return whether the live target still holds this entry's own result
      */
-    static boolean isCurrentTip(
-        final List<?> values,
-        final int position,
-        final Object entry
-    ) {
-        return values != null
-            && position > 0
-            && position == values.size()
-            && values.get(position - 1) == entry;
+    static boolean isCurrentTip(final List<?> values, final int position, final Object entry) {
+        return values != null && position > 0 && position == values.size() && values.get(position - 1) == entry;
     }
 
     private void publish(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> label
-    ) {
+            final CubismOperation operation, final CubismOperationOrigin origin, final Optional<String> label) {
         publish(operation, origin, Optional.empty(), label);
     }
 
     private void publish(
-        final CubismOperation operation,
-        final CubismOperationOrigin origin,
-        final Optional<String> subjectId,
-        final Optional<String> label
-    ) {
+            final CubismOperation operation,
+            final CubismOperationOrigin origin,
+            final Optional<String> subjectId,
+            final Optional<String> label) {
         publisher.publish(operation, origin, subjectId, label);
         published.increment();
     }

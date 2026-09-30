@@ -20,11 +20,9 @@ import java.util.function.Consumer;
  */
 public final class VerifiedMeshTriangulationHashInstaller {
 
-    private static final String TARGET_CLASS_NAME =
-        "com.live2d.graphics3d.editableMesh.triangulation.l";
+    private static final String TARGET_CLASS_NAME = "com.live2d.graphics3d.editableMesh.triangulation.l";
 
-    private VerifiedMeshTriangulationHashInstaller() {
-    }
+    private VerifiedMeshTriangulationHashInstaller() {}
 
     /** Lifecycle outcome of one installation attempt. */
     public enum Status {
@@ -41,16 +39,18 @@ public final class VerifiedMeshTriangulationHashInstaller {
         private final MeshTriangulationHashTransformer transformer;
         private final AtomicReference<Status> current;
 
-        private Installation(final Status status, final Instrumentation instrumentation,
-                            final MeshTriangulationHashTransformer transformer) {
+        private Installation(
+                final Status status,
+                final Instrumentation instrumentation,
+                final MeshTriangulationHashTransformer transformer) {
             this.status = status;
             this.instrumentation = instrumentation;
             this.transformer = transformer;
             this.current = new AtomicReference<>(status);
         }
 
-        static Installation installed(final Instrumentation instrumentation,
-                                     final MeshTriangulationHashTransformer transformer) {
+        static Installation installed(
+                final Instrumentation instrumentation, final MeshTriangulationHashTransformer transformer) {
             return new Installation(Status.INSTALLED, instrumentation, transformer);
         }
 
@@ -65,9 +65,7 @@ public final class VerifiedMeshTriangulationHashInstaller {
 
         /** Outcome of the transform itself, which is only meaningful once the target was defined. */
         public MeshTriangulationHashTransformer.Outcome transformOutcome() {
-            return transformer == null
-                ? MeshTriangulationHashTransformer.Outcome.NONE
-                : transformer.outcome();
+            return transformer == null ? MeshTriangulationHashTransformer.Outcome.NONE : transformer.outcome();
         }
 
         /** Transformer diagnostic detail, or the empty string when none was installed. */
@@ -96,8 +94,7 @@ public final class VerifiedMeshTriangulationHashInstaller {
      * @param diagnostic receives one stable outcome code; exceptions are swallowed
      * @return the installation handle; its status distinguishes installed from declined
      */
-    public static Installation install(final Instrumentation instrumentation,
-                                       final Consumer<String> diagnostic) {
+    public static Installation install(final Instrumentation instrumentation, final Consumer<String> diagnostic) {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(diagnostic, "diagnostic");
 
@@ -137,9 +134,8 @@ public final class VerifiedMeshTriangulationHashInstaller {
     }
 
     /** Exposed so the transformer can be exercised directly by tests without an Instrumentation. */
-    public static byte[] transformForTesting(final byte[] classFileBuffer,
-                                             final ProtectionDomain domain) {
+    public static byte[] transformForTesting(final byte[] classFileBuffer, final ProtectionDomain domain) {
         return new MeshTriangulationHashTransformer()
-            .transform(null, TARGET_CLASS_NAME.replace('.', '/'), null, domain, classFileBuffer);
+                .transform(null, TARGET_CLASS_NAME.replace('.', '/'), null, domain, classFileBuffer);
     }
 }

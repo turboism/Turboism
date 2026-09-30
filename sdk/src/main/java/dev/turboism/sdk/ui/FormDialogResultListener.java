@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.Map;
 
 /**

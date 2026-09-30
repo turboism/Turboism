@@ -1,17 +1,15 @@
 package dev.turboism.sdk.ui.appearance;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Five independent properties of one Cubism palette entry. */
 public record PaletteEntryState(
-    Optional<Float> fontSize,
-    Optional<Boolean> bold,
-    Optional<Boolean> italic,
-    Optional<UiColor> textColor,
-    Optional<UiColor> backgroundColor
-) {
+        Optional<Float> fontSize,
+        Optional<Boolean> bold,
+        Optional<Boolean> italic,
+        Optional<UiColor> textColor,
+        Optional<UiColor> backgroundColor) {
 
     public PaletteEntryState {
         fontSize = requireFontSize(fontSize);
@@ -37,7 +35,6 @@ public record PaletteEntryState(
      */
     public static PaletteEntryState empty() {
         return new PaletteEntryState(
-            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
-        );
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 }

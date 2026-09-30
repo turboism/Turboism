@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 /** Permission-checked metadata for the admitted Cubism Core runtime. */
 public interface CoreRuntimeInfo {
 

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -15,11 +14,10 @@ import java.util.Objects;
  * consumers retain their existing native reversal semantics.
  */
 public record ParameterBindingTransferPlan(
-    ParameterId sourceParameterId,
-    ParameterId targetParameterId,
-    List<ParameterBindingTarget> targets,
-    boolean invertAfterTransfer
-) {
+        ParameterId sourceParameterId,
+        ParameterId targetParameterId,
+        List<ParameterBindingTarget> targets,
+        boolean invertAfterTransfer) {
     public ParameterBindingTransferPlan {
         sourceParameterId = Objects.requireNonNull(sourceParameterId, "sourceParameterId");
         targetParameterId = Objects.requireNonNull(targetParameterId, "targetParameterId");

@@ -1,16 +1,14 @@
 package dev.turboism.ui;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
-
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class UiHostLocaleRuntimeTest {
 
@@ -64,11 +62,7 @@ class UiHostLocaleRuntimeTest {
             }
         };
         final RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
-            PermissionChecker.allowAll(),
-            "plugin.test",
-            source,
-            new DisposableScope()
-        );
+                PermissionChecker.allowAll(), "plugin.test", source, new DisposableScope());
         assertEquals(delegated, service.hostLocale());
         assertNotNull(service.hostLocale());
     }

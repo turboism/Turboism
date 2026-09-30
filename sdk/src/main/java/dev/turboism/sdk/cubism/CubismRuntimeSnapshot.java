@@ -21,15 +21,14 @@ import java.util.Optional;
  * @param deformers unmodifiable copy of the model's deformers
  */
 public record CubismRuntimeSnapshot(
-    Optional<ProjectSnapshot> project,
-    Optional<DocumentSnapshot> document,
-    Optional<ModelSnapshot> model,
-    SelectionSnapshot selection,
-    List<ModelObjectSnapshot> modelObjects,
-    List<ParameterSnapshot> parameters,
-    List<ArtMeshSnapshot> artMeshes,
-    List<DeformerSnapshot> deformers
-) {
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document,
+        Optional<ModelSnapshot> model,
+        SelectionSnapshot selection,
+        List<ModelObjectSnapshot> modelObjects,
+        List<ParameterSnapshot> parameters,
+        List<ArtMeshSnapshot> artMeshes,
+        List<DeformerSnapshot> deformers) {
     public CubismRuntimeSnapshot {
         project = Objects.requireNonNull(project, "project");
         document = Objects.requireNonNull(document, "document");

@@ -14,10 +14,7 @@ import java.util.Objects;
  * @param timeout the caller's deadline for the read; must be between 100 milliseconds and
  *     10 seconds inclusive
  */
-public record AsyncHostReadRequest(
-    AsyncHostReadIntent intent,
-    Duration timeout
-) {
+public record AsyncHostReadRequest(AsyncHostReadIntent intent, Duration timeout) {
     private static final Duration MIN_TIMEOUT = Duration.ofMillis(100);
     private static final Duration MAX_TIMEOUT = Duration.ofSeconds(10);
 

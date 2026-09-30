@@ -70,86 +70,110 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
      * @param reference official {@link ClassReader#EXPAND_FRAMES} bytes of {@code owner}
      * @param owner one of {@link SkippedFrameUploadElisionTarget#OWNERS}
      */
-    public SkippedFrameUploadElisionTransformer(final ClassLoader loader, final Path artifact,
-                                                final byte[] reference, final String owner) {
+    public SkippedFrameUploadElisionTransformer(
+            final ClassLoader loader, final Path artifact, final byte[] reference, final String owner) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        if (!SkippedFrameUploadElisionTarget.OWNERS.contains(
-                Objects.requireNonNull(owner, "owner"))) {
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        if (!SkippedFrameUploadElisionTarget.OWNERS.contains(Objects.requireNonNull(owner, "owner"))) {
             throw new IllegalArgumentException("unreviewed upload-elision owner: " + owner);
         }
         this.owner = owner;
-        shape = ReviewedMethodShape.read(reference, owner,
-            SkippedFrameUploadElisionTarget.METHOD, SkippedFrameUploadElisionTarget.DESCRIPTOR);
+        shape = ReviewedMethodShape.read(
+                reference, owner, SkippedFrameUploadElisionTarget.METHOD, SkippedFrameUploadElisionTarget.DESCRIPTOR);
         if (shape == null) {
             throw new IllegalArgumentException("reviewed upload method absent: " + owner);
         }
     }
 
     /** Returns the latest rejection, or null. */
-    public String failure() { return failure; }
+    public String failure() {
+        return failure;
+    }
     /** Returns the successful class transform count. */
-    public int matches() { return matches; }
+    public int matches() {
+        return matches;
+    }
     /** Returns the guarded upload call-site count so far. */
-    public int guarded() { return guarded; }
+    public int guarded() {
+        return guarded;
+    }
     /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() { return beforeSha256; }
+    public String beforeSha256() {
+        return beforeSha256;
+    }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         if (actualLoader != loader || !owner.equals(name) || bytes == null) return null;
         try {
-            if (domain == null || domain.getCodeSource() == null || !artifact.equals(
-                    Path.of(domain.getCodeSource().getLocation().toURI())
-                        .toAbsolutePath().normalize())) {
+            if (domain == null
+                    || domain.getCodeSource() == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 failure = "upload elision source mismatch: " + owner;
                 return null;
             }
-            if (!shape.equals(ReviewedMethodShape.read(bytes, owner,
+            if (!shape.equals(ReviewedMethodShape.read(
+                    bytes,
+                    owner,
                     SkippedFrameUploadElisionTarget.METHOD,
                     SkippedFrameUploadElisionTarget.DESCRIPTOR))) {
                 failure = "upload method shape changed: " + owner;
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() { return loader; }
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader;
+                }
             };
             final UploadVisitor[] applied = {null};
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    final MethodVisitor visitor =
-                        super.visitMethod(access, method, descriptor, signature, exceptions);
-                    if (!SkippedFrameUploadElisionTarget.METHOD.equals(method)
-                        || !SkippedFrameUploadElisionTarget.DESCRIPTOR.equals(descriptor)) {
-                        return visitor;
-                    }
-                    applied[0] = new UploadVisitor(visitor);
-                    return applied[0];
-                }
-            }, ClassReader.EXPAND_FRAMES);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor visitor =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            if (!SkippedFrameUploadElisionTarget.METHOD.equals(method)
+                                    || !SkippedFrameUploadElisionTarget.DESCRIPTOR.equals(descriptor)) {
+                                return visitor;
+                            }
+                            applied[0] = new UploadVisitor(visitor);
+                            return applied[0];
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             if (applied[0] == null || !applied[0].complete()) {
                 failure = "upload elision anchor drift on " + owner + ": "
-                    + (applied[0] == null ? "method absent" : applied[0].describe());
+                        + (applied[0] == null ? "method absent" : applied[0].describe());
                 return null;
             }
             final byte[] result = writer.toByteArray();
             if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes));
+                beforeSha256 = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             }
             matches++;
             guarded += applied[0].wrappedCalls;
             return result;
         } catch (Exception | LinkageError rejected) {
             final StackTraceElement[] trace = rejected.getStackTrace();
-            failure = rejected + " at "
-                + (trace.length == 0 ? "<no frames>" : trace[0].toString());
+            failure = rejected + " at " + (trace.length == 0 ? "<no frames>" : trace[0].toString());
             return null;
         }
     }
@@ -169,9 +193,12 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
         private boolean joinVisited;
         /** 0 none, 1 = previous instruction was {@code ILOAD 3}, 2 = {@code invokevirtual k()Z}. */
         private int pending;
+
         private int iload3Ifeq, guards, wrappedCalls, genNotifies, maxVar = 3;
 
-        UploadVisitor(final MethodVisitor visitor) { super(Opcodes.ASM9, visitor); }
+        UploadVisitor(final MethodVisitor visitor) {
+            super(Opcodes.ASM9, visitor);
+        }
 
         private int consumePending() {
             final int was = pending;
@@ -179,25 +206,34 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             return was;
         }
 
-        @Override public void visitVarInsn(final int opcode, final int variable) {
+        @Override
+        public void visitVarInsn(final int opcode, final int variable) {
             if (variable > maxVar) maxVar = variable;
             consumePending();
             super.visitVarInsn(opcode, variable);
             if (opcode == Opcodes.ILOAD && variable == 3) pending = 1;
         }
 
-        @Override public void visitIincInsn(final int variable, final int increment) {
+        @Override
+        public void visitIincInsn(final int variable, final int increment) {
             if (variable > maxVar) maxVar = variable;
             consumePending();
             super.visitIincInsn(variable, increment);
         }
 
-        @Override public void visitMethodInsn(final int opcode, final String methodOwner,
-                                              final String method, final String descriptor,
-                                              final boolean itf) {
+        @Override
+        public void visitMethodInsn(
+                final int opcode,
+                final String methodOwner,
+                final String method,
+                final String descriptor,
+                final boolean itf) {
             consumePending();
-            if (opcode == Opcodes.INVOKEVIRTUAL && !itf && owner.equals(methodOwner)
-                && DIRTY_METHOD.equals(method) && DIRTY_DESC.equals(descriptor)) {
+            if (opcode == Opcodes.INVOKEVIRTUAL
+                    && !itf
+                    && owner.equals(methodOwner)
+                    && DIRTY_METHOD.equals(method)
+                    && DIRTY_DESC.equals(descriptor)) {
                 super.visitMethodInsn(opcode, methodOwner, method, descriptor, itf);
                 pending = 2;
                 return;
@@ -210,10 +246,9 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
                     return;
                 }
                 if ((SUBDATA.equals(method) && SUBDATA_DESC.equals(descriptor))
-                    || (BUFFERDATA.equals(method) && BUFFERDATA_DESC.equals(descriptor))) {
+                        || (BUFFERDATA.equals(method) && BUFFERDATA_DESC.equals(descriptor))) {
                     final Label callStart = new Label(), callEnd = new Label();
-                    super.visitTryCatchBlock(callStart, callEnd, uploadHandler,
-                        "java/lang/Throwable");
+                    super.visitTryCatchBlock(callStart, callEnd, uploadHandler, "java/lang/Throwable");
                     super.visitLabel(callStart);
                     super.visitMethodInsn(opcode, methodOwner, method, descriptor, itf);
                     super.visitLabel(callEnd);
@@ -224,7 +259,8 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             super.visitMethodInsn(opcode, methodOwner, method, descriptor, itf);
         }
 
-        @Override public void visitJumpInsn(final int opcode, final Label label) {
+        @Override
+        public void visitJumpInsn(final int opcode, final Label label) {
             final int was = consumePending();
             if (opcode == Opcodes.IFEQ && was == 1) {
                 iload3Ifeq++;
@@ -243,7 +279,8 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             }
         }
 
-        @Override public void visitLabel(final Label label) {
+        @Override
+        public void visitLabel(final Label label) {
             if (label == joinLabel && !joinVisited) {
                 joinVisited = true;
                 super.visitLabel(deferredJoin);
@@ -251,52 +288,60 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             super.visitLabel(label);
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             consumePending();
             super.visitInsn(opcode);
         }
 
-        @Override public void visitIntInsn(final int opcode, final int operand) {
+        @Override
+        public void visitIntInsn(final int opcode, final int operand) {
             consumePending();
             super.visitIntInsn(opcode, operand);
         }
 
-        @Override public void visitFieldInsn(final int opcode, final String fieldOwner,
-                                             final String name, final String descriptor) {
+        @Override
+        public void visitFieldInsn(
+                final int opcode, final String fieldOwner, final String name, final String descriptor) {
             consumePending();
             super.visitFieldInsn(opcode, fieldOwner, name, descriptor);
         }
 
-        @Override public void visitTypeInsn(final int opcode, final String type) {
+        @Override
+        public void visitTypeInsn(final int opcode, final String type) {
             consumePending();
             super.visitTypeInsn(opcode, type);
         }
 
-        @Override public void visitLdcInsn(final Object value) {
+        @Override
+        public void visitLdcInsn(final Object value) {
             consumePending();
             super.visitLdcInsn(value);
         }
 
-        @Override public void visitInvokeDynamicInsn(final String name, final String descriptor,
-                                                     final org.objectweb.asm.Handle bootstrap,
-                                                     final Object... args) {
+        @Override
+        public void visitInvokeDynamicInsn(
+                final String name,
+                final String descriptor,
+                final org.objectweb.asm.Handle bootstrap,
+                final Object... args) {
             consumePending();
             super.visitInvokeDynamicInsn(name, descriptor, bootstrap, args);
         }
 
-        @Override public void visitMaxs(final int stack, final int locals) {
+        @Override
+        public void visitMaxs(final int stack, final int locals) {
             if (wrappedCalls > 0) emitUploadHandler();
             super.visitMaxs(stack, locals);
         }
 
         boolean complete() {
-            return joinVisited && iload3Ifeq == 2 && guards == 2
-                && wrappedCalls == 2 && genNotifies == 1;
+            return joinVisited && iload3Ifeq == 2 && guards == 2 && wrappedCalls == 2 && genNotifies == 1;
         }
 
         String describe() {
-            return "iload3Ifeq=" + iload3Ifeq + " guards=" + guards + " calls=" + wrappedCalls
-                + " gen=" + genNotifies + " join=" + joinVisited;
+            return "iload3Ifeq=" + iload3Ifeq + " guards=" + guards + " calls=" + wrappedCalls + " gen=" + genNotifies
+                    + " join=" + joinVisited;
         }
 
         /**
@@ -310,19 +355,27 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             final Label discard = new Label(), resume = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(SkippedFrameUploadElisionBridge.PREDICATE_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiPredicate");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/BiPredicate");
             super.visitVarInsn(Opcodes.ALOAD, 0);
             super.visitVarInsn(Opcodes.ALOAD, 1);
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/BiPredicate",
-                "test", "(Ljava/lang/Object;Ljava/lang/Object;)Z", true);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEINTERFACE,
+                    "java/util/function/BiPredicate",
+                    "test",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Z",
+                    true);
             super.visitJumpInsn(Opcodes.IFEQ, resume);
             super.visitJumpInsn(Opcodes.GOTO, skipTarget);
             super.visitLabel(end);
@@ -340,17 +393,20 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             final Label discard = new Label(), done = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(property);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run",
-                "()V", true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(discard);
@@ -375,17 +431,20 @@ public final class SkippedFrameUploadElisionTransformer implements ClassFileTran
             super.visitVarInsn(Opcodes.ASTORE, tmp);
             super.visitTryCatchBlock(start, end, inner, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(SkippedFrameUploadElisionBridge.FAILURE_PROPERTY);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Runnable");
             super.visitJumpInsn(Opcodes.IFEQ, discard);
             super.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Runnable");
-            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run",
-                "()V", true);
+            super.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
             super.visitLabel(end);
             super.visitJumpInsn(Opcodes.GOTO, done);
             super.visitLabel(discard);

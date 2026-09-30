@@ -6,14 +6,13 @@ import java.util.Optional;
 
 /** Immutable semantic detail attached to one history entry. */
 public record HistoryEntryDetail(
-    String summary,
-    HistoryAction.DetailLevel detailLevel,
-    HistoryOrigin origin,
-    List<HistoryTarget> targets,
-    List<HistoryChange> changes,
-    Optional<HistoryGroup> group,
-    Optional<String> degradationCode
-) {
+        String summary,
+        HistoryAction.DetailLevel detailLevel,
+        HistoryOrigin origin,
+        List<HistoryTarget> targets,
+        List<HistoryChange> changes,
+        Optional<HistoryGroup> group,
+        Optional<String> degradationCode) {
 
     private static final int MAX_SUMMARY_LENGTH = 256;
     private static final int MAX_ITEMS = 64;
@@ -28,16 +27,9 @@ public record HistoryEntryDetail(
         changes = copiedList(changes, "changes");
         group = Objects.requireNonNull(group, "group");
         degradationCode = Objects.requireNonNull(degradationCode, "degradationCode")
-            .map(value -> normalizedText(
-                value,
-                "degradationCode",
-                MAX_DEGRADATION_CODE_LENGTH,
-                false
-            ));
+                .map(value -> normalizedText(value, "degradationCode", MAX_DEGRADATION_CODE_LENGTH, false));
         if (targets.size() > MAX_ITEMS || changes.size() > MAX_ITEMS) {
-            throw new IllegalArgumentException(
-                "targets and changes must not exceed " + MAX_ITEMS + " items each"
-            );
+            throw new IllegalArgumentException("targets and changes must not exceed " + MAX_ITEMS + " items each");
         }
         validateReferences(targets, changes);
         validateDetailLevel(detailLevel, targets, changes, group, degradationCode);
@@ -50,60 +42,45 @@ public record HistoryEntryDetail(
 
     /** Creates label-only detail with an explicit origin and degradation code. */
     public static HistoryEntryDetail labelOnly(
-        final String label,
-        final HistoryOrigin origin,
-        final String degradationCode
-    ) {
+            final String label, final HistoryOrigin origin, final String degradationCode) {
         return new HistoryEntryDetail(
-            summaryFromLabel(label),
-            HistoryAction.DetailLevel.LABEL_ONLY,
-            origin,
-            List.of(),
-            List.of(),
-            Optional.empty(),
-            Optional.of(degradationCode)
-        );
+                summaryFromLabel(label),
+                HistoryAction.DetailLevel.LABEL_ONLY,
+                origin,
+                List.of(),
+                List.of(),
+                Optional.empty(),
+                Optional.of(degradationCode));
     }
 
     /** Projects a legacy {@link HistoryAction} into the semantic detail model. */
     public static HistoryEntryDetail fromAction(
-        final String label,
-        final HistoryAction action,
-        final HistoryOrigin origin
-    ) {
+            final String label, final HistoryAction action, final HistoryOrigin origin) {
         final HistoryAction trustedAction = Objects.requireNonNull(action, "action");
-        final HistoryTarget target = new HistoryTarget(
-            trustedAction.targetType(),
-            Optional.of(trustedAction.targetId()),
-            Optional.empty()
-        );
-        final HistoryChange.Operation operation = switch (trustedAction.kind()) {
-            case SET_PARAMETER_VALUE -> HistoryChange.Operation.SET;
-            case UNKNOWN -> HistoryChange.Operation.UNKNOWN;
-        };
+        final HistoryTarget target =
+                new HistoryTarget(trustedAction.targetType(), Optional.of(trustedAction.targetId()), Optional.empty());
+        final HistoryChange.Operation operation =
+                switch (trustedAction.kind()) {
+                    case SET_PARAMETER_VALUE -> HistoryChange.Operation.SET;
+                    case UNKNOWN -> HistoryChange.Operation.UNKNOWN;
+                };
         final HistoryChange change = new HistoryChange(
-            operation,
-            Optional.of(0),
-            Optional.of(trustedAction.property()),
-            trustedAction.before(),
-            trustedAction.after(),
-            new HistoryEditContext(
-                HistoryEditContext.Kind.OBJECT,
-                Optional.empty(),
-                List.of()
-            )
-        );
+                operation,
+                Optional.of(0),
+                Optional.of(trustedAction.property()),
+                trustedAction.before(),
+                trustedAction.after(),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()));
         return new HistoryEntryDetail(
-            summaryFromLabel(label),
-            trustedAction.detailLevel(),
-            origin,
-            List.of(target),
-            List.of(change),
-            Optional.empty(),
-            trustedAction.detailLevel() == HistoryAction.DetailLevel.PARTIAL
-                ? Optional.of("history.detail.action-partial")
-                : Optional.empty()
-        );
+                summaryFromLabel(label),
+                trustedAction.detailLevel(),
+                origin,
+                List.of(target),
+                List.of(change),
+                Optional.empty(),
+                trustedAction.detailLevel() == HistoryAction.DetailLevel.PARTIAL
+                        ? Optional.of("history.detail.action-partial")
+                        : Optional.empty());
     }
 
     /** Returns whether this detail carries a change equivalent to the legacy action. */
@@ -115,10 +92,12 @@ public record HistoryEntryDetail(
             if (targetIndex >= targets.size()) return false;
             final HistoryTarget target = targets.get(targetIndex);
             return target.type().equals(trustedAction.targetType())
-                && target.id().filter(trustedAction.targetId()::equals).isPresent()
-                && change.property().filter(trustedAction.property()::equals).isPresent()
-                && change.before().equals(trustedAction.before())
-                && change.after().equals(trustedAction.after());
+                    && target.id().filter(trustedAction.targetId()::equals).isPresent()
+                    && change.property()
+                            .filter(trustedAction.property()::equals)
+                            .isPresent()
+                    && change.before().equals(trustedAction.before())
+                    && change.after().equals(trustedAction.after());
         });
     }
 
@@ -130,25 +109,20 @@ public record HistoryEntryDetail(
         return copied;
     }
 
-    private static void validateReferences(
-        final List<HistoryTarget> targets,
-        final List<HistoryChange> changes
-    ) {
+    private static void validateReferences(final List<HistoryTarget> targets, final List<HistoryChange> changes) {
         for (final HistoryChange change : changes) {
-            if (change.targetIndex().isPresent()
-                && change.targetIndex().orElseThrow() >= targets.size()) {
+            if (change.targetIndex().isPresent() && change.targetIndex().orElseThrow() >= targets.size()) {
                 throw new IllegalArgumentException("change targetIndex is outside targets");
             }
         }
     }
 
     private static void validateDetailLevel(
-        final HistoryAction.DetailLevel detailLevel,
-        final List<HistoryTarget> targets,
-        final List<HistoryChange> changes,
-        final Optional<HistoryGroup> group,
-        final Optional<String> degradationCode
-    ) {
+            final HistoryAction.DetailLevel detailLevel,
+            final List<HistoryTarget> targets,
+            final List<HistoryChange> changes,
+            final Optional<HistoryGroup> group,
+            final Optional<String> degradationCode) {
         final boolean hasStructuredFact = !targets.isEmpty() || !changes.isEmpty() || group.isPresent();
         if (detailLevel == HistoryAction.DetailLevel.LABEL_ONLY) {
             if (hasStructuredFact) {
@@ -171,7 +145,8 @@ public record HistoryEntryDetail(
         if (degradationCode.isPresent()) {
             throw new IllegalArgumentException("FULL detail must not contain a degradationCode");
         }
-        if (changes.isEmpty() && group.map(HistoryGroup::children).orElse(List.of()).isEmpty()) {
+        if (changes.isEmpty()
+                && group.map(HistoryGroup::children).orElse(List.of()).isEmpty()) {
             throw new IllegalArgumentException("FULL detail requires a change or grouped child");
         }
         for (final HistoryChange change : changes) {
@@ -179,17 +154,14 @@ public record HistoryEntryDetail(
         }
         group.ifPresent(value -> {
             if (value.truncated()
-                || value.children().stream()
-                    .anyMatch(child -> child.detailLevel() != HistoryAction.DetailLevel.FULL)) {
+                    || value.children().stream()
+                            .anyMatch(child -> child.detailLevel() != HistoryAction.DetailLevel.FULL)) {
                 throw new IllegalArgumentException("FULL grouped detail requires complete FULL children");
             }
         });
     }
 
-    private static void validateFullChange(
-        final HistoryChange change,
-        final List<HistoryTarget> targets
-    ) {
+    private static void validateFullChange(final HistoryChange change, final List<HistoryTarget> targets) {
         if (change.targetIndex().isEmpty()) {
             throw new IllegalArgumentException("FULL changes require targetIndex");
         }
@@ -197,24 +169,21 @@ public record HistoryEntryDetail(
             throw new IllegalArgumentException("FULL changes require a known edit context");
         }
         if (change.context().kind() == HistoryEditContext.Kind.KEYFORM
-            && change.context().coordinates().isEmpty()) {
-            throw new IllegalArgumentException(
-                "FULL KEYFORM changes require parameter coordinates"
-            );
+                && change.context().coordinates().isEmpty()) {
+            throw new IllegalArgumentException("FULL KEYFORM changes require parameter coordinates");
         }
         if (change.relation().isPresent()) {
             validateFullRelation(
-                targets.get(change.targetIndex().orElseThrow()),
-                change.relation().orElseThrow()
-            );
+                    targets.get(change.targetIndex().orElseThrow()),
+                    change.relation().orElseThrow());
             return;
         }
         switch (change.operation()) {
             case SET -> {
-                if (change.property().isEmpty() || change.before().isEmpty() || change.after().isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "FULL SET changes require property, before, and after"
-                    );
+                if (change.property().isEmpty()
+                        || change.before().isEmpty()
+                        || change.after().isEmpty()) {
+                    throw new IllegalArgumentException("FULL SET changes require property, before, and after");
                 }
             }
             case ADD, REMOVE -> {
@@ -222,9 +191,7 @@ public record HistoryEntryDetail(
             }
             case MOVE -> {
                 if (change.property().isEmpty() || change.after().isEmpty()) {
-                    throw new IllegalArgumentException(
-                        "FULL MOVE changes require property and after"
-                    );
+                    throw new IllegalArgumentException("FULL MOVE changes require property and after");
                 }
             }
             case UNKNOWN -> {
@@ -233,94 +200,73 @@ public record HistoryEntryDetail(
         }
     }
 
-    private static void validateFullRelation(
-        final HistoryTarget child,
-        final HistoryRelationChange relation
-    ) {
+    private static void validateFullRelation(final HistoryTarget child, final HistoryRelationChange relation) {
         if (child.id().isEmpty() || child.displayName().isEmpty()) {
-            throw new IllegalArgumentException(
-                "FULL relation changes require a named child target"
-            );
+            throw new IllegalArgumentException("FULL relation changes require a named child target");
         }
-        final boolean legalChild = switch (relation.kind()) {
-            case PART_MEMBERSHIP -> switch (child.type()) {
-                case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART" -> true;
-                default -> false;
-            };
-            case DEFORMER_PARENT -> switch (child.type()) {
-                case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER" -> true;
-                default -> false;
-            };
-        };
+        final boolean legalChild =
+                switch (relation.kind()) {
+                    case PART_MEMBERSHIP ->
+                        switch (child.type()) {
+                            case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART" -> true;
+                            default -> false;
+                        };
+                    case DEFORMER_PARENT ->
+                        switch (child.type()) {
+                            case "ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER" -> true;
+                            default -> false;
+                        };
+                };
         if (!legalChild) {
-            throw new IllegalArgumentException(
-                "FULL relation change has an illegal child type: " + child.type()
-            );
+            throw new IllegalArgumentException("FULL relation change has an illegal child type: " + child.type());
         }
         validateFullEndpoint(relation.kind(), relation.before(), "before");
         validateFullEndpoint(relation.kind(), relation.after(), "after");
         rejectSelfParent(child, relation.before(), "before");
         rejectSelfParent(child, relation.after(), "after");
         if (sameEndpointIdentity(relation.before(), relation.after())) {
-            throw new IllegalArgumentException(
-                "FULL relation change must change direct relation identity"
-            );
+            throw new IllegalArgumentException("FULL relation change must change direct relation identity");
         }
     }
 
     private static void validateFullEndpoint(
-        final HistoryRelationChange.Kind kind,
-        final HistoryRelationChange.Endpoint endpoint,
-        final String name
-    ) {
+            final HistoryRelationChange.Kind kind, final HistoryRelationChange.Endpoint endpoint, final String name) {
         if (endpoint.state() == HistoryRelationChange.State.UNKNOWN) {
-            throw new IllegalArgumentException(
-                "FULL relation change requires a known " + name + " endpoint"
-            );
+            throw new IllegalArgumentException("FULL relation change requires a known " + name + " endpoint");
         }
         if (endpoint.state() != HistoryRelationChange.State.TARGET) return;
         final HistoryTarget target = endpoint.target().orElseThrow();
         if (target.id().isEmpty() || target.displayName().isEmpty()) {
-            throw new IllegalArgumentException(
-                "FULL relation " + name + " target requires an ID and captured name"
-            );
+            throw new IllegalArgumentException("FULL relation " + name + " target requires an ID and captured name");
         }
-        final boolean legalParent = switch (kind) {
-            case PART_MEMBERSHIP -> "PART".equals(target.type());
-            case DEFORMER_PARENT -> "WARP_DEFORMER".equals(target.type())
-                || "ROTATION_DEFORMER".equals(target.type());
-        };
+        final boolean legalParent =
+                switch (kind) {
+                    case PART_MEMBERSHIP -> "PART".equals(target.type());
+                    case DEFORMER_PARENT ->
+                        "WARP_DEFORMER".equals(target.type()) || "ROTATION_DEFORMER".equals(target.type());
+                };
         if (!legalParent) {
             throw new IllegalArgumentException(
-                "FULL relation " + name + " endpoint has an illegal parent type: " + target.type()
-            );
+                    "FULL relation " + name + " endpoint has an illegal parent type: " + target.type());
         }
     }
 
     private static void rejectSelfParent(
-        final HistoryTarget child,
-        final HistoryRelationChange.Endpoint endpoint,
-        final String name
-    ) {
+            final HistoryTarget child, final HistoryRelationChange.Endpoint endpoint, final String name) {
         if (endpoint.state() != HistoryRelationChange.State.TARGET) return;
         final HistoryTarget parent = endpoint.target().orElseThrow();
         if (child.type().equals(parent.type()) && child.id().equals(parent.id())) {
-            throw new IllegalArgumentException(
-                "FULL relation " + name + " endpoint must not be the child itself"
-            );
+            throw new IllegalArgumentException("FULL relation " + name + " endpoint must not be the child itself");
         }
     }
 
     private static boolean sameEndpointIdentity(
-        final HistoryRelationChange.Endpoint left,
-        final HistoryRelationChange.Endpoint right
-    ) {
+            final HistoryRelationChange.Endpoint left, final HistoryRelationChange.Endpoint right) {
         if (left.state() != right.state()) return false;
         if (left.state() != HistoryRelationChange.State.TARGET) return true;
         final HistoryTarget leftTarget = left.target().orElseThrow();
         final HistoryTarget rightTarget = right.target().orElseThrow();
-        return leftTarget.type().equals(rightTarget.type())
-            && leftTarget.id().equals(rightTarget.id());
+        return leftTarget.type().equals(rightTarget.type()) && leftTarget.id().equals(rightTarget.id());
     }
 
     private static String summaryFromLabel(final String label) {
@@ -329,19 +275,13 @@ public record HistoryEntryDetail(
     }
 
     private static String normalizedText(
-        final String value,
-        final String fieldName,
-        final int maxLength,
-        final boolean allowEmpty
-    ) {
+            final String value, final String fieldName, final int maxLength, final boolean allowEmpty) {
         final String normalized = Objects.requireNonNull(value, fieldName).strip();
         if (!allowEmpty && normalized.isEmpty()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         if (normalized.length() > maxLength) {
-            throw new IllegalArgumentException(
-                fieldName + " must not exceed " + maxLength + " characters"
-            );
+            throw new IllegalArgumentException(fieldName + " must not exceed " + maxLength + " characters");
         }
         if (normalized.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException(fieldName + " must not contain control characters");

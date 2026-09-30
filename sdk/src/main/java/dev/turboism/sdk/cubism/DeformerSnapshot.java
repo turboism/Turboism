@@ -18,12 +18,8 @@ import java.util.Optional;
  * @param childIds unmodifiable copy of the identifiers of directly nested deformers, in host order
  */
 public record DeformerSnapshot(
-    String id,
-    String name,
-    DeformerType type,
-    Optional<String> parentId,
-    List<String> childIds
-) implements ModelObjectSnapshot {
+        String id, String name, DeformerType type, Optional<String> parentId, List<String> childIds)
+        implements ModelObjectSnapshot {
     public DeformerSnapshot {
         id = Objects.requireNonNull(id, "id");
         name = Objects.requireNonNull(name, "name");

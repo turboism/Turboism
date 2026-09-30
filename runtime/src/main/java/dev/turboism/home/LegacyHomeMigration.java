@@ -16,8 +16,7 @@ import java.util.Comparator;
  */
 public final class LegacyHomeMigration {
 
-    private LegacyHomeMigration() {
-    }
+    private LegacyHomeMigration() {}
 
     /**
      * Moves each legacy per-plugin directory into the plugin's config, data, cache, and state
@@ -67,7 +66,8 @@ public final class LegacyHomeMigration {
         final Path typedConfig = source.resolve("typed-config");
         try (var paths = Files.walk(source)) {
             for (Path path : paths.filter(Files::isRegularFile)
-                .filter(path -> !path.startsWith(typedConfig)).toList()) {
+                    .filter(path -> !path.startsWith(typedConfig))
+                    .toList()) {
                 moveFile(source, target, path);
             }
         }

@@ -4,13 +4,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Preview contribution for one button attached to Cubism's red bounding-box overlay. */
-public record BoundingBoxOverlayButton(
-    String id,
-    String tooltip,
-    IconVariants icons,
-    int order,
-    Runnable onClick
-) {
+public record BoundingBoxOverlayButton(String id, String tooltip, IconVariants icons, int order, Runnable onClick) {
     public BoundingBoxOverlayButton {
         id = requireText(id, "id");
         tooltip = requireText(tooltip, "tooltip");
@@ -28,13 +22,7 @@ public record BoundingBoxOverlayButton(
      * @throws NullPointerException when {@code callback} is {@code null}
      */
     public BoundingBoxOverlayButton withOnClick(final Runnable callback) {
-        return new BoundingBoxOverlayButton(
-            id,
-            tooltip,
-            icons,
-            order,
-            Objects.requireNonNull(callback, "callback")
-        );
+        return new BoundingBoxOverlayButton(id, tooltip, icons, order, Objects.requireNonNull(callback, "callback"));
     }
 
     /**
@@ -53,11 +41,7 @@ public record BoundingBoxOverlayButton(
      *                 to reuse {@code normal}
      */
     public record IconVariants(
-        String normal,
-        Optional<String> hover,
-        Optional<String> pressed,
-        Optional<String> disabled
-    ) {
+            String normal, Optional<String> hover, Optional<String> pressed, Optional<String> disabled) {
         /**
          * Validates the record components.
          *
@@ -80,19 +64,11 @@ public record BoundingBoxOverlayButton(
          * @throws IllegalArgumentException when the path is blank or not normalized
          */
         public static IconVariants normal(final String resourcePath) {
-            return new IconVariants(
-                resourcePath,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-            );
+            return new IconVariants(resourcePath, Optional.empty(), Optional.empty(), Optional.empty());
         }
     }
 
-    private static Optional<String> normalizeResourcePath(
-        final Optional<String> value,
-        final String name
-    ) {
+    private static Optional<String> normalizeResourcePath(final Optional<String> value, final String name) {
         Objects.requireNonNull(value, name);
         return value.map(path -> requireResourcePath(path, name));
     }

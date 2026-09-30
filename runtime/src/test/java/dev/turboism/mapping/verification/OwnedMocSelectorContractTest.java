@@ -1,15 +1,14 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
-import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
+import java.util.List;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 /**
  * Pins the owned-Moc additive selector contract to the reviewed evidence sets.
@@ -24,33 +23,30 @@ class OwnedMocSelectorContractTest {
     @Test
     void ownedMocAliasesAreExactlyTheReviewedLifecycleSurface() {
         assertEquals(
-            Set.of(
-                "cubism.core.moc.class",
-                "cubism.core.moc.instantiate",
-                "cubism.core.moc.instantiate-model",
-                "cubism.core.moc.get-native-handle",
-                "cubism.core.moc.close",
-                "cubism.core.model.get-native-handle",
-                "cubism.core.model.update",
-                "cubism.core.model.close"
-            ),
-            OwnedMocSelectorContract.REQUIRED_ALIASES
-        );
+                Set.of(
+                        "cubism.core.moc.class",
+                        "cubism.core.moc.instantiate",
+                        "cubism.core.moc.instantiate-model",
+                        "cubism.core.moc.get-native-handle",
+                        "cubism.core.moc.close",
+                        "cubism.core.model.get-native-handle",
+                        "cubism.core.model.update",
+                        "cubism.core.model.close"),
+                OwnedMocSelectorContract.REQUIRED_ALIASES);
         assertEquals(8, OwnedMocSelectorContract.REQUIRED_ALIASES.size());
-        assertEquals(
-            "adapter.core-model.readonly",
-            OwnedMocSelectorContract.ADAPTER_SLICE_ID
-        );
+        assertEquals("adapter.core-model.readonly", OwnedMocSelectorContract.ADAPTER_SLICE_ID);
         assertEquals("cubism.core.owned-moc.read", OwnedMocSelectorContract.CAPABILITY_ID);
     }
 
     @Test
     void ownedMocAliasesAreSharedByBothReviewedProfiles() {
         final Set<String> aliases = OwnedMocSelectorContract.REQUIRED_ALIASES;
-        assertFalse(aliases.contains("cubism.core.moc.get-moc-version"),
-            "byte-level version reads must not require the 5.3.02-only CubismMoc.getMocVersion");
-        assertFalse(aliases.contains("cubism.core.drawables.blend-modes"),
-            "5.2 blend derivation must not require the 5.3.02-only blend-modes getter");
+        assertFalse(
+                aliases.contains("cubism.core.moc.get-moc-version"),
+                "byte-level version reads must not require the 5.3.02-only CubismMoc.getMocVersion");
+        assertFalse(
+                aliases.contains("cubism.core.drawables.blend-modes"),
+                "5.2 blend derivation must not require the 5.3.02-only blend-modes getter");
         assertTrue(aliases.contains(OwnedMocSelectorContract.MOC_INSTANTIATE));
         assertTrue(aliases.contains(OwnedMocSelectorContract.MODEL_UPDATE));
     }
@@ -58,25 +54,20 @@ class OwnedMocSelectorContractTest {
     @Test
     void ownedMocSliceIsPromotedIntoTheGeneratedRosterOutsideTheStructuralSurface() {
         for (final Set<String> generated : List.of(
-            CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03,
-            CorePublicApiSelectorContract.REQUIRED_ALIASES_5_3_02
-        )) {
+                CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03,
+                CorePublicApiSelectorContract.REQUIRED_ALIASES_5_3_02)) {
             assertTrue(generated.containsAll(OwnedMocSelectorContract.REQUIRED_ALIASES));
         }
         for (final String profile : List.of("5.2.03", "5.3.02")) {
-            final Set<String> structural = CorePublicApiSelectorContract
-                .structuralMethodAliasesFor(profile).orElseThrow();
-            assertTrue(java.util.Collections.disjoint(
-                OwnedMocSelectorContract.REQUIRED_ALIASES,
-                structural
-            ));
+            final Set<String> structural = CorePublicApiSelectorContract.structuralMethodAliasesFor(profile)
+                    .orElseThrow();
+            assertTrue(java.util.Collections.disjoint(OwnedMocSelectorContract.REQUIRED_ALIASES, structural));
             assertEquals(
-                OwnedMocSelectorContract.REQUIRED_ALIASES.stream()
-                    .filter(alias -> !alias.endsWith(".class"))
-                    .collect(java.util.stream.Collectors.toSet()),
-                CorePublicApiSelectorContract.ownedMocMethodAliasesFor(profile)
-                    .orElseThrow()
-            );
+                    OwnedMocSelectorContract.REQUIRED_ALIASES.stream()
+                            .filter(alias -> !alias.endsWith(".class"))
+                            .collect(java.util.stream.Collectors.toSet()),
+                    CorePublicApiSelectorContract.ownedMocMethodAliasesFor(profile)
+                            .orElseThrow());
         }
     }
 }

@@ -2,14 +2,13 @@ package dev.turboism.ui.workspace.layout;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import javax.swing.SwingUtilities;
 
 /**
  * Plugin-scoped workspace layout service. Permission checks run on the caller thread (never on
@@ -21,19 +20,16 @@ import java.util.concurrent.CompletionStage;
 public final class RuntimeWorkspaceLayoutService implements WorkspaceLayoutService, AutoCloseable {
 
     private static final WorkspaceLayoutSnapshot UNAVAILABLE_SNAPSHOT = new WorkspaceLayoutSnapshot(
-        WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
-        Optional.empty(),
-        Optional.of("workspace.layout.unavailable")
-    );
+            WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
+            Optional.empty(),
+            Optional.of("workspace.layout.unavailable"));
 
     private final PermissionChecker permissionChecker;
     private final WorkspaceLayoutCoordinator coordinator;
     private volatile boolean closed;
 
     public RuntimeWorkspaceLayoutService(
-        final PermissionChecker permissionChecker,
-        final WorkspaceLayoutCoordinator coordinator
-    ) {
+            final PermissionChecker permissionChecker, final WorkspaceLayoutCoordinator coordinator) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }

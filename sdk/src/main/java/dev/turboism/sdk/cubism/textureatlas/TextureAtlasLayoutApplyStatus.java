@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 /** Outcome of a texture-atlas layout apply that reached the host without failing. */
 public enum TextureAtlasLayoutApplyStatus {
     /** The host layout differed from the request and was updated. */

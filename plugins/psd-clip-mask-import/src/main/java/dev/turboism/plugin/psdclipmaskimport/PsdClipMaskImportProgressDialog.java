@@ -2,7 +2,6 @@ package dev.turboism.plugin.psdclipmaskimport;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.Objects;
@@ -57,9 +56,20 @@ final class PsdClipMaskImportProgressDialog implements PsdClipMaskImportProgress
         });
     }
 
-    @Override public void preparing() { update(preparingText); }
-    @Override public void awaitingConfirmation() { update(confirmationText); }
-    @Override public void applying() { update(applyingText); }
+    @Override
+    public void preparing() {
+        update(preparingText);
+    }
+
+    @Override
+    public void awaitingConfirmation() {
+        update(confirmationText);
+    }
+
+    @Override
+    public void applying() {
+        update(applyingText);
+    }
 
     @Override
     public void focus() {

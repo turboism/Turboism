@@ -6,20 +6,19 @@ import java.util.Objects;
 
 /** Parsed, schema-validated static verification evidence. */
 record StaticVerificationRecord(
-    String verificationId,
-    String adapterSliceId,
-    List<String> capabilityIds,
-    java.util.Map<String, List<String>> capabilityConditions,
-    String cubismVersion,
-    String profileId,
-    HostArtifactFingerprint artifact,
-    String evidencePath,
-    String owner,
-    String verifiedBy,
-    Instant verifiedAt,
-    String safeMode,
-    List<StaticSelector> selectors
-) {
+        String verificationId,
+        String adapterSliceId,
+        List<String> capabilityIds,
+        java.util.Map<String, List<String>> capabilityConditions,
+        String cubismVersion,
+        String profileId,
+        HostArtifactFingerprint artifact,
+        String evidencePath,
+        String owner,
+        String verifiedBy,
+        Instant verifiedAt,
+        String safeMode,
+        List<StaticSelector> selectors) {
     public StaticVerificationRecord {
         verificationId = requireText(verificationId, "verificationId");
         adapterSliceId = requireText(adapterSliceId, "adapterSliceId");
@@ -30,9 +29,8 @@ record StaticVerificationRecord(
         if (new java.util.HashSet<>(capabilityIds).size() != capabilityIds.size()) {
             throw new IllegalArgumentException("capabilityIds must not contain duplicates");
         }
-        capabilityConditions = java.util.Map.copyOf(
-            Objects.requireNonNull(capabilityConditions, "capabilityConditions")
-        );
+        capabilityConditions =
+                java.util.Map.copyOf(Objects.requireNonNull(capabilityConditions, "capabilityConditions"));
         cubismVersion = requireText(cubismVersion, "cubismVersion");
         profileId = requireText(profileId, "profileId");
         artifact = Objects.requireNonNull(artifact, "artifact");

@@ -61,96 +61,126 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
      * @param reference official {@link ClassReader#EXPAND_FRAMES} bytes of
      *                  {@link InputPathElisionTarget#OWNER}
      */
-    public InputPathElisionTransformer(final ClassLoader loader, final Path artifact,
-                                       final byte[] reference) {
+    public InputPathElisionTransformer(final ClassLoader loader, final Path artifact, final byte[] reference) {
         this.loader = Objects.requireNonNull(loader, "loader");
-        this.artifact = Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
-        focusShape = ReviewedMethodShape.read(reference, InputPathElisionTarget.OWNER,
-            InputPathElisionTarget.FOCUS_METHOD, InputPathElisionTarget.FOCUS_DESCRIPTOR);
-        cursorShape = ReviewedMethodShape.read(reference, InputPathElisionTarget.OWNER,
-            InputPathElisionTarget.CURSOR_METHOD, InputPathElisionTarget.CURSOR_DESCRIPTOR);
+        this.artifact =
+                Objects.requireNonNull(artifact, "artifact").toAbsolutePath().normalize();
+        focusShape = ReviewedMethodShape.read(
+                reference,
+                InputPathElisionTarget.OWNER,
+                InputPathElisionTarget.FOCUS_METHOD,
+                InputPathElisionTarget.FOCUS_DESCRIPTOR);
+        cursorShape = ReviewedMethodShape.read(
+                reference,
+                InputPathElisionTarget.OWNER,
+                InputPathElisionTarget.CURSOR_METHOD,
+                InputPathElisionTarget.CURSOR_DESCRIPTOR);
         if (focusShape == null || cursorShape == null) {
-            throw new IllegalArgumentException("reviewed input-path methods absent: "
-                + InputPathElisionTarget.OWNER);
+            throw new IllegalArgumentException("reviewed input-path methods absent: " + InputPathElisionTarget.OWNER);
         }
     }
 
     /** Returns the latest rejection, or null. */
-    public String failure() { return failure; }
+    public String failure() {
+        return failure;
+    }
     /** Returns the successful class transform count. */
-    public int matches() { return matches; }
+    public int matches() {
+        return matches;
+    }
     /** Returns the injected entry-consult count so far. */
-    public int sites() { return sites; }
+    public int sites() {
+        return sites;
+    }
     /** Returns the original full class digest for restoration verification. */
-    public String beforeSha256() { return beforeSha256; }
+    public String beforeSha256() {
+        return beforeSha256;
+    }
 
-    @Override public byte[] transform(final Module module, final ClassLoader actualLoader,
-                                      final String name, final Class<?> type,
-                                      final ProtectionDomain domain, final byte[] bytes) {
-        if (actualLoader != loader || !InputPathElisionTarget.OWNER.equals(name)
-            || bytes == null) {
+    @Override
+    public byte[] transform(
+            final Module module,
+            final ClassLoader actualLoader,
+            final String name,
+            final Class<?> type,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
+        if (actualLoader != loader || !InputPathElisionTarget.OWNER.equals(name) || bytes == null) {
             return null;
         }
         try {
-            if (domain == null || domain.getCodeSource() == null || !artifact.equals(
-                    Path.of(domain.getCodeSource().getLocation().toURI())
-                        .toAbsolutePath().normalize())) {
+            if (domain == null
+                    || domain.getCodeSource() == null
+                    || !artifact.equals(
+                            Path.of(domain.getCodeSource().getLocation().toURI())
+                                    .toAbsolutePath()
+                                    .normalize())) {
                 failure = "input path elision source mismatch: " + InputPathElisionTarget.OWNER;
                 return null;
             }
-            if (!focusShape.equals(ReviewedMethodShape.read(bytes, InputPathElisionTarget.OWNER,
-                    InputPathElisionTarget.FOCUS_METHOD,
-                    InputPathElisionTarget.FOCUS_DESCRIPTOR))
-                || !cursorShape.equals(ReviewedMethodShape.read(bytes, InputPathElisionTarget.OWNER,
-                    InputPathElisionTarget.CURSOR_METHOD,
-                    InputPathElisionTarget.CURSOR_DESCRIPTOR))) {
+            if (!focusShape.equals(ReviewedMethodShape.read(
+                            bytes,
+                            InputPathElisionTarget.OWNER,
+                            InputPathElisionTarget.FOCUS_METHOD,
+                            InputPathElisionTarget.FOCUS_DESCRIPTOR))
+                    || !cursorShape.equals(ReviewedMethodShape.read(
+                            bytes,
+                            InputPathElisionTarget.OWNER,
+                            InputPathElisionTarget.CURSOR_METHOD,
+                            InputPathElisionTarget.CURSOR_DESCRIPTOR))) {
                 failure = "input path method shape changed: " + InputPathElisionTarget.OWNER;
                 return null;
             }
             final ClassReader reader = new ClassReader(bytes);
-            final ClassWriter writer = new ClassWriter(reader,
-                ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                @Override protected ClassLoader getClassLoader() { return loader; }
+            final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override
+                protected ClassLoader getClassLoader() {
+                    return loader;
+                }
             };
             final boolean[] applied = {false, false};
-            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-                @Override public MethodVisitor visitMethod(final int access, final String method,
-                                                           final String descriptor,
-                                                           final String signature,
-                                                           final String[] exceptions) {
-                    final MethodVisitor visitor =
-                        super.visitMethod(access, method, descriptor, signature, exceptions);
-                    if (InputPathElisionTarget.FOCUS_METHOD.equals(method)
-                        && InputPathElisionTarget.FOCUS_DESCRIPTOR.equals(descriptor)) {
-                        return new EntryVisitor(visitor, applied, 0,
-                            InputPathElisionBridge.FOCUS_PROPERTY, PREDICATE, false);
-                    }
-                    if (InputPathElisionTarget.CURSOR_METHOD.equals(method)
-                        && InputPathElisionTarget.CURSOR_DESCRIPTOR.equals(descriptor)) {
-                        return new EntryVisitor(visitor, applied, 1,
-                            InputPathElisionBridge.CURSOR_PROPERTY, BIPREDICATE, true);
-                    }
-                    return visitor;
-                }
-            }, ClassReader.EXPAND_FRAMES);
+            reader.accept(
+                    new ClassVisitor(Opcodes.ASM9, writer) {
+                        @Override
+                        public MethodVisitor visitMethod(
+                                final int access,
+                                final String method,
+                                final String descriptor,
+                                final String signature,
+                                final String[] exceptions) {
+                            final MethodVisitor visitor =
+                                    super.visitMethod(access, method, descriptor, signature, exceptions);
+                            if (InputPathElisionTarget.FOCUS_METHOD.equals(method)
+                                    && InputPathElisionTarget.FOCUS_DESCRIPTOR.equals(descriptor)) {
+                                return new EntryVisitor(
+                                        visitor, applied, 0, InputPathElisionBridge.FOCUS_PROPERTY, PREDICATE, false);
+                            }
+                            if (InputPathElisionTarget.CURSOR_METHOD.equals(method)
+                                    && InputPathElisionTarget.CURSOR_DESCRIPTOR.equals(descriptor)) {
+                                return new EntryVisitor(
+                                        visitor, applied, 1, InputPathElisionBridge.CURSOR_PROPERTY, BIPREDICATE, true);
+                            }
+                            return visitor;
+                        }
+                    },
+                    ClassReader.EXPAND_FRAMES);
             if (!applied[0] || !applied[1]) {
                 failure = "input path elision anchor drift on "
-                    + InputPathElisionTarget.OWNER + ": focus=" + applied[0]
-                    + " cursor=" + applied[1];
+                        + InputPathElisionTarget.OWNER + ": focus=" + applied[0]
+                        + " cursor=" + applied[1];
                 return null;
             }
             final byte[] result = writer.toByteArray();
             if (beforeSha256 == null) {
-                beforeSha256 = HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(bytes));
+                beforeSha256 = HexFormat.of()
+                        .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
             }
             matches++;
             sites += 2;
             return result;
         } catch (Exception | LinkageError rejected) {
             final StackTraceElement[] trace = rejected.getStackTrace();
-            failure = rejected + " at "
-                + (trace.length == 0 ? "<no frames>" : trace[0].toString());
+            failure = rejected + " at " + (trace.length == 0 ? "<no frames>" : trace[0].toString());
             return null;
         }
     }
@@ -168,8 +198,13 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
         private final String slotType;
         private final boolean binary;
 
-        EntryVisitor(final MethodVisitor visitor, final boolean[] applied, final int index,
-                     final String property, final String slotType, final boolean binary) {
+        EntryVisitor(
+                final MethodVisitor visitor,
+                final boolean[] applied,
+                final int index,
+                final String property,
+                final String slotType,
+                final boolean binary) {
             super(Opcodes.ASM9, visitor);
             this.applied = applied;
             this.index = index;
@@ -178,17 +213,22 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
             this.binary = binary;
         }
 
-        @Override public void visitCode() {
+        @Override
+        public void visitCode() {
             super.visitCode();
             final Label start = new Label(), end = new Label(), handler = new Label();
             final Label discard = new Label(), resume = new Label();
             super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
             super.visitLabel(start);
-            super.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System", "getProperties",
-                "()Ljava/util/Properties;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
             super.visitLdcInsn(property);
-            super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get",
-                "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+            super.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Properties",
+                    "get",
+                    "(Ljava/lang/Object;)Ljava/lang/Object;",
+                    false);
             super.visitInsn(Opcodes.DUP);
             super.visitTypeInsn(Opcodes.INSTANCEOF, slotType);
             super.visitJumpInsn(Opcodes.IFEQ, discard);
@@ -196,11 +236,10 @@ public final class InputPathElisionTransformer implements ClassFileTransformer {
             super.visitVarInsn(Opcodes.ALOAD, 0);
             if (binary) {
                 super.visitVarInsn(Opcodes.ALOAD, 1);
-                super.visitMethodInsn(Opcodes.INVOKEINTERFACE, slotType, "test",
-                    "(Ljava/lang/Object;Ljava/lang/Object;)Z", true);
+                super.visitMethodInsn(
+                        Opcodes.INVOKEINTERFACE, slotType, "test", "(Ljava/lang/Object;Ljava/lang/Object;)Z", true);
             } else {
-                super.visitMethodInsn(Opcodes.INVOKEINTERFACE, slotType, "test",
-                    "(Ljava/lang/Object;)Z", true);
+                super.visitMethodInsn(Opcodes.INVOKEINTERFACE, slotType, "test", "(Ljava/lang/Object;)Z", true);
             }
             super.visitJumpInsn(Opcodes.IFEQ, resume);
             super.visitInsn(Opcodes.RETURN);

@@ -1,18 +1,17 @@
 package dev.turboism.plugin.scenepalette;
 
-import dev.turboism.sdk.ui.table.SceneTableService;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.ui.table.SceneTableService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class SceneTableSorterTest {
 
@@ -43,18 +42,20 @@ final class SceneTableSorterTest {
     void restoresCurrentOrderAndMigratesLegacyOrder() {
         final FakeService service = new FakeService();
         final FakeStore store = new FakeStore();
-        store.loads.put(SCOPE_A, CompletableFuture.completedFuture(ManualOrderStore.LoadResult.current(
-            List.of("scene-10", "deleted", "scene-2")
-        )));
+        store.loads.put(
+                SCOPE_A,
+                CompletableFuture.completedFuture(
+                        ManualOrderStore.LoadResult.current(List.of("scene-10", "deleted", "scene-2"))));
         final SceneTableSorter sorter = new SceneTableSorter(service, store, new TestLogger());
 
         sorter.onSnapshot(snapshot(SCOPE_A));
         assertEquals(List.of("scene-10", "scene-2", "scene-1"), service.order);
         assertTrue(store.saves.isEmpty());
 
-        store.loads.put(SCOPE_B, CompletableFuture.completedFuture(ManualOrderStore.LoadResult.legacy(
-            List.of("scene-1", "scene-10", "scene-2")
-        )));
+        store.loads.put(
+                SCOPE_B,
+                CompletableFuture.completedFuture(
+                        ManualOrderStore.LoadResult.legacy(List.of("scene-1", "scene-10", "scene-2"))));
         sorter.onSnapshot(snapshot(SCOPE_B));
         assertEquals(List.of("scene-1", "scene-10", "scene-2"), service.order);
         assertEquals(List.of("scene-1", "scene-10", "scene-2"), store.saves.get(SCOPE_B));
@@ -71,9 +72,8 @@ final class SceneTableSorterTest {
 
         final List<String> userOrder = List.of("scene-1", "scene-10", "scene-2");
         service.order = userOrder;
-        sorter.onItemOrderChanged(new SceneTableService.ItemOrderChanged(
-            SceneTableService.SCENE_TABLE_ID, SCOPE_A, userOrder
-        ));
+        sorter.onItemOrderChanged(
+                new SceneTableService.ItemOrderChanged(SceneTableService.SCENE_TABLE_ID, SCOPE_A, userOrder));
         pending.complete(ManualOrderStore.LoadResult.current(List.of("scene-10", "scene-2", "scene-1")));
 
         assertEquals(userOrder, service.order);
@@ -84,17 +84,12 @@ final class SceneTableSorterTest {
     void unusableLoadBlocksLaterWritesForThatScope() {
         final FakeService service = new FakeService();
         final FakeStore store = new FakeStore();
-        store.loads.put(SCOPE_A, CompletableFuture.completedFuture(
-            ManualOrderStore.LoadResult.unusable()
-        ));
+        store.loads.put(SCOPE_A, CompletableFuture.completedFuture(ManualOrderStore.LoadResult.unusable()));
         final SceneTableSorter sorter = new SceneTableSorter(service, store, new TestLogger());
         sorter.onSnapshot(snapshot(SCOPE_A));
 
         sorter.onItemOrderChanged(new SceneTableService.ItemOrderChanged(
-            SceneTableService.SCENE_TABLE_ID,
-            SCOPE_A,
-            List.of("scene-1", "scene-10", "scene-2")
-        ));
+                SceneTableService.SCENE_TABLE_ID, SCOPE_A, List.of("scene-1", "scene-10", "scene-2")));
 
         assertTrue(store.saves.isEmpty());
     }
@@ -109,10 +104,7 @@ final class SceneTableSorterTest {
         sorter.onSnapshot(snapshot(SCOPE_A));
 
         sorter.onItemOrderChanged(new SceneTableService.ItemOrderChanged(
-            SceneTableService.SCENE_TABLE_ID,
-            SCOPE_A,
-            List.of("scene-1", "scene-10", "scene-2")
-        ));
+                SceneTableService.SCENE_TABLE_ID, SCOPE_A, List.of("scene-1", "scene-10", "scene-2")));
         pending.complete(ManualOrderStore.LoadResult.unusable());
 
         assertTrue(store.saves.isEmpty());
@@ -147,18 +139,14 @@ final class SceneTableSorterTest {
         final SceneTableSorter sorter = new SceneTableSorter(service, store, new TestLogger());
         sorter.onSnapshot(snapshot(SCOPE_A));
         sorter.onItemOrderChanged(new SceneTableService.ItemOrderChanged(
-            SceneTableService.SCENE_TABLE_ID,
-            SCOPE_A,
-            List.of("scene-1", "scene-10", "scene-2")
-        ));
+                SceneTableService.SCENE_TABLE_ID, SCOPE_A, List.of("scene-1", "scene-10", "scene-2")));
 
         final List<String> scopeBOrder = List.of("scene-10", "scene-1", "scene-2");
         sorter.onSnapshot(new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            SCOPE_B,
-            snapshot().columns(),
-            scopeBOrder.stream().map(id -> item(id, id)).toList()
-        ));
+                SceneTableService.SCENE_TABLE_ID,
+                SCOPE_B,
+                snapshot().columns(),
+                scopeBOrder.stream().map(id -> item(id, id)).toList()));
 
         assertEquals(scopeBOrder, service.order);
         assertFalse(store.saves.containsKey(SCOPE_B));
@@ -177,11 +165,10 @@ final class SceneTableSorterTest {
         assertTrue(store.saves.isEmpty());
 
         sorter.onSnapshot(new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            SCOPE_B,
-            snapshot().columns(),
-            List.of(item("other-2", "Other 2"), item("other-1", "Other 1"))
-        ));
+                SceneTableService.SCENE_TABLE_ID,
+                SCOPE_B,
+                snapshot().columns(),
+                List.of(item("other-2", "Other 2"), item("other-1", "Other 1"))));
         assertEquals(List.of("other-2", "other-1"), service.order);
         assertTrue(store.saves.isEmpty());
     }
@@ -198,23 +185,17 @@ final class SceneTableSorterTest {
 
     private static SceneTableService.TableSnapshot snapshot() {
         return new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            List.of(new SceneTableService.Column("name", "Name")),
-            List.of(
-                item("scene-2", "Scene 2"),
-                item("scene-10", "Scene 10"),
-                item("scene-1", "Scene 1")
-            )
-        );
+                SceneTableService.SCENE_TABLE_ID,
+                List.of(new SceneTableService.Column("name", "Name")),
+                List.of(item("scene-2", "Scene 2"), item("scene-10", "Scene 10"), item("scene-1", "Scene 1")));
     }
 
     private static SceneTableService.TableSnapshot snapshot(final String scopeId) {
         return new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            scopeId,
-            snapshot().columns(),
-            snapshot().items()
-        );
+                SceneTableService.SCENE_TABLE_ID,
+                scopeId,
+                snapshot().columns(),
+                snapshot().items());
     }
 
     private static SceneTableService.Item item(final String id, final String name) {
@@ -263,10 +244,7 @@ final class SceneTableSorterTest {
 
         @Override
         public CompletionStage<LoadResult> load(final String scopeId) {
-            return loads.getOrDefault(
-                scopeId,
-                CompletableFuture.completedFuture(LoadResult.missing())
-            );
+            return loads.getOrDefault(scopeId, CompletableFuture.completedFuture(LoadResult.missing()));
         }
 
         @Override
@@ -277,10 +255,19 @@ final class SceneTableSorterTest {
     }
 
     private static final class TestLogger implements dev.turboism.sdk.plugin.PluginLogger {
-        @Override public void debug(final String message) { }
-        @Override public void info(final String message) { }
-        @Override public void warn(final String message) { }
-        @Override public void error(final String message) { }
-        @Override public void error(final String message, final Throwable throwable) { }
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {}
+
+        @Override
+        public void warn(final String message) {}
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
     }
 }

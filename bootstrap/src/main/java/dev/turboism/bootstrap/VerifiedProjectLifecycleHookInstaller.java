@@ -5,7 +5,7 @@ import dev.turboism.adapter.cubism.lifecycle.NativeProjectLifecycleBridge;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfile;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleNativeMethodTransformer;
-
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
@@ -23,27 +23,22 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
     private final AtomicBoolean installed = new AtomicBoolean(false);
 
     VerifiedProjectLifecycleHookInstaller(
-        final Instrumentation instrumentation,
-        final ClassLoader hostClassLoader,
-        final ProjectLifecycleHostProfile profile,
-        final ProjectFileLifecycleCoordinator projectFiles,
-        final EditorLifecycleCoordinator editor
-    ) {
+            final Instrumentation instrumentation,
+            final ClassLoader hostClassLoader,
+            final ProjectLifecycleHostProfile profile,
+            final ProjectFileLifecycleCoordinator projectFiles,
+            final EditorLifecycleCoordinator editor) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final ProjectLifecycleHostProfile reviewed = Objects.requireNonNull(profile, "profile");
-        this.transformer = new ProjectLifecycleNativeMethodTransformer(
-            reviewed.bindings(),
-            hostClassLoader
-        );
+        this.transformer = new ProjectLifecycleNativeMethodTransformer(reviewed.bindings(), hostClassLoader);
         this.bridge = new NativeProjectLifecycleBridge(
-            Objects.requireNonNull(projectFiles, "projectFiles"),
-            Objects.requireNonNull(editor, "editor"),
-            reviewed.hostVersion()
-        );
+                Objects.requireNonNull(projectFiles, "projectFiles"),
+                Objects.requireNonNull(editor, "editor"),
+                reviewed.hostVersion());
         this.targetClassNames = reviewed.bindings().stream()
-            .map(binding -> binding.ownerInternalName().replace('/', '.'))
-            .collect(Collectors.toUnmodifiableSet());
+                .map(binding -> binding.ownerInternalName().replace('/', '.'))
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     void install() throws Exception {
@@ -56,20 +51,32 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
         instrumentation.addTransformer(transformer, true);
         try {
             int retransformed = 0;
+            final Set<String> seenLoaded = new java.util.HashSet<>();
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (targetClassNames.contains(loaded.getName())) {
-                    if (loaded.getClassLoader() == hostClassLoader
-                        && instrumentation.isModifiableClass(loaded)) {
+                    seenLoaded.add(loaded.getName());
+                    if (loaded.getClassLoader() == hostClassLoader && instrumentation.isModifiableClass(loaded)) {
                         instrumentation.retransformClasses(loaded);
                         retransformed++;
+                    } else {
+                        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                                "lifecycle",
+                                "Lifecycle retransform skipped for " + loaded.getName()
+                                        + " loaderMatch=" + (loaded.getClassLoader() == hostClassLoader)
+                                        + " modifiable=" + instrumentation.isModifiableClass(loaded));
                     }
                 }
             }
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "lifecycle",
-                "Installed verified lifecycle hooks; retransformed=" + retransformed
-            );
+            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "lifecycle",
+                    "Installed verified lifecycle hooks; retransformed=" + retransformed
+                            + " targets=" + targetClassNames
+                            + " notYetLoaded="
+                            + targetClassNames.stream()
+                                    .filter(name -> !seenLoaded.contains(name))
+                                    .collect(Collectors.toUnmodifiableSet()));
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }

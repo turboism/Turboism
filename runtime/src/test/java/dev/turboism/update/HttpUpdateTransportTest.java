@@ -1,8 +1,12 @@
 package dev.turboism.update;
 
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,12 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class HttpUpdateTransportTest {
     @Test
@@ -34,16 +33,15 @@ final class HttpUpdateTransportTest {
         final FakeConnection connection = new FakeConnection(200, bytes("{}"));
         connection.etag = "\"server-etag\"";
         final AtomicReference<URI> openedEndpoint = new AtomicReference<>();
-        final HttpUpdateTransport transport = new HttpUpdateTransport(
-            Duration.ofSeconds(1),
-            endpoint -> {
-                openedEndpoint.set(endpoint);
-                return connection;
-            }
-        );
+        final HttpUpdateTransport transport = new HttpUpdateTransport(Duration.ofSeconds(1), endpoint -> {
+            openedEndpoint.set(endpoint);
+            return connection;
+        });
 
-        final UpdateTransport.Response response = transport.fetch(Optional.of("\"client-etag\""))
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final UpdateTransport.Response response = transport
+                .fetch(Optional.of("\"client-etag\""))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         assertEquals(HttpUpdateTransport.ENDPOINT, openedEndpoint.get());
         assertEquals(200, response.statusCode());
@@ -76,7 +74,9 @@ final class HttpUpdateTransportTest {
         assertTrue(returned.toCompletableFuture().cancel(true));
         assertTrue(body.closed.await(2, TimeUnit.SECONDS));
         assertTrue(connection.disconnected.get());
-        assertThrows(CancellationException.class, () -> returned.toCompletableFuture().join());
+        assertThrows(
+                CancellationException.class,
+                () -> returned.toCompletableFuture().join());
     }
 
     @Test
@@ -100,30 +100,29 @@ final class HttpUpdateTransportTest {
         server.start();
         Thread canceller = null;
         try {
-            final URI loopback = URI.create(
-                "http://127.0.0.1:" + server.getAddress().getPort() + "/"
-            );
-            final HttpUpdateTransport transport = new HttpUpdateTransport(
-                Duration.ofSeconds(10),
-                endpoint -> {
-                    assertEquals(HttpUpdateTransport.ENDPOINT, endpoint);
-                    return (HttpURLConnection) loopback.toURL().openConnection();
-                }
-            );
+            final URI loopback =
+                    URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/");
+            final HttpUpdateTransport transport = new HttpUpdateTransport(Duration.ofSeconds(10), endpoint -> {
+                assertEquals(HttpUpdateTransport.ENDPOINT, endpoint);
+                return (HttpURLConnection) loopback.toURL().openConnection();
+            });
             final CompletionStage<UpdateTransport.Response> returned = transport.fetch(Optional.empty());
             assertTrue(firstByteSent.await(2, TimeUnit.SECONDS));
             final CountDownLatch cancelReturned = new CountDownLatch(1);
-            canceller = new Thread(() -> {
-                returned.toCompletableFuture().cancel(true);
-                cancelReturned.countDown();
-            }, "update-cancel-caller");
+            canceller = new Thread(
+                    () -> {
+                        returned.toCompletableFuture().cancel(true);
+                        cancelReturned.countDown();
+                    },
+                    "update-cancel-caller");
             canceller.setDaemon(true);
             canceller.start();
             assertTrue(
-                cancelReturned.await(500, TimeUnit.MILLISECONDS),
-                "cancellation must not wait for the remote response body"
-            );
-            assertThrows(CancellationException.class, () -> returned.toCompletableFuture().join());
+                    cancelReturned.await(500, TimeUnit.MILLISECONDS),
+                    "cancellation must not wait for the remote response body");
+            assertThrows(
+                    CancellationException.class,
+                    () -> returned.toCompletableFuture().join());
         } finally {
             releaseBody.countDown();
             if (canceller != null) canceller.join(2_000);
@@ -135,23 +134,20 @@ final class HttpUpdateTransportTest {
     void cancellationRunsABlockingDisconnectOffTheCallingThread() throws Exception {
         final BlockingInputStream body = new BlockingInputStream();
         final BlockingDisconnectConnection connection = new BlockingDisconnectConnection(body);
-        final CompletionStage<UpdateTransport.Response> returned = new HttpUpdateTransport(
-            Duration.ofSeconds(2),
-            ignored -> connection
-        ).fetch(Optional.empty());
+        final CompletionStage<UpdateTransport.Response> returned =
+                new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection).fetch(Optional.empty());
         final CountDownLatch cancelReturned = new CountDownLatch(1);
-        final Thread caller = new Thread(() -> {
-            returned.toCompletableFuture().cancel(true);
-            cancelReturned.countDown();
-        }, "update-cancel-caller");
+        final Thread caller = new Thread(
+                () -> {
+                    returned.toCompletableFuture().cancel(true);
+                    cancelReturned.countDown();
+                },
+                "update-cancel-caller");
         caller.setDaemon(true);
         try {
             assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
             caller.start();
-            assertTrue(
-                cancelReturned.await(500, TimeUnit.MILLISECONDS),
-                "cancellation must not wait for disconnect"
-            );
+            assertTrue(cancelReturned.await(500, TimeUnit.MILLISECONDS), "cancellation must not wait for disconnect");
             assertTrue(connection.disconnectStarted.await(2, TimeUnit.SECONDS));
             assertFalse("update-cancel-caller".equals(connection.disconnectThread));
         } finally {
@@ -160,7 +156,9 @@ final class HttpUpdateTransportTest {
         }
         assertTrue(body.closed.await(2, TimeUnit.SECONDS));
         assertTrue(connection.disconnectCompleted.get());
-        assertThrows(CancellationException.class, () -> returned.toCompletableFuture().join());
+        assertThrows(
+                CancellationException.class,
+                () -> returned.toCompletableFuture().join());
     }
 
     @Test
@@ -172,7 +170,8 @@ final class HttpUpdateTransportTest {
         final CompletionStage<UpdateTransport.Response> returned = transport.fetch(Optional.empty());
         assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
 
-        assertThrows(ExecutionException.class, () -> returned.toCompletableFuture().get(2, TimeUnit.SECONDS));
+        assertThrows(
+                ExecutionException.class, () -> returned.toCompletableFuture().get(2, TimeUnit.SECONDS));
         assertTrue(body.closed.await(2, TimeUnit.SECONDS));
         assertTrue(connection.disconnected.get());
     }
@@ -186,7 +185,8 @@ final class HttpUpdateTransportTest {
         final CompletionStage<UpdateTransport.Response> returned = transport.fetch(Optional.empty());
         assertTrue(body.secondReadStarted.await(2, TimeUnit.SECONDS));
 
-        assertThrows(ExecutionException.class, () -> returned.toCompletableFuture().get(2, TimeUnit.SECONDS));
+        assertThrows(
+                ExecutionException.class, () -> returned.toCompletableFuture().get(2, TimeUnit.SECONDS));
         assertTrue(body.closed.await(2, TimeUnit.SECONDS));
         assertEquals(2, body.reads.get());
         assertTrue(connection.disconnected.get());
@@ -214,15 +214,17 @@ final class HttpUpdateTransportTest {
         final HttpUpdateTransport oversizedTransport = transport(Duration.ofSeconds(1), oversized);
 
         assertThrows(
-            ExecutionException.class,
-            () -> oversizedTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS)
-        );
+                ExecutionException.class,
+                () -> oversizedTransport
+                        .fetch(Optional.empty())
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS));
         assertTrue(awaitTrue(oversized.disconnected), "oversized response teardown must complete");
 
         final FakeConnection redirect = new FakeConnection(302, bytes("redirect-body"));
         final HttpUpdateTransport redirectTransport = transport(Duration.ofSeconds(1), redirect);
-        final UpdateTransport.Response response = redirectTransport.fetch(Optional.empty())
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final UpdateTransport.Response response =
+                redirectTransport.fetch(Optional.empty()).toCompletableFuture().get(2, TimeUnit.SECONDS);
 
         assertEquals(302, response.statusCode());
         assertArrayEquals(bytes("redirect-body"), response.body());
@@ -300,8 +302,7 @@ final class HttpUpdateTransportTest {
         }
 
         @Override
-        public void connect() {
-        }
+        public void connect() {}
 
         @Override
         public int getResponseCode() {

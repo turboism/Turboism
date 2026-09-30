@@ -102,9 +102,12 @@ SetFont "MS Shell Dlg" 12
 ; Graal 安装页执行真实下载，必须排在 Directory 之后（$INSTDIR 已定稿）；
 ; 它又必须紧跟 Graal 策略页，因此 Directory 整体上移到策略页之前。
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_HEADER_TEXT "$(LicenseTitleText)"
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
+!define MUI_PAGE_HEADER_TEXT "$(EulaTitleText)"
+!define MUI_PAGE_HEADER_SUBTEXT "$(EulaSubtitleText)"
 !define MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"
 !define MUI_LICENSEPAGE_BUTTON "$(EulaAgreeButtonText)"
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
@@ -172,6 +175,20 @@ LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the AGPL-3.0-only"
 LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 AGPL-3.0-only"
 LangString LicenseAcceptText ${LANG_JAPANESE} "AGPL-3.0-only に同意します"
 LangString LicenseAcceptText ${LANG_KOREAN} "AGPL-3.0-only에 동의합니다"
+
+LangString LicenseTitleText ${LANG_ENGLISH} "License Agreement (AGPL-3.0-only)"
+LangString LicenseTitleText ${LANG_SIMPCHINESE} "许可证协议（AGPL-3.0-only）"
+LangString LicenseTitleText ${LANG_JAPANESE} "使用許諾契約（AGPL-3.0-only）"
+LangString LicenseTitleText ${LANG_KOREAN} "사용권 계약(AGPL-3.0-only)"
+
+LangString EulaTitleText ${LANG_ENGLISH} "End User Runtime Statement and Disclaimer"
+LangString EulaTitleText ${LANG_SIMPCHINESE} "最终用户运行声明与免责声明"
+LangString EulaTitleText ${LANG_JAPANESE} "エンドユーザー実行声明・免責事項"
+LangString EulaTitleText ${LANG_KOREAN} "최종 사용자 실행 고지 및 면책 조항"
+LangString EulaSubtitleText ${LANG_ENGLISH} "Please review the Turboism End User Runtime Statement and Disclaimer before continuing."
+LangString EulaSubtitleText ${LANG_SIMPCHINESE} "继续前，请阅读 Turboism 最终用户运行声明与免责声明。"
+LangString EulaSubtitleText ${LANG_JAPANESE} "続行前に Turboism エンドユーザー実行声明・免責事項を確認してください。"
+LangString EulaSubtitleText ${LANG_KOREAN} "계속하기 전에 Turboism 최종 사용자 실행 고지 및 면책 조항을 검토하세요."
 
 LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. The four required acknowledgements are on the next page:"
 LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。四项必选确认位于下一页："
@@ -1380,7 +1397,8 @@ Section "-静默发现 Cubism" SecSilentDiscovery
 SilentDiscoveryDone:
 SectionEnd
 ; 配置必须在任何永久载荷、托管运行时或插件 JAR 写入前完成。这里只将当前
-; helper 解压到 NSIS 私有临时目录；无效/未来配置会在安装树变化前失败关闭。
+; helper 解压到 NSIS 私有临时目录；可解析的自有配置（旧版/未来 schema、陌生
+; 字段、非法值）会被归一化到 v1，仅外来 format 或不可解析文件才失败关闭。
 Section "-写入配置" SecConfig
   CreateDirectory "$INSTDIR"
   StrCpy $uncheckedPluginIds ""

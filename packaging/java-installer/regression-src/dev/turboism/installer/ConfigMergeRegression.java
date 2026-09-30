@@ -29,10 +29,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *    digits, malformed spellings) while preserving valid large
  *    integer/decimal/exponent values via Long/BigDecimal without non-finite
  *    output;
- *  - canonical runtime-config v1 identity and values, including an exact JSON
- *    integer schemaVersion token, failing closed without source mutation;
- *  - legacy migration validation plus plugin-selection updates that preserve
- *    every user-owned field outside disabledPlugins;
+ *  - the runtime-config ownership gate: only a foreign {@code format} string
+ *    fails closed without source mutation, while any other parseable document
+ *    is normalized to the current v1 schema;
+ *  - normalization preserves every user-owned field with a valid value and
+ *    drops unknown fields, invalid values, and stale schema identities;
  *  - the consumed-bytes size cap: exactly MAX bytes load, MAX+1 bytes fail
  *    closed, and concurrent growth is detected deterministically from bytes
  *    actually consumed (the same branch a grown file always trips once it
@@ -242,7 +243,7 @@ public final class ConfigMergeRegression {
         }
     }
 
-    /** R8.4: canonical runtime-config v1 identity, fail closed, no mutation. */
+    /** R8.4: the runtime-config ownership gate — only a foreign format string fails closed. */
     private static void canonicalIdentity() throws Exception {
         Path dir = Files.createTempDirectory("cfg-merge-canon-");
         Path cfg = dir.resolve("config.json");
@@ -253,38 +254,44 @@ public final class ConfigMergeRegression {
             Map<String, Object> loaded = ConfigMerge.loadExisting(dir);
             check("valid v1 loads and preserves unrelated fields",
                     loaded != null && "DEBUG".equals(loaded.get("logLevel")));
-            String[] bad = {
+            String[] ownable = {
                     "{\"schemaVersion\":1}",
-                    "{\"format\":\"other.runtime.config\",\"schemaVersion\":1}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":\"1\"}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":2}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.5}",
+                    "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.0}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":18446744073709551617}",
+                    "{\"unknownField\":true,\"schemaVersion\":9,\"logLevel\":\"DEBUG\"}",
             };
-            for (String text : bad) {
+            for (String text : ownable) {
                 Files.write(cfg, text.getBytes(StandardCharsets.UTF_8));
                 try {
-                    ConfigMerge.loadExisting(dir);
-                    check("canonical identity rejects: " + text, false);
-                } catch (ConfigMerge.ConfigException expected) {
-                    check("canonical identity rejects: " + text, true);
+                    Map<String, Object> document = ConfigMerge.loadExisting(dir);
+                    check("ownable document loads: " + text, document != null);
+                    Map<String, Object> normalized = ConfigMerge.normalizeToCurrent(document);
+                    ConfigMerge.validateCurrent(normalized);
+                    check("normalization emits valid v1: " + text,
+                            Long.valueOf(1L).equals(normalized.get("schemaVersion"))
+                                    && "turboism.runtime.config".equals(normalized.get("format")));
+                } catch (ConfigMerge.ConfigException unexpected) {
+                    check("ownable document loads: " + text, false);
                 }
-                check("rejection never mutated the source", text.equals(Files.readString(cfg)));
+                check("normalization never mutated the source", text.equals(Files.readString(cfg)));
             }
-            Files.write(cfg, "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.0}"
+            Files.write(cfg, "{\"format\":\"other.runtime.config\",\"schemaVersion\":1}"
                     .getBytes(StandardCharsets.UTF_8));
             try {
                 ConfigMerge.loadExisting(dir);
-                check("decimal schemaVersion token is rejected", false);
+                check("foreign format is rejected", false);
             } catch (ConfigMerge.ConfigException expected) {
-                check("decimal schemaVersion token is rejected", true);
+                check("foreign format is rejected", true);
             }
         } finally {
             deleteTree(dir);
         }
     }
 
-    /** Current schema is byte-preserved; the explicit legacy v0 shape migrates to v1. */
+    /** Ownable documents normalize to v1; valid values carry, everything else is dropped. */
     private static void runtimeConfigMigration() throws Exception {
         Path dir = Files.createTempDirectory("cfg-migrate-");
         Path cfg = dir.resolve("config.json");
@@ -297,37 +304,62 @@ public final class ConfigMergeRegression {
             Map<String, Object> legacy = ConfigMerge.loadExisting(dir);
             check("schema-less legacy config is admitted as v0",
                     legacy != null && ConfigMerge.schemaVersion(legacy) == 0L);
-            Map<String, Object> migrated = ConfigMerge.migrateToCurrent(legacy);
-            check("v0 migration publishes current identity",
+            Map<String, Object> migrated = ConfigMerge.normalizeToCurrent(legacy);
+            check("v0 normalization publishes current identity",
                     Long.valueOf(1L).equals(migrated.get("schemaVersion"))
                             && "turboism.runtime.config".equals(migrated.get("format")));
-            check("v0 migration preserves user settings",
+            check("v0 normalization preserves user settings",
                     "DEBUG".equals(migrated.get("logLevel"))
                             && List.of("custom-plugins").equals(migrated.get("pluginDirs"))
                             && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins"))
                             && Boolean.TRUE.equals(migrated.get("useTextIcon")));
             @SuppressWarnings("unchecked")
             Map<String, Object> launcher = (Map<String, Object>) migrated.get("launcher");
-            check("v0 migration moves legacy JVM choice into launcher",
+            check("v0 normalization lifts legacy JVM choice into launcher",
                     "bundled".equals(launcher.get("cubismJvm")));
 
             Map<String, Object> invalidKnownValue = new LinkedHashMap<>();
             invalidKnownValue.put("logLevel", "BOGUS");
-            try {
-                ConfigMerge.migrateToCurrent(invalidKnownValue);
-                check("v0 migration rejects values invalid under v1", false);
-            } catch (ConfigMerge.ConfigException expected) {
-                check("v0 migration rejects values invalid under v1", true);
-            }
+            Map<String, Object> salvaged = ConfigMerge.normalizeToCurrent(invalidKnownValue);
+            ConfigMerge.validateCurrent(salvaged);
+            check("invalid known value is dropped during normalization",
+                    !salvaged.containsKey("logLevel"));
 
             Map<String, Object> unknown = new LinkedHashMap<>();
             unknown.put("legacyUnknown", true);
-            try {
-                ConfigMerge.migrateToCurrent(unknown);
-                check("unknown v0 field fails closed", false);
-            } catch (ConfigMerge.ConfigException expected) {
-                check("unknown v0 field fails closed", true);
-            }
+            Map<String, Object> stripped = ConfigMerge.normalizeToCurrent(unknown);
+            ConfigMerge.validateCurrent(stripped);
+            check("unknown fields are dropped during normalization",
+                    !stripped.containsKey("legacyUnknown"));
+
+            Map<String, Object> future = new LinkedHashMap<>();
+            future.put("format", "turboism.runtime.config");
+            future.put("schemaVersion", 7L);
+            future.put("worktreeId", "future-runtime");
+            future.put("logLevel", "DEBUG");
+            future.put("futureField", Map.of("nested", true));
+            future.put("launcher", Map.of("futureLauncherFlag", Boolean.TRUE,
+                    "memoryProfile", "balanced4g"));
+            Map<String, Object> downgraded = ConfigMerge.normalizeToCurrent(future);
+            ConfigMerge.validateCurrent(downgraded);
+            check("future schema normalizes to v1 keeping valid values",
+                    Long.valueOf(1L).equals(downgraded.get("schemaVersion"))
+                            && "future-runtime".equals(downgraded.get("worktreeId"))
+                            && "DEBUG".equals(downgraded.get("logLevel"))
+                            && !downgraded.containsKey("futureField")
+                            && "balanced4g".equals(
+                                    ((Map<?, ?>) downgraded.get("launcher")).get("memoryProfile"))
+                            && !((Map<?, ?>) downgraded.get("launcher"))
+                                    .containsKey("futureLauncherFlag"));
+
+            Map<String, Object> conflicted = new LinkedHashMap<>();
+            conflicted.put("cubismJvm", "bundled");
+            conflicted.put("launcher", Map.of("cubismJvm", "graalvm"));
+            Map<String, Object> resolved = ConfigMerge.normalizeToCurrent(conflicted);
+            check("legacy root JVM field loses to launcher",
+                    "graalvm".equals(
+                            ((Map<?, ?>) resolved.get("launcher")).get("cubismJvm"))
+                            && !resolved.containsKey("cubismJvm"));
         } finally {
             deleteTree(dir);
         }
@@ -396,6 +428,21 @@ public final class ConfigMergeRegression {
         Map<String, Object> badReduceAutoBackup = validRuntimeConfig();
         badReduceAutoBackup.put("reduceAutoBackup", "true");
         invalid.add(badReduceAutoBackup);
+        Map<String, Object> badAtlasBbox = validRuntimeConfig();
+        badAtlasBbox.put("atlasTileBbox", "true");
+        invalid.add(badAtlasBbox);
+        Map<String, Object> badTextureAtlas = validRuntimeConfig();
+        badTextureAtlas.put("textureAtlas", Map.of("algorithmId", 7L));
+        invalid.add(badTextureAtlas);
+        Map<String, Object> badTextureAtlasField = validRuntimeConfig();
+        badTextureAtlasField.put("textureAtlas", Map.of("mystery", true));
+        invalid.add(badTextureAtlasField);
+
+        Map<String, Object> withTextureAtlas = validRuntimeConfig();
+        withTextureAtlas.put("textureAtlas",
+                Map.of("algorithmId", "maxrects", "parallel", Boolean.TRUE));
+        ConfigMerge.validateCurrent(withTextureAtlas);
+        check("textureAtlas fields pass installer validation", true);
         Map<String, Object> badLauncherZgc = validRuntimeConfig();
         badLauncherZgc.put("launcher", Map.of("cubismJvm", "bundled", "zgc", "yes"));
         invalid.add(badLauncherZgc);
@@ -540,27 +587,44 @@ public final class ConfigMergeRegression {
         }
     }
 
-    /** Invalid config must stop before identity-proven managed JAR retirement. */
+    /**
+     * A foreign-format config still aborts before managed JAR retirement, while
+     * an ownable config carrying invalid values is normalized and lets the
+     * install proceed.
+     */
     private static void invalidConfigBlocksManagedRetirement() throws Exception {
         final Path home = Files.createTempDirectory("listener-invalid-config-");
         final Path plugins = Files.createDirectories(home.resolve("plugins"));
         final Path retired = plugins.resolve("retired.jar");
         final Path config = home.resolve("config.json");
-        final String invalid = "{\"format\":\"turboism.runtime.config\","
-                + "\"schemaVersion\":1,\"worktreeId\":\"listener-invalid\","
-                + "\"logLevel\":\"BOGUS\"}";
+        final String foreign = "{\"format\":\"other.runtime.config\","
+                + "\"schemaVersion\":1,\"worktreeId\":\"listener-invalid\"}";
         try {
             writePluginJar(retired, "dev.turboism.plugin.logfilter");
-            Files.writeString(config, invalid, StandardCharsets.UTF_8);
+            Files.writeString(config, foreign, StandardCharsets.UTF_8);
             try {
                 listener(home, "lite").beforePacks(List.of());
-                check("invalid current config aborts listener", false);
+                check("foreign config aborts listener", false);
             } catch (RuntimeException expected) {
-                check("invalid current config aborts listener", true);
+                check("foreign config aborts listener", true);
             }
-            check("invalid config leaves retired managed JAR untouched", Files.exists(retired));
-            check("invalid config bytes remain unchanged",
-                    invalid.equals(Files.readString(config, StandardCharsets.UTF_8)));
+            check("foreign config leaves retired managed JAR untouched", Files.exists(retired));
+            check("foreign config bytes remain unchanged",
+                    foreign.equals(Files.readString(config, StandardCharsets.UTF_8)));
+
+            final String ownable = "{\"format\":\"turboism.runtime.config\","
+                    + "\"schemaVersion\":1,\"worktreeId\":\"listener-invalid\","
+                    + "\"logLevel\":\"BOGUS\",\"unknownField\":true}";
+            Files.writeString(config, ownable, StandardCharsets.UTF_8);
+            listener(home, "lite").beforePacks(List.of());
+            Map<String, Object> normalized = ConfigMerge.loadExisting(home);
+            ConfigMerge.validateCurrent(normalized);
+            check("ownable invalid config normalizes instead of aborting",
+                    normalized != null
+                            && "listener-invalid".equals(normalized.get("worktreeId"))
+                            && !normalized.containsKey("logLevel")
+                            && !normalized.containsKey("unknownField"));
+            check("normalized install retires the managed JAR", !Files.exists(retired));
         } finally {
             deleteTree(home);
         }

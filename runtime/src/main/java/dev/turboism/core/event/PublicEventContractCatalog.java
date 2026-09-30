@@ -2,7 +2,6 @@ package dev.turboism.core.event;
 
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -50,8 +49,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
     /** Test seam: how the catalog materializes a loader for verified artifact bytes. */
     @FunctionalInterface
     interface ContractLoaderFactory {
-        ContractArtifactClassLoader open(URL artifact, Set<String> classNames)
-            throws IOException;
+        ContractArtifactClassLoader open(URL artifact, Set<String> classNames) throws IOException;
     }
 
     private final Path extractionDir;
@@ -65,16 +63,14 @@ public final class PublicEventContractCatalog implements AutoCloseable {
      * first failure, is never re-closed, and is never handed out by {@link #acquire}.
      */
     private final List<BoundContract> quarantined = new ArrayList<>();
+
     private boolean closed;
 
     public PublicEventContractCatalog(final Path extractionDir) {
         this(extractionDir, ContractArtifactClassLoader::new);
     }
 
-    PublicEventContractCatalog(
-        final Path extractionDir,
-        final ContractLoaderFactory loaderFactory
-    ) {
+    PublicEventContractCatalog(final Path extractionDir, final ContractLoaderFactory loaderFactory) {
         this.extractionDir = Objects.requireNonNull(extractionDir, "extractionDir");
         this.loaderFactory = Objects.requireNonNull(loaderFactory, "loaderFactory");
     }
@@ -90,10 +86,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
      *     or conflicts with a session binding
      * @throws IllegalStateException when the catalog is closed or artifacts cannot be read
      */
-    public synchronized ContractLease acquire(
-        final PluginDescriptor descriptor,
-        final Path pluginJar
-    ) {
+    public synchronized ContractLease acquire(final PluginDescriptor descriptor, final Path pluginJar) {
         Objects.requireNonNull(descriptor, "descriptor");
         Objects.requireNonNull(pluginJar, "pluginJar");
         if (closed) {
@@ -109,12 +102,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
             for (final ArtifactSpec spec : specs) {
                 BoundContract contract = contractsByHash.get(spec.sha256());
                 if (contract == null) {
-                    contract = new BoundContract(
-                        spec.id(),
-                        spec.sha256(),
-                        extract(spec),
-                        spec.classNames()
-                    );
+                    contract = new BoundContract(spec.id(), spec.sha256(), extract(spec), spec.classNames());
                     contractsByHash.put(spec.sha256(), contract);
                 }
                 contractsById.putIfAbsent(spec.id(), contract);
@@ -215,12 +203,11 @@ public final class PublicEventContractCatalog implements AutoCloseable {
             contract.closeFailure = failure;
             quarantined.add(contract);
             RuntimeDiagnostics.error(
-                "dev.turboism.core.event.PublicEventContractCatalog",
-                "failed to close public event contract " + contract.contractId
-                    + " (sha256 " + contract.sha256
-                    + "); the failed binding is quarantined and will not be reused",
-                failure
-            );
+                    "dev.turboism.core.event.PublicEventContractCatalog",
+                    "failed to close public event contract " + contract.contractId
+                            + " (sha256 " + contract.sha256
+                            + "); the failed binding is quarantined and will not be reused",
+                    failure);
             throw failure;
         } finally {
             contractsByHash.remove(contract.sha256, contract);
@@ -229,21 +216,15 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         }
     }
 
-    private List<ArtifactSpec> readDeclaredArtifacts(
-        final PluginDescriptor descriptor,
-        final Path pluginJar
-    ) {
+    private List<ArtifactSpec> readDeclaredArtifacts(final PluginDescriptor descriptor, final Path pluginJar) {
         final List<ArtifactSpec> specs = new ArrayList<>();
-        final PublicEventContractPreflight.Session session =
-            PublicEventContractPreflight.newSession();
+        final PublicEventContractPreflight.Session session = PublicEventContractPreflight.newSession();
         try {
             // The declared-contract count is checked once before any artifact
             // bytes are materialized (Amendment A-1.R/R1).
-            session.expectContracts(
-                descriptor.eventContracts().size(), descriptor.id());
+            session.expectContracts(descriptor.eventContracts().size(), descriptor.id());
         } catch (final PublicEventContractPreflight.ContractViolation violation) {
-            throw new IllegalArgumentException(
-                violation.getMessage(), violation);
+            throw new IllegalArgumentException(violation.getMessage(), violation);
         }
         try (JarFile jar = new JarFile(pluginJar.toFile())) {
             final Set<String> declaredArtifacts = new HashSet<>();
@@ -262,27 +243,19 @@ public final class PublicEventContractCatalog implements AutoCloseable {
                 final String artifact = contract.artifact();
                 final JarEntry entry = jar.getJarEntry(artifact);
                 if (entry == null) {
-                    throw new IllegalArgumentException(
-                        "plugin " + descriptor.id() + " declares event contract "
+                    throw new IllegalArgumentException("plugin " + descriptor.id() + " declares event contract "
                             + contract.id() + " at " + artifact
-                            + " but the plugin JAR does not contain that artifact"
-                    );
+                            + " but the plugin JAR does not contain that artifact");
                 }
                 declaredArtifacts.remove(artifact);
-                specs.add(readArtifact(
-                    descriptor, contract, jar, entry, looseClasses, session));
+                specs.add(readArtifact(descriptor, contract, jar, entry, looseClasses, session));
             }
             if (!declaredArtifacts.isEmpty()) {
-                throw new IllegalArgumentException(
-                    "plugin " + descriptor.id() + " JAR contains undeclared public event"
-                        + " contract artifact " + declaredArtifacts.iterator().next()
-                );
+                throw new IllegalArgumentException("plugin " + descriptor.id() + " JAR contains undeclared public event"
+                        + " contract artifact " + declaredArtifacts.iterator().next());
             }
         } catch (IOException failure) {
-            throw new IllegalStateException(
-                "failed to read event contract artifacts from " + pluginJar,
-                failure
-            );
+            throw new IllegalStateException("failed to read event contract artifacts from " + pluginJar, failure);
         }
         return specs;
     }
@@ -294,18 +267,16 @@ public final class PublicEventContractCatalog implements AutoCloseable {
      * managed paths, cannot smuggle an artifact the catalog never re-checked.
      */
     private ArtifactSpec readArtifact(
-        final PluginDescriptor descriptor,
-        final PluginDescriptor.EventContract contract,
-        final JarFile pluginJar,
-        final JarEntry entry,
-        final List<String> looseClasses,
-        final PublicEventContractPreflight.Session session
-    ) throws IOException {
+            final PluginDescriptor descriptor,
+            final PluginDescriptor.EventContract contract,
+            final JarFile pluginJar,
+            final JarEntry entry,
+            final List<String> looseClasses,
+            final PublicEventContractPreflight.Session session)
+            throws IOException {
         if (entry.getSize() > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
-            throw new IllegalArgumentException(
-                "public event contract " + contract.id() + " artifact exceeds the "
-                    + PublicEventContractPreflight.MAX_ARTIFACT_BYTES + " byte limit"
-            );
+            throw new IllegalArgumentException("public event contract " + contract.id() + " artifact exceeds the "
+                    + PublicEventContractPreflight.MAX_ARTIFACT_BYTES + " byte limit");
         }
         final byte[] bytes;
         try (InputStream stream = pluginJar.getInputStream(entry)) {
@@ -316,25 +287,18 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         final PublicEventContractPreflight.Inspection inspection;
         try {
             inspection = PublicEventContractPreflight.verify(
-                session,
-                descriptor.id(),
-                contract.id(),
-                contract.artifact(),
-                contract.sha256(),
-                bytes,
-                looseClasses,
-                payloadSeeds(descriptor)
-            );
+                    session,
+                    descriptor.id(),
+                    contract.id(),
+                    contract.artifact(),
+                    contract.sha256(),
+                    bytes,
+                    looseClasses,
+                    payloadSeeds(descriptor));
         } catch (final PublicEventContractPreflight.ContractViolation violation) {
             throw new IllegalArgumentException(violation.getMessage(), violation);
         }
-        return new ArtifactSpec(
-            contract.id(),
-            contract.version(),
-            inspection.sha256(),
-            bytes,
-            inspection.classNames()
-        );
+        return new ArtifactSpec(contract.id(), contract.version(), inspection.sha256(), bytes, inspection.classNames());
     }
 
     /**
@@ -344,25 +308,21 @@ public final class PublicEventContractCatalog implements AutoCloseable {
      * is charged to the shared session budget before it lands in the buffer.
      */
     private static byte[] readBounded(
-        final InputStream stream,
-        final String contractId,
-        final PublicEventContractPreflight.Session session
-    ) throws IOException, PublicEventContractPreflight.ContractViolation {
+            final InputStream stream, final String contractId, final PublicEventContractPreflight.Session session)
+            throws IOException, PublicEventContractPreflight.ContractViolation {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         final byte[] buffer = new byte[8192];
         long size = 0;
-        for (int read; (read = stream.read(buffer)) >= 0;) {
+        for (int read; (read = stream.read(buffer)) >= 0; ) {
             if (read == 0) {
                 continue;
             }
             size += read;
             if (size > PublicEventContractPreflight.MAX_ARTIFACT_BYTES) {
-                throw new IllegalArgumentException(
-                    "public event contract " + contractId
+                throw new IllegalArgumentException("public event contract " + contractId
                         + " artifact stream over-delivers beyond the "
                         + PublicEventContractPreflight.MAX_ARTIFACT_BYTES
-                        + " byte limit"
-                );
+                        + " byte limit");
             }
             session.chargeArtifactBytes(read, contractId);
             out.write(buffer, 0, read);
@@ -378,34 +338,25 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         return ContractClosurePolicy.payloadSeeds(descriptor);
     }
 
-    private void verifyNoConflicts(
-        final PluginDescriptor descriptor,
-        final List<ArtifactSpec> specs
-    ) {
+    private void verifyNoConflicts(final PluginDescriptor descriptor, final List<ArtifactSpec> specs) {
         final Set<String> acquiredClasses = new HashSet<>();
         for (final ArtifactSpec spec : specs) {
             final BoundContract existing = contractsById.get(spec.id());
             if (existing != null && !existing.sha256.equals(spec.sha256())) {
-                throw new IllegalArgumentException(
-                    "public event contract " + spec.id() + " is already bound to a"
+                throw new IllegalArgumentException("public event contract " + spec.id() + " is already bound to a"
                         + " different artifact (declared sha256 " + spec.sha256()
-                        + ", bound sha256 " + existing.sha256 + ")"
-                );
+                        + ", bound sha256 " + existing.sha256 + ")");
             }
             for (final String className : spec.classNames()) {
                 final BoundContract owner = contractClasses.get(className);
                 if (owner != null && !owner.sha256.equals(spec.sha256())) {
-                    throw new IllegalArgumentException(
-                        "public event contract type " + className
-                            + " is already provided by contract " + owner.contractId
-                    );
+                    throw new IllegalArgumentException("public event contract type " + className
+                            + " is already provided by contract " + owner.contractId);
                 }
                 if (!acquiredClasses.add(className)) {
-                    throw new IllegalArgumentException(
-                        "public event contract type " + className
+                    throw new IllegalArgumentException("public event contract type " + className
                             + " is declared by more than one artifact of plugin "
-                            + descriptor.id()
-                    );
+                            + descriptor.id());
                 }
             }
         }
@@ -416,30 +367,18 @@ public final class PublicEventContractCatalog implements AutoCloseable {
             Files.createDirectories(extractionDir);
             final Path target = extractionDir.resolve(spec.sha256() + ".jar");
             if (!cachedArtifactMatches(target, spec.sha256())) {
-                final Path temp = Files.createTempFile(
-                    extractionDir, "contract-", ".jar.tmp"
-                );
+                final Path temp = Files.createTempFile(extractionDir, "contract-", ".jar.tmp");
                 Files.write(temp, spec.bytes());
                 try {
-                    Files.move(
-                        temp, target,
-                        StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING
-                    );
+                    Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException moveFailure) {
                     Files.deleteIfExists(temp);
                     throw moveFailure;
                 }
             }
-            return loaderFactory.open(
-                target.toUri().toURL(),
-                spec.classNames()
-            );
+            return loaderFactory.open(target.toUri().toURL(), spec.classNames());
         } catch (IOException failure) {
-            throw new IllegalStateException(
-                "failed to extract public event contract " + spec.id(),
-                failure
-            );
+            throw new IllegalStateException("failed to extract public event contract " + spec.id(), failure);
         }
     }
 
@@ -475,14 +414,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         return hex.toString();
     }
 
-    private record ArtifactSpec(
-        String id,
-        String version,
-        String sha256,
-        byte[] bytes,
-        Set<String> classNames
-    ) {
-    }
+    private record ArtifactSpec(String id, String version, String sha256, byte[] bytes, Set<String> classNames) {}
 
     private static final class BoundContract {
         private final String contractId;
@@ -494,11 +426,10 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         private IOException closeFailure;
 
         private BoundContract(
-            final String contractId,
-            final String sha256,
-            final ContractArtifactClassLoader loader,
-            final Set<String> classNames
-        ) {
+                final String contractId,
+                final String sha256,
+                final ContractArtifactClassLoader loader,
+                final Set<String> classNames) {
             this.contractId = contractId;
             this.sha256 = sha256;
             this.loader = loader;
@@ -526,10 +457,7 @@ public final class PublicEventContractCatalog implements AutoCloseable {
         private boolean released;
         private IOException firstFailure;
 
-        private ContractLease(
-            final PublicEventContractCatalog catalog,
-            final List<BoundContract> contracts
-        ) {
+        private ContractLease(final PublicEventContractCatalog catalog, final List<BoundContract> contracts) {
             this.catalog = catalog;
             this.contracts = List.copyOf(contracts);
             final Map<String, ClassLoader> map = new HashMap<>();

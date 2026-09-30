@@ -16,11 +16,9 @@ package dev.turboism.adapter.cubism.editor;
 final class EditorAmbientTransactionRejection extends IllegalStateException {
 
     EditorAmbientTransactionRejection(final String writeLabel) {
-        super(
-            writeLabel + " cannot run inside an active authoring transaction: this write cannot"
+        super(writeLabel + " cannot run inside an active authoring transaction: this write cannot"
                 + " join the ambient Undo group, and running it would create a detached Undo"
                 + " group outside transaction control. Move this operation outside the"
-                + " transaction callback."
-        );
+                + " transaction callback.");
     }
 }

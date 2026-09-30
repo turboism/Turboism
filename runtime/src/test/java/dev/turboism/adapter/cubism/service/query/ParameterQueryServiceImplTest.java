@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.service.query;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
@@ -10,8 +15,6 @@ import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-import org.junit.jupiter.api.Test;
-
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,11 +22,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ParameterQueryServiceImplTest {
 
@@ -33,10 +32,10 @@ class ParameterQueryServiceImplTest {
     @Test
     void findByIdListAllAndExistsReturnParameterSummariesWhenPermissionGranted() throws CubismServiceException {
         final VersionedSource source = VersionedSource.withModel();
-        final ParameterQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
-            permission(PARAMETER_READ_PERMISSION)
-        ));
+        final ParameterQueryServiceImpl service = serviceWith(
+                source,
+                new ArrayList<>(),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION), permission(PARAMETER_READ_PERMISSION)));
 
         final Optional<ParameterSummary> found = service.findById(new ParameterId("param-angle-x"));
         final List<ParameterSummary> allParameters = service.listAll();
@@ -54,42 +53,34 @@ class ParameterQueryServiceImplTest {
     @Test
     void listAllUsesCachedIndexUntilSnapshotVersionChanges() throws CubismServiceException {
         final VersionedSource source = VersionedSource.withModel();
-        final ParameterQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
-            permission(PARAMETER_READ_PERMISSION)
-        ));
+        final ParameterQueryServiceImpl service = serviceWith(
+                source,
+                new ArrayList<>(),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION), permission(PARAMETER_READ_PERMISSION)));
 
         final List<ParameterSummary> first = service.listAll();
-        source.replaceParametersWithoutInvalidation(List.of(new HostSnapshotSource.HostParameter(
-            "param-changed",
-            "Changed",
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            true,
-            true
-        )));
+        source.replaceParametersWithoutInvalidation(List.of(
+                new HostSnapshotSource.HostParameter("param-changed", "Changed", 0.0, 0.0, 0.0, 1.0, true, true)));
         final List<ParameterSummary> cached = service.listAll();
         source.advanceInvalidationToken();
         final List<ParameterSummary> refreshed = service.listAll();
 
-        assertEquals(List.of(new ParameterId("param-angle-x"), new ParameterId("param-opacity")), first.stream().map(ParameterSummary::id).toList());
+        assertEquals(
+                List.of(new ParameterId("param-angle-x"), new ParameterId("param-opacity")),
+                first.stream().map(ParameterSummary::id).toList());
         assertEquals(first, cached);
-        assertEquals(List.of(new ParameterId("param-changed")), refreshed.stream().map(ParameterSummary::id).toList());
+        assertEquals(
+                List.of(new ParameterId("param-changed")),
+                refreshed.stream().map(ParameterSummary::id).toList());
     }
 
     @Test
     void deniedParameterReadThrowsAndRecordsAuditEvent() {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        final ParameterQueryServiceImpl service = serviceWith(VersionedSource.withModel(), auditEvents, List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
-        ));
+        final ParameterQueryServiceImpl service = serviceWith(
+                VersionedSource.withModel(), auditEvents, List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
-        final CubismPermissionException error = assertThrows(
-            CubismPermissionException.class,
-            service::listAll
-        );
+        final CubismPermissionException error = assertThrows(CubismPermissionException.class, service::listAll);
 
         assertTrue(error.getMessage().contains(PARAMETER_READ_PERMISSION));
         assertEquals(1, auditEvents.size());
@@ -102,10 +93,10 @@ class ParameterQueryServiceImplTest {
 
     @Test
     void corruptSnapshotIsReportedAsCubismServiceException() {
-        final ParameterQueryServiceImpl service = serviceWith(VersionedSource.withCorruptParameter(), new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
-            permission(PARAMETER_READ_PERMISSION)
-        ));
+        final ParameterQueryServiceImpl service = serviceWith(
+                VersionedSource.withCorruptParameter(),
+                new ArrayList<>(),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION), permission(PARAMETER_READ_PERMISSION)));
 
         final CubismServiceException error = assertThrows(CubismServiceException.class, service::listAll);
 
@@ -114,16 +105,11 @@ class ParameterQueryServiceImplTest {
     }
 
     private static ParameterQueryServiceImpl serviceWith(
-        final HostSnapshotSource source,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final List<PluginPermission> permissions
-    ) {
-        final CubismPermissionGate permissionGate = new CubismPermissionGate(
-            "plugin.demo",
-            permissions,
-            auditEvents::add,
-            FIXED_CLOCK
-        );
+            final HostSnapshotSource source,
+            final List<CubismFacadeAuditEvent> auditEvents,
+            final List<PluginPermission> permissions) {
+        final CubismPermissionGate permissionGate =
+                new CubismPermissionGate("plugin.demo", permissions, auditEvents::add, FIXED_CLOCK);
         return new ParameterQueryServiceImpl(new CubismFacadeImpl(source, permissionGate), permissionGate);
     }
 
@@ -148,8 +134,10 @@ class ParameterQueryServiceImplTest {
 
     private static final class VersionedSource implements HostSnapshotSource {
 
-        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.of("texture-1"), true, true);
-        private static final HostDeformer DEFORMER = new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+        private static final HostArtMesh MESH =
+                new HostArtMesh("mesh-face", "Face Mesh", Optional.of("texture-1"), true, true);
+        private static final HostDeformer DEFORMER =
+                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
 
         private List<HostParameter> parameters;
         private long invalidationToken;
@@ -160,13 +148,13 @@ class ParameterQueryServiceImplTest {
 
         static VersionedSource withModel() {
             return new VersionedSource(List.of(
-                new HostParameter("param-angle-x", "Angle X", 3.0, 0.0, -30.0, 30.0, true, true),
-                new HostParameter("param-opacity", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false)
-            ));
+                    new HostParameter("param-angle-x", "Angle X", 3.0, 0.0, -30.0, 30.0, true, true),
+                    new HostParameter("param-opacity", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false)));
         }
 
         static VersionedSource withCorruptParameter() {
-            return new VersionedSource(List.of(new HostParameter("param-invalid", "Invalid", 2.0, 0.0, 10.0, -10.0, true, true)));
+            return new VersionedSource(
+                    List.of(new HostParameter("param-invalid", "Invalid", 2.0, 0.0, 10.0, -10.0, true, true)));
         }
 
         void replaceParametersWithoutInvalidation(final List<HostParameter> nextParameters) {
@@ -180,11 +168,7 @@ class ParameterQueryServiceImplTest {
         @Override
         public Optional<HostProject> activeProject() {
             return Optional.of(new HostProject(
-                "project-1",
-                "Project",
-                Optional.of(Path.of("projects/demo")),
-                List.of(document())
-            ));
+                    "project-1", "Project", Optional.of(Path.of("projects/demo")), List.of(document())));
         }
 
         @Override
@@ -213,7 +197,8 @@ class ParameterQueryServiceImplTest {
         }
 
         private HostDocument document() {
-            return new HostDocument("document-1", "Document", "models/demo/model.cdi3.json", Optional.empty(), Optional.of(model()));
+            return new HostDocument(
+                    "document-1", "Document", "models/demo/model.cdi3.json", Optional.empty(), Optional.of(model()));
         }
 
         private HostModel model() {

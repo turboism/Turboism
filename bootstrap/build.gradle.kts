@@ -331,6 +331,7 @@ tasks.jar {
             overwrite = true
         )
     }
+    finalizedBy("checkBootstrapJarLicenses")
 }
 
 // Executable gate on the built bootstrap fat JAR: every component in the
@@ -390,6 +391,8 @@ val isolationFixturePluginJar = tasks.register("isolationFixturePluginJar", Jar:
 
 val bootstrapDependencyIsolationHome = layout.buildDirectory.dir("isolation-probe/home")
 
+val bootstrapIsolationStamp = layout.buildDirectory.file("verification-stamps/checkBootstrapJarDependencyIsolation.stamp")
+
 val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
     group = "verification"
     description = "Runs the built agent JAR dependency-isolation probe in a synthetic child JVM."
@@ -402,6 +405,15 @@ val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
     )
     classpath(sourceSets.test.get().output, sourceSets["isolationHost"].output)
     mainClass.set("dev.turboism.bootstrap.BootstrapDependencyIsolationMain")
+    // The jars enter through args (doFirst), so their bytes must be inputs for
+    // up-to-date tracking; the stamp is the persistent output proving a pass.
+    inputs.files(
+        tasks.jar.flatMap { it.archiveFile },
+        isolationFixturePluginJar.flatMap { it.archiveFile },
+        performanceProbeAgentJar.flatMap { it.archiveFile },
+        relocatedAgentJar.archiveFile
+    )
+    outputs.file(bootstrapIsolationStamp)
     doFirst {
         val home = bootstrapDependencyIsolationHome.get().asFile
         home.mkdirs()
@@ -422,8 +434,10 @@ val checkBootstrapJarDependencyIsolation by tasks.registering(JavaExec::class) {
             relocatedAgentJar.archiveFile.get().asFile.absolutePath
         )
     }
-}
-
-tasks.jar {
-    finalizedBy(checkBootstrapJarLicenses)
+    doLast {
+        bootstrapIsolationStamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
 }

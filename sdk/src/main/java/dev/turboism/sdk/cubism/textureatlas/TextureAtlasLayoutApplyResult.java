@@ -1,15 +1,13 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Closed result for a texture-atlas layout apply attempt. */
 public record TextureAtlasLayoutApplyResult(
-    Optional<TextureAtlasLayoutApplyStatus> status,
-    Optional<TextureAtlasLayoutFailureCode> failureCode,
-    Optional<String> message
-) {
+        Optional<TextureAtlasLayoutApplyStatus> status,
+        Optional<TextureAtlasLayoutFailureCode> failureCode,
+        Optional<String> message) {
     public TextureAtlasLayoutApplyResult {
         status = Objects.requireNonNull(status, "status");
         failureCode = Objects.requireNonNull(failureCode, "failureCode");
@@ -48,15 +46,11 @@ public record TextureAtlasLayoutApplyResult(
      * @throws NullPointerException if {@code code} or {@code message} is null
      * @throws IllegalArgumentException if {@code message} is blank
      */
-    public static TextureAtlasLayoutApplyResult failed(
-        final TextureAtlasLayoutFailureCode code,
-        final String message
-    ) {
+    public static TextureAtlasLayoutApplyResult failed(final TextureAtlasLayoutFailureCode code, final String message) {
         return new TextureAtlasLayoutApplyResult(
-            Optional.empty(),
-            Optional.of(Objects.requireNonNull(code, "code")),
-            Optional.of(Objects.requireNonNull(message, "message"))
-        );
+                Optional.empty(),
+                Optional.of(Objects.requireNonNull(code, "code")),
+                Optional.of(Objects.requireNonNull(message, "message")));
     }
 
     private static TextureAtlasLayoutApplyResult success(final TextureAtlasLayoutApplyStatus status) {

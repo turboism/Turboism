@@ -62,23 +62,16 @@ public final class MethodHandleCache {
     private static final ConcurrentHashMap<MethodKey, Method> METHODS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<MethodKey, List<Method>> OVERLOADS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<MethodKey, Field> FIELDS = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<MethodKey, ReflectiveOperationException> MISSES =
-        new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<MethodKey, ReflectiveOperationException> MISSES = new ConcurrentHashMap<>();
 
-    private MethodHandleCache() { }
+    private MethodHandleCache() {}
 
-    private static NoSuchMethodException miss(
-        final MethodKey key,
-        final NoSuchMethodException failure
-    ) {
+    private static NoSuchMethodException miss(final MethodKey key, final NoSuchMethodException failure) {
         final ReflectiveOperationException existing = MISSES.putIfAbsent(key, failure);
         return (NoSuchMethodException) (existing == null ? failure : existing);
     }
 
-    private static NoSuchFieldException miss(
-        final MethodKey key,
-        final NoSuchFieldException failure
-    ) {
+    private static NoSuchFieldException miss(final MethodKey key, final NoSuchFieldException failure) {
         final ReflectiveOperationException existing = MISSES.putIfAbsent(key, failure);
         return (NoSuchFieldException) (existing == null ? failure : existing);
     }
@@ -103,7 +96,7 @@ public final class MethodHandleCache {
      * @throws NoSuchMethodException when no public method matches
      */
     public static Method method(final Class<?> type, final String name, final Class<?>... parameterTypes)
-        throws NoSuchMethodException {
+            throws NoSuchMethodException {
         final MethodKey key = new MethodKey(Kind.PUBLIC, type, name, parameterTypes);
         final Method cached = METHODS.get(key);
         if (cached != null) {
@@ -128,7 +121,7 @@ public final class MethodHandleCache {
      * @throws NoSuchMethodException when the class has no such declared method or it cannot be accessed
      */
     public static Method declared(final Class<?> type, final String name, final Class<?>... parameterTypes)
-        throws NoSuchMethodException {
+            throws NoSuchMethodException {
         final MethodKey key = new MethodKey(Kind.DECLARED, type, name, parameterTypes);
         final Method cached = METHODS.get(key);
         if (cached != null) {
@@ -149,7 +142,7 @@ public final class MethodHandleCache {
      * @throws NoSuchMethodException when no class in the hierarchy declares the method or it cannot be accessed
      */
     public static Method declaredUp(final Class<?> type, final String name, final Class<?>... parameterTypes)
-        throws NoSuchMethodException {
+            throws NoSuchMethodException {
         final MethodKey key = new MethodKey(Kind.DECLARED_UP, type, name, parameterTypes);
         final Method cached = METHODS.get(key);
         if (cached != null) {
@@ -181,7 +174,7 @@ public final class MethodHandleCache {
      * @throws NoSuchMethodException when no class in the hierarchy declares a matching method
      */
     public static Method declaredByArity(final Class<?> type, final String name, final int arity)
-        throws NoSuchMethodException {
+            throws NoSuchMethodException {
         final MethodKey key = new MethodKey(Kind.DECLARED_UP_ARITY, type, name, arity);
         final Method cached = METHODS.get(key);
         if (cached != null) {
@@ -233,11 +226,7 @@ public final class MethodHandleCache {
      * {@code setAccessible}/{@code canAccess} handling, whose effect persists on the shared
      * {@link Method} instances.
      */
-    public static List<Method> declaredOverloads(
-        final Class<?> type,
-        final String name,
-        final int arity
-    ) {
+    public static List<Method> declaredOverloads(final Class<?> type, final String name, final int arity) {
         final MethodKey key = new MethodKey(Kind.DECLARED_UP_ARITY_ALL, type, name, arity);
         final List<Method> cached = OVERLOADS.get(key);
         if (cached != null) {
@@ -265,8 +254,7 @@ public final class MethodHandleCache {
      *
      * @throws NoSuchFieldException when the class declares no such field
      */
-    public static Field declaredField(final Class<?> type, final String name)
-        throws NoSuchFieldException {
+    public static Field declaredField(final Class<?> type, final String name) throws NoSuchFieldException {
         final MethodKey key = new MethodKey(Kind.DECLARED_FIELD, type, name, -1);
         final Field cached = FIELDS.get(key);
         if (cached != null) {
@@ -294,8 +282,7 @@ public final class MethodHandleCache {
      *
      * @throws NoSuchFieldException when no class in the hierarchy declares the field
      */
-    public static Field declaredFieldUp(final Class<?> type, final String name)
-        throws NoSuchFieldException {
+    public static Field declaredFieldUp(final Class<?> type, final String name) throws NoSuchFieldException {
         final MethodKey key = new MethodKey(Kind.DECLARED_FIELD_UP, type, name, -1);
         final Field cached = FIELDS.get(key);
         if (cached != null) {

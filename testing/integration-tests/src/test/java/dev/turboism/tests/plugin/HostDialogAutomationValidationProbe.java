@@ -6,8 +6,6 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.ui.dialog.HostDialogAction;
 import dev.turboism.sdk.ui.dialog.HostDialogMatcher;
 import dev.turboism.sdk.ui.dialog.HostDialogOutcome;
-
-import javax.swing.SwingUtilities;
 import java.awt.Window;
 import java.awt.event.WindowEvent;
 import java.nio.file.Files;
@@ -15,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 /**
  * Lane C validation probe: drives the real Cubism unsaved-changes confirmation
@@ -72,16 +71,17 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
             makeUnsavedChange(context);
             context.logger().info("DIALOG_AUTO_UNSAVED_CHANGE made");
 
-            final Window hostWindow = onHostThread(() ->
-                WindowsParameterValidationProbe.selectHostWindow(Window.getWindows()));
+            final Window hostWindow =
+                    onHostThread(() -> WindowsParameterValidationProbe.selectHostWindow(Window.getWindows()));
             final WindowsParameterValidationProbe.HostCloseRoute route =
-                WindowsParameterValidationProbe.hostCloseRoute(hostVersion);
+                    WindowsParameterValidationProbe.hostCloseRoute(hostVersion);
 
             // 1. First close request: the unsaved-changes confirmation must appear and CANCEL must keep the host alive.
             final HostDialogOutcome cancelOutcome = requestCloseAndAct(route, hostWindow, HostDialogAction.CANCEL);
             context.logger().info("DIALOG_AUTO_CANCEL outcome=" + cancelOutcome);
             if (cancelOutcome != HostDialogOutcome.ACTED) {
-                context.logger().info("DIALOG_AUTO_SNAPSHOTS " + context.hostDialogs().snapshots());
+                context.logger()
+                        .info("DIALOG_AUTO_SNAPSHOTS " + context.hostDialogs().snapshots());
             }
 
             final boolean dialogGone = context.hostDialogs().snapshots().isEmpty();
@@ -89,33 +89,33 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
 
             final boolean passed = cancelOutcome == HostDialogOutcome.ACTED && dialogGone && hostAlive;
             writeResult(
-                result,
-                System.getProperty("turboism.validation.runId", "unknown"),
-                hostVersion,
-                cancelOutcome,
-                passed,
-                (System.nanoTime() - startedNanos) / 1_000_000L
-            );
-            context.logger().info("DIALOG_AUTO_RESULT status=" + (passed ? "PASS" : "FAIL")
-                + " expected=ACTED actual=" + cancelOutcome
-                + " dialogGone=" + dialogGone + " hostAlive=" + hostAlive
-                + " result=" + result);
+                    result,
+                    System.getProperty("turboism.validation.runId", "unknown"),
+                    hostVersion,
+                    cancelOutcome,
+                    passed,
+                    (System.nanoTime() - startedNanos) / 1_000_000L);
+            context.logger()
+                    .info("DIALOG_AUTO_RESULT status=" + (passed ? "PASS" : "FAIL")
+                            + " expected=ACTED actual=" + cancelOutcome
+                            + " dialogGone=" + dialogGone + " hostAlive=" + hostAlive
+                            + " result=" + result);
 
             // 2. Final close request: discard (NO) so the host exits cleanly.
             final HostDialogOutcome discardOutcome = requestCloseAndAct(route, hostWindow, HostDialogAction.NO);
-            context.logger().info("DIALOG_AUTO_FINAL_CLOSE outcome=" + discardOutcome
-                + " (NOT_FOUND is acceptable when the host closed without a confirmation)");
+            context.logger()
+                    .info("DIALOG_AUTO_FINAL_CLOSE outcome=" + discardOutcome
+                            + " (NOT_FOUND is acceptable when the host closed without a confirmation)");
         } catch (Exception failure) {
             context.logger().error("DIALOG_AUTO_RESULT status=FAIL", failure);
             try {
                 writeResult(
-                    result,
-                    System.getProperty("turboism.validation.runId", "unknown"),
-                    hostVersion,
-                    HostDialogOutcome.UNSUPPORTED,
-                    false,
-                    (System.nanoTime() - startedNanos) / 1_000_000L
-                );
+                        result,
+                        System.getProperty("turboism.validation.runId", "unknown"),
+                        hostVersion,
+                        HostDialogOutcome.UNSUPPORTED,
+                        false,
+                        (System.nanoTime() - startedNanos) / 1_000_000L);
             } catch (Exception writeFailure) {
                 context.logger().error("Dialog automation result file could not be written", writeFailure);
             }
@@ -124,20 +124,16 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
 
     /** Triggers the version-routed close and acts on the resulting confirmation dialog. */
     private HostDialogOutcome requestCloseAndAct(
-        final WindowsParameterValidationProbe.HostCloseRoute route,
-        final Window hostWindow,
-        final HostDialogAction action
-    ) throws Exception {
+            final WindowsParameterValidationProbe.HostCloseRoute route,
+            final Window hostWindow,
+            final HostDialogAction action)
+            throws Exception {
         triggerClose(route, hostWindow);
-        return context.hostDialogs().act(
-            HostDialogMatcher.anyConfirmation(), action, CONFIRMATION_TIMEOUT
-        );
+        return context.hostDialogs().act(HostDialogMatcher.anyConfirmation(), action, CONFIRMATION_TIMEOUT);
     }
 
     private static void triggerClose(
-        final WindowsParameterValidationProbe.HostCloseRoute route,
-        final Window hostWindow
-    ) throws Exception {
+            final WindowsParameterValidationProbe.HostCloseRoute route, final Window hostWindow) throws Exception {
         if (route == WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4) {
             // Robot Alt+F4 is a global keystroke: it lands on whatever window owns the focus,
             // so bring the host window to front and wait for focus to settle first.
@@ -149,9 +145,8 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
             Thread.sleep(800L);
             pressAltF4();
         } else {
-            SwingUtilities.invokeLater(() -> hostWindow.dispatchEvent(
-                new WindowEvent(hostWindow, WindowEvent.WINDOW_CLOSING)
-            ));
+            SwingUtilities.invokeLater(
+                    () -> hostWindow.dispatchEvent(new WindowEvent(hostWindow, WindowEvent.WINDOW_CLOSING)));
         }
     }
 
@@ -191,9 +186,8 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
     private static void awaitHostModelReady(final PluginContext context, final Path progress) throws Exception {
         for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
             try {
-                final CubismModel model = onHostThread(
-                    () -> context.cubism().model().active()
-                );
+                final CubismModel model =
+                        onHostThread(() -> context.cubism().model().active());
                 onHostThread(() -> {
                     if (model.drawables().all().isEmpty()) {
                         throw new IllegalStateException("No ArtMesh is available");
@@ -203,13 +197,12 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
                 return;
             } catch (Exception exception) {
                 Files.writeString(
-                    progress,
-                    "status=RUNNING phase=await-model attempt=" + attempt
-                        + " error=" + exception.getClass().getSimpleName()
-                        + ": " + exception.getMessage() + "\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-                );
+                        progress,
+                        "status=RUNNING phase=await-model attempt=" + attempt
+                                + " error=" + exception.getClass().getSimpleName()
+                                + ": " + exception.getMessage() + "\n",
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.TRUNCATE_EXISTING);
                 Thread.sleep(1000L);
             }
         }
@@ -218,26 +211,25 @@ public final class HostDialogAutomationValidationProbe implements CubismPlugin {
 
     /** Writes the structured PASS/FAIL result consumed by the generic host runner. */
     static void writeResult(
-        final Path result,
-        final String runId,
-        final String hostVersion,
-        final HostDialogOutcome outcome,
-        final boolean passed,
-        final long durationMillis
-    ) throws Exception {
+            final Path result,
+            final String runId,
+            final String hostVersion,
+            final HostDialogOutcome outcome,
+            final boolean passed,
+            final long durationMillis)
+            throws Exception {
         Files.createDirectories(result.getParent());
         Files.writeString(
-            result,
-            "schemaVersion=1\n"
-                + "runId=" + runId + "\n"
-                + "hostVersion=" + hostVersion + "\n"
-                + "expected=ACTED\n"
-                + "actual=" + outcome + "\n"
-                + "durationMillis=" + durationMillis + "\n"
-                + "status=" + (passed ? "PASS" : "FAIL") + "\n",
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING
-        );
+                result,
+                "schemaVersion=1\n"
+                        + "runId=" + runId + "\n"
+                        + "hostVersion=" + hostVersion + "\n"
+                        + "expected=ACTED\n"
+                        + "actual=" + outcome + "\n"
+                        + "durationMillis=" + durationMillis + "\n"
+                        + "status=" + (passed ? "PASS" : "FAIL") + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     private static String requireProperty(final String name) {

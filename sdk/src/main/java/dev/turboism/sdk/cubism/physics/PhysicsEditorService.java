@@ -21,7 +21,6 @@ public interface PhysicsEditorService {
         return true;
     }
 
-
     /** Safe-mode instance: every contribution is refused (fail closed). */
     static PhysicsEditorService unavailable() {
         return Unavailable.INSTANCE;
@@ -31,11 +30,13 @@ public interface PhysicsEditorService {
     enum Unavailable implements PhysicsEditorService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final PhysicsEditorContribution contribution) {
+        @Override
+        public Registration contribute(final PhysicsEditorContribution contribution) {
             throw new UnsupportedOperationException("physics editor service is not available");
         }
     }

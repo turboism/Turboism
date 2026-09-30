@@ -1,65 +1,29 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.core.reflect.MethodHandleCache;
-import dev.turboism.mapping.verification.VerifiedAccessException;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
-import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
-import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
 import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
-
-import javax.swing.AbstractButton;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.FlowLayout;
+import java.awt.LayoutManager;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.JViewport;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import javax.swing.event.TreeModelEvent;
-import javax.swing.event.TreeModelListener;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FlowLayout;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import java.awt.RenderingHints;
-import java.awt.Window;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 /** Log-palette toolbar, filtered document install, and level filtering. */
 /** Package-visible for the filter regression tests (debounce seam). */
@@ -111,13 +75,14 @@ final class PaletteFilterState {
 }
 
 enum LogLevel {
-    INFO, WARN, ERROR
+    INFO,
+    WARN,
+    ERROR
 }
 
 final class PaletteLogFilter {
 
-    private PaletteLogFilter() {
-    }
+    private PaletteLogFilter() {}
 
     static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
 
@@ -129,7 +94,7 @@ final class PaletteLogFilter {
             return;
         }
         host.cubismLogService.setFilter(new dev.turboism.sdk.runtime.CubismLogService.LogFilter(
-            state.showInfo, state.showWarn, state.showError, state.filterText));
+                state.showInfo, state.showWarn, state.showError, state.filterText));
     }
 
     static final Color LOG_INFO_ON = new Color(60, 146, 72);
@@ -140,11 +105,11 @@ final class PaletteLogFilter {
 
     static final Color LOG_OFF = new Color(150, 150, 150);
 
-    static void ensureLogToolbar(final PaletteFilterHostOperations host,
-        final PaletteFilterState state,
-        final Container scrollShell,
-        final PaletteFilterRegistry.PaletteFilterContribution contribution
-    ) {
+    static void ensureLogToolbar(
+            final PaletteFilterHostOperations host,
+            final PaletteFilterState state,
+            final Container scrollShell,
+            final PaletteFilterRegistry.PaletteFilterContribution contribution) {
         if (state.toolbarPanel == null) {
             state.toolbarPanel = new JPanel(new BorderLayout(4, 0));
             state.toolbarPanel.setOpaque(false);
@@ -152,11 +117,12 @@ final class PaletteLogFilter {
         }
         if (contribution != null) {
             if (state.filterBox == null) {
-                state.filterBox = PaletteToolbarSupport.createFilterBox(contribution.placeholderKey(), state.filterText, text -> {
-                    state.filterText = PaletteFilterHostOperations.normalize(text);
-                    refreshFilteredLogText(state);
-                    publishLogFilter(host, state);
-                });
+                state.filterBox =
+                        PaletteToolbarSupport.createFilterBox(contribution.placeholderKey(), state.filterText, text -> {
+                            state.filterText = PaletteFilterHostOperations.normalize(text);
+                            refreshFilteredLogText(state);
+                            publishLogFilter(host, state);
+                        });
             }
             if (state.filterBox.panel.getParent() != state.toolbarPanel) {
                 state.toolbarPanel.add(state.filterBox.panel, BorderLayout.CENTER);
@@ -200,15 +166,15 @@ final class PaletteLogFilter {
         wrapper.setOpaque(false);
         wrapper.putClientProperty(WRAPPER_MARKER_KEY, Boolean.TRUE);
         final LayoutManager parentLayout = parent.getLayout();
-        final Object constraint = parentLayout instanceof BorderLayout
-            ? ((BorderLayout) parentLayout).getConstraints(scrollShell)
-            : null;
+        final Object constraint =
+                parentLayout instanceof BorderLayout ? ((BorderLayout) parentLayout).getConstraints(scrollShell) : null;
         final int zOrder = parent.getComponentZOrder(scrollShell);
         parent.remove(scrollShell);
         wrapper.add(state.toolbarPanel, BorderLayout.NORTH);
         wrapper.add(scrollShell, BorderLayout.CENTER);
         if (constraint != null) parent.add(wrapper, constraint);
-        else parent.add(wrapper, zOrder < 0 ? parent.getComponentCount() : Math.min(zOrder, parent.getComponentCount()));
+        else
+            parent.add(wrapper, zOrder < 0 ? parent.getComponentCount() : Math.min(zOrder, parent.getComponentCount()));
         parent.revalidate();
         parent.repaint();
         state.wrapper = wrapper;
@@ -252,9 +218,20 @@ final class PaletteLogFilter {
         }
         if (state.sourceDocumentListener == null) {
             state.sourceDocumentListener = new DocumentListener() {
-                @Override public void insertUpdate(final DocumentEvent event) { scheduleLogRefresh(state); }
-                @Override public void removeUpdate(final DocumentEvent event) { scheduleLogRefresh(state); }
-                @Override public void changedUpdate(final DocumentEvent event) { scheduleLogRefresh(state); }
+                @Override
+                public void insertUpdate(final DocumentEvent event) {
+                    scheduleLogRefresh(state);
+                }
+
+                @Override
+                public void removeUpdate(final DocumentEvent event) {
+                    scheduleLogRefresh(state);
+                }
+
+                @Override
+                public void changedUpdate(final DocumentEvent event) {
+                    scheduleLogRefresh(state);
+                }
             };
             state.sourceDoc.addDocumentListener(state.sourceDocumentListener);
         }
@@ -300,10 +277,11 @@ final class PaletteLogFilter {
         } catch (javax.swing.text.BadLocationException impossible) {
             return;
         }
-        final String filteredText = filterLogText(raw, state.filterText, state.showInfo, state.showWarn, state.showError);
+        final String filteredText =
+                filterLogText(raw, state.filterText, state.showInfo, state.showWarn, state.showError);
         if (state.lastRawText.equals(raw)
-            && state.lastKeyword.equals(state.filterText)
-            && state.lastFiltered.equals(filteredText)) {
+                && state.lastKeyword.equals(state.filterText)
+                && state.lastFiltered.equals(filteredText)) {
             return;
         }
         state.lastRawText = raw;
@@ -324,12 +302,11 @@ final class PaletteLogFilter {
 
     /** Pure log-line filter ported from the legacy log palette installer (keyword + level). */
     static String filterLogText(
-        final String rawText,
-        final String keyword,
-        final boolean showInfo,
-        final boolean showWarn,
-        final boolean showError
-    ) {
+            final String rawText,
+            final String keyword,
+            final boolean showInfo,
+            final boolean showWarn,
+            final boolean showError) {
         if (rawText == null || rawText.isEmpty()) {
             return "";
         }
@@ -343,10 +320,10 @@ final class PaletteLogFilter {
                 currentLevel = explicitLevel;
             }
             final boolean levelVisible = (currentLevel == LogLevel.INFO && showInfo)
-                || (currentLevel == LogLevel.WARN && showWarn)
-                || (currentLevel == LogLevel.ERROR && showError);
+                    || (currentLevel == LogLevel.WARN && showWarn)
+                    || (currentLevel == LogLevel.ERROR && showError);
             final boolean keywordVisible = normalizedKeyword.isEmpty()
-                || PaletteFilterHostOperations.normalize(line).contains(normalizedKeyword);
+                    || PaletteFilterHostOperations.normalize(line).contains(normalizedKeyword);
             if (levelVisible && keywordVisible) {
                 if (builder.length() > 0) {
                     builder.append(System.lineSeparator());

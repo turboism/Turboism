@@ -24,8 +24,7 @@ interface ActiveCoreModelSource extends AutoCloseable {
      * is outstanding; a later publication cancels the pending release. The default does nothing;
      * sources holding a borrowed model override this (see {@link BorrowedCoreModelSource}).
      */
-    default void releaseWhenIdle() {
-    }
+    default void releaseWhenIdle() {}
 
     /**
      * Returns the currently published borrowed model reference, or {@code null} when none is
@@ -41,8 +40,7 @@ interface ActiveCoreModelSource extends AutoCloseable {
      * explicit clear, or close). The default ignores it; sources that can clear a borrowed model
      * override this. Listeners run outside the source monitor.
      */
-    default void onModelCleared(Runnable listener) {
-    }
+    default void onModelCleared(Runnable listener) {}
 
     /** Returns the current model generation without taking a lease. */
     long currentGeneration();

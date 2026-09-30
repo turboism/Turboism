@@ -3,7 +3,6 @@ package dev.turboism.core.runtime.sidecar;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.runtime.PluginTask;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -38,9 +37,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class ProcessSidecarDispatcher implements SidecarDispatcher {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    private static final Executor DEFAULT_DISPATCH_EXECUTOR = Executors.newSingleThreadExecutor(
-        new SidecarDispatchThreadFactory()
-    );
+    private static final Executor DEFAULT_DISPATCH_EXECUTOR =
+            Executors.newSingleThreadExecutor(new SidecarDispatchThreadFactory());
 
     private final SidecarDispatcherConfiguration configuration;
     private final ProcessLauncher launcher;
@@ -50,18 +48,14 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
         this(configuration, new ProcessBuilderLauncher(), DEFAULT_DISPATCH_EXECUTOR);
     }
 
-    ProcessSidecarDispatcher(
-        final SidecarDispatcherConfiguration configuration,
-        final ProcessLauncher launcher
-    ) {
+    ProcessSidecarDispatcher(final SidecarDispatcherConfiguration configuration, final ProcessLauncher launcher) {
         this(configuration, launcher, DEFAULT_DISPATCH_EXECUTOR);
     }
 
     ProcessSidecarDispatcher(
-        final SidecarDispatcherConfiguration configuration,
-        final ProcessLauncher launcher,
-        final Executor dispatchExecutor
-    ) {
+            final SidecarDispatcherConfiguration configuration,
+            final ProcessLauncher launcher,
+            final Executor dispatchExecutor) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.dispatchExecutor = Objects.requireNonNull(dispatchExecutor, "dispatchExecutor");
@@ -72,29 +66,23 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
         if (!configuration.enabled()) {
-            return CompletableFuture.failedFuture(new SidecarDispatchException(
-                "SIDECAR_DISABLED",
-                "Sidecar dispatcher is disabled"
-            ));
+            return CompletableFuture.failedFuture(
+                    new SidecarDispatchException("SIDECAR_DISABLED", "Sidecar dispatcher is disabled"));
         }
 
         final SidecarEnvelope envelope = createEnvelope(task);
         final SidecarEnvelopeValidator.ValidationResult validation = new SidecarEnvelopeValidator().validate(envelope);
         if (!validation.valid()) {
-            return CompletableFuture.completedFuture(SidecarResult.error(
-                validation.problemCode(),
-                validation.problemMessage()
-            ));
+            return CompletableFuture.completedFuture(
+                    SidecarResult.error(validation.problemCode(), validation.problemMessage()));
         }
 
         final SidecarCommand command;
         try {
             command = new SidecarCommand(commandLine(), serialize(envelope), configuration.timeoutMillis());
         } catch (final JsonProcessingException exception) {
-            return CompletableFuture.completedFuture(SidecarResult.error(
-                "SIDECAR_ENVELOPE_SERIALIZATION_FAILED",
-                exception.getOriginalMessage()
-            ));
+            return CompletableFuture.completedFuture(
+                    SidecarResult.error("SIDECAR_ENVELOPE_SERIALIZATION_FAILED", exception.getOriginalMessage()));
         }
 
         return CompletableFuture.supplyAsync(() -> run(command, callback), dispatchExecutor);
@@ -135,13 +123,12 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
 
     private static SidecarEnvelope createEnvelope(final PluginTask task) {
         return new SidecarEnvelope(
-            task.pluginId(),
-            UUID.randomUUID().toString(),
-            task.taskType(),
-            task.payloadDescription(),
-            task.declaredCapability(),
-            Instant.now().toString()
-        );
+                task.pluginId(),
+                UUID.randomUUID().toString(),
+                task.taskType(),
+                task.payloadDescription(),
+                task.declaredCapability(),
+                Instant.now().toString());
     }
 
     private static String serialize(final SidecarEnvelope envelope) throws JsonProcessingException {
@@ -197,7 +184,8 @@ public final class ProcessSidecarDispatcher implements SidecarDispatcher {
                 process.destroyForcibly();
                 return new LaunchResult(-1, read(process.getInputStream()), read(process.getErrorStream()), true);
             }
-            return new LaunchResult(process.exitValue(), read(process.getInputStream()), read(process.getErrorStream()));
+            return new LaunchResult(
+                    process.exitValue(), read(process.getInputStream()), read(process.getErrorStream()));
         }
 
         private static String read(final java.io.InputStream stream) throws IOException {

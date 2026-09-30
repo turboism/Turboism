@@ -25,15 +25,14 @@ final class VerifiedAccessPlan {
     private final Map<String, java.util.List<String>> capabilityConditions;
 
     private VerifiedAccessPlan(
-        final String adapterSliceId,
-        final java.util.Set<String> capabilityIds,
-        final String cubismVersion,
-        final HostArtifactFingerprint artifact,
-        final Map<String, StaticSelector> selectors,
-        final BindingMode bindingMode,
-        final String sourceVersion,
-        final Map<String, java.util.List<String>> capabilityConditions
-    ) {
+            final String adapterSliceId,
+            final java.util.Set<String> capabilityIds,
+            final String cubismVersion,
+            final HostArtifactFingerprint artifact,
+            final Map<String, StaticSelector> selectors,
+            final BindingMode bindingMode,
+            final String sourceVersion,
+            final Map<String, java.util.List<String>> capabilityConditions) {
         this.adapterSliceId = adapterSliceId;
         this.capabilityIds = java.util.Set.copyOf(capabilityIds);
         this.cubismVersion = cubismVersion;
@@ -41,23 +40,20 @@ final class VerifiedAccessPlan {
         this.selectors = Map.copyOf(selectors);
         this.bindingMode = Objects.requireNonNull(bindingMode, "bindingMode");
         this.sourceVersion = Objects.requireNonNull(sourceVersion, "sourceVersion");
-        this.capabilityConditions = this.capabilityIds.stream().collect(
-            java.util.stream.Collectors.toUnmodifiableMap(id -> id,
-                id -> java.util.List.copyOf(capabilityConditions.get(id))));
+        this.capabilityConditions = this.capabilityIds.stream()
+                .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                        id -> id, id -> java.util.List.copyOf(capabilityConditions.get(id))));
     }
 
-    static VerifiedAccessPlan from(
-        final StaticVerificationRecord record,
-        final StaticVerificationReport report
-    ) {
+    static VerifiedAccessPlan from(final StaticVerificationRecord record, final StaticVerificationReport report) {
         Objects.requireNonNull(record, "record");
         Objects.requireNonNull(report, "report");
         if (!report.allSelectorsVerified()) {
             throw new IllegalArgumentException("static verification report is not fully verified");
         }
         if (!record.artifact().matches(report.expectedFingerprint())
-            || record.artifact().size() != report.actualFingerprint().size()
-            || !record.artifact().sha256().equals(report.actualFingerprint().sha256())) {
+                || record.artifact().size() != report.actualFingerprint().size()
+                || !record.artifact().sha256().equals(report.actualFingerprint().sha256())) {
             throw new IllegalArgumentException("verification record and report artifact digests differ");
         }
         if (report.results().size() != record.selectors().size()) {
@@ -73,8 +69,8 @@ final class VerifiedAccessPlan {
         for (StaticSelector selector : record.selectors()) {
             final StaticSelectorResult result = results.get(selector.alias());
             if (result == null
-                || result.status() != StaticVerificationStatus.VERIFIED_STATIC
-                || !result.selector().equals(selector)) {
+                    || result.status() != StaticVerificationStatus.VERIFIED_STATIC
+                    || !result.selector().equals(selector)) {
                 throw new IllegalArgumentException("selector tuple is not verified: " + selector.alias());
             }
             if (verified.put(selector.alias(), selector) != null) {
@@ -82,15 +78,14 @@ final class VerifiedAccessPlan {
             }
         }
         return new VerifiedAccessPlan(
-            record.adapterSliceId(),
-            java.util.Set.copyOf(record.capabilityIds()),
-            record.cubismVersion(),
-            record.artifact(),
-            verified,
-            BindingMode.EXACT,
-            record.cubismVersion(),
-            record.capabilityConditions()
-        );
+                record.adapterSliceId(),
+                java.util.Set.copyOf(record.capabilityIds()),
+                record.cubismVersion(),
+                record.artifact(),
+                verified,
+                BindingMode.EXACT,
+                record.cubismVersion(),
+                record.capabilityConditions());
     }
 
     /**
@@ -107,11 +102,10 @@ final class VerifiedAccessPlan {
      *     {@link BindingMode#COMPATIBLE}
      */
     static VerifiedAccessPlan fromCompatibility(
-        final StaticVerificationRecord record,
-        final StaticSelectorVerifier.StructureVerificationReport report,
-        final String declaredVersion,
-        final HostArtifactFingerprint actualArtifact
-    ) {
+            final StaticVerificationRecord record,
+            final StaticSelectorVerifier.StructureVerificationReport report,
+            final String declaredVersion,
+            final HostArtifactFingerprint actualArtifact) {
         Objects.requireNonNull(record, "record");
         Objects.requireNonNull(report, "report");
         Objects.requireNonNull(declaredVersion, "declaredVersion");
@@ -120,7 +114,7 @@ final class VerifiedAccessPlan {
             throw new IllegalArgumentException("declaredVersion must not be blank");
         }
         if (report.artifact().size() != actualArtifact.size()
-            || !report.artifact().sha256().equals(actualArtifact.sha256())) {
+                || !report.artifact().sha256().equals(actualArtifact.sha256())) {
             throw new IllegalArgumentException("structural report does not describe the admitted artifact");
         }
         if (report.results().size() != record.selectors().size()) {
@@ -146,15 +140,14 @@ final class VerifiedAccessPlan {
             }
         }
         return new VerifiedAccessPlan(
-            record.adapterSliceId(),
-            CapabilitySelectorDependencies.capabilities(record, verified.keySet()),
-            declaredVersion,
-            actualArtifact,
-            verified,
-            BindingMode.COMPATIBLE,
-            record.cubismVersion(),
-            record.capabilityConditions()
-        );
+                record.adapterSliceId(),
+                CapabilitySelectorDependencies.capabilities(record, verified.keySet()),
+                declaredVersion,
+                actualArtifact,
+                verified,
+                BindingMode.COMPATIBLE,
+                record.cubismVersion(),
+                record.capabilityConditions());
     }
 
     StaticSelector selector(final String alias) {
@@ -167,67 +160,60 @@ final class VerifiedAccessPlan {
     }
 
     boolean authorizes(
-        final String requiredAdapterSliceId,
-        final java.util.Set<String> requiredCapabilityIds,
-        final java.util.Set<String> requiredAliases
-    ) {
+            final String requiredAdapterSliceId,
+            final java.util.Set<String> requiredCapabilityIds,
+            final java.util.Set<String> requiredAliases) {
         return adapterSliceId.equals(requiredAdapterSliceId)
-            && capabilityIds.equals(requiredCapabilityIds)
-            && selectors.keySet().equals(requiredAliases);
+                && capabilityIds.equals(requiredCapabilityIds)
+                && selectors.keySet().equals(requiredAliases);
     }
 
     boolean authorizesFeatureSet(
-        final String requiredAdapterSliceId,
-        final java.util.Set<String> requiredCapabilityIds,
-        final java.util.Set<String> requiredAliases
-    ) {
+            final String requiredAdapterSliceId,
+            final java.util.Set<String> requiredCapabilityIds,
+            final java.util.Set<String> requiredAliases) {
         return adapterSliceId.equals(requiredAdapterSliceId)
-            && capabilityIds.containsAll(requiredCapabilityIds)
-            && selectors.keySet().containsAll(requiredAliases);
+                && capabilityIds.containsAll(requiredCapabilityIds)
+                && selectors.keySet().containsAll(requiredAliases);
     }
 
     boolean authorizesFeature(
-        final String requiredAdapterSliceId,
-        final String requiredCapabilityId,
-        final java.util.Set<String> requiredAliases
-    ) {
+            final String requiredAdapterSliceId,
+            final String requiredCapabilityId,
+            final java.util.Set<String> requiredAliases) {
         return adapterSliceId.equals(requiredAdapterSliceId)
-            && capabilityIds.contains(requiredCapabilityId)
-            && selectors.keySet().containsAll(requiredAliases);
+                && capabilityIds.contains(requiredCapabilityId)
+                && selectors.keySet().containsAll(requiredAliases);
     }
 
     VerifiedAccessPlan restrictTo(
-        final java.util.Set<String> admittedCapabilityIds,
-        final java.util.Set<String> admittedAliases
-    ) {
+            final java.util.Set<String> admittedCapabilityIds, final java.util.Set<String> admittedAliases) {
         final java.util.Set<String> capabilities = java.util.Set.copyOf(admittedCapabilityIds);
         final java.util.Set<String> aliases = java.util.Set.copyOf(admittedAliases);
         if (!capabilityIds.containsAll(capabilities) || !selectors.keySet().containsAll(aliases)) {
-            throw new IllegalArgumentException(
-                "restricted access plan is not a subset of the verified record"
-            );
+            throw new IllegalArgumentException("restricted access plan is not a subset of the verified record");
         }
         final Map<String, StaticSelector> restrictedSelectors = new LinkedHashMap<>();
         for (final String alias : aliases) {
             restrictedSelectors.put(alias, selectors.get(alias));
         }
         return new VerifiedAccessPlan(
-            adapterSliceId,
-            capabilities,
-            cubismVersion,
-            artifact,
-            restrictedSelectors,
-            bindingMode,
-            sourceVersion,
-            capabilityConditions
-        );
+                adapterSliceId,
+                capabilities,
+                cubismVersion,
+                artifact,
+                restrictedSelectors,
+                bindingMode,
+                sourceVersion,
+                capabilityConditions);
     }
 
     java.util.Set<String> capabilitiesRequiringHook(final String hookId) {
         final String condition = "hook:" + hookId;
         return capabilityConditions.entrySet().stream()
-            .filter(entry -> entry.getValue().contains(condition))
-            .map(Map.Entry::getKey).collect(java.util.stream.Collectors.toUnmodifiableSet());
+                .filter(entry -> entry.getValue().contains(condition))
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     java.util.List<StaticSelector> selectors() {

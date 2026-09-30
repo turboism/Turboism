@@ -1,13 +1,13 @@
 package dev.turboism.ui.panel;
 
-import javax.swing.JComponent;
-import javax.swing.JScrollPane;
-import javax.swing.plaf.basic.BasicHTML;
-import javax.swing.text.View;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.LayoutManager2;
+import javax.swing.JComponent;
+import javax.swing.JScrollPane;
+import javax.swing.plaf.basic.BasicHTML;
+import javax.swing.text.View;
 
 /**
  * Vertical stack that stretches every child to the container width (so HTML
@@ -17,13 +17,13 @@ import java.awt.LayoutManager2;
 final class VerticalFillLayout implements LayoutManager2 {
 
     @Override
-    public void addLayoutComponent(final String name, final Component component) { }
+    public void addLayoutComponent(final String name, final Component component) {}
 
     @Override
-    public void addLayoutComponent(final Component component, final Object constraints) { }
+    public void addLayoutComponent(final Component component, final Object constraints) {}
 
     @Override
-    public void removeLayoutComponent(final Component component) { }
+    public void removeLayoutComponent(final Component component) {}
 
     @Override
     public Dimension preferredLayoutSize(final Container parent) {
@@ -79,8 +79,8 @@ final class VerticalFillLayout implements LayoutManager2 {
         for (int i = 0; i < children.length; i++) {
             Component child = children[i];
             int height = (i == scrollIndex)
-                ? Math.max(0, parent.getHeight() - y - remainingAfter(children, i))
-                : child.getPreferredSize().height;
+                    ? Math.max(0, parent.getHeight() - y - remainingAfter(children, i))
+                    : child.getPreferredSize().height;
             child.setBounds(0, y, width, height);
             y += height;
         }
@@ -127,5 +127,5 @@ final class VerticalFillLayout implements LayoutManager2 {
     }
 
     @Override
-    public void invalidateLayout(final Container target) { }
+    public void invalidateLayout(final Container target) {}
 }

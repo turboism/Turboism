@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,11 +14,7 @@ import java.util.Optional;
  * @param status         the workspace status observed after the operation
  * @param diagnosticCode stable machine-readable reason code, empty when there is nothing to report
  */
-public record WorkspaceOperationResult(
-    Outcome outcome,
-    WorkspaceStatus status,
-    Optional<String> diagnosticCode
-) {
+public record WorkspaceOperationResult(Outcome outcome, WorkspaceStatus status, Optional<String> diagnosticCode) {
     public WorkspaceOperationResult {
         outcome = Objects.requireNonNull(outcome, "outcome");
         status = Objects.requireNonNull(status, "status");

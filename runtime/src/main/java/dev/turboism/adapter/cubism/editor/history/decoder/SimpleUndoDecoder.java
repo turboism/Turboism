@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.List;
 
 /** Decodes only exact {@code SimpleUndo} snapshots backed by a reviewed domain descriptor. */
@@ -9,12 +8,11 @@ final class SimpleUndoDecoder implements NativeHistoryDecoder {
 
     @Override
     public NativeHistoryDecodeResult decode(
-        final Object entry,
-        final String label,
-        final NativeHistoryDecodeContext context,
-        final int depth,
-        final NativeHistoryDecoderRegistry registry
-    ) {
+            final Object entry,
+            final String label,
+            final NativeHistoryDecodeContext context,
+            final int depth,
+            final NativeHistoryDecoderRegistry registry) {
         final VerifiedMemberResolver resolver = context.resolver();
         final Object target = resolver.invoke("cubism.editor-history.semantic.simple.target", entry);
         final Object undo = resolver.invoke("cubism.editor-history.semantic.simple.undo", entry);
@@ -39,12 +37,6 @@ final class SimpleUndoDecoder implements NativeHistoryDecoder {
         if (!family.isInstance(resolver, post)) {
             return NativeHistoryDecodeResult.unsupported("history.detail.value-unsupported");
         }
-        return ListUndoDecoder.decodeForms(
-            resolver,
-            context.boundedLabel(label),
-            List.of(undo),
-            List.of(post),
-            family
-        );
+        return ListUndoDecoder.decodeForms(resolver, context.boundedLabel(label), List.of(undo), List.of(post), family);
     }
 }

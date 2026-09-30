@@ -1,18 +1,10 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 import java.util.Objects;
 
 /** Final pixel bounds; rotated means a positive quarter-turn before translating into these bounds. */
 public record TextureAtlasPlacement(
-    String textureId,
-    int pageIndex,
-    int x,
-    int y,
-    int width,
-    int height,
-    boolean rotated
-) {
+        String textureId, int pageIndex, int x, int y, int width, int height, boolean rotated) {
 
     public TextureAtlasPlacement {
         textureId = requireId(textureId);

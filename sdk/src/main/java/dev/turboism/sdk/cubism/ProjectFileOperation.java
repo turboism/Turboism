@@ -5,18 +5,15 @@ import java.util.Optional;
 
 /** Immutable request observed before a model or animation file-content operation. */
 public record ProjectFileOperation(
-    ProjectContentKind kind,
-    ProjectFileOperationType operation,
-    Optional<String> contentId,
-    String displayName,
-    Optional<String> fileName
-) {
+        ProjectContentKind kind,
+        ProjectFileOperationType operation,
+        Optional<String> contentId,
+        String displayName,
+        Optional<String> fileName) {
     public ProjectFileOperation {
         kind = Objects.requireNonNull(kind, "kind");
         if (kind != ProjectContentKind.MODEL && kind != ProjectContentKind.ANIMATION) {
-            throw new IllegalArgumentException(
-                "Project file lifecycle supports MODEL and ANIMATION content only"
-            );
+            throw new IllegalArgumentException("Project file lifecycle supports MODEL and ANIMATION content only");
         }
         operation = Objects.requireNonNull(operation, "operation");
         contentId = Objects.requireNonNull(contentId, "contentId");

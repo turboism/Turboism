@@ -1,20 +1,5 @@
 package dev.turboism.ui.toolbar;
 
-import dev.turboism.ui.palette.LogPaletteHostStructure;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JButton;
-import javax.swing.JComponent;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextPane;
-import java.awt.BorderLayout;
-import java.awt.Component;
-import java.awt.Container;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -22,6 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.ui.palette.LogPaletteHostStructure;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextPane;
+import org.junit.jupiter.api.Test;
 
 class VerifiedPaletteToolbarHostOperationsTest {
 
@@ -33,9 +32,8 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final AtomicInteger secondClicks = new AtomicInteger();
 
         host.setContributions(List.of(
-            button("plugin-a", "first", "start", firstClicks::incrementAndGet),
-            button("plugin-b", "second", "end", secondClicks::incrementAndGet)
-        ));
+                button("plugin-a", "first", "start", firstClicks::incrementAndGet),
+                button("plugin-b", "second", "end", secondClicks::incrementAndGet)));
 
         assertEquals(2, countButtons(fixture.root));
         findButton(fixture.root, "plugin-b:second").doClick();
@@ -44,9 +42,7 @@ class VerifiedPaletteToolbarHostOperationsTest {
 
         host.reconcileNow();
         assertEquals(2, countButtons(fixture.root), "reconcile must be idempotent");
-        host.setContributions(List.of(
-            button("plugin-a", "first", "start", firstClicks::incrementAndGet)
-        ));
+        host.setContributions(List.of(button("plugin-a", "first", "start", firstClicks::incrementAndGet)));
         assertEquals(1, countButtons(fixture.root));
         assertNotNull(findButton(fixture.root, "plugin-a:first"));
 
@@ -62,9 +58,9 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final LogPaletteFixture reopened = new LogPaletteFixture();
         final AtomicReference<JTextPane> currentPane = new AtomicReference<>(first.pane);
         final VerifiedPaletteToolbarHostOperations host =
-            new VerifiedPaletteToolbarHostOperations(null, currentPane::get);
+                new VerifiedPaletteToolbarHostOperations(null, currentPane::get);
 
-        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> { })));
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
         final Container oldWrapper = first.scroll.getParent();
         assertTrue(isToolbarWrapper(oldWrapper));
 
@@ -83,14 +79,11 @@ class VerifiedPaletteToolbarHostOperationsTest {
     @Test
     void filterWrapperAttachedBeforeToolbarSurvivesToolbarCleanup() {
         final LogPaletteFixture fixture = new LogPaletteFixture();
-        final JPanel filterWrapper = wrap(
-            LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY,
-            fixture.scroll
-        );
+        final JPanel filterWrapper = wrap(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, fixture.scroll);
         LogPaletteHostStructure.replaceComponent(fixture.parent, fixture.scroll, filterWrapper);
         final VerifiedPaletteToolbarHostOperations host = host(fixture);
 
-        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> { })));
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
         assertSame(filterWrapper, fixture.scroll.getParent());
         assertTrue(isToolbarWrapper(filterWrapper.getParent()));
 
@@ -103,12 +96,9 @@ class VerifiedPaletteToolbarHostOperationsTest {
     void filterWrapperAttachedAfterToolbarSurvivesToolbarCleanup() {
         final LogPaletteFixture fixture = new LogPaletteFixture();
         final VerifiedPaletteToolbarHostOperations host = host(fixture);
-        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> { })));
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
         final Container toolbarWrapper = fixture.scroll.getParent();
-        final JPanel filterWrapper = wrap(
-            LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY,
-            fixture.scroll
-        );
+        final JPanel filterWrapper = wrap(LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY, fixture.scroll);
         LogPaletteHostStructure.replaceComponent(toolbarWrapper, fixture.scroll, filterWrapper);
 
         host.clearContributions();
@@ -120,21 +110,20 @@ class VerifiedPaletteToolbarHostOperationsTest {
 
     @Test
     void missingRootAndUnsupportedAnchorFailClosed() {
-        final VerifiedPaletteToolbarHostOperations missing =
-            new VerifiedPaletteToolbarHostOperations(null, () -> null);
-        assertEquals("log-palette-root-not-found", assertThrows(
-            IllegalStateException.class,
-            () -> missing.setContributions(List.of(
-                button("plugin-a", "toggle", "end", () -> { })
-            ))
-        ).getMessage());
+        final VerifiedPaletteToolbarHostOperations missing = new VerifiedPaletteToolbarHostOperations(null, () -> null);
+        assertEquals(
+                "log-palette-root-not-found",
+                assertThrows(
+                                IllegalStateException.class,
+                                () -> missing.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {}))))
+                        .getMessage());
         missing.clearContributions();
 
         final LogPaletteFixture fixture = new LogPaletteFixture();
         final VerifiedPaletteToolbarHostOperations host = host(fixture);
-        assertThrows(IllegalStateException.class, () -> host.setContributions(List.of(
-            button("plugin-a", "toggle", "middle", () -> { })
-        )));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.setContributions(List.of(button("plugin-a", "toggle", "middle", () -> {}))));
         assertEquals(0, countButtons(fixture.root));
         host.clearContributions();
     }
@@ -144,7 +133,7 @@ class VerifiedPaletteToolbarHostOperationsTest {
         final LogPaletteFixture fixture = new LogPaletteFixture();
         final VerifiedPaletteToolbarHostOperations host = host(fixture);
 
-        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> { })));
+        host.setContributions(List.of(button("plugin-a", "toggle", "end", () -> {})));
         final JButton button = findButton(fixture.root, "plugin-a:toggle");
         assertNotNull(button);
 
@@ -152,8 +141,10 @@ class VerifiedPaletteToolbarHostOperationsTest {
         assertEquals(0, countButtons(fixture.root));
 
         host.reconcileNow();
-        assertSame(button, findButton(fixture.root, "plugin-a:toggle"),
-            "the poll must re-attach the contributed button, not recreate it");
+        assertSame(
+                button,
+                findButton(fixture.root, "plugin-a:toggle"),
+                "the poll must re-attach the contributed button, not recreate it");
         host.clearContributions();
     }
 
@@ -162,24 +153,11 @@ class VerifiedPaletteToolbarHostOperationsTest {
     }
 
     private static PaletteToolbarHostOperations.ButtonContribution button(
-        final String pluginId,
-        final String id,
-        final String anchor,
-        final Runnable action
-    ) {
+            final String pluginId, final String id, final String anchor, final Runnable action) {
         return new PaletteToolbarHostOperations.ButtonContribution(
-            new PaletteToolbarContributionDescriptor(
-                pluginId,
-                id,
-                "action." + id,
-                "label." + id,
-                "icons/" + id + ".svg",
-                "LOG",
-                anchor,
-                100
-            ),
-            action
-        );
+                new PaletteToolbarContributionDescriptor(
+                        pluginId, id, "action." + id, "label." + id, "icons/" + id + ".svg", "LOG", anchor, 100),
+                action);
     }
 
     private static JPanel wrap(final String marker, final Container child) {
@@ -192,16 +170,13 @@ class VerifiedPaletteToolbarHostOperationsTest {
 
     private static boolean isToolbarWrapper(final Component component) {
         return component instanceof JComponent value
-            && Boolean.TRUE.equals(value.getClientProperty(
-                VerifiedPaletteToolbarHostOperations.WRAPPER_MARKER_KEY
-            ));
+                && Boolean.TRUE.equals(
+                        value.getClientProperty(VerifiedPaletteToolbarHostOperations.WRAPPER_MARKER_KEY));
     }
 
     private static JButton findButton(final Component root, final String nativeId) {
         if (root instanceof JButton button
-            && nativeId.equals(button.getClientProperty(
-                VerifiedPaletteToolbarHostOperations.BUTTON_MARKER_KEY
-            ))) {
+                && nativeId.equals(button.getClientProperty(VerifiedPaletteToolbarHostOperations.BUTTON_MARKER_KEY))) {
             return button;
         }
         if (root instanceof Container container) {
@@ -217,7 +192,7 @@ class VerifiedPaletteToolbarHostOperationsTest {
 
     private static int countButtons(final Component root) {
         if (root instanceof JButton button
-            && VerifiedPaletteToolbarHostOperations.BUTTON_NAME.equals(button.getName())) {
+                && VerifiedPaletteToolbarHostOperations.BUTTON_NAME.equals(button.getName())) {
             return 1;
         }
         int count = 0;

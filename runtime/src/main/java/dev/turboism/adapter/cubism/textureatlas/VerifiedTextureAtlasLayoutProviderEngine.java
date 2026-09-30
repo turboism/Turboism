@@ -1,12 +1,11 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider.ApplyOutcome;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
-import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider.ApplyOutcome;
-
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,14 +31,13 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     private final IdentityHashMap<Object, Long> revisions = new IdentityHashMap<>();
 
     VerifiedTextureAtlasLayoutProviderEngine(
-        final VerifiedMemberResolver resolver,
-        final String sessionIdentity,
-        final TextureAtlasDataModelCapture capture,
-        final String exactVersion,
-        final String adapterSliceId,
-        final String capabilityId,
-        final Set<String> requiredAliases
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String sessionIdentity,
+            final TextureAtlasDataModelCapture capture,
+            final String exactVersion,
+            final String adapterSliceId,
+            final String capabilityId,
+            final Set<String> requiredAliases) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
         this.capture = Objects.requireNonNull(capture, "capture");
@@ -68,58 +66,37 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
 
         final Map<String, Object> images = imagesById(binding.textureManager());
         final List<Object> staged = stage(plan, images, binding.modelSource());
-        final Object app = resolver.invokeStatic(
-            "cubism.editor-model.app-controller.instance"
-        );
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack", app
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", binding.document()
-        );
-        final Object groupUndo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, "Update TextureAtlas"
-        );
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", binding.document());
+        final Object groupUndo =
+                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Update TextureAtlas");
         boolean completed = false;
         try {
             final Object undo = resolver.construct(
-                "cubism.texture-atlas.undo.create",
-                "Update TextureAtlas",
-                binding.modelSource(),
-                atlases(binding.textureManager()),
-                staged
-            );
+                    "cubism.texture-atlas.undo.create",
+                    "Update TextureAtlas",
+                    binding.modelSource(),
+                    atlases(binding.textureManager()),
+                    staged);
             resolver.invoke("cubism.texture-atlas.undo.force-redo", undo);
             resolver.invoke("cubism.texture-atlas.group-undo.add", groupUndo, undo);
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    relinkTextureInputs(binding.modelSource(), binding.textureManager());
-                    refresh(binding.modelSource(), completePack);
-                    return null;
-                }
-            );
-            final Object listenerAccepted = resolver.invoke(
-                "cubism.editor-model.undo.add-listener", undo, listener
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        relinkTextureInputs(binding.modelSource(), binding.textureManager());
+                        refresh(binding.modelSource(), completePack);
+                        return null;
+                    });
+            final Object listenerAccepted = resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             if (!(listenerAccepted instanceof Boolean accepted) || !accepted) {
-                throw new IllegalStateException(
-                    "Cubism rejected the texture-atlas Undo/Redo refresh listener."
-                );
+                throw new IllegalStateException("Cubism rejected the texture-atlas Undo/Redo refresh listener.");
             }
             relinkTextureInputs(binding.modelSource(), binding.textureManager());
             refresh(binding.modelSource(), completePack);
-            resolver.invoke(
-                "cubism.editor-model.modeling-document.mark-dirty", binding.document()
-            );
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", binding.document());
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         revisions.put(binding.dataModel(), current.revision() + 1);
         return ApplyOutcome.APPLIED;
@@ -127,7 +104,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
 
     private boolean available() {
         return resolver.isAdmittedCubismVersion(exactVersion)
-            && resolver.authorizesFeature(adapterSliceId, capabilityId, requiredAliases);
+                && resolver.authorizesFeature(adapterSliceId, capabilityId, requiredAliases);
     }
 
     private Binding binding() {
@@ -135,19 +112,14 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         if (!resolver.isInstance("cubism.texture-atlas.data-model.class", dataModel)) return null;
         final Object document = resolver.invoke("cubism.texture-atlas.data-model.document", dataModel);
         final Object source = resolver.invoke("cubism.texture-atlas.data-model.model-source", dataModel);
-        if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document)
-            || source == null) {
+        if (!resolver.isInstance("cubism.editor-model.modeling-document.class", document) || source == null) {
             return null;
         }
-        final Object app = resolver.invokeStatic(
-            "cubism.editor-model.app-controller.instance"
-        );
-        final Object activeDocument = app == null ? null : resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        if (activeDocument != document || resolver.invoke(
-            "cubism.editor-model.modeling-document.model-source", document
-        ) != source) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object activeDocument =
+                app == null ? null : resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        if (activeDocument != document
+                || resolver.invoke("cubism.editor-model.modeling-document.model-source", document) != source) {
             return null;
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
@@ -162,11 +134,9 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
         final Map<String, Object> images = imagesById(binding.textureManager());
         if (atlases.isEmpty()) throw new IllegalStateException("No verified texture atlas is available.");
         final List<String> atlasNames = atlases.stream()
-            .map(atlas -> text(resolver.invoke("cubism.texture-atlas.atlas.name", atlas)))
-            .map(name -> Objects.requireNonNull(
-                name, "Verified texture atlas name is unavailable."
-            ))
-            .toList();
+                .map(atlas -> text(resolver.invoke("cubism.texture-atlas.atlas.name", atlas)))
+                .map(name -> Objects.requireNonNull(name, "Verified texture atlas name is unavailable."))
+                .toList();
         final String atlasId = String.join("\u001f", atlasNames);
         final int atlasWidth = integer(resolver.invoke("cubism.texture-atlas.atlas.width", atlases.get(0)));
         final int atlasHeight = integer(resolver.invoke("cubism.texture-atlas.atlas.height", atlases.get(0)));
@@ -175,11 +145,12 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
 
         final Map<String, TextureAtlasLayoutItem> items = new HashMap<>();
         for (Map.Entry<String, Object> image : images.entrySet()) {
-            items.put(image.getKey(), new TextureAtlasLayoutItem(
-                image.getKey(),
-                integer(resolver.invoke("cubism.texture-atlas.image.width", image.getValue())),
-                integer(resolver.invoke("cubism.texture-atlas.image.height", image.getValue()))
-            ));
+            items.put(
+                    image.getKey(),
+                    new TextureAtlasLayoutItem(
+                            image.getKey(),
+                            integer(resolver.invoke("cubism.texture-atlas.image.width", image.getValue())),
+                            integer(resolver.invoke("cubism.texture-atlas.image.height", image.getValue()))));
         }
 
         final List<TextureAtlasPlacement> placements = new ArrayList<>();
@@ -197,53 +168,40 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
                 }
                 final AffineTransform affine = (AffineTransform) transform;
                 placements.add(new TextureAtlasPlacement(
-                    id,
-                    atlasIndex,
-                    rounded(affine.getTranslateX()),
-                    rounded(affine.getTranslateY()),
-                    item.width(),
-                    item.height(),
-                    false
-                ));
+                        id,
+                        atlasIndex,
+                        rounded(affine.getTranslateX()),
+                        rounded(affine.getTranslateY()),
+                        item.width(),
+                        item.height(),
+                        false));
             }
         }
         placements.sort(java.util.Comparator.comparing(TextureAtlasPlacement::textureId));
-        final TextureAtlasLayoutConstraints constraints = new TextureAtlasLayoutConstraints(
-            atlasWidth,
-            atlasHeight,
-            0,
-            0,
-            DEFAULT_MAX_ATLAS_COUNT,
-            false,
-            false
-        );
+        final TextureAtlasLayoutConstraints constraints =
+                new TextureAtlasLayoutConstraints(atlasWidth, atlasHeight, 0, 0, DEFAULT_MAX_ATLAS_COUNT, false, false);
         return new TextureAtlasAuthoringState(
-            binding.documentId(),
-            binding.modelId(),
-            atlasId,
-            revisions.getOrDefault(binding.dataModel(), 0L),
-            constraints,
-            List.copyOf(items.values()).stream().sorted(java.util.Comparator.comparing(TextureAtlasLayoutItem::textureId)).toList(),
-            new TextureAtlasLayoutPlan(
-                atlasWidth, atlasHeight, atlases.size(), atlasNames, placements
-            )
-        );
+                binding.documentId(),
+                binding.modelId(),
+                atlasId,
+                revisions.getOrDefault(binding.dataModel(), 0L),
+                constraints,
+                List.copyOf(items.values()).stream()
+                        .sorted(java.util.Comparator.comparing(TextureAtlasLayoutItem::textureId))
+                        .toList(),
+                new TextureAtlasLayoutPlan(atlasWidth, atlasHeight, atlases.size(), atlasNames, placements));
     }
 
     private List<Object> stage(
-        final TextureAtlasLayoutPlan plan,
-        final Map<String, Object> images,
-        final Object modelSource
-    ) {
+            final TextureAtlasLayoutPlan plan, final Map<String, Object> images, final Object modelSource) {
         final List<Object> atlases = new ArrayList<>(plan.pageCount());
         for (int index = 0; index < plan.pageCount(); index++) {
             atlases.add(resolver.construct(
-                "cubism.texture-atlas.atlas.create",
-                modelSource,
-                pageName(plan, index),
-                plan.pageWidth(),
-                plan.pageHeight()
-            ));
+                    "cubism.texture-atlas.atlas.create",
+                    modelSource,
+                    pageName(plan, index),
+                    plan.pageWidth(),
+                    plan.pageHeight()));
         }
         for (TextureAtlasPlacement placement : plan.placements()) {
             final Object image = images.get(placement.textureId());
@@ -252,28 +210,22 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             }
             final Object affine = resolver.construct("cubism.texture-atlas.affine.create");
             resolver.invoke(
-                "cubism.texture-atlas.affine.translate", affine,
-                (float) placement.x(), (float) placement.y()
-            );
+                    "cubism.texture-atlas.affine.translate", affine, (float) placement.x(), (float) placement.y());
             final Object atlas = atlases.get(placement.pageIndex());
             final Object entry = resolver.construct(
-                "cubism.texture-atlas.entry.create",
-                atlas,
-                resolver.invoke("cubism.texture-atlas.image.guid", image),
-                affine
-            );
-            append(
-                resolver.invoke("cubism.texture-atlas.atlas.entries", atlas),
-                entry
-            );
+                    "cubism.texture-atlas.entry.create",
+                    atlas,
+                    resolver.invoke("cubism.texture-atlas.image.guid", image),
+                    affine);
+            append(resolver.invoke("cubism.texture-atlas.atlas.entries", atlas), entry);
         }
         return List.copyOf(atlases);
     }
 
     private static String pageName(final TextureAtlasLayoutPlan plan, final int index) {
         return plan.pageNames().isEmpty()
-            ? "Turboism Atlas " + (index + 1)
-            : plan.pageNames().get(index);
+                ? "Turboism Atlas " + (index + 1)
+                : plan.pageNames().get(index);
     }
 
     /**
@@ -283,9 +235,7 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
      */
     private Map<String, Object> imagesById(final Object textureManager) {
         final Map<String, Object> result = new HashMap<>();
-        for (Object image : list(resolver.invoke(
-            "cubism.texture-atlas.texture-manager.images", textureManager
-        ))) {
+        for (Object image : list(resolver.invoke("cubism.texture-atlas.texture-manager.images", textureManager))) {
             final String id = imageId(image);
             if (id != null) result.put(id, image);
         }
@@ -293,46 +243,19 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private List<?> atlases(final Object textureManager) {
-        return list(resolver.invoke(
-            "cubism.texture-atlas.texture-manager.atlases", textureManager
-        ));
+        return list(resolver.invoke("cubism.texture-atlas.texture-manager.atlases", textureManager));
     }
 
-    private void relinkTextureInputs(
-        final Object modelSource,
-        final Object textureManager
-    ) {
-        final Object helper = resolver.readStaticField(
-            "cubism.texture-atlas.texture-input-relink.helper-instance"
-        );
-        resolver.invoke(
-            "cubism.texture-atlas.texture-input-relink.rebuild",
-            helper,
-            modelSource
-        );
-        resolver.invokeStatic(
-            "cubism.editor-model.model-source.verify",
-            modelSource,
-            Boolean.TRUE,
-            null,
-            2,
-            null
-        );
-        resolver.invoke(
-            "cubism.texture-atlas.texture-manager.change-input-to-atlas",
-            textureManager
-        );
+    private void relinkTextureInputs(final Object modelSource, final Object textureManager) {
+        final Object helper = resolver.readStaticField("cubism.texture-atlas.texture-input-relink.helper-instance");
+        resolver.invoke("cubism.texture-atlas.texture-input-relink.rebuild", helper, modelSource);
+        resolver.invokeStatic("cubism.editor-model.model-source.verify", modelSource, Boolean.TRUE, null, 2, null);
+        resolver.invoke("cubism.texture-atlas.texture-manager.change-input-to-atlas", textureManager);
     }
 
     private void refresh(final Object modelSource, final Object completePack) {
-        resolver.invoke(
-            "cubism.editor-model.model-source.update-instances", modelSource
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas",
-            completePack,
-            Boolean.TRUE
-        );
+        resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+        resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
     }
 
     private String imageId(final Object image) {
@@ -343,18 +266,16 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
 
     private boolean sameBinding(final TextureAtlasAuthoringState expected, final Binding current) {
         return expected.documentId().equals(current.documentId())
-            && expected.modelId().equals(current.modelId());
+                && expected.modelId().equals(current.modelId());
     }
 
     private static boolean samePlanningState(
-        final TextureAtlasAuthoringState expected,
-        final TextureAtlasAuthoringState current
-    ) {
+            final TextureAtlasAuthoringState expected, final TextureAtlasAuthoringState current) {
         return expected.atlasId().equals(current.atlasId())
-            && expected.revision() == current.revision()
-            && expected.constraints().equals(current.constraints())
-            && expected.items().equals(current.items())
-            && expected.currentPlan().equals(current.currentPlan());
+                && expected.revision() == current.revision()
+                && expected.constraints().equals(current.constraints())
+                && expected.items().equals(current.items())
+                && expected.currentPlan().equals(current.currentPlan());
     }
 
     private static int rounded(final double value) {
@@ -365,17 +286,20 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private static int integer(final Object value) {
-        if (!(value instanceof Number number)) throw new IllegalStateException("Verified texture atlas number is unavailable.");
+        if (!(value instanceof Number number))
+            throw new IllegalStateException("Verified texture atlas number is unavailable.");
         return number.intValue();
     }
 
     private static List<?> list(final Object value) {
-        if (!(value instanceof List<?> list)) throw new IllegalStateException("Verified texture atlas list is unavailable.");
+        if (!(value instanceof List<?> list))
+            throw new IllegalStateException("Verified texture atlas list is unavailable.");
         return list;
     }
 
     private static Map<?, ?> map(final Object value) {
-        if (!(value instanceof Map<?, ?> map)) throw new IllegalStateException("Verified texture atlas usage map is unavailable.");
+        if (!(value instanceof Map<?, ?> map))
+            throw new IllegalStateException("Verified texture atlas usage map is unavailable.");
         return map;
     }
 
@@ -400,12 +324,10 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
     }
 
     private record Binding(
-        Object document,
-        Object modelSource,
-        Object dataModel,
-        Object textureManager,
-        String documentId,
-        String modelId
-    ) {
-    }
+            Object document,
+            Object modelSource,
+            Object dataModel,
+            Object textureManager,
+            String documentId,
+            String modelId) {}
 }

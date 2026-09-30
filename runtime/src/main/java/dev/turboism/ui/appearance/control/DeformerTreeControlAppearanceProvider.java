@@ -32,18 +32,18 @@ public final class DeformerTreeControlAppearanceProvider implements AutoCloseabl
      * @throws NullPointerException if {@code deformerId} or {@code component} is {@code null}
      */
     public Component apply(
-        final long hostGeneration,
-        final String deformerId,
-        final Component component,
-        final boolean selected,
-        final boolean focused
-    ) {
+            final long hostGeneration,
+            final String deformerId,
+            final Component component,
+            final boolean selected,
+            final boolean focused) {
         Objects.requireNonNull(deformerId, "deformerId");
         final Component target = Objects.requireNonNull(component, "component");
         if (!javax.swing.SwingUtilities.isEventDispatchThread()) return target;
-        styles.apply(target, coordinator.resolveCurrent(
-            hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER_PART, deformerId
-        ));
+        styles.apply(
+                target,
+                coordinator.resolveCurrent(
+                        hostGeneration, PaletteAppearanceCoordinator.Palette.DEFORMER_PART, deformerId));
         return target;
     }
 

@@ -6,7 +6,6 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.settings.SettingsContribution;
 import dev.turboism.sdk.ui.settings.SettingsRegistry;
-
 import java.util.Objects;
 
 /** Permission-checked plugin-scoped view over the shared settings contribution store. */
@@ -17,11 +16,10 @@ public final class RuntimeSettingsRegistry implements SettingsRegistry {
     private final DisposableScope disposableScope;
 
     public RuntimeSettingsRegistry(
-        final SettingsContributionStore store,
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final DisposableScope disposableScope
-    ) {
+            final SettingsContributionStore store,
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final DisposableScope disposableScope) {
         this.store = Objects.requireNonNull(store, "store");
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
@@ -31,10 +29,7 @@ public final class RuntimeSettingsRegistry implements SettingsRegistry {
     @Override
     public Registration contribute(final SettingsContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
-        permissionChecker.check(
-            PermissionIds.TURBOISM_UI_SETTINGS_CONTRIBUTE,
-            "ui.settings.contribute"
-        );
+        permissionChecker.check(PermissionIds.TURBOISM_UI_SETTINGS_CONTRIBUTE, "ui.settings.contribute");
         final Registration registration = store.register(pluginId, contribution);
         disposableScope.register(registration);
         return registration;

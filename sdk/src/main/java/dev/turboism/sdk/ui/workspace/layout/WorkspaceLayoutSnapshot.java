@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,10 +14,7 @@ import java.util.Optional;
  * workspace).</p>
  */
 public record WorkspaceLayoutSnapshot(
-    Availability availability,
-    Optional<DockComponent> root,
-    Optional<String> diagnosticCode
-) {
+        Availability availability, Optional<DockComponent> root, Optional<String> diagnosticCode) {
 
     public WorkspaceLayoutSnapshot {
         availability = Objects.requireNonNull(availability, "availability");

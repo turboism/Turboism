@@ -26,11 +26,10 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
         super("TURBOISM_UPLOAD_ELISION");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
-        final boolean validation = Boolean.getBoolean(
-            SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
-        final boolean production =
-            SkippedFrameUploadElisionBridge.enabledByPreference();
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+        final boolean validation = Boolean.getBoolean(SkippedFrameUploadElisionTransformer.ENABLE_PROPERTY);
+        final boolean production = SkippedFrameUploadElisionBridge.enabledByPreference();
         if (!validation && !production) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
@@ -38,28 +37,28 @@ final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationH
         if (production && !validation && !ModelUpdateSkipBridge.flagEnabled()) {
             // Without skipped frames the consult can never elide; installing
             // would buy pure per-call overhead.
-            log(environment, id()
-                + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");
+            log(environment, id() + " installation=NOT_ADMITTED reason=modelUpdateSkip-disabled");
             return noOp();
         }
         final var host = environment.host().orElseThrow();
-        if (production && !validation
-            && !VerifiedSkippedFrameUploadElisionInstaller.admitted(
-                HostArtifactDigest.from(host.artifact()),
-                NativeOptimizationPolicy.load(environment.options().home()),
-                true,
-                Runtime.version().feature())) {
+        if (production
+                && !validation
+                && !VerifiedSkippedFrameUploadElisionInstaller.admitted(
+                        HostArtifactDigest.from(host.artifact()),
+                        NativeOptimizationPolicy.load(environment.options().home()),
+                        true,
+                        Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedSkippedFrameUploadElisionInstaller installer =
-            new VerifiedSkippedFrameUploadElisionInstaller(
-                environment.instrumentation(), host.artifact(), host.classLoader(),
-                production && !validation);
+        final VerifiedSkippedFrameUploadElisionInstaller installer = new VerifiedSkippedFrameUploadElisionInstaller(
+                environment.instrumentation(), host.artifact(), host.classLoader(), production && !validation);
         installer.install();
-        log(environment, id() + " elision=ACTIVE sites=" + installer.sites()
-            + " mode=" + (validation ? "validation" : "production")
-            + " targets=com/live2d/graphics3d/mesh/a/{b,c}.b(Lcom/jogamp/opengl/GL2ES2;I)V");
+        log(
+                environment,
+                id() + " elision=ACTIVE sites=" + installer.sites()
+                        + " mode=" + (validation ? "validation" : "production")
+                        + " targets=com/live2d/graphics3d/mesh/a/{b,c}.b(Lcom/jogamp/opengl/GL2ES2;I)V");
         return installer;
     }
 }

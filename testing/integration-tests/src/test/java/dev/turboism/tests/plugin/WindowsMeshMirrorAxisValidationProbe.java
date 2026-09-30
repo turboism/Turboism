@@ -2,7 +2,6 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -81,17 +80,16 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
             context.meshMirrorAxis().setCurrentAngleDegrees(0.0f);
             final float afterRestore = context.meshMirrorAxis().currentAngleDegrees();
             final String report = "status=SDK_ROUNDTRIP_DONE\n"
-                + "time=" + Instant.now() + "\n"
-                + "initialAngleDegrees=" + initial + "\n"
-                + "afterSet45Degrees=" + afterSet + "\n"
-                + "afterRestore0Degrees=" + afterRestore + "\n"
-                + "roundtripPassed=" + (afterSet == 45.0f && afterRestore == 0.0f) + "\n";
+                    + "time=" + Instant.now() + "\n"
+                    + "initialAngleDegrees=" + initial + "\n"
+                    + "afterSet45Degrees=" + afterSet + "\n"
+                    + "afterRestore0Degrees=" + afterRestore + "\n"
+                    + "roundtripPassed=" + (afterSet == 45.0f && afterRestore == 0.0f) + "\n";
             Files.writeString(
-                outputDir.resolve("mirror-axis-roundtrip.txt"),
-                report,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
+                    outputDir.resolve("mirror-axis-roundtrip.txt"),
+                    report,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {
             context.logger().error("Mesh mirror-axis probe roundtrip failed", failure);
         }
@@ -102,17 +100,26 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         try {
             Files.createDirectories(outputDir);
             final StringBuilder report = new StringBuilder()
-                .append("status=").append(status).append('\n')
-                .append("time=").append(Instant.now()).append('\n')
-                .append("angleDegrees=").append(context.meshMirrorAxis().currentAngleDegrees()).append('\n')
-                .append("meshes=").append(context.cubismRead().meshes().size()).append('\n')
-                .append("deformers=").append(context.cubismRead().deformers().size()).append('\n');
+                    .append("status=")
+                    .append(status)
+                    .append('\n')
+                    .append("time=")
+                    .append(Instant.now())
+                    .append('\n')
+                    .append("angleDegrees=")
+                    .append(context.meshMirrorAxis().currentAngleDegrees())
+                    .append('\n')
+                    .append("meshes=")
+                    .append(context.cubismRead().meshes().size())
+                    .append('\n')
+                    .append("deformers=")
+                    .append(context.cubismRead().deformers().size())
+                    .append('\n');
             Files.writeString(
-                outputDir.resolve("mirror-axis-state.txt"),
-                report.toString(),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
-            );
+                    outputDir.resolve("mirror-axis-state.txt"),
+                    report.toString(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception failure) {
             context.logger().error("Mesh mirror-axis probe state dump failed", failure);
         }

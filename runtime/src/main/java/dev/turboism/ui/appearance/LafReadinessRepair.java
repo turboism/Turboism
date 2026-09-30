@@ -37,11 +37,7 @@ public final class LafReadinessRepair {
     }
 
     /** Bounded timeout for tests; production uses {@link #DEFAULT_TIMEOUT_MILLIS}. */
-    LafReadinessRepair(
-        final ClassLoader hostClassLoader,
-        final Consumer<String> log,
-        final long timeoutMillis
-    ) {
+    LafReadinessRepair(final ClassLoader hostClassLoader, final Consumer<String> log, final long timeoutMillis) {
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         this.log = Objects.requireNonNull(log, "log");
         this.timeoutMillis = timeoutMillis;
@@ -61,8 +57,7 @@ public final class LafReadinessRepair {
         final long started = System.nanoTime();
         try {
             if (!waitForFlatLaf(timeoutMillis)) {
-                log.accept("L&F readiness repair: FlatLaf not ready within "
-                    + timeoutMillis + "ms; skipping repair");
+                log.accept("L&F readiness repair: FlatLaf not ready within " + timeoutMillis + "ms; skipping repair");
                 return;
             }
             final boolean repaired = SwingFlatLafHostOperations.onEdt(() -> {
@@ -76,9 +71,8 @@ public final class LafReadinessRepair {
                 return true;
             });
             log.accept("L&F readiness repair: "
-                + (repaired ? "FlatLaf.updateUI applied to all windows"
-                            : "UI defaults not ready; skipped")
-                + " in " + (System.nanoTime() - started) / 1_000_000L + "ms");
+                    + (repaired ? "FlatLaf.updateUI applied to all windows" : "UI defaults not ready; skipped")
+                    + " in " + (System.nanoTime() - started) / 1_000_000L + "ms");
         } catch (RuntimeException failure) {
             log.accept("L&F readiness repair failed safely: " + failure);
         }
@@ -91,8 +85,8 @@ public final class LafReadinessRepair {
                 if (SwingFlatLafHostOperations.onEdt(() -> {
                     final Object lookAndFeel = javax.swing.UIManager.getLookAndFeel();
                     return lookAndFeel != null
-                        && isFlatLaf(lookAndFeel.getClass().getName())
-                        && javax.swing.UIManager.get(PANEL_UI_KEY) != null;
+                            && isFlatLaf(lookAndFeel.getClass().getName())
+                            && javax.swing.UIManager.get(PANEL_UI_KEY) != null;
                 })) {
                     return true;
                 }
@@ -111,9 +105,9 @@ public final class LafReadinessRepair {
 
     private static boolean isFlatLaf(final String className) {
         return className != null
-            && (className.startsWith("com.formdev.flatlaf.")
-                || className.contains("CubismLightTheme")
-                || className.contains("CubismDarkTheme"));
+                && (className.startsWith("com.formdev.flatlaf.")
+                        || className.contains("CubismLightTheme")
+                        || className.contains("CubismDarkTheme"));
     }
 
     private void updateComponentUis() {

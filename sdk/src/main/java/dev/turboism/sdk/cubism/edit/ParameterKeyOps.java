@@ -1,8 +1,8 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import java.util.List;
 import java.util.Objects;
@@ -55,8 +55,7 @@ public interface ParameterKeyOps {
      *
      * @return matching object ids, never {@code null}
      */
-    List<ModelObjectId> objectsByParameterKeys(GetObjectsByParameterKeys request)
-            throws EditSessionException;
+    List<ModelObjectId> objectsByParameterKeys(GetObjectsByParameterKeys request) throws EditSessionException;
 
     /** Returns a fail-closed implementation in which every operation is unavailable. */
     static ParameterKeyOps unavailable() {
@@ -74,8 +73,7 @@ public interface ParameterKeyOps {
         }
 
         @Override
-        public boolean deleteParameterKey(final DeleteParameterKey request)
-                throws EditSessionException {
+        public boolean deleteParameterKey(final DeleteParameterKey request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterKeyOps.deleteParameterKey");
         }
@@ -87,8 +85,7 @@ public interface ParameterKeyOps {
         }
 
         @Override
-        public List<ParameterKeyValues> parameterKeys(final GetParameterKeys request)
-                throws EditSessionException {
+        public List<ParameterKeyValues> parameterKeys(final GetParameterKeys request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("ParameterKeyOps.parameterKeys");
         }

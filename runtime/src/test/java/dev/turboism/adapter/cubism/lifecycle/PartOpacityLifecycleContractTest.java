@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.core.event.EntrypointSubscriberCatalog;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -8,27 +11,23 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.sdk.cubism.hook.PartHooks;
-import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
+import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.time.Clock;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 /** Contract for the first Part-opacity lifecycle vertical slice. */
 class PartOpacityLifecycleContractTest {
@@ -89,9 +88,8 @@ class PartOpacityLifecycleContractTest {
         final RuntimeEventBroker.Owner owner = broker.admit("part-events");
         final CountDownLatch completion = new CountDownLatch(4);
         final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
-        owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-            new PartEventSubscriber(events, completion)
-        )));
+        owner.registerAnnotated(
+                new EntrypointSubscriberCatalog().inspect(List.of(new PartEventSubscriber(events, completion))));
         owner.activate();
         final MutablePart part = new MutablePart(0.5F);
 
@@ -101,12 +99,9 @@ class PartOpacityLifecycleContractTest {
         org.junit.jupiter.api.Assertions.assertTrue(completion.await(1, TimeUnit.SECONDS));
         assertEquals(0.75F, part.getOpacity());
         assertEquals("Clip A", part.name());
-        assertEquals(List.of(
-            "opacity:on:0.5->0.75",
-            "opacity:after:0.75",
-            "name:on:PartArmL->Clip A",
-            "name:after:Clip A"
-        ), events);
+        assertEquals(
+                List.of("opacity:on:0.5->0.75", "opacity:after:0.75", "name:on:PartArmL->Clip A", "name:after:Clip A"),
+                events);
         scheduler.shutdown();
     }
 
@@ -117,9 +112,11 @@ class PartOpacityLifecycleContractTest {
         coordinator.register(plugin("plugin-a", List.of(recordingHook(events))));
         final MutablePart part = new MutablePart(0.5F);
 
-        assertThrows(IllegalStateException.class, () -> coordinator.setOpacity(part, 0.8F, ignored -> {
-            throw new IllegalStateException("native failed");
-        }));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setOpacity(part, 0.8F, ignored -> {
+                    throw new IllegalStateException("native failed");
+                }));
         coordinator.awaitIdle();
 
         assertEquals(0.5F, part.getOpacity());
@@ -131,16 +128,19 @@ class PartOpacityLifecycleContractTest {
         final List<String> events = new ArrayList<>();
         final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
         coordinator.register(plugin("plugin-a", List.of(new PartHooks() {
-            @Override public String beforeSetPartName(final Part part, final String name) {
+            @Override
+            public String beforeSetPartName(final Part part, final String name) {
                 events.add("before:" + name);
                 return name + " A";
             }
-            @Override public void onPartNameChanged(
-                final Part part, final String oldName, final String newName
-            ) {
+
+            @Override
+            public void onPartNameChanged(final Part part, final String oldName, final String newName) {
                 events.add("on:" + oldName + "->" + newName);
             }
-            @Override public void afterSetPartName(final Part part, final String name) {
+
+            @Override
+            public void afterSetPartName(final Part part, final String name) {
                 events.add("after:" + name);
             }
         })));
@@ -150,9 +150,7 @@ class PartOpacityLifecycleContractTest {
         coordinator.awaitIdle();
 
         assertEquals("Clip A", part.name());
-        assertEquals(List.of(
-            "before:Clip", "on:PartArmL->Clip A", "after:Clip A"
-        ), events);
+        assertEquals(List.of("before:Clip", "on:PartArmL->Clip A", "after:Clip A"), events);
     }
 
     @Test
@@ -160,10 +158,13 @@ class PartOpacityLifecycleContractTest {
         final List<String> events = new ArrayList<>();
         final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
         coordinator.register(plugin("plugin-a", List.of(new PartHooks() {
-            @Override public void onPartNameChanged(
-                final Part part, final String oldName, final String newName
-            ) { events.add("on"); }
-            @Override public void afterSetPartName(final Part part, final String name) {
+            @Override
+            public void onPartNameChanged(final Part part, final String oldName, final String newName) {
+                events.add("on");
+            }
+
+            @Override
+            public void afterSetPartName(final Part part, final String name) {
                 events.add("after:" + name);
             }
         })));
@@ -174,14 +175,16 @@ class PartOpacityLifecycleContractTest {
         assertEquals(List.of("after:PartArmL"), events);
 
         events.clear();
-        assertThrows(IllegalStateException.class, () -> coordinator.setName(
-            part, "Broken", ignored -> { throw new IllegalStateException("native failed"); }
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setName(part, "Broken", ignored -> {
+                    throw new IllegalStateException("native failed");
+                }));
         assertEquals(List.of(), events);
 
-        assertThrows(IllegalStateException.class, () -> coordinator.setName(
-            part, "Recursive", name -> coordinator.setName(part, name, part::writeName)
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setName(part, "Recursive", name -> coordinator.setName(part, name, part::writeName)));
         assertEquals("PartArmL", part.name());
         assertEquals(List.of(), events);
     }
@@ -193,11 +196,10 @@ class PartOpacityLifecycleContractTest {
         coordinator.register(plugin("plugin-a", List.of(recordingHook(events))));
         final MutablePart part = new MutablePart(0.0F);
 
-        assertThrows(IllegalStateException.class, () -> coordinator.setOpacity(
-            part,
-            0.8F,
-            opacity -> coordinator.setOpacity(part, opacity, part::write)
-        ));
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.setOpacity(
+                        part, 0.8F, opacity -> coordinator.setOpacity(part, opacity, part::write)));
         assertEquals(0.0F, part.getOpacity());
         assertEquals(List.of(), events);
 
@@ -208,15 +210,11 @@ class PartOpacityLifecycleContractTest {
         assertEquals(List.of(), events);
     }
 
-
     public static final class PartEventSubscriber {
         private final List<String> events;
         private final CountDownLatch completion;
 
-        private PartEventSubscriber(
-            final List<String> events,
-            final CountDownLatch completion
-        ) {
+        private PartEventSubscriber(final List<String> events, final CountDownLatch completion) {
             this.events = events;
             this.completion = completion;
         }
@@ -260,19 +258,15 @@ class PartOpacityLifecycleContractTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
@@ -280,11 +274,7 @@ class PartOpacityLifecycleContractTest {
     private static PartHooks recordingHook(final List<String> events) {
         return new PartHooks() {
             @Override
-            public void onPartOpacityChanged(
-                final Part part,
-                final float oldOpacity,
-                final float newOpacity
-            ) {
+            public void onPartOpacityChanged(final Part part, final float oldOpacity, final float newOpacity) {
                 events.add("on:" + oldOpacity + "->" + newOpacity);
             }
 
@@ -296,41 +286,104 @@ class PartOpacityLifecycleContractTest {
     }
 
     private static PartLifecycleCoordinator.PluginHooks plugin(
-        final String id,
-        final List<? extends PartHooks> entrypoints
-    ) {
-        return new PartLifecycleCoordinator.PluginHooks(
-            descriptor(id),
-            entrypoints,
-            logger()
-        );
+            final String id, final List<? extends PartHooks> entrypoints) {
+        return new PartLifecycleCoordinator.PluginHooks(descriptor(id), entrypoints, logger());
     }
 
     private static PluginDescriptor descriptor(final String id) {
         return new PluginDescriptor() {
-            @Override public String id() { return id; }
-            @Override public String name() { return id; }
-            @Override public String version() { return "1.0.0"; }
-            @Override public String description() { return "test"; }
-            @Override public List<String> entrypoints() { return List.of(); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "UNLICENSED"; }
-            @Override public Optional<String> website() { return Optional.empty(); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String name() {
+                return id;
+            }
+
+            @Override
+            public String version() {
+                return "1.0.0";
+            }
+
+            @Override
+            public String description() {
+                return "test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of();
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "UNLICENSED";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.empty();
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
                 return new I18n() {
-                    @Override public String baseName() { return "messages"; }
-                    @Override public List<String> locales() { return List.of(); }
+                    @Override
+                    public String baseName() {
+                        return "messages";
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
                 };
             }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "none"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
                 };
             }
         };
@@ -338,11 +391,20 @@ class PartOpacityLifecycleContractTest {
 
     private static PluginLogger logger() {
         return new PluginLogger() {
-            @Override public void debug(final String message) { }
-            @Override public void info(final String message) { }
-            @Override public void warn(final String message) { }
-            @Override public void error(final String message) { }
-            @Override public void error(final String message, final Throwable throwable) { }
+            @Override
+            public void debug(final String message) {}
+
+            @Override
+            public void info(final String message) {}
+
+            @Override
+            public void warn(final String message) {}
+
+            @Override
+            public void error(final String message) {}
+
+            @Override
+            public void error(final String message, final Throwable throwable) {}
         };
     }
 
@@ -358,13 +420,38 @@ class PartOpacityLifecycleContractTest {
             this.opacity = opacity;
         }
 
-        private void writeName(final String name) { this.name = name; }
+        private void writeName(final String name) {
+            this.name = name;
+        }
 
-        @Override public PartId id() { return new PartId("PartArmL"); }
-        @Override public String name() { return name; }
-        @Override public void setName(final String name) { writeName(name); }
-        @Override public float getOpacity() { return opacity; }
-        @Override public int parentIndex() { return -1; }
-        @Override public void setOpacity(final float opacity) { write(opacity); }
+        @Override
+        public PartId id() {
+            return new PartId("PartArmL");
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public void setName(final String name) {
+            writeName(name);
+        }
+
+        @Override
+        public float getOpacity() {
+            return opacity;
+        }
+
+        @Override
+        public int parentIndex() {
+            return -1;
+        }
+
+        @Override
+        public void setOpacity(final float opacity) {
+            write(opacity);
+        }
     }
 }

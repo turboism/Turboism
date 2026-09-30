@@ -13,17 +13,11 @@ public interface Drawables {
     /** @throws NoSuchElementException when the ID is absent */
     Drawable find(ArtMeshId id);
 
-
     /**
      * Creates an ArtMesh with explicit geometry under {@code parent} at {@code index}
      * (negative = append; {@code null} parent = model root).
      */
-    default Drawable create(
-        String name,
-        Part parent,
-        int index,
-        ArtMeshGeometry geometry
-    ) {
+    default Drawable create(String name, Part parent, int index, ArtMeshGeometry geometry) {
         throw unavailable("ArtMesh creation");
     }
 

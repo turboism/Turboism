@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Shared plugin-policy registry consulted by the exact 5.2.03 movement hook. */

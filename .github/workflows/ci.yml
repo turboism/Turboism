@@ -45,6 +45,9 @@ jobs:
       - name: Install the pinned workflow guard tool
         run: python3 -m pip install 'PyYAML==6.0.3'
 
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
+
       - name: Verify the CI coverage contract
         run: python3 scripts/test/test_ci_coverage.py
 

@@ -5,7 +5,6 @@ import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
 import java.util.List;
 
 /**

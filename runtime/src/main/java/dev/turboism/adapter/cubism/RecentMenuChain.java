@@ -1,10 +1,6 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-
 import java.awt.Component;
 import java.io.File;
 import java.nio.file.Files;
@@ -15,6 +11,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 
 /**
  * Shared verified selector chain for the Recent Files menu: app controller → main
@@ -36,22 +34,17 @@ final class RecentMenuChain {
     static final String DOCUMENT_FILE_CONTENT = "cubism.document.file-content";
     static final String FILE_CONTENT_FILE = "cubism.file-content.file";
 
-    static final Set<String> PROJECT_ALIASES = Set.of(
-        PROJECT_APP_INSTANCE, CURRENT_DOCUMENT, DOCUMENT_FILE_CONTENT, FILE_CONTENT_FILE
-    );
+    static final Set<String> PROJECT_ALIASES =
+            Set.of(PROJECT_APP_INSTANCE, CURRENT_DOCUMENT, DOCUMENT_FILE_CONTENT, FILE_CONTENT_FILE);
 
     static final Set<String> PANEL_ALIASES = Set.of(
-        PANEL_APP_INSTANCE, PANEL_MAIN_FRAME, MAIN_FRAME_WINDOW, WINDOW_MENU_BAR,
-        MENU_BAR_MENUS, MENU_SWING
-    );
+            PANEL_APP_INSTANCE, PANEL_MAIN_FRAME, MAIN_FRAME_WINDOW, WINDOW_MENU_BAR, MENU_BAR_MENUS, MENU_SWING);
 
     static final Set<String> FILE_LABELS = Set.of("file", "ファイル", "文件", "파일");
-    static final Set<String> RECENT_LABELS = Set.of(
-        "recent", "recent files", "open recent", "最近使用したファイル", "最近的文件", "最近使用的文件", "최근 파일"
-    );
+    static final Set<String> RECENT_LABELS =
+            Set.of("recent", "recent files", "open recent", "最近使用したファイル", "最近的文件", "最近使用的文件", "최근 파일");
 
-    private RecentMenuChain() {
-    }
+    private RecentMenuChain() {}
 
     /** Verified window root of the main frame; null when the chain is unavailable. */
     static Object resolveWindow(final VerifiedMemberResolver panelResolver) {
@@ -154,8 +147,8 @@ final class RecentMenuChain {
     private static String sanitizeCandidate(final String value) {
         String path = Objects.toString(value, "").replace('\u0000', ' ').trim();
         if (path.isEmpty()) return "";
-        while (path.length() >= 2 && (path.startsWith("\"") && path.endsWith("\"")
-            || path.startsWith("'") && path.endsWith("'"))) {
+        while (path.length() >= 2
+                && (path.startsWith("\"") && path.endsWith("\"") || path.startsWith("'") && path.endsWith("'"))) {
             path = path.substring(1, path.length() - 1).trim();
         }
         if (path.startsWith("\\\\?\\")) path = path.substring(4);
@@ -175,13 +168,13 @@ final class RecentMenuChain {
 
     static String normalizeLabel(final String value) {
         return Objects.toString(value, "")
-            .trim()
-            .toLowerCase(Locale.ROOT)
-            .replace("…", "")
-            .replace("...", "")
-            .replaceAll("\\(&.\\)$", "")
-            .replace("&", "")
-            .trim();
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replace("…", "")
+                .replace("...", "")
+                .replaceAll("\\(&.\\)$", "")
+                .replace("&", "")
+                .trim();
     }
 
     private static boolean isFileLabel(final String value) {
@@ -190,6 +183,9 @@ final class RecentMenuChain {
 
     static boolean isRecentLabel(final String value) {
         final String label = normalizeLabel(value);
-        return RECENT_LABELS.contains(label) || label.contains("recent") || label.contains("最近") || label.contains("최근");
+        return RECENT_LABELS.contains(label)
+                || label.contains("recent")
+                || label.contains("最近")
+                || label.contains("최근");
     }
 }

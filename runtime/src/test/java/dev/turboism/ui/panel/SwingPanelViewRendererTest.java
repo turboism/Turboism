@@ -1,27 +1,18 @@
 package dev.turboism.ui.panel;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconRef;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.AbstractButton;
-import javax.swing.Action;
-import javax.swing.JComboBox;
-import javax.swing.Icon;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JCheckBox;
-import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
-import javax.swing.JTextField;
-import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
-import java.awt.Component;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -32,12 +23,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import javax.swing.AbstractButton;
+import javax.swing.Action;
+import javax.swing.Icon;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTextField;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 class SwingPanelViewRendererTest {
 
@@ -46,17 +45,15 @@ class SwingPanelViewRendererTest {
         List<String> actions = new ArrayList<>();
         List<Optional<UiActionEvent>> events = new ArrayList<>();
         PanelView view = PanelView.column(
-            PanelView.button("run", "Run", "profile.run"),
-            PanelView.textInput("name", "Name", "Alice", "profile.name.changed"),
-            PanelView.select(
-                "mode",
-                "Mode",
-                List.of(PanelView.option("fast", "Fast"), PanelView.option("safe", "Safe")),
-                "fast",
-                "profile.mode.changed"
-            ),
-            PanelView.toggle("enabled", "Enabled", false, "profile.enabled.changed")
-        );
+                PanelView.button("run", "Run", "profile.run"),
+                PanelView.textInput("name", "Name", "Alice", "profile.name.changed"),
+                PanelView.select(
+                        "mode",
+                        "Mode",
+                        List.of(PanelView.option("fast", "Fast"), PanelView.option("safe", "Safe")),
+                        "fast",
+                        "profile.mode.changed"),
+                PanelView.toggle("enabled", "Enabled", false, "profile.enabled.changed"));
 
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(view, (action, event) -> {
@@ -67,52 +64,48 @@ class SwingPanelViewRendererTest {
             JTextField text = assertInstanceOf(JTextField.class, named(rendered, "name"));
             text.setText("Bob");
             text.postActionEvent();
-            @SuppressWarnings("unchecked") JComboBox<PanelView.Option> select =
-                (JComboBox<PanelView.Option>) assertInstanceOf(JComboBox.class, named(rendered, "mode"));
+            @SuppressWarnings("unchecked")
+            JComboBox<PanelView.Option> select =
+                    (JComboBox<PanelView.Option>) assertInstanceOf(JComboBox.class, named(rendered, "mode"));
             select.setSelectedIndex(1);
             assertInstanceOf(AbstractButton.class, named(rendered, "enabled")).doClick();
         });
 
         assertEquals(
-            List.of(
-                "profile.run",
-                "profile.name.changed",
-                "profile.mode.changed",
-                "profile.enabled.changed"
-            ),
-            actions
-        );
+                List.of("profile.run", "profile.name.changed", "profile.mode.changed", "profile.enabled.changed"),
+                actions);
         assertEquals(Optional.empty(), events.get(0));
         assertEquals(
-            "Bob",
-            assertInstanceOf(UiActionEvent.TextValue.class, events.get(1).orElseThrow().value()).value()
-        );
+                "Bob",
+                assertInstanceOf(
+                                UiActionEvent.TextValue.class,
+                                events.get(1).orElseThrow().value())
+                        .value());
         assertEquals(
-            "safe",
-            assertInstanceOf(UiActionEvent.SelectionValue.class, events.get(2).orElseThrow().value()).value()
-        );
+                "safe",
+                assertInstanceOf(
+                                UiActionEvent.SelectionValue.class,
+                                events.get(2).orElseThrow().value())
+                        .value());
         assertEquals(
-            true,
-            assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(3).orElseThrow().value()).value()
-        );
+                true,
+                assertInstanceOf(
+                                UiActionEvent.ToggleValue.class,
+                                events.get(3).orElseThrow().value())
+                        .value());
     }
 
     @Test
     void rendersCollapsibleSectionWithBorderChildrenAndToggleClick() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.collapsibleSection(
-                    "标题",
-                    true,
-                    PanelView.button("run", "Run", "profile.run"),
-                    PanelView.text("note")
-                ),
-                (action, event) -> { }
-            );
+                    PanelView.collapsibleSection(
+                            "标题", true, PanelView.button("run", "Run", "profile.run"), PanelView.text("note")),
+                    (action, event) -> {});
 
             JPanel section = assertInstanceOf(JPanel.class, rendered);
-            CollapsibleSection.CollapsibleTitledBorder border = assertInstanceOf(
-                CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
+            CollapsibleSection.CollapsibleTitledBorder border =
+                    assertInstanceOf(CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
 
             JPanel content = (JPanel) section.getComponent(0);
             assertInstanceOf(AbstractButton.class, content.getComponent(0));
@@ -136,12 +129,9 @@ class SwingPanelViewRendererTest {
     void rendersCollapsibleSectionCollapsedByDefault() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.collapsibleSection("标题", false, PanelView.text("x")),
-                (action, event) -> { }
-            );
+                    PanelView.collapsibleSection("标题", false, PanelView.text("x")), (action, event) -> {});
             JPanel section = assertInstanceOf(JPanel.class, rendered);
-            assertInstanceOf(
-                CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
+            assertInstanceOf(CollapsibleSection.CollapsibleTitledBorder.class, section.getBorder());
             assertFalse(CollapsibleSection.isExpanded(section));
         });
     }
@@ -150,21 +140,15 @@ class SwingPanelViewRendererTest {
     void singleChartSectionSuppressesTheDuplicatedInnerTitle() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.collapsibleSection(
-                    "CPU",
-                    true,
-                    PanelView.chart("cpu", "CPU",
-                        PanelView.series("CPU %", 120, "%", "0.0"))
-                ),
-                (action, event) -> { }
-            );
+                    PanelView.collapsibleSection(
+                            "CPU", true, PanelView.chart("cpu", "CPU", PanelView.series("CPU %", 120, "%", "0.0"))),
+                    (action, event) -> {});
             JPanel section = assertInstanceOf(JPanel.class, rendered);
             assertTrue(CollapsibleSection.isExpanded(section));
             JPanel content = (JPanel) section.getComponent(0);
             ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
             assertEquals("cpu", chart.getName());
-            assertTrue(!chart.showsTitle(),
-                "the section border title replaces the chart's own title");
+            assertTrue(!chart.showsTitle(), "the section border title replaces the chart's own title");
         });
     }
 
@@ -172,37 +156,30 @@ class SwingPanelViewRendererTest {
     void bareChartKeepsItsOwnTitleEvenInsideAMultiChildSection() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.collapsibleSection(
-                    "Stats",
-                    true,
-                    PanelView.chart("fps", "Viewport Render FPS",
-                        PanelView.series("FPS", 120, "fps", "0.0")),
-                    PanelView.text("note")
-                ),
-                (action, event) -> { }
-            );
+                    PanelView.collapsibleSection(
+                            "Stats",
+                            true,
+                            PanelView.chart("fps", "Viewport Render FPS", PanelView.series("FPS", 120, "fps", "0.0")),
+                            PanelView.text("note")),
+                    (action, event) -> {});
             JPanel section = assertInstanceOf(JPanel.class, rendered);
             JPanel content = (JPanel) section.getComponent(0);
             ChartComponent chart = assertInstanceOf(ChartComponent.class, content.getComponent(0));
-            assertTrue(chart.showsTitle(),
-                "only a single-chart section defers the chart title to the border");
+            assertTrue(chart.showsTitle(), "only a single-chart section defers the chart title to the border");
         });
     }
 
-@Test
+    @Test
     void verticalColumnStretchesChildrenToWidthAndFillsScrollHeight() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.column(
-                    PanelView.textCentered("3 entries"),
-                    PanelView.separator(),
-                    PanelView.scroll(PanelView.column(
-                        PanelView.toggle("t0", "entry 0", true, false, "a0"),
-                        PanelView.toggle("t1", "entry 1", false, true, "a1")
-                    ))
-                ),
-                (action, event) -> { }
-            );
+                    PanelView.column(
+                            PanelView.textCentered("3 entries"),
+                            PanelView.separator(),
+                            PanelView.scroll(PanelView.column(
+                                    PanelView.toggle("t0", "entry 0", true, false, "a0"),
+                                    PanelView.toggle("t1", "entry 1", false, true, "a1")))),
+                    (action, event) -> {});
             JPanel column = assertInstanceOf(JPanel.class, rendered);
             assertInstanceOf(VerticalFillLayout.class, column.getLayout());
             column.setSize(320, 240);
@@ -226,24 +203,16 @@ class SwingPanelViewRendererTest {
             assertEquals(320, scroll.getWidth());
             assertEquals(240, scroll.getY() + scroll.getHeight());
             assertEquals(Integer.MAX_VALUE, scroll.getMaximumSize().height);
-            assertEquals(
-                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER,
-                scroll.getHorizontalScrollBarPolicy()
-            );
-            assertEquals(
-                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-                scroll.getVerticalScrollBarPolicy()
-            );
+            assertEquals(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER, scroll.getHorizontalScrollBarPolicy());
+            assertEquals(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, scroll.getVerticalScrollBarPolicy());
         });
     }
 
     @Test
     void centeredCountTextRendersAsCenteredHtmlLabel() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
-            JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.textCentered("3 entries"),
-                (action, event) -> { }
-            );
+            JComponent rendered =
+                    SwingPanelViewRenderer.render(PanelView.textCentered("3 entries"), (action, event) -> {});
             JLabel label = assertInstanceOf(JLabel.class, rendered);
             assertTrue(label.getText().startsWith("<html>"), label.getText());
             assertTrue(label.getText().contains("text-align:center"), label.getText());
@@ -255,22 +224,22 @@ class SwingPanelViewRendererTest {
     void toggleRowsRenderAsHtmlLabelsWithoutFixedHeightCap() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.column(
-                    PanelView.toggle("t0", "entry 0", true, false, "a0"),
-                    PanelView.toggle("t1", "entry 1", false, true, "a1")
-                ),
-                (action, event) -> { }
-            );
+                    PanelView.column(
+                            PanelView.toggle("t0", "entry 0", true, false, "a0"),
+                            PanelView.toggle("t1", "entry 1", false, true, "a1")),
+                    (action, event) -> {});
             JPanel column = assertInstanceOf(JPanel.class, rendered);
             // Toggle labels are HTML so long text wraps at the available
             // width; the height is not capped at a fixed 18px so wrapped
             // multi-line entries keep their full height.
             JCheckBox first = assertInstanceOf(JCheckBox.class, column.getComponent(0));
             assertTrue(first.getText().startsWith("<html>"), first.getText());
-            assertTrue(first.getMaximumSize().height > 18,
-                "fixed height cap must not clip wrapped entries, max=" + first.getMaximumSize().height);
-            assertTrue(first.getMaximumSize().height < Integer.MAX_VALUE / 2,
-                "natural single-line max, max=" + first.getMaximumSize().height);
+            assertTrue(
+                    first.getMaximumSize().height > 18,
+                    "fixed height cap must not clip wrapped entries, max=" + first.getMaximumSize().height);
+            assertTrue(
+                    first.getMaximumSize().height < Integer.MAX_VALUE / 2,
+                    "natural single-line max, max=" + first.getMaximumSize().height);
             JCheckBox second = assertInstanceOf(JCheckBox.class, column.getComponent(2));
             assertTrue(second.getText().startsWith("<html>"), second.getText());
         });
@@ -283,24 +252,21 @@ class SwingPanelViewRendererTest {
         // viewport instead of clipping (no horizontal scrollbar exists).
         SwingUtilities.invokeAndWait(() -> {
             final String longLabel =
-                "12 Set Parameter Value on a very long parameter name that cannot fit on one 180px line";
+                    "12 Set Parameter Value on a very long parameter name that cannot fit on one 180px line";
             final String longDetail =
-                "ParamAngleX value: -19.8 → -4.199999 (SET_PARAMETER_VALUE, FULL) — structured detail "
-                + "that also needs wrapping inside the same 180px viewport";
+                    "ParamAngleX value: -19.8 → -4.199999 (SET_PARAMETER_VALUE, FULL) — structured detail "
+                            + "that also needs wrapping inside the same 180px viewport";
             final JComponent rendered = SwingPanelViewRenderer.render(
-                PanelView.scroll(PanelView.column(
-                    PanelView.textCentered("3 entries"),
-                    PanelView.separator(),
-                    PanelView.toggle(
-                        "history.entry.toggle.0",
-                        longLabel + "  —  " + longDetail,
-                        true,
-                        false,
-                        "history.entry.move.0"
-                    )
-                )),
-                (action, event) -> { }
-            );
+                    PanelView.scroll(PanelView.column(
+                            PanelView.textCentered("3 entries"),
+                            PanelView.separator(),
+                            PanelView.toggle(
+                                    "history.entry.toggle.0",
+                                    longLabel + "  —  " + longDetail,
+                                    true,
+                                    false,
+                                    "history.entry.move.0"))),
+                    (action, event) -> {});
             final JScrollPane scroll = assertInstanceOf(JScrollPane.class, rendered);
             scroll.setSize(180, 300);
             // Drive the real layout chain like a window's validate cascade
@@ -308,28 +274,31 @@ class SwingPanelViewRendererTest {
             // converges to the wrapped content height.
             layoutChain(scroll);
             layoutChain(scroll);
-            final JComponent view = assertInstanceOf(JComponent.class, scroll.getViewport().getView());
+            final JComponent view =
+                    assertInstanceOf(JComponent.class, scroll.getViewport().getView());
             // The view conforms to the 180px viewport width: no horizontal overflow.
             assertTrue(view.getWidth() <= 180, "view width " + view.getWidth());
             // The entry stays within the available bounds.
             final JCheckBox toggle = assertInstanceOf(JCheckBox.class, named(view, "history.entry.toggle.0"));
-            assertTrue(toggle.getX() + toggle.getWidth() <= 180,
-                "entry overflows viewport: x=" + toggle.getX() + " width=" + toggle.getWidth());
+            assertTrue(
+                    toggle.getX() + toggle.getWidth() <= 180,
+                    "entry overflows viewport: x=" + toggle.getX() + " width=" + toggle.getWidth());
             // Wrapped content receives multi-line height (a single line is ~23px).
-            assertTrue(toggle.getHeight() > 25,
-                "entry must wrap to multiple lines, height=" + toggle.getHeight());
+            assertTrue(toggle.getHeight() > 25, "entry must wrap to multiple lines, height=" + toggle.getHeight());
             // The view height follows the wrapped content, so vertical
             // scrolling reaches the whole entry.
-            assertTrue(view.getHeight() >= toggle.getY() + toggle.getHeight(),
-                "view height " + view.getHeight() + " clips entry ending at "
-                + (toggle.getY() + toggle.getHeight()));
+            assertTrue(
+                    view.getHeight() >= toggle.getY() + toggle.getHeight(),
+                    "view height " + view.getHeight() + " clips entry ending at "
+                            + (toggle.getY() + toggle.getHeight()));
             // The laid-out checkbox preferred width (including Swing checkbox
             // chrome: icon, insets, gap) fits its actual width — the HTML text
             // is budgeted for the component width minus that overhead, so the
             // right edge cannot clip.
-            assertTrue(toggle.getPreferredSize().width <= toggle.getWidth(),
-                "checkbox preferred width " + toggle.getPreferredSize().width
-                + " exceeds actual width " + toggle.getWidth());
+            assertTrue(
+                    toggle.getPreferredSize().width <= toggle.getWidth(),
+                    "checkbox preferred width " + toggle.getPreferredSize().width + " exceeds actual width "
+                            + toggle.getWidth());
         });
     }
 
@@ -341,27 +310,24 @@ class SwingPanelViewRendererTest {
         final List<Boolean> disabledPresentation = new ArrayList<>();
         final RecordingIcon icon = new RecordingIcon();
         final UiInlineLabel label = UiInlineLabel.of(
-            UiInlineLabel.textRun("移动 "),
-            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
-            UiInlineLabel.textRun(" 左眼皮")
-        );
+                UiInlineLabel.textRun("移动 "),
+                UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
+                UiInlineLabel.textRun(" 左眼皮"));
 
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("entry", label, false, false, "history.move"),
-                    (action, event) -> {
-                        actions.add(action);
-                        events.add(event);
-                    },
-                    (reference, disabled) -> {
-                        references.add(reference);
-                        disabledPresentation.add(disabled);
-                        return Optional.of(icon);
-                    }
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("entry", label, false, false, "history.move"),
+                            (action, event) -> {
+                                actions.add(action);
+                                events.add(event);
+                            },
+                            (reference, disabled) -> {
+                                references.add(reference);
+                                disabledPresentation.add(disabled);
+                                return Optional.of(icon);
+                            }));
             assertEquals("entry", box.getName());
             assertEquals("", box.getText());
             assertFalse(box.isSelected());
@@ -378,13 +344,25 @@ class SwingPanelViewRendererTest {
             final int beforeMouse = actions.size();
             final int rightEdge = Math.max(1, box.getWidth() - 2);
             box.dispatchEvent(new MouseEvent(
-                box, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
-                rightEdge, box.getHeight() / 2, 1, false, MouseEvent.BUTTON1
-            ));
+                    box,
+                    MouseEvent.MOUSE_PRESSED,
+                    System.currentTimeMillis(),
+                    0,
+                    rightEdge,
+                    box.getHeight() / 2,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
             box.dispatchEvent(new MouseEvent(
-                box, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0,
-                rightEdge, box.getHeight() / 2, 1, false, MouseEvent.BUTTON1
-            ));
+                    box,
+                    MouseEvent.MOUSE_RELEASED,
+                    System.currentTimeMillis(),
+                    0,
+                    rightEdge,
+                    box.getHeight() / 2,
+                    1,
+                    false,
+                    MouseEvent.BUTTON1));
             assertTrue(actions.size() > beforeMouse, "the whole checkbox row must be clickable");
             assertTrue(box.isSelected());
 
@@ -395,27 +373,29 @@ class SwingPanelViewRendererTest {
         });
 
         assertEquals("history.move", actions.get(0));
-        assertTrue(assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(0).orElseThrow().value()).value());
+        assertTrue(assertInstanceOf(
+                        UiActionEvent.ToggleValue.class,
+                        events.get(0).orElseThrow().value())
+                .value());
         assertEquals("history.move", actions.get(1));
-        assertFalse(assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(1).orElseThrow().value()).value());
+        assertFalse(assertInstanceOf(
+                        UiActionEvent.ToggleValue.class,
+                        events.get(1).orElseThrow().value())
+                .value());
     }
 
     @Test
     void missingInlineIconUsesLiteralFallbackTextAndKeepsAccessibleName() throws Exception {
         final UiInlineLabel label = UiInlineLabel.of(
-            UiInlineLabel.textRun("<Move> \"quoted\"\n"),
-            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), "曲面变形器"),
-            UiInlineLabel.textRun(" <target>")
-        );
+                UiInlineLabel.textRun("<Move> \"quoted\"\n"),
+                UiInlineLabel.iconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), "曲面变形器"),
+                UiInlineLabel.textRun(" <target>"));
 
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("fallback", label, false, "history.fallback"),
-                    (action, event) -> { }
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("fallback", label, false, "history.fallback"), (action, event) -> {}));
             assertEquals("", box.getText(), "typed labels must not be encoded as plugin HTML");
             assertEquals(label.fallbackText(), box.renderedFallbackText());
             assertEquals(label.accessibleText(), box.getAccessibleContext().getAccessibleName());
@@ -433,22 +413,18 @@ class SwingPanelViewRendererTest {
     void graySelectedInlineRowRequestsDisabledIconButDoesNotDisableNavigation() throws Exception {
         final List<Boolean> disabledPresentation = new ArrayList<>();
         final RecordingIcon icon = new RecordingIcon();
-        final UiInlineLabel label = UiInlineLabel.icon(
-            new UiIconRef(CubismIcon.ROTATION_DEFORMER), "旋转变形器"
-        );
+        final UiInlineLabel label = UiInlineLabel.icon(new UiIconRef(CubismIcon.ROTATION_DEFORMER), "旋转变形器");
 
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("redo", label, true, true, "history.redo"),
-                    (action, event) -> { },
-                    (reference, disabled) -> {
-                        disabledPresentation.add(disabled);
-                        return Optional.of(icon);
-                    }
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("redo", label, true, true, "history.redo"),
+                            (action, event) -> {},
+                            (reference, disabled) -> {
+                                disabledPresentation.add(disabled);
+                                return Optional.of(icon);
+                            }));
             assertTrue(box.isSelected());
             assertTrue(box.isEnabled(), "gray redo styling must not disable navigation");
             assertTrue(box.isFocusable());
@@ -463,34 +439,27 @@ class SwingPanelViewRendererTest {
     void propagatesInlineResolverThroughNestedColumnAndScrollWithoutOverflow() throws Exception {
         final List<UiIconRef> references = new ArrayList<>();
         final UiInlineLabel label = UiInlineLabel.of(
-            UiInlineLabel.textRun("移动 "),
-            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
-            UiInlineLabel.textRun(" very-long-target-name")
-        );
+                UiInlineLabel.textRun("移动 "),
+                UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
+                UiInlineLabel.textRun(" very-long-target-name"));
 
         SwingUtilities.invokeAndWait(() -> {
             final JScrollPane scroll = assertInstanceOf(
-                JScrollPane.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.scroll(PanelView.column(
-                        PanelView.toggle("nested", label, false, "history.nested"),
-                        PanelView.text("tail")
-                    )),
-                    (action, event) -> { },
-                    (reference, disabled) -> {
-                        references.add(reference);
-                        return Optional.empty();
-                    }
-                )
-            );
+                    JScrollPane.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.scroll(PanelView.column(
+                                    PanelView.toggle("nested", label, false, "history.nested"),
+                                    PanelView.text("tail"))),
+                            (action, event) -> {},
+                            (reference, disabled) -> {
+                                references.add(reference);
+                                return Optional.empty();
+                            }));
             scroll.setSize(180, 160);
             layoutChain(scroll);
             layoutChain(scroll);
 
-            final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                named(scroll, "nested")
-            );
+            final InlineLabelCheckBox box = assertInstanceOf(InlineLabelCheckBox.class, named(scroll, "nested"));
             assertEquals(List.of(new UiIconRef(CubismIcon.ART_MESH)), references);
             assertTrue(box.getWidth() <= scroll.getViewport().getWidth());
             assertTrue(box.getX() + box.getWidth() <= scroll.getViewport().getWidth());
@@ -503,20 +472,17 @@ class SwingPanelViewRendererTest {
         final UiIconRef iconReference = new UiIconRef(CubismIcon.ART_MESH);
         final RecordingIcon icon = new RecordingIcon();
         final UiInlineLabel label = UiInlineLabel.of(
-            UiInlineLabel.textRun("Move e\u0301 "),
-            UiInlineLabel.iconRun(iconReference, "图标"),
-            UiInlineLabel.textRun(" 👩‍🎨 سلام 中文\nNext e\u0301 👩‍🎨")
-        );
+                UiInlineLabel.textRun("Move e\u0301 "),
+                UiInlineLabel.iconRun(iconReference, "图标"),
+                UiInlineLabel.textRun(" 👩‍🎨 سلام 中文\nNext e\u0301 👩‍🎨"));
 
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("shaped", label, false, "history.shaped"),
-                    (action, event) -> { },
-                    (reference, disabled) -> Optional.of(icon)
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("shaped", label, false, "history.shaped"),
+                            (action, event) -> {},
+                            (reference, disabled) -> Optional.of(icon)));
             assertEquals(label.fallbackText(), box.accessibleLabel());
             assertEquals(1, box.resolvedIconCount());
             box.setSize(160, 160);
@@ -537,16 +503,14 @@ class SwingPanelViewRendererTest {
 
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("refresh", label, false, "history.refresh"),
-                    (action, event) -> actions.add(action),
-                    (reference, disabled) -> {
-                        resolverCalls.incrementAndGet();
-                        return presentation.get();
-                    }
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("refresh", label, false, "history.refresh"),
+                            (action, event) -> actions.add(action),
+                            (reference, disabled) -> {
+                                resolverCalls.incrementAndGet();
+                                return presentation.get();
+                            }));
             assertEquals(1, box.resolvedIconCount());
             box.setSize(180, 40);
             paintComponent(box);
@@ -557,7 +521,8 @@ class SwingPanelViewRendererTest {
             assertEquals(0, box.resolvedIconCount());
             assertTrue(box.renderedFallbackText().contains("图形网格"));
             paintComponent(box);
-            assertEquals(iconPaintsBeforeFallback, icon.paintCount.get(), "stale icons must not be painted after refresh");
+            assertEquals(
+                    iconPaintsBeforeFallback, icon.paintCount.get(), "stale icons must not be painted after refresh");
             box.doClick();
         });
 
@@ -569,12 +534,10 @@ class SwingPanelViewRendererTest {
     void paintsExplicitFullRowFocusIndicatorUnderTheSupportedCheckboxLaf() throws Exception {
         SwingUtilities.invokeAndWait(() -> {
             final InlineLabelCheckBox box = assertInstanceOf(
-                InlineLabelCheckBox.class,
-                SwingPanelViewRenderer.render(
-                    PanelView.toggle("focus", UiInlineLabel.text("Focus target"), false, "history.focus"),
-                    (action, event) -> { }
-                )
-            );
+                    InlineLabelCheckBox.class,
+                    SwingPanelViewRenderer.render(
+                            PanelView.toggle("focus", UiInlineLabel.text("Focus target"), false, "history.focus"),
+                            (action, event) -> {}));
             assertNotNull(box.getUI());
             assertTrue(box.isFocusPainted());
             box.setSize(180, 36);
@@ -602,26 +565,21 @@ class SwingPanelViewRendererTest {
         assertNotNull(pressedKey, "JCheckBox must retain its standard pressed-Space binding");
         final Action pressed = button.getActionMap().get(pressedKey);
         assertNotNull(pressed, "JCheckBox must retain its standard pressed action");
-        pressed.actionPerformed(new java.awt.event.ActionEvent(
-            button, java.awt.event.ActionEvent.ACTION_PERFORMED, "pressed SPACE"
-        ));
+        pressed.actionPerformed(
+                new java.awt.event.ActionEvent(button, java.awt.event.ActionEvent.ACTION_PERFORMED, "pressed SPACE"));
 
         final KeyStroke releasedStroke = KeyStroke.getKeyStroke("released SPACE");
         final Object releasedKey = button.getInputMap(JComponent.WHEN_FOCUSED).get(releasedStroke);
         assertNotNull(releasedKey, "JCheckBox must retain its standard released-Space binding");
         final Action released = button.getActionMap().get(releasedKey);
         assertNotNull(released, "JCheckBox must retain its standard released action");
-        released.actionPerformed(new java.awt.event.ActionEvent(
-            button, java.awt.event.ActionEvent.ACTION_PERFORMED, "released SPACE"
-        ));
+        released.actionPerformed(
+                new java.awt.event.ActionEvent(button, java.awt.event.ActionEvent.ACTION_PERFORMED, "released SPACE"));
     }
 
     private static void paintComponent(final JComponent component) {
         final BufferedImage image = new BufferedImage(
-            Math.max(1, component.getWidth()),
-            Math.max(1, component.getHeight()),
-            BufferedImage.TYPE_INT_ARGB
-        );
+                Math.max(1, component.getWidth()), Math.max(1, component.getHeight()), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = image.createGraphics();
         component.paint(graphics);
         graphics.dispose();
@@ -663,8 +621,16 @@ class SwingPanelViewRendererTest {
     }
 
     private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
-            point.x, point.y, 1, false, MouseEvent.BUTTON1);
+        return new MouseEvent(
+                panel,
+                MouseEvent.MOUSE_CLICKED,
+                System.currentTimeMillis(),
+                0,
+                point.x,
+                point.y,
+                1,
+                false,
+                MouseEvent.BUTTON1);
     }
 
     private static Point centerOf(java.awt.Rectangle bounds) {

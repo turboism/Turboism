@@ -21,10 +21,7 @@ import java.util.Optional;
  *                  constructor, later nodes sharing an id win.
  */
 public record ModelHierarchy(
-    HierarchyNode rootNode,
-    List<HierarchyNode> nodes,
-    Map<ModelObjectId, HierarchyNode> nodesById
-) {
+        HierarchyNode rootNode, List<HierarchyNode> nodes, Map<ModelObjectId, HierarchyNode> nodesById) {
     public ModelHierarchy(HierarchyNode rootNode, List<HierarchyNode> nodes) {
         this(rootNode, nodes, indexById(nodes));
     }
@@ -60,16 +57,14 @@ public record ModelHierarchy(
      */
     public List<HierarchyNode> childrenOf(ModelObjectId id) {
         Objects.requireNonNull(id, "id");
-        return findNode(id)
-            .map(this::childrenOf)
-            .orElseGet(List::of);
+        return findNode(id).map(this::childrenOf).orElseGet(List::of);
     }
 
     private List<HierarchyNode> childrenOf(HierarchyNode node) {
         return node.childIds().stream()
-            .map(nodesById::get)
-            .filter(Objects::nonNull)
-            .toList();
+                .map(nodesById::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private static Map<ModelObjectId, HierarchyNode> indexById(List<HierarchyNode> nodes) {

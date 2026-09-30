@@ -1,16 +1,15 @@
 package dev.turboism.plugin.recentpreview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-import org.junit.jupiter.api.Test;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class RecentPreviewPollerTest {
 
@@ -78,11 +77,15 @@ final class RecentPreviewPollerTest {
 
         // Same document rewritten again too soon: suppressed and retried later.
         final Instant T2 = Instant.parse("2026-08-05T14:00:00Z");
-        assertEquals(Optional.empty(), poller.sample(List.of(file(ONE, T2))),
-            "a rewrite inside the min interval must be suppressed");
+        assertEquals(
+                Optional.empty(),
+                poller.sample(List.of(file(ONE, T2))),
+                "a rewrite inside the min interval must be suppressed");
         now.addAndGet(RecentPreviewPoller.MIN_CAPTURE_INTERVAL.toMillis() + 1);
-        assertEquals(Optional.of(ONE), poller.sample(List.of(file(ONE, T2))),
-            "the suppressed emission must be retried once the interval has passed");
+        assertEquals(
+                Optional.of(ONE),
+                poller.sample(List.of(file(ONE, T2))),
+                "the suppressed emission must be retried once the interval has passed");
     }
 
     @Test

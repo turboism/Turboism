@@ -1,5 +1,10 @@
 package dev.turboism.adapter.host;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.adapter.cubism.ClipMaskReadAdapter;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
@@ -9,74 +14,62 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutProvider;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
+import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectResourceSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.ui.host.EditorUiFamily;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class HostSessionPluginContextIntegrationTest {
 
-    private static final Clock CLOCK = Clock.fixed(
-        Instant.parse("2026-07-10T00:00:00Z"),
-        ZoneOffset.UTC
-    );
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-07-10T00:00:00Z"), ZoneOffset.UTC);
 
     @TempDir
     Path tempDir;
@@ -86,31 +79,23 @@ class HostSessionPluginContextIntegrationTest {
         HostSession session = new HostSession(() -> Optional.empty());
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(
-                tempDir,
-                scheduler,
-                descriptor(List.of("turboism.ui.panel.contribute")),
-                ignored -> { }
-            ),
-            session
-        );
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.ui.panel.contribute")), ignored -> {}),
+                session);
 
         try {
-            Registration panel = context.uiHost().contributeEmbeddedPanel(new EmbeddedPanelContribution(
-                "turboism.panel.main",
-                "Turboism",
-                "right",
-                0
-            ));
+            Registration panel = context.uiHost()
+                    .contributeEmbeddedPanel(
+                            new EmbeddedPanelContribution("turboism.panel.main", "Turboism", "right", 0));
 
             assertEquals(
-                List.of("turboism.panel.main"),
-                session.editorUiContributions().contributions(EditorUiFamily.PANEL).stream()
-                    .map(contribution -> contribution.identity().contributionId())
-                    .toList()
-            );
+                    List.of("turboism.panel.main"),
+                    session.editorUiContributions().contributions(EditorUiFamily.PANEL).stream()
+                            .map(contribution -> contribution.identity().contributionId())
+                            .toList());
             panel.close();
-            assertTrue(session.editorUiContributions().contributions(EditorUiFamily.PANEL).isEmpty());
+            assertTrue(session.editorUiContributions()
+                    .contributions(EditorUiFamily.PANEL)
+                    .isEmpty());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -121,21 +106,26 @@ class HostSessionPluginContextIntegrationTest {
     void pluginContextBindsItsRuntimeActionRegistryToTheSessionRouterUntilScopeClose() throws Exception {
         HostSession session = new HostSession(() -> Optional.empty());
         RuntimeScheduler scheduler = scheduler();
-        CorePluginContext.Dependencies dependencies = dependencies(
-            tempDir,
-            scheduler,
-            descriptor(List.of("turboism.action.register")),
-            ignored -> { }
-        );
+        CorePluginContext.Dependencies dependencies =
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.action.register")), ignored -> {});
         CorePluginContext context = new CorePluginContext(dependencies, session);
         AtomicInteger invocations = new AtomicInteger();
         CountDownLatch invoked = new CountDownLatch(1);
 
         try {
             context.actions().register("open-settings", new ActionRegistry.Action() {
-                @Override public String id() { return "open-settings"; }
-                @Override public String label() { return "Open settings"; }
-                @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+                @Override
+                public String id() {
+                    return "open-settings";
+                }
+
+                @Override
+                public String label() {
+                    return "Open settings";
+                }
+
+                @Override
+                public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                     return ignored -> {
                         invocations.incrementAndGet();
                         invoked.countDown();
@@ -143,18 +133,12 @@ class HostSessionPluginContextIntegrationTest {
                 }
             });
 
-            session.editorUiActionRouter().invoke(
-                "dev.turboism.plugin.host-session-test",
-                "open-settings"
-            );
+            session.editorUiActionRouter().invoke("dev.turboism.plugin.host-session-test", "open-settings");
             assertTrue(invoked.await(2, TimeUnit.SECONDS));
             assertEquals(1, invocations.get());
 
             dependencies.disposableScope().close();
-            session.editorUiActionRouter().invoke(
-                "dev.turboism.plugin.host-session-test",
-                "open-settings"
-            );
+            session.editorUiActionRouter().invoke("dev.turboism.plugin.host-session-test", "open-settings");
             Thread.sleep(100L);
             assertEquals(1, invocations.get());
         } finally {
@@ -168,19 +152,18 @@ class HostSessionPluginContextIntegrationTest {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         AtomicInteger clipOperations = new AtomicInteger();
         HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(
-                adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId() + "-model")
-            )
-        );
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> HostAdapterConnection.of(
+                        adapters(descriptor.sessionId(), clipOperations),
+                        fixedModelAccess(descriptor.sessionId() + "-model")));
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of(
-                "turboism.cubism.project.read",
-                "turboism.cubism.model.read"
-            )), ignored -> { }),
-            session
-        );
+                dependencies(
+                        tempDir,
+                        scheduler,
+                        descriptor(List.of("turboism.cubism.project.read", "turboism.cubism.model.read")),
+                        ignored -> {}),
+                session);
 
         try {
             assertTrue(context.cubism().activeProject().isEmpty());
@@ -190,15 +173,19 @@ class HostSessionPluginContextIntegrationTest {
 
             current.set(dualDescriptor("session-project", "reviewed"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
-            final ProjectSnapshot facadeProject = context.cubism().activeProject().orElseThrow();
-            final ProjectSnapshot legacyProject = context.cubismRead().activeProject().orElseThrow();
+            final ProjectSnapshot facadeProject =
+                    context.cubism().activeProject().orElseThrow();
+            final ProjectSnapshot legacyProject =
+                    context.cubismRead().activeProject().orElseThrow();
             assertEquals(facadeProject, legacyProject);
             assertEquals("session-project", facadeProject.projectId());
             assertEquals(1, facadeProject.documents().size());
             assertEquals(1, facadeProject.contents().size());
 
-            final DocumentSnapshot facadeDocument = context.cubism().activeDocument().orElseThrow();
-            final DocumentSnapshot legacyDocument = context.cubismRead().activeDocument().orElseThrow();
+            final DocumentSnapshot facadeDocument =
+                    context.cubism().activeDocument().orElseThrow();
+            final DocumentSnapshot legacyDocument =
+                    context.cubismRead().activeDocument().orElseThrow();
             assertEquals(facadeDocument, legacyDocument);
             assertEquals(DocumentKind.MODEL, facadeDocument.kind());
             final ModelSnapshot facadeModel = context.cubism().activeModel().orElseThrow();
@@ -209,11 +196,12 @@ class HostSessionPluginContextIntegrationTest {
             assertEquals(1, facadeModel.artMeshes().size());
             assertEquals(1, facadeModel.deformers().size());
 
-            assertEquals("session-project-workspace", context.cubismRead().workspace().orElseThrow().workspaceId());
             assertEquals(
-                new ClipMaskSnapshot("session-project-mesh", List.of("session-project-mask"), false),
-                context.cubismRead().clipMasks().get(0)
-            );
+                    "session-project-workspace",
+                    context.cubismRead().workspace().orElseThrow().workspaceId());
+            assertEquals(
+                    new ClipMaskSnapshot("session-project-mesh", List.of("session-project-mask"), false),
+                    context.cubismRead().clipMasks().get(0));
             assertEquals(1, clipOperations.get());
 
             current.set(null);
@@ -232,41 +220,39 @@ class HostSessionPluginContextIntegrationTest {
     void existingPluginContextTracksConnectionOwnedModelAccessThroughReplacementAndSafeMode() {
         AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(
-                RuntimeHostAdapters.safeMode(),
-                fixedModelAccess(descriptor.sessionId()),
-                connectionResolver()
-            )
-        );
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> HostAdapterConnection.of(
+                        RuntimeHostAdapters.safeMode(),
+                        fixedModelAccess(descriptor.sessionId()),
+                        connectionResolver()));
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of(
-                "turboism.cubism.model.read"
-            )), ignored -> { }),
-            session
-        );
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
+                session);
 
         try {
-            assertThrows(IllegalStateException.class, () -> context.cubism().model().active());
+            assertThrows(
+                    IllegalStateException.class, () -> context.cubism().model().active());
 
             current.set(dualDescriptor("model-a", "reviewed-a"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             final CubismModel stale = context.cubism().model().active();
             final dev.turboism.sdk.cubism.model.Parameter staleParameter =
-                stale.parameters().find(new dev.turboism.sdk.cubism.id.ParameterId("ParamA"));
+                    stale.parameters().find(new dev.turboism.sdk.cubism.id.ParameterId("ParamA"));
             assertEquals(new ModelId("model-a"), stale.id());
             assertEquals(1.0F, staleParameter.getValue());
 
             current.set(dualDescriptor("model-b", "reviewed-b"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
-            assertEquals(new ModelId("model-b"), context.cubism().model().active().id());
+            assertEquals(
+                    new ModelId("model-b"), context.cubism().model().active().id());
             assertThrows(IllegalStateException.class, stale::id);
             assertThrows(IllegalStateException.class, staleParameter::getValue);
 
             current.set(null);
             assertEquals(HostSession.State.SAFE_MODE, session.refresh());
-            assertThrows(IllegalStateException.class, () -> context.cubism().model().active());
+            assertThrows(
+                    IllegalStateException.class, () -> context.cubism().model().active());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -277,27 +263,23 @@ class HostSessionPluginContextIntegrationTest {
     void pluginScopeCloseInvalidatesOnlyThatContextsCubismReferences() throws Exception {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(
-                RuntimeHostAdapters.safeMode(),
-                fixedModelAccess(descriptor.sessionId()),
-                connectionResolver()
-            )
-        );
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> HostAdapterConnection.of(
+                        RuntimeHostAdapters.safeMode(),
+                        fixedModelAccess(descriptor.sessionId()),
+                        connectionResolver()));
         final RuntimeScheduler firstScheduler = scheduler();
         final RuntimeScheduler secondScheduler = scheduler();
         final CorePluginContext.Dependencies firstDependencies = dependencies(
-            tempDir.resolve("first"),
-            firstScheduler,
-            descriptor(List.of("turboism.cubism.model.read")),
-            ignored -> { }
-        );
+                tempDir.resolve("first"),
+                firstScheduler,
+                descriptor(List.of("turboism.cubism.model.read")),
+                ignored -> {});
         final CorePluginContext.Dependencies secondDependencies = dependencies(
-            tempDir.resolve("second"),
-            secondScheduler,
-            descriptor(List.of("turboism.cubism.model.read")),
-            ignored -> { }
-        );
+                tempDir.resolve("second"),
+                secondScheduler,
+                descriptor(List.of("turboism.cubism.model.read")),
+                ignored -> {});
         final CorePluginContext first = new CorePluginContext(firstDependencies, session);
         final CorePluginContext second = new CorePluginContext(secondDependencies, session);
 
@@ -306,14 +288,16 @@ class HostSessionPluginContextIntegrationTest {
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             final CubismModel stale = first.cubism().model().active();
             assertEquals(new ModelId("model-scope"), stale.id());
-            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+            assertEquals(
+                    new ModelId("model-scope"), second.cubism().model().active().id());
 
             firstDependencies.disposableScope().close();
 
             assertThrows(IllegalStateException.class, stale::id);
             assertThrows(IllegalStateException.class, () -> first.cubism().model());
             assertEquals(HostSession.State.ACTIVE, session.state());
-            assertEquals(new ModelId("model-scope"), second.cubism().model().active().id());
+            assertEquals(
+                    new ModelId("model-scope"), second.cubism().model().active().id());
         } finally {
             secondDependencies.disposableScope().close();
             session.close();
@@ -327,29 +311,22 @@ class HostSessionPluginContextIntegrationTest {
         AtomicInteger clipOperations = new AtomicInteger();
         List<CubismFacadeAuditEvent> auditEvents = new CopyOnWriteArrayList<>();
         HostSession session = new HostSession(
-            () -> Optional.of(dualDescriptor("permission-session", "reviewed")),
-            descriptor -> HostAdapterConnection.of(adapters(descriptor.sessionId(), clipOperations))
-        );
+                () -> Optional.of(dualDescriptor("permission-session", "reviewed")),
+                descriptor -> HostAdapterConnection.of(adapters(descriptor.sessionId(), clipOperations)));
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(
-                tempDir,
-                scheduler,
-                descriptor(List.of("turboism.cubism.project.read")),
-                auditEvents::add
-            ),
-            session
-        );
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.project.read")), auditEvents::add),
+                session);
 
         try {
             assertEquals(HostSession.State.ACTIVE, session.refresh());
-            assertThrows(CubismPermissionException.class, () -> context.cubismRead().clipMasks());
+            assertThrows(
+                    CubismPermissionException.class, () -> context.cubismRead().clipMasks());
             assertEquals(0, clipOperations.get());
-            assertTrue(auditEvents.stream().anyMatch(event ->
-                event.permissionId().equals("turboism.cubism.model.read")
-                    && event.operationId().equals("cubismRead.clipMasks")
-                    && event.capabilityId().equals("cubism.clipmask.read")
-            ));
+            assertTrue(auditEvents.stream()
+                    .anyMatch(event -> event.permissionId().equals("turboism.cubism.model.read")
+                            && event.operationId().equals("cubismRead.clipMasks")
+                            && event.capabilityId().equals("cubism.clipmask.read")));
         } finally {
             session.close();
             scheduler.shutdown();
@@ -358,29 +335,24 @@ class HostSessionPluginContextIntegrationTest {
 
     @Test
     void failedDualReplacementMakesSameContextSafeAndKeepsFailureSanitized() {
-        AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>(
-            dualDescriptor("active-session", "reviewed-a")
-        );
+        AtomicReference<HostInstanceDescriptor> current =
+                new AtomicReference<>(dualDescriptor("active-session", "reviewed-a"));
         AtomicInteger clipOperations = new AtomicInteger();
-        HostSession session = new HostSession(
-            () -> Optional.of(current.get()),
-            descriptor -> {
-                if (descriptor.sessionId().equals("replacement-session")) {
-                    throw new IllegalStateException("private-host-path=C:/Users/secret/Cubism.jar");
-                }
-                return HostAdapterConnection.of(
-                    adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId())
-                );
+        HostSession session = new HostSession(() -> Optional.of(current.get()), descriptor -> {
+            if (descriptor.sessionId().equals("replacement-session")) {
+                throw new IllegalStateException("private-host-path=C:/Users/secret/Cubism.jar");
             }
-        );
+            return HostAdapterConnection.of(
+                    adapters(descriptor.sessionId(), clipOperations), fixedModelAccess(descriptor.sessionId()));
+        });
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of(
-                "turboism.cubism.project.read",
-                "turboism.cubism.model.read"
-            )), ignored -> { }),
-            session
-        );
+                dependencies(
+                        tempDir,
+                        scheduler,
+                        descriptor(List.of("turboism.cubism.project.read", "turboism.cubism.model.read")),
+                        ignored -> {}),
+                session);
 
         try {
             assertEquals(HostSession.State.ACTIVE, session.refresh());
@@ -394,12 +366,9 @@ class HostSessionPluginContextIntegrationTest {
             assertTrue(context.cubismRead().workspace().isEmpty());
             assertTrue(context.cubismRead().clipMasks().isEmpty());
             assertEquals(
-                new HostSessionFailure(
-                    HostSessionFailure.Code.CONNECTION_FAILED,
-                    "Host adapter connection failed safely."
-                ),
-                session.lastFailure().orElseThrow()
-            );
+                    new HostSessionFailure(
+                            HostSessionFailure.Code.CONNECTION_FAILED, "Host adapter connection failed safely."),
+                    session.lastFailure().orElseThrow());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -410,9 +379,8 @@ class HostSessionPluginContextIntegrationTest {
     void stableTextureAtlasEditorCapabilitiesTrackConnectionReplacementAndSafeMode() {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> connectionWithAtlasProvider(new RecordingAtlasProvider(descriptor.sessionId()))
-        );
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> connectionWithAtlasProvider(new RecordingAtlasProvider(descriptor.sessionId())));
         final var access = session.adapterAccess();
         final var ui = access.textureAtlasEditorUi();
         final var editorSession = access.textureAtlasEditorSession();
@@ -457,55 +425,60 @@ class HostSessionPluginContextIntegrationTest {
     void textureAtlasProviderFlowsThroughProductionContextAndInvalidatesOnReplacementAndClose() {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final java.util.Map<String, RecordingAtlasProvider> providers = new java.util.HashMap<>();
-        final HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> {
-                final RecordingAtlasProvider provider = new RecordingAtlasProvider(descriptor.sessionId());
-                providers.put(descriptor.sessionId(), provider);
-                return connectionWithAtlasProvider(provider);
-            }
-        );
+        final HostSession session = new HostSession(() -> Optional.ofNullable(current.get()), descriptor -> {
+            final RecordingAtlasProvider provider = new RecordingAtlasProvider(descriptor.sessionId());
+            providers.put(descriptor.sessionId(), provider);
+            return connectionWithAtlasProvider(provider);
+        });
         final RuntimeScheduler scheduler = scheduler();
         final CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of(
-                "turboism.cubism.model.read", "turboism.cubism.model.write"
-            )), ignored -> { }),
-            session
-        );
+                dependencies(
+                        tempDir,
+                        scheduler,
+                        descriptor(List.of("turboism.cubism.model.read", "turboism.cubism.model.write")),
+                        ignored -> {}),
+                session);
 
         try {
             assertThrows(
-                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> context.cubism().textureAtlasLayouts()
-            );
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> context.cubism().textureAtlasLayouts());
             current.set(dualDescriptor("atlas-a", "atlas-a"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             final var first = context.cubism().textureAtlasLayouts().current().orElseThrow();
             assertEquals(
-                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
-                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).status()
-            );
+                    Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                    context.cubism()
+                            .textureAtlasLayouts()
+                            .apply(first.target(), movedPlan())
+                            .status());
             assertEquals(1, providers.get("atlas-a").applyCount.get());
 
             current.set(dualDescriptor("atlas-b", "atlas-b"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             assertEquals(
-                Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.TARGET_STALE),
-                context.cubism().textureAtlasLayouts().apply(first.target(), movedPlan()).failureCode()
-            );
-            assertEquals("atlas-b", context.cubism().textureAtlasLayouts().current().orElseThrow().atlasId());
+                    Optional.of(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutFailureCode.TARGET_STALE),
+                    context.cubism()
+                            .textureAtlasLayouts()
+                            .apply(first.target(), movedPlan())
+                            .failureCode());
+            assertEquals(
+                    "atlas-b",
+                    context.cubism()
+                            .textureAtlasLayouts()
+                            .current()
+                            .orElseThrow()
+                            .atlasId());
 
             current.set(null);
             assertEquals(HostSession.State.SAFE_MODE, session.refresh());
             assertThrows(
-                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> context.cubism().textureAtlasLayouts()
-            );
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> context.cubism().textureAtlasLayouts());
             session.close();
             assertThrows(
-                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> context.cubism().textureAtlasLayouts()
-            );
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> context.cubism().textureAtlasLayouts());
         } finally {
             session.close();
             scheduler.shutdown();
@@ -518,20 +491,15 @@ class HostSessionPluginContextIntegrationTest {
         // version range; explicit version restrictions still use the real host.
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         HostSession session = new HostSession(
-            () -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(
-                adapters(descriptor.sessionId(), new AtomicInteger()),
-                fixedModelAccess(descriptor.sessionId() + "-model"),
-                compatibilityBoundResolver()
-            )
-        );
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> HostAdapterConnection.of(
+                        adapters(descriptor.sessionId(), new AtomicInteger()),
+                        fixedModelAccess(descriptor.sessionId() + "-model"),
+                        compatibilityBoundResolver()));
         RuntimeScheduler scheduler = scheduler();
         CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of(
-                "turboism.cubism.model.read"
-            )), ignored -> { }),
-            session
-        );
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
+                session);
 
         try {
             current.set(compatibilityDescriptor("compat-session"));
@@ -547,18 +515,19 @@ class HostSessionPluginContextIntegrationTest {
             assertEquals(new dev.turboism.sdk.cubism.id.RawImageId("raw"), texture.id());
             assertEquals("Fixture texture", texture.name());
             assertEquals(512, texture.width());
-            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> model.textures().addModelImageGroup("blocked"));
-            assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> context.cubism().history());
+            assertThrows(
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> model.textures().addModelImageGroup("blocked"));
+            assertThrows(
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> context.cubism().history());
 
             // Negative: the edit-session surface requires a capability the
             // unbound-generation contract dropped, so its annotated entry
             // still fails closed on the same session.
             assertThrows(
-                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-                () -> context.cubism().edit().isEditApproved(null)
-            );
+                    dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                    () -> context.cubism().edit().isEditApproved(null));
         } finally {
             session.close();
             scheduler.shutdown();
@@ -569,78 +538,63 @@ class HostSessionPluginContextIntegrationTest {
         ClassLoader loader = getClass().getClassLoader();
         Path artifact = Path.of("host/Live2D_Cubism.jar");
         final dev.turboism.mapping.verification.SliceContract contract =
-            new dev.turboism.mapping.verification.SliceContract(
-                "editor-model",
-                "5.3.02",
-                "cubism-5.3.02-editor-model.json",
-                "b".repeat(64),
-                "fixture.compat.editor-model",
-                "adapter.editor-model",
-                "5.3.99",
-                503990001,
-                new dev.turboism.mapping.verification.HostArtifactDigest(1, "a".repeat(64)),
-                true,
-                java.util.Set.of(
-                    "cubism.editor-model.read",
-                    "cubism.editor-model.texture.read"
-                ),
-                java.util.Map.of(
-                    "cubism.editor-model.edit.session.edit-begin", "hook:edit-api-dispatch"
-                )
-            );
+                new dev.turboism.mapping.verification.SliceContract(
+                        "editor-model",
+                        "5.3.02",
+                        "cubism-5.3.02-editor-model.json",
+                        "b".repeat(64),
+                        "fixture.compat.editor-model",
+                        "adapter.editor-model",
+                        "5.3.99",
+                        503990001,
+                        new dev.turboism.mapping.verification.HostArtifactDigest(1, "a".repeat(64)),
+                        true,
+                        java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.texture.read"),
+                        java.util.Map.of("cubism.editor-model.edit.session.edit-begin", "hook:edit-api-dispatch"));
         return new HostInstanceDescriptor(
-            sessionId,
-            HostVerificationEvidence.withEditorModel(
-                new HostVerificationEvidence.Slice(
-                    writeRecord(sessionId + "-project"), artifact, loader
-                ),
-                new HostVerificationEvidence.Slice(
-                    writeRecord(sessionId + "-editor"), artifact, loader, Optional.of(contract)
-                )
-            )
-        );
+                sessionId,
+                HostVerificationEvidence.withEditorModel(
+                        new HostVerificationEvidence.Slice(writeRecord(sessionId + "-project"), artifact, loader),
+                        new HostVerificationEvidence.Slice(
+                                writeRecord(sessionId + "-editor"), artifact, loader, Optional.of(contract))));
     }
 
     private static VerifiedMemberResolver compatibilityBoundResolver() {
         return compatibilityBoundResolver(java.util.Map.of(
-            "cubism.editor-model.read", List.of("structure"),
-            "cubism.editor-model.texture.read", List.of("structure")));
+                "cubism.editor-model.read", List.of("structure"),
+                "cubism.editor-model.texture.read", List.of("structure")));
     }
 
     private static VerifiedMemberResolver compatibilityBoundResolver(
-        final java.util.Map<String, List<String>> conditions
-    ) {
+            final java.util.Map<String, List<String>> conditions) {
         return dev.turboism.mapping.verification.TestVerifiedResolvers.createCompatible(
-            "5.3.02",
-            "5.3.99",
-            "adapter.editor-model",
-            java.util.Set.of(
-                "cubism.editor-model.read",
-                "cubism.editor-model.texture.read"
-            ),
-            conditions,
-            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
-                "fixture.compat.class",
-                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
-            )),
-            HostSessionPluginContextIntegrationTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "5.3.99",
+                "adapter.editor-model",
+                java.util.Set.of("cubism.editor-model.read", "cubism.editor-model.texture.read"),
+                conditions,
+                List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                        "fixture.compat.class",
+                        HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/'))),
+                HostSessionPluginContextIntegrationTest.class.getClassLoader());
     }
 
     @Test
     void runtimeDependencyLossReachesAlreadyAcquiredSdkHandles() {
         final var resolver = compatibilityBoundResolver(java.util.Map.of(
-            "cubism.editor-model.read", List.of("structure"),
-            "cubism.editor-model.texture.read", List.of("hook:test-texture-hook")));
+                "cubism.editor-model.read", List.of("structure"),
+                "cubism.editor-model.texture.read", List.of("hook:test-texture-hook")));
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
-        final HostSession session = new HostSession(() -> Optional.ofNullable(current.get()),
-            descriptor -> HostAdapterConnection.of(
-                adapters(descriptor.sessionId(), new AtomicInteger()),
-                fixedModelAccess(descriptor.sessionId() + "-model"), resolver));
+        final HostSession session = new HostSession(
+                () -> Optional.ofNullable(current.get()),
+                descriptor -> HostAdapterConnection.of(
+                        adapters(descriptor.sessionId(), new AtomicInteger()),
+                        fixedModelAccess(descriptor.sessionId() + "-model"),
+                        resolver));
         final RuntimeScheduler scheduler = scheduler();
         final CorePluginContext context = new CorePluginContext(
-            dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> { }),
-            session);
+                dependencies(tempDir, scheduler, descriptor(List.of("turboism.cubism.model.read")), ignored -> {}),
+                session);
         try {
             current.set(compatibilityDescriptor("runtime-dependency"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
@@ -659,8 +613,10 @@ class HostSessionPluginContextIntegrationTest {
 
             assertFalse(session.admittedCubismCapabilities().contains("cubism.editor-model.texture.read"));
             assertThrows(dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class, textures::rawImages);
-            assertEquals(new ModelId("runtime-dependency-model"), model.id(),
-                "unrelated admitted capabilities remain callable");
+            assertEquals(
+                    new ModelId("runtime-dependency-model"),
+                    model.id(),
+                    "unrelated admitted capabilities remain callable");
         } finally {
             session.close();
             scheduler.shutdown();
@@ -669,79 +625,96 @@ class HostSessionPluginContextIntegrationTest {
 
     private static VerifiedMemberResolver connectionResolver() {
         return dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            "5.3.02",
-            "fixture.connection",
-            java.util.Set.of("fixture.connection"),
-            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
-                "fixture.connection.class",
-                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
-            )),
-            HostSessionPluginContextIntegrationTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "fixture.connection",
+                java.util.Set.of("fixture.connection"),
+                List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                        "fixture.connection.class",
+                        HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/'))),
+                HostSessionPluginContextIntegrationTest.class.getClassLoader());
     }
 
-    private static HostAdapterConnection connectionWithAtlasProvider(
-        final TextureAtlasLayoutProvider provider
-    ) {
+    private static HostAdapterConnection connectionWithAtlasProvider(final TextureAtlasLayoutProvider provider) {
         final var resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
-            "5.3.02",
-            "fixture.atlas-session",
-            java.util.Set.of("fixture.atlas-session"),
-            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
-                "fixture.atlas-session.class",
-                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
-            )),
-            HostSessionPluginContextIntegrationTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "fixture.atlas-session",
+                java.util.Set.of("fixture.atlas-session"),
+                List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                        "fixture.atlas-session.class",
+                        HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/'))),
+                HostSessionPluginContextIntegrationTest.class.getClassLoader());
         return new HostAdapterConnection() {
-            @Override public RuntimeHostAdapters adapters() { return RuntimeHostAdapters.safeMode(); }
-            @Override public dev.turboism.mapping.verification.VerifiedMemberResolver
-                editorModelResolver() {
+            @Override
+            public RuntimeHostAdapters adapters() {
+                return RuntimeHostAdapters.safeMode();
+            }
+
+            @Override
+            public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
                 return resolver;
             }
-            @Override public Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
+
+            @Override
+            public Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
                 return Optional.of(provider);
             }
-            @Override public void close() { }
+
+            @Override
+            public void close() {}
         };
     }
 
     private static TextureAtlasLayoutPlan movedPlan() {
-        return new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-            new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
-            new TextureAtlasPlacement("texture-b", 0, 7, 1, 2, 2, false)
-        ));
+        return new TextureAtlasLayoutPlan(
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 7, 1, 2, 2, false)));
     }
 
     private static final class RecordingAtlasProvider implements TextureAtlasLayoutProvider {
         private final String id;
         private final AtomicInteger applyCount = new AtomicInteger();
         private TextureAtlasAuthoringState state;
+
         private RecordingAtlasProvider(final String id) {
             this.id = id;
             this.state = new TextureAtlasAuthoringState(
-                "document-" + id, "model-" + id, id, 1,
-                new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false),
-                List.of(
-                    new TextureAtlasLayoutItem("texture-a", 4, 3),
-                    new TextureAtlasLayoutItem("texture-b", 2, 2)
-                ),
-                new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                    new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
-                    new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
-                ))
-            );
+                    "document-" + id,
+                    "model-" + id,
+                    id,
+                    1,
+                    new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false),
+                    List.of(
+                            new TextureAtlasLayoutItem("texture-a", 4, 3),
+                            new TextureAtlasLayoutItem("texture-b", 2, 2)),
+                    new TextureAtlasLayoutPlan(
+                            16,
+                            8,
+                            1,
+                            List.of(
+                                    new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                                    new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false))));
         }
-        @Override public Optional<TextureAtlasAuthoringState> current() { return Optional.of(state); }
-        @Override public ApplyOutcome apply(
-            final TextureAtlasAuthoringState expected,
-            final TextureAtlasLayoutPlan plan
-        ) {
+
+        @Override
+        public Optional<TextureAtlasAuthoringState> current() {
+            return Optional.of(state);
+        }
+
+        @Override
+        public ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
             applyCount.incrementAndGet();
             state = new TextureAtlasAuthoringState(
-                expected.documentId(), expected.modelId(), id, expected.revision() + 1,
-                expected.constraints(), expected.items(), plan
-            );
+                    expected.documentId(),
+                    expected.modelId(),
+                    id,
+                    expected.revision() + 1,
+                    expected.constraints(),
+                    expected.items(),
+                    plan);
             return ApplyOutcome.APPLIED;
         }
     }
@@ -750,16 +723,10 @@ class HostSessionPluginContextIntegrationTest {
         ClassLoader loader = getClass().getClassLoader();
         Path artifact = Path.of("host/Live2D_Cubism.jar");
         return new HostInstanceDescriptor(
-            sessionId,
-            HostVerificationEvidence.withClipMask(
-                new HostVerificationEvidence.Slice(
-                    writeRecord(recordStem + "-project"), artifact, loader
-                ),
-                new HostVerificationEvidence.Slice(
-                    writeRecord(recordStem + "-clip"), artifact, loader
-                )
-            )
-        );
+                sessionId,
+                HostVerificationEvidence.withClipMask(
+                        new HostVerificationEvidence.Slice(writeRecord(recordStem + "-project"), artifact, loader),
+                        new HostVerificationEvidence.Slice(writeRecord(recordStem + "-clip"), artifact, loader)));
     }
 
     private Path writeRecord(final String stem) {
@@ -776,51 +743,121 @@ class HostSessionPluginContextIntegrationTest {
 
     private static CubismModelAccess fixedModelAccess(final String id) {
         return () -> new CubismModel() {
-            @Override public ModelId id() { return new ModelId(id); }
-            @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
+            @Override
+            public ModelId id() {
+                return new ModelId(id);
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ModelTextures textures() {
                 return new dev.turboism.sdk.cubism.model.ModelTextures() {
-                    @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
+                    @Override
+                    public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
                         return List.of(new dev.turboism.sdk.cubism.model.RawTexture() {
-                            @Override public dev.turboism.sdk.cubism.id.RawImageId id() {
+                            @Override
+                            public dev.turboism.sdk.cubism.id.RawImageId id() {
                                 return new dev.turboism.sdk.cubism.id.RawImageId("raw");
                             }
-                            @Override public String name() { return "Fixture texture"; }
-                            @Override public int width() { return 512; }
-                            @Override public int height() { return 256; }
+
+                            @Override
+                            public String name() {
+                                return "Fixture texture";
+                            }
+
+                            @Override
+                            public int width() {
+                                return 512;
+                            }
+
+                            @Override
+                            public int height() {
+                                return 256;
+                            }
                         });
                     }
-                    @Override public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() { return List.of(); }
-                    @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() { return List.of(); }
-                    @Override public void addModelImageGroup(final String name) { throw unsupported(); }
-                    @Override public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId imageId) { throw unsupported(); }
-                    @Override public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
-                        final String name, final int width, final int height
-                    ) { throw unsupported(); }
-                    @Override public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId atlasId) { throw unsupported(); }
-                    @Override public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId rawId) { throw unsupported(); }
+
+                    @Override
+                    public List<dev.turboism.sdk.cubism.model.ModelImageGroup> modelImageGroups() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public void addModelImageGroup(final String name) {
+                        throw unsupported();
+                    }
+
+                    @Override
+                    public void removeModelImage(final dev.turboism.sdk.cubism.id.ModelImageId imageId) {
+                        throw unsupported();
+                    }
+
+                    @Override
+                    public dev.turboism.sdk.cubism.id.TextureAtlasId addTextureAtlas(
+                            final String name, final int width, final int height) {
+                        throw unsupported();
+                    }
+
+                    @Override
+                    public void removeTextureAtlas(final dev.turboism.sdk.cubism.id.TextureAtlasId atlasId) {
+                        throw unsupported();
+                    }
+
+                    @Override
+                    public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId rawId) {
+                        throw unsupported();
+                    }
                 };
             }
-            @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Parameters parameters() {
                 return new dev.turboism.sdk.cubism.model.Parameters() {
                     private final dev.turboism.sdk.cubism.model.Parameter parameter =
-                        new dev.turboism.sdk.cubism.model.Parameter() {
-                            @Override public dev.turboism.sdk.cubism.id.ParameterId id() {
-                                return new dev.turboism.sdk.cubism.id.ParameterId("ParamA");
-                            }
-                            @Override public float getValue() { return 1.0F; }
-                            @Override public float getMinimumValue() { return 0.0F; }
-                            @Override public float getMaximumValue() { return 2.0F; }
-                            @Override public float getDefaultValue() { return 1.0F; }
-                            @Override public void setValue(final float value) { throw unsupported(); }
-                        };
+                            new dev.turboism.sdk.cubism.model.Parameter() {
+                                @Override
+                                public dev.turboism.sdk.cubism.id.ParameterId id() {
+                                    return new dev.turboism.sdk.cubism.id.ParameterId("ParamA");
+                                }
 
-                    @Override public List<dev.turboism.sdk.cubism.model.Parameter> all() {
+                                @Override
+                                public float getValue() {
+                                    return 1.0F;
+                                }
+
+                                @Override
+                                public float getMinimumValue() {
+                                    return 0.0F;
+                                }
+
+                                @Override
+                                public float getMaximumValue() {
+                                    return 2.0F;
+                                }
+
+                                @Override
+                                public float getDefaultValue() {
+                                    return 1.0F;
+                                }
+
+                                @Override
+                                public void setValue(final float value) {
+                                    throw unsupported();
+                                }
+                            };
+
+                    @Override
+                    public List<dev.turboism.sdk.cubism.model.Parameter> all() {
                         return List.of(parameter);
                     }
 
-                    @Override public dev.turboism.sdk.cubism.model.Parameter find(
-                        final dev.turboism.sdk.cubism.id.ParameterId parameterId
-                    ) {
+                    @Override
+                    public dev.turboism.sdk.cubism.model.Parameter find(
+                            final dev.turboism.sdk.cubism.id.ParameterId parameterId) {
                         if (!parameter.id().equals(parameterId)) {
                             throw new java.util.NoSuchElementException();
                         }
@@ -828,11 +865,31 @@ class HostSessionPluginContextIntegrationTest {
                     }
                 };
             }
-            @Override public dev.turboism.sdk.cubism.model.Parts parts() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Drawables drawables() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Deformers deformers() { throw unsupported(); }
-            @Override public dev.turboism.sdk.cubism.model.Glues glues() { throw unsupported(); }
-            @Override public void update() { throw unsupported(); }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Parts parts() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Drawables drawables() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Deformers deformers() {
+                throw unsupported();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Glues glues() {
+                throw unsupported();
+            }
+
+            @Override
+            public void update() {
+                throw unsupported();
+            }
 
             private UnsupportedOperationException unsupported() {
                 return new UnsupportedOperationException();
@@ -840,65 +897,134 @@ class HostSessionPluginContextIntegrationTest {
         };
     }
 
-
     private static CorePluginContext.Dependencies dependencies(
-        final Path dataDir,
-        final RuntimeScheduler scheduler,
-        final PluginDescriptor descriptor,
-        final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink
-    ) {
+            final Path dataDir,
+            final RuntimeScheduler scheduler,
+            final PluginDescriptor descriptor,
+            final java.util.function.Consumer<CubismFacadeAuditEvent> auditSink) {
         return new CorePluginContext.Dependencies(
-            descriptor,
-            logger(),
-            paths(dataDir),
-            uiScheduler(),
-            scheduler,
-            diagnostics(),
-            new DisposableScope(),
-            emptyHostSnapshotSource(),
-            auditSink,
-            CLOCK
-        );
+                descriptor,
+                logger(),
+                paths(dataDir),
+                uiScheduler(),
+                scheduler,
+                diagnostics(),
+                new DisposableScope(),
+                emptyHostSnapshotSource(),
+                auditSink,
+                CLOCK);
     }
 
     private static RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
     }
 
     private static PluginDescriptor descriptor(final List<String> permissionIds) {
         return new PluginDescriptor() {
-            @Override public String id() { return "dev.turboism.plugin.host-session-test"; }
-            @Override public String name() { return "Host Session Test"; }
-            @Override public String version() { return "0.1.0"; }
-            @Override public String description() { return "Host session integration test"; }
-            @Override public List<String> entrypoints() { return List.of("dev.turboism.test.HostSessionPlugin"); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "Project License"; }
-            @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() { return emptyI18n(); }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() {
-                return permissionIds.stream().<PermissionRef>map(permissionId -> new PermissionRef() {
-                    @Override public String id() { return permissionId; }
-                    @Override public String scope() { return "application"; }
-                    @Override public Optional<String> reason() {
-                        return Optional.of("Verify dynamic read composition");
-                    }
-                }).toList();
+            @Override
+            public String id() {
+                return "dev.turboism.plugin.host-session-test";
             }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public String name() {
+                return "Host Session Test";
+            }
+
+            @Override
+            public String version() {
+                return "0.1.0";
+            }
+
+            @Override
+            public String description() {
+                return "Host session integration test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of("dev.turboism.test.HostSessionPlugin");
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "Project License";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.of("https://turboism.dev");
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
+                return emptyI18n();
+            }
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return permissionIds.stream()
+                        .<PermissionRef>map(permissionId -> new PermissionRef() {
+                            @Override
+                            public String id() {
+                                return permissionId;
+                            }
+
+                            @Override
+                            public String scope() {
+                                return "application";
+                            }
+
+                            @Override
+                            public Optional<String> reason() {
+                                return Optional.of("Verify dynamic read composition");
+                            }
+                        })
+                        .toList();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "none"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
                 };
             }
         };
@@ -906,165 +1032,222 @@ class HostSessionPluginContextIntegrationTest {
 
     private static PluginDescriptor.I18n emptyI18n() {
         return new PluginDescriptor.I18n() {
-            @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
-            @Override public List<String> locales() { return List.of(); }
+            @Override
+            public String baseName() {
+                return "META-INF/turboism/i18n/messages";
+            }
+
+            @Override
+            public List<String> locales() {
+                return List.of();
+            }
         };
     }
 
     private static PluginLogger logger() {
         return new PluginLogger() {
-            @Override public void debug(String message) { }
-            @Override public void info(String message) { }
-            @Override public void warn(String message) { }
-            @Override public void error(String message) { }
-            @Override public void error(String message, Throwable throwable) { }
+            @Override
+            public void debug(String message) {}
+
+            @Override
+            public void info(String message) {}
+
+            @Override
+            public void warn(String message) {}
+
+            @Override
+            public void error(String message) {}
+
+            @Override
+            public void error(String message, Throwable throwable) {}
         };
     }
 
     private static PluginPaths paths(final Path dataDir) {
         return new PluginPaths() {
-            @Override public Path dataDir() { return dataDir; }
-            @Override public Path logsDir() { return dataDir.resolve("logs"); }
-            @Override public Path stateDir() { return dataDir.resolve("state"); }
-            @Override public Path cacheDir() { return dataDir.resolve("cache"); }
+            @Override
+            public Path dataDir() {
+                return dataDir;
+            }
+
+            @Override
+            public Path logsDir() {
+                return dataDir.resolve("logs");
+            }
+
+            @Override
+            public Path stateDir() {
+                return dataDir.resolve("state");
+            }
+
+            @Override
+            public Path cacheDir() {
+                return dataDir.resolve("cache");
+            }
         };
     }
 
     private static UiScheduler uiScheduler() {
         return new UiScheduler() {
-            @Override public Registration runOnUiThread(Runnable work) {
+            @Override
+            public Registration runOnUiThread(Runnable work) {
                 work.run();
-                return () -> { };
+                return () -> {};
             }
-            @Override public Registration runOnUiThreadLater(Runnable work, Duration delay) {
-                return () -> { };
+
+            @Override
+            public Registration runOnUiThreadLater(Runnable work, Duration delay) {
+                return () -> {};
             }
         };
     }
 
     private static DiagnosticReport diagnostics() {
         return new DiagnosticReport() {
-            @Override public Instant createdAt() { return CLOCK.instant(); }
-            @Override public List<Problem> problems() { return List.of(); }
+            @Override
+            public Instant createdAt() {
+                return CLOCK.instant();
+            }
+
+            @Override
+            public List<Problem> problems() {
+                return List.of();
+            }
         };
     }
 
     private static HostSnapshotSource emptyHostSnapshotSource() {
         return new HostSnapshotSource() {
-            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
-            @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
-            @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
-            @Override public HostSelection selection() {
-                return new HostSelection(
-                    List.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                );
+            @Override
+            public Optional<HostProject> activeProject() {
+                return Optional.empty();
             }
-            @Override public boolean isHostPresent() { return false; }
-            @Override public long invalidationToken() { return 0; }
+
+            @Override
+            public Optional<HostDocument> activeDocument() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<HostModel> activeModel() {
+                return Optional.empty();
+            }
+
+            @Override
+            public HostSelection selection() {
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+
+            @Override
+            public boolean isHostPresent() {
+                return false;
+            }
+
+            @Override
+            public long invalidationToken() {
+                return 0;
+            }
         };
     }
 
     private static ProjectSnapshot projectSnapshot(final String projectId) {
         final DocumentSnapshot document = modelDocument(projectId);
         return new ProjectSnapshot(
-            projectId,
-            "Demo",
-            Optional.empty(),
-            List.of(document),
-            List.of(new ProjectContentSnapshot(
-                projectId + "-content",
-                "Model content",
-                ProjectContentKind.MODEL,
-                Optional.of(Path.of("models/" + projectId + ".cmo3")),
-                List.of(document.documentId()),
-                List.of(new ProjectResourceSnapshot(
-                    projectId + "-texture",
-                    "Texture",
-                    ResourceKind.IMAGE,
-                    Optional.of("textures/texture.png")
-                ))
-            ))
-        );
+                projectId,
+                "Demo",
+                Optional.empty(),
+                List.of(document),
+                List.of(new ProjectContentSnapshot(
+                        projectId + "-content",
+                        "Model content",
+                        ProjectContentKind.MODEL,
+                        Optional.of(Path.of("models/" + projectId + ".cmo3")),
+                        List.of(document.documentId()),
+                        List.of(new ProjectResourceSnapshot(
+                                projectId + "-texture",
+                                "Texture",
+                                ResourceKind.IMAGE,
+                                Optional.of("textures/texture.png"))))));
     }
 
     private static DocumentSnapshot modelDocument(final String projectId) {
-        final ParameterSnapshot parameter = new ParameterSnapshot(
-            "ParamA", "Parameter A", 1.0, 1.0, 0.0, 2.0, true, true
-        );
-        final ArtMeshSnapshot artMesh = new ArtMeshSnapshot(
-            projectId + "-mesh", "ArtMesh", Optional.of(projectId + "-texture"), true, true
-        );
+        final ParameterSnapshot parameter =
+                new ParameterSnapshot("ParamA", "Parameter A", 1.0, 1.0, 0.0, 2.0, true, true);
+        final ArtMeshSnapshot artMesh =
+                new ArtMeshSnapshot(projectId + "-mesh", "ArtMesh", Optional.of(projectId + "-texture"), true, true);
         final DeformerSnapshot deformer = new DeformerSnapshot(
-            projectId + "-deformer", "Root Deformer", DeformerType.ROOT, Optional.empty(), List.of()
-        );
+                projectId + "-deformer", "Root Deformer", DeformerType.ROOT, Optional.empty(), List.of());
         final ModelSnapshot model = new ModelSnapshot(
-            projectId + "-model",
-            "Model",
-            List.of(parameter, artMesh, deformer),
-            List.of(parameter),
-            List.of(artMesh),
-            List.of(deformer)
-        );
+                projectId + "-model",
+                "Model",
+                List.of(parameter, artMesh, deformer),
+                List.of(parameter),
+                List.of(artMesh),
+                List.of(deformer));
         return new DocumentSnapshot(
-            projectId + "-document",
-            "Model",
-            "models/" + projectId + ".cmo3",
-            Optional.empty(),
-            Optional.of(model),
-            DocumentKind.MODEL,
-            Optional.of(projectId + "-content"),
-            Optional.empty()
-        );
+                projectId + "-document",
+                "Model",
+                "models/" + projectId + ".cmo3",
+                Optional.empty(),
+                Optional.of(model),
+                DocumentKind.MODEL,
+                Optional.of(projectId + "-content"),
+                Optional.empty());
     }
 
-    private static RuntimeHostAdapters adapters(
-        final String projectId,
-        final AtomicInteger clipOperations
-    ) {
+    private static RuntimeHostAdapters adapters(final String projectId, final AtomicInteger clipOperations) {
         RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
-        ProjectWorkspaceAdapter projectWorkspace = ProjectWorkspaceAdapter.Impl.connected(
-            new ProjectWorkspaceAdapter.HostOperations() {
-                @Override public String hostVersion() { return "5.3.02"; }
-                @Override public boolean supportsProjectWorkspaceRead() { return true; }
-                @Override public Optional<ProjectSnapshot> activeProject() {
-                    return Optional.of(projectSnapshot(projectId));
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
-                    return Optional.of(modelDocument(projectId));
-                }
-                @Override public Optional<WorkspaceSnapshot> workspace() {
-                    return Optional.of(new WorkspaceSnapshot(
-                        projectId + "-workspace",
-                        "Workspace",
-                        List.of(projectId)
-                    ));
-                }
+        ProjectWorkspaceAdapter projectWorkspace =
+                ProjectWorkspaceAdapter.Impl.connected(new ProjectWorkspaceAdapter.HostOperations() {
+                    @Override
+                    public String hostVersion() {
+                        return "5.3.02";
+                    }
+
+                    @Override
+                    public boolean supportsProjectWorkspaceRead() {
+                        return true;
+                    }
+
+                    @Override
+                    public Optional<ProjectSnapshot> activeProject() {
+                        return Optional.of(projectSnapshot(projectId));
+                    }
+
+                    @Override
+                    public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                        return Optional.of(modelDocument(projectId));
+                    }
+
+                    @Override
+                    public Optional<WorkspaceSnapshot> workspace() {
+                        return Optional.of(
+                                new WorkspaceSnapshot(projectId + "-workspace", "Workspace", List.of(projectId)));
+                    }
+                });
+        ClipMaskReadAdapter clipMask = ClipMaskReadAdapter.Impl.connected(new ClipMaskReadAdapter.HostOperations() {
+            @Override
+            public String hostVersion() {
+                return "5.3.02";
             }
-        );
-        ClipMaskReadAdapter clipMask = ClipMaskReadAdapter.Impl.connected(
-            new ClipMaskReadAdapter.HostOperations() {
-                @Override public String hostVersion() { return "5.3.02"; }
-                @Override public boolean supportsClipMaskRead() { return true; }
-                @Override public List<ClipMaskSnapshot> clipMasks() {
-                    clipOperations.incrementAndGet();
-                    return List.of(new ClipMaskSnapshot(
-                        projectId + "-mesh",
-                        List.of(projectId + "-mask"),
-                        false
-                    ));
-                }
+
+            @Override
+            public boolean supportsClipMaskRead() {
+                return true;
             }
-        );
+
+            @Override
+            public List<ClipMaskSnapshot> clipMasks() {
+                clipOperations.incrementAndGet();
+                return List.of(new ClipMaskSnapshot(projectId + "-mesh", List.of(projectId + "-mask"), false));
+            }
+        });
         return new RuntimeHostAdapters(
-            safe.themeStatus(),
-            safe.renderStatus(),
-            projectWorkspace,
-            clipMask,
-            safe.statusToolbar(),
-                        safe.uiSurface()
-        );
+                safe.themeStatus(),
+                safe.renderStatus(),
+                projectWorkspace,
+                clipMask,
+                safe.statusToolbar(),
+                safe.uiSurface());
     }
 }

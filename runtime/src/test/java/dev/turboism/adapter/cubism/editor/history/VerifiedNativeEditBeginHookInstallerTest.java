@@ -1,26 +1,25 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
-import org.junit.jupiter.api.Test;
-
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.Map;
 import java.util.LinkedHashMap;
-import java.lang.instrument.ClassFileTransformer;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pins the hook's admission gate.
@@ -40,114 +39,87 @@ class VerifiedNativeEditBeginHookInstallerTest {
     @Test
     void theHookRequiresTheReviewedVersionAndTheAdmittedAliases() {
         assertDoesNotThrow(
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.03", bothEntries()), LOADER
-            ),
-            "5.3.03 admits the native entry hook from its own reviewed record"
-        );
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.03", bothEntries()), LOADER),
+                "5.3.03 admits the native entry hook from its own reviewed record");
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.02", List.of()), LOADER
-            ),
-            "the ingress aliases are not admitted"
-        );
+                IllegalArgumentException.class,
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.02", List.of()), LOADER),
+                "the ingress aliases are not admitted");
     }
 
     @Test
     void theModelingEntryMustBeTheExactAdmittedTarget() {
         final List<StaticSelector> wrongOwner = new ArrayList<>();
         wrongOwner.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
-            "fixture/NotTheModelingEntry"
-        ));
-        wrongOwner.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER
-        ));
+                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS, "fixture/NotTheModelingEntry"));
+        wrongOwner.add(instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.02", wrongOwner), LOADER
-            )
-        );
+                IllegalArgumentException.class,
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.02", wrongOwner), LOADER));
     }
 
     @Test
     void theInheritedEntryMustBeTheExactAdmittedTarget() {
         final List<StaticSelector> wrongOwner = new ArrayList<>();
-        wrongOwner.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS, MODELING_OWNER
-        ));
-        wrongOwner.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, "fixture/NotTheBaseEntry"
-        ));
+        wrongOwner.add(instanceEntry(EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS, MODELING_OWNER));
+        wrongOwner.add(
+                instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, "fixture/NotTheBaseEntry"));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.02", wrongOwner), LOADER
-            )
-        );
+                IllegalArgumentException.class,
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.02", wrongOwner), LOADER));
     }
 
     @Test
     void aTargetWithoutTheExactSignatureIsRefused() {
         final List<StaticSelector> wrongDescriptor = new ArrayList<>();
         wrongDescriptor.add(StaticSelector.method(
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
-            MODELING_OWNER,
-            "beginEdit",
-            "(I)Lcom/live2d/undo/GroupUndo;",
-            StaticSelector.ACCESS_PUBLIC
-        ));
-        wrongDescriptor.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER
-        ));
+                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
+                MODELING_OWNER,
+                "beginEdit",
+                "(I)Lcom/live2d/undo/GroupUndo;",
+                StaticSelector.ACCESS_PUBLIC));
+        wrongDescriptor.add(instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.02", wrongDescriptor), LOADER
-            )
-        );
+                IllegalArgumentException.class,
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.02", wrongDescriptor), LOADER));
     }
 
     @Test
     void aStaticTargetIsRefusedBecauseBeginEditIsAnInstanceMethod() {
         final List<StaticSelector> staticEntry = new ArrayList<>();
         staticEntry.add(StaticSelector.staticMethod(
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
-            MODELING_OWNER,
-            "beginEdit",
-            DESCRIPTOR,
-            StaticSelector.ACCESS_PUBLIC
-        ));
-        staticEntry.add(instanceEntry(
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER
-        ));
+                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
+                MODELING_OWNER,
+                "beginEdit",
+                DESCRIPTOR,
+                StaticSelector.ACCESS_PUBLIC));
+        staticEntry.add(instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.3.02", staticEntry), LOADER
-            )
-        );
+                IllegalArgumentException.class,
+                () -> VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.3.02", staticEntry), LOADER));
     }
 
     @Test
     void anAcceptedResolutionBuildsAnUninstalledInstaller() throws Exception {
         final VerifiedNativeEditBeginHookInstaller installer =
-            VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(), resolver("5.2.03", bothEntries()), LOADER
-            );
+                VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(), resolver("5.2.03", bothEntries()), LOADER);
 
         assertFalse(installer.isInstalled(), "nothing is instrumented before install");
         assertFalse(
-            System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY),
-            "the receiver is registered only by install"
-        );
+                System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY),
+                "the receiver is registered only by install");
         installer.close();
         assertFalse(installer.isInstalled());
     }
@@ -155,16 +127,14 @@ class VerifiedNativeEditBeginHookInstallerTest {
     @Test
     void aRefusedInstallLeavesNoReceiverAndNoTransformerBehind() {
         final VerifiedNativeEditBeginHookInstaller installer =
-            VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation(false), resolver("5.3.02", bothEntries()), LOADER
-            );
+                VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                        instrumentation(false), resolver("5.3.02", bothEntries()), LOADER);
 
         assertThrows(IllegalStateException.class, () -> installer.install(NativeEditBeginBridge.ingress()));
         assertFalse(installer.isInstalled());
         assertFalse(
-            System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY),
-            "a refused install must not leave the receiver registered"
-        );
+                System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY),
+                "a refused install must not leave the receiver registered");
     }
 
     @Test
@@ -173,7 +143,7 @@ class VerifiedNativeEditBeginHookInstallerTest {
         final var installer = fixture.installer();
 
         try (installer) {
-            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> {}));
             assertFalse(installer.isInstalled());
             assertTrue(fixture.transformers.isEmpty());
             assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
@@ -186,7 +156,7 @@ class VerifiedNativeEditBeginHookInstallerTest {
         final var installer = fixture.installer();
 
         try (installer) {
-            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> {}));
             assertFalse(installer.isInstalled());
             assertTrue(fixture.transformers.isEmpty());
             assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
@@ -199,7 +169,7 @@ class VerifiedNativeEditBeginHookInstallerTest {
         final var installer = fixture.installer();
 
         try (installer) {
-            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> {}));
             assertFalse(installer.isInstalled());
             assertTrue(fixture.transformers.isEmpty());
             assertFalse(System.getProperties().containsKey(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
@@ -214,12 +184,14 @@ class VerifiedNativeEditBeginHookInstallerTest {
         try {
             installer.install(received::add);
             assertTrue(installer.isInstalled());
-            assertEquals(Set.of(MODELING_OWNER.replace('/', '.'), INHERITED_OWNER.replace('/', '.')),
-                Set.copyOf(installer.retransformedClassNames()));
+            assertEquals(
+                    Set.of(MODELING_OWNER.replace('/', '.'), INHERITED_OWNER.replace('/', '.')),
+                    Set.copyOf(installer.retransformedClassNames()));
             final ClassLoader patchedLoader = fixture.loader(fixture.applied);
             for (final String owner : List.of(MODELING_OWNER, INHERITED_OWNER)) {
                 final Class<?> type = Class.forName(owner.replace('/', '.'), true, patchedLoader);
-                type.getMethod("beginEdit", String.class).invoke(type.getConstructor().newInstance(), owner);
+                type.getMethod("beginEdit", String.class)
+                        .invoke(type.getConstructor().newInstance(), owner);
             }
             assertEquals(List.of(MODELING_OWNER, INHERITED_OWNER), received);
             installer.install(received::add);
@@ -242,9 +214,9 @@ class VerifiedNativeEditBeginHookInstallerTest {
         final Object existing = new Object();
         System.getProperties().put(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY, existing);
         try {
-            assertThrows(IllegalStateException.class, () -> installer.install(value -> { }));
-            org.junit.jupiter.api.Assertions.assertSame(existing,
-                System.getProperties().get(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
+            assertThrows(IllegalStateException.class, () -> installer.install(value -> {}));
+            org.junit.jupiter.api.Assertions.assertSame(
+                    existing, System.getProperties().get(VerifiedNativeEditBeginHookInstaller.CALLBACK_KEY));
             assertTrue(fixture.transformers.isEmpty());
         } finally {
             installer.close();
@@ -268,40 +240,41 @@ class VerifiedNativeEditBeginHookInstallerTest {
             applied.putAll(original);
             hostLoader = loader(original);
             instrumentation = (Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
-                LOADER, new Class<?>[]{Instrumentation.class}, (proxy, method, args) -> switch (method.getName()) {
-                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
-                    case "getAllLoadedClasses" -> loaded.values().toArray(Class<?>[]::new);
-                    case "addTransformer" -> {
-                        if (++registrations == failRegistration) {
-                            throw new IllegalStateException("registration failed");
-                        }
-                        transformers.add((ClassFileTransformer) args[0]);
-                        yield null;
-                    }
-                    case "removeTransformer" -> transformers.remove(args[0]);
-                    case "retransformClasses" -> {
-                        for (final Class<?> type : (Class<?>[]) args[0]) {
-                            final String name = type.getName().replace('.', '/');
-                            byte[] bytes = original.get(name);
-                            if (transform) {
-                                for (final ClassFileTransformer transformer : List.copyOf(transformers)) {
-                                    final byte[] patched = transformer.transform(
-                                        type.getModule(), hostLoader, name, type, null, bytes);
-                                    if (patched != null) bytes = patched;
-                                }
+                    LOADER, new Class<?>[] {Instrumentation.class}, (proxy, method, args) -> switch (method.getName()) {
+                        case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                        case "getAllLoadedClasses" -> loaded.values().toArray(Class<?>[]::new);
+                        case "addTransformer" -> {
+                            if (++registrations == failRegistration) {
+                                throw new IllegalStateException("registration failed");
                             }
-                            applied.put(name, bytes);
+                            transformers.add((ClassFileTransformer) args[0]);
+                            yield null;
                         }
-                        yield null;
-                    }
-                    case "toString" -> "InstrumentedHost";
-                    default -> null;
-                });
+                        case "removeTransformer" -> transformers.remove(args[0]);
+                        case "retransformClasses" -> {
+                            for (final Class<?> type : (Class<?>[]) args[0]) {
+                                final String name = type.getName().replace('.', '/');
+                                byte[] bytes = original.get(name);
+                                if (transform) {
+                                    for (final ClassFileTransformer transformer : List.copyOf(transformers)) {
+                                        final byte[] patched = transformer.transform(
+                                                type.getModule(), hostLoader, name, type, null, bytes);
+                                        if (patched != null) bytes = patched;
+                                    }
+                                }
+                                applied.put(name, bytes);
+                            }
+                            yield null;
+                        }
+                        case "toString" -> "InstrumentedHost";
+                        default -> null;
+                    });
         }
 
         private ClassLoader loader(final Map<String, byte[]> definitions) {
             return new ClassLoader(LOADER) {
-                @Override protected Class<?> findClass(final String name) throws ClassNotFoundException {
+                @Override
+                protected Class<?> findClass(final String name) throws ClassNotFoundException {
                     final byte[] bytes = definitions.get(name.replace('.', '/'));
                     if (bytes == null) throw new ClassNotFoundException(name);
                     final Class<?> type = defineClass(name, bytes, 0, bytes.length);
@@ -313,10 +286,14 @@ class VerifiedNativeEditBeginHookInstallerTest {
 
         private VerifiedNativeEditBeginHookInstaller installer() {
             return VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
-                instrumentation,
-                TestVerifiedResolvers.create("5.3.02", EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
-                    Set.of(EditorHistoryIngressSelectorContract.CAPABILITY_ID), bothEntries(), hostLoader),
-                hostLoader);
+                    instrumentation,
+                    TestVerifiedResolvers.create(
+                            "5.3.02",
+                            EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
+                            Set.of(EditorHistoryIngressSelectorContract.CAPABILITY_ID),
+                            bothEntries(),
+                            hostLoader),
+                    hostLoader);
         }
 
         private static byte[] classBytes(final String owner, final String method) {
@@ -345,50 +322,38 @@ class VerifiedNativeEditBeginHookInstallerTest {
     @Test
     void theHookIsKeyedOnTheTwoReviewedAliases() {
         assertEquals(
-            "cubism.editor-model.edit-mode.begin",
-            EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
-            "the modeling entry keeps the alias the mature Editor surface already uses"
-        );
+                "cubism.editor-model.edit-mode.begin",
+                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS,
+                "the modeling entry keeps the alias the mature Editor surface already uses");
         assertEquals(
-            "cubism.editor-history.edit-mode.begin",
-            EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
-        );
+                "cubism.editor-history.edit-mode.begin", EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS);
         assertTrue(
-            EditorHistoryIngressSelectorContract.REQUIRED_ALIASES.contains(
-                EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
-            ),
-            "the inherited entry is part of the reviewed ingress family"
-        );
+                EditorHistoryIngressSelectorContract.REQUIRED_ALIASES.contains(
+                        EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS),
+                "the inherited entry is part of the reviewed ingress family");
         assertFalse(
-            EditorHistoryIngressSelectorContract.REQUIRED_ALIASES.contains(
-                EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS
-            ),
-            "the modeling entry is not re-declared by the ingress"
-        );
+                EditorHistoryIngressSelectorContract.REQUIRED_ALIASES.contains(
+                        EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS),
+                "the modeling entry is not re-declared by the ingress");
     }
 
     private static List<StaticSelector> bothEntries() {
         return List.of(
-            instanceEntry(EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS, MODELING_OWNER),
-            instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER)
-        );
+                instanceEntry(EditorHistoryIngressSelectorContract.MODELING_EDIT_ENTRY_ALIAS, MODELING_OWNER),
+                instanceEntry(EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS, INHERITED_OWNER));
     }
 
     private static StaticSelector instanceEntry(final String alias, final String owner) {
         return StaticSelector.method(alias, owner, "beginEdit", DESCRIPTOR, StaticSelector.ACCESS_PUBLIC);
     }
 
-    private static VerifiedMemberResolver resolver(
-        final String version,
-        final List<StaticSelector> selectors
-    ) {
+    private static VerifiedMemberResolver resolver(final String version, final List<StaticSelector> selectors) {
         return TestVerifiedResolvers.create(
-            version,
-            EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
-            Set.of(EditorHistoryIngressSelectorContract.CAPABILITY_ID),
-            selectors,
-            VerifiedNativeEditBeginHookInstallerTest.class.getClassLoader()
-        );
+                version,
+                EditorHistoryIngressSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(EditorHistoryIngressSelectorContract.CAPABILITY_ID),
+                selectors,
+                VerifiedNativeEditBeginHookInstallerTest.class.getClassLoader());
     }
 
     private static Instrumentation instrumentation() {
@@ -397,17 +362,16 @@ class VerifiedNativeEditBeginHookInstallerTest {
 
     private static Instrumentation instrumentation(final boolean retransformSupported) {
         return (Instrumentation) java.lang.reflect.Proxy.newProxyInstance(
-            VerifiedNativeEditBeginHookInstallerTest.class.getClassLoader(),
-            new Class<?>[] {Instrumentation.class},
-            (proxy, method, args) -> switch (method.getName()) {
-                case "isRetransformClassesSupported" -> retransformSupported;
-                case "getAllLoadedClasses" -> new Class<?>[0];
-                case "isModifiableClass" -> false;
-                case "toString" -> "InstrumentationDouble";
-                case "hashCode" -> System.identityHashCode(proxy);
-                case "equals" -> proxy == args[0];
-                default -> null;
-            }
-        );
+                VerifiedNativeEditBeginHookInstallerTest.class.getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported" -> retransformSupported;
+                    case "getAllLoadedClasses" -> new Class<?>[0];
+                    case "isModifiableClass" -> false;
+                    case "toString" -> "InstrumentationDouble";
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> null;
+                });
     }
 }

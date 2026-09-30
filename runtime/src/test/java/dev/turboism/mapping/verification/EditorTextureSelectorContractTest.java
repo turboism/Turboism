@@ -1,16 +1,15 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 class EditorTextureSelectorContractTest {
 
@@ -18,44 +17,37 @@ class EditorTextureSelectorContractTest {
     private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
 
     @ParameterizedTest
-    @CsvSource({
-        "Cubism-5.2, cubism-5.2.03-editor-model.json",
-        "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
-    })
-    void exactRecordVerifiesTheTextureReadContract(
-        final String evidenceDirectory,
-        final String recordName
-    ) throws Exception {
+    @CsvSource({"Cubism-5.2, cubism-5.2.03-editor-model.json", "Cubism-5.3.02, cubism-5.3.02-editor-model.json"})
+    void exactRecordVerifiesTheTextureReadContract(final String evidenceDirectory, final String recordName)
+            throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
-            artifact,
-            loader(artifact)
-        );
+        final var resolver = new VerifiedEditorModelResolverFactory()
+                .create(
+                        PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
+                        artifact,
+                        loader(artifact));
         assertTrue(resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.READ_CAPABILITY_ID,
-            EditorTextureSelectorContract.READ_REQUIRED_ALIASES
-        ));
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.READ_CAPABILITY_ID,
+                EditorTextureSelectorContract.READ_REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-            EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
-        ));
-        if (evidenceDirectory.equals("Cubism-5.3.02")) {
-            assertTrue(resolver.authorizesFeature(
                 EditorTextureSelectorContract.ADAPTER_SLICE_ID,
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-                EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
-            ));
+                EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES));
+        if (evidenceDirectory.equals("Cubism-5.3.02")) {
+            assertTrue(resolver.authorizesFeature(
+                    EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                    EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+                    EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES));
         } else {
             // 5.2.03 exposes only a confirmation-dialog raw-image removal path; the
             // selector is absent from the record and must not be required.
-            assertTrue(!resolver.authorizesFeature(
-                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
-                EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-                EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
-            ), "5.2 record must not authorize the 5.3.02-only raw image removal path");
+            assertTrue(
+                    !resolver.authorizesFeature(
+                            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                            EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+                            EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES),
+                    "5.2 record must not authorize the 5.3.02-only raw image removal path");
         }
     }
 
@@ -80,17 +72,17 @@ class EditorTextureSelectorContractTest {
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
         try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .sorted()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (java.net.MalformedURLException exception) {
-                        throw new IllegalArgumentException(exception);
-                    }
-                })
-                .toArray(URL[]::new);
+            final URL[] classpath = files.filter(
+                            path -> path.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .map(path -> {
+                        try {
+                            return path.toUri().toURL();
+                        } catch (java.net.MalformedURLException exception) {
+                            throw new IllegalArgumentException(exception);
+                        }
+                    })
+                    .toArray(URL[]::new);
             return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
         }
     }

@@ -1,11 +1,11 @@
 package dev.turboism.sdk.ui;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class CanvasHintNotificationContractTest {
     @Test
@@ -19,25 +19,18 @@ class CanvasHintNotificationContractTest {
 
     @Test
     void persistentHintsAcceptTheExplicitCloseSentinel() {
-        CanvasHintNotification notification = new CanvasHintNotification(
-            "screen-color",
-            "Incompatible",
-            CanvasHintNotification.UNTIL_DISMISSED
-        );
+        CanvasHintNotification notification =
+                new CanvasHintNotification("screen-color", "Incompatible", CanvasHintNotification.UNTIL_DISMISSED);
 
         assertEquals(Float.POSITIVE_INFINITY, notification.durationSeconds());
     }
 
     @Test
     void blankTextAndNonPositiveTimeoutsAreRejected() {
-        assertThrows(IllegalArgumentException.class,
-            () -> new CanvasHintNotification("", "message"));
-        assertThrows(IllegalArgumentException.class,
-            () -> new CanvasHintNotification("id", " "));
-        assertThrows(IllegalArgumentException.class,
-            () -> new CanvasHintNotification("id", "message", 0.0f));
-        assertThrows(IllegalArgumentException.class,
-            () -> new CanvasHintNotification("id", "message", Float.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new CanvasHintNotification("", "message"));
+        assertThrows(IllegalArgumentException.class, () -> new CanvasHintNotification("id", " "));
+        assertThrows(IllegalArgumentException.class, () -> new CanvasHintNotification("id", "message", 0.0f));
+        assertThrows(IllegalArgumentException.class, () -> new CanvasHintNotification("id", "message", Float.NaN));
     }
 
     @Test
@@ -49,7 +42,7 @@ class CanvasHintNotificationContractTest {
 
     @Test
     void withOnClickAddsTheActionAndKeepsEveryOtherComponent() {
-        Runnable action = () -> { };
+        Runnable action = () -> {};
         CanvasHintNotification base = new CanvasHintNotification("id", "message", 1.0f);
 
         CanvasHintNotification clickable = base.withOnClick(action);
@@ -63,8 +56,7 @@ class CanvasHintNotificationContractTest {
 
     @Test
     void withPositionAddsTheOverrideAndKeepsEveryOtherComponent() {
-        CanvasHintNotification base = new CanvasHintNotification("id", "message", 1.0f)
-            .withOnClick(() -> { });
+        CanvasHintNotification base = new CanvasHintNotification("id", "message", 1.0f).withOnClick(() -> {});
 
         CanvasHintNotification placed = base.withPosition(new CanvasHintPosition(12.0f, 34.0f));
 
@@ -88,15 +80,13 @@ class CanvasHintNotificationContractTest {
 
     @Test
     void withOnClickReplacesAnExistingActionAndRejectsNull() {
-        Runnable first = () -> { };
-        Runnable second = () -> { };
+        Runnable first = () -> {};
+        Runnable second = () -> {};
 
-        CanvasHintNotification replaced = new CanvasHintNotification("id", "message")
-            .withOnClick(first)
-            .withOnClick(second);
+        CanvasHintNotification replaced =
+                new CanvasHintNotification("id", "message").withOnClick(first).withOnClick(second);
         assertSame(second, replaced.onClick().orElseThrow());
 
-        assertThrows(NullPointerException.class,
-            () -> new CanvasHintNotification("id", "message").withOnClick(null));
+        assertThrows(NullPointerException.class, () -> new CanvasHintNotification("id", "message").withOnClick(null));
     }
 }

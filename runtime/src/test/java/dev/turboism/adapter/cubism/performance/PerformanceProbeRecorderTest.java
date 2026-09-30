@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.performance;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class PerformanceProbeRecorderTest {
 
@@ -19,8 +19,8 @@ class PerformanceProbeRecorderTest {
             recorder.exit(PerformanceProbeMetric.SCENE_TRAVERSAL, started);
         }
 
-        final PerformanceProbeRecorder.MetricSnapshot snapshot = recorder.snapshot()
-            .metrics().get(PerformanceProbeMetric.SCENE_TRAVERSAL);
+        final PerformanceProbeRecorder.MetricSnapshot snapshot =
+                recorder.snapshot().metrics().get(PerformanceProbeMetric.SCENE_TRAVERSAL);
         assertEquals(64L, snapshot.calls());
         assertEquals(4L, snapshot.sampled());
 

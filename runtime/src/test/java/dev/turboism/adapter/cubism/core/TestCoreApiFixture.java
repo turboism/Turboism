@@ -1,19 +1,16 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
-import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Synthetic public Core surface used only to exercise verified adapter contracts. */
 public final class TestCoreApiFixture {
 
-    private TestCoreApiFixture() {
-    }
+    private TestCoreApiFixture() {}
 
     static void resetVersion() {
         Core.version = new Version(11, 12, 13);
@@ -23,290 +20,235 @@ public final class TestCoreApiFixture {
         return resolver(artifactProfile, null);
     }
 
-    static VerifiedMemberResolver resolver(
-        final String artifactProfile,
-        final String omittedAlias
-    ) {
+    static VerifiedMemberResolver resolver(final String artifactProfile, final String omittedAlias) {
         return resolver(
-            artifactProfile,
-            Core.class,
-            Version.class,
-            objectDescriptor(Version.class),
-            "()I",
-            omittedAlias,
-            Core.class.getClassLoader()
-        );
+                artifactProfile,
+                Core.class,
+                Version.class,
+                objectDescriptor(Version.class),
+                "()I",
+                omittedAlias,
+                Core.class.getClassLoader());
     }
 
     static VerifiedMemberResolver resolverForReviewedVersion(
-        final String reviewedVersion,
-        final String artifactProfile
-    ) {
+            final String reviewedVersion, final String artifactProfile) {
         return resolver(
-            reviewedVersion,
-            artifactProfile,
-            Core.class,
-            Version.class,
-            objectDescriptor(Version.class),
-            "()I",
-            null,
-            Core.class.getClassLoader()
-        );
+                reviewedVersion,
+                artifactProfile,
+                Core.class,
+                Version.class,
+                objectDescriptor(Version.class),
+                "()I",
+                null,
+                Core.class.getClassLoader());
     }
 
     static VerifiedMemberResolver resolver(
-        final String artifactProfile,
-        final Class<?> coreType,
-        final Class<?> versionType,
-        final String versionDescriptor,
-        final String majorDescriptor,
-        final String omittedAlias,
-        final ClassLoader classLoader
-    ) {
+            final String artifactProfile,
+            final Class<?> coreType,
+            final Class<?> versionType,
+            final String versionDescriptor,
+            final String majorDescriptor,
+            final String omittedAlias,
+            final ClassLoader classLoader) {
         return resolver(
-            artifactProfile,
-            artifactProfile,
-            coreType,
-            versionType,
-            versionDescriptor,
-            majorDescriptor,
-            omittedAlias,
-            classLoader
-        );
+                artifactProfile,
+                artifactProfile,
+                coreType,
+                versionType,
+                versionDescriptor,
+                majorDescriptor,
+                omittedAlias,
+                classLoader);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String reviewedVersion,
-        final String artifactProfile,
-        final Class<?> coreType,
-        final Class<?> versionType,
-        final String versionDescriptor,
-        final String majorDescriptor,
-        final String omittedAlias,
-        final ClassLoader classLoader
-    ) {
+            final String reviewedVersion,
+            final String artifactProfile,
+            final Class<?> coreType,
+            final Class<?> versionType,
+            final String versionDescriptor,
+            final String majorDescriptor,
+            final String omittedAlias,
+            final ClassLoader classLoader) {
         return resolver(
-            reviewedVersion, artifactProfile, coreType, versionType,
-            versionDescriptor, majorDescriptor, omittedAlias, classLoader,
-            java.util.List.of(), java.util.Set.of(), false
-        );
+                reviewedVersion,
+                artifactProfile,
+                coreType,
+                versionType,
+                versionDescriptor,
+                majorDescriptor,
+                omittedAlias,
+                classLoader,
+                java.util.List.of(),
+                java.util.Set.of(),
+                false);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String reviewedVersion,
-        final String artifactProfile,
-        final Class<?> coreType,
-        final Class<?> versionType,
-        final String versionDescriptor,
-        final String majorDescriptor,
-        final String omittedAlias,
-        final ClassLoader classLoader,
-        final java.util.List<StaticSelector> extraSelectors,
-        final java.util.Set<String> extraCapabilities
-    ) {
+            final String reviewedVersion,
+            final String artifactProfile,
+            final Class<?> coreType,
+            final Class<?> versionType,
+            final String versionDescriptor,
+            final String majorDescriptor,
+            final String omittedAlias,
+            final ClassLoader classLoader,
+            final java.util.List<StaticSelector> extraSelectors,
+            final java.util.Set<String> extraCapabilities) {
         return resolver(
-            reviewedVersion, artifactProfile, coreType, versionType,
-            versionDescriptor, majorDescriptor, omittedAlias, classLoader,
-            extraSelectors, extraCapabilities, false
-        );
+                reviewedVersion,
+                artifactProfile,
+                coreType,
+                versionType,
+                versionDescriptor,
+                majorDescriptor,
+                omittedAlias,
+                classLoader,
+                extraSelectors,
+                extraCapabilities,
+                false);
     }
 
     private static VerifiedMemberResolver resolver(
-        final String reviewedVersion,
-        final String artifactProfile,
-        final Class<?> coreType,
-        final Class<?> versionType,
-        final String versionDescriptor,
-        final String majorDescriptor,
-        final String omittedAlias,
-        final ClassLoader classLoader,
-        final java.util.List<StaticSelector> extraSelectors,
-        final java.util.Set<String> extraCapabilities,
-        final boolean omitOwnedMoc
-    ) {
+            final String reviewedVersion,
+            final String artifactProfile,
+            final Class<?> coreType,
+            final Class<?> versionType,
+            final String versionDescriptor,
+            final String majorDescriptor,
+            final String omittedAlias,
+            final ClassLoader classLoader,
+            final java.util.List<StaticSelector> extraSelectors,
+            final java.util.Set<String> extraCapabilities,
+            final boolean omitOwnedMoc) {
         final List<StaticSelector> selectors = new ArrayList<>();
+        selectors.add(
+                StaticSelector.classSelector(CorePublicApiSelectorContract.LIVE2D_CORE_CLASS, internalName(coreType)));
         selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.LIVE2D_CORE_CLASS,
-            internalName(coreType)
-        ));
-        selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.CORE_VERSION_CLASS,
-            internalName(versionType)
-        ));
+                CorePublicApiSelectorContract.CORE_VERSION_CLASS, internalName(versionType)));
         selectors.add(StaticSelector.staticMethod(
-            CorePublicApiSelectorContract.GET_VERSION,
-            internalName(coreType),
-            "getVersion",
-            versionDescriptor,
-            StaticSelector.ACCESS_PUBLIC
-        ));
+                CorePublicApiSelectorContract.GET_VERSION,
+                internalName(coreType),
+                "getVersion",
+                versionDescriptor,
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.staticMethod(
-            CorePublicApiSelectorContract.GET_LATEST_MOC_VERSION,
-            internalName(coreType),
-            "getLatestMocVersion",
-            "()I",
-            StaticSelector.ACCESS_PUBLIC
-        ));
+                CorePublicApiSelectorContract.GET_LATEST_MOC_VERSION,
+                internalName(coreType),
+                "getLatestMocVersion",
+                "()I",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.staticMethod(
-            CorePublicApiSelectorContract.GET_MOC_VERSION,
-            internalName(coreType),
-            "getMocVersion",
-            "([B)I",
-            StaticSelector.ACCESS_PUBLIC
-        ));
+                CorePublicApiSelectorContract.GET_MOC_VERSION,
+                internalName(coreType),
+                "getMocVersion",
+                "([B)I",
+                StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.staticMethod(
-            CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
-            internalName(coreType),
-            "hasMocConsistency",
-            "([B)Z",
-            StaticSelector.ACCESS_PUBLIC
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.GET_MAJOR,
-            versionType,
-            "getMajor",
-            majorDescriptor
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.GET_MINOR,
-            versionType,
-            "getMinor",
-            "()I"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.GET_PATCH,
-            versionType,
-            "getPatch",
-            "()I"
-        ));
+                CorePublicApiSelectorContract.HAS_MOC_CONSISTENCY,
+                internalName(coreType),
+                "hasMocConsistency",
+                "([B)Z",
+                StaticSelector.ACCESS_PUBLIC));
+        selectors.add(
+                instanceMethod(CorePublicApiSelectorContract.GET_MAJOR, versionType, "getMajor", majorDescriptor));
+        selectors.add(instanceMethod(CorePublicApiSelectorContract.GET_MINOR, versionType, "getMinor", "()I"));
+        selectors.add(instanceMethod(CorePublicApiSelectorContract.GET_PATCH, versionType, "getPatch", "()I"));
 
+        selectors.add(
+                StaticSelector.classSelector(CorePublicApiSelectorContract.MODEL_CLASS, internalName(Model.class)));
         selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.MODEL_CLASS,
-            internalName(Model.class)
-        ));
+                CorePublicApiSelectorContract.CANVAS_INFO_CLASS, internalName(CanvasInfo.class)));
         selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.CANVAS_INFO_CLASS,
-            internalName(CanvasInfo.class)
-        ));
+                CorePublicApiSelectorContract.PARAMETERS_CLASS, internalName(Parameters.class)));
         selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.PARAMETERS_CLASS,
-            internalName(Parameters.class)
-        ));
+                CorePublicApiSelectorContract.PARAMETER_TYPE_CLASS, internalName(ParameterType.class)));
+        selectors.add(
+                StaticSelector.classSelector(CorePublicApiSelectorContract.PARTS_CLASS, internalName(Parts.class)));
         selectors.add(StaticSelector.classSelector(
-            CorePublicApiSelectorContract.PARAMETER_TYPE_CLASS,
-            internalName(ParameterType.class)
-        ));
-        selectors.add(StaticSelector.classSelector(CorePublicApiSelectorContract.PARTS_CLASS, internalName(Parts.class)));
-        selectors.add(StaticSelector.classSelector(CorePublicApiSelectorContract.DRAWABLES_CLASS, internalName(Drawables.class)));
-        selectors.add(StaticSelector.classSelector(CorePublicApiSelectorContract.DEFORMERS_CLASS, internalName(Deformers.class)));
-        selectors.add(StaticSelector.classSelector(CorePublicApiSelectorContract.GLUES_CLASS, internalName(Glues.class)));
+                CorePublicApiSelectorContract.DRAWABLES_CLASS, internalName(Drawables.class)));
+        selectors.add(StaticSelector.classSelector(
+                CorePublicApiSelectorContract.DEFORMERS_CLASS, internalName(Deformers.class)));
+        selectors.add(
+                StaticSelector.classSelector(CorePublicApiSelectorContract.GLUES_CLASS, internalName(Glues.class)));
 
         selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO,
-            Model.class,
-            "getCanvasInfo",
-            objectDescriptor(CanvasInfo.class)
-        ));
+                CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO,
+                Model.class,
+                "getCanvasInfo",
+                objectDescriptor(CanvasInfo.class)));
         selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.MODEL_GET_PARAMETERS,
-            Model.class,
-            "getParameters",
-            objectDescriptor(Parameters.class)
-        ));
-        selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_PARTS, Model.class, "getParts", objectDescriptor(Parts.class)));
+                CorePublicApiSelectorContract.MODEL_GET_PARAMETERS,
+                Model.class,
+                "getParameters",
+                objectDescriptor(Parameters.class)));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.MODEL_GET_PARTS, Model.class, "getParts", objectDescriptor(Parts.class)));
         if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
-            selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS, Model.class, "getRenderOrders", "()[I"));
-        }
-        selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DRAWABLES, Model.class, "getDrawables", objectDescriptor(Drawables.class)));
-        selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_DEFORMERS, Model.class, "getDeformers", objectDescriptor(Deformers.class)));
-        selectors.add(instanceMethod(CorePublicApiSelectorContract.MODEL_GET_GLUES, Model.class, "getGlues", objectDescriptor(Glues.class)));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.CANVAS_GET_SIZE_IN_PIXELS,
-            CanvasInfo.class,
-            "getSizeInPixels",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.CANVAS_GET_ORIGIN_IN_PIXELS,
-            CanvasInfo.class,
-            "getOriginInPixels",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.CANVAS_GET_PIXELS_PER_UNIT,
-            CanvasInfo.class,
-            "getPixelsPerUnit",
-            "()F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_COUNT,
-            Parameters.class,
-            "getCount",
-            "()I"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_DEFAULT_VALUES,
-            Parameters.class,
-            "getDefaultValues",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_IDS,
-            Parameters.class,
-            "getIds",
-            "()[Ljava/lang/String;"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_KEY_COUNTS,
-            Parameters.class,
-            "getKeyCounts",
-            "()[I"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_KEY_VALUES,
-            Parameters.class,
-            "getKeyValues",
-            "()[[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_MAXIMUM_VALUES,
-            Parameters.class,
-            "getMaximumValues",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_MINIMUM_VALUES,
-            Parameters.class,
-            "getMinimumValues",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_TYPES,
-            Parameters.class,
-            "getTypes",
-            arrayDescriptor(ParameterType.class)
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETERS_GET_VALUES,
-            Parameters.class,
-            "getValues",
-            "()[F"
-        ));
-        selectors.add(instanceMethod(
-            CorePublicApiSelectorContract.PARAMETER_TYPE_GET_NUMBER,
-            ParameterType.class,
-            "getNumber",
-            "()I"
-        ));
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(
-            artifactProfile
-        )) {
             selectors.add(instanceMethod(
-                CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS,
+                    CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS, Model.class, "getRenderOrders", "()[I"));
+        }
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.MODEL_GET_DRAWABLES,
+                Model.class,
+                "getDrawables",
+                objectDescriptor(Drawables.class)));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.MODEL_GET_DEFORMERS,
+                Model.class,
+                "getDeformers",
+                objectDescriptor(Deformers.class)));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.MODEL_GET_GLUES, Model.class, "getGlues", objectDescriptor(Glues.class)));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.CANVAS_GET_SIZE_IN_PIXELS, CanvasInfo.class, "getSizeInPixels", "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.CANVAS_GET_ORIGIN_IN_PIXELS,
+                CanvasInfo.class,
+                "getOriginInPixels",
+                "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.CANVAS_GET_PIXELS_PER_UNIT, CanvasInfo.class, "getPixelsPerUnit", "()F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_COUNT, Parameters.class, "getCount", "()I"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_DEFAULT_VALUES,
                 Parameters.class,
-                "getParameterRepeats",
-                "()[Z"
-            ));
+                "getDefaultValues",
+                "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_IDS, Parameters.class, "getIds", "()[Ljava/lang/String;"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_KEY_COUNTS, Parameters.class, "getKeyCounts", "()[I"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_KEY_VALUES, Parameters.class, "getKeyValues", "()[[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_MAXIMUM_VALUES,
+                Parameters.class,
+                "getMaximumValues",
+                "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_MINIMUM_VALUES,
+                Parameters.class,
+                "getMinimumValues",
+                "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_TYPES,
+                Parameters.class,
+                "getTypes",
+                arrayDescriptor(ParameterType.class)));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, Parameters.class, "getValues", "()[F"));
+        selectors.add(instanceMethod(
+                CorePublicApiSelectorContract.PARAMETER_TYPE_GET_NUMBER, ParameterType.class, "getNumber", "()I"));
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
+            selectors.add(instanceMethod(
+                    CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS,
+                    Parameters.class,
+                    "getParameterRepeats",
+                    "()[Z"));
         }
         addFamilySelectors(selectors, artifactProfile);
         if (!omitOwnedMoc) {
@@ -314,109 +256,94 @@ public final class TestCoreApiFixture {
         }
 
         final java.util.HashSet<String> capabilities =
-            new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
+                new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
         if (omitOwnedMoc) {
             capabilities.remove(ownedMocCapabilityId());
         }
         capabilities.addAll(extraCapabilities);
-        final java.util.Set<String> extraAliases = extraSelectors.stream()
-            .map(StaticSelector::alias)
-            .collect(java.util.stream.Collectors.toSet());
-        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(
-            selectors.stream()
+        final java.util.Set<String> extraAliases =
+                extraSelectors.stream().map(StaticSelector::alias).collect(java.util.stream.Collectors.toSet());
+        final java.util.ArrayList<StaticSelector> all = new java.util.ArrayList<>(selectors.stream()
                 .filter(selector -> !extraAliases.contains(selector.alias()))
-                .toList()
-        );
+                .toList());
         all.addAll(extraSelectors);
         return TestVerifiedResolvers.create(
-            reviewedVersion,
-            CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-            capabilities,
-            all.stream()
-                .filter(selector -> !selector.alias().equals(omittedAlias))
-                .toList(),
-            classLoader
-        );
+                reviewedVersion,
+                CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+                capabilities,
+                all.stream()
+                        .filter(selector -> !selector.alias().equals(omittedAlias))
+                        .toList(),
+                classLoader);
     }
 
     /** Package-visible fixture resolver with extra selectors and capabilities. */
     public static VerifiedMemberResolver resolverWithExtras(
-        final String artifactProfile,
-        final java.util.List<StaticSelector> extraSelectors,
-        final java.util.Set<String> extraCapabilities
-    ) {
+            final String artifactProfile,
+            final java.util.List<StaticSelector> extraSelectors,
+            final java.util.Set<String> extraCapabilities) {
         final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
         return resolver(
-            reviewedVersion,
-            artifactProfile,
-            Core.class,
-            Version.class,
-            objectDescriptor(Version.class),
-            "()I",
-            null,
-            Core.class.getClassLoader(),
-            extraSelectors,
-            extraCapabilities
-        );
+                reviewedVersion,
+                artifactProfile,
+                Core.class,
+                Version.class,
+                objectDescriptor(Version.class),
+                "()I",
+                null,
+                Core.class.getClassLoader(),
+                extraSelectors,
+                extraCapabilities);
     }
 
     /** Extra selectors for the owned-Moc lifecycle surface (both reviewed profiles). */
     public static List<StaticSelector> ownedMocSelectors() {
         return List.of(
-            StaticSelector.classSelector(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLASS,
-                internalName(Moc.class)
-            ),
-            StaticSelector.staticMethod(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE,
-                internalName(Moc.class),
-                "instantiate",
-                "([B)L" + internalName(Moc.class) + ";",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
-                internalName(Moc.class),
-                "instantiateModel",
-                "()L" + internalName(Model.class) + ";",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
-                internalName(Moc.class),
-                "getNativeHandle",
-                "()J",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLOSE,
-                internalName(Moc.class),
-                "close",
-                "()V",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
-                internalName(Model.class),
-                "getNativeHandle",
-                "()J",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_UPDATE,
-                internalName(Model.class),
-                "update",
-                "()V",
-                StaticSelector.ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_CLOSE,
-                internalName(Model.class),
-                "close",
-                "()V",
-                StaticSelector.ACCESS_PUBLIC
-            )
-        );
+                StaticSelector.classSelector(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLASS,
+                        internalName(Moc.class)),
+                StaticSelector.staticMethod(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE,
+                        internalName(Moc.class),
+                        "instantiate",
+                        "([B)L" + internalName(Moc.class) + ";",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
+                        internalName(Moc.class),
+                        "instantiateModel",
+                        "()L" + internalName(Model.class) + ";",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
+                        internalName(Moc.class),
+                        "getNativeHandle",
+                        "()J",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLOSE,
+                        internalName(Moc.class),
+                        "close",
+                        "()V",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
+                        internalName(Model.class),
+                        "getNativeHandle",
+                        "()J",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_UPDATE,
+                        internalName(Model.class),
+                        "update",
+                        "()V",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_CLOSE,
+                        internalName(Model.class),
+                        "close",
+                        "()V",
+                        StaticSelector.ACCESS_PUBLIC));
     }
 
     /** Owned-Moc capability id for fixture resolvers. */
@@ -432,43 +359,32 @@ public final class TestCoreApiFixture {
     public static VerifiedMemberResolver resolverWithoutOwnedMoc(final String artifactProfile) {
         final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
         return resolver(
-            reviewedVersion,
-            artifactProfile,
-            Core.class,
-            Version.class,
-            objectDescriptor(Version.class),
-            "()I",
-            null,
-            Core.class.getClassLoader(),
-            java.util.List.of(),
-            java.util.Set.of(),
-            true
-        );
+                reviewedVersion,
+                artifactProfile,
+                Core.class,
+                Version.class,
+                objectDescriptor(Version.class),
+                "()I",
+                null,
+                Core.class.getClassLoader(),
+                java.util.List.of(),
+                java.util.Set.of(),
+                true);
     }
 
     private static StaticSelector instanceMethod(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias,
-            internalName(owner),
-            name,
-            descriptor,
-            StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internalName(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static void addFamilySelectors(final List<StaticSelector> selectors, final String profile) {
-        add(selectors, Parts.class, new Object[][]{
+        add(selectors, Parts.class, new Object[][] {
             {CorePublicApiSelectorContract.PARTS_COUNT, "getCount", "()I"},
             {CorePublicApiSelectorContract.PARTS_IDS, "getIds", "()[Ljava/lang/String;"},
             {CorePublicApiSelectorContract.PARTS_OPACITIES, "getOpacities", "()[F"},
             {CorePublicApiSelectorContract.PARTS_PARENT_PART_INDICES, "getParentPartIndices", "()[I"}
         });
-        add(selectors, Drawables.class, new Object[][]{
+        add(selectors, Drawables.class, new Object[][] {
             {CorePublicApiSelectorContract.DRAWABLES_COUNT, "getCount", "()I"},
             {CorePublicApiSelectorContract.DRAWABLES_IDS, "getIds", "()[Ljava/lang/String;"},
             {CorePublicApiSelectorContract.DRAWABLES_CONSTANT_FLAGS, "getConstantFlags", "()[B"},
@@ -491,18 +407,20 @@ public final class TestCoreApiFixture {
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETERS, "getParameters", "()[[I"}
         });
         if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2_03.equals(profile)) {
-            selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS, Drawables.class, "getRenderOrders", "()[I"));
+            selectors.add(instanceMethod(
+                    CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS, Drawables.class, "getRenderOrders", "()[I"));
         } else {
-            selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES, Drawables.class, "getBlendModes", "()[I"));
+            selectors.add(instanceMethod(
+                    CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES, Drawables.class, "getBlendModes", "()[I"));
         }
-        add(selectors, Deformers.class, new Object[][]{
+        add(selectors, Deformers.class, new Object[][] {
             {CorePublicApiSelectorContract.DEFORMERS_COUNT, "getCount", "()I"},
             {CorePublicApiSelectorContract.DEFORMERS_IDS, "getIds", "()[Ljava/lang/String;"},
             {CorePublicApiSelectorContract.DEFORMERS_PARENT_DEFORMER_INDICES, "getParentDeformsers", "()[I"},
             {CorePublicApiSelectorContract.DEFORMERS_PARAMETER_COUNTS, "getParameterCounts", "()[I"},
             {CorePublicApiSelectorContract.DEFORMERS_PARAMETERS, "getParameters", "()[[I"}
         });
-        add(selectors, Glues.class, new Object[][]{
+        add(selectors, Glues.class, new Object[][] {
             {CorePublicApiSelectorContract.GLUES_COUNT, "getCount", "()I"},
             {CorePublicApiSelectorContract.GLUES_IDS, "getIds", "()[Ljava/lang/String;"},
             {CorePublicApiSelectorContract.GLUES_DRAWABLES_A, "getDrawablesA", "()[I"},
@@ -513,7 +431,9 @@ public final class TestCoreApiFixture {
     }
 
     private static void add(final List<StaticSelector> selectors, final Class<?> owner, final Object[][] definitions) {
-        for (Object[] definition : definitions) selectors.add(instanceMethod((String) definition[0], owner, (String) definition[1], (String) definition[2]));
+        for (Object[] definition : definitions)
+            selectors.add(
+                    instanceMethod((String) definition[0], owner, (String) definition[1], (String) definition[2]));
     }
 
     static String internalName(final Class<?> type) {
@@ -576,49 +496,62 @@ public final class TestCoreApiFixture {
         private int closeCount;
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, () -> { });
+            this(
+                    canvasInfo,
+                    parameters,
+                    Parts.empty(),
+                    Drawables.empty(),
+                    Deformers.empty(),
+                    Glues.empty(),
+                    null,
+                    () -> {});
         }
 
         public Model(final CanvasInfo canvasInfo, final Parameters parameters, final Runnable beforeCanvasRead) {
-            this(canvasInfo, parameters, Parts.empty(), Drawables.empty(), Deformers.empty(), Glues.empty(), null, beforeCanvasRead);
+            this(
+                    canvasInfo,
+                    parameters,
+                    Parts.empty(),
+                    Drawables.empty(),
+                    Deformers.empty(),
+                    Glues.empty(),
+                    null,
+                    beforeCanvasRead);
         }
 
         public Model(
-            final CanvasInfo canvasInfo,
-            final Parameters parameters,
-            final Parts parts,
-            final Drawables drawables,
-            final Deformers deformers,
-            final Glues glues,
-            final Runnable beforeCanvasRead
-        ) {
+                final CanvasInfo canvasInfo,
+                final Parameters parameters,
+                final Parts parts,
+                final Drawables drawables,
+                final Deformers deformers,
+                final Glues glues,
+                final Runnable beforeCanvasRead) {
             this(canvasInfo, parameters, parts, drawables, deformers, glues, null, beforeCanvasRead);
         }
 
         public Model(
-            final CanvasInfo canvasInfo,
-            final Parameters parameters,
-            final Parts parts,
-            final Drawables drawables,
-            final Deformers deformers,
-            final Glues glues,
-            final Moc moc,
-            final Runnable beforeCanvasRead
-        ) {
+                final CanvasInfo canvasInfo,
+                final Parameters parameters,
+                final Parts parts,
+                final Drawables drawables,
+                final Deformers deformers,
+                final Glues glues,
+                final Moc moc,
+                final Runnable beforeCanvasRead) {
             this(canvasInfo, parameters, parts, drawables, deformers, glues, moc, beforeCanvasRead, 0L);
         }
 
         public Model(
-            final CanvasInfo canvasInfo,
-            final Parameters parameters,
-            final Parts parts,
-            final Drawables drawables,
-            final Deformers deformers,
-            final Glues glues,
-            final Moc moc,
-            final Runnable beforeCanvasRead,
-            final long nativeHandle
-        ) {
+                final CanvasInfo canvasInfo,
+                final Parameters parameters,
+                final Parts parts,
+                final Drawables drawables,
+                final Deformers deformers,
+                final Glues glues,
+                final Moc moc,
+                final Runnable beforeCanvasRead,
+                final long nativeHandle) {
             this.canvasInfo = canvasInfo;
             this.parameters = parameters;
             this.parts = parts;
@@ -650,14 +583,38 @@ public final class TestCoreApiFixture {
             return closeCount;
         }
 
-        public CanvasInfo getCanvasInfo() { beforeCanvasRead.run(); return canvasInfo; }
-        public Parameters getParameters() { return parameters; }
-        public Parts getParts() { return parts; }
-        public int[] getRenderOrders() { return drawables.getRenderOrders(); }
-        public Drawables getDrawables() { return drawables; }
-        public Deformers getDeformers() { return deformers; }
-        public Glues getGlues() { return glues; }
-        public Moc getMoc() { return moc; }
+        public CanvasInfo getCanvasInfo() {
+            beforeCanvasRead.run();
+            return canvasInfo;
+        }
+
+        public Parameters getParameters() {
+            return parameters;
+        }
+
+        public Parts getParts() {
+            return parts;
+        }
+
+        public int[] getRenderOrders() {
+            return drawables.getRenderOrders();
+        }
+
+        public Drawables getDrawables() {
+            return drawables;
+        }
+
+        public Deformers getDeformers() {
+            return deformers;
+        }
+
+        public Glues getGlues() {
+            return glues;
+        }
+
+        public Moc getMoc() {
+            return moc;
+        }
     }
 
     /** Minimal MOC stand-in exposing the verified owned-Moc lifecycle surface. */
@@ -727,11 +684,7 @@ public final class TestCoreApiFixture {
         private final float[] originInPixels;
         private final float pixelsPerUnit;
 
-        public CanvasInfo(
-            final float[] sizeInPixels,
-            final float[] originInPixels,
-            final float pixelsPerUnit
-        ) {
+        public CanvasInfo(final float[] sizeInPixels, final float[] originInPixels, final float pixelsPerUnit) {
             this.sizeInPixels = sizeInPixels;
             this.originInPixels = originInPixels;
             this.pixelsPerUnit = pixelsPerUnit;
@@ -762,16 +715,15 @@ public final class TestCoreApiFixture {
         private final boolean[] repeats;
 
         public Parameters(
-            final String[] ids,
-            final ParameterType[] types,
-            final float[] minimumValues,
-            final float[] maximumValues,
-            final float[] defaultValues,
-            final float[] values,
-            final int[] keyCounts,
-            final float[][] keyValues,
-            final boolean[] repeats
-        ) {
+                final String[] ids,
+                final ParameterType[] types,
+                final float[] minimumValues,
+                final float[] maximumValues,
+                final float[] defaultValues,
+                final float[] values,
+                final int[] keyCounts,
+                final float[][] keyValues,
+                final boolean[] repeats) {
             this.ids = ids;
             this.types = types;
             this.minimumValues = minimumValues;
@@ -837,62 +789,216 @@ public final class TestCoreApiFixture {
     }
 
     public record Parts(String[] ids, float[] opacities, int[] parentPartIndices) {
-        static Parts empty() { return new Parts(new String[0], new float[0], new int[0]); }
-        public int getCount() { return ids.length; }
-        public String[] getIds() { return ids; }
-        public float[] getOpacities() { return opacities; }
-        public int[] getParentPartIndices() { return parentPartIndices; }
+        static Parts empty() {
+            return new Parts(new String[0], new float[0], new int[0]);
+        }
+
+        public int getCount() {
+            return ids.length;
+        }
+
+        public String[] getIds() {
+            return ids;
+        }
+
+        public float[] getOpacities() {
+            return opacities;
+        }
+
+        public int[] getParentPartIndices() {
+            return parentPartIndices;
+        }
     }
 
     public record Drawables(
-        String[] ids, byte[] constantFlags, byte[] dynamicFlags, int[] blendModes,
-        int[] textureIndices, int[] drawOrders, int[] renderOrders, float[] opacities,
-        int[] maskCounts, int[][] masks, int[] vertexCounts, float[][] vertexPositions,
-        float[][] vertexUvs, int[] indexCounts, short[][] indices, float[][] multiplyColors,
-        float[][] screenColors, int[] parentPartIndices, int[] parentDeformers,
-        int[] parameterCounts, int[][] parameters
-    ) {
-        static Drawables empty() { return new Drawables(new String[0], new byte[0], new byte[0], new int[0], new int[0], new int[0], new int[0], new float[0], new int[0], new int[0][], new int[0], new float[0][], new float[0][], new int[0], new short[0][], new float[0][], new float[0][], new int[0], new int[0], new int[0], new int[0][]); }
-        public int getCount() { return ids.length; }
-        public String[] getIds() { return ids; }
-        public byte[] getConstantFlags() { return constantFlags; }
-        public byte[] getDynamicFlags() { return dynamicFlags; }
-        public int[] getBlendModes() { return blendModes; }
-        public int[] getTextureIndices() { return textureIndices; }
-        public int[] getDrawOrders() { return drawOrders; }
-        public int[] getRenderOrders() { return renderOrders; }
-        public float[] getOpacities() { return opacities; }
-        public int[] getMaskCounts() { return maskCounts; }
-        public int[][] getMasks() { return masks; }
-        public int[] getVertexCounts() { return vertexCounts; }
-        public float[][] getVertexPositions() { return vertexPositions; }
-        public float[][] getVertexUvs() { return vertexUvs; }
-        public int[] getIndexCounts() { return indexCounts; }
-        public short[][] getIndices() { return indices; }
-        public float[][] getMultiplyColors() { return multiplyColors; }
-        public float[][] getScreenColors() { return screenColors; }
-        public int[] getParentPartIndices() { return parentPartIndices; }
-        public int[] getParentDeformsers() { return parentDeformers; }
-        public int[] getParameterCounts() { return parameterCounts; }
-        public int[][] getParameters() { return parameters; }
+            String[] ids,
+            byte[] constantFlags,
+            byte[] dynamicFlags,
+            int[] blendModes,
+            int[] textureIndices,
+            int[] drawOrders,
+            int[] renderOrders,
+            float[] opacities,
+            int[] maskCounts,
+            int[][] masks,
+            int[] vertexCounts,
+            float[][] vertexPositions,
+            float[][] vertexUvs,
+            int[] indexCounts,
+            short[][] indices,
+            float[][] multiplyColors,
+            float[][] screenColors,
+            int[] parentPartIndices,
+            int[] parentDeformers,
+            int[] parameterCounts,
+            int[][] parameters) {
+        static Drawables empty() {
+            return new Drawables(
+                    new String[0],
+                    new byte[0],
+                    new byte[0],
+                    new int[0],
+                    new int[0],
+                    new int[0],
+                    new int[0],
+                    new float[0],
+                    new int[0],
+                    new int[0][],
+                    new int[0],
+                    new float[0][],
+                    new float[0][],
+                    new int[0],
+                    new short[0][],
+                    new float[0][],
+                    new float[0][],
+                    new int[0],
+                    new int[0],
+                    new int[0],
+                    new int[0][]);
+        }
+
+        public int getCount() {
+            return ids.length;
+        }
+
+        public String[] getIds() {
+            return ids;
+        }
+
+        public byte[] getConstantFlags() {
+            return constantFlags;
+        }
+
+        public byte[] getDynamicFlags() {
+            return dynamicFlags;
+        }
+
+        public int[] getBlendModes() {
+            return blendModes;
+        }
+
+        public int[] getTextureIndices() {
+            return textureIndices;
+        }
+
+        public int[] getDrawOrders() {
+            return drawOrders;
+        }
+
+        public int[] getRenderOrders() {
+            return renderOrders;
+        }
+
+        public float[] getOpacities() {
+            return opacities;
+        }
+
+        public int[] getMaskCounts() {
+            return maskCounts;
+        }
+
+        public int[][] getMasks() {
+            return masks;
+        }
+
+        public int[] getVertexCounts() {
+            return vertexCounts;
+        }
+
+        public float[][] getVertexPositions() {
+            return vertexPositions;
+        }
+
+        public float[][] getVertexUvs() {
+            return vertexUvs;
+        }
+
+        public int[] getIndexCounts() {
+            return indexCounts;
+        }
+
+        public short[][] getIndices() {
+            return indices;
+        }
+
+        public float[][] getMultiplyColors() {
+            return multiplyColors;
+        }
+
+        public float[][] getScreenColors() {
+            return screenColors;
+        }
+
+        public int[] getParentPartIndices() {
+            return parentPartIndices;
+        }
+
+        public int[] getParentDeformsers() {
+            return parentDeformers;
+        }
+
+        public int[] getParameterCounts() {
+            return parameterCounts;
+        }
+
+        public int[][] getParameters() {
+            return parameters;
+        }
     }
 
     public record Deformers(String[] ids, int[] parents, int[] parameterCounts, int[][] parameters) {
-        static Deformers empty() { return new Deformers(new String[0], new int[0], new int[0], new int[0][]); }
-        public int getCount() { return ids.length; }
-        public String[] getIds() { return ids; }
-        public int[] getParentDeformsers() { return parents; }
-        public int[] getParameterCounts() { return parameterCounts; }
-        public int[][] getParameters() { return parameters; }
+        static Deformers empty() {
+            return new Deformers(new String[0], new int[0], new int[0], new int[0][]);
+        }
+
+        public int getCount() {
+            return ids.length;
+        }
+
+        public String[] getIds() {
+            return ids;
+        }
+
+        public int[] getParentDeformsers() {
+            return parents;
+        }
+
+        public int[] getParameterCounts() {
+            return parameterCounts;
+        }
+
+        public int[][] getParameters() {
+            return parameters;
+        }
     }
 
     public record Glues(String[] ids, int[] drawablesA, int[] drawablesB, int[] parameterCounts, int[][] parameters) {
-        static Glues empty() { return new Glues(new String[0], new int[0], new int[0], new int[0], new int[0][]); }
-        public int getCount() { return ids.length; }
-        public String[] getIds() { return ids; }
-        public int[] getDrawablesA() { return drawablesA; }
-        public int[] getDrawablesB() { return drawablesB; }
-        public int[] getParameterCounts() { return parameterCounts; }
-        public int[][] getParameters() { return parameters; }
+        static Glues empty() {
+            return new Glues(new String[0], new int[0], new int[0], new int[0], new int[0][]);
+        }
+
+        public int getCount() {
+            return ids.length;
+        }
+
+        public String[] getIds() {
+            return ids;
+        }
+
+        public int[] getDrawablesA() {
+            return drawablesA;
+        }
+
+        public int[] getDrawablesB() {
+            return drawablesB;
+        }
+
+        public int[] getParameterCounts() {
+            return parameterCounts;
+        }
+
+        public int[][] getParameters() {
+            return parameters;
+        }
     }
 }

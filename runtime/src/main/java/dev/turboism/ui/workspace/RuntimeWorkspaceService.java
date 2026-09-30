@@ -7,13 +7,12 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
-
-import javax.swing.SwingUtilities;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import javax.swing.SwingUtilities;
 
 /**
  * Plugin-scoped workspace service. Permission checks run on the caller thread (never on the AWT
@@ -25,30 +24,24 @@ import java.util.concurrent.CompletionStage;
 public final class RuntimeWorkspaceService implements WorkspaceService, AutoCloseable {
 
     private static final WorkspaceStatus UNAVAILABLE_STATUS = new WorkspaceStatus(
-        WorkspaceStatus.Availability.UNAVAILABLE,
-        Optional.empty(),
-        List.of(),
-        Optional.of("workspace.unavailable")
-    );
+            WorkspaceStatus.Availability.UNAVAILABLE,
+            Optional.empty(),
+            List.of(),
+            Optional.of("workspace.unavailable"));
     private static final WorkspaceOperationResult UNAVAILABLE_RESULT = new WorkspaceOperationResult(
-        WorkspaceOperationResult.Outcome.UNAVAILABLE,
-        UNAVAILABLE_STATUS,
-        Optional.of("workspace.unavailable")
-    );
+            WorkspaceOperationResult.Outcome.UNAVAILABLE, UNAVAILABLE_STATUS, Optional.of("workspace.unavailable"));
 
     private final PermissionChecker permissionChecker;
     private final WorkspaceCoordinator coordinator;
     private volatile boolean closed;
 
-    public RuntimeWorkspaceService(
-        final PermissionChecker permissionChecker,
-        final WorkspaceCoordinator coordinator
-    ) {
+    public RuntimeWorkspaceService(final PermissionChecker permissionChecker, final WorkspaceCoordinator coordinator) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }
 
-    @Override public CompletionStage<WorkspaceStatus> current() {
+    @Override
+    public CompletionStage<WorkspaceStatus> current() {
         if (closed) return CompletableFuture.completedFuture(UNAVAILABLE_STATUS);
         permissionChecker.check(CubismFacadeImpl.PROJECT_READ_PERMISSION, "ui.workspace.current");
         return CompletableFuture.completedFuture(admitOnEdt(() -> {
@@ -57,7 +50,8 @@ public final class RuntimeWorkspaceService implements WorkspaceService, AutoClos
         }));
     }
 
-    @Override public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
+    @Override
+    public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId");
         if (closed) return CompletableFuture.completedFuture(UNAVAILABLE_RESULT);
         permissionChecker.check(PermissionIds.TURBOISM_HOST_UNSAFE, "ui.workspace.switch");
@@ -67,7 +61,8 @@ public final class RuntimeWorkspaceService implements WorkspaceService, AutoClos
         }));
     }
 
-    @Override public CompletionStage<WorkspaceOperationResult> updateDefault() {
+    @Override
+    public CompletionStage<WorkspaceOperationResult> updateDefault() {
         if (closed) return CompletableFuture.completedFuture(UNAVAILABLE_RESULT);
         permissionChecker.check(PermissionIds.TURBOISM_HOST_UNSAFE, "ui.workspace.update-default");
         return CompletableFuture.completedFuture(admitOnEdt(() -> {
@@ -76,7 +71,8 @@ public final class RuntimeWorkspaceService implements WorkspaceService, AutoClos
         }));
     }
 
-    @Override public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+    @Override
+    public CompletionStage<WorkspaceOperationResult> resetToDefault() {
         if (closed) return CompletableFuture.completedFuture(UNAVAILABLE_RESULT);
         permissionChecker.check(PermissionIds.TURBOISM_HOST_UNSAFE, "ui.workspace.reset-default");
         return CompletableFuture.completedFuture(admitOnEdt(() -> {

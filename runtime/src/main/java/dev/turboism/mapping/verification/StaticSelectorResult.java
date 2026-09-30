@@ -11,11 +11,7 @@ import java.util.Objects;
  *     not carry the member as reviewed
  * @param message human-readable explanation; never blank
  */
-public record StaticSelectorResult(
-    StaticSelector selector,
-    StaticVerificationStatus status,
-    String message
-) {
+public record StaticSelectorResult(StaticSelector selector, StaticVerificationStatus status, String message) {
     public StaticSelectorResult {
         selector = Objects.requireNonNull(selector, "selector");
         status = Objects.requireNonNull(status, "status");

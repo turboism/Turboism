@@ -24,8 +24,7 @@ public class CWritableImage {
 
     /** Mirrors the host's deep copy: a new image, duplicated pixels. */
     public final CWritableImage copyAs(final n colorType, final boolean force) {
-        final BufferedImage copy = new BufferedImage(
-            image.getWidth(), image.getHeight(), image.getType());
+        final BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), image.getType());
         copy.setData(image.getData());
         return new CWritableImage(copy);
     }

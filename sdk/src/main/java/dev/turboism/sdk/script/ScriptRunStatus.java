@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 /** Terminal state of a submitted script execution. */
 public enum ScriptRunStatus {
     SUCCEEDED,

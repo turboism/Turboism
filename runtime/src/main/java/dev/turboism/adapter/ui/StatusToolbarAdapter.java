@@ -1,9 +1,8 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
-
+import dev.turboism.sdk.ui.StatusNotification;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -33,9 +32,7 @@ public interface StatusToolbarAdapter {
      */
     default AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
-        return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(
-            Capability.CANVAS_HINT.id()
-        ));
+        return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(Capability.CANVAS_HINT.id()));
     }
 
     /** The host capabilities this adapter can be gated by. */
@@ -66,7 +63,9 @@ public interface StatusToolbarAdapter {
          * Returns the reviewed mapping generation used by these operations. An
          * unbound implementation defaults to its declared host version.
          */
-        default String contractVersion() { return hostVersion(); }
+        default String contractVersion() {
+            return hostVersion();
+        }
 
         /**
          * @param capability the capability being probed
@@ -98,10 +97,7 @@ public interface StatusToolbarAdapter {
      * @param diagnostic why no value could be supplied, empty when the call succeeded; never null
      * @param <T> the produced value type
      */
-    record AdapterResult<T>(
-        Optional<T> value,
-        Optional<SafeModeDiagnostic> diagnostic
-    ) {
+    record AdapterResult<T>(Optional<T> value, Optional<SafeModeDiagnostic> diagnostic) {
         public AdapterResult {
             value = Objects.requireNonNull(value, "value");
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");

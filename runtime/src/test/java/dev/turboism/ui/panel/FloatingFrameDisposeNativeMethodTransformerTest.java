@@ -1,46 +1,38 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class FloatingFrameDisposeNativeMethodTransformerTest {
 
     @Test
     void notifiesAfterDisposeExactlyOnceOnTheExactTargetMethod() throws Exception {
         final FixtureLoader loader = new FixtureLoader();
-        final FloatingFrameDisposeNativeMethodTransformer transformer = new FloatingFrameDisposeNativeMethodTransformer(
-            "fixture/Frame",
-            "disposeFrame",
-            "()V",
-            loader
-        );
+        final FloatingFrameDisposeNativeMethodTransformer transformer =
+                new FloatingFrameDisposeNativeMethodTransformer("fixture/Frame", "disposeFrame", "()V", loader);
 
         assertNull(transformer.transform(null, getClass().getClassLoader(), "fixture/Frame", null, null, frameClass()));
         assertNull(transformer.transform(null, loader, "fixture/Other", null, null, frameClass()));
 
-        final byte[] transformed = transformer.transform(
-            null, loader, "fixture/Frame", null, null, frameClass()
-        );
+        final byte[] transformed = transformer.transform(null, loader, "fixture/Frame", null, null, frameClass());
         assertNotNull(transformed);
 
         final Class<?> frameType = loader.define("fixture.Frame", transformed);
         final Object frame = frameType.getConstructor().newInstance();
         final List<Object> observed = new ArrayList<>();
 
-        final AtomicReference<NativeFloatingFrameDisposeBridge.Handler> installed =
-            new AtomicReference<>();
+        final AtomicReference<NativeFloatingFrameDisposeBridge.Handler> installed = new AtomicReference<>();
         final NativeFloatingFrameDisposeBridge.Handler handler = observed::add;
         NativeFloatingFrameDisposeBridge.install(handler);
         installed.set(handler);
@@ -67,9 +59,7 @@ class FloatingFrameDisposeNativeMethodTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor dispose = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "disposeFrame", "()V", null, null
-        );
+        final MethodVisitor dispose = writer.visitMethod(Opcodes.ACC_PUBLIC, "disposeFrame", "()V", null, null);
         dispose.visitCode();
         dispose.visitInsn(Opcodes.RETURN);
         dispose.visitMaxs(0, 0);

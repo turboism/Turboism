@@ -2,7 +2,6 @@ package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -78,7 +77,7 @@ final class CanonicalJson {
 
     private static void writeString(String value, ByteArrayOutputStream output) {
         output.write('"');
-        for (int index = 0; index < value.length();) {
+        for (int index = 0; index < value.length(); ) {
             int point = value.codePointAt(index);
             if (point == '"' || point == '\\') {
                 output.write('\\');

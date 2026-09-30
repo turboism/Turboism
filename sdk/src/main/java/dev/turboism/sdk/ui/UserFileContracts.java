@@ -10,18 +10,12 @@ final class UserFileContracts {
     private static final int MAX_ID_LENGTH = 128;
     private static final int MAX_TITLE_LENGTH = 256;
     private static final int MAX_EXTENSION_LENGTH = 32;
-    private static final Pattern EXTENSION = Pattern.compile(
-        "[A-Za-z0-9][A-Za-z0-9+_-]{0," + (MAX_EXTENSION_LENGTH - 1) + "}"
-    );
+    private static final Pattern EXTENSION =
+            Pattern.compile("[A-Za-z0-9][A-Za-z0-9+_-]{0," + (MAX_EXTENSION_LENGTH - 1) + "}");
 
-    private UserFileContracts() {
-    }
+    private UserFileContracts() {}
 
-    static String requireText(
-        final String value,
-        final String name,
-        final int maximumLength
-    ) {
+    static String requireText(final String value, final String name, final int maximumLength) {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
@@ -46,9 +40,7 @@ final class UserFileContracts {
     }
 
     static List<String> extensions(final List<String> extensions) {
-        final List<String> snapshot = List.copyOf(
-            Objects.requireNonNull(extensions, "allowedExtensions")
-        );
+        final List<String> snapshot = List.copyOf(Objects.requireNonNull(extensions, "allowedExtensions"));
         for (String extension : snapshot) {
             if (extension == null || !EXTENSION.matcher(extension).matches()) {
                 throw new IllegalArgumentException("allowed extension is invalid");

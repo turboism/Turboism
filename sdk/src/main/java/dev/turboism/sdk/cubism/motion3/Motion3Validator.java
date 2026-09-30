@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.motion3;
 
 import dev.turboism.protocol.json.StrictJson;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -20,19 +19,15 @@ import java.util.Set;
  */
 public final class Motion3Validator {
 
-    private static final Set<String> CURVE_TARGETS = Set.of(
-        "Parameter", "PartOpacity", "Model"
-    );
+    private static final Set<String> CURVE_TARGETS = Set.of("Parameter", "PartOpacity", "Model");
     /** Flat segment arity: segment kind → numbers consumed per segment. */
     private static final int[] SEGMENT_ARITY = {2, 6, 2, 2};
-    private static final String[] SEGMENT_NAMES = {
-        "linear", "bezier", "stepped", "inverse-stepped"
-    };
+
+    private static final String[] SEGMENT_NAMES = {"linear", "bezier", "stepped", "inverse-stepped"};
     private static final BigDecimal REQUIRED_VERSION = BigDecimal.valueOf(3L);
     private static final double TIME_EPSILON = 1e-4;
 
-    private Motion3Validator() {
-    }
+    private Motion3Validator() {}
 
     /**
      * Validates {@code bytes} as one motion3 document. Malformed JSON surfaces
@@ -45,15 +40,11 @@ public final class Motion3Validator {
         try {
             root = StrictJson.parse(bytes);
         } catch (IllegalArgumentException failure) {
-            issues.add(new Motion3Issue(
-                Motion3Issue.Severity.ERROR, "$", "invalid JSON: " + failure.getMessage()
-            ));
+            issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "invalid JSON: " + failure.getMessage()));
             return new Motion3Report(issues);
         }
         if (!(root instanceof Map<?, ?> document)) {
-            issues.add(new Motion3Issue(
-                Motion3Issue.Severity.ERROR, "$", "motion3 root must be a JSON object"
-            ));
+            issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "motion3 root must be a JSON object"));
             return new Motion3Report(issues);
         }
         validateDocument(asStringMap(document, issues, "$"), issues);
@@ -66,10 +57,7 @@ public final class Motion3Validator {
         return validate(json.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void validateDocument(
-        final Map<String, Object> document,
-        final List<Motion3Issue> issues
-    ) {
+    private static void validateDocument(final Map<String, Object> document, final List<Motion3Issue> issues) {
         if (document == null) {
             return;
         }
@@ -80,9 +68,7 @@ public final class Motion3Validator {
             error(issues, "$.Version", "must be 3, got " + version);
         }
         final Map<String, Object> meta = asStringMap(document.get("Meta"), issues, "$.Meta");
-        final double duration = meta == null
-            ? Double.NaN
-            : validateMeta(meta, issues);
+        final double duration = meta == null ? Double.NaN : validateMeta(meta, issues);
         final List<?> curves = asList(document.get("Curves"), issues, "$.Curves");
         int segmentCount = 0;
         int pointCount = 0;
@@ -91,9 +77,7 @@ public final class Motion3Validator {
                 warn(issues, "$.Curves", "motion carries no curves");
             }
             for (int index = 0; index < curves.size(); index++) {
-                final int[] counts = validateCurve(
-                    curves.get(index), index, duration, issues
-                );
+                final int[] counts = validateCurve(curves.get(index), index, duration, issues);
                 segmentCount += counts[0];
                 pointCount += counts[1];
             }
@@ -106,33 +90,34 @@ public final class Motion3Validator {
             }
         }
         if (meta != null) {
-            checkCount(issues, "$.Meta.CurveCount", meta.get("CurveCount"),
-                curves == null ? null : curves.size());
-            checkCount(issues, "$.Meta.TotalSegmentCount", meta.get("TotalSegmentCount"),
-                curves == null ? null : segmentCount);
-            checkCount(issues, "$.Meta.TotalPointCount", meta.get("TotalPointCount"),
-                curves == null ? null : pointCount);
-            checkCount(issues, "$.Meta.UserDataCount", meta.get("UserDataCount"),
-                userData == null ? null : userData.size());
-            checkCount(issues, "$.Meta.TotalUserDataSize", meta.get("TotalUserDataSize"),
-                userData == null ? null : userDataSize);
+            checkCount(issues, "$.Meta.CurveCount", meta.get("CurveCount"), curves == null ? null : curves.size());
+            checkCount(
+                    issues,
+                    "$.Meta.TotalSegmentCount",
+                    meta.get("TotalSegmentCount"),
+                    curves == null ? null : segmentCount);
+            checkCount(
+                    issues, "$.Meta.TotalPointCount", meta.get("TotalPointCount"), curves == null ? null : pointCount);
+            checkCount(
+                    issues,
+                    "$.Meta.UserDataCount",
+                    meta.get("UserDataCount"),
+                    userData == null ? null : userData.size());
+            checkCount(
+                    issues,
+                    "$.Meta.TotalUserDataSize",
+                    meta.get("TotalUserDataSize"),
+                    userData == null ? null : userDataSize);
         }
     }
 
-    private static double validateMeta(
-        final Map<String, Object> meta,
-        final List<Motion3Issue> issues
-    ) {
-        final double duration = positiveNumber(
-            meta.get("Duration"), "$.Meta.Duration", issues
-        );
+    private static double validateMeta(final Map<String, Object> meta, final List<Motion3Issue> issues) {
+        final double duration = positiveNumber(meta.get("Duration"), "$.Meta.Duration", issues);
         positiveNumber(meta.get("Fps"), "$.Meta.Fps", issues);
         flag(meta.get("Loop"), "$.Meta.Loop", issues);
         flag(meta.get("AreBeziersRestricted"), "$.Meta.AreBeziersRestricted", issues);
-        for (String key : List.of(
-            "CurveCount", "TotalSegmentCount", "TotalPointCount",
-            "UserDataCount", "TotalUserDataSize"
-        )) {
+        for (String key :
+                List.of("CurveCount", "TotalSegmentCount", "TotalPointCount", "UserDataCount", "TotalUserDataSize")) {
             final Object value = meta.get(key);
             if (value != null && !(value instanceof Number number && isIntegral(number))) {
                 error(issues, "$.Meta." + key, "must be an integer, got " + value);
@@ -144,11 +129,7 @@ public final class Motion3Validator {
     }
 
     private static int[] validateCurve(
-        final Object entry,
-        final int index,
-        final double duration,
-        final List<Motion3Issue> issues
-    ) {
+            final Object entry, final int index, final double duration, final List<Motion3Issue> issues) {
         final String path = "$.Curves[" + index + "]";
         final Map<String, Object> curve = asStringMap(entry, issues, path);
         if (curve == null) {
@@ -156,8 +137,7 @@ public final class Motion3Validator {
         }
         final Object target = curve.get("Target");
         if (!(target instanceof String name) || !CURVE_TARGETS.contains(name)) {
-            error(issues, path + ".Target",
-                "must be one of " + CURVE_TARGETS + ", got " + target);
+            error(issues, path + ".Target", "must be one of " + CURVE_TARGETS + ", got " + target);
         }
         final Object id = curve.get("Id");
         if (!(id instanceof String text) || text.isEmpty()) {
@@ -177,11 +157,7 @@ public final class Motion3Validator {
      * Returns {@code [segmentCount, pointCount]}.
      */
     private static int[] validateSegments(
-        final List<?> segments,
-        final String path,
-        final double duration,
-        final List<Motion3Issue> issues
-    ) {
+            final List<?> segments, final String path, final double duration, final List<Motion3Issue> issues) {
         if (segments.size() < 2) {
             error(issues, path, "needs at least the first point [time, value]");
             return new int[] {0, 0};
@@ -200,8 +176,7 @@ public final class Motion3Validator {
         int offset = 2;
         while (offset < segments.size()) {
             final Object rawKind = segments.get(offset);
-            final BigDecimal kindValue = rawKind instanceof Number kindNumber
-                ? asBigDecimal(kindNumber) : null;
+            final BigDecimal kindValue = rawKind instanceof Number kindNumber ? asBigDecimal(kindNumber) : null;
             int kind = -1;
             if (kindValue != null) {
                 for (int candidate = 0; candidate < SEGMENT_ARITY.length; candidate++) {
@@ -212,32 +187,39 @@ public final class Motion3Validator {
                 }
             }
             if (kind < 0) {
-                error(issues, path + "[" + offset + "]",
-                    "segment kind must be 0..3, got " + rawKind);
+                error(issues, path + "[" + offset + "]", "segment kind must be 0..3, got " + rawKind);
                 break;
             }
             final int arity = SEGMENT_ARITY[kind];
             if (offset + 1 + arity > segments.size()) {
-                error(issues, path + "[" + offset + "]",
-                    SEGMENT_NAMES[kind] + " segment needs " + arity
-                        + " numbers, only " + (segments.size() - offset - 1) + " remain");
+                error(
+                        issues,
+                        path + "[" + offset + "]",
+                        SEGMENT_NAMES[kind] + " segment needs " + arity + " numbers, only "
+                                + (segments.size() - offset - 1) + " remain");
                 break;
             }
             for (int index = offset + 1; index <= offset + arity; index++) {
                 if (number(segments.get(index)) == null) {
-                    error(issues, path + "[" + index + "]",
-                        "segment payload must be numeric, got " + segments.get(index));
+                    error(
+                            issues,
+                            path + "[" + index + "]",
+                            "segment payload must be numeric, got " + segments.get(index));
                     return new int[] {segmentCount, points};
                 }
             }
             final double time = number(segments.get(offset + arity - 1));
             if (time <= previous - TIME_EPSILON) {
-                error(issues, path + "[" + (offset + arity - 1) + "]",
-                    "segment times must increase, got " + time + " after " + previous);
+                error(
+                        issues,
+                        path + "[" + (offset + arity - 1) + "]",
+                        "segment times must increase, got " + time + " after " + previous);
             }
             if (!Double.isNaN(duration) && time > duration + TIME_EPSILON) {
-                warn(issues, path + "[" + (offset + arity - 1) + "]",
-                    "segment ends past Meta.Duration " + duration + ": " + time);
+                warn(
+                        issues,
+                        path + "[" + (offset + arity - 1) + "]",
+                        "segment ends past Meta.Duration " + duration + ": " + time);
             }
             previous = time;
             segmentCount++;
@@ -248,11 +230,7 @@ public final class Motion3Validator {
     }
 
     private static int validateUserData(
-        final Object entry,
-        final int index,
-        final double duration,
-        final List<Motion3Issue> issues
-    ) {
+            final Object entry, final int index, final double duration, final List<Motion3Issue> issues) {
         final String path = "$.UserData[" + index + "]";
         final Map<String, Object> event = asStringMap(entry, issues, path);
         if (event == null) {
@@ -263,8 +241,7 @@ public final class Motion3Validator {
         if (seconds == null || seconds < -TIME_EPSILON) {
             error(issues, path + ".Time", "must be a number >= 0, got " + time);
         } else if (!Double.isNaN(duration) && seconds > duration + TIME_EPSILON) {
-            warn(issues, path + ".Time",
-                "event time past Meta.Duration " + duration + ": " + seconds);
+            warn(issues, path + ".Time", "event time past Meta.Duration " + duration + ": " + seconds);
         }
         final Object value = event.get("Value");
         if (!(value instanceof String text)) {
@@ -275,11 +252,7 @@ public final class Motion3Validator {
     }
 
     private static void checkCount(
-        final List<Motion3Issue> issues,
-        final String path,
-        final Object declared,
-        final Integer actual
-    ) {
+            final List<Motion3Issue> issues, final String path, final Object declared, final Integer actual) {
         if (actual == null || declared == null) {
             return;
         }
@@ -292,11 +265,7 @@ public final class Motion3Validator {
         }
     }
 
-    private static double positiveNumber(
-        final Object value,
-        final String path,
-        final List<Motion3Issue> issues
-    ) {
+    private static double positiveNumber(final Object value, final String path, final List<Motion3Issue> issues) {
         final Double number = number(value);
         if (number == null || number <= 0.0 || !Double.isFinite(number)) {
             error(issues, path, "must be a positive number, got " + value);
@@ -305,11 +274,7 @@ public final class Motion3Validator {
         return number;
     }
 
-    private static void optionalNonNegative(
-        final Object value,
-        final String path,
-        final List<Motion3Issue> issues
-    ) {
+    private static void optionalNonNegative(final Object value, final String path, final List<Motion3Issue> issues) {
         if (value == null) {
             return;
         }
@@ -319,11 +284,7 @@ public final class Motion3Validator {
         }
     }
 
-    private static void flag(
-        final Object value,
-        final String path,
-        final List<Motion3Issue> issues
-    ) {
+    private static void flag(final Object value, final String path, final List<Motion3Issue> issues) {
         if (!(value instanceof Boolean)) {
             error(issues, path, "must be a boolean, got " + value);
         }
@@ -331,10 +292,7 @@ public final class Motion3Validator {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> asStringMap(
-        final Object value,
-        final List<Motion3Issue> issues,
-        final String path
-    ) {
+            final Object value, final List<Motion3Issue> issues, final String path) {
         if (value == null) {
             error(issues, path, "missing");
             return null;
@@ -346,11 +304,7 @@ public final class Motion3Validator {
         return (Map<String, Object>) value;
     }
 
-    private static List<?> asList(
-        final Object value,
-        final List<Motion3Issue> issues,
-        final String path
-    ) {
+    private static List<?> asList(final Object value, final List<Motion3Issue> issues, final String path) {
         if (value == null) {
             error(issues, path, "missing");
             return null;
@@ -371,7 +325,7 @@ public final class Motion3Validator {
 
     private static boolean isIntegral(final Number number) {
         return !(number instanceof BigDecimal decimal)
-            || decimal.stripTrailingZeros().scale() <= 0;
+                || decimal.stripTrailingZeros().scale() <= 0;
     }
 
     /**
@@ -379,10 +333,7 @@ public final class Motion3Validator {
      * {@code 3}, {@code 3.0} and {@code 3e0} all match while {@code 3.5}
      * and integers that only wrap to the expected value do not.
      */
-    private static boolean equalsExactly(
-        final Object value,
-        final BigDecimal expected
-    ) {
+    private static boolean equalsExactly(final Object value, final BigDecimal expected) {
         if (!(value instanceof Number number)) {
             return false;
         }
@@ -404,8 +355,7 @@ public final class Motion3Validator {
         if (number instanceof BigInteger integer) {
             return new BigDecimal(integer);
         }
-        if (number instanceof Byte || number instanceof Short
-            || number instanceof Integer || number instanceof Long) {
+        if (number instanceof Byte || number instanceof Short || number instanceof Integer || number instanceof Long) {
             return BigDecimal.valueOf(number.longValue());
         }
         if (number instanceof Double || number instanceof Float) {
@@ -423,15 +373,11 @@ public final class Motion3Validator {
         return value == null ? "null" : "object";
     }
 
-    private static void error(
-        final List<Motion3Issue> issues, final String path, final String message
-    ) {
+    private static void error(final List<Motion3Issue> issues, final String path, final String message) {
         issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, path, message));
     }
 
-    private static void warn(
-        final List<Motion3Issue> issues, final String path, final String message
-    ) {
+    private static void warn(final List<Motion3Issue> issues, final String path, final String message) {
         issues.add(new Motion3Issue(Motion3Issue.Severity.WARNING, path, message));
     }
 }

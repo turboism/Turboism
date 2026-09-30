@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.Objects;
 
 /** Immutable normalized MOC inspection result. */

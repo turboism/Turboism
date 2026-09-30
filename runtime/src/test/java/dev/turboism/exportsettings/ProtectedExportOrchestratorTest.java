@@ -1,5 +1,12 @@
 package dev.turboism.exportsettings;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocVersion;
 import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
@@ -12,10 +19,6 @@ import dev.turboism.sdk.cubism.core.OwnedParameter;
 import dev.turboism.sdk.cubism.core.OwnedPart;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -37,15 +40,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
-import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Fault-injection matrix for {@link ProtectedExportOrchestrator} over a fake host.
@@ -77,22 +74,20 @@ class ProtectedExportOrchestratorTest {
         assertTrue(report.published());
         assertEquals(2, report.publishedFiles().size());
         // The user's real pick directory received the published output.
-        assertTrue(Files.isRegularFile(
-            fixture.realPick.toPath().getParent().resolve("model.moc3")));
-        assertTrue(Files.isRegularFile(
-            fixture.realPick.toPath().getParent().resolve("model.model3.json")));
+        assertTrue(Files.isRegularFile(fixture.realPick.toPath().getParent().resolve("model.moc3")));
+        assertTrue(Files.isRegularFile(fixture.realPick.toPath().getParent().resolve("model.model3.json")));
         // The original is the active document again; the copy is gone from the project.
         assertTrue(fixture.host.activeDoc == fixture.host.original);
         assertFalse(fixture.host.project.contains(fixture.host.copy));
         // The copy carried the obfuscated identities; the original is untouched.
         assertTrue(fixture.host.copy.model.artMeshes.stream()
-            .allMatch(mesh -> mesh.name.matches("ArtMesh_[0-9a-f]{16,}")
-                && mesh.drawableId.matches("@[0-9a-f]{16,}")));
+                .allMatch(mesh ->
+                        mesh.name.matches("ArtMesh_[0-9a-f]{16,}") && mesh.drawableId.matches("@[0-9a-f]{16,}")));
         assertEquals("meshA", fixture.host.original.model.artMeshes.get(0).name);
         assertEquals("id-a", fixture.host.original.model.artMeshes.get(0).drawableId);
         // Task-owned staging is removed (root may remain but must be empty).
         assertTrue(!Files.exists(fixture.stagingRoot)
-            || Files.list(fixture.stagingRoot).findAny().isEmpty());
+                || Files.list(fixture.stagingRoot).findAny().isEmpty());
         orchestrator.close();
     }
 
@@ -110,7 +105,7 @@ class ProtectedExportOrchestratorTest {
         assertEquals(ProtectedExportOrchestrator.Phase.PUBLISHED, report.reached());
         assertTrue(report.published());
         assertTrue(!Files.exists(fixture.stagingRoot)
-            || Files.list(fixture.stagingRoot).findAny().isEmpty());
+                || Files.list(fixture.stagingRoot).findAny().isEmpty());
         orchestrator.close();
     }
 
@@ -128,8 +123,7 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY,
-            report.failureKey());
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -145,11 +139,9 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
-        assertFalse(Files.exists(
-            fixture.realPick.toPath().getParent().resolve("model.moc3")));
+        assertFalse(Files.exists(fixture.realPick.toPath().getParent().resolve("model.moc3")));
         orchestrator.close();
     }
 
@@ -162,8 +154,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -177,8 +168,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -195,11 +185,12 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
-            "expected validation rejection, got " + report.failureKey());
-        assertTrue(report.failureKey().contains("behavior-drift"),
-            "expected behavior-drift detail, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+                "expected validation rejection, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().contains("behavior-drift"),
+                "expected behavior-drift detail, got " + report.failureKey());
         assertFalse(report.published());
         assertTrue(report.originalRestored());
         assertTrue(report.cleanupErrors().isEmpty());
@@ -218,12 +209,13 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
-            "expected validation rejection, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+                "expected validation rejection, got " + report.failureKey());
         assertNotNull(report.failureDetail());
-        assertTrue(report.failureDetail().contains("non-finite-output"),
-            "expected non-finite-output detail, got " + report.failureDetail());
+        assertTrue(
+                report.failureDetail().contains("non-finite-output"),
+                "expected non-finite-output detail, got " + report.failureDetail());
         assertFalse(report.published());
         assertTrue(report.originalRestored());
         assertTrue(report.cleanupErrors().isEmpty());
@@ -240,12 +232,13 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().startsWith(
-                ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
-            "expected validation rejection, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY),
+                "expected validation rejection, got " + report.failureKey());
         assertNotNull(report.failureDetail());
-        assertTrue(report.failureDetail().contains("invalid-output-vertices"),
-            "expected invalid-output-vertices detail, got " + report.failureDetail());
+        assertTrue(
+                report.failureDetail().contains("invalid-output-vertices"),
+                "expected invalid-output-vertices detail, got " + report.failureDetail());
         assertFalse(report.published());
         assertTrue(report.originalRestored());
         assertTrue(report.cleanupErrors().isEmpty());
@@ -264,12 +257,10 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY,
-            report.failureKey());
+        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY, report.failureKey());
         assertEquals(ProtectedExportOrchestrator.Phase.FAILED, report.reached());
         assertFalse(report.published());
-        assertNull(fixture.host.exportedModel,
-            "native export must not run when flatten changed behavior");
+        assertNull(fixture.host.exportedModel, "native export must not run when flatten changed behavior");
         assertTrue(report.originalRestored());
         assertTrue(report.cleanupErrors().isEmpty());
         orchestrator.close();
@@ -288,11 +279,9 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY,
-            report.failureKey());
+        assertEquals(ProtectedExportOrchestrator.BEHAVIOR_MISMATCH_KEY, report.failureKey());
         assertFalse(report.published());
-        assertNull(fixture.host.exportedModel,
-            "native export must not run when flatten changed behavior");
+        assertNull(fixture.host.exportedModel, "native export must not run when flatten changed behavior");
         orchestrator.close();
     }
 
@@ -307,12 +296,12 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.published(),
-            "expected publish, failed with " + report.failureKey());
+        assertTrue(report.published(), "expected publish, failed with " + report.failureKey());
         for (FakeParameter parameter : fixture.host.copy.model.parameters) {
-            assertEquals(parameter.max, parameter.currentValue,
-                "parameter " + parameter.id + " must be restored to its"
-                    + " pre-capture value");
+            assertEquals(
+                    parameter.max,
+                    parameter.currentValue,
+                    "parameter " + parameter.id + " must be restored to its" + " pre-capture value");
         }
         orchestrator.close();
     }
@@ -339,9 +328,9 @@ class ProtectedExportOrchestratorTest {
         orchestrator.refusalReporter(refusals::add);
 
         assertFalse(orchestrator.requestExport(fixture.outerDialog));
-        assertEquals(1, refusals.size(),
-            "a refused request must name itself for the user-visible sink");
-        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
+        assertEquals(1, refusals.size(), "a refused request must name itself for the user-visible sink");
+        assertEquals(
+                ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
         assertEquals("redirect-seam-missing", refusals.get(0).detail());
         orchestrator.close();
     }
@@ -357,7 +346,8 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
         assertFalse(orchestrator.requestExport(fixture.outerDialog));
         assertEquals(1, refusals.size());
-        assertEquals(ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
+        assertEquals(
+                ProtectedExportOrchestrator.NOT_ADMITTED_KEY, refusals.get(0).key());
         assertEquals("busy", refusals.get(0).detail());
         orchestrator.close();
     }
@@ -501,9 +491,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertEquals(
-            "protected-export.unpinnable-structure:unknown=1",
-            report.failureDetail());
+        assertEquals("protected-export.unpinnable-structure:unknown=1", report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
         assertTrue(fixture.destinationFiles().isEmpty());
@@ -517,9 +505,11 @@ class ProtectedExportOrchestratorTest {
         // family-count detail must cover only the rejected members — Glue is a
         // pass-through channel and never counts as unpinnable.
         fixture.host.original.model.glues.add(new FakeGlue(
-            "glue-1-guid", "Glue1", "glue-one",
-            fixture.host.original.model.artMeshes.get(0),
-            fixture.host.original.model.artMeshes.get(1)));
+                "glue-1-guid",
+                "Glue1",
+                "glue-one",
+                fixture.host.original.model.artMeshes.get(0),
+                fixture.host.original.model.artMeshes.get(1)));
         fixture.host.original.model.unpinnableObjects.add(new FakeUnsupported("art-path"));
         fixture.host.original.model.unpinnableObjects.add(new Object());
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -527,9 +517,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertEquals(
-            "protected-export.unpinnable-structure:art-path=1,unknown=1",
-            report.failureDetail());
+        assertEquals("protected-export.unpinnable-structure:art-path=1,unknown=1", report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null, "no copy may be bound");
         orchestrator.close();
@@ -540,16 +528,14 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // A controllable member of a family whose references cannot be
         // enumerated (deform-path) cannot be safely pinned — it fails closed.
-        fixture.host.original.model.passThrough.add(new FakePassThrough(
-            "deform-path", "dp-1-guid", "dp-1", "deformPath", List.of()));
+        fixture.host.original.model.passThrough.add(
+                new FakePassThrough("deform-path", "dp-1-guid", "dp-1", "deformPath", List.of()));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertEquals(
-            "protected-export.unpinnable-structure:deform-path=1",
-            report.failureDetail());
+        assertEquals("protected-export.unpinnable-structure:deform-path=1", report.failureDetail());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -559,16 +545,14 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // A pass-through member colliding with an ArtMesh GUID makes the census
         // ambiguous — fail closed.
-        fixture.host.original.model.passThrough.add(new FakePassThrough(
-            "art-path", "m-a-guid", "ap-1", "artPath", List.of()));
+        fixture.host.original.model.passThrough.add(
+                new FakePassThrough("art-path", "m-a-guid", "ap-1", "artPath", List.of()));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertEquals(
-            "protected-export.duplicate-guid:m-a-guid",
-            report.failureDetail());
+        assertEquals("protected-export.duplicate-guid:m-a-guid", report.failureDetail());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -578,11 +562,10 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // ArtPath and alias members ride the session untouched: admitted by
         // admission, pinned by the census, preserved verbatim on the original.
-        fixture.host.original.model.passThrough.add(new FakePassThrough(
-            "art-path", "ap-1-guid", "ArtPath1", "art-path-one",
-            List.of("m-a-guid")));
-        fixture.host.original.model.passThrough.add(new FakePassThrough(
-            "alias", "al-1-guid", "Alias1", "alias-one", List.of("m-b-guid")));
+        fixture.host.original.model.passThrough.add(
+                new FakePassThrough("art-path", "ap-1-guid", "ArtPath1", "art-path-one", List.of("m-a-guid")));
+        fixture.host.original.model.passThrough.add(
+                new FakePassThrough("alias", "al-1-guid", "Alias1", "alias-one", List.of("m-b-guid")));
         fixture.host.original.model.parts.get(0).childGuids.add("ap-1-guid");
         fixture.host.original.model.parts.get(0).childGuids.add("al-1-guid");
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -592,8 +575,7 @@ class ProtectedExportOrchestratorTest {
         assertNull(report.failureKey());
         assertTrue(report.published());
         for (FakePassThrough member : fixture.host.original.model.passThrough) {
-            assertTrue(member.name.endsWith("-one"),
-                "original pass-through identity untouched: " + member.name);
+            assertTrue(member.name.endsWith("-one"), "original pass-through identity untouched: " + member.name);
         }
         orchestrator.close();
     }
@@ -604,8 +586,8 @@ class ProtectedExportOrchestratorTest {
         // An out-of-band mutation renames a pass-through member while flatten
         // runs — the post-mutation census compares against the bound snapshot
         // and refuses.
-        fixture.host.original.model.passThrough.add(new FakePassThrough(
-            "art-path", "ap-1-guid", "ArtPath1", "art-path-one", List.of()));
+        fixture.host.original.model.passThrough.add(
+                new FakePassThrough("art-path", "ap-1-guid", "ArtPath1", "art-path-one", List.of()));
         fixture.host.mutatePassThroughMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -624,9 +606,11 @@ class ProtectedExportOrchestratorTest {
         // A model carrying a Glue relation must export: the Glue rides the
         // session untouched — no flatten, no rename, no re-identification.
         fixture.host.original.model.glues.add(new FakeGlue(
-            "glue-1-guid", "Glue1", "glue-one",
-            fixture.host.original.model.artMeshes.get(0),
-            fixture.host.original.model.artMeshes.get(1)));
+                "glue-1-guid",
+                "Glue1",
+                "glue-one",
+                fixture.host.original.model.artMeshes.get(0),
+                fixture.host.original.model.artMeshes.get(1)));
         fixture.host.original.model.parts.get(0).childGuids.add("glue-1-guid");
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -650,9 +634,11 @@ class ProtectedExportOrchestratorTest {
         // An out-of-band mutation renames the Glue while flatten runs — the
         // pass-through census compares against the bound snapshot and refuses.
         fixture.host.original.model.glues.add(new FakeGlue(
-            "glue-1-guid", "Glue1", "glue-one",
-            fixture.host.original.model.artMeshes.get(0),
-            fixture.host.original.model.artMeshes.get(1)));
+                "glue-1-guid",
+                "Glue1",
+                "glue-one",
+                fixture.host.original.model.artMeshes.get(0),
+                fixture.host.original.model.artMeshes.get(1)));
         fixture.host.mutateGlueMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -670,9 +656,8 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // A Glue whose target stopped resolving is corrupt input, not a
         // pass-through case — fail closed at preflight.
-        fixture.host.original.model.glues.add(new FakeGlue(
-            "glue-1-guid", "Glue1", "glue-one",
-            fixture.host.original.model.artMeshes.get(0), null));
+        fixture.host.original.model.glues.add(
+                new FakeGlue("glue-1-guid", "Glue1", "glue-one", fixture.host.original.model.artMeshes.get(0), null));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
@@ -689,17 +674,17 @@ class ProtectedExportOrchestratorTest {
         // The staged artifact must carry the Glue under its unchanged ID —
         // a native export that dropped it is a validation rejection.
         fixture.host.original.model.glues.add(new FakeGlue(
-            "glue-1-guid", "Glue1", "glue-one",
-            fixture.host.original.model.artMeshes.get(0),
-            fixture.host.original.model.artMeshes.get(1)));
+                "glue-1-guid",
+                "Glue1",
+                "glue-one",
+                fixture.host.original.model.artMeshes.get(0),
+                fixture.host.original.model.artMeshes.get(1)));
         fixture.host.exportDropsGlue = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertEquals(
-            "protected-export.validation-failed:protected-export.moc3-glue-ids",
-            report.failureKey());
+        assertEquals("protected-export.validation-failed:protected-export.moc3-glue-ids", report.failureKey());
         assertFalse(report.published());
         assertTrue(fixture.destinationFiles().isEmpty());
         orchestrator.close();
@@ -709,20 +694,12 @@ class ProtectedExportOrchestratorTest {
      * A fixture physics setting with realistic behavior content: one input and
      * one output bound to {@code param-1}, three pendulum vertices.
      */
-    private static FakePhysicsSettings physicsSetting(
-        final String guid,
-        final String id,
-        final String name
-    ) {
-        final FakePhysicsSettings settings =
-            new FakePhysicsSettings(guid, id, name);
-        settings.inputs.add(new FakePhysicsInput(
-            "param-1-guid", 1f, "SRC_TO_X", false));
-        settings.outputs.add(new FakePhysicsOutput(
-            "param-1-guid", 0, 1f, "SRC_TO_X", false));
+    private static FakePhysicsSettings physicsSetting(final String guid, final String id, final String name) {
+        final FakePhysicsSettings settings = new FakePhysicsSettings(guid, id, name);
+        settings.inputs.add(new FakePhysicsInput("param-1-guid", 1f, "SRC_TO_X", false));
+        settings.outputs.add(new FakePhysicsOutput("param-1-guid", 0, 1f, "SRC_TO_X", false));
         for (int i = 0; i < 3; i++) {
-            settings.vertices.add(new FakePhysicsVertex(
-                i * 0.5f, 0f, 1f, 0.2f, 0.9f, 1f));
+            settings.vertices.add(new FakePhysicsVertex(i * 0.5f, 0f, 1f, 0.2f, 0.9f, 1f));
         }
         return settings;
     }
@@ -735,19 +712,15 @@ class ProtectedExportOrchestratorTest {
         // pinned by the content signature, and the staged physics3.json
         // (emitted because the user's physics output checkbox is on) must
         // reproduce the content under the canonical positional IDs.
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-1-guid", "hairPhys", "hair"));
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertNull(report.failureKey(), "expected publish: " + report.failureKey()
-            + " " + report.failureDetail());
+        assertNull(report.failureKey(), "expected publish: " + report.failureKey() + " " + report.failureDetail());
         assertTrue(report.published());
-        final Path physics3 =
-            fixture.realPick.toPath().getParent().resolve("model.physics3.json");
+        final Path physics3 = fixture.realPick.toPath().getParent().resolve("model.physics3.json");
         assertTrue(Files.isRegularFile(physics3));
         final String body = Files.readString(physics3);
         assertTrue(body.contains("\"PhysicsSetting1\""), body);
@@ -757,14 +730,14 @@ class ProtectedExportOrchestratorTest {
         // The copy's settings carry the planned tokens — the authored names/IDs
         // are gone from the exported model.
         assertTrue(fixture.host.copy.model.physicsSettings.stream()
-            .allMatch(setting -> setting instanceof FakePhysicsSettings physics
-                && physics.id.startsWith("PhysicsId_")
-                && physics.name.startsWith("Physics_")));
+                .allMatch(setting -> setting instanceof FakePhysicsSettings physics
+                        && physics.id.startsWith("PhysicsId_")
+                        && physics.name.startsWith("Physics_")));
         // The original document is untouched.
         assertTrue(fixture.host.original.model.physicsSettings.stream()
-            .allMatch(setting -> setting instanceof FakePhysicsSettings physics
-                && (physics.id.equals("hairPhys") || physics.id.equals("skirtPhys"))
-                && (physics.name.equals("hair") || physics.name.equals("skirt"))));
+                .allMatch(setting -> setting instanceof FakePhysicsSettings physics
+                        && (physics.id.equals("hairPhys") || physics.id.equals("skirtPhys"))
+                        && (physics.name.equals("hair") || physics.name.equals("skirt"))));
         orchestrator.close();
     }
 
@@ -773,8 +746,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // Physics settings pinned but the user's native output checkbox off: no
         // physics3.json is staged and validation must not demand one.
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.exportWritesPhysics = false;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -790,18 +762,17 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // The exporter silently drops one physics setting: the staged
         // physics3.json no longer matches the census set — reject.
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-1-guid", "hairPhys", "hair"));
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-2-guid", "skirtPhys", "skirt"));
         fixture.host.exportDropsPhysicsSetting = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().contains("physics3-ids"),
-            "expected physics3-ids rejection, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().contains("physics3-ids"),
+                "expected physics3-ids rejection, got " + report.failureKey());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -811,16 +782,16 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // A staged physics3.json whose serialized values no longer match the
         // pinned census signature is a content rejection, not publishable.
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.exportMutatesPhysicsContent = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertNotNull(report.failureKey());
-        assertTrue(report.failureKey().contains("physics3-content"),
-            "expected physics3-content rejection, got " + report.failureKey());
+        assertTrue(
+                report.failureKey().contains("physics3-content"),
+                "expected physics3-content rejection, got " + report.failureKey());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -830,18 +801,17 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // A physics input referencing a parameter GUID the model does not have
         // cannot be proven preserved — fail closed at the census.
-        final FakePhysicsSettings dangling =
-            physicsSetting("phys-1-guid", "hairPhys", "hair");
-        dangling.inputs.add(new FakePhysicsInput(
-            "ghost-param-guid", 1f, "SRC_TO_X", false));
+        final FakePhysicsSettings dangling = physicsSetting("phys-1-guid", "hairPhys", "hair");
+        dangling.inputs.add(new FakePhysicsInput("ghost-param-guid", 1f, "SRC_TO_X", false));
         fixture.host.original.model.physicsSettings.add(dangling);
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertTrue(report.failureDetail().contains("unpinnable-settings"),
-            "expected unpinnable-settings rejection, got " + report.failureDetail());
+        assertTrue(
+                report.failureDetail().contains("unpinnable-settings"),
+                "expected unpinnable-settings rejection, got " + report.failureDetail());
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -851,8 +821,7 @@ class ProtectedExportOrchestratorTest {
         final Fixture fixture = new Fixture();
         // An out-of-band mutation flips a physics signature mid-run; the
         // post-mutation census compares against the bound snapshot.
-        fixture.host.original.model.physicsSettings.add(
-            physicsSetting("phys-1-guid", "hairPhys", "hair"));
+        fixture.host.original.model.physicsSettings.add(physicsSetting("phys-1-guid", "hairPhys", "hair"));
         fixture.host.mutateSettingsMidRun = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
@@ -875,9 +844,7 @@ class ProtectedExportOrchestratorTest {
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.PREFLIGHT_FAILED_KEY, report.failureKey());
-        assertEquals(
-            "protected-export.unpinnable-settings:unknown",
-            report.failureDetail());
+        assertEquals("protected-export.unpinnable-settings:unknown", report.failureDetail());
         assertFalse(report.published());
         assertTrue(fixture.host.copy == null);
         orchestrator.close();
@@ -887,7 +854,7 @@ class ProtectedExportOrchestratorTest {
     void publishesWithMotionSyncSettingsPassingThrough() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.original.model.motionSyncSettings.add(
-            new FakeMotionSyncSettings("ms-1-guid", "MotionSync1", "voice", 4242));
+                new FakeMotionSyncSettings("ms-1-guid", "MotionSync1", "voice", 4242));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
@@ -963,8 +930,7 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.failureKey().startsWith(
-            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -977,8 +943,7 @@ class ProtectedExportOrchestratorTest {
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.failureKey().startsWith(
-            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertTrue(report.failureKey().startsWith(ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
         assertFalse(report.published());
         orchestrator.close();
     }
@@ -1022,16 +987,13 @@ class ProtectedExportOrchestratorTest {
         assertFalse(report.published());
         // AC07: a cancelled session still restores the original document and
         // removes every task-owned file — the report carries the proof.
-        assertTrue(report.originalRestored(),
-            "original document must be active and intact after cancellation");
-        assertTrue(report.cleanedUp(),
-            "cleanup errors: " + report.cleanupErrors());
+        assertTrue(report.originalRestored(), "original document must be active and intact after cancellation");
+        assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
         assertTrue(fixture.host.activeDoc == fixture.host.original);
         assertFalse(fixture.host.project.contains(fixture.host.copy));
-        assertFalse(fixture.host.copy.file.exists(),
-            "copy file must be deleted");
-        assertTrue(fixture.destinationFiles().isEmpty(),
-            "destination must stay untouched: " + fixture.destinationFiles());
+        assertFalse(fixture.host.copy.file.exists(), "copy file must be deleted");
+        assertTrue(
+                fixture.destinationFiles().isEmpty(), "destination must stay untouched: " + fixture.destinationFiles());
         orchestrator.close();
     }
 
@@ -1065,8 +1027,7 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.RESTORE_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
-        assertFalse(Files.exists(
-            fixture.realPick.toPath().getParent().resolve("model.moc3")));
+        assertFalse(Files.exists(fixture.realPick.toPath().getParent().resolve("model.moc3")));
         orchestrator.close();
     }
 
@@ -1077,27 +1038,28 @@ class ProtectedExportOrchestratorTest {
         // would silently drop it. Protected export must stage the live model
         // instead — same content basis as native export.
         fixture.host.original.modified = true;
-        fixture.host.original.model.parameters.set(0,
-            new FakeParameter("param-1", 0f, 2f, 0f, false));
+        fixture.host.original.model.parameters.set(0, new FakeParameter("param-1", 0f, 2f, 0f, false));
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
         assertTrue(orchestrator.requestExport(fixture.outerDialog));
 
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
-        assertTrue(report.published(), "dirty original must publish: "
-            + report.failureKey() + " " + report.failureDetail());
+        assertTrue(
+                report.published(),
+                "dirty original must publish: " + report.failureKey() + " " + report.failureDetail());
         assertEquals(1, fixture.host.serializeCalls.get());
-        assertSame(fixture.host.original.model, fixture.host.serializedFrom,
-            "the staged copy must serialize the live model source");
-        assertEquals(2f, fixture.host.exportedModel.parameters.get(0).max,
-            "the unsaved edit must reach the exported model");
-        assertTrue(fixture.host.original.modified,
-            "the original's unsaved state must survive the export");
+        assertSame(
+                fixture.host.original.model,
+                fixture.host.serializedFrom,
+                "the staged copy must serialize the live model source");
+        assertEquals(
+                2f, fixture.host.exportedModel.parameters.get(0).max, "the unsaved edit must reach the exported model");
+        assertTrue(fixture.host.original.modified, "the original's unsaved state must survive the export");
         assertSame(fixture.host.original, fixture.host.activeDoc);
-        assertFalse(fixture.host.project.contains(fixture.host.copy),
-            "the disposable copy must be retired");
-        assertEquals("fixture-cmo3",
-            Files.readString(fixture.host.original.file.toPath()),
-            "the original file's bytes must stay untouched");
+        assertFalse(fixture.host.project.contains(fixture.host.copy), "the disposable copy must be retired");
+        assertEquals(
+                "fixture-cmo3",
+                Files.readString(fixture.host.original.file.toPath()),
+                "the original file's bytes must stay untouched");
         orchestrator.close();
     }
 
@@ -1112,8 +1074,7 @@ class ProtectedExportOrchestratorTest {
         assertEquals(ProtectedExportOrchestrator.BIND_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
         assertNull(fixture.host.copy);
-        assertEquals("fixture-cmo3",
-            Files.readString(fixture.host.original.file.toPath()));
+        assertEquals("fixture-cmo3", Files.readString(fixture.host.original.file.toPath()));
         orchestrator.close();
     }
 
@@ -1132,7 +1093,7 @@ class ProtectedExportOrchestratorTest {
         assertEquals(ProtectedExportOrchestrator.PUBLISH_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
         assertTrue(!Files.exists(fixture.stagingRoot)
-            || Files.list(fixture.stagingRoot).findAny().isEmpty());
+                || Files.list(fixture.stagingRoot).findAny().isEmpty());
         orchestrator.close();
     }
 
@@ -1144,15 +1105,14 @@ class ProtectedExportOrchestratorTest {
         // must name that recovery location verbatim, under a path long enough
         // to break the generic diagnostic bound and past the suppressed cap.
         final Fixture fixture = new Fixture();
-        final Path destination = Files.createDirectories(tempDir.resolve(
-            "destination-with-a-deliberately-long-segment-name-".repeat(5)));
+        final Path destination = Files.createDirectories(
+                tempDir.resolve("destination-with-a-deliberately-long-segment-name-".repeat(5)));
         fixture.host.realPick = destination.resolve("model.moc3").toFile();
         Files.writeString(fixture.host.realPick.toPath(), "ORIGINAL-USER-BYTES");
-        Files.writeString(destination.resolve("model.model3.json"),
-            "ORIGINAL-JSON-BYTES");
+        Files.writeString(destination.resolve("model.model3.json"), "ORIGINAL-JSON-BYTES");
         fixture.publishMoveOp = (source, target) -> {
             if (source.toString().contains("incoming")
-                && target.getFileName().toString().endsWith(".json")) {
+                    && target.getFileName().toString().endsWith(".json")) {
                 final IOException place = new IOException("injected place failure");
                 for (int i = 0; i < 6; i++) {
                     place.addSuppressed(new IOException("injected diagnostic " + i));
@@ -1173,8 +1133,9 @@ class ProtectedExportOrchestratorTest {
         final String detail = report.failureDetail();
         assertNotNull(detail, "publish failure must carry diagnostics");
         assertTrue(detail.contains("suppressed:"), detail);
-        assertTrue(detail.contains("more suppressed"),
-            "eight generic suppressed entries must overflow the cap: " + detail);
+        assertTrue(
+                detail.contains("more suppressed"),
+                "eight generic suppressed entries must overflow the cap: " + detail);
         assertTrue(detail.contains("recovery-path: "), detail);
 
         // The retained scratch under the destination still holds the user's
@@ -1182,15 +1143,13 @@ class ProtectedExportOrchestratorTest {
         // not a stub truncated by the generic describe() bound.
         boolean pathReported = false;
         boolean recovered = false;
-        try (DirectoryStream<Path> scratches =
-                Files.newDirectoryStream(destination, ".turboism-publish-*")) {
+        try (DirectoryStream<Path> scratches = Files.newDirectoryStream(destination, ".turboism-publish-*")) {
             for (Path scratch : scratches) {
                 pathReported |= detail.contains(scratch.toString());
                 try (var walk = Files.walk(scratch)) {
                     recovered |= walk.filter(Files::isRegularFile).anyMatch(path -> {
                         try {
-                            return Files.readString(path)
-                                .equals("ORIGINAL-USER-BYTES");
+                            return Files.readString(path).equals("ORIGINAL-USER-BYTES");
                         } catch (IOException failure) {
                             return false;
                         }
@@ -1198,10 +1157,8 @@ class ProtectedExportOrchestratorTest {
                 }
             }
         }
-        assertTrue(pathReported,
-            "report must contain the actual retained scratch path verbatim: " + detail);
-        assertTrue(recovered,
-            "retained scratch must still hold the user's original bytes");
+        assertTrue(pathReported, "report must contain the actual retained scratch path verbatim: " + detail);
+        assertTrue(recovered, "retained scratch must still hold the user's original bytes");
         orchestrator.close();
     }
 
@@ -1287,10 +1244,8 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.FLATTEN_FAILED_KEY, report.failureKey());
         assertFalse(report.published());
-        assertEquals(0, fixture.host.applyCalls.get(),
-            "apply must not run after the selection switched documents");
-        assertFalse(fixture.host.original.modified,
-            "original dirty flag must stay untouched");
+        assertEquals(0, fixture.host.applyCalls.get(), "apply must not run after the selection switched documents");
+        assertFalse(fixture.host.original.modified, "original dirty flag must stay untouched");
         assertTrue(report.originalRestored());
         assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
         assertTrue(fixture.destinationFiles().isEmpty());
@@ -1309,16 +1264,16 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.REVOKED_KEY, report.failureKey());
         assertFalse(report.published());
-        assertTrue(fixture.destinationFiles().isEmpty(),
-            "revoked session must not publish: " + fixture.destinationFiles());
+        assertTrue(
+                fixture.destinationFiles().isEmpty(),
+                "revoked session must not publish: " + fixture.destinationFiles());
         assertTrue(report.originalRestored());
         assertTrue(report.cleanedUp(), "cleanup errors: " + report.cleanupErrors());
         orchestrator.close();
     }
 
     @Test
-    void refusesPublishWhenHostGenerationChangesDuringNativeExport()
-            throws Exception {
+    void refusesPublishWhenHostGenerationChangesDuringNativeExport() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.bumpGenerationOnNativeExport = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -1332,8 +1287,7 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void refusesPublishWhenOriginalDocumentClosesDuringNativeExport()
-            throws Exception {
+    void refusesPublishWhenOriginalDocumentClosesDuringNativeExport() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.removeOriginalOnNativeExport = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -1350,8 +1304,7 @@ class ProtectedExportOrchestratorTest {
     }
 
     @Test
-    void refusesPublishWhenCopyDocumentClosesDuringNativeExport()
-            throws Exception {
+    void refusesPublishWhenCopyDocumentClosesDuringNativeExport() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.host.removeCopyOnNativeExport = true;
         final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
@@ -1377,11 +1330,9 @@ class ProtectedExportOrchestratorTest {
         final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
         assertEquals(ProtectedExportOrchestrator.EXPORT_TIMEOUT_KEY, report.failureKey());
         assertFalse(report.published());
-        assertNotNull(fixture.host.completion,
-            "the fake must retain the gated completion callback");
+        assertNotNull(fixture.host.completion, "the fake must retain the gated completion callback");
         fixture.host.completion.accept(fixture.realPick, List.of("late.moc3"));
-        assertNull(fixture.reports.poll(2L, TimeUnit.SECONDS),
-            "a late callback must not produce another report");
+        assertNull(fixture.reports.poll(2L, TimeUnit.SECONDS), "a late callback must not produce another report");
         assertTrue(fixture.destinationFiles().isEmpty());
         orchestrator.close();
     }
@@ -1391,17 +1342,17 @@ class ProtectedExportOrchestratorTest {
     // ------------------------------------------------------------------
 
     private static final ProtectedExportOrchestrator.EdtDispatcher INLINE_EDT =
-        new ProtectedExportOrchestrator.EdtDispatcher() {
-            @Override
-            public <T> T call(final Callable<T> action) throws Exception {
-                return action.call();
-            }
+            new ProtectedExportOrchestrator.EdtDispatcher() {
+                @Override
+                public <T> T call(final Callable<T> action) throws Exception {
+                    return action.call();
+                }
 
-            @Override
-            public void submit(final Runnable task) {
-                task.run();
-            }
-        };
+                @Override
+                public void submit(final Runnable task) {
+                    task.run();
+                }
+            };
 
     private final class Fixture {
         final FakeHost host = new FakeHost();
@@ -1411,11 +1362,11 @@ class ProtectedExportOrchestratorTest {
         final AtomicLong hostGeneration = new AtomicLong(7L);
         final AtomicBoolean seamInstalled = new AtomicBoolean(true);
         final AtomicBoolean bindingLive = new AtomicBoolean(true);
-        final BlockingQueue<ProtectedExportOrchestrator.Report> reports =
-            new LinkedBlockingQueue<>();
+        final BlockingQueue<ProtectedExportOrchestrator.Report> reports = new LinkedBlockingQueue<>();
         volatile boolean mocLoads = true;
         /** Injected into the staging move seam — drives real rollback paths. */
         volatile ProtectedExportStaging.MoveOp publishMoveOp;
+
         ProtectedExportOrchestrator orchestrator;
 
         Fixture() throws IOException {
@@ -1435,19 +1386,14 @@ class ProtectedExportOrchestratorTest {
         }
 
         /** Live parameter values per instantiated fake model — the writer's target. */
-        final IdentityHashMap<OwnedModel, Map<String, Float>> fakeModelValues =
-            new IdentityHashMap<>();
+        final IdentityHashMap<OwnedModel, Map<String, Float>> fakeModelValues = new IdentityHashMap<>();
 
         /**
          * Fake Core-parameter write seam mirroring {@code OwnedMocRuntime}'s
          * runtime-private path: writes the model's live value table, which
          * {@code drawables()} reads when re-projecting evaluated positions.
          */
-        private void writeFakeParameter(
-            final OwnedModel model,
-            final String parameterId,
-            final float value
-        ) {
+        private void writeFakeParameter(final OwnedModel model, final String parameterId, final float value) {
             final Map<String, Float> values = fakeModelValues.get(model);
             if (values == null || !values.containsKey(parameterId)) {
                 throw new IllegalStateException("parameter absent: " + parameterId);
@@ -1458,31 +1404,30 @@ class ProtectedExportOrchestratorTest {
         ProtectedExportOrchestrator orchestrator() {
             if (orchestrator == null) {
                 orchestrator = new ProtectedExportOrchestrator(
-                    host,
-                    new ProtectedExportStaging(
-                        data -> mocLoads ? fakeMoc() : null,
-                        this::writeFakeParameter,
-                        publishMoveOp != null ? publishMoveOp
-                            : (source, target) -> Files.move(source, target,
-                                StandardCopyOption.REPLACE_EXISTING)),
-                    stagingRoot,
-                    "dev.turboism.plugin.protected-export",
-                    "protected-export",
-                    seamInstalled::get,
-                    bindingLive::get,
-                    hostGeneration::get,
-                    INLINE_EDT,
-                    reports::add,
-                    400L,
-                    400L
-                );
+                        host,
+                        new ProtectedExportStaging(
+                                data -> mocLoads ? fakeMoc() : null,
+                                this::writeFakeParameter,
+                                publishMoveOp != null
+                                        ? publishMoveOp
+                                        : (source, target) ->
+                                                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)),
+                        stagingRoot,
+                        "dev.turboism.plugin.protected-export",
+                        "protected-export",
+                        seamInstalled::get,
+                        bindingLive::get,
+                        hostGeneration::get,
+                        INLINE_EDT,
+                        reports::add,
+                        400L,
+                        400L);
             }
             return orchestrator;
         }
 
         ProtectedExportOrchestrator.Report awaitReport() throws InterruptedException {
-            final ProtectedExportOrchestrator.Report report =
-                reports.poll(30L, TimeUnit.SECONDS);
+            final ProtectedExportOrchestrator.Report report = reports.poll(30L, TimeUnit.SECONDS);
             assertNotNull(report, "session report never arrived");
             return report;
         }
@@ -1521,8 +1466,7 @@ class ProtectedExportOrchestratorTest {
                 }
 
                 @Override
-                public void close() {
-                }
+                public void close() {}
             };
         }
 
@@ -1535,11 +1479,9 @@ class ProtectedExportOrchestratorTest {
             // Live parameter values the writer mutates; evaluated drawable
             // positions re-project from this table exactly like the real Core.
             final Map<String, Float> liveValues = new HashMap<>();
-            exported.parameters.forEach(
-                parameter -> liveValues.put(parameter.id, parameter.defaultValue));
+            exported.parameters.forEach(parameter -> liveValues.put(parameter.id, parameter.defaultValue));
             final List<OwnedPart> parts = new ArrayList<>();
-            exported.parts.forEach(part ->
-                parts.add(new OwnedPart(part.id, 1f, -1)));
+            exported.parts.forEach(part -> parts.add(new OwnedPart(part.id, 1f, -1)));
             final List<OwnedDeformer> deformers = new ArrayList<>();
             if (host.exportLeavesDeformer) {
                 deformers.add(new OwnedDeformer("d-left", -1, List.of()));
@@ -1562,27 +1504,29 @@ class ProtectedExportOrchestratorTest {
                         // Serialized keys = union of key positions across the
                         // model's bindings for the parameter.
                         final Set<Float> keys = new java.util.TreeSet<>();
-                        exported.artMeshes.forEach(mesh ->
-                            mesh.bindings.forEach(binding -> {
-                                if (binding.parameterId.equals(parameter.id)) {
-                                    keys.addAll(binding.keys);
-                                }
-                            }));
-                        exported.deformers.forEach(deformer ->
-                            deformer.bindings.forEach(binding -> {
-                                if (binding.parameterId.equals(parameter.id)) {
-                                    keys.addAll(binding.keys);
-                                }
-                            }));
-                        projected.add(new OwnedParameter(parameter.id, 0,
-                            parameter.min, parameter.max, parameter.defaultValue,
-                            liveValues.get(parameter.id),
-                            List.copyOf(keys), java.util.Optional.empty()));
+                        exported.artMeshes.forEach(mesh -> mesh.bindings.forEach(binding -> {
+                            if (binding.parameterId.equals(parameter.id)) {
+                                keys.addAll(binding.keys);
+                            }
+                        }));
+                        exported.deformers.forEach(deformer -> deformer.bindings.forEach(binding -> {
+                            if (binding.parameterId.equals(parameter.id)) {
+                                keys.addAll(binding.keys);
+                            }
+                        }));
+                        projected.add(new OwnedParameter(
+                                parameter.id,
+                                0,
+                                parameter.min,
+                                parameter.max,
+                                parameter.defaultValue,
+                                liveValues.get(parameter.id),
+                                List.copyOf(keys),
+                                java.util.Optional.empty()));
                     });
                     if (host.exportAddsParameter) {
-                        projected.add(new OwnedParameter("param-injected", 0,
-                            0f, 1f, 0f, 0f, List.of(0f, 1f),
-                            java.util.Optional.empty()));
+                        projected.add(new OwnedParameter(
+                                "param-injected", 0, 0f, 1f, 0f, 0f, List.of(0f, 1f), java.util.Optional.empty()));
                     }
                     return projected;
                 }
@@ -1596,8 +1540,7 @@ class ProtectedExportOrchestratorTest {
                 public List<OwnedDrawable> drawables() {
                     final List<OwnedDrawable> projected = new ArrayList<>();
                     exported.artMeshes.forEach(mesh -> {
-                        final float[] positions =
-                            evalPositions(mesh.bindings, liveValues);
+                        final float[] positions = evalPositions(mesh.bindings, liveValues);
                         for (int i = 0; i < positions.length; i++) {
                             positions[i] += mesh.basePositions[i];
                         }
@@ -1614,24 +1557,33 @@ class ProtectedExportOrchestratorTest {
                             // Math.abs(NaN - x) > tolerance is false.
                             positions[0] = Float.NaN;
                         }
-                        final float[] stagedPositions = host.exportWritesEmptyGeometry
-                            ? new float[0]
-                            : positions;
+                        final float[] stagedPositions = host.exportWritesEmptyGeometry ? new float[0] : positions;
                         // Serialize in moc model space like the real exporter:
                         // origin-centered units, Y flipped (moc Y points up).
                         final List<Float> vertexPositions = new ArrayList<>();
                         for (int i = 0; i < stagedPositions.length; i++) {
-                            vertexPositions.add(((i & 1) == 0 ? 1f : -1f)
-                                * (stagedPositions[i] - 500f) / 1000f);
+                            vertexPositions.add(((i & 1) == 0 ? 1f : -1f) * (stagedPositions[i] - 500f) / 1000f);
                         }
                         projected.add(new OwnedDrawable(
-                            host.exportKeepsOriginalDrawableIds
-                                ? mesh.guid.replace("-guid", "-original")
-                                : mesh.drawableId,
-                            (byte) 0, (byte) 0, BlendMode.NORMAL, 0, 0, 0, 1f,
-                            List.of(), vertexPositions, List.of(), List.of(),
-                            new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f),
-                            -1, -1, List.of()));
+                                host.exportKeepsOriginalDrawableIds
+                                        ? mesh.guid.replace("-guid", "-original")
+                                        : mesh.drawableId,
+                                (byte) 0,
+                                (byte) 0,
+                                BlendMode.NORMAL,
+                                0,
+                                0,
+                                0,
+                                1f,
+                                List.of(),
+                                vertexPositions,
+                                List.of(),
+                                List.of(),
+                                new Color(1f, 1f, 1f, 1f),
+                                new Color(0f, 0f, 0f, 0f),
+                                -1,
+                                -1,
+                                List.of()));
                     });
                     return projected;
                 }
@@ -1642,8 +1594,8 @@ class ProtectedExportOrchestratorTest {
                     // IDs, with drawable A/B as indices into the drawable table.
                     final List<OwnedGlue> projected = new ArrayList<>();
                     if (!host.exportDropsGlue) {
-                        exported.glues.forEach(glue -> projected.add(
-                            new OwnedGlue(glue.id,
+                        exported.glues.forEach(glue -> projected.add(new OwnedGlue(
+                                glue.id,
                                 exported.artMeshes.indexOf(glue.targetA),
                                 exported.artMeshes.indexOf(glue.targetB),
                                 List.of())));
@@ -1657,12 +1609,10 @@ class ProtectedExportOrchestratorTest {
                 }
 
                 @Override
-                public void update() {
-                }
+                public void update() {}
 
                 @Override
-                public void close() {
-                }
+                public void close() {}
             };
             fakeModelValues.put(model, liveValues);
             return model;
@@ -1717,20 +1667,12 @@ class ProtectedExportOrchestratorTest {
             this(guid, targetGuid, List.of());
         }
 
-        FakeDeformer(
-            final String guid,
-            final String targetGuid,
-            final List<FakeBinding> bindings
-        ) {
+        FakeDeformer(final String guid, final String targetGuid, final List<FakeBinding> bindings) {
             this(guid, targetGuid, bindings, 0f);
         }
 
         FakeDeformer(
-            final String guid,
-            final String targetGuid,
-            final List<FakeBinding> bindings,
-            final float constant
-        ) {
+                final String guid, final String targetGuid, final List<FakeBinding> bindings, final float constant) {
             this.guid = guid;
             this.targetGuid = targetGuid;
             this.bindings = new ArrayList<>(bindings);
@@ -1752,12 +1694,7 @@ class ProtectedExportOrchestratorTest {
             this(guid, name, drawableId, List.of());
         }
 
-        FakeArtMesh(
-            final String guid,
-            final String name,
-            final String drawableId,
-            final List<FakeBinding> bindings
-        ) {
+        FakeArtMesh(final String guid, final String name, final String drawableId, final List<FakeBinding> bindings) {
             this.guid = guid;
             this.name = name;
             this.drawableId = drawableId;
@@ -1769,6 +1706,7 @@ class ProtectedExportOrchestratorTest {
         final String id;
         /** Stable GUID — physics input/output entries reference parameters by it. */
         final String guid;
+
         final float min;
         final float max;
         final float defaultValue;
@@ -1781,12 +1719,7 @@ class ProtectedExportOrchestratorTest {
         }
 
         FakeParameter(
-            final String id,
-            final float min,
-            final float max,
-            final float defaultValue,
-            final boolean repeat
-        ) {
+                final String id, final float min, final float max, final float defaultValue, final boolean repeat) {
             this.id = id;
             this.guid = id + "-guid";
             this.min = min;
@@ -1807,12 +1740,7 @@ class ProtectedExportOrchestratorTest {
             this(guid, id, "part-name-" + id, new ArrayList<>());
         }
 
-        FakePart(
-            final String guid,
-            final String id,
-            final String name,
-            final List<String> childGuids
-        ) {
+        FakePart(final String guid, final String id, final String name, final List<String> childGuids) {
             this.guid = guid;
             this.id = id;
             this.name = name;
@@ -1834,12 +1762,11 @@ class ProtectedExportOrchestratorTest {
         FakeArtMesh targetB;
 
         FakeGlue(
-            final String guid,
-            final String id,
-            final String name,
-            final FakeArtMesh targetA,
-            final FakeArtMesh targetB
-        ) {
+                final String guid,
+                final String id,
+                final String name,
+                final FakeArtMesh targetA,
+                final FakeArtMesh targetB) {
             this.guid = guid;
             this.id = id;
             this.name = name;
@@ -1863,12 +1790,11 @@ class ProtectedExportOrchestratorTest {
         final List<String> flags;
 
         FakePassThrough(
-            final String family,
-            final String guid,
-            final String id,
-            final String name,
-            final List<String> referenceGuids
-        ) {
+                final String family,
+                final String guid,
+                final String id,
+                final String name,
+                final List<String> referenceGuids) {
             this.family = family;
             this.guid = guid;
             this.id = id;
@@ -1897,24 +1823,18 @@ class ProtectedExportOrchestratorTest {
         final float tx;
         final float ty;
 
-        FakePhysicsInput(
-            final String paramGuid,
-            final float weight,
-            final String type,
-            final boolean reflect
-        ) {
+        FakePhysicsInput(final String paramGuid, final float weight, final String type, final boolean reflect) {
             this(paramGuid, weight, type, reflect, 1f, 2f, 3f);
         }
 
         FakePhysicsInput(
-            final String paramGuid,
-            final float weight,
-            final String type,
-            final boolean reflect,
-            final float angleScale,
-            final float tx,
-            final float ty
-        ) {
+                final String paramGuid,
+                final float weight,
+                final String type,
+                final boolean reflect,
+                final float angleScale,
+                final float tx,
+                final float ty) {
             this.paramGuid = paramGuid;
             this.weight = weight;
             this.type = type;
@@ -1939,28 +1859,25 @@ class ProtectedExportOrchestratorTest {
         final float exceededMax;
 
         FakePhysicsOutput(
-            final String paramGuid,
-            final int vertexIndex,
-            final float weight,
-            final String type,
-            final boolean reflect
-        ) {
-            this(paramGuid, vertexIndex, weight, type, reflect,
-                4f, 5f, 6f, -30f, 30f);
+                final String paramGuid,
+                final int vertexIndex,
+                final float weight,
+                final String type,
+                final boolean reflect) {
+            this(paramGuid, vertexIndex, weight, type, reflect, 4f, 5f, 6f, -30f, 30f);
         }
 
         FakePhysicsOutput(
-            final String paramGuid,
-            final int vertexIndex,
-            final float weight,
-            final String type,
-            final boolean reflect,
-            final float angleScale,
-            final float tx,
-            final float ty,
-            final float belowMin,
-            final float exceededMax
-        ) {
+                final String paramGuid,
+                final int vertexIndex,
+                final float weight,
+                final String type,
+                final boolean reflect,
+                final float angleScale,
+                final float tx,
+                final float ty,
+                final float belowMin,
+                final float exceededMax) {
             this.paramGuid = paramGuid;
             this.vertexIndex = vertexIndex;
             this.weight = weight;
@@ -1984,13 +1901,12 @@ class ProtectedExportOrchestratorTest {
         final float radius;
 
         FakePhysicsVertex(
-            final float x,
-            final float y,
-            final float mobility,
-            final float delay,
-            final float acceleration,
-            final float radius
-        ) {
+                final float x,
+                final float y,
+                final float mobility,
+                final float delay,
+                final float acceleration,
+                final float radius) {
             this.x = x;
             this.y = y;
             this.mobility = mobility;
@@ -2017,33 +1933,33 @@ class ProtectedExportOrchestratorTest {
         final List<FakePhysicsOutput> outputs = new ArrayList<>();
         final List<FakePhysicsVertex> vertices = new ArrayList<>();
 
-        FakePhysicsSettings(
-            final String guid,
-            final String id,
-            final String name
-        ) {
+        FakePhysicsSettings(final String guid, final String id, final String name) {
             this.guid = guid;
             this.id = id;
             this.name = name;
         }
 
         FakePhysicsSettings copy() {
-            final FakePhysicsSettings copy =
-                new FakePhysicsSettings(guid, id, name);
+            final FakePhysicsSettings copy = new FakePhysicsSettings(guid, id, name);
             copy.enable = enable;
             System.arraycopy(normPosition, 0, copy.normPosition, 0, 3);
             System.arraycopy(normAngle, 0, copy.normAngle, 0, 3);
             copy.totalAngle = totalAngle;
             inputs.forEach(input -> copy.inputs.add(new FakePhysicsInput(
-                input.paramGuid, input.weight, input.type, input.reflect,
-                input.angleScale, input.tx, input.ty)));
+                    input.paramGuid, input.weight, input.type, input.reflect, input.angleScale, input.tx, input.ty)));
             outputs.forEach(output -> copy.outputs.add(new FakePhysicsOutput(
-                output.paramGuid, output.vertexIndex, output.weight,
-                output.type, output.reflect, output.angleScale,
-                output.tx, output.ty, output.belowMin, output.exceededMax)));
+                    output.paramGuid,
+                    output.vertexIndex,
+                    output.weight,
+                    output.type,
+                    output.reflect,
+                    output.angleScale,
+                    output.tx,
+                    output.ty,
+                    output.belowMin,
+                    output.exceededMax)));
             vertices.forEach(vertex -> copy.vertices.add(new FakePhysicsVertex(
-                vertex.x, vertex.y, vertex.mobility, vertex.delay,
-                vertex.acceleration, vertex.radius)));
+                    vertex.x, vertex.y, vertex.mobility, vertex.delay, vertex.acceleration, vertex.radius)));
             return copy;
         }
     }
@@ -2078,23 +1994,17 @@ class ProtectedExportOrchestratorTest {
         final int mappingChecksum;
         final int postProcChecksum;
 
-        FakeMotionSyncSettings(
-            final String guid,
-            final String id,
-            final String name,
-            final int checksum
-        ) {
+        FakeMotionSyncSettings(final String guid, final String id, final String name, final int checksum) {
             this(guid, id, name, "MOTION_SYNC_V5", checksum, checksum + 1);
         }
 
         FakeMotionSyncSettings(
-            final String guid,
-            final String id,
-            final String name,
-            final String version,
-            final int mappingChecksum,
-            final int postProcChecksum
-        ) {
+                final String guid,
+                final String id,
+                final String name,
+                final String version,
+                final int mappingChecksum,
+                final int postProcChecksum) {
             this.guid = guid;
             this.id = id;
             this.name = name;
@@ -2104,8 +2014,7 @@ class ProtectedExportOrchestratorTest {
         }
 
         FakeMotionSyncSettings copy() {
-            return new FakeMotionSyncSettings(guid, id, name, version,
-                mappingChecksum, postProcChecksum);
+            return new FakeMotionSyncSettings(guid, id, name, version, mappingChecksum, postProcChecksum);
         }
     }
 
@@ -2120,14 +2029,14 @@ class ProtectedExportOrchestratorTest {
         final List<FakePassThrough> passThrough = new ArrayList<>();
         /** Census members with no pinnable identity — must still reject. */
         final List<Object> unpinnableObjects = new ArrayList<>();
+
         final List<Object> physicsSettings = new ArrayList<>();
         final List<Object> motionSyncSettings = new ArrayList<>();
         /** Physics settings-set state — always present like the host's final field. */
         FakePhysicsSet physicsSet = new FakePhysicsSet();
         // The host enumerates a synthetic root part in getAllParts but never
         // serializes it into exported output.
-        final FakePart rootPart =
-            new FakePart("root-part-guid", "__RootPart__");
+        final FakePart rootPart = new FakePart("root-part-guid", "__RootPart__");
         FakeDoc document;
     }
 
@@ -2149,10 +2058,7 @@ class ProtectedExportOrchestratorTest {
      * bound parameter's current value contributes, weighted by that binding's
      * key count — a dropped or duplicated binding changes the output.
      */
-    private static float[] evalPositions(
-        final List<FakeBinding> bindings,
-        final Map<String, Float> values
-    ) {
+    private static float[] evalPositions(final List<FakeBinding> bindings, final Map<String, Float> values) {
         float sum = 0f;
         float weighted = 0f;
         for (FakeBinding binding : bindings) {
@@ -2162,7 +2068,7 @@ class ProtectedExportOrchestratorTest {
                 weighted += value * binding.keys.size();
             }
         }
-        return new float[]{sum, weighted, sum + weighted, sum - weighted};
+        return new float[] {sum, weighted, sum + weighted, sum - weighted};
     }
 
     private static final class FakeHost implements ProtectedExportHostOperations {
@@ -2227,34 +2133,32 @@ class ProtectedExportOrchestratorTest {
          * it, and the post-flatten behavior oracle must fail closed.
          */
         volatile float unboundDeformerConstant;
+
         volatile boolean removeOriginalOnNativeExport;
         volatile boolean removeCopyOnNativeExport;
         final AtomicInteger applyCalls = new AtomicInteger();
         final AtomicInteger serializeCalls = new AtomicInteger();
         /** The live model source the last serialization captured — staging proof. */
         volatile Object serializedFrom;
+
         volatile String serializedPayload;
         private int copyCensusCalls;
         private int artMeshCensusCalls;
 
         FakeHost() {
-            original.model.deformers.add(new FakeDeformer("g-leaf", "g-root",
-                List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
-            original.model.deformers.add(new FakeDeformer("g-root", null,
-                List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
+            original.model.deformers.add(
+                    new FakeDeformer("g-leaf", "g-root", List.of(new FakeBinding("param-1", List.of(0f, 0.5f, 1f)))));
+            original.model.deformers.add(
+                    new FakeDeformer("g-root", null, List.of(new FakeBinding("param-1", List.of(0f, 1f)))));
             // Nested under g-root so flattening order and reparenting are
             // exercised for an unbound deformer too.
-            original.model.deformers.add(new FakeDeformer("g-unbound", "g-root",
-                List.of(), unboundDeformerConstant));
+            original.model.deformers.add(new FakeDeformer("g-unbound", "g-root", List.of(), unboundDeformerConstant));
             original.model.artMeshes.add(
-                new FakeArtMesh("m-a-guid", "meshA", "id-a",
-                    List.of(new FakeBinding("param-1", List.of(0f)))));
-            original.model.artMeshes.add(
-                new FakeArtMesh("m-b-guid", "meshB", "id-b"));
+                    new FakeArtMesh("m-a-guid", "meshA", "id-a", List.of(new FakeBinding("param-1", List.of(0f)))));
+            original.model.artMeshes.add(new FakeArtMesh("m-b-guid", "meshB", "id-b"));
             original.model.parameters.add(new FakeParameter("param-1"));
             final FakePart part = new FakePart("part-1-guid", "part-1");
-            part.childGuids.addAll(
-                List.of("m-a-guid", "m-b-guid", "g-leaf", "g-root", "g-unbound"));
+            part.childGuids.addAll(List.of("m-a-guid", "m-b-guid", "g-leaf", "g-root", "g-unbound"));
             original.model.parts.add(part);
             otherDoc.file = new File("other.cmo3");
         }
@@ -2270,10 +2174,7 @@ class ProtectedExportOrchestratorTest {
         }
 
         /** Mesh inside {@code model} carrying the same GUID as {@code target}. */
-        private static FakeArtMesh copyMeshByGuid(
-            final FakeModel model,
-            final FakeArtMesh target
-        ) {
+        private static FakeArtMesh copyMeshByGuid(final FakeModel model, final FakeArtMesh target) {
             if (target == null) {
                 return null;
             }
@@ -2356,45 +2257,42 @@ class ProtectedExportOrchestratorTest {
             for (FakeDeformer deformer : original.model.deformers) {
                 // Knobs are assigned after fixture construction; the copy is
                 // where evaluation/bake actually consume the constant.
-                final float constant = "g-unbound".equals(deformer.guid)
-                    ? unboundDeformerConstant : deformer.constant;
+                final float constant = "g-unbound".equals(deformer.guid) ? unboundDeformerConstant : deformer.constant;
                 fresh.model.deformers.add(
-                    new FakeDeformer(deformer.guid, deformer.targetGuid,
-                        deformer.bindings, constant));
+                        new FakeDeformer(deformer.guid, deformer.targetGuid, deformer.bindings, constant));
             }
             for (FakeArtMesh mesh : original.model.artMeshes) {
-                final FakeArtMesh copyMesh = new FakeArtMesh(
-                    mesh.guid, mesh.name, mesh.drawableId, mesh.bindings);
+                final FakeArtMesh copyMesh = new FakeArtMesh(mesh.guid, mesh.name, mesh.drawableId, mesh.bindings);
                 copyMesh.basePositions = mesh.basePositions.clone();
                 fresh.model.artMeshes.add(copyMesh);
             }
             for (FakeParameter parameter : original.model.parameters) {
-                fresh.model.parameters.add(new FakeParameter(parameter.id,
-                    parameter.min, parameter.max, parameter.defaultValue,
-                    parameter.repeat));
+                fresh.model.parameters.add(new FakeParameter(
+                        parameter.id, parameter.min, parameter.max, parameter.defaultValue, parameter.repeat));
             }
             if (copyParameterStartsOffDefault) {
                 // A document saved with non-default parameter values: sampling
                 // must restore these, not leave the last sample behind.
-                fresh.model.parameters.forEach(
-                    parameter -> parameter.currentValue = parameter.max);
+                fresh.model.parameters.forEach(parameter -> parameter.currentValue = parameter.max);
             }
             for (FakePart part : original.model.parts) {
-                fresh.model.parts.add(new FakePart(part.guid, part.id, part.name,
-                    new ArrayList<>(part.childGuids)));
+                fresh.model.parts.add(new FakePart(part.guid, part.id, part.name, new ArrayList<>(part.childGuids)));
             }
             for (FakeGlue glue : original.model.glues) {
                 // Serialization re-resolves glue references against the copy's
                 // own meshes — identity and targets survive byte-identical.
-                fresh.model.glues.add(new FakeGlue(glue.guid, glue.id, glue.name,
-                    copyMeshByGuid(fresh.model, glue.targetA),
-                    copyMeshByGuid(fresh.model, glue.targetB)));
+                fresh.model.glues.add(new FakeGlue(
+                        glue.guid,
+                        glue.id,
+                        glue.name,
+                        copyMeshByGuid(fresh.model, glue.targetA),
+                        copyMeshByGuid(fresh.model, glue.targetB)));
             }
             for (FakePassThrough member : original.model.passThrough) {
                 // Serialized pass-through members keep identity, parent edge,
                 // references and flags byte-identical.
-                final FakePassThrough cloned = new FakePassThrough(member.family,
-                    member.guid, member.id, member.name, member.referenceGuids);
+                final FakePassThrough cloned =
+                        new FakePassThrough(member.family, member.guid, member.id, member.name, member.referenceGuids);
                 cloned.targetDeformerGuid = member.targetDeformerGuid;
                 cloned.flags.addAll(member.flags);
                 fresh.model.passThrough.add(cloned);
@@ -2414,8 +2312,7 @@ class ProtectedExportOrchestratorTest {
                     fresh.model.motionSyncSettings.add(setting);
                 }
             }
-            fresh.model.physicsSet = original.model.physicsSet == null
-                ? null : original.model.physicsSet.copy();
+            fresh.model.physicsSet = original.model.physicsSet == null ? null : original.model.physicsSet.copy();
             copy = fresh;
             project.add(fresh);
             activeDoc = fresh;
@@ -2538,8 +2435,7 @@ class ProtectedExportOrchestratorTest {
             if (selectsExtraDeformer) {
                 // A foreign deformer coexists in the selection — the apply must
                 // refuse rather than consume an unplanned target.
-                ((FakeSelector) selector).selected.add(
-                    new FakeDeformer("g-foreign", null));
+                ((FakeSelector) selector).selected.add(new FakeDeformer("g-foreign", null));
             }
             if (switchActiveDocOnSelect) {
                 // Selection callbacks reenter host code: the active document
@@ -2570,8 +2466,7 @@ class ProtectedExportOrchestratorTest {
                     doc.model.glues.forEach(glue -> glue.name = "glue-mutated");
                 }
                 if (mutatePassThroughMidRun && doc == copy) {
-                    doc.model.passThrough.forEach(
-                        member -> member.name = "member-mutated");
+                    doc.model.passThrough.forEach(member -> member.name = "member-mutated");
                 }
                 if (mutateSettingsMidRun && doc == copy) {
                     doc.model.physicsSettings.forEach(setting -> {
@@ -2581,8 +2476,8 @@ class ProtectedExportOrchestratorTest {
                     });
                 }
                 final List<FakeDeformer> removed = doc.model.deformers.stream()
-                    .filter(d -> doc.selector.selected.contains(d))
-                    .toList();
+                        .filter(d -> doc.selector.selected.contains(d))
+                        .toList();
                 doc.model.deformers.removeAll(removed);
                 // A removed deformer's bindings move onto every ArtMesh it
                 // deformed (the fake treats every deformer as deforming every
@@ -2593,9 +2488,7 @@ class ProtectedExportOrchestratorTest {
                 for (FakeDeformer deformer : removed) {
                     for (FakeArtMesh mesh : doc.model.artMeshes) {
                         for (FakeBinding binding : deformer.bindings) {
-                            mesh.bindings.add(new FakeBinding(
-                                binding.parameterId,
-                                new ArrayList<>(binding.keys)));
+                            mesh.bindings.add(new FakeBinding(binding.parameterId, new ArrayList<>(binding.keys)));
                         }
                         if (!deformer.bindings.isEmpty()) {
                             // Bound deformers preserve their constant
@@ -2634,9 +2527,12 @@ class ProtectedExportOrchestratorTest {
                     payload.append(mesh.guid).append('=').append(mesh.name).append(';');
                 }
                 for (FakeParameter parameter : model.parameters) {
-                    payload.append(parameter.id).append('=')
-                        .append(parameter.min).append('-').append(parameter.max)
-                        .append(';');
+                    payload.append(parameter.id)
+                            .append('=')
+                            .append(parameter.min)
+                            .append('-')
+                            .append(parameter.max)
+                            .append(';');
                 }
                 serializedPayload = payload.toString();
                 Files.writeString(target.toPath(), serializedPayload);
@@ -2660,8 +2556,7 @@ class ProtectedExportOrchestratorTest {
         public List<?> allDeformers(final Object modelSource) {
             final FakeModel model = (FakeModel) modelSource;
             if (duplicateDeformerGuids && model == original.model) {
-                return List.of(
-                    new FakeDeformer("g-dup", null), new FakeDeformer("g-dup", null));
+                return List.of(new FakeDeformer("g-dup", null), new FakeDeformer("g-dup", null));
             }
             if (copy != null && model == copy.model && vanishDeformerAfterBindCensus) {
                 // First copy census is the binding-confirmation plan; later reads
@@ -2669,8 +2564,8 @@ class ProtectedExportOrchestratorTest {
                 copyCensusCalls++;
                 if (copyCensusCalls >= 2) {
                     return model.deformers.stream()
-                        .filter(d -> !"g-leaf".equals(d.guid))
-                        .toList();
+                            .filter(d -> !"g-leaf".equals(d.guid))
+                            .toList();
                 }
             }
             return List.copyOf(model.deformers);
@@ -2695,8 +2590,11 @@ class ProtectedExportOrchestratorTest {
         @Override
         public List<?> allArtMeshes(final Object modelSource) {
             final FakeModel model = (FakeModel) modelSource;
-            if (copy != null && vanishArtMeshAfterCensus && model == copy.model
-                && model.artMeshes.size() > 1 && ++artMeshCensusCalls > 1) {
+            if (copy != null
+                    && vanishArtMeshAfterCensus
+                    && model == copy.model
+                    && model.artMeshes.size() > 1
+                    && ++artMeshCensusCalls > 1) {
                 // The census planned over both meshes; later reads (per-target
                 // re-resolution, the post-pass census) no longer see the first.
                 return List.copyOf(model.artMeshes.subList(1, model.artMeshes.size()));
@@ -2750,15 +2648,11 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public float parameterInstanceValue(final Object parameter) {
-            return parameter instanceof FakeParameter p
-                ? p.currentValue : Float.NaN;
+            return parameter instanceof FakeParameter p ? p.currentValue : Float.NaN;
         }
 
         @Override
-        public void setParameterInstanceValue(
-            final Object parameterInstance,
-            final float value
-        ) {
+        public void setParameterInstanceValue(final Object parameterInstance, final float value) {
             ((FakeParameter) parameterInstance).currentValue = value;
         }
 
@@ -2776,8 +2670,7 @@ class ProtectedExportOrchestratorTest {
                 // Deformer bindings deform every mesh they contain; the fake
                 // models the worst case (all meshes) so an apply that appends
                 // those bindings onto the mesh keeps evaluation identical.
-                final List<FakeBinding> effective =
-                    new ArrayList<>(mesh.bindings);
+                final List<FakeBinding> effective = new ArrayList<>(mesh.bindings);
                 for (FakeDeformer deformer : model.deformers) {
                     effective.addAll(deformer.bindings);
                 }
@@ -2801,15 +2694,13 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public List<?> modelInstanceArtMeshes(final Object modelInstance) {
-            return ((FakeModel) modelInstance).artMeshes.stream()
-                .map(FakeInstanceMesh::new)
-                .toList();
+            return ((FakeModel) modelInstance)
+                    .artMeshes.stream().map(FakeInstanceMesh::new).toList();
         }
 
         @Override
         public Object artMeshInstanceSource(final Object artMeshInstance) {
-            return artMeshInstance instanceof FakeInstanceMesh mesh
-                ? mesh.source : null;
+            return artMeshInstance instanceof FakeInstanceMesh mesh ? mesh.source : null;
         }
 
         @Override
@@ -2817,8 +2708,7 @@ class ProtectedExportOrchestratorTest {
             if (!(artMeshInstance instanceof FakeInstanceMesh mesh)) {
                 return null;
             }
-            return mesh.source.evaluatedPositions == null
-                ? null : mesh.source.evaluatedPositions.clone();
+            return mesh.source.evaluatedPositions == null ? null : mesh.source.evaluatedPositions.clone();
         }
 
         @Override
@@ -2907,9 +2797,11 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public boolean isControllableSource(final Object object) {
-            return object instanceof FakeDeformer || object instanceof FakeArtMesh
-                || object instanceof FakePart || object instanceof FakeGlue
-                || object instanceof FakePassThrough;
+            return object instanceof FakeDeformer
+                    || object instanceof FakeArtMesh
+                    || object instanceof FakePart
+                    || object instanceof FakeGlue
+                    || object instanceof FakePassThrough;
         }
 
         @Override
@@ -2934,8 +2826,7 @@ class ProtectedExportOrchestratorTest {
                 return glueTargetGuids(source);
             }
             if (source instanceof FakePassThrough member) {
-                return java.util.Collections.unmodifiableList(
-                    new ArrayList<>(member.referenceGuids));
+                return java.util.Collections.unmodifiableList(new ArrayList<>(member.referenceGuids));
             }
             return List.of();
         }
@@ -2943,8 +2834,7 @@ class ProtectedExportOrchestratorTest {
         @Override
         public List<String> passThroughFlagSignature(final Object source) {
             if (source instanceof FakePassThrough member) {
-                return java.util.Collections.unmodifiableList(
-                    new ArrayList<>(member.flags));
+                return java.util.Collections.unmodifiableList(new ArrayList<>(member.flags));
             }
             return List.of();
         }
@@ -2987,38 +2877,32 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String parameterSourceIdString(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.id : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.id : null;
         }
 
         @Override
         public String parameterSourceName(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? "param-name-" + parameter.id : null;
+            return parameterSource instanceof FakeParameter parameter ? "param-name-" + parameter.id : null;
         }
 
         @Override
         public Float parameterSourceMinValue(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.min : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.min : null;
         }
 
         @Override
         public Float parameterSourceMaxValue(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.max : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.max : null;
         }
 
         @Override
         public Float parameterSourceDefaultValue(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.defaultValue : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.defaultValue : null;
         }
 
         @Override
         public Boolean parameterSourceRepeat(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.repeat : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.repeat : null;
         }
 
         @Override
@@ -3044,8 +2928,7 @@ class ProtectedExportOrchestratorTest {
             if (object instanceof FakePassThrough member) {
                 return member.family;
             }
-            return object instanceof FakeUnsupported unsupported
-                ? unsupported.family : "unknown";
+            return object instanceof FakeUnsupported unsupported ? unsupported.family : "unknown";
         }
 
         @Override
@@ -3097,65 +2980,57 @@ class ProtectedExportOrchestratorTest {
          * staged physics3 comparison exercises the real field mapping.
          */
         @Override
-        public List<String> settingsSignature(
-            final Object modelSource,
-            final Object settingsSource
-        ) {
+        public List<String> settingsSignature(final Object modelSource, final Object settingsSource) {
             if (settingsSource instanceof FakePhysicsSettings physics) {
                 final List<String> tokens = new ArrayList<>();
                 tokens.add("enable=" + physics.enable);
-                tokens.add("normalization.position=" + physics.normPosition[0]
-                    + "|" + physics.normPosition[1] + "|" + physics.normPosition[2]);
-                tokens.add("normalization.angle=" + physics.normAngle[0]
-                    + "|" + physics.normAngle[1] + "|" + physics.normAngle[2]);
+                tokens.add("normalization.position=" + physics.normPosition[0] + "|" + physics.normPosition[1] + "|"
+                        + physics.normPosition[2]);
+                tokens.add("normalization.angle=" + physics.normAngle[0] + "|" + physics.normAngle[1] + "|"
+                        + physics.normAngle[2]);
                 tokens.add("totalAngle=" + physics.totalAngle);
                 for (int i = 0; i < physics.inputs.size(); i++) {
                     final FakePhysicsInput input = physics.inputs.get(i);
-                    final String parameterId = fakeParameterId(
-                        (FakeModel) modelSource, input.paramGuid);
+                    final String parameterId = fakeParameterId((FakeModel) modelSource, input.paramGuid);
                     if (parameterId == null) {
                         return null;
                     }
                     tokens.add("input." + i + "=" + parameterId
-                        + "|" + input.weight + "|" + input.type + "|"
-                        + input.reflect + "|" + input.angleScale
-                        + "|" + input.tx + "," + input.ty);
+                            + "|" + input.weight + "|" + input.type + "|"
+                            + input.reflect + "|" + input.angleScale
+                            + "|" + input.tx + "," + input.ty);
                 }
                 for (int i = 0; i < physics.outputs.size(); i++) {
                     final FakePhysicsOutput output = physics.outputs.get(i);
-                    final String parameterId = fakeParameterId(
-                        (FakeModel) modelSource, output.paramGuid);
+                    final String parameterId = fakeParameterId((FakeModel) modelSource, output.paramGuid);
                     if (parameterId == null) {
                         return null;
                     }
                     tokens.add("output." + i + "=" + parameterId
-                        + "|" + output.vertexIndex + "|" + output.weight
-                        + "|" + output.type + "|" + output.reflect
-                        + "|" + output.angleScale
-                        + "|" + output.tx + "," + output.ty
-                        + "|" + output.belowMin + "|" + output.exceededMax);
+                            + "|" + output.vertexIndex + "|" + output.weight
+                            + "|" + output.type + "|" + output.reflect
+                            + "|" + output.angleScale
+                            + "|" + output.tx + "," + output.ty
+                            + "|" + output.belowMin + "|" + output.exceededMax);
                 }
                 for (int i = 0; i < physics.vertices.size(); i++) {
                     final FakePhysicsVertex vertex = physics.vertices.get(i);
                     tokens.add("vertex." + i + "=" + vertex.x + "," + vertex.y
-                        + "|" + vertex.mobility + "|" + vertex.delay
-                        + "|" + vertex.acceleration + "|" + vertex.radius);
+                            + "|" + vertex.mobility + "|" + vertex.delay
+                            + "|" + vertex.acceleration + "|" + vertex.radius);
                 }
                 return List.copyOf(tokens);
             }
             if (settingsSource instanceof FakeMotionSyncSettings sync) {
                 return List.of(
-                    "version=" + sync.version,
-                    "mapping.checksum=" + sync.mappingChecksum,
-                    "postproc.checksum=" + sync.postProcChecksum);
+                        "version=" + sync.version,
+                        "mapping.checksum=" + sync.mappingChecksum,
+                        "postproc.checksum=" + sync.postProcChecksum);
             }
             return null;
         }
 
-        private String fakeParameterId(
-            final FakeModel model,
-            final String paramGuid
-        ) {
+        private String fakeParameterId(final FakeModel model, final String paramGuid) {
             for (FakeParameter parameter : model.parameters) {
                 if (parameter.guid.equals(paramGuid)) {
                     return parameter.id;
@@ -3174,10 +3049,7 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
-        public void setSettingsId(
-            final Object settingsSource,
-            final String idString
-        ) {
+        public void setSettingsId(final Object settingsSource, final String idString) {
             if (settingsSource instanceof FakePhysicsSettings physics) {
                 physics.id = idString;
             } else if (settingsSource instanceof FakeMotionSyncSettings sync) {
@@ -3187,22 +3059,20 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String parameterSourceGuid(final Object parameterSource) {
-            return parameterSource instanceof FakeParameter parameter
-                ? parameter.guid : null;
+            return parameterSource instanceof FakeParameter parameter ? parameter.guid : null;
         }
 
         @Override
         public List<String> physicsSettingsSetSignature(final Object modelSource) {
             final FakePhysicsSet set = ((FakeModel) modelSource).physicsSet;
             if (set == null) {
-                return ((FakeModel) modelSource).physicsSettings.isEmpty()
-                    ? List.of() : null;
+                return ((FakeModel) modelSource).physicsSettings.isEmpty() ? List.of() : null;
             }
             return List.of(
-                "gravity=" + set.gravityX + "," + set.gravityY,
-                "wind=" + set.windX + "," + set.windY,
-                "fps=" + set.fps,
-                "selected=" + set.selectedGuid);
+                    "gravity=" + set.gravityX + "," + set.gravityY,
+                    "wind=" + set.windX + "," + set.windY,
+                    "fps=" + set.fps,
+                    "selected=" + set.selectedGuid);
         }
 
         @Override
@@ -3252,8 +3122,8 @@ class ProtectedExportOrchestratorTest {
         public List<String> embeddedContentFamilies(final Object controllableSource) {
             final List<String> detected = new ArrayList<>();
             if (embeddedMorphTargets
-                && controllableSource instanceof FakeArtMesh mesh
-                && "m-a-guid".equals(mesh.guid)) {
+                    && controllableSource instanceof FakeArtMesh mesh
+                    && "m-a-guid".equals(mesh.guid)) {
                 detected.add("keyform-morph-target-set");
             }
             if (attachedExtension && controllableSource instanceof FakeDeformer) {
@@ -3279,11 +3149,7 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public void invokeNativeExport(
-            final Object driver,
-            final Object modelSource,
-            final Object frame,
-            final Object completionCallback
-        ) {
+                final Object driver, final Object modelSource, final Object frame, final Object completionCallback) {
             if (!exportShowsDialog) {
                 return; // native pre-check veto: no dialog, no chooser
             }
@@ -3307,25 +3173,24 @@ class ProtectedExportOrchestratorTest {
             if (exportWritesFiles) {
                 try {
                     final Path parent = staged.toPath().getParent();
-                    Files.write(staged.toPath(), new byte[]{1, 2, 3});
+                    Files.write(staged.toPath(), new byte[] {1, 2, 3});
                     paths.add(staged.toPath().toAbsolutePath().toString());
-                    final Path modelJson = parent.resolve(
-                        staged.getName().replace(".moc3", "") + ".model3.json");
-                    final StringBuilder modelRefs = new StringBuilder(
-                        "{\"FileReferences\":{\"Moc\":\"" + staged.getName() + "\"");
-                    final Path physicsJson = parent.resolve(
-                        staged.getName().replace(".moc3", "") + ".physics3.json");
+                    final Path modelJson = parent.resolve(staged.getName().replace(".moc3", "") + ".model3.json");
+                    final StringBuilder modelRefs =
+                            new StringBuilder("{\"FileReferences\":{\"Moc\":\"" + staged.getName() + "\"");
+                    final Path physicsJson = parent.resolve(staged.getName().replace(".moc3", "") + ".physics3.json");
                     if (exportWritesPhysics && !exportedModel.physicsSettings.isEmpty()) {
                         // The user's physics output checkbox is on: the native
                         // flow emits physics3.json — the writer canonicalizes
                         // every setting ID to PhysicsSetting<i+1> in list order
                         // (exactly like the real writer) while the dictionary
                         // Name carries the obfuscated token.
-                        Files.writeString(physicsJson,
-                            fakePhysics3Json(exportedModel));
+                        Files.writeString(physicsJson, fakePhysics3Json(exportedModel));
                         paths.add(physicsJson.toAbsolutePath().toString());
-                        modelRefs.append(",\"Physics\":\"").append(physicsJson.getFileName())
-                            .append("\"");
+                        modelRefs
+                                .append(",\"Physics\":\"")
+                                .append(physicsJson.getFileName())
+                                .append("\"");
                     }
                     Files.writeString(modelJson, modelRefs.append("}}").toString());
                     paths.add(modelJson.toAbsolutePath().toString());
@@ -3383,28 +3248,39 @@ class ProtectedExportOrchestratorTest {
                 totalOutputs += physics.outputs.size();
                 totalVertices += physics.vertices.size();
             }
-            out.append("\"PhysicsSettingCount\":").append(emitted.size())
-                .append(",\"TotalInputCount\":").append(totalInputs)
-                .append(",\"TotalOutputCount\":").append(totalOutputs)
-                .append(",\"VertexCount\":").append(totalVertices);
+            out.append("\"PhysicsSettingCount\":")
+                    .append(emitted.size())
+                    .append(",\"TotalInputCount\":")
+                    .append(totalInputs)
+                    .append(",\"TotalOutputCount\":")
+                    .append(totalOutputs)
+                    .append(",\"VertexCount\":")
+                    .append(totalVertices);
             final FakePhysicsSet set = model.physicsSet;
             if (set != null) {
                 if (set.fps != null) {
                     out.append(",\"Fps\":").append(set.fps);
                 }
                 out.append(",\"EffectiveForces\":{\"Gravity\":{\"X\":")
-                    .append(fmt.format(set.gravityX)).append(",\"Y\":")
-                    .append(fmt.format(set.gravityY)).append("},\"Wind\":{\"X\":")
-                    .append(fmt.format(set.windX)).append(",\"Y\":")
-                    .append(fmt.format(set.windY)).append("}}");
+                        .append(fmt.format(set.gravityX))
+                        .append(",\"Y\":")
+                        .append(fmt.format(set.gravityY))
+                        .append("},\"Wind\":{\"X\":")
+                        .append(fmt.format(set.windX))
+                        .append(",\"Y\":")
+                        .append(fmt.format(set.windY))
+                        .append("}}");
             }
             out.append(",\"PhysicsDictionary\":[");
             for (int i = 0; i < emitted.size(); i++) {
                 if (i > 0) {
                     out.append(',');
                 }
-                out.append("{\"Id\":\"PhysicsSetting").append(i + 1)
-                    .append("\",\"Name\":\"").append(emitted.get(i).name).append("\"}");
+                out.append("{\"Id\":\"PhysicsSetting")
+                        .append(i + 1)
+                        .append("\",\"Name\":\"")
+                        .append(emitted.get(i).name)
+                        .append("\"}");
             }
             out.append("]},\"PhysicsSettings\":[");
             for (int i = 0; i < emitted.size(); i++) {
@@ -3412,18 +3288,21 @@ class ProtectedExportOrchestratorTest {
                 if (i > 0) {
                     out.append(',');
                 }
-                out.append("{\"Id\":\"PhysicsSetting").append(i + 1)
-                    .append("\",\"Input\":[");
+                out.append("{\"Id\":\"PhysicsSetting").append(i + 1).append("\",\"Input\":[");
                 for (int j = 0; j < physics.inputs.size(); j++) {
                     final FakePhysicsInput input = physics.inputs.get(j);
                     if (j > 0) {
                         out.append(',');
                     }
                     out.append("{\"Source\":{\"Target\":\"Parameter\",\"Id\":\"")
-                        .append(fakeParameterId(model, input.paramGuid))
-                        .append("\"},\"Weight\":").append(fmt.format(input.weight))
-                        .append(",\"Type\":\"").append(fakeJsonType(input.type))
-                        .append("\",\"Reflect\":").append(input.reflect).append('}');
+                            .append(fakeParameterId(model, input.paramGuid))
+                            .append("\"},\"Weight\":")
+                            .append(fmt.format(input.weight))
+                            .append(",\"Type\":\"")
+                            .append(fakeJsonType(input.type))
+                            .append("\",\"Reflect\":")
+                            .append(input.reflect)
+                            .append('}');
                 }
                 out.append("],\"Output\":[");
                 for (int j = 0; j < physics.outputs.size(); j++) {
@@ -3431,19 +3310,25 @@ class ProtectedExportOrchestratorTest {
                     if (j > 0) {
                         out.append(',');
                     }
-                    final float weight =
-                        exportMutatesPhysicsContent ? output.weight * 2f : output.weight;
+                    final float weight = exportMutatesPhysicsContent ? output.weight * 2f : output.weight;
                     out.append("{\"Destination\":{\"Target\":\"Parameter\",\"Id\":\"")
-                        .append(fakeParameterId(model, output.paramGuid))
-                        .append("\"},\"VertexIndex\":").append(output.vertexIndex)
-                        .append(",\"Scale\":").append(fmt.format(switch (output.type) {
-                            case "SRC_TO_X" -> output.tx;
-                            case "SRC_TO_Y" -> output.ty;
-                            default -> output.angleScale;
-                        }))
-                        .append(",\"Weight\":").append(fmt.format(weight))
-                        .append(",\"Type\":\"").append(fakeJsonType(output.type))
-                        .append("\",\"Reflect\":").append(output.reflect).append('}');
+                            .append(fakeParameterId(model, output.paramGuid))
+                            .append("\"},\"VertexIndex\":")
+                            .append(output.vertexIndex)
+                            .append(",\"Scale\":")
+                            .append(fmt.format(
+                                    switch (output.type) {
+                                        case "SRC_TO_X" -> output.tx;
+                                        case "SRC_TO_Y" -> output.ty;
+                                        default -> output.angleScale;
+                                    }))
+                            .append(",\"Weight\":")
+                            .append(fmt.format(weight))
+                            .append(",\"Type\":\"")
+                            .append(fakeJsonType(output.type))
+                            .append("\",\"Reflect\":")
+                            .append(output.reflect)
+                            .append('}');
                 }
                 out.append("],\"Vertices\":[");
                 for (int j = 0; j < physics.vertices.size(); j++) {
@@ -3451,23 +3336,33 @@ class ProtectedExportOrchestratorTest {
                     if (j > 0) {
                         out.append(',');
                     }
-                    out.append("{\"Position\":{\"X\":").append(fmt.format(vertex.x))
-                        .append(",\"Y\":").append(fmt.format(vertex.y))
-                        .append("},\"Mobility\":").append(fmt.format(vertex.mobility))
-                        .append(",\"Delay\":").append(fmt.format(vertex.delay))
-                        .append(",\"Acceleration\":").append(fmt.format(vertex.acceleration))
-                        .append(",\"Radius\":").append(fmt.format(vertex.radius))
-                        .append('}');
+                    out.append("{\"Position\":{\"X\":")
+                            .append(fmt.format(vertex.x))
+                            .append(",\"Y\":")
+                            .append(fmt.format(vertex.y))
+                            .append("},\"Mobility\":")
+                            .append(fmt.format(vertex.mobility))
+                            .append(",\"Delay\":")
+                            .append(fmt.format(vertex.delay))
+                            .append(",\"Acceleration\":")
+                            .append(fmt.format(vertex.acceleration))
+                            .append(",\"Radius\":")
+                            .append(fmt.format(vertex.radius))
+                            .append('}');
                 }
                 out.append("],\"Normalization\":{\"Position\":{\"Minimum\":")
-                    .append(fmt.format(physics.normPosition[0]))
-                    .append(",\"Default\":").append(fmt.format(physics.normPosition[1]))
-                    .append(",\"Maximum\":").append(fmt.format(physics.normPosition[2]))
-                    .append("},\"Angle\":{\"Minimum\":")
-                    .append(fmt.format(physics.normAngle[0]))
-                    .append(",\"Default\":").append(fmt.format(physics.normAngle[1]))
-                    .append(",\"Maximum\":").append(fmt.format(physics.normAngle[2]))
-                    .append("}}}");
+                        .append(fmt.format(physics.normPosition[0]))
+                        .append(",\"Default\":")
+                        .append(fmt.format(physics.normPosition[1]))
+                        .append(",\"Maximum\":")
+                        .append(fmt.format(physics.normPosition[2]))
+                        .append("},\"Angle\":{\"Minimum\":")
+                        .append(fmt.format(physics.normAngle[0]))
+                        .append(",\"Default\":")
+                        .append(fmt.format(physics.normAngle[1]))
+                        .append(",\"Maximum\":")
+                        .append(fmt.format(physics.normAngle[2]))
+                        .append("}}}");
             }
             return out.append("]}").toString();
         }
@@ -3482,9 +3377,7 @@ class ProtectedExportOrchestratorTest {
         }
 
         @Override
-        public Object newExportCompletionProxy(
-            final BiConsumer<File, List<String>> callback
-        ) {
+        public Object newExportCompletionProxy(final BiConsumer<File, List<String>> callback) {
             completion = callback;
             return callback;
         }

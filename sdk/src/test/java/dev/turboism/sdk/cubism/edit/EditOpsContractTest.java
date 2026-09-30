@@ -1,8 +1,11 @@
 package dev.turboism.sdk.cubism.edit;
 
-import dev.turboism.sdk.cubism.id.ModelObjectId;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.id.ModelObjectId;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -14,11 +17,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Contract coverage for the five operation families: every operation exists as a typed method,
@@ -29,18 +28,16 @@ final class EditOpsContractTest {
 
     /** The 30 typed operations across the five families, by official operation count. */
     private static final Map<Class<?>, Integer> FAMILY_OPERATION_COUNTS = Map.of(
-        ParameterKeyOps.class, 5,
-        ParameterStructureOps.class, 9,
-        SelectionOps.class, 3,
-        PartObjectOps.class, 8,
-        DeformerOps.class, 5
-    );
+            ParameterKeyOps.class, 5,
+            ParameterStructureOps.class, 9,
+            SelectionOps.class, 3,
+            PartObjectOps.class, 8,
+            DeformerOps.class, 5);
 
     /** Sample values for request types whose canonical constructor rejects the generic default. */
     private static final Map<Class<?>, Object> REQUEST_SAMPLES = Map.of(
-        SelectionOps.AddSelectedObjects.class,
-        new SelectionOps.AddSelectedObjects(List.of(new ModelObjectId("mesh-1")))
-    );
+            SelectionOps.AddSelectedObjects.class,
+            new SelectionOps.AddSelectedObjects(List.of(new ModelObjectId("mesh-1"))));
 
     @Test
     void familiesDeclareTheOfficialTypedOperations() throws Exception {
@@ -48,16 +45,15 @@ final class EditOpsContractTest {
             final List<Method> operations = operationsOf(entry.getKey());
 
             assertEquals(
-                entry.getValue().intValue(),
-                operations.size(),
-                entry.getKey().getSimpleName() + " operation count");
+                    entry.getValue().intValue(),
+                    operations.size(),
+                    entry.getKey().getSimpleName() + " operation count");
 
             for (final Method operation : operations) {
                 for (final Class<?> parameterType : operation.getParameterTypes()) {
                     assertTrue(
-                        parameterType.isRecord(),
-                        operation.getName() + " parameter must be a typed record, got "
-                            + parameterType.getName());
+                            parameterType.isRecord(),
+                            operation.getName() + " parameter must be a typed record, got " + parameterType.getName());
                 }
             }
         }
@@ -66,12 +62,11 @@ final class EditOpsContractTest {
     @Test
     void unavailableFamiliesFailClosedOnEveryOperation() throws Exception {
         final Map<Class<?>, Object> unavailableFamilies = Map.of(
-            ParameterKeyOps.class, ParameterKeyOps.unavailable(),
-            ParameterStructureOps.class, ParameterStructureOps.unavailable(),
-            SelectionOps.class, SelectionOps.unavailable(),
-            PartObjectOps.class, PartObjectOps.unavailable(),
-            DeformerOps.class, DeformerOps.unavailable()
-        );
+                ParameterKeyOps.class, ParameterKeyOps.unavailable(),
+                ParameterStructureOps.class, ParameterStructureOps.unavailable(),
+                SelectionOps.class, SelectionOps.unavailable(),
+                PartObjectOps.class, PartObjectOps.unavailable(),
+                DeformerOps.class, DeformerOps.unavailable());
 
         for (final var family : unavailableFamilies.entrySet()) {
             final Object instance = family.getValue();
@@ -81,42 +76,57 @@ final class EditOpsContractTest {
                     args[i] = sampleValue(operation.getParameterTypes()[i]);
                 }
                 final InvocationTargetException thrown = assertThrows(
-                    InvocationTargetException.class,
-                    () -> operation.invoke(instance, args),
-                    operation.getName() + " must throw on an unavailable family");
+                        InvocationTargetException.class,
+                        () -> operation.invoke(instance, args),
+                        operation.getName() + " must throw on an unavailable family");
                 assertTrue(
-                    thrown.getCause() instanceof EditUnavailableException,
-                    operation.getName() + " must fail closed with EditUnavailableException, got "
-                        + thrown.getCause());
-                assertEquals(
-                    EditUnavailableException.CODE,
-                    ((EditUnavailableException) thrown.getCause()).code());
+                        thrown.getCause() instanceof EditUnavailableException,
+                        operation.getName() + " must fail closed with EditUnavailableException, got "
+                                + thrown.getCause());
+                assertEquals(EditUnavailableException.CODE, ((EditUnavailableException) thrown.getCause()).code());
             }
         }
     }
 
     @Test
     void requestRecordsValidateTheirArguments() {
-        assertThrows(NullPointerException.class, () -> new ParameterKeyOps.AddParameterKey(
-            null, new dev.turboism.sdk.cubism.id.ParameterId("p"), 0.0));
-        assertThrows(IllegalArgumentException.class, () -> new ParameterKeyOps.AddParameterKey(
-            object(), new dev.turboism.sdk.cubism.id.ParameterId("p"), Double.NaN));
-        assertThrows(IllegalArgumentException.class,
-            () -> new SelectionOps.AddSelectedObjects(List.of()));
-        assertThrows(IllegalArgumentException.class,
-            () -> new EditLabelColor(EditLabelColorType.CUSTOM, Optional.empty()));
-        assertThrows(IllegalArgumentException.class,
-            () -> new EditLabelColor(EditLabelColorType.RED, Optional.of("#fff")));
+        assertThrows(
+                NullPointerException.class,
+                () -> new ParameterKeyOps.AddParameterKey(null, new dev.turboism.sdk.cubism.id.ParameterId("p"), 0.0));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ParameterKeyOps.AddParameterKey(
+                        object(), new dev.turboism.sdk.cubism.id.ParameterId("p"), Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> new SelectionOps.AddSelectedObjects(List.of()));
+        assertThrows(
+                IllegalArgumentException.class, () -> new EditLabelColor(EditLabelColorType.CUSTOM, Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class, () -> new EditLabelColor(EditLabelColorType.RED, Optional.of("#fff")));
         assertThrows(NullPointerException.class, () -> new EditRectangle(null, p(), p(), p()));
         assertThrows(NullPointerException.class, () -> new EditRectangle(p(), p(), p(), null));
-        assertThrows(IllegalArgumentException.class, () -> new EditArtMeshData(
-            "m", Optional.empty(), Optional.empty(), List.of(), false, 0, 0.5,
-            Optional.empty(), Optional.empty(), EditColorBlend.NORMAL, EditAlphaBlend.OVER,
-            false, EditLabelColor.of(EditLabelColorType.UNDEFINED), -1));
-        assertThrows(IllegalArgumentException.class, () -> new ParameterStructureOps.MoveParameter(
-            new dev.turboism.sdk.cubism.id.ParameterId("p"),
-            new dev.turboism.sdk.cubism.id.ParameterGroupId("g"),
-            Optional.of(-1)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditArtMeshData(
+                        "m",
+                        Optional.empty(),
+                        Optional.empty(),
+                        List.of(),
+                        false,
+                        0,
+                        0.5,
+                        Optional.empty(),
+                        Optional.empty(),
+                        EditColorBlend.NORMAL,
+                        EditAlphaBlend.OVER,
+                        false,
+                        EditLabelColor.of(EditLabelColorType.UNDEFINED),
+                        -1));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ParameterStructureOps.MoveParameter(
+                        new dev.turboism.sdk.cubism.id.ParameterId("p"),
+                        new dev.turboism.sdk.cubism.id.ParameterGroupId("g"),
+                        Optional.of(-1)));
     }
 
     /**
@@ -127,34 +137,46 @@ final class EditOpsContractTest {
      */
     @Test
     void objectPayloadsMatchTheOfficialDataBlocks() {
-        assertRecordComponents(EditArtMeshData.class,
-            "clippingIds", List.class, "vertexCount", int.class);
-        assertRecordComponents(EditRotationDeformerData.class,
-            "position", dev.turboism.sdk.cubism.model.Point2.class);
-        assertRecordComponents(EditWarpDeformerData.class,
-            "bezierDivH", Optional.class, "bezierDivV", Optional.class,
-            "rectangle", EditRectangle.class);
-        assertRecordComponents(EditRectangle.class,
-            "topLeft", dev.turboism.sdk.cubism.model.Point2.class,
-            "bottomLeft", dev.turboism.sdk.cubism.model.Point2.class,
-            "topRight", dev.turboism.sdk.cubism.model.Point2.class,
-            "bottomRight", dev.turboism.sdk.cubism.model.Point2.class);
+        assertRecordComponents(EditArtMeshData.class, "clippingIds", List.class, "vertexCount", int.class);
+        assertRecordComponents(EditRotationDeformerData.class, "position", dev.turboism.sdk.cubism.model.Point2.class);
+        assertRecordComponents(
+                EditWarpDeformerData.class,
+                "bezierDivH",
+                Optional.class,
+                "bezierDivV",
+                Optional.class,
+                "rectangle",
+                EditRectangle.class);
+        assertRecordComponents(
+                EditRectangle.class,
+                "topLeft",
+                dev.turboism.sdk.cubism.model.Point2.class,
+                "bottomLeft",
+                dev.turboism.sdk.cubism.model.Point2.class,
+                "topRight",
+                dev.turboism.sdk.cubism.model.Point2.class,
+                "bottomRight",
+                dev.turboism.sdk.cubism.model.Point2.class);
 
         for (final Class<?> payload : List.of(
-                EditArtMeshData.class, EditPartData.class, EditWarpDeformerData.class,
-                EditRotationDeformerData.class, EditGlueData.class)) {
+                EditArtMeshData.class,
+                EditPartData.class,
+                EditWarpDeformerData.class,
+                EditRotationDeformerData.class,
+                EditGlueData.class)) {
             for (final RecordComponent component : payload.getRecordComponents()) {
                 final String name = component.getName();
                 assertTrue(
-                    !name.equals("vertices") && !name.equals("uvs")
-                        && !name.equals("triangles") && !name.equals("rectangles"),
-                    payload.getSimpleName() + " carries invented geometry member " + name);
+                        !name.equals("vertices")
+                                && !name.equals("uvs")
+                                && !name.equals("triangles")
+                                && !name.equals("rectangles"),
+                        payload.getSimpleName() + " carries invented geometry member " + name);
             }
         }
     }
 
-    private static void assertRecordComponents(
-        final Class<?> record, final Object... nameTypePairs) {
+    private static void assertRecordComponents(final Class<?> record, final Object... nameTypePairs) {
         final java.util.Map<String, Class<?>> components = new java.util.HashMap<>();
         for (final RecordComponent component : record.getRecordComponents()) {
             components.put(component.getName(), component.getType());
@@ -163,8 +185,7 @@ final class EditOpsContractTest {
             final String name = (String) nameTypePairs[i];
             final Class<?> type = (Class<?>) nameTypePairs[i + 1];
             assertEquals(
-                type, components.get(name),
-                record.getSimpleName() + "." + name + " has the wrong component type");
+                    type, components.get(name), record.getSimpleName() + "." + name + " has the wrong component type");
         }
     }
 
@@ -188,11 +209,10 @@ final class EditOpsContractTest {
         }
     }
 
-    private static void assertFreeOfLive2d(
-        final String signature, final Class<?> type, final String member) {
+    private static void assertFreeOfLive2d(final String signature, final Class<?> type, final String member) {
         assertTrue(
-            !signature.contains("com.live2d"),
-            type.getName() + "#" + member + " exposes a com.live2d type: " + signature);
+                !signature.contains("com.live2d"),
+                type.getName() + "#" + member + " exposes a com.live2d type: " + signature);
     }
 
     private static List<Method> operationsOf(final Class<?> family) {
@@ -251,7 +271,7 @@ final class EditOpsContractTest {
 
     private static dev.turboism.sdk.cubism.model.ModelObjectReference object() {
         return new dev.turboism.sdk.cubism.model.ModelObjectReference(
-            dev.turboism.sdk.cubism.model.ModelObjectKind.ART_MESH, "mesh-1");
+                dev.turboism.sdk.cubism.model.ModelObjectKind.ART_MESH, "mesh-1");
     }
 
     private static List<Class<?>> editPackageTypes() throws Exception {

@@ -5,17 +5,16 @@ import java.util.Objects;
 
 /** Immutable, adapter-owned structural snapshot of one leased Cubism Core model generation. */
 record CoreStructuralSnapshot(
-    long generation,
-    String modelIdentity,
-    String providerId,
-    String artifactProfile,
-    CoreCanvasSnapshot canvas,
-    List<CoreParameterDefinition> parameters,
-    List<CorePartDefinition> parts,
-    List<CoreDrawableDefinition> drawables,
-    List<CoreDeformerDefinition> deformers,
-    List<CoreGlueDefinition> glues
-) {
+        long generation,
+        String modelIdentity,
+        String providerId,
+        String artifactProfile,
+        CoreCanvasSnapshot canvas,
+        List<CoreParameterDefinition> parameters,
+        List<CorePartDefinition> parts,
+        List<CoreDrawableDefinition> drawables,
+        List<CoreDeformerDefinition> deformers,
+        List<CoreGlueDefinition> glues) {
 
     CoreStructuralSnapshot {
         if (generation < 0) {

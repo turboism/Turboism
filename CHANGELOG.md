@@ -18,6 +18,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `PluginContext.availableServices()` and the `PluginService` enum report which optional context
   services the runtime actually installed, so plugins no longer have to probe getters or guess at
   `unavailable()` sentinels; the default fails closed with an empty set.
+- `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
+  optional context services the runtime actually installed (`services().get(ServiceType.class)`
+  returns `null` when absent); each `PluginService` member now carries its service type. The
+  pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
+  compatibility, and new optional services land on the directory instead of growing the context.
+- `@Incubating` marks SDK types and members that are published for early adopters but not yet
+  covered by the stable-API compatibility promises; the MCP surface, the generated-subscriber
+  catalog machinery and the new service directory ship incubating.
 - `TurboismWindowFactory.installWindowIcon` installs a process-wide window-icon override, so every
   plugin-owned window carries the same product icon the user picked for the main-toolbar button
   (text vs installer mode) instead of the bundled default.
@@ -52,9 +60,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
   inside the native drag tick it provides live mirrored preview and a single undo entry —
   while unreviewed hosts keep the release-time AWT fallback with identical results.
+  While an axis is armed, selection-weight writes (the Brush Selection Tool and every other
+  weighted-selection flow) are mirrored onto the axis counterpart point in the same
+  selection/undo envelope, so weight painting stays symmetric in real time.
 - `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
   `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
   for every action or menu item it contributes.
+- Runtime-owned keybinding authority and a Keybindings window: the Turboism menu gains a
+  "Keybindings" item opening a table of every bindable row — plugin actions (including the core
+  shell's own) and native commands enumerated live from the host's menu accelerators, so the
+  catalog always mirrors the shortcuts the running Cubism version actually declares; shortcuts
+  not exposed through menus can still be added as key-forwarding rows. A global AWT key dispatcher intercepts host key
+  events so a bound key invokes a plugin action through the action router, while a native rebind
+  is translated back into the host's original shortcut and the displaced key is suppressed.
+  Rows carry a tri-state binding (unset/bound/disabled) persisted under
+  `state/runtime/keybindings.properties`, conflicting claims are marked in the table, plain
+  single-key bindings stay inactive while a text field holds focus, and the capture dialog
+  suspends interception while recording. `ActionRegistry.Action.defaultShortcut()` plus the new
+  `Action.of(id, label, shortcut, handler)` overload let plugins declare a default shortcut the
+  user can rebind. The core shell declares defaults for its window actions (Settings
+  `Ctrl+Alt+S`, Plugins `Ctrl+Alt+P`, Logs `Ctrl+Alt+L`, Keybindings `Ctrl+Shift+K`), and the
+  first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
+  examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
 
 ### Changed
 
@@ -113,6 +140,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- `ClassPinTable.load` now falls back to the system class loader when the agent classes have no
+  defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
+  so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely
+  instead of starting on a real host.
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign
   sources while preserving valid copies between active views owned by the same plugin.

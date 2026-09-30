@@ -11,14 +11,13 @@ import java.util.Objects;
  * validate) without re-entering the host.</p>
  */
 public record TextureAtlasPolygonLayoutSnapshot(
-    TextureAtlasLayoutTarget target,
-    String documentId,
-    String modelId,
-    String atlasId,
-    TextureAtlasPolygonConstraints constraints,
-    List<TextureAtlasPolygonItem> items,
-    TextureAtlasPolygonPlan currentPlan
-) {
+        TextureAtlasLayoutTarget target,
+        String documentId,
+        String modelId,
+        String atlasId,
+        TextureAtlasPolygonConstraints constraints,
+        List<TextureAtlasPolygonItem> items,
+        TextureAtlasPolygonPlan currentPlan) {
 
     public TextureAtlasPolygonLayoutSnapshot {
         Objects.requireNonNull(target, "target");

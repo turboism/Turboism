@@ -8,10 +8,4 @@ package dev.turboism.core.runtime;
  * @param payloadDescription a human-readable description of the payload
  * @param declaredCapability the capability declared by the plugin (e.g. {@code sidecar})
  */
-public record PluginTask(
-    String taskType,
-    String pluginId,
-    String payloadDescription,
-    String declaredCapability
-) {
-}
+public record PluginTask(String taskType, String pluginId, String payloadDescription, String declaredCapability) {}

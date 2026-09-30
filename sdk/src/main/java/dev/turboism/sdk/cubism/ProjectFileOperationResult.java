@@ -5,11 +5,10 @@ import java.util.Optional;
 
 /** Completion result delivered by the after phase of a model or animation file operation. */
 public record ProjectFileOperationResult(
-    ProjectFileOperation request,
-    Optional<ProjectContentSnapshot> content,
-    boolean succeeded,
-    Optional<String> failureType
-) {
+        ProjectFileOperation request,
+        Optional<ProjectContentSnapshot> content,
+        boolean succeeded,
+        Optional<String> failureType) {
     public ProjectFileOperationResult {
         request = Objects.requireNonNull(request, "request");
         content = Objects.requireNonNull(content, "content");
@@ -29,15 +28,9 @@ public record ProjectFileOperationResult(
      * @throws NullPointerException if {@code request} or {@code content} is null
      */
     public static ProjectFileOperationResult succeeded(
-        final ProjectFileOperation request,
-        final ProjectContentSnapshot content
-    ) {
+            final ProjectFileOperation request, final ProjectContentSnapshot content) {
         return new ProjectFileOperationResult(
-            request,
-            Optional.of(Objects.requireNonNull(content, "content")),
-            true,
-            Optional.empty()
-        );
+                request, Optional.of(Objects.requireNonNull(content, "content")), true, Optional.empty());
     }
 
     /**
@@ -51,16 +44,13 @@ public record ProjectFileOperationResult(
      * @throws NullPointerException if {@code request} or {@code failure} is null
      */
     public static ProjectFileOperationResult failed(
-        final ProjectFileOperation request,
-        final ProjectContentSnapshot content,
-        final Throwable failure
-    ) {
+            final ProjectFileOperation request, final ProjectContentSnapshot content, final Throwable failure) {
         return new ProjectFileOperationResult(
-            request,
-            Optional.ofNullable(content),
-            false,
-            Optional.of(Objects.requireNonNull(failure, "failure").getClass().getName())
-        );
+                request,
+                Optional.ofNullable(content),
+                false,
+                Optional.of(
+                        Objects.requireNonNull(failure, "failure").getClass().getName()));
     }
 
     /**
@@ -74,14 +64,7 @@ public record ProjectFileOperationResult(
      * @throws NullPointerException if {@code request} is null
      */
     public static ProjectFileOperationResult rejected(
-        final ProjectFileOperation request,
-        final ProjectContentSnapshot content
-    ) {
-        return new ProjectFileOperationResult(
-            request,
-            Optional.ofNullable(content),
-            false,
-            Optional.empty()
-        );
+            final ProjectFileOperation request, final ProjectContentSnapshot content) {
+        return new ProjectFileOperationResult(request, Optional.ofNullable(content), false, Optional.empty());
     }
 }

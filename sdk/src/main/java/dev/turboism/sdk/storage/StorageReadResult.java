@@ -15,11 +15,7 @@ import java.util.Optional;
  * @param truncated whether the byte ceiling cut the read short; always
  *     {@code false} on failure
  */
-public record StorageReadResult<T>(
-    Optional<T> value,
-    Optional<StorageError> error,
-    boolean truncated
-) {
+public record StorageReadResult<T>(Optional<T> value, Optional<StorageError> error, boolean truncated) {
     public StorageReadResult {
         value = defensiveValue(StorageContracts.requireOptional(value, "value"));
         error = StorageContracts.requireOptional(error, "error");

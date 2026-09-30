@@ -1,23 +1,22 @@
 package dev.turboism.config;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.internal.core.CubismJvmSettingsService.CubismJvm;
 import dev.turboism.internal.core.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeSettingsServiceTest {
 
@@ -41,7 +40,8 @@ class RuntimeSettingsServiceTest {
             """);
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
-        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true, true, "en", true));
+        RuntimeSettings saved =
+                service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true, true, "en", true));
         RuntimeSettings reloaded = service.read();
 
         assertEquals(saved, reloaded);
@@ -53,7 +53,11 @@ class RuntimeSettingsServiceTest {
         assertEquals(64, reloaded.maxLogStorageMiB());
         assertTrue(reloaded.separateExportSaveDirectory());
         assertTrue(reloaded.useTextIcon());
-        assertEquals("settings-test", JSON.readTree(home.resolve("config.json").toFile()).path("worktreeId").asText());
+        assertEquals(
+                "settings-test",
+                JSON.readTree(home.resolve("config.json").toFile())
+                        .path("worktreeId")
+                        .asText());
         assertFalse(Files.exists(home.resolve("config/runtime.json")));
         assertFalse(Files.exists(home.resolve("config.json.tmp")));
     }
@@ -82,46 +86,48 @@ class RuntimeSettingsServiceTest {
 
         assertEquals(CubismJvm.BUNDLED, service.read());
         assertEquals(
-            "bundled",
-            JSON.readTree(home.resolve("config.json").toFile())
-                .path("launcher").path("cubismJvm").asText()
-        );
+                "bundled",
+                JSON.readTree(home.resolve("config.json").toFile())
+                        .path("launcher")
+                        .path("cubismJvm")
+                        .asText());
     }
 
     @Test
     void persistsCustomGraalVmPathAndUsesItAfterAutomaticDiscovery() throws Exception {
         final Path packaged = home.resolve("graalvm/bin/java.exe");
         Files.createDirectories(packaged.getParent());
-        Files.write(packaged, new byte[]{1});
+        Files.write(packaged, new byte[] {1});
         writeGraalVmRelease(home.resolve("graalvm"));
         final Path customHome = home.resolve("custom graalvm");
         final Path customJava = customHome.resolve("bin/java.exe");
         Files.createDirectories(customJava.getParent());
-        Files.write(customJava, new byte[]{2});
+        Files.write(customJava, new byte[] {2});
         writeGraalVmRelease(customHome);
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(home);
 
         assertEquals(
-            customJava.getParent().toAbsolutePath().normalize().toString(),
-            service.saveGraalVmPath(customJava.getParent().toString())
-        );
-        assertEquals(packaged.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+                customJava.getParent().toAbsolutePath().normalize().toString(),
+                service.saveGraalVmPath(customJava.getParent().toString()));
         assertEquals(
-            customJava.getParent().toAbsolutePath().normalize().toString(),
-            JSON.readTree(home.resolve("config.json").toFile())
-                .path("launcher").path("graalVmPath").asText()
-        );
+                packaged.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+        assertEquals(
+                customJava.getParent().toAbsolutePath().normalize().toString(),
+                JSON.readTree(home.resolve("config.json").toFile())
+                        .path("launcher")
+                        .path("graalVmPath")
+                        .asText());
 
         Files.delete(packaged);
-        assertEquals(customJava.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+        assertEquals(
+                customJava.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
 
         service.saveGraalVmPath("   ");
 
         assertEquals("", service.graalVmPath());
-        assertFalse(
-            JSON.readTree(home.resolve("config.json").toFile())
-                .path("launcher").has("graalVmPath")
-        );
+        assertFalse(JSON.readTree(home.resolve("config.json").toFile())
+                .path("launcher")
+                .has("graalVmPath"));
         assertTrue(service.graalVmJava().isEmpty());
     }
 
@@ -132,25 +138,21 @@ class RuntimeSettingsServiceTest {
         final byte[] before = Files.readAllBytes(home.resolve("config.json"));
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> service.saveGraalVmPath(home.resolve("ordinary-java").toString())
-        );
+                IllegalArgumentException.class,
+                () -> service.saveGraalVmPath(home.resolve("ordinary-java").toString()));
         assertArrayEquals(before, Files.readAllBytes(home.resolve("config.json")));
     }
 
     @Test
     void missingHttpClientModuleDoesNotAbortRuntimeSettingsConstruction() {
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }),
-            home,
-            java.util.Map.of(),
-            ignored -> {
-                throw new NoClassDefFoundError("java/net/http/HttpClient");
-            }
-        );
+                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of(), ignored -> {
+                    throw new NoClassDefFoundError("java/net/http/HttpClient");
+                });
 
         assertEquals(CubismJvm.GRAALVM, service.read());
-        assertEquals(ManagedRuntimeState.UNSUPPORTED, service.managedRuntimeStatus().state());
+        assertEquals(
+                ManagedRuntimeState.UNSUPPORTED, service.managedRuntimeStatus().state());
         assertFalse(service.graalVmAvailable());
     }
 
@@ -158,45 +160,41 @@ class RuntimeSettingsServiceTest {
     void detectsGraalVmFromPackagedAndEnvironmentLocations() throws Exception {
         final Path packaged = home.resolve("graalvm/bin/java.exe");
         Files.createDirectories(packaged.getParent());
-        Files.write(packaged, new byte[]{1});
+        Files.write(packaged, new byte[] {1});
         writeGraalVmRelease(home.resolve("graalvm"));
-        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> { });
-        final CubismJvmSettingsFileService packagedService = new CubismJvmSettingsFileService(
-            repository, home, java.util.Map.of()
-        );
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> {});
+        final CubismJvmSettingsFileService packagedService =
+                new CubismJvmSettingsFileService(repository, home, java.util.Map.of());
 
-        assertEquals(packaged.toAbsolutePath().normalize(), packagedService.graalVmJava().orElseThrow());
+        assertEquals(
+                packaged.toAbsolutePath().normalize(),
+                packagedService.graalVmJava().orElseThrow());
 
         Files.delete(packaged);
         final Path environmentJava = home.resolve("external/bin/java.exe");
         Files.createDirectories(environmentJava.getParent());
-        Files.write(environmentJava, new byte[]{2});
+        Files.write(environmentJava, new byte[] {2});
         writeGraalVmRelease(home.resolve("external"));
         final CubismJvmSettingsFileService environmentService = new CubismJvmSettingsFileService(
-            repository,
-            home,
-            java.util.Map.of("TURBOISM_CUBISM_JAVA", environmentJava.toString())
-        );
+                repository, home, java.util.Map.of("TURBOISM_CUBISM_JAVA", environmentJava.toString()));
 
         assertEquals(
-            environmentJava.toAbsolutePath().normalize(),
-            environmentService.graalVmJava().orElseThrow()
-        );
+                environmentJava.toAbsolutePath().normalize(),
+                environmentService.graalVmJava().orElseThrow());
     }
 
     @Test
     void prefersManagedRuntimeOverLegacyPackagedRuntime() throws Exception {
         final Path managed = home.resolve("graal/runtime/bin/java.exe");
         Files.createDirectories(managed.getParent());
-        Files.write(managed, new byte[]{1});
+        Files.write(managed, new byte[] {1});
         writeGraalVmRelease(home.resolve("graal/runtime"));
         final Path legacy = home.resolve("graalvm/bin/java.exe");
         Files.createDirectories(legacy.getParent());
-        Files.write(legacy, new byte[]{2});
+        Files.write(legacy, new byte[] {2});
         writeGraalVmRelease(home.resolve("graalvm"));
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
-        );
+                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
 
         assertEquals(managed.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
     }
@@ -206,7 +204,7 @@ class RuntimeSettingsServiceTest {
         final Path outside = home.resolve("outside-graal");
         final Path managed = outside.resolve("runtime/bin/java.exe");
         Files.createDirectories(managed.getParent());
-        Files.write(managed, new byte[]{1});
+        Files.write(managed, new byte[] {1});
         writeGraalVmRelease(outside.resolve("runtime"));
         try {
             Files.createSymbolicLink(home.resolve("graal"), outside);
@@ -214,8 +212,7 @@ class RuntimeSettingsServiceTest {
             org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
         }
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
-        );
+                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
 
         assertTrue(service.graalVmJava().isEmpty());
     }
@@ -224,18 +221,18 @@ class RuntimeSettingsServiceTest {
     void acceptsGraalVmAcrossVendorsAndJavaVersionsAndRejectsOrdinaryJava() throws Exception {
         final Path javaExecutable = home.resolve("graalvm/bin/java.exe");
         Files.createDirectories(javaExecutable.getParent());
-        Files.write(javaExecutable, new byte[]{1});
+        Files.write(javaExecutable, new byte[] {1});
         Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"Other VM\"\nJAVA_VERSION=\"25.0.4\"\n");
         final CubismJvmSettingsFileService ordinaryJava = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
-        );
+                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
 
         assertFalse(ordinaryJava.graalVmAvailable());
 
-        Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"Oracle Corporation\"\nJAVA_VERSION=\"25.0.4+7\"\nGRAALVM_VERSION=\"25.0.4+7.1\"\n");
+        Files.writeString(
+                home.resolve("graalvm/release"),
+                "IMPLEMENTOR=\"Oracle Corporation\"\nJAVA_VERSION=\"25.0.4+7\"\nGRAALVM_VERSION=\"25.0.4+7.1\"\n");
         final CubismJvmSettingsFileService otherVersion = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
-        );
+                new RuntimeConfigRepository(home, ignored -> {}), home, java.util.Map.of());
 
         assertTrue(otherVersion.graalVmAvailable());
     }
@@ -243,10 +240,9 @@ class RuntimeSettingsServiceTest {
     @Test
     void reportsGraalVmUnavailableWithoutAUsableExecutable() {
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
-            new RuntimeConfigRepository(home, ignored -> { }),
-            home,
-            java.util.Map.of("GRAALVM_HOME", home.resolve("missing").toString())
-        );
+                new RuntimeConfigRepository(home, ignored -> {}),
+                home,
+                java.util.Map.of("GRAALVM_HOME", home.resolve("missing").toString()));
 
         assertFalse(service.graalVmAvailable());
     }
@@ -254,9 +250,7 @@ class RuntimeSettingsServiceTest {
     @Test
     void savesAndReloadsConfiguredLocale() {
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
-        RuntimeSettings requested = new RuntimeSettings(
-            false, "INFO", 100, false, false, false, false, "zh-Hant"
-        );
+        RuntimeSettings requested = new RuntimeSettings(false, "INFO", 100, false, false, false, false, "zh-Hant");
 
         service.save(requested);
 
@@ -266,11 +260,7 @@ class RuntimeSettingsServiceTest {
     @Test
     void appliesSavedLogLevelToTheRunningLogger() {
         final AtomicReference<String> applied = new AtomicReference<>();
-        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            applied::set
-        );
+        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator(), applied::set);
 
         service.save(new RuntimeSettings(false, "TRACE", false, false, false));
 
@@ -280,12 +270,8 @@ class RuntimeSettingsServiceTest {
     @Test
     void appliesSavedStorageLimitToTheRunningLogger() {
         final AtomicInteger applied = new AtomicInteger();
-        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            ignored -> {},
-            applied::set
-        );
+        final RuntimeSettingsFileService service =
+                new RuntimeSettingsFileService(home, coordinator(), ignored -> {}, applied::set);
 
         service.save(new RuntimeSettings(false, "INFO", 32, false, false, false, false));
 
@@ -453,9 +439,8 @@ class RuntimeSettingsServiceTest {
         String before = Files.readString(home.resolve("config.json"));
 
         assertThrows(
-            RuntimeException.class,
-            () -> service.save(new RuntimeSettings(false, "BOGUS", 100, false, false, false, false, "en"))
-        );
+                RuntimeException.class,
+                () -> service.save(new RuntimeSettings(false, "BOGUS", 100, false, false, false, false, "en")));
         assertEquals(baseline, service.baselineForTest());
         assertEquals(baseline, service.activeForTest());
         assertEquals(before, Files.readString(home.resolve("config.json")), "the file must stay untouched");
@@ -466,8 +451,7 @@ class RuntimeSettingsServiceTest {
         System.setProperty("turboism.locale", "ja");
         try {
             final java.util.Locale resolvedBefore = dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
-                "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> { }
-            );
+                    "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> {});
             writeValid("settings-locale");
             RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
             service.read();
@@ -477,9 +461,11 @@ class RuntimeSettingsServiceTest {
 
             assertEquals("zh-Hant", service.read().locale(), "the persisted choice updates stored settings");
             assertEquals("zh-Hant", service.activeForTest().locale());
-            assertEquals(resolvedBefore, dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
-                "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> { }
-            ), "the already-resolved effective locale is unchanged (restart required)");
+            assertEquals(
+                    resolvedBefore,
+                    dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+                            "", java.util.Locale.KOREAN, java.util.Locale.ENGLISH, ignored -> {}),
+                    "the already-resolved effective locale is unchanged (restart required)");
             assertEquals(defaultBefore, java.util.Locale.getDefault(), "no JVM-global locale mutation");
         } finally {
             System.clearProperty("turboism.locale");
@@ -501,22 +487,22 @@ class RuntimeSettingsServiceTest {
             }
             """);
         final java.util.List<String> diagnostics = new java.util.ArrayList<>();
-        RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            new RuntimeConfigRepository(home, diagnostics::add),
-            coordinator()
-        );
+        RuntimeSettingsFileService service =
+                new RuntimeSettingsFileService(new RuntimeConfigRepository(home, diagnostics::add), coordinator());
 
         RuntimeSettings settings = service.read();
-        assertEquals(RuntimeSettings.DEFAULT_LOCALE, settings.locale(), "an unsupported persisted locale is read as absent");
+        assertEquals(
+                RuntimeSettings.DEFAULT_LOCALE, settings.locale(), "an unsupported persisted locale is read as absent");
         assertEquals(1, diagnostics.size());
         assertTrue(diagnostics.get(0).contains("RUNTIME_CONFIG_BAD_LOCALE"));
-        assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""), "the file stays untouched");
+        assertTrue(
+                Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""),
+                "the file stays untouched");
 
         // Writes retain strict validation: saving an unsupported locale is rejected.
         assertThrows(
-            IllegalArgumentException.class,
-            () -> service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "fr"))
-        );
+                IllegalArgumentException.class,
+                () -> service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "fr")));
         assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""));
     }
 
@@ -540,49 +526,38 @@ class RuntimeSettingsServiceTest {
         assertEquals(settings, service.baselineForTest());
     }
 
-
     @Test
     void serializesReadsAndStateReadsBehindPostCommitCallbacks() throws Exception {
         writeValid("settings-serialized");
-        final java.util.concurrent.CountDownLatch callbackEntered =
-            new java.util.concurrent.CountDownLatch(1);
-        final java.util.concurrent.CountDownLatch releaseCallback =
-            new java.util.concurrent.CountDownLatch(1);
-        final RuntimeSettings requested =
-            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+        final java.util.concurrent.CountDownLatch callbackEntered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseCallback = new java.util.concurrent.CountDownLatch(1);
+        final RuntimeSettings requested = new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
         final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            ignored -> {
-                callbackEntered.countDown();
-                try {
-                    releaseCallback.await(10, java.util.concurrent.TimeUnit.SECONDS);
-                } catch (InterruptedException failure) {
-                    Thread.currentThread().interrupt();
-                    throw new AssertionError(failure);
-                }
-            },
-            ignored -> {}
-        );
-        final java.util.concurrent.ExecutorService executor =
-            java.util.concurrent.Executors.newFixedThreadPool(3);
+                home,
+                coordinator(),
+                ignored -> {
+                    callbackEntered.countDown();
+                    try {
+                        releaseCallback.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (InterruptedException failure) {
+                        Thread.currentThread().interrupt();
+                        throw new AssertionError(failure);
+                    }
+                },
+                ignored -> {});
+        final java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(3);
         try {
-            final java.util.concurrent.Future<RuntimeSettings> save =
-                executor.submit(() -> service.save(requested));
+            final java.util.concurrent.Future<RuntimeSettings> save = executor.submit(() -> service.save(requested));
             assertTrue(callbackEntered.await(5, java.util.concurrent.TimeUnit.SECONDS));
-            final java.util.concurrent.Future<RuntimeSettings> read =
-                executor.submit(() -> service.read());
-            final java.util.concurrent.Future<RuntimeSettings> active =
-                executor.submit(() -> service.activeForTest());
+            final java.util.concurrent.Future<RuntimeSettings> read = executor.submit(() -> service.read());
+            final java.util.concurrent.Future<RuntimeSettings> active = executor.submit(() -> service.activeForTest());
 
             assertThrows(
-                java.util.concurrent.TimeoutException.class,
-                () -> read.get(1, java.util.concurrent.TimeUnit.SECONDS)
-            );
+                    java.util.concurrent.TimeoutException.class,
+                    () -> read.get(1, java.util.concurrent.TimeUnit.SECONDS));
             assertThrows(
-                java.util.concurrent.TimeoutException.class,
-                () -> active.get(1, java.util.concurrent.TimeUnit.SECONDS)
-            );
+                    java.util.concurrent.TimeoutException.class,
+                    () -> active.get(1, java.util.concurrent.TimeUnit.SECONDS));
 
             releaseCallback.countDown();
             assertEquals(requested, save.get(5, java.util.concurrent.TimeUnit.SECONDS));
@@ -602,24 +577,20 @@ class RuntimeSettingsServiceTest {
         final RuntimeException storageFailure = new RuntimeException("storage callback failed");
         final java.util.List<String> callbacks = new java.util.ArrayList<>();
         final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            ignored -> {
-                callbacks.add("log-level");
-                throw levelFailure;
-            },
-            ignored -> {
-                callbacks.add("storage-limit");
-                throw storageFailure;
-            }
-        );
-        final RuntimeSettings requested =
-            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+                home,
+                coordinator(),
+                ignored -> {
+                    callbacks.add("log-level");
+                    throw levelFailure;
+                },
+                ignored -> {
+                    callbacks.add("storage-limit");
+                    throw storageFailure;
+                });
+        final RuntimeSettings requested = new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
 
-        final RuntimeSettingsFileService.PostCommitCallbackFailure failure = assertThrows(
-            RuntimeSettingsFileService.PostCommitCallbackFailure.class,
-            () -> service.save(requested)
-        );
+        final RuntimeSettingsFileService.PostCommitCallbackFailure failure =
+                assertThrows(RuntimeSettingsFileService.PostCommitCallbackFailure.class, () -> service.save(requested));
 
         assertEquals(java.util.List.of("log-level", "storage-limit"), callbacks);
         assertTrue(failure.getCause() == levelFailure);
@@ -631,23 +602,20 @@ class RuntimeSettingsServiceTest {
         assertEquals(requested, service.read());
     }
 
-
     @Test
     void propagatesCallbackErrorsWithoutInvokingLaterCallbacks() throws Exception {
         writeValid("settings-callback-error");
         final Error callbackFailure = new Error("fatal callback failed");
         final java.util.List<String> callbacks = new java.util.ArrayList<>();
         final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            ignored -> {
-                callbacks.add("log-level");
-                throw callbackFailure;
-            },
-            ignored -> callbacks.add("storage-limit")
-        );
-        final RuntimeSettings requested =
-            new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
+                home,
+                coordinator(),
+                ignored -> {
+                    callbacks.add("log-level");
+                    throw callbackFailure;
+                },
+                ignored -> callbacks.add("storage-limit"));
+        final RuntimeSettings requested = new RuntimeSettings(false, "DEBUG", 64, false, false, false, false, "en");
 
         final Error failure = assertThrows(Error.class, () -> service.save(requested));
 
@@ -673,13 +641,8 @@ class RuntimeSettingsServiceTest {
             }
             """);
         final java.util.List<String> diagnostics = new java.util.ArrayList<>();
-        final RuntimeSettingsFileService service = new RuntimeSettingsFileService(
-            home,
-            coordinator(),
-            ignored -> {},
-            ignored -> {},
-            diagnostics::add
-        );
+        final RuntimeSettingsFileService service =
+                new RuntimeSettingsFileService(home, coordinator(), ignored -> {}, ignored -> {}, diagnostics::add);
 
         final RuntimeSettings settings = service.read();
 
@@ -688,6 +651,7 @@ class RuntimeSettingsServiceTest {
         assertTrue(diagnostics.get(0).contains("RUNTIME_CONFIG_BAD_LOCALE"));
         assertTrue(Files.readString(home.resolve("config.json")).contains("\"locale\": \"fr\""));
     }
+
     private void writeValid(final String worktreeId) throws Exception {
         Files.writeString(home.resolve("config.json"), valid(worktreeId));
     }
@@ -710,14 +674,13 @@ class RuntimeSettingsServiceTest {
     void delegatesEmptyDockCleanup() {
         final AtomicInteger cleanups = new AtomicInteger();
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
+                new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
         coordinator.bind(1, cleanups::incrementAndGet);
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator);
 
         assertEquals("Empty dock cleanup completed.", service.cleanEmptyDocks().message());
         assertEquals(1, cleanups.get());
     }
-
 
     private static void writeGraalVmRelease(final Path graalVmHome) throws Exception {
         Files.writeString(graalVmHome.resolve("release"), """
@@ -729,8 +692,8 @@ class RuntimeSettingsServiceTest {
 
     private static dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator() {
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
-            new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
-        coordinator.bind(1, () -> { });
+                new dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator();
+        coordinator.bind(1, () -> {});
         return coordinator;
     }
 }

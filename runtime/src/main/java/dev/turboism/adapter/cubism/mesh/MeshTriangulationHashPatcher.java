@@ -33,8 +33,7 @@ public final class MeshTriangulationHashPatcher {
     private final String expectedInternalName;
     private final String expectedFieldDescriptor;
 
-    public MeshTriangulationHashPatcher(final String expectedInternalName,
-                                        final String expectedFieldDescriptor) {
+    public MeshTriangulationHashPatcher(final String expectedInternalName, final String expectedFieldDescriptor) {
         this.expectedInternalName = expectedInternalName;
         this.expectedFieldDescriptor = expectedFieldDescriptor;
     }
@@ -51,20 +50,25 @@ public final class MeshTriangulationHashPatcher {
     /** Returns patched bytes, or throws {@link NotApplicable} when the shape is not recognised. */
     public byte[] patch(final byte[] original) {
         final String pointOwner = inspect(original);
-        final ClassWriter writer = new ClassWriter(new ClassReader(original),
-            ClassWriter.COMPUTE_MAXS);
-        new ClassReader(original).accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(final int access, final String name,
-                                             final String descriptor, final String signature,
-                                             final String[] exceptions) {
-                final MethodVisitor delegate =
-                    super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (!"hashCode".equals(name) || !"()I".equals(descriptor)) return delegate;
-                return new ReplacementHash(delegate, expectedInternalName, pointOwner,
-                    expectedFieldDescriptor);
-            }
-        }, 0);
+        final ClassWriter writer = new ClassWriter(new ClassReader(original), ClassWriter.COMPUTE_MAXS);
+        new ClassReader(original)
+                .accept(
+                        new ClassVisitor(Opcodes.ASM9, writer) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                final MethodVisitor delegate =
+                                        super.visitMethod(access, name, descriptor, signature, exceptions);
+                                if (!"hashCode".equals(name) || !"()I".equals(descriptor)) return delegate;
+                                return new ReplacementHash(
+                                        delegate, expectedInternalName, pointOwner, expectedFieldDescriptor);
+                            }
+                        },
+                        0);
         return writer.toByteArray();
     }
 
@@ -77,8 +81,11 @@ public final class MeshTriangulationHashPatcher {
         private final String pointOwner;
         private final String pointDescriptor;
 
-        ReplacementHash(final MethodVisitor delegate, final String classOwner,
-                        final String pointOwner, final String pointDescriptor) {
+        ReplacementHash(
+                final MethodVisitor delegate,
+                final String classOwner,
+                final String pointOwner,
+                final String pointDescriptor) {
             super(Opcodes.ASM9, delegate);
             this.classOwner = classOwner;
             this.pointOwner = pointOwner;
@@ -98,11 +105,9 @@ public final class MeshTriangulationHashPatcher {
         private void emitPointHash(final int index) {
             for (final String accessor : new String[] {"getX", "getY"}) {
                 mv.visitVarInsn(Opcodes.ALOAD, 0);
-                mv.visitFieldInsn(Opcodes.GETFIELD, classOwner, CORNER_FIELDS[index],
-                    pointDescriptor);
+                mv.visitFieldInsn(Opcodes.GETFIELD, classOwner, CORNER_FIELDS[index], pointDescriptor);
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, pointOwner, accessor, "()F", false);
-                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Float", "hashCode", "(F)I",
-                    false);
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Float", "hashCode", "(F)I", false);
                 if ("getX".equals(accessor)) {
                     mv.visitIntInsn(Opcodes.BIPUSH, 31);
                     mv.visitInsn(Opcodes.IMUL);
@@ -114,132 +119,140 @@ public final class MeshTriangulationHashPatcher {
 
         // Drop every original instruction of the constant-return body.
         @Override
-        public void visitInsn(final int opcode) {
-        }
+        public void visitInsn(final int opcode) {}
 
         @Override
-        public void visitIntInsn(final int opcode, final int operand) {
-        }
+        public void visitIntInsn(final int opcode, final int operand) {}
 
         @Override
-        public void visitVarInsn(final int opcode, final int index) {
-        }
+        public void visitVarInsn(final int opcode, final int index) {}
 
         @Override
-        public void visitFieldInsn(final int opcode, final String owner, final String fieldName,
-                                   final String fieldDescriptor) {
-        }
+        public void visitFieldInsn(
+                final int opcode, final String owner, final String fieldName, final String fieldDescriptor) {}
 
         @Override
-        public void visitMethodInsn(final int opcode, final String owner, final String methodName,
-                                    final String methodDescriptor, final boolean isInterface) {
-        }
+        public void visitMethodInsn(
+                final int opcode,
+                final String owner,
+                final String methodName,
+                final String methodDescriptor,
+                final boolean isInterface) {}
 
         @Override
-        public void visitLdcInsn(final Object value) {
-        }
+        public void visitLdcInsn(final Object value) {}
 
         @Override
-        public void visitJumpInsn(final int opcode, final Label label) {
-        }
+        public void visitJumpInsn(final int opcode, final Label label) {}
 
         @Override
-        public void visitLabel(final Label label) {
-        }
+        public void visitLabel(final Label label) {}
     }
 
     /** Validates the class shape and returns the internal name of the corner point type. */
     private String inspect(final byte[] original) {
         final String[] owner = new String[1];
         try {
-            new ClassReader(original).accept(new ClassVisitor(Opcodes.ASM9) {
-                private String internalName;
-                private final java.util.List<String> fieldNames = new java.util.ArrayList<>();
-                private final java.util.List<String> fieldTypes = new java.util.ArrayList<>();
-                private boolean sawConstantHash;
-                private int hashMethodCount;
+            new ClassReader(original)
+                    .accept(
+                            new ClassVisitor(Opcodes.ASM9) {
+                                private String internalName;
+                                private final java.util.List<String> fieldNames = new java.util.ArrayList<>();
+                                private final java.util.List<String> fieldTypes = new java.util.ArrayList<>();
+                                private boolean sawConstantHash;
+                                private int hashMethodCount;
 
-                @Override
-                public void visit(final int version, final int access, final String name,
-                                  final String signature, final String superName,
-                                  final String[] interfaces) {
-                    internalName = name;
-                }
+                                @Override
+                                public void visit(
+                                        final int version,
+                                        final int access,
+                                        final String name,
+                                        final String signature,
+                                        final String superName,
+                                        final String[] interfaces) {
+                                    internalName = name;
+                                }
 
-                @Override
-                public FieldVisitor visitField(final int access, final String name,
-                                               final String descriptor, final String signature,
-                                               final Object value) {
-                    for (final String corner : CORNER_FIELDS) {
-                        if (corner.equals(name)) {
-                            fieldNames.add(name);
-                            fieldTypes.add(descriptor);
-                        }
-                    }
-                    return null;
-                }
+                                @Override
+                                public FieldVisitor visitField(
+                                        final int access,
+                                        final String name,
+                                        final String descriptor,
+                                        final String signature,
+                                        final Object value) {
+                                    for (final String corner : CORNER_FIELDS) {
+                                        if (corner.equals(name)) {
+                                            fieldNames.add(name);
+                                            fieldTypes.add(descriptor);
+                                        }
+                                    }
+                                    return null;
+                                }
 
-                @Override
-                public MethodVisitor visitMethod(final int access, final String name,
-                                                 final String descriptor, final String signature,
-                                                 final String[] exceptions) {
-                    if (!"hashCode".equals(name) || !"()I".equals(descriptor)) return null;
-                    hashMethodCount++;
-                    return new MethodVisitor(Opcodes.ASM9) {
-                        private final java.util.List<Integer> opcodes = new java.util.ArrayList<>();
+                                @Override
+                                public MethodVisitor visitMethod(
+                                        final int access,
+                                        final String name,
+                                        final String descriptor,
+                                        final String signature,
+                                        final String[] exceptions) {
+                                    if (!"hashCode".equals(name) || !"()I".equals(descriptor)) return null;
+                                    hashMethodCount++;
+                                    return new MethodVisitor(Opcodes.ASM9) {
+                                        private final java.util.List<Integer> opcodes = new java.util.ArrayList<>();
 
-                        @Override
-                        public void visitInsn(final int opcode) {
-                            opcodes.add(opcode);
-                        }
+                                        @Override
+                                        public void visitInsn(final int opcode) {
+                                            opcodes.add(opcode);
+                                        }
 
-                        @Override
-                        public void visitEnd() {
-                            sawConstantHash = opcodes.size() == 2
-                                && opcodes.get(0) == Opcodes.ICONST_0
-                                && opcodes.get(1) == Opcodes.IRETURN;
-                        }
-                    };
-                }
+                                        @Override
+                                        public void visitEnd() {
+                                            sawConstantHash = opcodes.size() == 2
+                                                    && opcodes.get(0) == Opcodes.ICONST_0
+                                                    && opcodes.get(1) == Opcodes.IRETURN;
+                                        }
+                                    };
+                                }
 
-                @Override
-                public void visitEnd() {
-                    if (!expectedInternalName.equals(internalName)) {
-                        throw new NotApplicable("unexpected class: " + internalName);
-                    }
-                    if (hashMethodCount != 1 || !sawConstantHash) {
-                        throw new NotApplicable(
-                            "hashCode() body is not the reviewed constant return");
-                    }
-                    if (fieldNames.size() != CORNER_FIELDS.length) {
-                        throw new NotApplicable("corner fields are missing");
-                    }
-                    String pointType = null;
-                    for (int index = 0; index < CORNER_FIELDS.length; index++) {
-                        if (!CORNER_FIELDS[index].equals(fieldNames.get(index))) {
-                            throw new NotApplicable(
-                                "unexpected corner field: " + fieldNames.get(index));
-                        }
-                        if (!expectedFieldDescriptor.equals(fieldTypes.get(index))) {
-                            throw new NotApplicable(
-                                "unexpected corner field type: " + fieldTypes.get(index));
-                        }
-                        final String candidate =
-                            Type.getType(fieldTypes.get(index)).getInternalName();
-                        if (pointType == null) {
-                            pointType = candidate;
-                        } else if (!pointType.equals(candidate)) {
-                            throw new NotApplicable("corner fields do not share one point type");
-                        }
-                    }
-                    owner[0] = pointType;
-                }
-            }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                                @Override
+                                public void visitEnd() {
+                                    if (!expectedInternalName.equals(internalName)) {
+                                        throw new NotApplicable("unexpected class: " + internalName);
+                                    }
+                                    if (hashMethodCount != 1 || !sawConstantHash) {
+                                        throw new NotApplicable("hashCode() body is not the reviewed constant return");
+                                    }
+                                    if (fieldNames.size() != CORNER_FIELDS.length) {
+                                        throw new NotApplicable("corner fields are missing");
+                                    }
+                                    String pointType = null;
+                                    for (int index = 0; index < CORNER_FIELDS.length; index++) {
+                                        if (!CORNER_FIELDS[index].equals(fieldNames.get(index))) {
+                                            throw new NotApplicable(
+                                                    "unexpected corner field: " + fieldNames.get(index));
+                                        }
+                                        if (!expectedFieldDescriptor.equals(fieldTypes.get(index))) {
+                                            throw new NotApplicable(
+                                                    "unexpected corner field type: " + fieldTypes.get(index));
+                                        }
+                                        final String candidate = Type.getType(fieldTypes.get(index))
+                                                .getInternalName();
+                                        if (pointType == null) {
+                                            pointType = candidate;
+                                        } else if (!pointType.equals(candidate)) {
+                                            throw new NotApplicable("corner fields do not share one point type");
+                                        }
+                                    }
+                                    owner[0] = pointType;
+                                }
+                            },
+                            ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         } catch (NotApplicable rejected) {
             throw rejected;
         } catch (RuntimeException malformed) {
             throw new NotApplicable(
-                "class bytes are not parseable: " + malformed.getClass().getSimpleName());
+                    "class bytes are not parseable: " + malformed.getClass().getSimpleName());
         }
         if (owner[0] == null) throw new NotApplicable("class was not inspected");
         return owner[0];

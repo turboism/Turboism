@@ -1,20 +1,5 @@
 package dev.turboism.adapter.ui;
 
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.StatusNotification;
-import dev.turboism.sdk.ui.CanvasHintNotification;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -22,13 +7,27 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.StatusNotification;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
+
 class CxStatusBarHostOperationsTest {
 
     @Test
     void insertsBeforeLastNativeCLabelWithoutMutatingChildrenAndRefreshes() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("cursorPosition"), new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(
+                new FakeMemoryViewer("memoryViewer"), new FakeLabel("cursorPosition"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         Registration registration = host.notifyStatus(new StatusNotification("build", "INFO", "Building"));
@@ -37,8 +36,7 @@ class CxStatusBarHostOperationsTest {
         AddCall add = tree.addCalls.get(0);
         assertSame(statusBar, add.parent());
         assertEquals(2, add.index());
-        assertEquals(List.of("memoryViewer", "cursorPosition", "build", "coordinates"),
-            tree.ids(statusBar));
+        assertEquals(List.of("memoryViewer", "cursorPosition", "build", "coordinates"), tree.ids(statusBar));
         assertTrue(tree.refreshed.contains(statusBar));
         assertTrue(tree.edtFlags.stream().allMatch(Boolean::booleanValue), "host access must run on EDT");
 
@@ -51,18 +49,19 @@ class CxStatusBarHostOperationsTest {
     @Test
     void compactMetricInsertsImmediatelyLeftOfMemoryViewerWithoutSeverityAppearance() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("cursorPosition"), new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(
+                new FakeMemoryViewer("memoryViewer"), new FakeLabel("cursorPosition"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         Registration registration = host.notifyStatus(compactMetric("perf.cpu", "CPU 12.3%"));
 
         assertEquals(1, tree.addCalls.size());
         assertSame(statusBar, tree.addCalls.get(0).parent());
-        assertEquals(0, tree.addCalls.get(0).index(),
-            "compact metric must mount at the memory-viewer child index (left of the memory control)");
-        assertEquals(List.of("perf.cpu", "memoryViewer", "cursorPosition", "coordinates"),
-            tree.ids(statusBar));
+        assertEquals(
+                0,
+                tree.addCalls.get(0).index(),
+                "compact metric must mount at the memory-viewer child index (left of the memory control)");
+        assertEquals(List.of("perf.cpu", "memoryViewer", "cursorPosition", "coordinates"), tree.ids(statusBar));
         FakeLabel widget = tree.labels.get("perf.cpu");
         assertEquals("CPU 12.3%", widget.text, "compact metric shows the raw message");
         assertNull(widget.severity, "compact metric must not apply severity appearance");
@@ -75,24 +74,24 @@ class CxStatusBarHostOperationsTest {
     @Test
     void compactMetricIgnoresNativeLabelsWhenChoosingMemoryViewerIndex() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeLabel("cursorPosition"),
-            new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(
+                new FakeLabel("cursorPosition"), new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         host.notifyStatus(compactMetric("perf.cpu", "CPU --%"));
 
         assertEquals(1, tree.addCalls.size());
-        assertEquals(1, tree.addCalls.get(0).index(),
-            "compact metric must use the memory-viewer index even when native labels exist");
-        assertEquals(List.of("cursorPosition", "perf.cpu", "memoryViewer", "coordinates"),
-            tree.ids(statusBar));
+        assertEquals(
+                1,
+                tree.addCalls.get(0).index(),
+                "compact metric must use the memory-viewer index even when native labels exist");
+        assertEquals(List.of("cursorPosition", "perf.cpu", "memoryViewer", "coordinates"), tree.ids(statusBar));
     }
 
     @Test
     void compactMetricSameIdUpdatesReuseWidgetAndStaleCloseKeepsLatest() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         Registration first = host.notifyStatus(compactMetric("perf.cpu", "CPU --%"));
@@ -128,36 +127,31 @@ class CxStatusBarHostOperationsTest {
 
         host.notifyStatus(new StatusNotification("status.mixed", "WARNING", "Slow"));
         assertEquals("Slow", tree.labels.get("status.mixed").text);
-        assertEquals("WARNING", tree.labels.get("status.mixed").severity,
-            "a later ordinary notification must apply severity appearance to the shared widget");
+        assertEquals(
+                "WARNING",
+                tree.labels.get("status.mixed").severity,
+                "a later ordinary notification must apply severity appearance to the shared widget");
     }
 
     @Test
     void differentNotificationIdsReplaceTheSingleLatestMessageWidget() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
-        Registration first = host.notifyStatus(
-            new StatusNotification("save.started", "INFO", "Saving")
-        );
+        Registration first = host.notifyStatus(new StatusNotification("save.started", "INFO", "Saving"));
         FakeLabel widget = tree.labels.get("save.started");
-        Registration second = host.notifyStatus(
-            new StatusNotification("save.finished", "INFO", "Saved")
-        );
+        Registration second = host.notifyStatus(new StatusNotification("save.finished", "INFO", "Saved"));
 
         assertEquals(1, tree.addCalls.size(), "ordinary messages share one latest-message slot");
         assertSame(widget, tree.labels.get("save.started"));
         assertEquals("save.finished", widget.name);
         assertEquals("Saved", widget.text);
-        assertEquals(1, statusBar.children.stream()
-            .filter(child -> child == widget)
-            .count());
+        assertEquals(
+                1, statusBar.children.stream().filter(child -> child == widget).count());
 
         first.close();
-        assertTrue(statusBar.children.contains(widget),
-            "a stale registration must not dismiss the latest message");
+        assertTrue(statusBar.children.contains(widget), "a stale registration must not dismiss the latest message");
         second.close();
         assertFalse(statusBar.children.contains(widget));
     }
@@ -177,8 +171,7 @@ class CxStatusBarHostOperationsTest {
     @Test
     void reusesWidgetForSameIdAndIgnoresStaleRegistrationsWhileCurrentCloseRemoves() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         Registration first = host.notifyStatus(new StatusNotification("build", "INFO", "Building"));
@@ -210,8 +203,7 @@ class CxStatusBarHostOperationsTest {
     @Test
     void staleRegistrationNeverRemovesAReplacementEntryWithTheSameId() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
         Registration first = host.notifyStatus(new StatusNotification("build", "INFO", "Building"));
@@ -226,8 +218,7 @@ class CxStatusBarHostOperationsTest {
 
         first.close();
         flushEdt();
-        assertEquals(1, tree.removeCalls.size(),
-            "stale first registration must not remove the replacement entry");
+        assertEquals(1, tree.removeCalls.size(), "stale first registration must not remove the replacement entry");
         assertTrue(tree.ids(statusBar).contains("build"));
         assertEquals("Failed", tree.labels.get("build").text);
 
@@ -240,8 +231,7 @@ class CxStatusBarHostOperationsTest {
     @Test
     void failedCloseCanBeRetriedAndCompletesOnSecondAttempt() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         tree.failNextRemove = true;
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
@@ -264,8 +254,7 @@ class CxStatusBarHostOperationsTest {
     @Test
     void failedCloseRefreshRetriesRefreshWithoutRemovingTwice() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
         Registration registration = host.notifyStatus(new StatusNotification("build", "INFO", "Building"));
         tree.failNextRefresh = true;
@@ -282,13 +271,13 @@ class CxStatusBarHostOperationsTest {
     @Test
     void failedFirstRefreshAfterAddIsCompensatedByNativeRemoveAndAllowsFreshReinstall() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         tree.failNextRefresh = true;
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
-        assertThrows(IllegalStateException.class,
-            () -> host.notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.notifyStatus(new StatusNotification("build", "INFO", "Building")));
         flushEdt();
         assertEquals(1, tree.addCalls.size());
         assertEquals(1, tree.removeCalls.size(), "compensation must native-remove the orphaned widget");
@@ -308,8 +297,7 @@ class CxStatusBarHostOperationsTest {
     @Test
     void failedNativeRemoveKeepsEntrySoNextNotifyReusesWidgetWithoutReAdding() throws Exception {
         FakeTree tree = new FakeTree().ready();
-        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
-            new FakeLabel("coordinates"));
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeLabel("coordinates"));
         tree.failNextRemove = true;
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
@@ -335,8 +323,9 @@ class CxStatusBarHostOperationsTest {
         boxB.children.add(boxA);
         tree.root.children.add(boxA);
 
-        assertThrows(IllegalStateException.class,
-            () -> host(tree).notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host(tree).notifyStatus(new StatusNotification("build", "INFO", "Building")));
         assertTrue(tree.addCalls.isEmpty());
     }
 
@@ -347,8 +336,9 @@ class CxStatusBarHostOperationsTest {
             tree.root.children.add(new FakeWidget("leaf-" + index));
         }
 
-        assertThrows(IllegalStateException.class,
-            () -> host(tree).notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host(tree).notifyStatus(new StatusNotification("build", "INFO", "Building")));
         assertTrue(tree.addCalls.isEmpty());
     }
 
@@ -357,8 +347,9 @@ class CxStatusBarHostOperationsTest {
         FakeTree tree = new FakeTree();
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
 
-        assertThrows(IllegalStateException.class,
-            () -> host.notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host.notifyStatus(new StatusNotification("build", "INFO", "Building")));
         assertTrue(tree.addCalls.isEmpty());
     }
 
@@ -366,37 +357,38 @@ class CxStatusBarHostOperationsTest {
     void failsClosedOnMissingOrAmbiguousAnchors() throws Exception {
         FakeTree noViewer = new FakeTree().ready();
         noViewer.root.children.add(new FakeWidget("box"));
-        assertThrows(IllegalStateException.class,
-            () -> host(noViewer).notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host(noViewer).notifyStatus(new StatusNotification("build", "INFO", "Building")));
 
         FakeTree twoParents = new FakeTree().ready();
         twoParents.root.children.add(twoParents.newBox(new FakeMemoryViewer("viewer-a")));
         twoParents.root.children.add(twoParents.newBox(new FakeMemoryViewer("viewer-b")));
-        assertThrows(IllegalStateException.class,
-            () -> host(twoParents).notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host(twoParents).notifyStatus(new StatusNotification("build", "INFO", "Building")));
 
         FakeTree twoViewers = new FakeTree().ready();
-        twoViewers.root.children.add(twoViewers.newBox(
-            new FakeMemoryViewer("viewer-a"), new FakeMemoryViewer("viewer-b")));
-        assertThrows(IllegalStateException.class,
-            () -> host(twoViewers).notifyStatus(new StatusNotification("build", "INFO", "Building")));
+        twoViewers.root.children.add(
+                twoViewers.newBox(new FakeMemoryViewer("viewer-a"), new FakeMemoryViewer("viewer-b")));
+        assertThrows(
+                IllegalStateException.class,
+                () -> host(twoViewers).notifyStatus(new StatusNotification("build", "INFO", "Building")));
     }
 
     @Test
     void adapterTurnsHostFailuresIntoSafeModeDiagnostics() {
         FakeTree tree = new FakeTree();
-        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(
-            new CxStatusBarHostOperations("5.3.02", tree)
-        );
+        StatusToolbarAdapter adapter =
+                StatusToolbarAdapterImpl.connected(new CxStatusBarHostOperations("5.3.02", tree));
 
         StatusToolbarAdapter.AdapterResult<Registration> result =
-            adapter.notifyStatus(new StatusNotification("build", "INFO", "Building"));
+                adapter.notifyStatus(new StatusNotification("build", "INFO", "Building"));
 
         assertFalse(result.isAvailable());
         SafeModeDiagnostic diagnostic = result.diagnostic().orElseThrow();
         assertEquals(SafeModeDiagnostic.Code.VALIDATION_FAILURE, diagnostic.code());
-        assertFalse(diagnostic.message().contains("content root"),
-            "host failure text must not leak into diagnostics");
+        assertFalse(diagnostic.message().contains("content root"), "host failure text must not leak into diagnostics");
     }
 
     @Test
@@ -406,9 +398,8 @@ class CxStatusBarHostOperationsTest {
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
         AtomicReference<Registration> registration = new AtomicReference<>();
 
-        Thread notifier = new Thread(() -> registration.set(
-            host.notifyStatus(new StatusNotification("build", "INFO", "Building"))
-        ));
+        Thread notifier = new Thread(
+                () -> registration.set(host.notifyStatus(new StatusNotification("build", "INFO", "Building"))));
         notifier.start();
         notifier.join();
         Thread closer = new Thread(() -> registration.get().close());
@@ -416,10 +407,11 @@ class CxStatusBarHostOperationsTest {
         closer.join();
 
         assertFalse(tree.edtFlags.isEmpty());
-        assertTrue(tree.edtFlags.stream().allMatch(Boolean::booleanValue),
-            "every seam method must run on the Swing EDT");
-        assertTrue(tree.edtFlags.size() >= 11,
-            "every seam method (including contentRoot/children/classification/createLabel) must record");
+        assertTrue(
+                tree.edtFlags.stream().allMatch(Boolean::booleanValue), "every seam method must run on the Swing EDT");
+        assertTrue(
+                tree.edtFlags.size() >= 11,
+                "every seam method (including contentRoot/children/classification/createLabel) must record");
     }
 
     @Test
@@ -437,12 +429,14 @@ class CxStatusBarHostOperationsTest {
         CxStatusBarHostOperations host = host(tree);
 
         Registration first = host.notifyCanvasHint(new CanvasHintNotification("screen-color", "first", 5.0f));
-        Registration latest = host.notifyCanvasHint(new CanvasHintNotification(
-            "screen-color", "latest", CanvasHintNotification.UNTIL_DISMISSED
-        ));
+        Registration latest = host.notifyCanvasHint(
+                new CanvasHintNotification("screen-color", "latest", CanvasHintNotification.UNTIL_DISMISSED));
 
-        assertEquals(List.of("first", "latest"),
-            tree.canvasHintCalls.stream().map(CanvasHintNotification::message).toList());
+        assertEquals(
+                List.of("first", "latest"),
+                tree.canvasHintCalls.stream()
+                        .map(CanvasHintNotification::message)
+                        .toList());
         first.close();
         flushEdt();
         assertEquals(0, tree.canvasHintCloseCalls, "stale registrations must not close a replacement");
@@ -459,9 +453,7 @@ class CxStatusBarHostOperationsTest {
         AtomicBoolean clicked = new AtomicBoolean();
 
         Registration registration = host.notifyCanvasHint(
-            new CanvasHintNotification("screen-color", "click me", 5.0f)
-                .withOnClick(() -> clicked.set(true))
-        );
+                new CanvasHintNotification("screen-color", "click me", 5.0f).withOnClick(() -> clicked.set(true)));
 
         CanvasHintNotification sent = tree.canvasHintCalls.get(0);
         assertTrue(sent.onClick().isPresent(), "the CX layer must not strip the click action");
@@ -476,7 +468,7 @@ class CxStatusBarHostOperationsTest {
     }
 
     private static void flushEdt() throws Exception {
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
     }
 
     /** Fake native CX tree: children are only mutable through the seam's add/remove. */
@@ -507,9 +499,7 @@ class CxStatusBarHostOperationsTest {
         @Override
         public List<?> children(final Object container) {
             recordEdt();
-            return container instanceof FakeWidget widget
-                ? Collections.unmodifiableList(widget.children)
-                : null;
+            return container instanceof FakeWidget widget ? Collections.unmodifiableList(widget.children) : null;
         }
 
         @Override
@@ -643,15 +633,9 @@ class CxStatusBarHostOperationsTest {
         }
     }
 
-    private record AddCall(Object parent, Object widget, int index) {
-    }
+    private record AddCall(Object parent, Object widget, int index) {}
 
     private static StatusNotification compactMetric(final String id, final String message) {
-        return new StatusNotification(
-            id,
-            "INFO",
-            message,
-            StatusNotification.Presentation.COMPACT_METRIC
-        );
+        return new StatusNotification(id, "INFO", message, StatusNotification.Presentation.COMPACT_METRIC);
     }
 }

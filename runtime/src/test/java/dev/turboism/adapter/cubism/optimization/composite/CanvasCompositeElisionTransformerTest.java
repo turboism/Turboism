@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.composite;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,8 +16,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the test-only canvas-composite elision on synthetic classes carrying
@@ -30,18 +31,20 @@ public class CanvasCompositeElisionTransformerTest {
 
     private static final class Loader extends ClassLoader {
         private final ProtectionDomain domain;
+
         Loader(Path artifact) throws Exception {
             super(CanvasCompositeElisionTransformerTest.class.getClassLoader());
             domain = new ProtectionDomain(
-                new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null),
-                new Permissions());
+                    new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null), new Permissions());
         }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length, domain);
         }
     }
 
-    @AfterEach void clearSlots() {
+    @AfterEach
+    void clearSlots() {
         final Properties properties = System.getProperties();
         properties.remove(CanvasCompositeElisionBridge.PAINT_PROPERTY);
         properties.remove(CanvasCompositeElisionBridge.FILL_PROPERTY);
@@ -62,9 +65,12 @@ public class CanvasCompositeElisionTransformerTest {
         m.visitInsn(RETURN);
         m.visitMaxs(0, 0);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC, "paint",
-            "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)Z",
-            null, null);
+        m = w.visitMethod(
+                ACC_PUBLIC,
+                "paint",
+                "(Ljavax/swing/JComponent;Ljavax/swing/JComponent;Ljava/awt/Graphics;IIII)Z",
+                null,
+                null);
         m.visitCode();
         if (drift) m.visitInsn(NOP);
         m.visitInsn(ICONST_1);
@@ -91,8 +97,7 @@ public class CanvasCompositeElisionTransformerTest {
         m.visitMaxs(0, 0);
         m.visitEnd();
         if (!missing) {
-            m = w.visitMethod(ACC_PUBLIC, "update",
-                "(Ljava/awt/Graphics;Ljavax/swing/JComponent;)V", null, null);
+            m = w.visitMethod(ACC_PUBLIC, "update", "(Ljava/awt/Graphics;Ljavax/swing/JComponent;)V", null, null);
             m.visitCode();
             if (drift) m.visitInsn(NOP);
             m.visitVarInsn(ALOAD, 0);
@@ -109,46 +114,48 @@ public class CanvasCompositeElisionTransformerTest {
         return w.toByteArray();
     }
 
-    @Test void matchingShapesInjectBothSitesAndHonorSlots() throws Exception {
+    @Test
+    void matchingShapesInjectBothSitesAndHonorSlots() throws Exception {
         Path flatlaf = Files.createTempFile("flatlaf", ".jar");
         Loader loader = new Loader(flatlaf);
-        var transformer = new CanvasCompositeElisionTransformer(
-            loader, flatlaf, paintManager(false), flatPanel(false, false));
+        var transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, paintManager(false), flatPanel(false, false));
 
         // The JDK dispatcher: bootstrap attestation (null loader, null domain).
-        byte[] paintOut = transformer.transform(null, null, PAINT, null, null,
-            paintManager(false));
+        byte[] paintOut = transformer.transform(null, null, PAINT, null, null, paintManager(false));
         assertNotNull(paintOut, transformer.failure());
         Class<?> pm = new Loader(flatlaf).define(PAINT, paintOut);
         Object dispatcher = pm.getDeclaredConstructor().newInstance();
-        Method paint = pm.getMethod("paint", javax.swing.JComponent.class,
-            javax.swing.JComponent.class, java.awt.Graphics.class,
-            int.class, int.class, int.class, int.class);
-        assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
-            "no slot → buffered path unchanged");
-        System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY,
-            (Predicate<Object>) c -> true);
-        assertEquals(false, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
-            "armed consult selects the direct-paint fallback");
-        System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY,
-            (Predicate<Object>) c -> false);
+        Method paint = pm.getMethod(
+                "paint",
+                javax.swing.JComponent.class,
+                javax.swing.JComponent.class,
+                java.awt.Graphics.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class);
+        assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1), "no slot → buffered path unchanged");
+        System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY, (Predicate<Object>) c -> true);
+        assertEquals(
+                false,
+                paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
+                "armed consult selects the direct-paint fallback");
+        System.getProperties().put(CanvasCompositeElisionBridge.PAINT_PROPERTY, (Predicate<Object>) c -> false);
         assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1));
 
         // The FlatLaf fill: host loader + exact code source.
-        byte[] fillOut = transformer.transform(null, loader, FILL, null, loader.domain,
-            flatPanel(false, false));
+        byte[] fillOut = transformer.transform(null, loader, FILL, null, loader.domain, flatPanel(false, false));
         assertNotNull(fillOut, transformer.failure());
         Class<?> fp = loader.define(FILL, fillOut);
         Object panel = fp.getDeclaredConstructor().newInstance();
-        Method update = fp.getMethod("update", java.awt.Graphics.class,
-            javax.swing.JComponent.class);
+        Method update = fp.getMethod("update", java.awt.Graphics.class, javax.swing.JComponent.class);
         update.invoke(panel, null, null);
         assertEquals(1, fp.getField("fills").getInt(panel));
-        System.getProperties().put(CanvasCompositeElisionBridge.FILL_PROPERTY,
-            (BiPredicate<Object, Object>) (g, c) -> true);
+        System.getProperties()
+                .put(CanvasCompositeElisionBridge.FILL_PROPERTY, (BiPredicate<Object, Object>) (g, c) -> true);
         update.invoke(panel, null, null);
-        assertEquals(1, fp.getField("fills").getInt(panel),
-            "armed fill consult must skip the background fill");
+        assertEquals(1, fp.getField("fills").getInt(panel), "armed fill consult must skip the background fill");
 
         assertEquals(2, transformer.matches());
         assertEquals(2, transformer.sites());
@@ -156,68 +163,83 @@ public class CanvasCompositeElisionTransformerTest {
         assertNotNull(transformer.beforeSha256(FILL));
     }
 
-    @Test void mistypedOrThrowingSlotsFallThrough() throws Exception {
+    @Test
+    void mistypedOrThrowingSlotsFallThrough() throws Exception {
         Path flatlaf = Files.createTempFile("flatlaf", ".jar");
         Loader loader = new Loader(flatlaf);
-        var transformer = new CanvasCompositeElisionTransformer(
-            loader, flatlaf, paintManager(false), flatPanel(false, false));
-        byte[] paintOut = transformer.transform(null, null, PAINT, null, null,
-            paintManager(false));
+        var transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, paintManager(false), flatPanel(false, false));
+        byte[] paintOut = transformer.transform(null, null, PAINT, null, null, paintManager(false));
         assertNotNull(paintOut, transformer.failure());
         Class<?> pm = new Loader(flatlaf).define(PAINT, paintOut);
         Object dispatcher = pm.getDeclaredConstructor().newInstance();
-        Method paint = pm.getMethod("paint", javax.swing.JComponent.class,
-            javax.swing.JComponent.class, java.awt.Graphics.class,
-            int.class, int.class, int.class, int.class);
+        Method paint = pm.getMethod(
+                "paint",
+                javax.swing.JComponent.class,
+                javax.swing.JComponent.class,
+                java.awt.Graphics.class,
+                int.class,
+                int.class,
+                int.class,
+                int.class);
 
         final Properties properties = System.getProperties();
         properties.put(CanvasCompositeElisionBridge.PAINT_PROPERTY, "not-a-predicate");
         assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1));
-        properties.put(CanvasCompositeElisionBridge.PAINT_PROPERTY,
-            (Predicate<Object>) c -> { throw new IllegalStateException("boom"); });
-        assertEquals(true, paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
-            "a failing consult must fall back to the buffered path");
+        properties.put(CanvasCompositeElisionBridge.PAINT_PROPERTY, (Predicate<Object>) c -> {
+            throw new IllegalStateException("boom");
+        });
+        assertEquals(
+                true,
+                paint.invoke(dispatcher, null, null, null, 0, 0, 1, 1),
+                "a failing consult must fall back to the buffered path");
     }
 
-    @Test void driftedBodiesAreRejected() throws Exception {
+    @Test
+    void driftedBodiesAreRejected() throws Exception {
         Path flatlaf = Files.createTempFile("flatlaf", ".jar");
         Loader loader = new Loader(flatlaf);
-        var transformer = new CanvasCompositeElisionTransformer(
-            loader, flatlaf, paintManager(false), flatPanel(false, false));
-        assertNull(transformer.transform(null, null, PAINT, null, null,
-            paintManager(true)));
+        var transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, paintManager(false), flatPanel(false, false));
+        assertNull(transformer.transform(null, null, PAINT, null, null, paintManager(true)));
         assertNotNull(transformer.failure());
-        assertNull(transformer.transform(null, loader, FILL, null, loader.domain,
-            flatPanel(true, false)));
+        assertNull(transformer.transform(null, loader, FILL, null, loader.domain, flatPanel(true, false)));
         assertEquals(0, transformer.matches());
         assertEquals(0, transformer.sites());
     }
 
-    @Test void foreignLoadersAndArtifactsAreRejected() throws Exception {
+    @Test
+    void foreignLoadersAndArtifactsAreRejected() throws Exception {
         Path flatlaf = Files.createTempFile("flatlaf", ".jar");
         Loader loader = new Loader(flatlaf);
-        var transformer = new CanvasCompositeElisionTransformer(
-            loader, flatlaf, paintManager(false), flatPanel(false, false));
+        var transformer =
+                new CanvasCompositeElisionTransformer(loader, flatlaf, paintManager(false), flatPanel(false, false));
         // The JDK dispatcher must come from a JDK loader, not the host loader.
-        assertNull(transformer.transform(null, loader, PAINT, null, loader.domain,
-            paintManager(false)), "paint dispatcher from the app loader");
-        assertNull(transformer.transform(null, null, "javax/swing/RepaintManager",
-            null, null, paintManager(false)), "foreign JDK owner");
+        assertNull(
+                transformer.transform(null, loader, PAINT, null, loader.domain, paintManager(false)),
+                "paint dispatcher from the app loader");
+        assertNull(
+                transformer.transform(null, null, "javax/swing/RepaintManager", null, null, paintManager(false)),
+                "foreign JDK owner");
         // The FlatLaf target must come from the host loader + exact jar.
-        assertNull(transformer.transform(null, new Loader(flatlaf), FILL, null,
-            loader.domain, flatPanel(false, false)), "foreign loader");
+        assertNull(
+                transformer.transform(null, new Loader(flatlaf), FILL, null, loader.domain, flatPanel(false, false)),
+                "foreign loader");
         Loader alien = new Loader(Files.createTempFile("other", ".jar"));
-        assertNull(transformer.transform(null, loader, FILL, null, alien.domain,
-            flatPanel(false, false)), "flatlaf from another artifact");
+        assertNull(
+                transformer.transform(null, loader, FILL, null, alien.domain, flatPanel(false, false)),
+                "flatlaf from another artifact");
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
     }
 
-    @Test void missingReviewedMethodFailsConstructor() throws Exception {
+    @Test
+    void missingReviewedMethodFailsConstructor() throws Exception {
         Path flatlaf = Files.createTempFile("flatlaf", ".jar");
         Loader loader = new Loader(flatlaf);
-        assertThrows(IllegalArgumentException.class, () ->
-            new CanvasCompositeElisionTransformer(loader, flatlaf,
-                paintManager(false), flatPanel(false, true)));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CanvasCompositeElisionTransformer(
+                        loader, flatlaf, paintManager(false), flatPanel(false, true)));
     }
 }

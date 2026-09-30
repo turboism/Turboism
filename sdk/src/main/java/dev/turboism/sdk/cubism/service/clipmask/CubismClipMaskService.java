@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.service.clipmask;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -20,7 +19,10 @@ public interface CubismClipMaskService {
      * @return immutable snapshot records deduplicated by {@code guid} (first occurrence
      *         wins); empty when no active model or no clip-mask data is available
      */
-    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    @CubismEditor({
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     List<ClipMaskRecord> collectClipMaskRecords();
 
     /**
@@ -45,11 +47,13 @@ public interface CubismClipMaskService {
     enum Unavailable implements CubismClipMaskService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public List<ClipMaskRecord> collectClipMaskRecords() {
+        @Override
+        public List<ClipMaskRecord> collectClipMaskRecords() {
             throw new UnsupportedOperationException("clipMask service is not available");
         }
     }
@@ -65,13 +69,7 @@ public interface CubismClipMaskService {
      * @param orderedMaskGuids ordered GUID list of ArtMeshes used as this ArtMesh's
      *        clip masks; immutable, elements non-blank
      */
-        record ClipMaskRecord(
-        String guid,
-        String id,
-        String displayName,
-        boolean inverted,
-        List<String> orderedMaskGuids
-    ) {
+    record ClipMaskRecord(String guid, String id, String displayName, boolean inverted, List<String> orderedMaskGuids) {
         public ClipMaskRecord {
             Objects.requireNonNull(guid, "guid");
             if (guid.isBlank()) {

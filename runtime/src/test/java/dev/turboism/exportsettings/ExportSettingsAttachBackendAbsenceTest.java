@@ -1,8 +1,9 @@
 package dev.turboism.exportsettings;
 
-import dev.turboism.ui.host.EditorUiFamily;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.ui.host.EditorUiFamily;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -12,9 +13,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Executable proof that the attach backend stays authority-internal: no production
@@ -23,8 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class ExportSettingsAttachBackendAbsenceTest {
 
-    private static final String BACKEND_INTERNAL_NAME =
-        "dev/turboism/exportsettings/ExportSettingsAttachBackend";
+    private static final String BACKEND_INTERNAL_NAME = "dev/turboism/exportsettings/ExportSettingsAttachBackend";
 
     @Test
     void onlyTheAuthorityReferencesTheAttachBackend() throws Exception {
@@ -33,50 +31,46 @@ final class ExportSettingsAttachBackendAbsenceTest {
         final List<String> references = new ArrayList<>();
         try (Stream<Path> walk = Files.walk(mainClasses)) {
             walk.filter(path -> path.toString().endsWith(".class"))
-                .filter(ExportSettingsAttachBackendAbsenceTest::isNotTheBackendOrItsSoleConsumer)
-                .forEach(path -> {
-                    try {
-                        final byte[] bytes = Files.readAllBytes(path);
-                        if (new String(bytes, StandardCharsets.ISO_8859_1)
-                            .contains(BACKEND_INTERNAL_NAME)) {
-                            references.add(mainClasses.relativize(path).toString());
+                    .filter(ExportSettingsAttachBackendAbsenceTest::isNotTheBackendOrItsSoleConsumer)
+                    .forEach(path -> {
+                        try {
+                            final byte[] bytes = Files.readAllBytes(path);
+                            if (new String(bytes, StandardCharsets.ISO_8859_1).contains(BACKEND_INTERNAL_NAME)) {
+                                references.add(mainClasses.relativize(path).toString());
+                            }
+                        } catch (IOException exception) {
+                            throw new UncheckedIOException(exception);
                         }
-                    } catch (IOException exception) {
-                        throw new UncheckedIOException(exception);
-                    }
-                });
+                    });
         }
         assertTrue(
-            references.isEmpty(),
-            "runtime production classes other than the authority must not reference the attach backend: " + references
-        );
+                references.isEmpty(),
+                "runtime production classes other than the authority must not reference the attach backend: "
+                        + references);
     }
 
     @Test
     void noExportSettingsEditorUiFamilyOrCapabilityAdmissionWasAdded() {
         assertFalse(
-            Arrays.stream(EditorUiFamily.values())
-                .anyMatch(family -> family.name().contains("EXPORT_SETTINGS")),
-            "no export-settings Editor UI family may exist while admission is absent"
-        );
+                Arrays.stream(EditorUiFamily.values())
+                        .anyMatch(family -> family.name().contains("EXPORT_SETTINGS")),
+                "no export-settings Editor UI family may exist while admission is absent");
     }
 
     private static boolean isNotTheBackendOrItsSoleConsumer(final Path path) {
         final String name = path.getFileName().toString();
         return !name.equals("ExportSettingsAttachBackend.class")
-            && !name.startsWith("ExportSettingsAttachBackend$")
-            && !name.equals("RuntimeExportSettingsAuthority.class")
-            && !name.startsWith("RuntimeExportSettingsAuthority$");
+                && !name.startsWith("ExportSettingsAttachBackend$")
+                && !name.equals("RuntimeExportSettingsAuthority.class")
+                && !name.startsWith("RuntimeExportSettingsAuthority$");
     }
 
     private static Path runtimeMainClassesDirectory() throws Exception {
-        final Path testClasses = Path.of(
-            ExportSettingsAttachBackendAbsenceTest.class
+        final Path testClasses = Path.of(ExportSettingsAttachBackendAbsenceTest.class
                 .getProtectionDomain()
                 .getCodeSource()
                 .getLocation()
-                .toURI()
-        );
+                .toURI());
         return testClasses.getParent().resolve("main");
     }
 }

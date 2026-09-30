@@ -5,11 +5,7 @@ import java.util.Optional;
 
 /** A non-document asset referenced by one project content entry. */
 public record ProjectResourceSnapshot(
-    String resourceId,
-    String name,
-    ResourceKind kind,
-    Optional<String> relativePath
-) {
+        String resourceId, String name, ResourceKind kind, Optional<String> relativePath) {
     public ProjectResourceSnapshot {
         resourceId = requireText(resourceId, "resourceId");
         name = requireText(name, "name");

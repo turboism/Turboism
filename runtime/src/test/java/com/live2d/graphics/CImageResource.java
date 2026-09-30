@@ -10,8 +10,7 @@ public class CImageResource {
         this.image = image;
     }
 
-    public CImageResource(final CWritableImage image, final n colorType,
-                          final boolean mipmapped) {
+    public CImageResource(final CWritableImage image, final n colorType, final boolean mipmapped) {
         this.image = image;
     }
 

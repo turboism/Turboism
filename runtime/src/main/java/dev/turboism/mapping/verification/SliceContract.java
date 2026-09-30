@@ -30,19 +30,18 @@ import java.util.Set;
  *     with the unsatisfied condition that dropped them
  */
 public record SliceContract(
-    String sliceId,
-    String sourceVersion,
-    String recordFileName,
-    String recordSha256,
-    String verificationId,
-    String adapterSliceId,
-    String declaredVersion,
-    int declaredBuild,
-    HostArtifactDigest probedArtifact,
-    boolean compatible,
-    Set<String> capabilities,
-    java.util.Map<String, String> droppedCapabilities
-) {
+        String sliceId,
+        String sourceVersion,
+        String recordFileName,
+        String recordSha256,
+        String verificationId,
+        String adapterSliceId,
+        String declaredVersion,
+        int declaredBuild,
+        HostArtifactDigest probedArtifact,
+        boolean compatible,
+        Set<String> capabilities,
+        java.util.Map<String, String> droppedCapabilities) {
     public SliceContract {
         sliceId = requireText(sliceId, "sliceId");
         sourceVersion = requireText(sourceVersion, "sourceVersion");
@@ -56,9 +55,7 @@ public record SliceContract(
         }
         probedArtifact = Objects.requireNonNull(probedArtifact, "probedArtifact");
         capabilities = Set.copyOf(Objects.requireNonNull(capabilities, "capabilities"));
-        droppedCapabilities = java.util.Map.copyOf(
-            Objects.requireNonNull(droppedCapabilities, "droppedCapabilities")
-        );
+        droppedCapabilities = java.util.Map.copyOf(Objects.requireNonNull(droppedCapabilities, "droppedCapabilities"));
     }
 
     /**
@@ -73,9 +70,9 @@ public record SliceContract(
      */
     public boolean declaredGenerationBound() {
         return compatible
-            && sourceVersion.equals(declaredVersion)
-            && ReviewedCubismReleases.isReviewed(declaredVersion, declaredBuild)
-            && ReviewedHostArtifacts.admitsFullRuntime(declaredVersion);
+                && sourceVersion.equals(declaredVersion)
+                && ReviewedCubismReleases.isReviewed(declaredVersion, declaredBuild)
+                && ReviewedHostArtifacts.admitsFullRuntime(declaredVersion);
     }
 
     private static String requireText(final String value, final String name) {

@@ -2,12 +2,11 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /** Typed states of the semantic Part rename event family. */
 public sealed interface PartNameEvent extends TurboismEvent
-    permits PartNameEvent.Before, PartNameEvent.On, PartNameEvent.After {
+        permits PartNameEvent.Before, PartNameEvent.On, PartNameEvent.After {
 
     /** Returns the detached Part projection participating in the operation. */
     Part part();
@@ -24,11 +23,7 @@ public sealed interface PartNameEvent extends TurboismEvent
         }
 
         private Before(
-            final Part part,
-            final String requestedName,
-            final String name,
-            final CallbackScope callbackScope
-        ) {
+                final Part part, final String requestedName, final String name, final CallbackScope callbackScope) {
             this.part = Objects.requireNonNull(part, "part");
             this.requestedName = Objects.requireNonNull(requestedName, "requestedName");
             this.name = Objects.requireNonNull(name, "name");
@@ -36,19 +31,22 @@ public sealed interface PartNameEvent extends TurboismEvent
         }
 
         /** Opens a callback-scoped mutable candidate for the intercepted name edit. */
-        public static Callback openCallback(
-            final Part part,
-            final String requestedName,
-            final String name
-        ) {
+        public static Callback openCallback(final Part part, final String requestedName, final String name) {
             return new Callback(part, requestedName, name);
         }
 
-        @Override public Part part() { return part; }
+        @Override
+        public Part part() {
+            return part;
+        }
         /** Returns the name value originally requested by the write call. */
-        public String requestedName() { return requestedName; }
+        public String requestedName() {
+            return requestedName;
+        }
         /** Returns the candidate name value that will be applied. */
-        public String name() { return name; }
+        public String name() {
+            return name;
+        }
 
         /** Replaces the candidate name value for the current callback. */
         public void setName(final String name) {
@@ -63,11 +61,7 @@ public sealed interface PartNameEvent extends TurboismEvent
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
 
-            private Callback(
-                final Part part,
-                final String requestedName,
-                final String name
-            ) {
+            private Callback(final Part part, final String requestedName, final String name) {
                 event = new Before(part, requestedName, name, scope);
             }
 
@@ -77,7 +71,10 @@ public sealed interface PartNameEvent extends TurboismEvent
                 return event;
             }
 
-            @Override public void close() { scope.close(); }
+            @Override
+            public void close() {
+                scope.close();
+            }
         }
 
         private static final class CallbackScope {
@@ -90,9 +87,7 @@ public sealed interface PartNameEvent extends TurboismEvent
 
             private void requireOpen() {
                 if (!open || Thread.currentThread() != ownerThread) {
-                    throw new IllegalStateException(
-                        "Part name before-event mutation is outside its callback scope."
-                    );
+                    throw new IllegalStateException("Part name before-event mutation is outside its callback scope.");
                 }
             }
 

@@ -14,8 +14,7 @@ final class Convex implements Cloneable {
 
     List<double[]> convex; // vertices wound clockwise
 
-    private Convex() {
-    }
+    private Convex() {}
 
     Convex(final PackedPoly strip) {
         this(strip.inpts);

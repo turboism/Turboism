@@ -1,7 +1,6 @@
 package dev.turboism.ui.filter;
 
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-
 import java.util.List;
 
 /**
@@ -20,7 +19,5 @@ public interface PaletteFilterVisibilitySink {
      *        contributions
      */
     void onPaletteFilterVisibilityChanged(
-        String pluginId,
-        List<PaletteFilterRegistry.PaletteFilterContribution> contributions
-    );
+            String pluginId, List<PaletteFilterRegistry.PaletteFilterContribution> contributions);
 }

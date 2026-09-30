@@ -24,9 +24,7 @@ public interface Parameters {
     /** Returns the parameter with the exact ID, or empty when it is absent. */
     default Optional<Parameter> findById(final ParameterId id) {
         Objects.requireNonNull(id, "id");
-        return all().stream()
-            .filter(parameter -> parameter.id().equals(id))
-            .findFirst();
+        return all().stream().filter(parameter -> parameter.id().equals(id)).findFirst();
     }
 
     /** Convenience overload for an exact parameter ID string. */
@@ -51,11 +49,11 @@ public interface Parameters {
         Objects.requireNonNull(text, "text");
         final String query = text.toLowerCase(Locale.ROOT);
         return filter(parameter ->
-            parameter.id().value().toLowerCase(Locale.ROOT).contains(query)
-                || parameter.name()
-                    .map(value -> value.toLowerCase(Locale.ROOT).contains(query))
-                    .orElse(false)
-        );
+                parameter.id().value().toLowerCase(Locale.ROOT).contains(query)
+                        || parameter
+                                .name()
+                                .map(value -> value.toLowerCase(Locale.ROOT).contains(query))
+                                .orElse(false));
     }
 
     /** Applies a developer-defined filter and returns an immutable stable-order result. */
@@ -83,9 +81,8 @@ public interface Parameters {
      * @throws NoSuchElementException when the folder is absent
      */
     default Parameter create(
-        final ParameterDefinition definition,
-        final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
-    ) {
+            final ParameterDefinition definition,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId) {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(folderId, "folderId");
         throw new UnsupportedOperationException("Parameter creation is unavailable.");
@@ -135,9 +132,8 @@ public interface Parameters {
      * @throws NoSuchElementException   when the folder is absent
      */
     default List<Parameter> createMany(
-        final List<ParameterDefinition> definitions,
-        final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
-    ) {
+            final List<ParameterDefinition> definitions,
+            final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId) {
         Objects.requireNonNull(definitions, "definitions");
         Objects.requireNonNull(folderId, "folderId");
         throw new UnsupportedOperationException("Batch parameter creation is unavailable.");

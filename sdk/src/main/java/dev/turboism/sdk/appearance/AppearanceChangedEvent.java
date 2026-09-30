@@ -1,7 +1,6 @@
 package dev.turboism.sdk.appearance;
 
 import dev.turboism.sdk.event.TurboismEvent;
-
 import java.util.Objects;
 
 /**
@@ -14,11 +13,8 @@ import java.util.Objects;
  * @param current the appearance status in force after the change
  * @param originPluginId the plugin whose request caused the change, never blank
  */
-public record AppearanceChangedEvent(
-    AppearanceStatus previous,
-    AppearanceStatus current,
-    String originPluginId
-) implements TurboismEvent {
+public record AppearanceChangedEvent(AppearanceStatus previous, AppearanceStatus current, String originPluginId)
+        implements TurboismEvent {
     public AppearanceChangedEvent {
         previous = Objects.requireNonNull(previous, "previous");
         current = Objects.requireNonNull(current, "current");

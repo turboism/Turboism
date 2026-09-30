@@ -6,10 +6,9 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -17,10 +16,10 @@ import java.util.function.Supplier;
 /** Reversible provider for plugin-owned top-level and nested menus. */
 public final class TopMenuContributionProvider implements EditorUiContributionProvider {
 
-    private static final Comparator<TopMenuItemDescriptor> ITEM_ORDER = Comparator
-        .comparingInt(TopMenuItemDescriptor::order)
-        .thenComparing(TopMenuItemDescriptor::pluginId)
-        .thenComparing(TopMenuItemDescriptor::contributionId);
+    private static final Comparator<TopMenuItemDescriptor> ITEM_ORDER = Comparator.comparingInt(
+                    TopMenuItemDescriptor::order)
+            .thenComparing(TopMenuItemDescriptor::pluginId)
+            .thenComparing(TopMenuItemDescriptor::contributionId);
 
     private final EditorUiProviderAdmission admission;
     private final TopMenuHostOperations host;
@@ -28,11 +27,10 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     private final Supplier<String> sharedRootLabel;
 
     public TopMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final TopMenuHostOperations host,
-        final EditorUiActionRouter actionRouter,
-        final String sharedRootLabel
-    ) {
+            final EditorUiProviderAdmission admission,
+            final TopMenuHostOperations host,
+            final EditorUiActionRouter actionRouter,
+            final String sharedRootLabel) {
         this(admission, host, actionRouter, fixedLabel(sharedRootLabel));
     }
 
@@ -41,11 +39,10 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
      *     time, so a locale settled after this provider's construction is honored
      */
     public TopMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final TopMenuHostOperations host,
-        final EditorUiActionRouter actionRouter,
-        final Supplier<String> sharedRootLabel
-    ) {
+            final EditorUiProviderAdmission admission,
+            final TopMenuHostOperations host,
+            final EditorUiActionRouter actionRouter,
+            final Supplier<String> sharedRootLabel) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MENU) {
             throw new IllegalArgumentException("top-menu provider requires MENU admission");
@@ -71,36 +68,27 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("top-menu provider admission is stale");
         }
         final List<TopMenuItemDescriptor> items = contributions.stream()
-            .map(TopMenuItemDescriptor::from)
-            .flatMap(java.util.Optional::stream)
-            .sorted(ITEM_ORDER)
-            .toList();
+                .map(TopMenuItemDescriptor::from)
+                .flatMap(java.util.Optional::stream)
+                .sorted(ITEM_ORDER)
+                .toList();
         final LinkedHashMap<MenuKey, List<TopMenuItemDescriptor>> grouped = new LinkedHashMap<>();
         for (TopMenuItemDescriptor item : items) {
             final boolean shared = RESERVED_SHARED_ROOT.equals(item.rootLabel());
             final String owner = shared ? SHARED_ROOT_OWNER : item.pluginId();
-            grouped.computeIfAbsent(
-                new MenuKey(owner, item.rootLabel(), shared),
-                ignored -> new ArrayList<>()
-            ).add(item);
+            grouped.computeIfAbsent(new MenuKey(owner, item.rootLabel(), shared), ignored -> new ArrayList<>())
+                    .add(item);
         }
         final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
-            .map(entry -> entry.getKey().shared()
-                ? TopMenuDescriptor.shared(
-                    entry.getKey().rootLabel(), sharedRootLabel.get(), entry.getValue())
-                : TopMenuDescriptor.owned(
-                    entry.getKey().rootLabel(),
-                    entry.getValue()
-                ))
-            .toList();
+                .map(entry -> entry.getKey().shared()
+                        ? TopMenuDescriptor.shared(entry.getKey().rootLabel(), sharedRootLabel.get(), entry.getValue())
+                        : TopMenuDescriptor.owned(entry.getKey().rootLabel(), entry.getValue()))
+                .toList();
         final Reconciler reconciler = new Reconciler(menus);
         final List<Registration> registrations = new ArrayList<>();
         try {
@@ -139,12 +127,8 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
             try {
                 for (TopMenuDescriptor menu : menus) {
                     next.add(Objects.requireNonNull(
-                        host.addMenu(
-                            menu,
-                            item -> actionRouter.invoke(item.pluginId(), item.actionId())
-                        ),
-                        "host.addMenu()"
-                    ));
+                            host.addMenu(menu, item -> actionRouter.invoke(item.pluginId(), item.actionId())),
+                            "host.addMenu()"));
                 }
             } catch (RuntimeException | Error failure) {
                 closeAllSuppressing(next, failure);
@@ -173,7 +157,6 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
     }
 
-
     /** Reserved root label shared by multiple plugin-owned top menus; merged into one visible root. */
     private static final String RESERVED_SHARED_ROOT = "Turboism";
 
@@ -184,8 +167,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
      */
     private static final String SHARED_ROOT_OWNER = "shared";
 
-    private record MenuKey(String owner, String rootLabel, boolean shared) {
-    }
+    private record MenuKey(String owner, String rootLabel, boolean shared) {}
 
     private static void closeAll(final List<? extends Registration> registrations) {
         RuntimeException first = null;
@@ -205,10 +187,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
     }
 
-    private static void closeAllSuppressing(
-        final List<? extends Registration> registrations,
-        final Throwable failure
-    ) {
+    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
                 registrations.get(index).close();

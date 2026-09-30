@@ -4,7 +4,10 @@ from __future__ import annotations
 import hashlib
 import struct
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
+
+if TYPE_CHECKING:
+    from sdk_api_baseline_model import Attributes
 
 SCHEMA_VERSION = 1
 GENERATOR_VERSION = 1
@@ -89,3 +92,12 @@ def encode_float32_bits(bits: int) -> str:
 
 def encode_float64_bits(bits: int) -> str:
     return f"double:0x{bits & 0xFFFFFFFFFFFFFFFF:016X}"
+
+
+INCUBATING_DESCRIPTOR = "Ldev/turboism/sdk/Incubating;"
+
+
+def is_incubating(attributes: Attributes) -> bool:
+    """Reports whether the declaration carries the @Incubating marker annotation."""
+    annotations = list(attributes.visible_annotations) + list(attributes.invisible_annotations)
+    return any(item.descriptor == INCUBATING_DESCRIPTOR for item in annotations)

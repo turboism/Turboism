@@ -1,14 +1,6 @@
 package dev.turboism.plugin.perfstats;
 
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-import javax.swing.AbstractButton;
-import javax.swing.BoxLayout;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JToggleButton;
-import javax.swing.Timer;
-import javax.swing.WindowConstants;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Component;
@@ -21,6 +13,14 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.swing.AbstractButton;
+import javax.swing.BoxLayout;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JToggleButton;
+import javax.swing.Timer;
+import javax.swing.WindowConstants;
 
 /**
  * Standalone Swing window drawing the same rolling series as the embedded
@@ -70,12 +70,11 @@ final class PerfStatsWindow {
     private final Timer refresh;
 
     PerfStatsWindow(
-        final String title,
-        final Map<String, String> titles,
-        final String expandLabel,
-        final String collapseLabel,
-        final ChartStore store
-    ) {
+            final String title,
+            final Map<String, String> titles,
+            final String expandLabel,
+            final String collapseLabel,
+            final ChartStore store) {
         this.store = store;
         this.titles = Objects.requireNonNull(titles, "titles");
         frame = TurboismWindowFactory.frame(title);
@@ -93,18 +92,12 @@ final class PerfStatsWindow {
     }
 
     private void addRow(
-        final JPanel rows,
-        final String key,
-        final String unit,
-        final String expandLabel,
-        final String collapseLabel
-    ) {
-        rows.add(new MetricRow(
-            title(key),
-            expandLabel,
-            collapseLabel,
-            new RowChart(key, unit)
-        ));
+            final JPanel rows,
+            final String key,
+            final String unit,
+            final String expandLabel,
+            final String collapseLabel) {
+        rows.add(new MetricRow(title(key), expandLabel, collapseLabel, new RowChart(key, unit)));
     }
 
     private String title(final String key) {
@@ -145,12 +138,7 @@ final class PerfStatsWindow {
         private final JComponent content;
         private final JToggleButton header;
 
-        MetricRow(
-            final String title,
-            final String expandLabel,
-            final String collapseLabel,
-            final JComponent content
-        ) {
+        MetricRow(final String title, final String expandLabel, final String collapseLabel, final JComponent content) {
             this.title = Objects.requireNonNull(title, "title");
             this.expandLabel = Objects.requireNonNull(expandLabel, "expandLabel");
             this.collapseLabel = Objects.requireNonNull(collapseLabel, "collapseLabel");
@@ -232,17 +220,27 @@ final class PerfStatsWindow {
                     g.drawString("-", plotLeft + 4, valueBaseline);
                     return;
                 }
-                final Color seriesColor = SERIES_COLORS[Map.of(
-                    ChartStore.KEY_CPU, 0, ChartStore.KEY_FPS, 1,
-                    ChartStore.KEY_HEAP, 2, ChartStore.KEY_NONHEAP, 3,
-                    ChartStore.KEY_GC, 5
-                ).getOrDefault(key, 4)];
+                final Color seriesColor = SERIES_COLORS[
+                        Map.of(
+                                        ChartStore.KEY_CPU,
+                                        0,
+                                        ChartStore.KEY_FPS,
+                                        1,
+                                        ChartStore.KEY_HEAP,
+                                        2,
+                                        ChartStore.KEY_NONHEAP,
+                                        3,
+                                        ChartStore.KEY_GC,
+                                        5)
+                                .getOrDefault(key, 4)];
                 if (window < 2) {
                     // Single sample: show the real current value once in the
                     // band, no polyline and no placeholder (it would overlap).
                     g.setColor(seriesColor);
-                    g.drawString(new DecimalFormat("0.0").format(values.get(values.size() - 1))
-                        + " " + unit, plotLeft + 4, valueBaseline);
+                    g.drawString(
+                            new DecimalFormat("0.0").format(values.get(values.size() - 1)) + " " + unit,
+                            plotLeft + 4,
+                            valueBaseline);
                     return;
                 }
                 g.setColor(seriesColor);

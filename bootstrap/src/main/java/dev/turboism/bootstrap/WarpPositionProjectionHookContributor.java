@@ -9,22 +9,21 @@ final class WarpPositionProjectionHookContributor extends NativeOptimizationHook
         super("TURBOISM_WARP_POSITION_PROJECTION");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(WarpPositionProjectionBridge.ENABLE_PROPERTY)) {
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedWarpPositionProjectionInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true,
-            Runtime.version().feature()
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true,
+                Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedWarpPositionProjectionInstaller installer =
-            new VerifiedWarpPositionProjectionInstaller(
+        final VerifiedWarpPositionProjectionInstaller installer = new VerifiedWarpPositionProjectionInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;

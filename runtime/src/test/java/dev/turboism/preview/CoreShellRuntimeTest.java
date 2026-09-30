@@ -1,12 +1,13 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.GuardedServiceFixture;
-import dev.turboism.internal.core.ShellHandle;
 import dev.turboism.sdk.plugin.PluginContext;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -14,22 +15,19 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class CoreShellRuntimeTest {
 
     private static final PluginLifecyclePolicy POLICY = new PluginLifecyclePolicy(
-        1,
-        4,
-        Duration.ofSeconds(5),
-        Duration.ofSeconds(1),
-        Duration.ofSeconds(1),
-        Duration.ofMillis(100),
-        Duration.ofMillis(20)
-    );
+            1,
+            4,
+            Duration.ofSeconds(5),
+            Duration.ofSeconds(1),
+            Duration.ofSeconds(1),
+            Duration.ofMillis(100),
+            Duration.ofMillis(20));
 
     @TempDir
     Path temporary;
@@ -37,21 +35,20 @@ class CoreShellRuntimeTest {
     @Test
     void anchorSource_stripsJarPrefixAndEntrySuffix() throws Exception {
         assertEquals(
-            "file:/Z:/home/developer/turboism-agent.jar",
-            CoreShellRuntime.anchorSource(new URL(
-                "jar:file:/Z:/home/developer/turboism-agent.jar!/META-INF/turboism/i18n/messages.properties"
-            )).toExternalForm()
-        );
+                "file:/Z:/home/developer/turboism-agent.jar",
+                CoreShellRuntime.anchorSource(
+                                new URL(
+                                        "jar:file:/Z:/home/developer/turboism-agent.jar!/META-INF/turboism/i18n/messages.properties"))
+                        .toExternalForm());
     }
 
     @Test
     void anchorSource_locatesExplodedResourceDirectory() throws Exception {
         assertEquals(
-            "file:/opt/turboism/resources/",
-            CoreShellRuntime.anchorSource(new URL(
-                "file:/opt/turboism/resources/META-INF/turboism/i18n/messages.properties"
-            )).toExternalForm()
-        );
+                "file:/opt/turboism/resources/",
+                CoreShellRuntime.anchorSource(
+                                new URL("file:/opt/turboism/resources/META-INF/turboism/i18n/messages.properties"))
+                        .toExternalForm());
     }
 
     @Test
@@ -75,14 +72,17 @@ class CoreShellRuntimeTest {
                 }
                 return value;
             }
-            @Override public GuardedServiceFixture child() { return this; }
-            @Override public void close() { }
+
+            @Override
+            public GuardedServiceFixture child() {
+                return this;
+            }
+
+            @Override
+            public void close() {}
         };
         final PluginGenerationGuard guard = new PluginGenerationGuard("turboism.core");
-        final GuardedServiceFixture guarded = guard.wrapForTesting(
-            service,
-            GuardedServiceFixture.class
-        );
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
         final Thread caller = new Thread(() -> guarded.mutate("x"));
         caller.start();
         assertTrue(entered.await(5, TimeUnit.SECONDS));
@@ -92,14 +92,13 @@ class CoreShellRuntimeTest {
         state.shell = shell;
         state.guard = guard;
         state.scope = new DisposableScope();
-        state.scope.register(() -> { });
+        state.scope.register(() -> {});
         state.resources = new URLClassLoader(new URL[0], getClass().getClassLoader());
 
         try (PreviewLog log = new PreviewLog(temporary.resolve("logs/core.log"))) {
             assertFalse(
-                CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true),
-                "cleanup must defer while a pre-fence SDK call is held"
-            );
+                    CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true),
+                    "cleanup must defer while a pre-fence SDK call is held");
             assertEquals(0, shell.closes.get(), "shell close must not run before drain");
             assertFalse(state.scopeAttempted, "scope disposal must not run before drain");
 
@@ -134,9 +133,7 @@ class CoreShellRuntimeTest {
             assertTrue(state.scopeAttempted);
             assertFalse(state.scopeClosed);
             assertFalse(
-                state.resourcesAttempted,
-                "the classloader must not be attempted while scope disposal is unproven"
-            );
+                    state.resourcesAttempted, "the classloader must not be attempted while scope disposal is unproven");
 
             // A re-drive must not re-invoke the failed closer — DisposableScope.close() would
             // return empty success and erase the recorded failure.
@@ -157,8 +154,7 @@ class CoreShellRuntimeTest {
     void failedLoadRetainsGenerationWhileCleanupIsIncomplete() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         try (PreviewLog log = new PreviewLog(temporary.resolve("logs/core3.log"))) {
-            final RetainedPluginGenerations retention =
-                new RetainedPluginGenerations(lane, POLICY, log);
+            final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
             final CoreShellRuntime.ShellLoad state = new CoreShellRuntime.ShellLoad();
             final RecordingShell shell = new RecordingShell();
             state.shell = shell;
@@ -172,21 +168,16 @@ class CoreShellRuntimeTest {
 
             // The FAILED branch shape: the lane task exited exceptionally, so workerDone is
             // already complete, and the in-worker rollback left disposal unproven.
-            final PluginLifecycleLane.Invocation<Object> invocation =
-                lane.submit("turboism.core", "load", () -> {
-                    throw new IllegalStateException("core load failed");
-                });
+            final PluginLifecycleLane.Invocation<Object> invocation = lane.submit("turboism.core", "load", () -> {
+                throw new IllegalStateException("core load failed");
+            });
             invocation.workerDone.get(5, TimeUnit.SECONDS);
-            state.cleanupComplete =
-                CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true);
+            state.cleanupComplete = CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true);
             assertFalse(state.cleanupComplete);
 
             CoreShellRuntime.retainIfIncomplete(state, null, log, POLICY, retention, invocation);
             assertEquals(
-                1,
-                retention.retainedCount(),
-                "incomplete shell cleanup must retain the generation on FAILED too"
-            );
+                    1, retention.retainedCount(), "incomplete shell cleanup must retain the generation on FAILED too");
 
             // Re-drives keep the generation retained and never re-run the failed closer.
             Thread.sleep(POLICY.retentionRetryInterval().toMillis() * 5);
@@ -202,28 +193,21 @@ class CoreShellRuntimeTest {
     void failedLoadWithCompleteCleanupRetainsNothing() throws Exception {
         final PluginLifecycleLane lane = new PluginLifecycleLane(POLICY);
         try (PreviewLog log = new PreviewLog(temporary.resolve("logs/core4.log"))) {
-            final RetainedPluginGenerations retention =
-                new RetainedPluginGenerations(lane, POLICY, log);
+            final RetainedPluginGenerations retention = new RetainedPluginGenerations(lane, POLICY, log);
             final CoreShellRuntime.ShellLoad state = new CoreShellRuntime.ShellLoad();
             state.shell = new RecordingShell();
             state.scope = new DisposableScope();
             state.resources = new URLClassLoader(new URL[0], getClass().getClassLoader());
 
-            final PluginLifecycleLane.Invocation<Object> invocation =
-                lane.submit("turboism.core", "load", () -> {
-                    throw new IllegalStateException("core load failed");
-                });
+            final PluginLifecycleLane.Invocation<Object> invocation = lane.submit("turboism.core", "load", () -> {
+                throw new IllegalStateException("core load failed");
+            });
             invocation.workerDone.get(5, TimeUnit.SECONDS);
-            state.cleanupComplete =
-                CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true);
+            state.cleanupComplete = CoreShellRuntime.cleanupShell(state, null, log, POLICY, false, () -> true);
             assertTrue(state.cleanupComplete);
 
             CoreShellRuntime.retainIfIncomplete(state, null, log, POLICY, retention, invocation);
-            assertEquals(
-                0,
-                retention.retainedCount(),
-                "a fully cleaned generation has nothing left to retain"
-            );
+            assertEquals(0, retention.retainedCount(), "a fully cleaned generation has nothing left to retain");
         } finally {
             lane.shutdown();
         }
@@ -233,7 +217,7 @@ class CoreShellRuntimeTest {
         final AtomicInteger closes = new AtomicInteger();
 
         @Override
-        public void start(final PluginContext context) { }
+        public void start(final PluginContext context) {}
 
         @Override
         public void close() {

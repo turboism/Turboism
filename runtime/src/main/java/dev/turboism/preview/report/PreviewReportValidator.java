@@ -1,18 +1,5 @@
 package dev.turboism.preview.report;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import java.util.EnumMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-
 import static dev.turboism.preview.report.PreviewReportValidationSupport.boundedText;
 import static dev.turboism.preview.report.PreviewReportValidationSupport.enumValue;
 import static dev.turboism.preview.report.PreviewReportValidationSupport.exact;
@@ -24,23 +11,31 @@ import static dev.turboism.preview.report.PreviewReportValidationSupport.validat
 import static dev.turboism.preview.report.PreviewReportValidationSupport.validateTimestamp;
 import static dev.turboism.preview.report.PreviewReportValidationSupport.validateTruncation;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.StreamReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
 /** Strict parser-backed validator for the frozen preview report v1 contract. */
 public final class PreviewReportValidator {
 
     public static final int MAX_REPORT_BYTES = 1024 * 1024;
     private static final String FORMAT = "turboism.preview.report";
-    private static final Set<String> ENVELOPE_FIELDS = Set.of(
-        "format", "schemaVersion", "reportType", "runtimeId",
-        "createdAt", "truncation", "payload"
-    );
-    private static final ObjectMapper JSON = new ObjectMapper(
-        JsonFactory.builder()
-            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .build()
-    ).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final Set<String> ENVELOPE_FIELDS =
+            Set.of("format", "schemaVersion", "reportType", "runtimeId", "createdAt", "truncation", "payload");
+    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
-    private PreviewReportValidator() {
-    }
+    private PreviewReportValidator() {}
 
     /**
      * Validates one preview report document against the frozen v1 contract.
@@ -70,18 +65,9 @@ public final class PreviewReportValidator {
         exact(root, ENVELOPE_FIELDS, Set.of(), "UNKNOWN_FIELD", "report");
         textEquals(root, "format", FORMAT, "BAD_FORMAT");
         exactInteger(root, "schemaVersion", 1, "BAD_SCHEMA_VERSION");
-        final PreviewReportType reportType = enumValue(
-            root,
-            "reportType",
-            PreviewReportType.class,
-            "BAD_REPORT_TYPE"
-        );
-        final String runtimeId = boundedText(
-            root,
-            "runtimeId",
-            PreviewReportValidationSupport.MAX_RUNTIME_ID_LENGTH,
-            "BAD_RUNTIME_ID"
-        );
+        final PreviewReportType reportType = enumValue(root, "reportType", PreviewReportType.class, "BAD_REPORT_TYPE");
+        final String runtimeId =
+                boundedText(root, "runtimeId", PreviewReportValidationSupport.MAX_RUNTIME_ID_LENGTH, "BAD_RUNTIME_ID");
         validateTimestamp(root.get("createdAt"));
         validateTruncation(root.get("truncation"));
         final ObjectNode payload = object(root.get("payload"), "BAD_PAYLOAD", "payload");
@@ -106,36 +92,23 @@ public final class PreviewReportValidator {
      *     {@code REPORT_TYPE_MISMATCH}, or {@code MIXED_RUNTIME_ID}, or any code raised by
      *     {@link #validate(byte[])}
      */
-    public static Map<PreviewReportType, ValidatedReport> validateSet(
-        final Map<PreviewReportType, byte[]> reports
-    ) {
+    public static Map<PreviewReportType, ValidatedReport> validateSet(final Map<PreviewReportType, byte[]> reports) {
         Objects.requireNonNull(reports, "reports");
         if (!reports.keySet().equals(Set.of(PreviewReportType.values()))) {
-            throw failure(
-                "INCOMPLETE_REPORT_SET",
-                "Preview report set must contain exactly the four report types."
-            );
+            throw failure("INCOMPLETE_REPORT_SET", "Preview report set must contain exactly the four report types.");
         }
-        final EnumMap<PreviewReportType, ValidatedReport> validated =
-            new EnumMap<>(PreviewReportType.class);
+        final EnumMap<PreviewReportType, ValidatedReport> validated = new EnumMap<>(PreviewReportType.class);
         String runtimeId = null;
         for (PreviewReportType expected : PreviewReportType.values()) {
-            final ValidatedReport report = validate(
-                Objects.requireNonNull(reports.get(expected), expected.name())
-            );
+            final ValidatedReport report = validate(Objects.requireNonNull(reports.get(expected), expected.name()));
             if (report.reportType() != expected) {
-                throw failure(
-                    "REPORT_TYPE_MISMATCH",
-                    "Preview report file/type mapping is inconsistent."
-                );
+                throw failure("REPORT_TYPE_MISMATCH", "Preview report file/type mapping is inconsistent.");
             }
             if (runtimeId == null) {
                 runtimeId = report.runtimeId();
             } else if (!runtimeId.equals(report.runtimeId())) {
                 throw failure(
-                    "MIXED_RUNTIME_ID",
-                    "Preview reports from different runtime sessions cannot be correlated."
-                );
+                        "MIXED_RUNTIME_ID", "Preview reports from different runtime sessions cannot be correlated.");
             }
             validated.put(expected, report);
         }
@@ -148,25 +121,16 @@ public final class PreviewReportValidator {
             parsed = JSON.readTree(bytes);
         } catch (JsonProcessingException exception) {
             throw new PreviewReportValidationException(
-                "MALFORMED_JSON",
-                "Preview report JSON is malformed.",
-                exception
-            );
+                    "MALFORMED_JSON", "Preview report JSON is malformed.", exception);
         } catch (java.io.IOException exception) {
             throw new PreviewReportValidationException(
-                "MALFORMED_JSON",
-                "Preview report JSON could not be read.",
-                exception
-            );
+                    "MALFORMED_JSON", "Preview report JSON could not be read.", exception);
         }
         return object(parsed, "BAD_ENVELOPE", "report");
     }
 
     private static boolean hasBom(final byte[] bytes) {
-        return bytes.length >= 3
-            && bytes[0] == (byte) 0xEF
-            && bytes[1] == (byte) 0xBB
-            && bytes[2] == (byte) 0xBF;
+        return bytes.length >= 3 && bytes[0] == (byte) 0xEF && bytes[1] == (byte) 0xBB && bytes[2] == (byte) 0xBF;
     }
 
     /**
@@ -193,11 +157,7 @@ public final class PreviewReportValidator {
      * @param runtimeId the runtime session the report belongs to
      * @param document the validated report tree; copied in and copied out
      */
-    public record ValidatedReport(
-        PreviewReportType reportType,
-        String runtimeId,
-        ObjectNode document
-    ) {
+    public record ValidatedReport(PreviewReportType reportType, String runtimeId, ObjectNode document) {
         public ValidatedReport {
             reportType = Objects.requireNonNull(reportType, "reportType");
             runtimeId = Objects.requireNonNull(runtimeId, "runtimeId");

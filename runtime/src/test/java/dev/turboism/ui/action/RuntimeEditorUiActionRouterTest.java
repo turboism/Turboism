@@ -1,5 +1,9 @@
 package dev.turboism.ui.action;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -11,19 +15,14 @@ import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeEditorUiActionRouterTest {
 
@@ -31,12 +30,8 @@ class RuntimeEditorUiActionRouterTest {
     void nativeCallbackRoutesToOwningPluginActionRegistry() throws Exception {
         RuntimeScheduler scheduler = scheduler();
         try {
-            RuntimeActionRegistry actions = new RuntimeActionRegistry(
-                scheduler,
-                ignored -> { },
-                "plugin.demo",
-                PermissionChecker.allowAll()
-            );
+            RuntimeActionRegistry actions =
+                    new RuntimeActionRegistry(scheduler, ignored -> {}, "plugin.demo", PermissionChecker.allowAll());
             CountDownLatch invoked = new CountDownLatch(1);
             actions.register("home.open", action("home.open", invoked));
             RuntimeEditorUiActionRouter router = new RuntimeEditorUiActionRouter();
@@ -57,18 +52,23 @@ class RuntimeEditorUiActionRouterTest {
     void typedUiEventReachesTheOwningPluginActionContext() throws Exception {
         RuntimeScheduler scheduler = scheduler();
         try {
-            RuntimeActionRegistry actions = new RuntimeActionRegistry(
-                scheduler,
-                ignored -> { },
-                "plugin.demo",
-                PermissionChecker.allowAll()
-            );
+            RuntimeActionRegistry actions =
+                    new RuntimeActionRegistry(scheduler, ignored -> {}, "plugin.demo", PermissionChecker.allowAll());
             CountDownLatch invoked = new CountDownLatch(1);
             AtomicReference<Optional<UiActionEvent>> received = new AtomicReference<>(Optional.empty());
             actions.register("profile.mode.changed", new ActionRegistry.Action() {
-                @Override public String id() { return "profile.mode.changed"; }
-                @Override public String label() { return id(); }
-                @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+                @Override
+                public String id() {
+                    return "profile.mode.changed";
+                }
+
+                @Override
+                public String label() {
+                    return id();
+                }
+
+                @Override
+                public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                     return context -> {
                         received.set(context.uiEvent());
                         invoked.countDown();
@@ -92,22 +92,29 @@ class RuntimeEditorUiActionRouterTest {
     void rejectsNonRuntimeActionRegistry() {
         RuntimeEditorUiActionRouter router = new RuntimeEditorUiActionRouter();
         router.register("plugin.demo", new ActionRegistry() {
-            @Override public Registration register(final String id, final Action action) {
-                return () -> { };
+            @Override
+            public Registration register(final String id, final Action action) {
+                return () -> {};
             }
         });
 
-        assertThrows(
-            IllegalStateException.class,
-            () -> router.invoke("plugin.demo", "home.open")
-        );
+        assertThrows(IllegalStateException.class, () -> router.invoke("plugin.demo", "home.open"));
     }
 
     private static ActionRegistry.Action action(final String id, final CountDownLatch invoked) {
         return new ActionRegistry.Action() {
-            @Override public String id() { return id; }
-            @Override public String label() { return id; }
-            @Override public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String label() {
+                return id;
+            }
+
+            @Override
+            public java.util.function.Consumer<ActionRegistry.ActionContext> handler() {
                 return ignored -> invoked.countDown();
             }
         };
@@ -116,14 +123,14 @@ class RuntimeEditorUiActionRouterTest {
     private static RuntimeScheduler scheduler() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-23T00:00:00Z"), ZoneOffset.UTC);
         return new RuntimeScheduler(
-            new WorkBudgetPolicy() {
-                @Override public WorkBudget classify(final PluginTask task) {
-                    return WorkBudget.LIGHTWEIGHT;
-                }
-            },
-            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, clock),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new WorkBudgetPolicy() {
+                    @Override
+                    public WorkBudget classify(final PluginTask task) {
+                        return WorkBudget.LIGHTWEIGHT;
+                    }
+                },
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 }

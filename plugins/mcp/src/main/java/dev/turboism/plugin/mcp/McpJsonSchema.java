@@ -8,7 +8,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -16,12 +15,10 @@ import java.util.regex.PatternSyntaxException;
 /** Small fail-closed validator for the JSON-Schema subset used by MCP tool contracts. */
 final class McpJsonSchema {
 
-    private static final Set<String> JSON_TYPES = Set.of(
-        "null", "boolean", "integer", "number", "string", "array", "object"
-    );
+    private static final Set<String> JSON_TYPES =
+            Set.of("null", "boolean", "integer", "number", "string", "array", "object");
 
-    private McpJsonSchema() {
-    }
+    private McpJsonSchema() {}
 
     static boolean validates(final Object value, final Map<String, Object> schema) {
         Objects.requireNonNull(schema, "schema");
@@ -30,10 +27,7 @@ final class McpJsonSchema {
         return validates(value, schema, 0);
     }
 
-    static boolean compatible(
-        final List<Map<String, Object>> sources,
-        final List<Map<String, Object>> destinations
-    ) {
+    static boolean compatible(final List<Map<String, Object>> sources, final List<Map<String, Object>> destinations) {
         if (sources.isEmpty() || destinations.isEmpty()) return false;
         for (Map<String, Object> source : sources) {
             boolean admitted = false;
@@ -48,10 +42,7 @@ final class McpJsonSchema {
         return true;
     }
 
-    static List<Map<String, Object>> schemasAtPath(
-        final Map<String, Object> schema,
-        final List<String> path
-    ) {
+    static List<Map<String, Object>> schemasAtPath(final Map<String, Object> schema, final List<String> path) {
         Objects.requireNonNull(schema, "schema");
         Objects.requireNonNull(path, "path");
         if (schema.isEmpty()) return List.of();
@@ -65,13 +56,13 @@ final class McpJsonSchema {
                         next.add(stringMap(child));
                     }
                     if (isArraySchema(alternative)
-                        && token.matches("0|[1-9][0-9]*")
-                        && alternative.get("items") instanceof Map<?, ?> item) {
+                            && token.matches("0|[1-9][0-9]*")
+                            && alternative.get("items") instanceof Map<?, ?> item) {
                         next.add(stringMap(item));
                     }
                     if (properties != null
-                        && !properties.containsKey(token)
-                        && alternative.get("additionalProperties") instanceof Map<?, ?> extra) {
+                            && !properties.containsKey(token)
+                            && alternative.get("additionalProperties") instanceof Map<?, ?> extra) {
                         next.add(stringMap(extra));
                     }
                 }
@@ -84,18 +75,13 @@ final class McpJsonSchema {
         return deduplicate(expanded);
     }
 
-    private static boolean validates(
-        final Object value,
-        final Map<String, Object> schema,
-        final int depth
-    ) {
+    private static boolean validates(final Object value, final Map<String, Object> schema, final int depth) {
         if (depth > 96) return false;
         final Object oneOf = schema.get("oneOf");
         if (oneOf instanceof List<?> alternatives) {
             int matches = 0;
             for (Object alternative : alternatives) {
-                if (alternative instanceof Map<?, ?> candidate
-                    && validates(value, stringMap(candidate), depth + 1)) {
+                if (alternative instanceof Map<?, ?> candidate && validates(value, stringMap(candidate), depth + 1)) {
                     matches++;
                 }
             }
@@ -107,7 +93,7 @@ final class McpJsonSchema {
             return false;
         }
         if (schema.get("enum") instanceof List<?> values
-            && values.stream().noneMatch(candidate -> jsonEquals(value, candidate))) {
+                && values.stream().noneMatch(candidate -> jsonEquals(value, candidate))) {
             return false;
         }
 
@@ -135,19 +121,19 @@ final class McpJsonSchema {
             final BigDecimal decimal = decimal(number);
             if (decimal == null) return false;
             if (schema.get("minimum") instanceof Number minimum
-                && decimal.compareTo(Objects.requireNonNull(decimal(minimum))) < 0) {
+                    && decimal.compareTo(Objects.requireNonNull(decimal(minimum))) < 0) {
                 return false;
             }
             if (schema.get("maximum") instanceof Number maximum
-                && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) > 0) {
+                    && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) > 0) {
                 return false;
             }
             if (schema.get("exclusiveMinimum") instanceof Number minimum
-                && decimal.compareTo(Objects.requireNonNull(decimal(minimum))) <= 0) {
+                    && decimal.compareTo(Objects.requireNonNull(decimal(minimum))) <= 0) {
                 return false;
             }
             if (schema.get("exclusiveMaximum") instanceof Number maximum
-                && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) >= 0) {
+                    && decimal.compareTo(Objects.requireNonNull(decimal(maximum))) >= 0) {
                 return false;
             }
         }
@@ -182,7 +168,7 @@ final class McpJsonSchema {
                 }
                 if (Boolean.FALSE.equals(schema.get("additionalProperties"))) return false;
                 if (schema.get("additionalProperties") instanceof Map<?, ?> additional
-                    && !validates(entry.getValue(), stringMap(additional), depth + 1)) {
+                        && !validates(entry.getValue(), stringMap(additional), depth + 1)) {
                     return false;
                 }
             }
@@ -211,10 +197,7 @@ final class McpJsonSchema {
         return false;
     }
 
-    private static boolean compatible(
-        final Map<String, Object> source,
-        final Map<String, Object> destination
-    ) {
+    private static boolean compatible(final Map<String, Object> source, final Map<String, Object> destination) {
         if (destination.isEmpty()) return true;
         if (source.isEmpty()) return false;
 
@@ -264,8 +247,9 @@ final class McpJsonSchema {
         if (result.isEmpty()) {
             if (schema.containsKey("properties") || schema.containsKey("required")) result.add("object");
             else if (schema.containsKey("items")) result.add("array");
-            else if (schema.containsKey("pattern") || schema.containsKey("minLength")
-                || schema.containsKey("maxLength")) result.add("string");
+            else if (schema.containsKey("pattern")
+                    || schema.containsKey("minLength")
+                    || schema.containsKey("maxLength")) result.add("string");
             else if (schema.containsKey("minimum") || schema.containsKey("maximum")) {
                 result.add("number");
             } else if (schema.containsKey("const")) {
@@ -288,9 +272,7 @@ final class McpJsonSchema {
         return List.of(schema);
     }
 
-    private static List<Map<String, Object>> deduplicate(
-        final List<Map<String, Object>> schemas
-    ) {
+    private static List<Map<String, Object>> deduplicate(final List<Map<String, Object>> schemas) {
         return List.copyOf(new LinkedHashSet<>(schemas));
     }
 
@@ -298,11 +280,7 @@ final class McpJsonSchema {
         return declaredTypes(schema).contains("array") || schema.containsKey("items");
     }
 
-    private static boolean integerConstraint(
-        final int actual,
-        final Object raw,
-        final boolean minimum
-    ) {
+    private static boolean integerConstraint(final int actual, final Object raw, final boolean minimum) {
         if (raw == null) return true;
         if (!(raw instanceof Number number)) return false;
         final BigDecimal expected = decimal(number);
@@ -322,8 +300,11 @@ final class McpJsonSchema {
     }
 
     private static boolean isInteger(final Number number) {
-        if (number instanceof Byte || number instanceof Short || number instanceof Integer
-            || number instanceof Long || number instanceof BigInteger) return true;
+        if (number instanceof Byte
+                || number instanceof Short
+                || number instanceof Integer
+                || number instanceof Long
+                || number instanceof BigInteger) return true;
         final BigDecimal value = decimal(number);
         return value != null && value.stripTrailingZeros().scale() <= 0;
     }
@@ -331,8 +312,8 @@ final class McpJsonSchema {
     private static BigDecimal decimal(final Number number) {
         if (number instanceof BigDecimal value) return value;
         if (number instanceof BigInteger value) return new BigDecimal(value);
-        if (number instanceof Byte || number instanceof Short || number instanceof Integer
-            || number instanceof Long) return BigDecimal.valueOf(number.longValue());
+        if (number instanceof Byte || number instanceof Short || number instanceof Integer || number instanceof Long)
+            return BigDecimal.valueOf(number.longValue());
         final double value = number.doubleValue();
         return Double.isFinite(value) ? BigDecimal.valueOf(value) : null;
     }
@@ -341,8 +322,7 @@ final class McpJsonSchema {
         if (left instanceof Number leftNumber && right instanceof Number rightNumber) {
             final BigDecimal leftDecimal = decimal(leftNumber);
             final BigDecimal rightDecimal = decimal(rightNumber);
-            return leftDecimal != null && rightDecimal != null
-                && leftDecimal.compareTo(rightDecimal) == 0;
+            return leftDecimal != null && rightDecimal != null && leftDecimal.compareTo(rightDecimal) == 0;
         }
         return Objects.equals(left, right);
     }

@@ -4,7 +4,6 @@ import dev.turboism.adapter.cubism.RecentFileAdapter;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -14,10 +13,7 @@ public final class RuntimeRecentFileService implements RecentFileService {
     private final RecentFileAdapter adapter;
     private final PermissionChecker permissionChecker;
 
-    public RuntimeRecentFileService(
-        final RecentFileAdapter adapter,
-        final PermissionChecker permissionChecker
-    ) {
+    public RuntimeRecentFileService(final RecentFileAdapter adapter, final PermissionChecker permissionChecker) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
     }

@@ -18,6 +18,18 @@
 # window while the probe records the native ingress hook traffic):
 #   run-warp-deformer-alt-symmetry-host-validation.sh 5303 r1 \
 #     --jvm-option -Dturboism.validation.warpAlt.mode=observe
+# Weight-mirror mode (two real brush strokes — control with the axis disarmed,
+# then armed — asserting the mirrored write counter and axis-consistent index
+# pairing; the screen point must land on the target Warp grid while the Brush
+# Selection Tool is active):
+#   run-warp-deformer-alt-symmetry-host-validation.sh 5303 r1 \
+#     --jvm-option -Dturboism.validation.warpAlt.mode=weightStroke \
+#     --jvm-option -Dturboism.validation.warpAlt.axis=1 \
+#     --jvm-option -Dturboism.validation.warpAlt.screen=820,520 \
+#     --jvm-option -Dturboism.validation.warpAlt.drag=48,0 \
+#     [--jvm-option -Dturboism.validation.warpAlt.preselect=x,y] \
+#     [--jvm-option -Dturboism.validation.warpAlt.tool=x,y] \
+#     [--jvm-option -Dturboism.validation.warpAlt.screen2=x,y]
 set -euo pipefail
 
 # Machine-specific fixture and host paths come from the ignored repository `.env`.

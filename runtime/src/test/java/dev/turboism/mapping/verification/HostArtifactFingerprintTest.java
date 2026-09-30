@@ -1,13 +1,12 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
 
 class HostArtifactFingerprintTest {
 
@@ -18,26 +17,10 @@ class HostArtifactFingerprintTest {
 
         HostArtifactFingerprint actual = HostArtifactFingerprint.from("5.3.02", artifact);
 
-        assertTrue(actual.matches(new HostArtifactFingerprint(
-            "5.3.02",
-            Files.size(artifact),
-            actual.sha256()
-        )));
-        assertFalse(actual.matches(new HostArtifactFingerprint(
-            "5.3.01",
-            Files.size(artifact),
-            actual.sha256()
-        )));
-        assertFalse(actual.matches(new HostArtifactFingerprint(
-            "5.3.02",
-            Files.size(artifact) + 1,
-            actual.sha256()
-        )));
-        assertFalse(actual.matches(new HostArtifactFingerprint(
-            "5.3.02",
-            Files.size(artifact),
-            "0".repeat(64)
-        )));
+        assertTrue(actual.matches(new HostArtifactFingerprint("5.3.02", Files.size(artifact), actual.sha256())));
+        assertFalse(actual.matches(new HostArtifactFingerprint("5.3.01", Files.size(artifact), actual.sha256())));
+        assertFalse(actual.matches(new HostArtifactFingerprint("5.3.02", Files.size(artifact) + 1, actual.sha256())));
+        assertFalse(actual.matches(new HostArtifactFingerprint("5.3.02", Files.size(artifact), "0".repeat(64))));
         assertEquals(actual.sha256(), actual.sha256().toLowerCase());
     }
 }

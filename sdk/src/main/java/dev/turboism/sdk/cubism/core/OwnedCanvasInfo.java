@@ -9,12 +9,8 @@ import dev.turboism.sdk.cubism.model.Canvas;
  * the projection never holds a Core object.</p>
  */
 public record OwnedCanvasInfo(
-    float widthPixels,
-    float heightPixels,
-    float originXPixels,
-    float originYPixels,
-    float pixelsPerUnit
-) implements Canvas {
+        float widthPixels, float heightPixels, float originXPixels, float originYPixels, float pixelsPerUnit)
+        implements Canvas {
 
     public OwnedCanvasInfo {
         requireFinite(widthPixels, "widthPixels");

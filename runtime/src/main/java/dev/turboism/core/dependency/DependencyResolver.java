@@ -3,7 +3,6 @@ package dev.turboism.core.dependency;
 import dev.turboism.core.version.PluginVersion;
 import dev.turboism.core.version.VersionRange;
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -52,8 +51,7 @@ public final class DependencyResolver {
      *     parsed is disabled instead of resolved, so this is always a valid version
      * @param descriptor the descriptor the plugin was resolved from
      */
-    public record ResolvedPlugin(String id, PluginVersion version, PluginDescriptor descriptor) {
-    }
+    public record ResolvedPlugin(String id, PluginVersion version, PluginDescriptor descriptor) {}
 
     /**
      * Outcome of one resolution pass over a set of descriptors.
@@ -71,11 +69,10 @@ public final class DependencyResolver {
      * @param cycles human-readable descriptions of the ordering cycles that were broken
      */
     public record ResolutionResult(
-        List<ResolvedPlugin> loadOrder,
-        List<String> disabledIds,
-        Map<String, String> disabledReasons,
-        List<String> cycles
-    ) {
+            List<ResolvedPlugin> loadOrder,
+            List<String> disabledIds,
+            Map<String, String> disabledReasons,
+            List<String> cycles) {
         public ResolutionResult {
             loadOrder = List.copyOf(loadOrder);
             disabledIds = List.copyOf(disabledIds);
@@ -140,9 +137,7 @@ public final class DependencyResolver {
         while (!ready.isEmpty()) {
             String id = discoveryOrder.get(ready.pollFirst());
             predecessors.remove(id);
-            order.add(new ResolvedPlugin(
-                id, PluginVersion.parse(byId.get(id).version()), byId.get(id)
-            ));
+            order.add(new ResolvedPlugin(id, PluginVersion.parse(byId.get(id).version()), byId.get(id)));
             for (Map.Entry<String, Set<String>> entry : predecessors.entrySet()) {
                 if (entry.getValue().remove(id) && entry.getValue().isEmpty()) {
                     ready.add(discoveryIndex.get(entry.getKey()));
@@ -164,9 +159,7 @@ public final class DependencyResolver {
      * discovery order of each component's earliest member so diagnostics are stable.
      */
     private static List<Set<String>> cyclicComponents(
-        Map<String, Set<String>> predecessors,
-        Map<String, Integer> discoveryIndex
-    ) {
+            Map<String, Set<String>> predecessors, Map<String, Integer> discoveryIndex) {
         Map<String, Set<String>> successors = new LinkedHashMap<>();
         for (String id : predecessors.keySet()) {
             successors.put(id, new LinkedHashSet<>());
@@ -190,26 +183,27 @@ public final class DependencyResolver {
         List<Set<String>> cyclic = new ArrayList<>();
         for (Set<String> component : components) {
             if (component.size() > 1
-                || predecessors.get(component.iterator().next()).contains(component.iterator().next())) {
+                    || predecessors
+                            .get(component.iterator().next())
+                            .contains(component.iterator().next())) {
                 cyclic.add(component);
             }
         }
         cyclic.sort(java.util.Comparator.comparingInt(component ->
-            component.stream().mapToInt(discoveryIndex::get).min().orElse(0)));
+                component.stream().mapToInt(discoveryIndex::get).min().orElse(0)));
         return cyclic;
     }
 
     /** Tarjan strong-connect: {@code counter[0]} is the shared visit counter. */
     private static void strongConnect(
-        String id,
-        Map<String, Set<String>> successors,
-        Map<String, Integer> index,
-        Map<String, Integer> lowLink,
-        Deque<String> stack,
-        Set<String> onStack,
-        List<Set<String>> components,
-        int[] counter
-    ) {
+            String id,
+            Map<String, Set<String>> successors,
+            Map<String, Integer> index,
+            Map<String, Integer> lowLink,
+            Deque<String> stack,
+            Set<String> onStack,
+            List<Set<String>> components,
+            int[] counter) {
         index.put(id, counter[0]);
         lowLink.put(id, counter[0]);
         counter[0]++;
@@ -241,19 +235,16 @@ public final class DependencyResolver {
      * path repeats its first element at the end.
      */
     private static List<String> cyclePath(
-        Set<String> component,
-        Map<String, Set<String>> predecessors,
-        Map<String, Integer> discoveryIndex
-    ) {
+            Set<String> component, Map<String, Set<String>> predecessors, Map<String, Integer> discoveryIndex) {
         java.util.Comparator<String> byDiscovery = java.util.Comparator.comparingInt(discoveryIndex::get);
         List<String> path = new ArrayList<>();
         String current = component.stream().min(byDiscovery).orElseThrow();
         while (!path.contains(current)) {
             path.add(current);
             current = predecessors.getOrDefault(current, Set.of()).stream()
-                .filter(component::contains)
-                .min(byDiscovery)
-                .orElseThrow();
+                    .filter(component::contains)
+                    .min(byDiscovery)
+                    .orElseThrow();
         }
         List<String> cycle = new ArrayList<>(path.subList(path.indexOf(current), path.size()));
         cycle.add(current);
@@ -266,10 +257,7 @@ public final class DependencyResolver {
      * disabled, repeating until no plugin remains whose requirements are unmet.
      */
     private static void propagateUnsatisfiedRequired(
-        Map<String, PluginDescriptor> byId,
-        Set<String> disabledIds,
-        Map<String, String> disabledReasons
-    ) {
+            Map<String, PluginDescriptor> byId, Set<String> disabledIds, Map<String, String> disabledReasons) {
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -288,10 +276,7 @@ public final class DependencyResolver {
     }
 
     private static String unsatisfiedReason(
-        PluginDescriptor descriptor,
-        Map<String, PluginDescriptor> byId,
-        Set<String> disabledIds
-    ) {
+            PluginDescriptor descriptor, Map<String, PluginDescriptor> byId, Set<String> disabledIds) {
         try {
             PluginVersion.parse(descriptor.version());
         } catch (IllegalArgumentException exception) {
@@ -299,13 +284,11 @@ public final class DependencyResolver {
         }
         for (PluginDescriptor.DependencyRef dependency : descriptor.dependencies()) {
             if (!orderingSupported(dependency.ordering())) {
-                return "unsupported ordering token '"
-                    + dependency.ordering() + "' on dependency '" + dependency.id() + "'";
+                return "unsupported ordering token '" + dependency.ordering() + "' on dependency '" + dependency.id()
+                        + "'";
             }
-            if ("required".equals(dependency.type())
-                && !dependencySatisfied(dependency, byId, disabledIds)) {
-                return "required dependency '" + dependency.id()
-                    + "' is missing, disabled, or version-incompatible";
+            if ("required".equals(dependency.type()) && !dependencySatisfied(dependency, byId, disabledIds)) {
+                return "required dependency '" + dependency.id() + "' is missing, disabled, or version-incompatible";
             }
         }
         return null;
@@ -316,10 +299,7 @@ public final class DependencyResolver {
     }
 
     private static boolean dependencySatisfied(
-        PluginDescriptor.DependencyRef dependency,
-        Map<String, PluginDescriptor> byId,
-        Set<String> disabledIds
-    ) {
+            PluginDescriptor.DependencyRef dependency, Map<String, PluginDescriptor> byId, Set<String> disabledIds) {
         PluginDescriptor target = byId.get(dependency.id());
         if (target == null || disabledIds.contains(dependency.id())) {
             return false;
@@ -327,13 +307,9 @@ public final class DependencyResolver {
         return versionMatches(dependency, target);
     }
 
-    private static boolean versionMatches(
-        PluginDescriptor.DependencyRef dependency,
-        PluginDescriptor target
-    ) {
+    private static boolean versionMatches(PluginDescriptor.DependencyRef dependency, PluginDescriptor target) {
         try {
-            return VersionRange.parse(dependency.version())
-                .contains(PluginVersion.parse(target.version()));
+            return VersionRange.parse(dependency.version()).contains(PluginVersion.parse(target.version()));
         } catch (IllegalArgumentException exception) {
             return false;
         }
@@ -347,9 +323,7 @@ public final class DependencyResolver {
      * contributes no edge regardless of dependency type.
      */
     private static Map<String, Set<String>> orderingPredecessors(
-        Map<String, PluginDescriptor> byId,
-        Set<String> disabledIds
-    ) {
+            Map<String, PluginDescriptor> byId, Set<String> disabledIds) {
         Map<String, Set<String>> predecessors = new LinkedHashMap<>();
         for (Map.Entry<String, PluginDescriptor> entry : byId.entrySet()) {
             String id = entry.getKey();
@@ -367,7 +341,9 @@ public final class DependencyResolver {
                     continue;
                 }
                 if ("before".equals(dependency.ordering())) {
-                    predecessors.computeIfAbsent(target, key -> new LinkedHashSet<>()).add(id);
+                    predecessors
+                            .computeIfAbsent(target, key -> new LinkedHashSet<>())
+                            .add(id);
                 } else if ("after".equals(dependency.ordering())) {
                     predecessors.get(id).add(target);
                 }
@@ -382,19 +358,13 @@ public final class DependencyResolver {
      * disabled optional dependency behaves exactly like a missing one.
      */
     private static boolean optionalApplies(
-        PluginDescriptor.DependencyRef dependency,
-        Map<String, PluginDescriptor> byId
-    ) {
+            PluginDescriptor.DependencyRef dependency, Map<String, PluginDescriptor> byId) {
         PluginDescriptor target = byId.get(dependency.id());
         return target != null && versionMatches(dependency, target);
     }
 
     private static void disable(
-        String id,
-        String reason,
-        Set<String> disabledIds,
-        Map<String, String> disabledReasons
-    ) {
+            String id, String reason, Set<String> disabledIds, Map<String, String> disabledReasons) {
         if (disabledIds.add(id)) {
             disabledReasons.put(id, reason);
         }

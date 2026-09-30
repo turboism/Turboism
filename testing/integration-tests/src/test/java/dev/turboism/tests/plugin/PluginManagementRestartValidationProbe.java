@@ -2,7 +2,6 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -54,16 +53,29 @@ public final class PluginManagementRestartValidationProbe implements CubismPlugi
                 Thread.sleep(500L);
             }
             final boolean passed = installedJar && pendingCleared && digestMatches && loaded;
-            writeResult(result, installedJar, pendingCleared, digestMatches, loaded, passed,
-                (System.nanoTime() - startedNanos) / 1_000_000L);
-            context.logger().info("PLUGIN_RESTART_RESULT status=" + (passed ? "PASS" : "FAIL")
-                + " installed=" + installedJar + " pendingCleared=" + pendingCleared
-                + " digestMatches=" + digestMatches + " loaded=" + loaded);
+            writeResult(
+                    result,
+                    installedJar,
+                    pendingCleared,
+                    digestMatches,
+                    loaded,
+                    passed,
+                    (System.nanoTime() - startedNanos) / 1_000_000L);
+            context.logger()
+                    .info("PLUGIN_RESTART_RESULT status=" + (passed ? "PASS" : "FAIL")
+                            + " installed=" + installedJar + " pendingCleared=" + pendingCleared
+                            + " digestMatches=" + digestMatches + " loaded=" + loaded);
         } catch (Exception failure) {
             context.logger().error("PLUGIN_RESTART_RESULT status=FAIL", failure);
             try {
-                writeResult(result, installedJar, pendingCleared, digestMatches, loaded, false,
-                    (System.nanoTime() - startedNanos) / 1_000_000L);
+                writeResult(
+                        result,
+                        installedJar,
+                        pendingCleared,
+                        digestMatches,
+                        loaded,
+                        false,
+                        (System.nanoTime() - startedNanos) / 1_000_000L);
             } catch (Exception writeFailure) {
                 context.logger().error("Plugin restart result file could not be written", writeFailure);
             }
@@ -86,42 +98,41 @@ public final class PluginManagementRestartValidationProbe implements CubismPlugi
             final int next = content.indexOf("\"pluginId\":", target + 1);
             final String entry = next < 0 ? content.substring(target) : content.substring(target, next);
             return entry.contains("\"discoveryState\":\"DISCOVERED\"")
-                && entry.contains("\"dependencyState\":\"RESOLVED\"")
-                && entry.contains("\"lifecycleState\":\"ENABLED\"");
+                    && entry.contains("\"dependencyState\":\"RESOLVED\"")
+                    && entry.contains("\"lifecycleState\":\"ENABLED\"");
         } catch (Exception ignored) {
             return false;
         }
     }
 
     static void writeResult(
-        final Path result,
-        final boolean installed,
-        final boolean pendingCleared,
-        final boolean digestMatches,
-        final boolean loaded,
-        final boolean passed,
-        final long durationMillis
-    ) throws Exception {
+            final Path result,
+            final boolean installed,
+            final boolean pendingCleared,
+            final boolean digestMatches,
+            final boolean loaded,
+            final boolean passed,
+            final long durationMillis)
+            throws Exception {
         Files.createDirectories(result.getParent());
         Files.writeString(
-            result,
-            "schemaVersion=1\n"
-                + "installed=" + installed + "\n"
-                + "pendingCleared=" + pendingCleared + "\n"
-                + "digestMatches=" + digestMatches + "\n"
-                + "loaded=" + loaded + "\n"
-                + "durationMillis=" + durationMillis + "\n"
-                + "status=" + (passed ? "PASS" : "FAIL") + "\n",
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING
-        );
+                result,
+                "schemaVersion=1\n"
+                        + "installed=" + installed + "\n"
+                        + "pendingCleared=" + pendingCleared + "\n"
+                        + "digestMatches=" + digestMatches + "\n"
+                        + "loaded=" + loaded + "\n"
+                        + "durationMillis=" + durationMillis + "\n"
+                        + "status=" + (passed ? "PASS" : "FAIL") + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     private static String sha256(final Path path) throws Exception {
         final MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (var input = Files.newInputStream(path)) {
             final byte[] buffer = new byte[64 * 1024];
-            for (int read; (read = input.read(buffer)) >= 0;) {
+            for (int read; (read = input.read(buffer)) >= 0; ) {
                 if (read > 0) digest.update(buffer, 0, read);
             }
         }

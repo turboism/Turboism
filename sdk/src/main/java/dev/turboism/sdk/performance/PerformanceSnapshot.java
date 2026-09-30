@@ -14,17 +14,16 @@ package dev.turboism.sdk.performance;
  * for a later phase).
  */
 public record PerformanceSnapshot(
-    long timestampEpochMs,
-    double cpuPercent,
-    long jvmHeapBytes,
-    long jvmNonHeapBytes,
-    double fps,
-    long renderedFrames,
-    long diskReadBytes,
-    long diskWriteBytes,
-    long gcCollections,
-    long gcPauseMillis
-) {
+        long timestampEpochMs,
+        double cpuPercent,
+        long jvmHeapBytes,
+        long jvmNonHeapBytes,
+        double fps,
+        long renderedFrames,
+        long diskReadBytes,
+        long diskWriteBytes,
+        long gcCollections,
+        long gcPauseMillis) {
 
     public PerformanceSnapshot {
         if (timestampEpochMs < 0L) {
@@ -39,8 +38,11 @@ public record PerformanceSnapshot(
         if (Double.isNaN(fps) || fps < 0.0) {
             throw new IllegalArgumentException("fps must not be negative");
         }
-        if (renderedFrames < 0L || diskReadBytes < 0L || diskWriteBytes < 0L
-            || gcCollections < 0L || gcPauseMillis < 0L) {
+        if (renderedFrames < 0L
+                || diskReadBytes < 0L
+                || diskWriteBytes < 0L
+                || gcCollections < 0L
+                || gcPauseMillis < 0L) {
             throw new IllegalArgumentException("frame, disk, and GC counters must not be negative");
         }
     }
@@ -48,31 +50,28 @@ public record PerformanceSnapshot(
     @Override
     public String toString() {
         return "PerformanceSnapshot[timestampEpochMs=" + timestampEpochMs
-            + ", cpuPercent=" + cpuPercent
-            + ", jvmHeapBytes=" + jvmHeapBytes
-            + ", jvmNonHeapBytes=" + jvmNonHeapBytes
-            + ", fps=" + fps
-            + ", renderedFrames=" + renderedFrames
-            + ", diskReadBytes=" + diskReadBytes
-            + ", diskWriteBytes=" + diskWriteBytes
-            + ", gcCollections=" + gcCollections
-            + ", gcPauseMillis=" + gcPauseMillis
-            + "]";
+                + ", cpuPercent=" + cpuPercent
+                + ", jvmHeapBytes=" + jvmHeapBytes
+                + ", jvmNonHeapBytes=" + jvmNonHeapBytes
+                + ", fps=" + fps
+                + ", renderedFrames=" + renderedFrames
+                + ", diskReadBytes=" + diskReadBytes
+                + ", diskWriteBytes=" + diskWriteBytes
+                + ", gcCollections=" + gcCollections
+                + ", gcPauseMillis=" + gcPauseMillis
+                + "]";
     }
 
     /** Convenience factory for tests and diagnostics; GC counters default to zero. */
     public static PerformanceSnapshot of(
-        final long timestampEpochMs,
-        final double cpuPercent,
-        final long jvmHeapBytes,
-        final long jvmNonHeapBytes,
-        final double fps,
-        final long renderedFrames
-    ) {
+            final long timestampEpochMs,
+            final double cpuPercent,
+            final long jvmHeapBytes,
+            final long jvmNonHeapBytes,
+            final double fps,
+            final long renderedFrames) {
         return new PerformanceSnapshot(
-            timestampEpochMs, cpuPercent, jvmHeapBytes, jvmNonHeapBytes,
-            fps, renderedFrames, 0L, 0L, 0L, 0L
-        );
+                timestampEpochMs, cpuPercent, jvmHeapBytes, jvmNonHeapBytes, fps, renderedFrames, 0L, 0L, 0L, 0L);
     }
 
     /**

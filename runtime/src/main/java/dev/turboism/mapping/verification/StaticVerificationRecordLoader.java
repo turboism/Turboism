@@ -3,7 +3,6 @@ package dev.turboism.mapping.verification;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.schema.SchemaValidationError;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,10 +22,7 @@ final class StaticVerificationRecordLoader {
         this(new ObjectMapper(), new StaticVerificationRecordValidator());
     }
 
-    StaticVerificationRecordLoader(
-        final ObjectMapper mapper,
-        final StaticVerificationRecordValidator validator
-    ) {
+    StaticVerificationRecordLoader(final ObjectMapper mapper, final StaticVerificationRecordValidator validator) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
         this.validator = Objects.requireNonNull(validator, "validator");
     }
@@ -50,10 +46,9 @@ final class StaticVerificationRecordLoader {
         }
         final JsonNode artifactNode = root.get("artifact");
         final HostArtifactFingerprint artifact = new HostArtifactFingerprint(
-            root.get("cubismVersion").asText(),
-            artifactNode.get("size").asLong(),
-            artifactNode.get("sha256").asText()
-        );
+                root.get("cubismVersion").asText(),
+                artifactNode.get("size").asLong(),
+                artifactNode.get("sha256").asText());
         final List<String> capabilityIds = new ArrayList<>();
         root.get("capabilityIds").forEach(node -> capabilityIds.add(node.asText()));
         final java.util.Map<String, List<String>> capabilityConditions = new java.util.LinkedHashMap<>();
@@ -65,39 +60,40 @@ final class StaticVerificationRecordLoader {
         final List<StaticSelector> selectors = new ArrayList<>();
         root.get("selectors").forEach(node -> selectors.add(selector(node)));
         final StaticVerificationRecord record = new StaticVerificationRecord(
-            root.get("verificationId").asText(),
-            root.get("adapterSliceId").asText(),
-            capabilityIds,
-            java.util.Map.copyOf(capabilityConditions),
-            root.get("cubismVersion").asText(),
-            root.get("profileId").asText(),
-            artifact,
-            root.get("evidencePath").asText(),
-            root.get("owner").asText(),
-            root.get("verifiedBy").asText(),
-            Instant.parse(root.get("verifiedAt").asText()),
-            root.get("safeMode").asText(),
-            selectors
-        );
-        return new LoadedRecord(record, HexFormat.of().formatHex(
-            HostArtifactDigest.sha256Digest().digest(bytes)
-        ));
+                root.get("verificationId").asText(),
+                root.get("adapterSliceId").asText(),
+                capabilityIds,
+                java.util.Map.copyOf(capabilityConditions),
+                root.get("cubismVersion").asText(),
+                root.get("profileId").asText(),
+                artifact,
+                root.get("evidencePath").asText(),
+                root.get("owner").asText(),
+                root.get("verifiedBy").asText(),
+                Instant.parse(root.get("verifiedAt").asText()),
+                root.get("safeMode").asText(),
+                selectors);
+        return new LoadedRecord(
+                record,
+                HexFormat.of().formatHex(HostArtifactDigest.sha256Digest().digest(bytes)));
     }
 
     private StaticSelector selector(final JsonNode node) {
-        final StaticSelector.Kind kind = StaticSelector.Kind.valueOf(node.get("kind").asText().toUpperCase());
-        final String memberName = node.hasNonNull("memberName") ? node.get("memberName").asText() : "";
-        final String descriptor = node.hasNonNull("descriptor") ? node.get("descriptor").asText() : "";
+        final StaticSelector.Kind kind =
+                StaticSelector.Kind.valueOf(node.get("kind").asText().toUpperCase());
+        final String memberName =
+                node.hasNonNull("memberName") ? node.get("memberName").asText() : "";
+        final String descriptor =
+                node.hasNonNull("descriptor") ? node.get("descriptor").asText() : "";
         return new StaticSelector(
-            node.get("mappingId").asText(),
-            node.get("alias").asText(),
-            kind,
-            node.get("ownerInternalName").asText(),
-            memberName,
-            descriptor,
-            node.get("requiredAccessFlags").asInt(),
-            node.get("forbiddenAccessFlags").asInt()
-        );
+                node.get("mappingId").asText(),
+                node.get("alias").asText(),
+                kind,
+                node.get("ownerInternalName").asText(),
+                memberName,
+                descriptor,
+                node.get("requiredAccessFlags").asInt(),
+                node.get("forbiddenAccessFlags").asInt());
     }
 
     record LoadedRecord(StaticVerificationRecord record, String sha256) {

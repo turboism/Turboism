@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
-
 import java.util.List;
 
 /** Editor-authoring operations for typed model-object parameter bindings. */

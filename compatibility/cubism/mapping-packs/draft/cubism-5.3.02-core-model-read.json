@@ -1707,7 +1707,7 @@
     }
   ],
   "metadata": {
-    "inventoryRef": "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
+    "inventoryRef": "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json",
     "artifactSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
     "validationNotes": "Complete public Core structural read selectors derived from exact class-file observations. DRAFT mapping data; production authorization comes only from separate digest-pinned static records.",
     "artifactName": "Live2DCubismCore.jar",
@@ -1720,6 +1720,6 @@
       "cubism.core.owned-moc.read",
       "cubism.geometry.read"
     ],
-    "verificationRecordSha256": "0f03655d61957a16d074e2922372879c67762146941948d63aed9854d9076536"
+    "verificationRecordSha256": "6650108a950731fcc8d98210b40398a9d3c6fece8fda19b220bcdf58a09bd8da"
   }
 }

@@ -4,11 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Immutable read-only clipping configuration for one target ArtMesh. */
-public record ClipMaskSnapshot(
-    String targetMeshId,
-    List<String> orderedMaskSourceIds,
-    boolean inverted
-) {
+public record ClipMaskSnapshot(String targetMeshId, List<String> orderedMaskSourceIds, boolean inverted) {
     public ClipMaskSnapshot {
         Objects.requireNonNull(targetMeshId, "targetMeshId");
         if (targetMeshId.isBlank()) {

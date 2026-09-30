@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.core;
 import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocInfo;
 import dev.turboism.sdk.cubism.core.MocVersion;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,10 +34,9 @@ public final class CoreEvaluatedJoin {
     private Map<String, CoreDrawableDefinition> cachedDrawablesById;
 
     CoreEvaluatedJoin(
-        final ActiveCoreModelSource source,
-        final CorePublicApiProvider provider,
-        final CoreStructuralTracer tracer
-    ) {
+            final ActiveCoreModelSource source,
+            final CorePublicApiProvider provider,
+            final CoreStructuralTracer tracer) {
         this.source = Objects.requireNonNull(source, "source");
         this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
@@ -57,10 +55,7 @@ public final class CoreEvaluatedJoin {
         synchronized (cacheLock) {
             if (cachedIdentity != null && cachedIdentity.equals(identity)) {
                 requireCurrentCoreGeneration(cachedSnapshot.generation());
-                return new CoreEvaluatedSnapshot(
-                    cachedSnapshot.generation(),
-                    cachedDrawablesById
-                );
+                return new CoreEvaluatedSnapshot(cachedSnapshot.generation(), cachedDrawablesById);
             }
             final CoreStructuralSnapshot snapshot = traceSnapshot();
             cachedIdentity = identity;
@@ -92,10 +87,7 @@ public final class CoreEvaluatedJoin {
             if (!result.isSuccess()) {
                 throw failClosed(result.failure().orElseThrow());
             }
-            return new MocInfo(
-                mocVersion(result.value().orElseThrow()),
-                MocConsistency.UNKNOWN
-            );
+            return new MocInfo(mocVersion(result.value().orElseThrow()), MocConsistency.UNKNOWN);
         }
     }
 
@@ -139,24 +131,19 @@ public final class CoreEvaluatedJoin {
     private void requireCurrentCoreGeneration(final long expectedGeneration) {
         if (source.currentGeneration() != expectedGeneration) {
             throw new IllegalStateException(
-                "Core evaluated snapshot is stale for the active model generation: expected "
-                    + expectedGeneration + " but the Core source is at "
-                    + source.currentGeneration() + "."
-            );
+                    "Core evaluated snapshot is stale for the active model generation: expected "
+                            + expectedGeneration + " but the Core source is at "
+                            + source.currentGeneration() + ".");
         }
     }
 
-    private static Map<String, CoreDrawableDefinition> drawablesById(
-        final List<CoreDrawableDefinition> drawables
-    ) {
+    private static Map<String, CoreDrawableDefinition> drawablesById(final List<CoreDrawableDefinition> drawables) {
         final Map<String, CoreDrawableDefinition> byId = new LinkedHashMap<>();
         for (CoreDrawableDefinition drawable : drawables) {
             final CoreDrawableDefinition previous = byId.put(drawable.id(), drawable);
             if (previous != null) {
                 throw new IllegalStateException(
-                    "Core evaluated snapshot contains a duplicate drawable id: "
-                        + drawable.id()
-                );
+                        "Core evaluated snapshot contains a duplicate drawable id: " + drawable.id());
             }
         }
         return Map.copyOf(byId);
@@ -171,9 +158,8 @@ public final class CoreEvaluatedJoin {
             case 4 -> MocVersion.V4_2;
             case 5 -> MocVersion.V5_0;
             case 6 -> MocVersion.V5_3;
-            default -> throw new IllegalStateException(
-                "Core reported an unsupported MOC version constant: " + coreConstant
-            );
+            default ->
+                throw new IllegalStateException("Core reported an unsupported MOC version constant: " + coreConstant);
         };
     }
 
@@ -186,19 +172,17 @@ public final class CoreEvaluatedJoin {
     }
 
     private static IllegalStateException failClosed(final String code, final String message) {
-        final String prefix = switch (code) {
-            case "STALE_GENERATION", "LEASE_CLOSED", "TRANSITION_IN_PROGRESS", "SOURCE_CLOSED" ->
-                "Core evaluated data is unavailable for the active generation: ";
-            default -> "Core evaluated data is unavailable: ";
-        };
+        final String prefix =
+                switch (code) {
+                    case "STALE_GENERATION", "LEASE_CLOSED", "TRANSITION_IN_PROGRESS", "SOURCE_CLOSED" ->
+                        "Core evaluated data is unavailable for the active generation: ";
+                    default -> "Core evaluated data is unavailable: ";
+                };
         return new IllegalStateException(prefix + message);
     }
 
     /** Adapter-owned, generation-pinned evaluated snapshot projection. */
-    public record CoreEvaluatedSnapshot(
-        long generation,
-        Map<String, CoreDrawableDefinition> drawablesById
-    ) {
+    public record CoreEvaluatedSnapshot(long generation, Map<String, CoreDrawableDefinition> drawablesById) {
 
         public CoreEvaluatedSnapshot {
             if (generation < 0) {

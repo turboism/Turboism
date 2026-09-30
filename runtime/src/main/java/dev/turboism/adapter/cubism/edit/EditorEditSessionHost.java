@@ -4,7 +4,6 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.Optional;
 
 /**
@@ -92,10 +91,7 @@ public interface EditorEditSessionHost {
      * and the target. The cursor-level reconciler for entries a displaced host edit already
      * committed during the session.
      */
-    void undoRedoTo(
-        EditorAuthoringTransactionCoordinator.Binding binding,
-        int position
-    );
+    void undoRedoTo(EditorAuthoringTransactionCoordinator.Binding binding, int position);
 
     /**
      * Returns whether the {@code cubism.editor-model.undo.revert} capability row is verified on
@@ -138,13 +134,10 @@ public interface EditorEditSessionHost {
      *
      * @throws EditSessionException when no verified member surface exists for this binding
      */
-    default EditSessionOpsAccess opsAccess(
-        final EditorAuthoringTransactionCoordinator.Binding binding
-    ) throws EditSessionException {
+    default EditSessionOpsAccess opsAccess(final EditorAuthoringTransactionCoordinator.Binding binding)
+            throws EditSessionException {
         throw new EditUnavailableException(
-            "cubism.edit.ops-access",
-            "Editor edit session member surface is unavailable on this host"
-        );
+                "cubism.edit.ops-access", "Editor edit session member surface is unavailable on this host");
     }
 
     /** Records or derives an opaque diagnostic identity for a terminal outcome. */

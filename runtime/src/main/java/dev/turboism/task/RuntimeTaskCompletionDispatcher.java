@@ -1,10 +1,9 @@
 package dev.turboism.task;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkStatus;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
-import dev.turboism.core.runtime.RuntimeScheduler;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -32,10 +31,9 @@ final class RuntimeTaskCompletionDispatcher {
     private boolean closed;
 
     RuntimeTaskCompletionDispatcher(
-        final String pluginId,
-        final RuntimeScheduler runtimeScheduler,
-        final CleanupEvidenceCollector cleanupEvidence
-    ) {
+            final String pluginId,
+            final RuntimeScheduler runtimeScheduler,
+            final CleanupEvidenceCollector cleanupEvidence) {
         this.pluginId = Objects.requireNonNull(pluginId, "pluginId");
         this.runtimeScheduler = Objects.requireNonNull(runtimeScheduler, "runtimeScheduler");
         this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
@@ -76,9 +74,7 @@ final class RuntimeTaskCompletionDispatcher {
     private void dispatch(final DispatchKind kind, final Runnable action) {
         synchronized (quiescenceMonitor) {
             if (closed) {
-                throw new IllegalStateException(
-                    "Plugin task completion dispatcher is already closed."
-                );
+                throw new IllegalStateException("Plugin task completion dispatcher is already closed.");
             }
             pending.incrementAndGet();
         }
@@ -102,9 +98,7 @@ final class RuntimeTaskCompletionDispatcher {
                     if (closeAfterWait) {
                         closed = true;
                     }
-                    throw new IllegalStateException(
-                        "Plugin task completions did not quiesce before scope close."
-                    );
+                    throw new IllegalStateException("Plugin task completions did not quiesce before scope close.");
                 }
                 try {
                     TimeUnit.NANOSECONDS.timedWait(quiescenceMonitor, remaining);
@@ -114,9 +108,7 @@ final class RuntimeTaskCompletionDispatcher {
                         closed = true;
                     }
                     throw new IllegalStateException(
-                        "Interrupted while waiting for plugin task completion quiescence.",
-                        exception
-                    );
+                            "Interrupted while waiting for plugin task completion quiescence.", exception);
                 }
             }
             if (closeAfterWait) {
@@ -129,10 +121,7 @@ final class RuntimeTaskCompletionDispatcher {
         if (dispatched.started.get()) {
             return;
         }
-        final PluginWorkSubmission submission = runtimeScheduler.submitCompletion(
-            pluginId,
-            dispatched::run
-        );
+        final PluginWorkSubmission submission = runtimeScheduler.submitCompletion(pluginId, dispatched::run);
         if (!submission.accepted()) {
             retry(dispatched);
             return;
@@ -141,9 +130,7 @@ final class RuntimeTaskCompletionDispatcher {
             if (dispatched.started.get()) {
                 return;
             }
-            if (failure != null
-                || result == null
-                || result.status() != PluginWorkStatus.SUCCEEDED) {
+            if (failure != null || result == null || result.status() != PluginWorkStatus.SUCCEEDED) {
                 retry(dispatched);
             }
         });
@@ -153,10 +140,7 @@ final class RuntimeTaskCompletionDispatcher {
         if (dispatched.started.get()) {
             return;
         }
-        final var timer = runtimeScheduler.schedule(
-            RETRY_DELAY,
-            () -> attempt(dispatched)
-        );
+        final var timer = runtimeScheduler.schedule(RETRY_DELAY, () -> attempt(dispatched));
         if (!timer.accepted()) {
             failDispatch();
         }
@@ -164,11 +148,9 @@ final class RuntimeTaskCompletionDispatcher {
 
     private void failDispatch() {
         dispatchFailure.compareAndSet(
-            null,
-            new IllegalStateException(
-                "Plugin task completion could not be dispatched through the plugin executor."
-            )
-        );
+                null,
+                new IllegalStateException(
+                        "Plugin task completion could not be dispatched through the plugin executor."));
         synchronized (quiescenceMonitor) {
             quiescenceMonitor.notifyAll();
         }

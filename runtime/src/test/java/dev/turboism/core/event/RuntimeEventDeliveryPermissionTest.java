@@ -1,26 +1,26 @@
 package dev.turboism.core.event;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.core.runtime.PluginTask;
-import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
-import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -33,9 +33,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Delivery-time concrete permission filtering: a root/supertype subscription is
@@ -44,10 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RuntimeEventDeliveryPermissionTest {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.test";
-    private static final Clock CLOCK = Clock.fixed(
-        Instant.parse("2026-08-23T00:00:00Z"),
-        ZoneOffset.UTC
-    );
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
 
     private RuntimeScheduler scheduler;
 
@@ -63,16 +59,13 @@ class RuntimeEventDeliveryPermissionTest {
         // Parent probe: descriptorless admitted owner granted only event.subscribe.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
-        );
+                broker, broker.pluginOwner(PLUGIN_ID), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE));
         final List<EventBus.TurboismEvent> received = new CopyOnWriteArrayList<>();
         eventBus.subscribe(EventBus.TurboismEvent.class, received::add);
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
 
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
         assertTrue(received.isEmpty(), "protected event must not reach a wildcard subscriber");
     }
 
@@ -80,13 +73,9 @@ class RuntimeEventDeliveryPermissionTest {
     void wildcardSubscriberReceivesPermittedConcreteSubset() throws Exception {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(
-                PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
-                PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
-            )
-        );
+                broker,
+                broker.pluginOwner(PLUGIN_ID),
+                grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE));
         final List<EventBus.TurboismEvent> received = new CopyOnWriteArrayList<>();
         final CountDownLatch delivered = new CountDownLatch(2);
         eventBus.subscribe(EventBus.TurboismEvent.class, event -> {
@@ -109,28 +98,16 @@ class RuntimeEventDeliveryPermissionTest {
         // a dev.turboism.sdk.event.TurboismEvent subscription must observe them.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(
-                PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
-                PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
-            )
-        );
+                broker,
+                broker.pluginOwner(PLUGIN_ID),
+                grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE));
         final CountDownLatch delivered = new CountDownLatch(1);
-        final AtomicReference<dev.turboism.sdk.event.TurboismEvent> received =
-            new AtomicReference<>();
-        eventBus.subscribe(
-            dev.turboism.sdk.event.TurboismEvent.class,
-            event -> {
-                received.set(event);
-                delivered.countDown();
-            }
-        );
-        final BackupCompletedEvent backup = new BackupCompletedEvent(
-            3L,
-            List.of(),
-            List.of()
-        );
+        final AtomicReference<dev.turboism.sdk.event.TurboismEvent> received = new AtomicReference<>();
+        eventBus.subscribe(dev.turboism.sdk.event.TurboismEvent.class, event -> {
+            received.set(event);
+            delivered.countDown();
+        });
+        final BackupCompletedEvent backup = new BackupCompletedEvent(3L, List.of(), List.of());
 
         broker.publishRuntime(backup);
 
@@ -142,19 +119,12 @@ class RuntimeEventDeliveryPermissionTest {
     void annotatedWildcardSubscriberIsFilteredIdentically() throws Exception {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final RuntimeEventBroker.Owner owner = broker.admit(PLUGIN_ID);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            owner.key(),
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE),
-            null
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, owner.key(), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE), null);
         final CountDownLatch delivered = new CountDownLatch(1);
         broker.registerAnnotated(
-            owner.key(),
-            new EntrypointSubscriberCatalog().inspect(List.of(
-                new WildcardAnnotatedSubscriber(delivered)
-            ))
-        );
+                owner.key(),
+                new EntrypointSubscriberCatalog().inspect(List.of(new WildcardAnnotatedSubscriber(delivered))));
         owner.activate();
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
@@ -168,37 +138,23 @@ class RuntimeEventDeliveryPermissionTest {
     @Test
     void retainedReplayIsFilteredPerConcreteType() throws Exception {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
-        final BackupCompletedEvent retained = new BackupCompletedEvent(
-            7L,
-            List.of(),
-            List.of()
-        );
+        final BackupCompletedEvent retained = new BackupCompletedEvent(7L, List.of(), List.of());
         broker.publishRuntimeRetained(retained);
 
         final PluginEventBus deniedBus = new PluginEventBus(
-            broker,
-            "dev.example.denied",
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
-        );
+                broker, broker.pluginOwner("dev.example.denied"), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE));
         final List<EventBus.TurboismEvent> denied = new CopyOnWriteArrayList<>();
         deniedBus.subscribe(EventBus.TurboismEvent.class, denied::add);
 
         final PluginEventBus allowedBus = new PluginEventBus(
-            broker,
-            "dev.example.allowed",
-            grantingOnly(
-                PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
-                PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE
-            )
-        );
+                broker,
+                broker.pluginOwner("dev.example.allowed"),
+                grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE));
         final CountDownLatch replayed = new CountDownLatch(1);
-        allowedBus.subscribe(
-            EventBus.TurboismEvent.class,
-            ignored -> replayed.countDown()
-        );
+        allowedBus.subscribe(EventBus.TurboismEvent.class, ignored -> replayed.countDown());
 
         assertTrue(replayed.await(5, TimeUnit.SECONDS));
-        awaitMailbox(broker, broker.legacyOwner("dev.example.denied"));
+        awaitMailbox(broker, broker.pluginOwner("dev.example.denied"));
         assertTrue(denied.isEmpty(), "retained replay must honor concrete permissions");
     }
 
@@ -207,10 +163,7 @@ class RuntimeEventDeliveryPermissionTest {
         // A root subscriber must not mutate a gated transform without intercept.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
-        );
+                broker, broker.pluginOwner(PLUGIN_ID), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE));
         final List<EventBus.TurboismEvent> observed = new CopyOnWriteArrayList<>();
         eventBus.subscribe(EventBus.TurboismEvent.class, event -> {
             observed.add(event);
@@ -220,12 +173,11 @@ class RuntimeEventDeliveryPermissionTest {
         });
 
         final float transformed = broker.publishRuntimeTransform(
-            ParameterValueEvent.Before.class,
-            1.0F,
-            value -> new BeforeCallback(new TestParameter(), value),
-            event -> ((ParameterValueEvent.Before) event).value(),
-            Float::isFinite
-        );
+                ParameterValueEvent.Before.class,
+                1.0F,
+                value -> new BeforeCallback(new TestParameter(), value),
+                event -> ((ParameterValueEvent.Before) event).value(),
+                Float::isFinite);
 
         assertEquals(1.0F, transformed, "unauthorized subscriber must not transform");
         assertTrue(observed.isEmpty());
@@ -236,10 +188,7 @@ class RuntimeEventDeliveryPermissionTest {
         // The generic overload applies the same concrete-type authorization.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
-        );
+                broker, broker.pluginOwner(PLUGIN_ID), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE));
         final List<EventBus.TurboismEvent> observed = new CopyOnWriteArrayList<>();
         eventBus.subscribe(EventBus.TurboismEvent.class, event -> {
             observed.add(event);
@@ -249,12 +198,11 @@ class RuntimeEventDeliveryPermissionTest {
         });
 
         final Float transformed = broker.publishRuntimeTransform(
-            ParameterValueEvent.Before.class,
-            2.0F,
-            value -> new BeforeCallback(new TestParameter(), value),
-            event -> ((ParameterValueEvent.Before) event).value(),
-            Float::isFinite
-        );
+                ParameterValueEvent.Before.class,
+                2.0F,
+                value -> new BeforeCallback(new TestParameter(), value),
+                event -> ((ParameterValueEvent.Before) event).value(),
+                Float::isFinite);
 
         assertEquals(2.0F, transformed, "unauthorized subscriber must not transform");
         assertTrue(observed.isEmpty());
@@ -264,32 +212,30 @@ class RuntimeEventDeliveryPermissionTest {
     void authorizedTransformSubscriberMutatesBothOverloads() {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(
-                PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
-                ParameterHookRegistry.INTERCEPT_PERMISSION
-            )
-        );
+                broker,
+                broker.pluginOwner(PLUGIN_ID),
+                grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, ParameterHookRegistry.INTERCEPT_PERMISSION));
         eventBus.subscribe(EventBus.TurboismEvent.class, event -> {
             if (event instanceof ParameterValueEvent.Before before) {
                 before.setValue(7.0F);
             }
         });
 
-        assertEquals(7.0F, broker.publishRuntimeTransform(
-            ParameterValueEvent.Before.class,
-            1.0F,
-            value -> new BeforeCallback(new TestParameter(), value),
-            event -> ((ParameterValueEvent.Before) event).value()
-        ));
-        assertEquals(7.0F, broker.publishRuntimeTransform(
-            ParameterValueEvent.Before.class,
-            1.0F,
-            value -> new BeforeCallback(new TestParameter(), value),
-            event -> ((ParameterValueEvent.Before) event).value(),
-            Float::isFinite
-        ));
+        assertEquals(
+                7.0F,
+                broker.publishRuntimeTransform(
+                        ParameterValueEvent.Before.class,
+                        1.0F,
+                        value -> new BeforeCallback(new TestParameter(), value),
+                        event -> ((ParameterValueEvent.Before) event).value()));
+        assertEquals(
+                7.0F,
+                broker.publishRuntimeTransform(
+                        ParameterValueEvent.Before.class,
+                        1.0F,
+                        value -> new BeforeCallback(new TestParameter(), value),
+                        event -> ((ParameterValueEvent.Before) event).value(),
+                        Float::isFinite));
     }
 
     @Test
@@ -298,28 +244,20 @@ class RuntimeEventDeliveryPermissionTest {
         // the grant flips before the queue drains; drain must re-authorize.
         final AtomicBoolean granted = new AtomicBoolean(true);
         final CountDownLatch denied = new CountDownLatch(1);
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler(),
-            64,
-            diagnostic -> {
-                if (diagnostic.code()
-                    == RuntimeEventBroker.DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED) {
-                    denied.countDown();
-                }
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler(), 64, diagnostic -> {
+            if (diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED) {
+                denied.countDown();
             }
-        );
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            (permissionId, operation) -> {
-                if (PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
-                    return;
-                }
-                if (!granted.get()) {
-                    throw new CubismPermissionException(operation + " revoked");
-                }
-            }
-        );
+        });
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner(PLUGIN_ID), (permissionId, operation) -> {
+                    if (PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
+                        return;
+                    }
+                    if (!granted.get()) {
+                        throw new CubismPermissionException(operation + " revoked");
+                    }
+                });
         final CountDownLatch holdFirst = new CountDownLatch(1);
         final CountDownLatch releaseFirst = new CountDownLatch(1);
         final List<BackupCompletedEvent> received = new CopyOnWriteArrayList<>();
@@ -339,12 +277,8 @@ class RuntimeEventDeliveryPermissionTest {
         }
 
         assertTrue(denied.await(5, TimeUnit.SECONDS), "drain must re-authorize queued events");
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
-        assertEquals(
-            1,
-            received.size(),
-            "queued event must be re-authorized at drain, not only at enqueue"
-        );
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
+        assertEquals(1, received.size(), "queued event must be re-authorized at drain, not only at enqueue");
     }
 
     @Test
@@ -353,24 +287,10 @@ class RuntimeEventDeliveryPermissionTest {
         // owner must never widen earlier subscriptions' authorization.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final RuntimeEventBroker.Owner owner = broker.admit(PLUGIN_ID);
-        new PluginEventBus(
-            broker,
-            owner.key(),
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE),
-            null
-        );
-        new PluginEventBus(
-            broker,
-            owner.key(),
-            PermissionChecker.allowAll(),
-            null
-        );
-        final PluginEventBus narrowBus = new PluginEventBus(
-            broker,
-            owner.key(),
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE),
-            null
-        );
+        new PluginEventBus(broker, owner.key(), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE), null);
+        new PluginEventBus(broker, owner.key(), PermissionChecker.allowAll(), null);
+        final PluginEventBus narrowBus =
+                new PluginEventBus(broker, owner.key(), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE), null);
         final List<EventBus.TurboismEvent> received = new CopyOnWriteArrayList<>();
         narrowBus.subscribe(EventBus.TurboismEvent.class, received::add);
         owner.activate();
@@ -387,12 +307,8 @@ class RuntimeEventDeliveryPermissionTest {
         // generation's permission binding into the new owner's deliveries.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final RuntimeEventBroker.Owner first = broker.admit(PLUGIN_ID);
-        final PluginEventBus narrowBus = new PluginEventBus(
-            broker,
-            first.key(),
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE),
-            null
-        );
+        final PluginEventBus narrowBus =
+                new PluginEventBus(broker, first.key(), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE), null);
         final List<EventBus.TurboismEvent> firstReceived = new CopyOnWriteArrayList<>();
         narrowBus.subscribe(EventBus.TurboismEvent.class, firstReceived::add);
         first.activate();
@@ -406,12 +322,7 @@ class RuntimeEventDeliveryPermissionTest {
         first.close();
 
         final RuntimeEventBroker.Owner second = broker.admit(PLUGIN_ID);
-        final PluginEventBus broadBus = new PluginEventBus(
-            broker,
-            second.key(),
-            PermissionChecker.allowAll(),
-            null
-        );
+        final PluginEventBus broadBus = new PluginEventBus(broker, second.key(), PermissionChecker.allowAll(), null);
         final CountDownLatch delivered = new CountDownLatch(1);
         broadBus.subscribe(EventBus.TurboismEvent.class, ignored -> delivered.countDown());
         second.activate();
@@ -419,9 +330,8 @@ class RuntimeEventDeliveryPermissionTest {
         broker.publishRuntime(new BackupCompletedEvent(2L, List.of(), List.of()));
 
         assertTrue(
-            delivered.await(5, TimeUnit.SECONDS),
-            "the new generation's own broader grant must apply to its subscriptions"
-        );
+                delivered.await(5, TimeUnit.SECONDS),
+                "the new generation's own broader grant must apply to its subscriptions");
     }
 
     @Test
@@ -430,20 +340,9 @@ class RuntimeEventDeliveryPermissionTest {
         // filter must not double-deny them.
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final RuntimeEventBroker.Owner owner = broker.admit(PLUGIN_ID);
-        new PluginEventBus(
-            broker,
-            owner.key(),
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE),
-            null
-        );
+        new PluginEventBus(broker, owner.key(), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE), null);
         final CountDownLatch delivered = new CountDownLatch(1);
-        broker.subscribeAdapter(
-            owner.key(),
-            BackupCompletedEvent.class,
-            0,
-            0,
-            ignored -> delivered.countDown()
-        );
+        broker.subscribeAdapter(owner.key(), BackupCompletedEvent.class, 0, 0, ignored -> delivered.countDown());
         owner.activate();
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
@@ -458,11 +357,7 @@ class RuntimeEventDeliveryPermissionTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler());
         final RuntimeEventBroker.Owner owner = broker.admit("dev.internal.runtime");
         final CountDownLatch delivered = new CountDownLatch(1);
-        broker.subscribe(
-            owner.key(),
-            BackupCompletedEvent.class,
-            ignored -> delivered.countDown()
-        );
+        broker.subscribe(owner.key(), BackupCompletedEvent.class, ignored -> delivered.countDown());
         owner.activate();
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
@@ -472,32 +367,23 @@ class RuntimeEventDeliveryPermissionTest {
 
     @Test
     void deniedDeliveryIsDiagnosedOncePerOwnerAndType() throws Exception {
-        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
-            new CopyOnWriteArrayList<>();
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler(),
-            64,
-            diagnostics::add
-        );
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler(), 64, diagnostics::add);
         final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            PLUGIN_ID,
-            grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE)
-        );
-        eventBus.subscribe(EventBus.TurboismEvent.class, ignored -> { });
+                broker, broker.pluginOwner(PLUGIN_ID), grantingOnly(PermissionIds.TURBOISM_EVENT_SUBSCRIBE));
+        eventBus.subscribe(EventBus.TurboismEvent.class, ignored -> {});
 
         broker.publishRuntime(new BackupCompletedEvent(1L, List.of(), List.of()));
         broker.publishRuntime(new BackupCompletedEvent(2L, List.of(), List.of()));
 
-        awaitMailbox(broker, broker.legacyOwner(PLUGIN_ID));
+        awaitMailbox(broker, broker.pluginOwner(PLUGIN_ID));
         assertEquals(
-            1,
-            diagnostics.stream()
-                .filter(diagnostic -> diagnostic.code()
-                    == RuntimeEventBroker.DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED)
-                .count(),
-            "repeat denials for the same owner/type must not spam diagnostics"
-        );
+                1,
+                diagnostics.stream()
+                        .filter(diagnostic -> diagnostic.code()
+                                == RuntimeEventBroker.DeliveryDiagnostic.Code.DELIVERY_PERMISSION_DENIED)
+                        .count(),
+                "repeat denials for the same owner/type must not spam diagnostics");
     }
 
     /**
@@ -505,22 +391,14 @@ class RuntimeEventDeliveryPermissionTest {
      * owner lands behind every previously enqueued delivery, so its callback
      * proves the owner mailbox has processed all prior work.
      */
-    private void awaitMailbox(
-        final RuntimeEventBroker broker,
-        final PluginEventOwnerKey owner
-    ) throws InterruptedException {
+    private void awaitMailbox(final RuntimeEventBroker broker, final PluginEventOwnerKey owner)
+            throws InterruptedException {
         final CountDownLatch drained = new CountDownLatch(1);
-        final Registration barrier = broker.subscribe(
-            owner,
-            Barrier.class,
-            ignored -> drained.countDown()
-        );
+        final Registration barrier = broker.subscribe(owner, Barrier.class, ignored -> drained.countDown());
         try {
             broker.publish(owner, new Barrier());
             assertTrue(
-                drained.await(5, TimeUnit.SECONDS),
-                "owner mailbox must drain before asserting delivery absence"
-            );
+                    drained.await(5, TimeUnit.SECONDS), "owner mailbox must drain before asserting delivery absence");
         } finally {
             barrier.close();
         }
@@ -529,11 +407,10 @@ class RuntimeEventDeliveryPermissionTest {
     private RuntimeScheduler scheduler() {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            new NoOpSidecarDispatcher(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                new NoOpSidecarDispatcher(),
+                events::add);
         return scheduler;
     }
 
@@ -542,8 +419,7 @@ class RuntimeEventDeliveryPermissionTest {
         return (permissionId, operation) -> {
             if (!granted.contains(permissionId)) {
                 throw new CubismPermissionException(
-                    "Missing required permission " + permissionId + " for " + operation
-                );
+                        "Missing required permission " + permissionId + " for " + operation);
             }
         };
     }
@@ -576,8 +452,7 @@ class RuntimeEventDeliveryPermissionTest {
         }
     }
 
-    private static final class BeforeCallback
-        implements RuntimeEventBroker.TransformCallback {
+    private static final class BeforeCallback implements RuntimeEventBroker.TransformCallback {
         private final ParameterValueEvent.Before event;
 
         private BeforeCallback(final Parameter parameter, final float value) {
@@ -590,33 +465,48 @@ class RuntimeEventDeliveryPermissionTest {
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     private static final class TestParameter implements Parameter {
-        @Override public ParameterId id() { return new ParameterId("ParamAngleX"); }
-        @Override public float getValue() { return 1.0F; }
-        @Override public float getMinimumValue() { return -30.0F; }
-        @Override public float getMaximumValue() { return 30.0F; }
-        @Override public float getDefaultValue() { return 0.0F; }
-        @Override public void setValue(final float value) { }
+        @Override
+        public ParameterId id() {
+            return new ParameterId("ParamAngleX");
+        }
+
+        @Override
+        public float getValue() {
+            return 1.0F;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -30.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 30.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public void setValue(final float value) {}
     }
 
-    public record TestEvent(String value) implements EventBus.TurboismEvent {
-    }
+    public record TestEvent(String value) implements EventBus.TurboismEvent {}
 
     /** Private exact-type event used only to prove an owner mailbox drained. */
-    public record Barrier() implements EventBus.TurboismEvent {
-    }
+    public record Barrier() implements EventBus.TurboismEvent {}
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
 
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }

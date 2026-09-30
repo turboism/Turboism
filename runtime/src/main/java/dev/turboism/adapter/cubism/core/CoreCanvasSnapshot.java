@@ -6,12 +6,7 @@ package dev.turboism.adapter.cubism.core;
  * <p>No authoring metadata is inferred beyond the values exposed by Core itself.</p>
  */
 record CoreCanvasSnapshot(
-    float widthPixels,
-    float heightPixels,
-    float originXPixels,
-    float originYPixels,
-    float pixelsPerUnit
-) {
+        float widthPixels, float heightPixels, float originXPixels, float originYPixels, float pixelsPerUnit) {
 
     CoreCanvasSnapshot {
         requireFinite(widthPixels, "widthPixels");

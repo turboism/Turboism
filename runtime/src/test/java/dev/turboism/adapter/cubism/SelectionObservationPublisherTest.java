@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.core.event.RuntimeEventBroker;
@@ -16,9 +20,6 @@ import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -32,10 +33,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Bounded session-driven selection observation: subscriber demand starts a fixed-interval
@@ -50,8 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SelectionObservationPublisherTest {
 
-    private static final Clock FIXED_CLOCK =
-        Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
     private static final Duration FAST = Duration.ofMillis(10);
 
     private RuntimeScheduler scheduler;
@@ -86,10 +84,7 @@ class SelectionObservationPublisherTest {
         source.replaceSelection(List.of("mesh-face"));
 
         assertTrue(delivered.await(5, TimeUnit.SECONDS));
-        assertTrue(
-            events.get(0).currentSelection().selectedModelObjectIds()
-                .contains(new ModelObjectId("mesh-face"))
-        );
+        assertTrue(events.get(0).currentSelection().selectedModelObjectIds().contains(new ModelObjectId("mesh-face")));
     }
 
     @Test
@@ -108,10 +103,7 @@ class SelectionObservationPublisherTest {
         assertTrue(delivered.await(5, TimeUnit.SECONDS));
         assertEquals(1, first.size());
         assertEquals(1, second.size());
-        assertEquals(
-            first.get(0).currentSelection(),
-            second.get(0).currentSelection()
-        );
+        assertEquals(first.get(0).currentSelection(), second.get(0).currentSelection());
     }
 
     @Test
@@ -136,20 +128,16 @@ class SelectionObservationPublisherTest {
 
         // Initial silent baseline (as the first query/observation establishes it).
         assertFalse(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 1, stateA), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 1, stateA), record(transitions)));
         // Sampler sees the same state at a newer revision: no duplicate event.
         assertFalse(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 2, stateA), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 2, stateA), record(transitions)));
         // Real transition publishes exactly once.
         assertTrue(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 3, stateB), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 3, stateB), record(transitions)));
         // Query path observes the identical state: still no duplicate.
         assertFalse(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 4, stateB), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 4, stateB), record(transitions)));
         assertEquals(List.of("A>B"), transitions);
     }
 
@@ -164,17 +152,13 @@ class SelectionObservationPublisherTest {
         final SelectionSummary stateB = observedIdentity(List.of("b"));
 
         assertFalse(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 10, stateA), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 10, stateA), record(transitions)));
         assertFalse(SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 20, stateA), record(transitions)
-        ));
+                baseline, new SelectionObservation(source, 20, stateA), record(transitions)));
         assertFalse(
-            SelectionObservation.commit(
-                baseline, new SelectionObservation(source, 15, stateB), record(transitions)
-            ),
-            "stale same-source read must not regress the newer baseline"
-        );
+                SelectionObservation.commit(
+                        baseline, new SelectionObservation(source, 15, stateB), record(transitions)),
+                "stale same-source read must not regress the newer baseline");
         assertEquals(stateA, baseline.get().summary());
         assertEquals(20L, baseline.get().sourceVersion());
         assertTrue(transitions.isEmpty());
@@ -191,38 +175,27 @@ class SelectionObservationPublisherTest {
         final SelectionSummary stateC = observedIdentity(List.of("c"));
 
         // Establish the baseline silently.
-        SelectionObservation.commit(
-            baseline, new SelectionObservation(source, 1, stateA), record(transitions)
-        );
+        SelectionObservation.commit(baseline, new SelectionObservation(source, 1, stateA), record(transitions));
 
         final CountDownLatch firstPublishEntered = new CountDownLatch(1);
         final CountDownLatch releaseFirstPublish = new CountDownLatch(1);
         final Thread firstCommitter = new Thread(() -> SelectionObservation.commit(
-            baseline,
-            new SelectionObservation(source, 2, stateB),
-            (previous, current) -> {
-                firstPublishEntered.countDown();
-                awaitQuietly(releaseFirstPublish);
-                transitions.add("A>B");
-            }
-        ));
+                baseline, new SelectionObservation(source, 2, stateB), (previous, current) -> {
+                    firstPublishEntered.countDown();
+                    awaitQuietly(releaseFirstPublish);
+                    transitions.add("A>B");
+                }));
         firstCommitter.start();
         assertTrue(firstPublishEntered.await(5, TimeUnit.SECONDS));
 
         final Thread secondCommitter = new Thread(() -> SelectionObservation.commit(
-            baseline,
-            new SelectionObservation(source, 3, stateC),
-            (previous, current) -> transitions.add("B>C")
-        ));
+                baseline, new SelectionObservation(source, 3, stateC), (previous, current) -> transitions.add("B>C")));
         try {
             secondCommitter.start();
             // The second commit cannot publish while the first commit's
             // publication is still inside the baseline monitor.
             Thread.sleep(60);
-            assertTrue(
-                transitions.isEmpty(),
-                "a concurrent commit must not publish before the in-flight transition"
-            );
+            assertTrue(transitions.isEmpty(), "a concurrent commit must not publish before the in-flight transition");
             releaseFirstPublish.countDown();
             firstCommitter.join(5_000);
             secondCommitter.join(5_000);
@@ -263,9 +236,8 @@ class SelectionObservationPublisherTest {
             final CountDownLatch timerFired = new CountDownLatch(1);
             assertTrue(scheduler.schedule(Duration.ZERO, timerFired::countDown).accepted());
             assertTrue(
-                timerFired.await(5, TimeUnit.SECONDS),
-                "a blocked host read must not stall unrelated scheduler timers"
-            );
+                    timerFired.await(5, TimeUnit.SECONDS),
+                    "a blocked host read must not stall unrelated scheduler timers");
             // And close must return promptly without waiting for the read.
             publisher.close();
         } finally {
@@ -292,8 +264,7 @@ class SelectionObservationPublisherTest {
         // transition to the empty selection — isHostPresent must not suppress it.
         final MutableProjectWorkspace workspace = new MutableProjectWorkspace();
         workspace.openDocument(modelDocument("doc-1", "model-1"));
-        final HostSnapshotSource source =
-            HostSessionSnapshotSource.forSession(workspace);
+        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(workspace);
         harness(source);
         final List<SelectionChangedEvent> events = new ArrayList<>();
         final CountDownLatch delivered = new CountDownLatch(1);
@@ -306,14 +277,12 @@ class SelectionObservationPublisherTest {
         assertTrue(delivered.await(5, TimeUnit.SECONDS));
         final SelectionChangedEvent event = events.get(0);
         assertTrue(
-            event.previousSelection().activeDocumentId().isPresent(),
-            "previous selection must carry the closed document"
-        );
+                event.previousSelection().activeDocumentId().isPresent(),
+                "previous selection must carry the closed document");
         assertTrue(
-            event.currentSelection().activeDocumentId().isEmpty()
-                && event.currentSelection().selectedModelObjectIds().isEmpty(),
-            "closing the last document must publish the empty selection"
-        );
+                event.currentSelection().activeDocumentId().isEmpty()
+                        && event.currentSelection().selectedModelObjectIds().isEmpty(),
+                "closing the last document must publish the empty selection");
     }
 
     @Test
@@ -326,10 +295,7 @@ class SelectionObservationPublisherTest {
 
         Thread.sleep(120);
 
-        assertTrue(
-            events.isEmpty(),
-            "the first observation establishes the baseline without an event"
-        );
+        assertTrue(events.isEmpty(), "the first observation establishes the baseline without an event");
     }
 
     // -- harness ------------------------------------------------------------
@@ -339,21 +305,12 @@ class SelectionObservationPublisherTest {
         lane = new SharedAsyncHostReadLane(16);
         broker = new RuntimeEventBroker(scheduler);
         publisher = new SelectionObservationPublisher(
-            source,
-            lane,
-            scheduler,
-            broker,
-            broker.observationBaseline(SelectionObservation.class),
-            FAST
-        );
+                source, lane, scheduler, broker, broker.observationBaseline(SelectionObservation.class), FAST);
         publisher.signalDemand();
     }
 
     private void subscribe(
-        final String pluginId,
-        final List<SelectionChangedEvent> sink,
-        final CountDownLatch delivered
-    ) {
+            final String pluginId, final List<SelectionChangedEvent> sink, final CountDownLatch delivered) {
         final RuntimeEventBroker.Owner owner = broker.admit(pluginId);
         broker.subscribe(owner.key(), SelectionChangedEvent.class, event -> {
             sink.add(event);
@@ -373,29 +330,25 @@ class SelectionObservationPublisherTest {
     }
 
     private static java.util.function.BiConsumer<SelectionSummary, SelectionSummary> record(
-        final List<String> transitions
-    ) {
-        return (previous, current) -> transitions.add(
-            marker(previous) + ">" + marker(current)
-        );
+            final List<String> transitions) {
+        return (previous, current) -> transitions.add(marker(previous) + ">" + marker(current));
     }
 
     private static String marker(final SelectionSummary summary) {
         return summary.selectedModelObjectIds().isEmpty()
-            ? "?"
-            : summary.selectedModelObjectIds().get(0).value().toUpperCase();
+                ? "?"
+                : summary.selectedModelObjectIds().get(0).value().toUpperCase();
     }
 
     private static SelectionSummary observedIdentity(final List<String> selectedIds) {
         return new SelectionSummary(
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            List.of(),
-            List.of(),
-            List.of(),
-            selectedIds.stream().map(ModelObjectId::new).toList()
-        );
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                List.of(),
+                List.of(),
+                List.of(),
+                selectedIds.stream().map(ModelObjectId::new).toList());
     }
 
     private static void awaitQuietly(final CountDownLatch latch) {
@@ -406,36 +359,28 @@ class SelectionObservationPublisherTest {
         }
     }
 
-    private static DocumentSnapshot modelDocument(
-        final String documentId,
-        final String modelId
-    ) {
+    private static DocumentSnapshot modelDocument(final String documentId, final String modelId) {
         return new DocumentSnapshot(
-            documentId,
-            documentId,
-            "model.moc",
-            Optional.empty(),
-            Optional.of(new ModelSnapshot(
-                modelId, modelId, List.of(), List.of(), List.of(), List.of()
-            )),
-            DocumentKind.MODEL,
-            Optional.empty(),
-            Optional.empty()
-        );
+                documentId,
+                documentId,
+                "model.moc",
+                Optional.empty(),
+                Optional.of(new ModelSnapshot(modelId, modelId, List.of(), List.of(), List.of(), List.of())),
+                DocumentKind.MODEL,
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static RuntimeScheduler directScheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
-            (task, callback) -> {
-                callback.run();
-                return CompletableFuture.completedFuture(
-                    dev.turboism.core.runtime.sidecar.SidecarResult.success("")
-                );
-            },
-            event -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
+                (task, callback) -> {
+                    callback.run();
+                    return CompletableFuture.completedFuture(
+                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+                },
+                event -> {});
     }
 
     // -- fixtures -------------------------------------------------------------
@@ -443,15 +388,11 @@ class SelectionObservationPublisherTest {
     /** Mutable source: object selection ids can be replaced; each read is counted. */
     private static final class MutableHostSource implements HostSnapshotSource {
 
-        private static final HostArtMesh MESH = new HostArtMesh(
-            "mesh-face", "Face Mesh", Optional.empty(), true, true
-        );
-        private static final HostParameter PARAMETER = new HostParameter(
-            "param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true
-        );
-        private static final HostModel MODEL = new HostModel(
-            "model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of()
-        );
+        private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
+        private static final HostParameter PARAMETER =
+                new HostParameter("param-angle-x", "Angle X", 0.0, 0.0, -30.0, 30.0, true, true);
+        private static final HostModel MODEL =
+                new HostModel("model-1", "Model", List.of(PARAMETER), List.of(MESH), List.of());
 
         final AtomicInteger reads = new AtomicInteger();
         final AtomicInteger concurrentReads = new AtomicInteger();
@@ -484,12 +425,7 @@ class SelectionObservationPublisherTest {
             final int inFlight = concurrentReads.incrementAndGet();
             maxConcurrentReads.accumulateAndGet(inFlight, Math::max);
             try {
-                return new HostSelection(
-                    selectedObjectIds,
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                );
+                return new HostSelection(selectedObjectIds, Optional.empty(), Optional.empty(), Optional.empty());
             } finally {
                 concurrentReads.decrementAndGet();
             }
@@ -541,12 +477,7 @@ class SelectionObservationPublisherTest {
 
         @Override
         public HostSelection selection() {
-            return block(new HostSelection(
-                selectedObjectIds,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-            ));
+            return block(new HostSelection(selectedObjectIds, Optional.empty(), Optional.empty(), Optional.empty()));
         }
 
         @Override
@@ -592,9 +523,7 @@ class SelectionObservationPublisherTest {
 
         @Override
         public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
-            return AdapterResult.unavailable(
-                SafeModeDiagnostic.capabilityUnavailable(WORKSPACE_CAPABILITY_ID)
-            );
+            return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(WORKSPACE_CAPABILITY_ID));
         }
     }
 }

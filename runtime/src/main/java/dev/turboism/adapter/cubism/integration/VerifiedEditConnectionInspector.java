@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -29,20 +28,14 @@ import java.util.Optional;
 public final class VerifiedEditConnectionInspector implements EditConnectionInspector {
 
     /** Verified alias constants matching the editor-model verification records. */
-    public static final String ALIAS_HOLDER_INSTANCE =
-        "cubism.integration.websocket.dispatch.holder-instance";
-    public static final String ALIAS_DISPATCHER_INSTANCE =
-        "cubism.integration.websocket.dispatch.instance";
-    public static final String ALIAS_SESSION_LOOKUP =
-        "cubism.integration.websocket.dispatch.session-lookup";
-    public static final String ALIAS_SESSION_SOCKET =
-        "cubism.integration.websocket.session.socket";
-    public static final String ALIAS_SESSION_REGISTERED =
-        "cubism.integration.websocket.session.registered";
-    public static final String ALIAS_SESSION_APPROVED =
-        "cubism.integration.websocket.session.approved";
-    public static final String ALIAS_SESSION_KEY =
-        "cubism.integration.websocket.session.key";
+    public static final String ALIAS_HOLDER_INSTANCE = "cubism.integration.websocket.dispatch.holder-instance";
+
+    public static final String ALIAS_DISPATCHER_INSTANCE = "cubism.integration.websocket.dispatch.instance";
+    public static final String ALIAS_SESSION_LOOKUP = "cubism.integration.websocket.dispatch.session-lookup";
+    public static final String ALIAS_SESSION_SOCKET = "cubism.integration.websocket.session.socket";
+    public static final String ALIAS_SESSION_REGISTERED = "cubism.integration.websocket.session.registered";
+    public static final String ALIAS_SESSION_APPROVED = "cubism.integration.websocket.session.approved";
+    public static final String ALIAS_SESSION_KEY = "cubism.integration.websocket.session.key";
 
     private final VerifiedMemberResolver resolver;
 
@@ -74,14 +67,11 @@ public final class VerifiedEditConnectionInspector implements EditConnectionInsp
             if (owner != socket) {
                 return Optional.empty();
             }
-            final boolean registered =
-                Boolean.TRUE.equals(resolver.invoke(ALIAS_SESSION_REGISTERED, record));
-            final boolean authorized =
-                Boolean.TRUE.equals(resolver.invoke(ALIAS_SESSION_APPROVED, record));
+            final boolean registered = Boolean.TRUE.equals(resolver.invoke(ALIAS_SESSION_REGISTERED, record));
+            final boolean authorized = Boolean.TRUE.equals(resolver.invoke(ALIAS_SESSION_APPROVED, record));
             final Object key = resolver.invoke(ALIAS_SESSION_KEY, record);
-            return Optional.of(new EditConnectionInfo(
-                registered, authorized,
-                key instanceof String text ? text : "", ""));
+            return Optional.of(
+                    new EditConnectionInfo(registered, authorized, key instanceof String text ? text : "", ""));
         } catch (RuntimeException | LinkageError failure) {
             return Optional.empty();
         }

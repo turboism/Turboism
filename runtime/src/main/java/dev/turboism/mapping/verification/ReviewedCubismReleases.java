@@ -5,8 +5,7 @@ import java.util.Objects;
 /** Reviewed Editor declarations, independent of archive packaging and mapping provenance. */
 public final class ReviewedCubismReleases {
 
-    private ReviewedCubismReleases() {
-    }
+    private ReviewedCubismReleases() {}
 
     /**
      * Tests the declared version and build against the releases reviewed together.

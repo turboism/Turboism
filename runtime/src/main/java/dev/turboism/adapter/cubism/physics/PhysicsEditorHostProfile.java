@@ -2,24 +2,22 @@ package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Exact reviewed selector tuple for the supported Physics Settings group-list host. */
 public record PhysicsEditorHostProfile(
-    String panelOwnerInternalName,
-    String tableGetter,
-    String outerField,
-    String sourceSetGetter,
-    String sourcesGetter,
-    String enableGetter,
-    String enableSetter,
-    String identityGetter,
-    String checkpointMethod,
-    String commitMethod,
-    String rollbackMethod
-) {
+        String panelOwnerInternalName,
+        String tableGetter,
+        String outerField,
+        String sourceSetGetter,
+        String sourcesGetter,
+        String enableGetter,
+        String enableSetter,
+        String identityGetter,
+        String checkpointMethod,
+        String commitMethod,
+        String rollbackMethod) {
     public PhysicsEditorHostProfile {
         panelOwnerInternalName = text(panelOwnerInternalName, "panelOwnerInternalName");
         tableGetter = text(tableGetter, "tableGetter");
@@ -73,10 +71,17 @@ public record PhysicsEditorHostProfile(
 
     private static Optional<PhysicsEditorHostProfile> reviewed() {
         return Optional.of(new PhysicsEditorHostProfile(
-            "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
-            "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",
-            "b", "n", "d"
-        ));
+                "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
+                "getTableArea",
+                "this$0",
+                "l",
+                "getSources",
+                "getEnable",
+                "setEnable",
+                "getGuid",
+                "b",
+                "n",
+                "d"));
     }
 
     private static String text(final String value, final String name) {

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -66,12 +65,7 @@ public interface ScriptService {
         public ScriptRunHandle run(final ScriptRunRequest request) {
             final ScriptExecutionId id = new ScriptExecutionId("unavailable");
             final ScriptRunResult result = ScriptRunResult.failure(
-                id,
-                ScriptRunStatus.REJECTED,
-                "SCRIPT_RUNTIME_UNAVAILABLE",
-                "Script runtime is unavailable.",
-                ""
-            );
+                    id, ScriptRunStatus.REJECTED, "SCRIPT_RUNTIME_UNAVAILABLE", "Script runtime is unavailable.", "");
             return new ScriptRunHandle() {
                 @Override
                 public ScriptExecutionId id() {

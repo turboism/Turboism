@@ -1,17 +1,16 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl;
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JPanel;
-import java.lang.instrument.Instrumentation;
-import java.lang.reflect.Proxy;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService.MirrorAxisAngleControl;
+import dev.turboism.sdk.plugin.Registration;
+import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Proxy;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.Test;
 
 final class MeshMirrorOracleBlockersTest {
 
@@ -27,9 +26,7 @@ final class MeshMirrorOracleBlockersTest {
 
         NativeMeshMirrorBridge.uninstall();
         NativeMeshMirrorBridge.install(axis, ui, true);
-        assertSame(original, NativeMeshMirrorBridge.adjustPoint(
-            original, new State(false), new Point(1.0f, 1.0f)
-        ));
+        assertSame(original, NativeMeshMirrorBridge.adjustPoint(original, new State(false), new Point(1.0f, 1.0f)));
     }
 
     @org.junit.jupiter.api.AfterEach
@@ -44,8 +41,7 @@ final class MeshMirrorOracleBlockersTest {
         axis.setCurrentAngleDegrees(45.0f);
         final AtomicInteger changes = new AtomicInteger();
         final Registration registration = ui.contributeMirrorAxisAngleControl(new MirrorAxisAngleControl(
-            "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> changes.incrementAndGet()
-        ));
+                "mesh.mirror-axis.angle", "Angle", "", -180.0f, 180.0f, 0.1f, ignored -> changes.incrementAndGet()));
         ui.attachNative(new JPanel(), new JPanel(), axis);
 
         ui.resetSession();
@@ -60,11 +56,10 @@ final class MeshMirrorOracleBlockersTest {
     @Test
     void helperBootstrapUsesTheActualHostLoaderRatherThanTheSystemLoader() {
         final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
-            getClass().getClassLoader(),
-            new Class<?>[] { Instrumentation.class },
-            (proxy, method, args) -> defaultValue(method.getReturnType())
-        );
-        final ClassLoader actualHostLoader = new ClassLoader(getClass().getClassLoader()) { };
+                getClass().getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, args) -> defaultValue(method.getReturnType()));
+        final ClassLoader actualHostLoader = new ClassLoader(getClass().getClassLoader()) {};
 
         MeshMirrorHelperBootstrap.ensureAvailable(instrumentation, actualHostLoader);
     }
@@ -79,10 +74,20 @@ final class MeshMirrorOracleBlockersTest {
     public static final class Point {
         private final float x;
         private final float y;
-        public Point(final float x, final float y) { this.x = x; this.y = y; }
-        public float getX() { return x; }
-        public float getY() { return y; }
+
+        public Point(final float x, final float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public float getX() {
+            return x;
+        }
+
+        public float getY() {
+            return y;
+        }
     }
 
-    public record State(boolean isVertical) { }
+    public record State(boolean isVertical) {}
 }

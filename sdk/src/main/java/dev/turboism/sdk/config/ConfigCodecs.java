@@ -15,8 +15,7 @@ public final class ConfigCodecs {
 
     private static final ConfigCodec<Boolean> BOOLEAN = () -> "boolean";
 
-    private ConfigCodecs() {
-    }
+    private ConfigCodecs() {}
 
     /**
      * Codec for a boolean setting.
@@ -49,10 +48,7 @@ public final class ConfigCodecs {
      * @return a codec bounded to that range
      * @throws IllegalArgumentException when {@code minimum} exceeds {@code maximum}
      */
-    public static ConfigCodec<Integer> boundedInt(
-        final int minimum,
-        final int maximum
-    ) {
+    public static ConfigCodec<Integer> boundedInt(final int minimum, final int maximum) {
         if (minimum > maximum) {
             throw new IllegalArgumentException("minimum must not exceed maximum");
         }
@@ -67,12 +63,9 @@ public final class ConfigCodecs {
      * @return a codec bounded to that enum
      * @throws NullPointerException when {@code enumType} is null
      */
-    public static <E extends Enum<E>> ConfigCodec<E> enumValue(
-        final Class<E> enumType
-    ) {
+    public static <E extends Enum<E>> ConfigCodec<E> enumValue(final Class<E> enumType) {
         return new TypeIdCodec<>(
-            "enum:" + Objects.requireNonNull(enumType, "enumType").getName()
-        );
+                "enum:" + Objects.requireNonNull(enumType, "enumType").getName());
     }
 
     /**
@@ -83,19 +76,14 @@ public final class ConfigCodecs {
      * @return a codec bounded to those limits
      * @throws IllegalArgumentException when either bound is out of range
      */
-    public static ConfigCodec<List<String>> boundedStringList(
-        final int maximumEntries,
-        final int maximumEntryLength
-    ) {
+    public static ConfigCodec<List<String>> boundedStringList(final int maximumEntries, final int maximumEntryLength) {
         if (maximumEntries < 0) {
             throw new IllegalArgumentException("maximumEntries must not be negative");
         }
         if (maximumEntryLength <= 0) {
             throw new IllegalArgumentException("maximumEntryLength must be positive");
         }
-        return new TypeIdCodec<>(
-            "string-list:" + maximumEntries + ":" + maximumEntryLength
-        );
+        return new TypeIdCodec<>("string-list:" + maximumEntries + ":" + maximumEntryLength);
     }
 
     private record TypeIdCodec<T>(String typeId) implements ConfigCodec<T> {

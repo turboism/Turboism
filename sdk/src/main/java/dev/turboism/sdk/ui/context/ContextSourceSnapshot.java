@@ -9,13 +9,12 @@ import java.util.Optional;
  * kinds, never native menu/source objects.</p>
  */
 public record ContextSourceSnapshot(
-    String sourceId,
-    String contextKind,
-    Optional<String> modelObjectId,
-    Optional<String> parameterId,
-    Optional<String> artMeshId,
-    Optional<String> deformerId
-) {
+        String sourceId,
+        String contextKind,
+        Optional<String> modelObjectId,
+        Optional<String> parameterId,
+        Optional<String> artMeshId,
+        Optional<String> deformerId) {
     public ContextSourceSnapshot {
         if (sourceId == null || sourceId.isBlank()) {
             throw new IllegalArgumentException("sourceId must not be null or blank");

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator;
-
 import java.io.IOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -32,7 +31,9 @@ public final class RuntimeConfigRepository {
     private final Consumer<String> diagnostic;
 
     public RuntimeConfigRepository(final Path requestedHome, final Consumer<String> diagnostic) {
-        home = Objects.requireNonNull(requestedHome, "requestedHome").toAbsolutePath().normalize();
+        home = Objects.requireNonNull(requestedHome, "requestedHome")
+                .toAbsolutePath()
+                .normalize();
         configPath = home.resolve("config.json").normalize();
         if (!configPath.startsWith(home)) throw new IllegalArgumentException("config path escapes Turboism home");
         lock = LOCKS.computeIfAbsent(configPath, ignored -> new Object());
@@ -94,7 +95,8 @@ public final class RuntimeConfigRepository {
             final Set<String> ids = new HashSet<>();
             requirePluginId(pluginId);
             root.path("disabledPlugins").forEach(value -> ids.add(value.textValue()));
-            if (enabled) ids.remove(pluginId); else ids.add(pluginId);
+            if (enabled) ids.remove(pluginId);
+            else ids.add(pluginId);
             final ArrayNode values = root.putArray("disabledPlugins");
             ids.stream().sorted().forEach(values::add);
             return root;
@@ -118,7 +120,8 @@ public final class RuntimeConfigRepository {
      */
     public ObjectNode update(final UnaryOperator<ObjectNode> change) {
         synchronized (lock) {
-            final ObjectNode updated = Objects.requireNonNull(change.apply(readLocked().deepCopy()), "updated");
+            final ObjectNode updated =
+                    Objects.requireNonNull(change.apply(readLocked().deepCopy()), "updated");
             validate(updated, "RUNTIME_CONFIG_WRITE_INVALID");
             writeLocked(updated);
             return updated.deepCopy();
@@ -129,8 +132,7 @@ public final class RuntimeConfigRepository {
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return defaults();
         try {
             rejectSymlinkChain(configPath);
-            if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
-                || Files.size(configPath) > MAX_BYTES) {
+            if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS) || Files.size(configPath) > MAX_BYTES) {
                 throw failure("RUNTIME_CONFIG_FILE_REJECTED");
             }
             final byte[] bytes = Files.readAllBytes(configPath);
@@ -142,8 +144,8 @@ public final class RuntimeConfigRepository {
             // absent for the in-memory read (structured diagnostic only); the on-disk
             // file stays untouched until an explicit save, and writes stay strict.
             if (object.has("locale")
-                && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator
-                    .isAllowedLocale(object.path("locale").asText(""))) {
+                    && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedLocale(
+                            object.path("locale").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_LOCALE");
                 object.remove("locale");
             }
@@ -151,9 +153,9 @@ public final class RuntimeConfigRepository {
             // persisted tier reads as absent (fail-closed to the system default) with a
             // structured diagnostic; the file stays untouched until an explicit save.
             if (object.path("launcher") instanceof ObjectNode launcher
-                && launcher.has("memoryProfile")
-                && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator
-                    .isAllowedMemoryProfile(launcher.path("memoryProfile").asText(""))) {
+                    && launcher.has("memoryProfile")
+                    && !dev.turboism.core.schema.runtimeconfig.RuntimeConfigValidator.isAllowedMemoryProfile(
+                            launcher.path("memoryProfile").asText(""))) {
                 report("RUNTIME_CONFIG_BAD_MEMORY_PROFILE");
                 launcher.remove("memoryProfile");
             }
@@ -174,7 +176,11 @@ public final class RuntimeConfigRepository {
             Files.write(temporary, bytes);
             move(temporary, configPath);
         } catch (IOException failure) {
-            try { Files.deleteIfExists(temporary); } catch (IOException ignored) { failure.addSuppressed(ignored); }
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException ignored) {
+                failure.addSuppressed(ignored);
+            }
             throw failure("RUNTIME_CONFIG_WRITE_FAILED", failure);
         }
     }
@@ -185,7 +191,9 @@ public final class RuntimeConfigRepository {
 
     /** Read-mode validation tolerates only the persisted-locale field; everything else fails closed. */
     private void validateForRead(final JsonNode root) {
-        if (!new RuntimeConfigValidator().validateForRead(root, configPath.toString()).isEmpty()) {
+        if (!new RuntimeConfigValidator()
+                .validateForRead(root, configPath.toString())
+                .isEmpty()) {
             throw failure("RUNTIME_CONFIG_INVALID");
         }
     }
@@ -216,7 +224,10 @@ public final class RuntimeConfigRepository {
     }
 
     private void report(final String code) {
-        try { diagnostic.accept(code); } catch (RuntimeException ignored) { }
+        try {
+            diagnostic.accept(code);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static void move(final Path source, final Path target) throws IOException {
@@ -249,10 +260,7 @@ public final class RuntimeConfigRepository {
         root.putArray("pluginDirs").add("plugins");
         root.putArray("disabledPlugins");
         root.put("logLevel", "INFO");
-        root.put(
-            "maxLogStorageMiB",
-            dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
-        );
+        root.put("maxLogStorageMiB", dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB);
         root.put("safeMode", false);
         root.put("useTextIcon", false);
         final ObjectNode hooks = root.putObject("hooks");

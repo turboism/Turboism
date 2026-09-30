@@ -1,9 +1,15 @@
 package dev.turboism.hostread;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.AsyncHostReadErrorCode;
@@ -17,9 +23,6 @@ import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,12 +34,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimeAsyncHostReadServiceTest {
 
@@ -67,7 +66,8 @@ class RuntimeAsyncHostReadServiceTest {
 
         assertEquals(AsyncHostReadSubmissionStatus.ACCEPTED, submission.status());
         assertEquals(AsyncHostReadStatus.SUCCEEDED, result.status());
-        final ProjectWorkspaceSnapshot value = (ProjectWorkspaceSnapshot) result.value().orElseThrow();
+        final ProjectWorkspaceSnapshot value =
+                (ProjectWorkspaceSnapshot) result.value().orElseThrow();
         assertEquals("Project", value.project().orElseThrow().name());
         assertEquals("workspace", value.workspace().orElseThrow().displayName());
         assertEquals(1, source.calls.get());
@@ -78,22 +78,22 @@ class RuntimeAsyncHostReadServiceTest {
     @Test
     void permissionDeniedAndSafeModeUnavailableAreClosedFailures() throws Exception {
         final FakeSource deniedSource = new FakeSource();
-        final AsyncHostReadSubmission denied = service("plugin-denied", Set.of(), deniedSource)
-            .submit(request(Duration.ofSeconds(2)));
+        final AsyncHostReadSubmission denied =
+                service("plugin-denied", Set.of(), deniedSource).submit(request(Duration.ofSeconds(2)));
         assertEquals(AsyncHostReadSubmissionStatus.REJECTED, denied.status());
-        assertEquals(AsyncHostReadErrorCode.PERMISSION_DENIED, denied.error().orElseThrow().code());
+        assertEquals(
+                AsyncHostReadErrorCode.PERMISSION_DENIED,
+                denied.error().orElseThrow().code());
         assertEquals(0, deniedSource.calls.get());
 
         final FakeSource safeMode = new FakeSource();
-        safeMode.result = ProjectWorkspaceHostReadResult.failed(
-            AsyncHostReadErrorCode.CAPABILITY_UNAVAILABLE
-        );
-        final AsyncHostReadResult unavailable = await(
-            service("plugin-safe", granted(), safeMode).submit(request(Duration.ofSeconds(2)))
-        );
+        safeMode.result = ProjectWorkspaceHostReadResult.failed(AsyncHostReadErrorCode.CAPABILITY_UNAVAILABLE);
+        final AsyncHostReadResult unavailable =
+                await(service("plugin-safe", granted(), safeMode).submit(request(Duration.ofSeconds(2))));
         assertEquals(AsyncHostReadStatus.FAILED, unavailable.status());
-        assertEquals(AsyncHostReadErrorCode.CAPABILITY_UNAVAILABLE,
-            unavailable.error().orElseThrow().code());
+        assertEquals(
+                AsyncHostReadErrorCode.CAPABILITY_UNAVAILABLE,
+                unavailable.error().orElseThrow().code());
     }
 
     @Test
@@ -114,7 +114,9 @@ class RuntimeAsyncHostReadServiceTest {
         assertSame(first.handle().orElseThrow(), coalesced.handle().orElseThrow());
         assertEquals(AsyncHostReadSubmissionStatus.ACCEPTED, queued.status());
         assertEquals(AsyncHostReadSubmissionStatus.REJECTED, rejected.status());
-        assertEquals(AsyncHostReadErrorCode.BACKPRESSURE, rejected.error().orElseThrow().code());
+        assertEquals(
+                AsyncHostReadErrorCode.BACKPRESSURE,
+                rejected.error().orElseThrow().code());
         source.release.countDown();
         assertEquals(AsyncHostReadStatus.SUCCEEDED, await(first).status());
         assertEquals(AsyncHostReadStatus.SUCCEEDED, await(queued).status());
@@ -126,20 +128,30 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource source = new FakeSource();
         source.block = true;
         final RuntimeAsyncHostReadService blockerService = service("plugin-blocker", granted(), source, 2);
-        final AsyncHostReadHandle blocker = blockerService.submit(request(Duration.ofSeconds(2)))
-            .handle().orElseThrow();
+        final AsyncHostReadHandle blocker =
+                blockerService.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final AsyncHostReadHandle queued = service("plugin-queued", granted(), source, 2)
-            .submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+                .submit(request(Duration.ofSeconds(2)))
+                .handle()
+                .orElseThrow();
         assertEquals(AsyncHostReadStatus.QUEUED, queued.status());
         assertTrue(queued.cancel());
-        assertEquals(AsyncHostReadStatus.CANCELED,
-            queued.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadStatus.CANCELED,
+                queued.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
 
         source.release.countDown();
-        assertEquals(AsyncHostReadStatus.SUCCEEDED,
-            blocker.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadStatus.SUCCEEDED,
+                blocker.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         Thread.sleep(50L);
         assertEquals(1, source.calls.get());
     }
@@ -149,19 +161,28 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource source = new FakeSource();
         source.block = true;
         final AsyncHostReadHandle blocker = service("plugin-blocker", granted(), source, 2)
-            .submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+                .submit(request(Duration.ofSeconds(2)))
+                .handle()
+                .orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final AsyncHostReadHandle queued = service("plugin-timeout-queued", granted(), source, 2)
-            .submit(request(Duration.ofMillis(100))).handle().orElseThrow();
-        final AsyncHostReadResult timeout = queued.completion().toCompletableFuture()
-            .get(1, TimeUnit.SECONDS);
+                .submit(request(Duration.ofMillis(100)))
+                .handle()
+                .orElseThrow();
+        final AsyncHostReadResult timeout =
+                queued.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
         assertEquals(AsyncHostReadStatus.FAILED, timeout.status());
-        assertEquals(AsyncHostReadErrorCode.TIMEOUT, timeout.error().orElseThrow().code());
+        assertEquals(
+                AsyncHostReadErrorCode.TIMEOUT, timeout.error().orElseThrow().code());
 
         source.release.countDown();
-        assertEquals(AsyncHostReadStatus.SUCCEEDED,
-            blocker.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadStatus.SUCCEEDED,
+                blocker.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         Thread.sleep(50L);
         assertEquals(1, source.calls.get());
     }
@@ -186,11 +207,15 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource timedSource = new FakeSource();
         timedSource.block = true;
         final AsyncHostReadHandle timed = service("plugin-timeout", granted(), timedSource)
-            .submit(request(Duration.ofMillis(100))).handle().orElseThrow();
+                .submit(request(Duration.ofMillis(100)))
+                .handle()
+                .orElseThrow();
         assertTrue(timedSource.started.await(1, TimeUnit.SECONDS));
-        final AsyncHostReadResult timeout = timed.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        final AsyncHostReadResult timeout =
+                timed.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
         assertEquals(AsyncHostReadStatus.FAILED, timeout.status());
-        assertEquals(AsyncHostReadErrorCode.TIMEOUT, timeout.error().orElseThrow().code());
+        assertEquals(
+                AsyncHostReadErrorCode.TIMEOUT, timeout.error().orElseThrow().code());
         timedSource.release.countDown();
         Thread.sleep(50L);
         assertEquals(AsyncHostReadStatus.FAILED, timed.status());
@@ -198,12 +223,18 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource canceledSource = new FakeSource();
         canceledSource.block = true;
         final AsyncHostReadHandle canceled = service("plugin-cancel", granted(), canceledSource)
-            .submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+                .submit(request(Duration.ofSeconds(2)))
+                .handle()
+                .orElseThrow();
         assertTrue(canceledSource.started.await(1, TimeUnit.SECONDS));
         assertTrue(canceled.cancel());
         assertFalse(canceled.cancel());
-        assertEquals(AsyncHostReadStatus.CANCELED,
-            canceled.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadStatus.CANCELED,
+                canceled.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         canceledSource.release.countDown();
     }
 
@@ -213,22 +244,31 @@ class RuntimeAsyncHostReadServiceTest {
         source.block = true;
         final RuntimeAsyncHostReadService first = service("plugin-a", granted(), source);
         final RuntimeAsyncHostReadService second = service("plugin-b", granted(), source);
-        final AsyncHostReadHandle owned = first.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+        final AsyncHostReadHandle owned =
+                first.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
-        final AsyncHostReadHandle foreign = second.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+        final AsyncHostReadHandle foreign =
+                second.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
 
         assertThrows(IllegalArgumentException.class, () -> first.cancel(foreign));
         assertThrows(IllegalArgumentException.class, () -> first.cancel(new ForgedHandle()));
         source.release.countDown();
         first.close();
-        assertTrue(Set.of(AsyncHostReadStatus.CANCELED, AsyncHostReadStatus.SUCCEEDED).contains(
-            owned.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status()
-        ));
+        assertTrue(Set.of(AsyncHostReadStatus.CANCELED, AsyncHostReadStatus.SUCCEEDED)
+                .contains(owned.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status()));
         assertFalse(first.cancel(owned));
-        assertEquals(AsyncHostReadSubmissionStatus.REJECTED,
-            first.submit(request(Duration.ofSeconds(2))).status());
-        assertEquals(AsyncHostReadStatus.SUCCEEDED,
-            foreign.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadSubmissionStatus.REJECTED,
+                first.submit(request(Duration.ofSeconds(2))).status());
+        assertEquals(
+                AsyncHostReadStatus.SUCCEEDED,
+                foreign.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         assertFalse(lane.isClosed());
     }
 
@@ -237,10 +277,15 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource source = new FakeSource();
         source.failure = new IllegalStateException("private /home/user selector=cubism.secret");
         final RuntimeAsyncHostReadService service = service("plugin-sanitize", granted(), source);
-        final AsyncHostReadHandle handle = service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
-        final AsyncHostReadResult result = handle.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
-        assertEquals(AsyncHostReadErrorCode.RUNTIME_FAILURE, result.error().orElseThrow().code());
-        assertEquals("Async host read failed safely.", result.error().orElseThrow().message());
+        final AsyncHostReadHandle handle =
+                service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+        final AsyncHostReadResult result =
+                handle.completion().toCompletableFuture().get(1, TimeUnit.SECONDS);
+        assertEquals(
+                AsyncHostReadErrorCode.RUNTIME_FAILURE,
+                result.error().orElseThrow().code());
+        assertEquals(
+                "Async host read failed safely.", result.error().orElseThrow().message());
 
         final CountDownLatch continued = new CountDownLatch(1);
         final AtomicReference<String> continuationThread = new AtomicReference<>();
@@ -259,16 +304,18 @@ class RuntimeAsyncHostReadServiceTest {
         source.block = true;
         source.ignoreInterrupt = true;
         final RuntimeAsyncHostReadService service = service("plugin-closed-continuation", granted(), source);
-        final AsyncHostReadHandle handle = service.submit(request(Duration.ofSeconds(2)))
-            .handle().orElseThrow();
+        final AsyncHostReadHandle handle =
+                service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final CompletableFuture<Void> closing = CompletableFuture.runAsync(service::close);
         Thread.sleep(75L);
-        assertThrows(IllegalStateException.class, () -> handle.completion().thenRun(() -> { }));
-        assertThrows(IllegalStateException.class, () -> handle.completion().thenAccept(ignored -> { }));
-        assertThrows(IllegalStateException.class, () -> handle.completion().thenAcceptAsync(ignored -> { }));
-        assertThrows(IllegalStateException.class, () -> handle.completion().toCompletableFuture().minimalCompletionStage());
+        assertThrows(IllegalStateException.class, () -> handle.completion().thenRun(() -> {}));
+        assertThrows(IllegalStateException.class, () -> handle.completion().thenAccept(ignored -> {}));
+        assertThrows(IllegalStateException.class, () -> handle.completion().thenAcceptAsync(ignored -> {}));
+        assertThrows(
+                IllegalStateException.class,
+                () -> handle.completion().toCompletableFuture().minimalCompletionStage());
         source.release.countDown();
         closing.get(1, TimeUnit.SECONDS);
     }
@@ -279,14 +326,19 @@ class RuntimeAsyncHostReadServiceTest {
         source.block = true;
         source.ignoreInterrupt = true;
         final RuntimeAsyncHostReadService service = service("plugin-quiescence", granted(), source);
-        final AsyncHostReadHandle handle = service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+        final AsyncHostReadHandle handle =
+                service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
 
         final CompletableFuture<Void> closed = CompletableFuture.runAsync(service::close);
         Thread.sleep(75L);
         assertFalse(closed.isDone(), "close must retain the plugin while the host wrapper is still running");
-        assertEquals(AsyncHostReadStatus.CANCELED,
-            handle.completion().toCompletableFuture().get(1, TimeUnit.SECONDS).status());
+        assertEquals(
+                AsyncHostReadStatus.CANCELED,
+                handle.completion()
+                        .toCompletableFuture()
+                        .get(1, TimeUnit.SECONDS)
+                        .status());
         source.release.countDown();
         closed.get(1, TimeUnit.SECONDS);
         assertFalse(lane.isClosed());
@@ -296,8 +348,8 @@ class RuntimeAsyncHostReadServiceTest {
     void closeWaitsForBlockedPluginContinuationBeforeReturning() throws Exception {
         final FakeSource source = new FakeSource();
         final RuntimeAsyncHostReadService service = service("plugin-continuation", granted(), source);
-        final AsyncHostReadHandle handle = service.submit(request(Duration.ofSeconds(2)))
-            .handle().orElseThrow();
+        final AsyncHostReadHandle handle =
+                service.submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
         final CountDownLatch continuationStarted = new CountDownLatch(1);
         final CountDownLatch releaseContinuation = new CountDownLatch(1);
         handle.completion().thenRun(() -> {
@@ -325,29 +377,18 @@ class RuntimeAsyncHostReadServiceTest {
         final List<String> closeOrder = new ArrayList<>();
         if (scheduler == null) {
             scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {}
-            );
+                    new DefaultWorkBudgetPolicy(),
+                    new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
+                    SidecarDispatcher.noop(),
+                    ignored -> {});
             lane = new SharedAsyncHostReadLane(32);
         }
         final DisposableScope scope = new DisposableScope();
         scopes.add(scope);
         scope.register(() -> closeOrder.add("classloader"));
-        final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler(
-            "plugin-ordering",
-            scheduler,
-            scope
-        );
-        final RuntimeAsyncHostReadService service = new RuntimeAsyncHostReadService(
-            "plugin-ordering",
-            granted(),
-            source,
-            lane,
-            tasks,
-            scope
-        );
+        final RuntimePluginTaskScheduler tasks = new RuntimePluginTaskScheduler("plugin-ordering", scheduler, scope);
+        final RuntimeAsyncHostReadService service =
+                new RuntimeAsyncHostReadService("plugin-ordering", granted(), source, lane, tasks, scope);
         scope.register(() -> closeOrder.add("plugin-ui"));
         service.submit(request(Duration.ofSeconds(2)));
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
@@ -371,40 +412,34 @@ class RuntimeAsyncHostReadServiceTest {
         final FakeSource source = new FakeSource();
         source.block = true;
         final AsyncHostReadHandle first = service("plugin-a", granted(), source)
-            .submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+                .submit(request(Duration.ofSeconds(2)))
+                .handle()
+                .orElseThrow();
         assertTrue(source.started.await(1, TimeUnit.SECONDS));
         final AsyncHostReadHandle second = service("plugin-b", granted(), source)
-            .submit(request(Duration.ofSeconds(2))).handle().orElseThrow();
+                .submit(request(Duration.ofSeconds(2)))
+                .handle()
+                .orElseThrow();
 
         source.release.countDown();
         lane.close();
-        assertTrue(first.status() == AsyncHostReadStatus.CANCELED
-            || first.status() == AsyncHostReadStatus.SUCCEEDED);
-        assertTrue(second.status() == AsyncHostReadStatus.CANCELED
-            || second.status() == AsyncHostReadStatus.SUCCEEDED);
+        assertTrue(first.status() == AsyncHostReadStatus.CANCELED || first.status() == AsyncHostReadStatus.SUCCEEDED);
+        assertTrue(second.status() == AsyncHostReadStatus.CANCELED || second.status() == AsyncHostReadStatus.SUCCEEDED);
     }
 
     private RuntimeAsyncHostReadService service(
-        final String pluginId,
-        final Set<String> permissions,
-        final FakeSource source
-    ) {
+            final String pluginId, final Set<String> permissions, final FakeSource source) {
         return service(pluginId, permissions, source, 32);
     }
 
     private RuntimeAsyncHostReadService service(
-        final String pluginId,
-        final Set<String> permissions,
-        final FakeSource source,
-        final int capacity
-    ) {
+            final String pluginId, final Set<String> permissions, final FakeSource source, final int capacity) {
         if (scheduler == null) {
             scheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> {}
-            );
+                    new DefaultWorkBudgetPolicy(),
+                    new PluginWorkExecutorRegistry(2_000L, 1, 64, ignored -> {}, Clock.systemUTC()),
+                    SidecarDispatcher.noop(),
+                    ignored -> {});
             lane = new SharedAsyncHostReadLane(capacity);
         }
         final DisposableScope scope = new DisposableScope();
@@ -422,14 +457,18 @@ class RuntimeAsyncHostReadServiceTest {
     }
 
     private static AsyncHostReadResult await(final AsyncHostReadSubmission submission) throws Exception {
-        return submission.handle().orElseThrow().completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
+        return submission
+                .handle()
+                .orElseThrow()
+                .completion()
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
     }
 
     private static ProjectWorkspaceHostReadResult success() {
         return ProjectWorkspaceHostReadResult.available(new ProjectWorkspaceSnapshot(
-            Optional.of(new ProjectSnapshot("project", "Project", Optional.empty(), List.of())),
-            Optional.of(new WorkspaceSnapshot("workspace", "workspace", List.of("project")))
-        ));
+                Optional.of(new ProjectSnapshot("project", "Project", Optional.empty(), List.of())),
+                Optional.of(new WorkspaceSnapshot("workspace", "workspace", List.of("project")))));
     }
 
     private static final class FakeSource implements ProjectWorkspaceHostReadSource {
@@ -463,12 +502,27 @@ class RuntimeAsyncHostReadServiceTest {
     }
 
     private static final class ForgedHandle implements AsyncHostReadHandle {
-        @Override public AsyncHostReadIntent intent() { return AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT; }
-        @Override public AsyncHostReadStatus status() { return AsyncHostReadStatus.QUEUED; }
-        @Override public boolean cancel() { return false; }
-        @Override public java.util.concurrent.CompletionStage<AsyncHostReadResult> completion() {
+        @Override
+        public AsyncHostReadIntent intent() {
+            return AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT;
+        }
+
+        @Override
+        public AsyncHostReadStatus status() {
+            return AsyncHostReadStatus.QUEUED;
+        }
+
+        @Override
+        public boolean cancel() {
+            return false;
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<AsyncHostReadResult> completion() {
             return new CompletableFuture<>();
         }
-        @Override public void close() {}
+
+        @Override
+        public void close() {}
     }
 }

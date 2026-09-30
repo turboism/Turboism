@@ -1,17 +1,17 @@
 package dev.turboism.userfile;
 
-import dev.turboism.sdk.ui.UserFileLifetime;
-import dev.turboism.sdk.ui.UserFileMode;
-import dev.turboism.sdk.ui.UserFileRequest;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.failure.RuntimeFailureCollector;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JFileChooser;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.filechooser.FileNameExtensionFilter;
+import dev.turboism.sdk.ui.UserFileLifetime;
+import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileRequest;
 import java.awt.Component;
 import java.io.File;
 import java.nio.file.Path;
@@ -23,13 +23,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
+import javax.swing.JFileChooser;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import org.junit.jupiter.api.Test;
 
 class SwingUserFileGrantSourceTest {
 
@@ -37,24 +35,18 @@ class SwingUserFileGrantSourceTest {
     void readAndWriteUseTheEdtAndDoNotChangeGlobalUiState() throws Exception {
         final Object originalUiManagerValue = UIManager.get("ClassLoader");
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("input.csv").toFile()
-        );
+                JFileChooser.APPROVE_OPTION, Path.of("input.csv").toFile());
         final SwingUserFileGrantSource source = source(chooser);
 
-        final UserFileGrantSource.Selected read = assertInstanceOf(
-            UserFileGrantSource.Selected.class,
-            await(source.request(request(UserFileMode.READ)))
-        );
+        final UserFileGrantSource.Selected read =
+                assertInstanceOf(UserFileGrantSource.Selected.class, await(source.request(request(UserFileMode.READ))));
         assertEquals(Path.of("input.csv"), read.path());
         assertEquals(1, chooser.openCalls.get());
         assertEquals(0, chooser.saveCalls.get());
         assertTrue(chooser.showOnEdt);
 
         final UserFileGrantSource.Selected write = assertInstanceOf(
-            UserFileGrantSource.Selected.class,
-            await(source.request(request(UserFileMode.WRITE)))
-        );
+                UserFileGrantSource.Selected.class, await(source.request(request(UserFileMode.WRITE))));
         assertEquals(Path.of("input.csv"), write.path());
         assertEquals(1, chooser.saveCalls.get());
         assertSame(originalUiManagerValue, UIManager.get("ClassLoader"));
@@ -66,15 +58,9 @@ class SwingUserFileGrantSourceTest {
         final RecordingChooser chooser = new RecordingChooser(JFileChooser.CANCEL_OPTION, null);
         final SwingUserFileGrantSource source = source(chooser);
 
-        assertSame(
-            UserFileGrantSource.Canceled.INSTANCE,
-            await(source.request(request(UserFileMode.READ)))
-        );
+        assertSame(UserFileGrantSource.Canceled.INSTANCE, await(source.request(request(UserFileMode.READ))));
 
-        final FileNameExtensionFilter filter = assertInstanceOf(
-            FileNameExtensionFilter.class,
-            chooser.getFileFilter()
-        );
+        final FileNameExtensionFilter filter = assertInstanceOf(FileNameExtensionFilter.class, chooser.getFileFilter());
         assertEquals("*.csv, *.json", filter.getDescription());
         assertTrue(filter.accept(new File("input.csv")));
         assertTrue(filter.accept(new File("input.json")));
@@ -87,18 +73,12 @@ class SwingUserFileGrantSourceTest {
     void errorAndUnknownChooserResultsAreUnavailable() throws Exception {
         final RecordingChooser errorChooser = new RecordingChooser(JFileChooser.ERROR_OPTION, null);
         final SwingUserFileGrantSource errorSource = source(errorChooser);
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(errorSource.request(request(UserFileMode.READ)))
-        );
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(errorSource.request(request(UserFileMode.READ))));
         errorSource.close();
 
         final RecordingChooser unknownChooser = new RecordingChooser(42, null);
         final SwingUserFileGrantSource unknownSource = source(unknownChooser);
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(unknownSource.request(request(UserFileMode.READ)))
-        );
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(unknownSource.request(request(UserFileMode.READ))));
         unknownSource.close();
     }
 
@@ -106,20 +86,11 @@ class SwingUserFileGrantSourceTest {
     void oneSourceRejectsAnOverlappingRequestAsUnavailable() throws Exception {
         final QueuedDispatcher dispatcher = new QueuedDispatcher();
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("first.csv").toFile()
-        );
-        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(
-            () -> chooser,
-            dispatcher
-        );
+                JFileChooser.APPROVE_OPTION, Path.of("first.csv").toFile());
+        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(() -> chooser, dispatcher);
 
-        final CompletionStage<UserFileGrantSource.Decision> first =
-            source.request(request(UserFileMode.READ));
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(source.request(request(UserFileMode.READ)))
-        );
+        final CompletionStage<UserFileGrantSource.Decision> first = source.request(request(UserFileMode.READ));
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(source.request(request(UserFileMode.READ))));
         dispatcher.runNext();
 
         assertInstanceOf(UserFileGrantSource.Selected.class, await(first));
@@ -130,12 +101,9 @@ class SwingUserFileGrantSourceTest {
     @Test
     void requestFromTheEdtQueuesTheModalShowUntilTheRequestReturns() throws Exception {
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("queued.csv").toFile()
-        );
+                JFileChooser.APPROVE_OPTION, Path.of("queued.csv").toFile());
         final SwingUserFileGrantSource source = source(chooser);
-        final AtomicReference<CompletionStage<UserFileGrantSource.Decision>> stage =
-            new AtomicReference<>();
+        final AtomicReference<CompletionStage<UserFileGrantSource.Decision>> stage = new AtomicReference<>();
 
         SwingUtilities.invokeAndWait(() -> {
             stage.set(source.request(request(UserFileMode.READ)));
@@ -152,16 +120,10 @@ class SwingUserFileGrantSourceTest {
     void closeBeforeShowFencesTheQueuedRequestWithoutCreatingAChooser() throws Exception {
         final QueuedDispatcher dispatcher = new QueuedDispatcher();
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("never-shown.csv").toFile()
-        );
-        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(
-            () -> chooser,
-            dispatcher
-        );
+                JFileChooser.APPROVE_OPTION, Path.of("never-shown.csv").toFile());
+        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(() -> chooser, dispatcher);
 
-        final CompletionStage<UserFileGrantSource.Decision> pending =
-            source.request(request(UserFileMode.READ));
+        final CompletionStage<UserFileGrantSource.Decision> pending = source.request(request(UserFileMode.READ));
         source.close();
 
         assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(pending));
@@ -174,17 +136,13 @@ class SwingUserFileGrantSourceTest {
     void closeDuringConfigureFencesTheRequestBeforeModalShow() throws Exception {
         final AtomicReference<SwingUserFileGrantSource> sourceReference = new AtomicReference<>();
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("configured-after-close.csv").toFile()
-        );
+                JFileChooser.APPROVE_OPTION,
+                Path.of("configured-after-close.csv").toFile());
         chooser.onConfigure = () -> sourceReference.get().close();
         final SwingUserFileGrantSource source = source(chooser);
         sourceReference.set(source);
 
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(source.request(request(UserFileMode.READ)))
-        );
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(source.request(request(UserFileMode.READ))));
         assertEquals(0, chooser.openCalls.get());
     }
 
@@ -192,17 +150,12 @@ class SwingUserFileGrantSourceTest {
     void closeDuringDialogCancelsTheChooserAndFencesLateApproval() throws Exception {
         final AtomicReference<SwingUserFileGrantSource> sourceReference = new AtomicReference<>();
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("late.csv").toFile()
-        );
+                JFileChooser.APPROVE_OPTION, Path.of("late.csv").toFile());
         chooser.onShow = () -> sourceReference.get().close();
         final SwingUserFileGrantSource source = source(chooser);
         sourceReference.set(source);
 
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(source.request(request(UserFileMode.READ)))
-        );
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(source.request(request(UserFileMode.READ))));
         assertTrue(chooser.canceled.await(2, TimeUnit.SECONDS));
         assertEquals(1, chooser.cancelCalls.get());
     }
@@ -210,59 +163,42 @@ class SwingUserFileGrantSourceTest {
     @Test
     void chooserAndEdtFailuresFailClosedAsUnavailable() throws Exception {
         final SwingUserFileGrantSource chooserFailure = new SwingUserFileGrantSource(
-            () -> {
-                throw new IllegalStateException("chooser unavailable");
-            },
-            SwingUtilities::invokeLater
-        );
-        assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(chooserFailure.request(request(UserFileMode.READ)))
-        );
+                () -> {
+                    throw new IllegalStateException("chooser unavailable");
+                },
+                SwingUtilities::invokeLater);
+        assertSame(UserFileGrantSource.Unavailable.INSTANCE, await(chooserFailure.request(request(UserFileMode.READ))));
 
-        final SwingUserFileGrantSource dispatchFailure = new SwingUserFileGrantSource(
-            JFileChooser::new,
-            ignored -> {
-                throw new IllegalStateException("EDT unavailable");
-            }
-        );
+        final SwingUserFileGrantSource dispatchFailure = new SwingUserFileGrantSource(JFileChooser::new, ignored -> {
+            throw new IllegalStateException("EDT unavailable");
+        });
         assertSame(
-            UserFileGrantSource.Unavailable.INSTANCE,
-            await(dispatchFailure.request(request(UserFileMode.READ)))
-        );
+                UserFileGrantSource.Unavailable.INSTANCE, await(dispatchFailure.request(request(UserFileMode.READ))));
     }
 
     @Test
     void settleReleasesTheLifecycleLockBeforeCompletionCallbacksRun() throws Exception {
         final QueuedDispatcher dispatcher = new QueuedDispatcher();
         final RecordingChooser chooser = new RecordingChooser(
-            JFileChooser.APPROVE_OPTION,
-            Path.of("linearized.csv").toFile()
-        );
-        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(
-            () -> chooser,
-            dispatcher
-        );
-        final CompletionStage<UserFileGrantSource.Decision> first =
-            source.request(request(UserFileMode.READ));
-        final AtomicReference<CompletionStage<UserFileGrantSource.Decision>> next =
-            new AtomicReference<>();
-        final AtomicReference<Boolean> acquiredBeforeCallbackReturned =
-            new AtomicReference<>(false);
+                JFileChooser.APPROVE_OPTION, Path.of("linearized.csv").toFile());
+        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(() -> chooser, dispatcher);
+        final CompletionStage<UserFileGrantSource.Decision> first = source.request(request(UserFileMode.READ));
+        final AtomicReference<CompletionStage<UserFileGrantSource.Decision>> next = new AtomicReference<>();
+        final AtomicReference<Boolean> acquiredBeforeCallbackReturned = new AtomicReference<>(false);
         final CountDownLatch competitorFinished = new CountDownLatch(1);
         first.whenComplete((ignored, failure) -> {
-            final Thread competitor = new Thread(() -> {
-                try {
-                    next.set(source.request(request(UserFileMode.READ)));
-                } finally {
-                    competitorFinished.countDown();
-                }
-            }, "swing-grant-source-linearization-test");
+            final Thread competitor = new Thread(
+                    () -> {
+                        try {
+                            next.set(source.request(request(UserFileMode.READ)));
+                        } finally {
+                            competitorFinished.countDown();
+                        }
+                    },
+                    "swing-grant-source-linearization-test");
             competitor.start();
             try {
-                acquiredBeforeCallbackReturned.set(
-                    competitorFinished.await(1, TimeUnit.SECONDS)
-                );
+                acquiredBeforeCallbackReturned.set(competitorFinished.await(1, TimeUnit.SECONDS));
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
             }
@@ -278,28 +214,23 @@ class SwingUserFileGrantSourceTest {
 
     @Test
     void cancelDispatchFailureIsReportedAsCleanupFailure() throws Exception {
-        final BlockingChooser chooser = new BlockingChooser(Path.of("dispatch-failure.csv").toFile());
+        final BlockingChooser chooser =
+                new BlockingChooser(Path.of("dispatch-failure.csv").toFile());
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final AtomicInteger dispatches = new AtomicInteger();
         final AtomicReference<Thread> showThread = new AtomicReference<>();
-        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(
-            "test.plugin",
-            failures,
-            evidence,
-            () -> chooser,
-            action -> {
-                if (dispatches.getAndIncrement() == 0) {
-                    final Thread thread = new Thread(action, "swing-grant-source-dispatch-test");
-                    showThread.set(thread);
-                    thread.start();
-                } else {
-                    throw new IllegalStateException("cancel dispatch failed");
-                }
-            }
-        );
-        final CompletionStage<UserFileGrantSource.Decision> pending =
-            source.request(request(UserFileMode.READ));
+        final SwingUserFileGrantSource source =
+                new SwingUserFileGrantSource("test.plugin", failures, evidence, () -> chooser, action -> {
+                    if (dispatches.getAndIncrement() == 0) {
+                        final Thread thread = new Thread(action, "swing-grant-source-dispatch-test");
+                        showThread.set(thread);
+                        thread.start();
+                    } else {
+                        throw new IllegalStateException("cancel dispatch failed");
+                    }
+                });
+        final CompletionStage<UserFileGrantSource.Decision> pending = source.request(request(UserFileMode.READ));
         assertTrue(chooser.entered.await(2, TimeUnit.SECONDS));
 
         source.close();
@@ -316,29 +247,24 @@ class SwingUserFileGrantSourceTest {
 
     @Test
     void cancelSelectionFailureIsReportedAsCleanupFailure() throws Exception {
-        final BlockingChooser chooser = new BlockingChooser(Path.of("cancel-failure.csv").toFile());
+        final BlockingChooser chooser =
+                new BlockingChooser(Path.of("cancel-failure.csv").toFile());
         chooser.cancelFailure = new IllegalStateException("cancel failed");
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final AtomicInteger dispatches = new AtomicInteger();
         final AtomicReference<Thread> showThread = new AtomicReference<>();
-        final SwingUserFileGrantSource source = new SwingUserFileGrantSource(
-            "test.plugin",
-            failures,
-            evidence,
-            () -> chooser,
-            action -> {
-                if (dispatches.getAndIncrement() == 0) {
-                    final Thread thread = new Thread(action, "swing-grant-source-cancel-test");
-                    showThread.set(thread);
-                    thread.start();
-                } else {
-                    action.run();
-                }
-            }
-        );
-        final CompletionStage<UserFileGrantSource.Decision> pending =
-            source.request(request(UserFileMode.READ));
+        final SwingUserFileGrantSource source =
+                new SwingUserFileGrantSource("test.plugin", failures, evidence, () -> chooser, action -> {
+                    if (dispatches.getAndIncrement() == 0) {
+                        final Thread thread = new Thread(action, "swing-grant-source-cancel-test");
+                        showThread.set(thread);
+                        thread.start();
+                    } else {
+                        action.run();
+                    }
+                });
+        final CompletionStage<UserFileGrantSource.Decision> pending = source.request(request(UserFileMode.READ));
         assertTrue(chooser.entered.await(2, TimeUnit.SECONDS));
 
         source.close();
@@ -359,25 +285,20 @@ class SwingUserFileGrantSourceTest {
 
     private static UserFileRequest request(final UserFileMode mode) {
         return new UserFileRequest(
-            "chooser-" + mode.name().toLowerCase(),
-            "Choose data file",
-            List.of("csv", "json"),
-            mode,
-            UserFileLifetime.ONE_OPERATION
-        );
+                "chooser-" + mode.name().toLowerCase(),
+                "Choose data file",
+                List.of("csv", "json"),
+                mode,
+                UserFileLifetime.ONE_OPERATION);
     }
 
-    private static UserFileGrantSource.Decision await(
-        final CompletionStage<UserFileGrantSource.Decision> stage
-    ) throws Exception {
+    private static UserFileGrantSource.Decision await(final CompletionStage<UserFileGrantSource.Decision> stage)
+            throws Exception {
         return stage.toCompletableFuture().get(2, TimeUnit.SECONDS);
     }
 
     private static void assertFailure(
-        final RuntimeFailureCollector failures,
-        final CleanupEvidenceCollector evidence,
-        final String code
-    ) {
+            final RuntimeFailureCollector failures, final CleanupEvidenceCollector evidence, final String code) {
         final var collected = failures.snapshot().storageFailures();
         assertEquals(1, collected.size());
         assertEquals(code, collected.get(0).code());
@@ -429,7 +350,7 @@ class SwingUserFileGrantSourceTest {
         private final AtomicInteger cancelCalls = new AtomicInteger();
         private final CountDownLatch canceled = new CountDownLatch(1);
         private volatile boolean showOnEdt;
-        private Runnable onShow = () -> { };
+        private Runnable onShow = () -> {};
         private Runnable onConfigure = () -> {};
 
         private RecordingChooser(final int result, final File selected) {

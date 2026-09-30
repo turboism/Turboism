@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
-
 import java.util.Objects;
 
 /**
@@ -76,10 +75,7 @@ public final class TextureAtlasAutoLayoutSelection {
                 try {
                     persistence.save(stored);
                 } catch (RuntimeException failure) {
-                    report(
-                        "Texture-atlas automatic-layout selection could not be persisted",
-                        failure
-                    );
+                    report("Texture-atlas automatic-layout selection could not be persisted", failure);
                 }
             }
         }
@@ -106,25 +102,17 @@ public final class TextureAtlasAutoLayoutSelection {
                 try {
                     persistence.save(stored);
                 } catch (RuntimeException failure) {
-                    report(
-                        "Texture-atlas automatic-layout selection could not be persisted",
-                        failure
-                    );
+                    report("Texture-atlas automatic-layout selection could not be persisted", failure);
                 }
             }
             return true;
         }
     }
 
-    private static TextureAtlasLayoutSelection normalize(
-        final TextureAtlasLayoutSelection selection
-    ) {
+    private static TextureAtlasLayoutSelection normalize(final TextureAtlasLayoutSelection selection) {
         return selection.isNative()
-            ? new TextureAtlasLayoutSelection(
-                TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
-                selection.parallel()
-            )
-            : selection;
+                ? new TextureAtlasLayoutSelection(TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID, selection.parallel())
+                : selection;
     }
 
     private static void report(final String message, final RuntimeException failure) {

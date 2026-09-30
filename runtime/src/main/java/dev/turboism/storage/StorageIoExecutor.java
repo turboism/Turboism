@@ -1,9 +1,9 @@
 package dev.turboism.storage;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.task.PluginCompletionFuture;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Objects;
@@ -28,27 +28,22 @@ final class StorageIoExecutor implements AutoCloseable {
     private boolean active = true;
 
     StorageIoExecutor(
-        final String pluginId,
-        final RuntimePluginTaskScheduler taskScheduler,
-        final DisposableScope disposableScope
-    ) {
+            final String pluginId,
+            final RuntimePluginTaskScheduler taskScheduler,
+            final DisposableScope disposableScope) {
         this.taskScheduler = Objects.requireNonNull(taskScheduler, "taskScheduler");
         this.executor = new ThreadPoolExecutor(
-            1,
-            1,
-            0L,
-            TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(64),
-            runnable -> {
-                final Thread thread = new Thread(
-                    runnable,
-                    "turboism-storage-" + requireText(pluginId, "pluginId")
-                );
-                thread.setDaemon(true);
-                return thread;
-            },
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(64),
+                runnable -> {
+                    final Thread thread = new Thread(runnable, "turboism-storage-" + requireText(pluginId, "pluginId"));
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
         try {
             Objects.requireNonNull(disposableScope, "disposableScope").register(this);
         } catch (RuntimeException exception) {
@@ -57,11 +52,7 @@ final class StorageIoExecutor implements AutoCloseable {
         }
     }
 
-    <T> CompletionStage<T> submit(
-        final Supplier<T> action,
-        final Supplier<T> canceled,
-        final Supplier<T> unavailable
-    ) {
+    <T> CompletionStage<T> submit(final Supplier<T> action, final Supplier<T> canceled, final Supplier<T> unavailable) {
         final PluginCompletionFuture<T> completion = completionFuture();
         final Operation<T> operation = new Operation<>(action, canceled, completion);
         synchronized (lifecycleLock) {
@@ -100,16 +91,11 @@ final class StorageIoExecutor implements AutoCloseable {
         executor.shutdownNow();
         try {
             if (!executor.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                throw new IllegalStateException(
-                    "Plugin storage I/O did not quiesce before scope close"
-                );
+                throw new IllegalStateException("Plugin storage I/O did not quiesce before scope close");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(
-                "Interrupted while waiting for plugin storage I/O quiescence",
-                exception
-            );
+            throw new IllegalStateException("Interrupted while waiting for plugin storage I/O quiescence", exception);
         }
     }
 
@@ -143,10 +129,7 @@ final class StorageIoExecutor implements AutoCloseable {
         private final AtomicBoolean settled = new AtomicBoolean(false);
 
         private Operation(
-            final Supplier<T> action,
-            final Supplier<T> canceled,
-            final PluginCompletionFuture<T> completion
-        ) {
+                final Supplier<T> action, final Supplier<T> canceled, final PluginCompletionFuture<T> completion) {
             this.action = Objects.requireNonNull(action, "action");
             this.canceled = Objects.requireNonNull(canceled, "canceled");
             this.completion = Objects.requireNonNull(completion, "completion");
@@ -161,6 +144,7 @@ final class StorageIoExecutor implements AutoCloseable {
             try {
                 settle(Thread.currentThread().isInterrupted() ? canceled.get() : action.get());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 settleExceptionally(failure);
             } finally {
                 remove(this);
@@ -184,8 +168,7 @@ final class StorageIoExecutor implements AutoCloseable {
             Objects.requireNonNull(failure, "failure");
             if (settled.compareAndSet(false, true)) {
                 dispatch(() -> completion.settleExceptionally(
-                    new IllegalStateException("Plugin storage operation failed safely.")
-                ));
+                        new IllegalStateException("Plugin storage operation failed safely.")));
             }
         }
     }

@@ -4,7 +4,6 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
 import dev.turboism.ui.host.EdtDispatch;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,11 +22,10 @@ import java.util.Optional;
  */
 public final class WorkspaceCoordinator implements AutoCloseable {
     private static final WorkspaceStatus UNAVAILABLE = new WorkspaceStatus(
-        WorkspaceStatus.Availability.UNAVAILABLE,
-        Optional.empty(),
-        List.of(),
-        Optional.of("workspace.provider.unavailable")
-    );
+            WorkspaceStatus.Availability.UNAVAILABLE,
+            Optional.empty(),
+            List.of(),
+            Optional.of("workspace.provider.unavailable"));
 
     private final Object monitor = new Object();
     private WorkspaceHostProvider provider;
@@ -148,28 +146,21 @@ public final class WorkspaceCoordinator implements AutoCloseable {
                             return replacedResult();
                         }
                         return new WorkspaceOperationResult(
-                            WorkspaceOperationResult.Outcome.FAILED,
-                            safeStatus(active),
-                            Optional.of("workspace.operation.failed")
-                        );
+                                WorkspaceOperationResult.Outcome.FAILED,
+                                safeStatus(active),
+                                Optional.of("workspace.operation.failed"));
                     }
                 }
             });
         } catch (RuntimeException exception) {
             return new WorkspaceOperationResult(
-                WorkspaceOperationResult.Outcome.FAILED,
-                UNAVAILABLE,
-                Optional.of("workspace.operation.failed")
-            );
+                    WorkspaceOperationResult.Outcome.FAILED, UNAVAILABLE, Optional.of("workspace.operation.failed"));
         }
     }
 
     private static WorkspaceOperationResult replacedResult() {
         return new WorkspaceOperationResult(
-            WorkspaceOperationResult.Outcome.FAILED,
-            UNAVAILABLE,
-            Optional.of("workspace.provider.replaced")
-        );
+                WorkspaceOperationResult.Outcome.FAILED, UNAVAILABLE, Optional.of("workspace.provider.replaced"));
     }
 
     private WorkspaceStatus safeStatus(final WorkspaceHostProvider active) {
@@ -181,13 +172,11 @@ public final class WorkspaceCoordinator implements AutoCloseable {
         }
     }
 
-
     private static WorkspaceOperationResult unavailableResult() {
         return new WorkspaceOperationResult(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            UNAVAILABLE,
-            Optional.of("workspace.provider.unavailable")
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE,
+                UNAVAILABLE,
+                Optional.of("workspace.provider.unavailable"));
     }
 
     @Override
@@ -207,8 +196,13 @@ public final class WorkspaceCoordinator implements AutoCloseable {
         return EdtDispatch.call("workspace EDT operation", task::run);
     }
 
-    @FunctionalInterface private interface Operation {
+    @FunctionalInterface
+    private interface Operation {
         WorkspaceOperationResult.Outcome run(WorkspaceHostProvider provider);
     }
-    @FunctionalInterface interface Task<T> { T run(); }
+
+    @FunctionalInterface
+    interface Task<T> {
+        T run();
+    }
 }

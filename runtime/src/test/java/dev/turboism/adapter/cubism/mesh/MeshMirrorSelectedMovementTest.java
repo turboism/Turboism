@@ -1,16 +1,15 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /** Exact 5.3.02 selected-point movement semantics backported only into 5.2.03. */
 final class MeshMirrorSelectedMovementTest {
@@ -51,9 +50,11 @@ final class MeshMirrorSelectedMovementTest {
         NativeMeshMirrorBridge.mirrorMoveSelected(pack);
         NativeMeshMirrorBridge.mirrorMoveSelected(pack);
 
-        assertEquals(1, diagnostics.stream()
-            .filter(stage("MOVE_PARTICIPATION_APPLIED count=1")::equals)
-            .count());
+        assertEquals(
+                1,
+                diagnostics.stream()
+                        .filter(stage("MOVE_PARTICIPATION_APPLIED count=1")::equals)
+                        .count());
     }
 
     @Test
@@ -64,9 +65,7 @@ final class MeshMirrorSelectedMovementTest {
         final Mesh mesh = new Mesh(source, counterpart);
         mesh.selector.select(source, 1.0f);
 
-        NativeMeshMirrorBridge.mirrorMoveSelected(
-            new Pack(new Context(mesh, new Vector(1.0f, 0.0f)))
-        );
+        NativeMeshMirrorBridge.mirrorMoveSelected(new Pack(new Context(mesh, new Vector(1.0f, 0.0f))));
 
         assertEquals(1, counterpart.moveCount);
         assertEquals(14.0f, counterpart.position.x, 0.0001f);
@@ -81,9 +80,7 @@ final class MeshMirrorSelectedMovementTest {
         mesh.selector.select(first, 1.0f);
         mesh.selector.select(second, 1.0f);
 
-        NativeMeshMirrorBridge.mirrorMoveSelected(
-            new Pack(new Context(mesh, new Vector(2.0f, 0.0f)))
-        );
+        NativeMeshMirrorBridge.mirrorMoveSelected(new Pack(new Context(mesh, new Vector(2.0f, 0.0f))));
 
         assertEquals(0, first.moveCount);
         assertEquals(0, second.moveCount);
@@ -97,9 +94,7 @@ final class MeshMirrorSelectedMovementTest {
         final Mesh mesh = new Mesh(source, counterpart);
         mesh.selector.select(source, 1.0f);
 
-        NativeMeshMirrorBridge.mirrorMoveSelected(
-            new Pack(new Context(mesh, new Vector(2.0f, 0.0f)))
-        );
+        NativeMeshMirrorBridge.mirrorMoveSelected(new Pack(new Context(mesh, new Vector(2.0f, 0.0f))));
 
         assertEquals(0, counterpart.moveCount);
         assertTrue(diagnostics.contains(stage("MOVE_PARTICIPATION_SKIPPED reason=NO_PARTICIPANT")));
@@ -113,9 +108,7 @@ final class MeshMirrorSelectedMovementTest {
         final Mesh mesh = new Mesh(source, far);
         mesh.selector.select(source, 1.0f);
 
-        NativeMeshMirrorBridge.mirrorMoveSelected(
-            new Pack(new Context(mesh, new Vector(2.0f, 0.0f)))
-        );
+        NativeMeshMirrorBridge.mirrorMoveSelected(new Pack(new Context(mesh, new Vector(2.0f, 0.0f))));
 
         assertEquals(0, far.moveCount);
     }
@@ -126,9 +119,7 @@ final class MeshMirrorSelectedMovementTest {
 
     private static List<String> install(final boolean participate, final boolean mirrorEnabled) {
         final List<String> diagnostics = new ArrayList<>();
-        NativeMeshMirrorBridge.install(
-            new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService()
-        );
+        NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), new RuntimeMeshEditUiService());
         NativeMeshMirrorBridge.mirrorForTesting(new Mirror(mirrorEnabled));
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         if (participate) NativeMeshMirrorBridge.moveParticipation().participate();
@@ -287,7 +278,7 @@ final class MeshMirrorSelectedMovementTest {
         }
     }
 
-    public static final class EditMode { }
+    public static final class EditMode {}
 
     public static final class Pack {
         private final List<Context> contexts;

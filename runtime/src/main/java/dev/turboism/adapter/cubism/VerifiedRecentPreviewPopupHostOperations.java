@@ -7,26 +7,6 @@ import dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.ui.panel.SwingPanelViewRenderer;
-
-import javax.swing.BorderFactory;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.MenuElement;
-import javax.swing.MenuSelectionManager;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.Popup;
-import javax.swing.PopupFactory;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.MenuEvent;
-import javax.swing.event.MenuListener;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -43,7 +23,6 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +32,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import javax.swing.BorderFactory;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
+import javax.swing.Popup;
+import javax.swing.PopupFactory;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 /**
  * Host-owned Recent Files hover popup bridge, ported from the legacy
@@ -61,7 +58,7 @@ import java.util.function.Consumer;
  * instead of assuming the menu present at plugin startup remains current.
  */
 public final class VerifiedRecentPreviewPopupHostOperations
-    implements RecentPreviewContributionAdapter.HostOperations, PreviewCaptureHostOperations.PopupSuppression {
+        implements RecentPreviewContributionAdapter.HostOperations, PreviewCaptureHostOperations.PopupSuppression {
 
     private static final String PATH_KEY = "turboism.recentPreviewPath";
     private static final String POPUP_KEY = "turboism.recentPreviewPopup";
@@ -76,6 +73,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
 
     /** EDT-owned listener and binding state. */
     private ChangeListener selectionListener;
+
     private MenuBinding menuBinding;
     private boolean reconcileQueued;
     private boolean selectionHandlingRequested;
@@ -84,21 +82,15 @@ public final class VerifiedRecentPreviewPopupHostOperations
     private volatile Popup activePopup;
 
     public VerifiedRecentPreviewPopupHostOperations(final VerifiedMemberResolver panelResolver) {
-        this(panelResolver, dev.turboism.i18n.CubismHostLocale::resolve, ignored -> { });
+        this(panelResolver, dev.turboism.i18n.CubismHostLocale::resolve, ignored -> {});
+    }
+
+    public VerifiedRecentPreviewPopupHostOperations(final VerifiedMemberResolver panelResolver, final Locale locale) {
+        this(panelResolver, locale, ignored -> {});
     }
 
     public VerifiedRecentPreviewPopupHostOperations(
-        final VerifiedMemberResolver panelResolver,
-        final Locale locale
-    ) {
-        this(panelResolver, locale, ignored -> { });
-    }
-
-    public VerifiedRecentPreviewPopupHostOperations(
-        final VerifiedMemberResolver panelResolver,
-        final Locale locale,
-        final Consumer<String> diagnostics
-    ) {
+            final VerifiedMemberResolver panelResolver, final Locale locale, final Consumer<String> diagnostics) {
         this(panelResolver, fixedLocale(locale), diagnostics);
     }
 
@@ -107,10 +99,9 @@ public final class VerifiedRecentPreviewPopupHostOperations
      *     settled after this operations object's construction is honored
      */
     public VerifiedRecentPreviewPopupHostOperations(
-        final VerifiedMemberResolver panelResolver,
-        final java.util.function.Supplier<Locale> locale,
-        final Consumer<String> diagnostics
-    ) {
+            final VerifiedMemberResolver panelResolver,
+            final java.util.function.Supplier<Locale> locale,
+            final Consumer<String> diagnostics) {
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
@@ -258,9 +249,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
                 queueReconcile(true);
             }
         };
-        final MenuBinding binding = new MenuBinding(
-            menu, popup, menuListener, popupListener, containerListener
-        );
+        final MenuBinding binding = new MenuBinding(menu, popup, menuListener, popupListener, containerListener);
         menu.addMenuListener(menuListener);
         popup.addPopupMenuListener(popupListener);
         popup.addContainerListener(containerListener);
@@ -290,9 +279,8 @@ public final class VerifiedRecentPreviewPopupHostOperations
             if (!binding.items.containsKey(item)) {
                 binding.items.put(item, bindItem(item));
             }
-            final Path path = RecentMenuChain.firstExistingPath(
-                item.getActionCommand(), item.getToolTipText(), item.getText()
-            );
+            final Path path =
+                    RecentMenuChain.firstExistingPath(item.getActionCommand(), item.getToolTipText(), item.getText());
             item.putClientProperty(PATH_KEY, path == null ? null : path.toString());
         }
         for (ItemBinding item : new ArrayList<>(binding.items.values())) {
@@ -323,8 +311,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
         final ChangeListener change = ignored -> {
             if (!isCurrentItem(item)) return;
             final var model = item.getModel();
-            final boolean active = model != null
-                && (model.isArmed() || model.isRollover() || model.isSelected());
+            final boolean active = model != null && (model.isArmed() || model.isRollover() || model.isSelected());
             if (active) showForItem(item);
             else hideForItemIfActive(item);
         };
@@ -350,8 +337,9 @@ public final class VerifiedRecentPreviewPopupHostOperations
             final MenuElement element = selected[index];
             if (element == null) continue;
             if (element.getComponent() == binding.popup) containsPopup = true;
-            if (selectedItem == null && element.getComponent() instanceof JMenuItem item
-                && popupMenuOf(item) == binding.popup) {
+            if (selectedItem == null
+                    && element.getComponent() instanceof JMenuItem item
+                    && popupMenuOf(item) == binding.popup) {
                 selectedItem = item;
             }
         }
@@ -396,8 +384,8 @@ public final class VerifiedRecentPreviewPopupHostOperations
         }
         final String pathKey = RecentMenuChain.pathKey(path);
         if (popupMenu.getClientProperty(ACTIVE_ITEM_KEY) == item
-            && pathKey.equals(popupMenu.getClientProperty(ACTIVE_PROJECT_KEY))
-            && popupMenu.getClientProperty(POPUP_KEY) instanceof Popup) {
+                && pathKey.equals(popupMenu.getClientProperty(ACTIVE_PROJECT_KEY))
+                && popupMenu.getClientProperty(POPUP_KEY) instanceof Popup) {
             return;
         }
         final RecentPreviewContent content = renderContent(summaryFor(path));
@@ -412,9 +400,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
         final JPanel panel = themedPanel(content.view(), locale.get());
         final Point location = new Point(item.getWidth() + 8, 0);
         SwingUtilities.convertPointToScreen(location, item);
-        final Popup popup = PopupFactory.getSharedInstance().getPopup(
-            item, panel, location.x, location.y
-        );
+        final Popup popup = PopupFactory.getSharedInstance().getPopup(item, panel, location.x, location.y);
         popup.show();
         popupMenu.putClientProperty(POPUP_KEY, popup);
         popupMenu.putClientProperty(ACTIVE_ITEM_KEY, item);
@@ -492,7 +478,8 @@ public final class VerifiedRecentPreviewPopupHostOperations
     }
 
     private void diagnoseOnce(final String stage, final RuntimeException failure) {
-        final String code = failure == null ? stage : stage + ":" + failure.getClass().getSimpleName();
+        final String code =
+                failure == null ? stage : stage + ":" + failure.getClass().getSimpleName();
         if (!emittedDiagnostics.add(code)) return;
         try {
             diagnostics.accept("popup-diag:" + code);
@@ -509,11 +496,10 @@ public final class VerifiedRecentPreviewPopupHostOperations
             lastModified = null;
         }
         return new RecentFileSummary(
-            VerifiedRecentFileListHostOperations.idFor(path),
-            path.getFileName().toString(),
-            Optional.ofNullable(lastModified),
-            Optional.empty()
-        );
+                VerifiedRecentFileListHostOperations.idFor(path),
+                path.getFileName().toString(),
+                Optional.ofNullable(lastModified),
+                Optional.empty());
     }
 
     private static Path pathOf(final JMenuItem item) {
@@ -522,9 +508,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
             final Path path = RecentMenuChain.existingProjectPath(value);
             if (path != null) return path;
         }
-        return RecentMenuChain.firstExistingPath(
-            item.getActionCommand(), item.getToolTipText(), item.getText()
-        );
+        return RecentMenuChain.firstExistingPath(item.getActionCommand(), item.getToolTipText(), item.getText());
     }
 
     private static JPopupMenu popupMenuOf(final JMenuItem item) {
@@ -543,13 +527,11 @@ public final class VerifiedRecentPreviewPopupHostOperations
         final Color background = dark ? new Color(28, 30, 34) : new Color(246, 247, 249);
         final Color border = dark ? new Color(74, 78, 88) : new Color(196, 201, 208);
         final Color foreground = dark ? new Color(232, 235, 240) : new Color(31, 35, 40);
-        final JComponent rendered = SwingPanelViewRenderer.render(view, (id, event) -> { }, locale);
+        final JComponent rendered = SwingPanelViewRenderer.render(view, (id, event) -> {}, locale);
         final JPanel panel = new JPanel(new BorderLayout(0, 8));
         panel.setBackground(background);
         panel.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(border, 1),
-            BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
+                BorderFactory.createLineBorder(border, 1), BorderFactory.createEmptyBorder(8, 8, 8, 8)));
         panel.add(rendered, BorderLayout.CENTER);
         themeLabels(rendered, foreground, background);
         return panel;
@@ -572,10 +554,13 @@ public final class VerifiedRecentPreviewPopupHostOperations
     static boolean isDarkMode() {
         final javax.swing.LookAndFeel lookAndFeel = UIManager.getLookAndFeel();
         if (lookAndFeel == null) return false;
-        final String signature = (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName())
-            .toLowerCase(Locale.ROOT);
-        return signature.contains("dark") || signature.contains("darcular") || signature.contains("moonlight")
-            || signature.contains("night") || signature.contains("intellij") && signature.contains("dark");
+        final String signature =
+                (lookAndFeel.getName() + " " + lookAndFeel.getClass().getName()).toLowerCase(Locale.ROOT);
+        return signature.contains("dark")
+                || signature.contains("darcular")
+                || signature.contains("moonlight")
+                || signature.contains("night")
+                || signature.contains("intellij") && signature.contains("dark");
     }
 
     private void onEventDispatchThread(final Runnable action) {
@@ -603,9 +588,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
     /** Test visibility: whether this bridge owns the current menu and item binding. */
     boolean ownsBindingForTest(final JMenu menu, final JMenuItem item) {
         requireEventDispatchThread();
-        return menuBinding != null
-            && menuBinding.menu == menu
-            && menuBinding.items.containsKey(item);
+        return menuBinding != null && menuBinding.menu == menu && menuBinding.items.containsKey(item);
     }
 
     /** Test visibility: the currently active popup, or null. */
@@ -627,12 +610,11 @@ public final class VerifiedRecentPreviewPopupHostOperations
         private final Map<JMenuItem, ItemBinding> items = new IdentityHashMap<>();
 
         private MenuBinding(
-            final JMenu menu,
-            final JPopupMenu popup,
-            final MenuListener menuListener,
-            final PopupMenuListener popupListener,
-            final ContainerListener containerListener
-        ) {
+                final JMenu menu,
+                final JPopupMenu popup,
+                final MenuListener menuListener,
+                final PopupMenuListener popupListener,
+                final ContainerListener containerListener) {
             this.menu = menu;
             this.popup = popup;
             this.menuListener = menuListener;
@@ -641,11 +623,5 @@ public final class VerifiedRecentPreviewPopupHostOperations
         }
     }
 
-    private record ItemBinding(
-        JMenuItem item,
-        MouseAdapter mouse,
-        ChangeListener change,
-        ActionListener action
-    ) {
-    }
+    private record ItemBinding(JMenuItem item, MouseAdapter mouse, ChangeListener change, ActionListener action) {}
 }

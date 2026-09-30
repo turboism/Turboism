@@ -1,16 +1,15 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
+import java.util.function.Consumer;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
-import java.util.function.Consumer;
 
 /**
  * Reports the entry of one exact native {@code beginEdit} method to a loader-neutral receiver.
@@ -32,7 +31,7 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
     private final ClassLoader expectedClassLoader;
     private final String callbackKey;
     private final java.util.concurrent.atomic.AtomicLong successfulTransformations =
-        new java.util.concurrent.atomic.AtomicLong();
+            new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Creates a transformer for one exact method.
@@ -44,12 +43,11 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
      * @param callbackKey       system-property key holding the {@link Consumer} receiver
      */
     public NativeEditBeginTransformer(
-        final String ownerInternalName,
-        final String methodName,
-        final String descriptor,
-        final ClassLoader expectedClassLoader,
-        final String callbackKey
-    ) {
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final ClassLoader expectedClassLoader,
+            final String callbackKey) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
@@ -62,16 +60,15 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
         if (!ownerInternalName.equals(className)
-            || classfileBuffer == null
-            || (expectedClassLoader != null && loader != expectedClassLoader)) {
+                || classfileBuffer == null
+                || (expectedClassLoader != null && loader != expectedClassLoader)) {
             return null;
         }
         final boolean[] transformed = {false};
@@ -79,88 +76,83 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
         if (!hasUninstrumentedInstanceEntry(reader)) {
             return null;
         }
-        final ClassWriter writer = new ClassWriter(
-            reader,
-            ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS
-        ) {
-            @Override protected ClassLoader getClassLoader() {
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
                 return loader == null ? super.getClassLoader() : loader;
             }
         };
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String methodDescriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, methodDescriptor, signature, exceptions
-                );
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
-                    return delegate;
-                }
-                transformed[0] = true;
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitCode() {
-                        super.visitCode();
-                        // The receiver is a static property so the host class needs no reference
-                        // to any Turboism type: the transformation links against the JDK only.
-                        final Label receiver = new Label();
-                        final Label done = new Label();
-                        final Label start = new Label();
-                        final Label end = new Label();
-                        final Label failure = new Label();
-                        visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
-                        visitLabel(start);
-                        visitMethodInsn(
-                            Opcodes.INVOKESTATIC,
-                            "java/lang/System",
-                            "getProperties",
-                            "()Ljava/util/Properties;",
-                            false
-                        );
-                        visitLdcInsn(callbackKey);
-                        visitMethodInsn(
-                            Opcodes.INVOKEVIRTUAL,
-                            "java/util/Properties",
-                            "get",
-                            "(Ljava/lang/Object;)Ljava/lang/Object;",
-                            false
-                        );
-                        visitInsn(Opcodes.DUP);
-                        visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
-                        visitJumpInsn(Opcodes.IFNE, receiver);
-                        visitInsn(Opcodes.POP);
-                        visitJumpInsn(Opcodes.GOTO, end);
-                        visitLabel(receiver);
-                        visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
-                        // Slot 1 is the declared edit name; slot 0 is the receiver instance.
-                        visitVarInsn(Opcodes.ALOAD, 1);
-                        visitMethodInsn(
-                            Opcodes.INVOKEINTERFACE,
-                            "java/util/function/Consumer",
-                            "accept",
-                            "(Ljava/lang/Object;)V",
-                            true
-                        );
-                        visitLabel(end);
-                        visitJumpInsn(Opcodes.GOTO, done);
-                        visitLabel(failure);
-                        visitInsn(Opcodes.POP);
-                        visitLabel(done);
-                    }
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, methodDescriptor, signature, exceptions);
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
+                            return delegate;
+                        }
+                        transformed[0] = true;
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                // The receiver is a static property so the host class needs no reference
+                                // to any Turboism type: the transformation links against the JDK only.
+                                final Label receiver = new Label();
+                                final Label done = new Label();
+                                final Label start = new Label();
+                                final Label end = new Label();
+                                final Label failure = new Label();
+                                visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
+                                visitLabel(start);
+                                visitMethodInsn(
+                                        Opcodes.INVOKESTATIC,
+                                        "java/lang/System",
+                                        "getProperties",
+                                        "()Ljava/util/Properties;",
+                                        false);
+                                visitLdcInsn(callbackKey);
+                                visitMethodInsn(
+                                        Opcodes.INVOKEVIRTUAL,
+                                        "java/util/Properties",
+                                        "get",
+                                        "(Ljava/lang/Object;)Ljava/lang/Object;",
+                                        false);
+                                visitInsn(Opcodes.DUP);
+                                visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/Consumer");
+                                visitJumpInsn(Opcodes.IFNE, receiver);
+                                visitInsn(Opcodes.POP);
+                                visitJumpInsn(Opcodes.GOTO, end);
+                                visitLabel(receiver);
+                                visitTypeInsn(Opcodes.CHECKCAST, "java/util/function/Consumer");
+                                // Slot 1 is the declared edit name; slot 0 is the receiver instance.
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                        Opcodes.INVOKEINTERFACE,
+                                        "java/util/function/Consumer",
+                                        "accept",
+                                        "(Ljava/lang/Object;)V",
+                                        true);
+                                visitLabel(end);
+                                visitJumpInsn(Opcodes.GOTO, done);
+                                visitLabel(failure);
+                                visitInsn(Opcodes.POP);
+                                visitLabel(done);
+                            }
 
-                    @Override
-                    public void visitMaxs(final int maxStack, final int maxLocals) {
-                        super.visitMaxs(maxStack + 3, maxLocals);
+                            @Override
+                            public void visitMaxs(final int maxStack, final int maxLocals) {
+                                super.visitMaxs(maxStack + 3, maxLocals);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         if (!transformed[0]) {
             return null;
         }
@@ -182,26 +174,33 @@ public final class NativeEditBeginTransformer implements ClassFileTransformer {
         final boolean[] valid = {true};
         final boolean[] code = {false};
         final boolean[] alreadyInstrumented = {false};
-        reader.accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(
-                final int access, final String name, final String methodDescriptor,
-                final String signature, final String[] exceptions
-            ) {
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
-                matches[0]++;
-                valid[0] &= (access & Opcodes.ACC_PUBLIC) != 0
-                    && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
-                return new MethodVisitor(Opcodes.ASM9) {
-                    @Override public void visitCode() {
-                        code[0] = true;
-                    }
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
+                        matches[0]++;
+                        valid[0] &= (access & Opcodes.ACC_PUBLIC) != 0
+                                && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE)) == 0;
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitCode() {
+                                code[0] = true;
+                            }
 
-                    @Override public void visitLdcInsn(final Object value) {
-                        if (callbackKey.equals(value)) alreadyInstrumented[0] = true;
+                            @Override
+                            public void visitLdcInsn(final Object value) {
+                                if (callbackKey.equals(value)) alreadyInstrumented[0] = true;
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                },
+                ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return matches[0] == 1 && valid[0] && code[0] && !alreadyInstrumented[0];
     }
 

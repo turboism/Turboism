@@ -24,9 +24,7 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
     private volatile long hostGeneration;
 
     public ParameterControlAppearanceProvider(
-        final long hostGeneration,
-        final PaletteAppearanceCoordinator coordinator
-    ) {
+            final long hostGeneration, final PaletteAppearanceCoordinator coordinator) {
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
@@ -84,17 +82,22 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
 
     private void apply(final Kind kind, final String id, final Component component) {
         styles.apply(
-            component,
-            coordinator.resolveCurrent(hostGeneration, kind == Kind.FOLDER
-                ? PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP
-                : PaletteAppearanceCoordinator.Palette.PARAMETER, id)
-        );
+                component,
+                coordinator.resolveCurrent(
+                        hostGeneration,
+                        kind == Kind.FOLDER
+                                ? PaletteAppearanceCoordinator.Palette.PARAMETER_GROUP
+                                : PaletteAppearanceCoordinator.Palette.PARAMETER,
+                        id));
     }
 
     @Override
     public void close() {
         hostGeneration = 0;
-        try { changeSubscription.close(); } catch (Exception ignored) { }
+        try {
+            changeSubscription.close();
+        } catch (Exception ignored) {
+        }
         final Runnable action = () -> {
             styles.restoreAll();
             for (Binding binding : bindings) {
@@ -109,5 +112,5 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         else javax.swing.SwingUtilities.invokeLater(action);
     }
 
-    private record Binding(Kind kind, String id, WeakReference<Component> component) { }
+    private record Binding(Kind kind, String id, WeakReference<Component> component) {}
 }

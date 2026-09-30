@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event;
 
-
 /** Direct generated invocation target for one annotated event subscriber. */
 @FunctionalInterface
 public interface EventSubscriberHandler<T extends EventBus.TurboismEvent> {

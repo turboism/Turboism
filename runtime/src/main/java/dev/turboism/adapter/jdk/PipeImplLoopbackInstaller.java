@@ -16,8 +16,7 @@ import java.util.function.Consumer;
  */
 public final class PipeImplLoopbackInstaller {
 
-    private PipeImplLoopbackInstaller() {
-    }
+    private PipeImplLoopbackInstaller() {}
 
     /**
      * Installs the loopback shim transformer, unconditionally, for a JVM that is still starting.
@@ -36,10 +35,7 @@ public final class PipeImplLoopbackInstaller {
      *         installed from declined and failed; closing it is a no-op unless it installed
      * @throws NullPointerException if either argument is null
      */
-    public static Installation install(
-        final Instrumentation instrumentation,
-        final Consumer<String> diagnostic
-    ) {
+    public static Installation install(final Instrumentation instrumentation, final Consumer<String> diagnostic) {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(diagnostic, "diagnostic");
 
@@ -48,18 +44,15 @@ public final class PipeImplLoopbackInstaller {
             return Installation.completed(Status.TARGET_ALREADY_LOADED);
         }
 
-        final AtomicReference<PipeImplLoopbackClassFileTransformer> reference =
-            new AtomicReference<>();
-        final PipeImplLoopbackClassFileTransformer transformer =
-            new PipeImplLoopbackClassFileTransformer(
+        final AtomicReference<PipeImplLoopbackClassFileTransformer> reference = new AtomicReference<>();
+        final PipeImplLoopbackClassFileTransformer transformer = new PipeImplLoopbackClassFileTransformer(
                 ignored -> {
                     final PipeImplLoopbackClassFileTransformer installed = reference.get();
                     if (installed != null) {
                         instrumentation.removeTransformer(installed);
                     }
                 },
-                diagnostic
-            );
+                diagnostic);
         reference.set(transformer);
         try {
             instrumentation.addTransformer(transformer, false);
@@ -114,10 +107,9 @@ public final class PipeImplLoopbackInstaller {
         private final AtomicBoolean closed = new AtomicBoolean(false);
 
         private Installation(
-            final Status status,
-            final Instrumentation instrumentation,
-            final PipeImplLoopbackClassFileTransformer transformer
-        ) {
+                final Status status,
+                final Instrumentation instrumentation,
+                final PipeImplLoopbackClassFileTransformer transformer) {
             this.status = Objects.requireNonNull(status, "status");
             this.instrumentation = instrumentation;
             this.transformer = transformer;
@@ -128,9 +120,7 @@ public final class PipeImplLoopbackInstaller {
         }
 
         private static Installation installed(
-            final Instrumentation instrumentation,
-            final PipeImplLoopbackClassFileTransformer transformer
-        ) {
+                final Instrumentation instrumentation, final PipeImplLoopbackClassFileTransformer transformer) {
             return new Installation(Status.INSTALLED, instrumentation, transformer);
         }
 

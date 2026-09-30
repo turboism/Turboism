@@ -9,6 +9,7 @@ plugins {
     id("java-library")
     // Pinned by the frozen java-installer spec; see packaging/java-installer/installer.gradle.kts
     id("org.izpack.gradle") version "3.2.3"
+    id("com.diffplug.spotless") version "8.9.0" apply false
 }
 
 // scripts/dev/worktree-id.sh owns worktree ID resolution and validation.
@@ -112,6 +113,21 @@ tasks.register<JavaExec>("mappingReview") {
 
 apply(from = "gradle/common-java.gradle.kts")
 apply(from = "gradle/module-boundaries.gradle.kts")
+
+/*
+ * Formatting is machine-owned: palantir-java-format via Spotless on every
+ * subproject's Java sources. `spotlessApply` rewrites in place;
+ * `spotlessCheck` gates commits inside checkCompletedCommit.
+ */
+subprojects {
+    plugins.apply("com.diffplug.spotless")
+    extensions.configure<com.diffplug.gradle.spotless.SpotlessExtension>("spotless") {
+        java {
+            target("src/**/*.java")
+            palantirJavaFormat("2.97.0")
+        }
+    }
+}
 apply(from = "gradle/asm-admission.gradle.kts")
 apply(from = "gradle/runtime-verification.gradle.kts")
 apply(from = "gradle/sdk-api.gradle.kts")

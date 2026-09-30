@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.core;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
-
 import java.util.Objects;
 
 /**
@@ -25,52 +24,37 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     private final VerifiedMemberResolver resolver;
 
     private RuntimeCoreModelBackend(
-        final BorrowedCoreModelSource source,
-        final CoreStructuralTracer tracer,
-        final CorePublicApiProvider provider,
-        final VerifiedMemberResolver resolver
-    ) {
+            final BorrowedCoreModelSource source,
+            final CoreStructuralTracer tracer,
+            final CorePublicApiProvider provider,
+            final VerifiedMemberResolver resolver) {
         this.source = Objects.requireNonNull(source, "source");
         this.provider = Objects.requireNonNull(provider, "provider");
         this.tracer = Objects.requireNonNull(tracer, "tracer");
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.runtimeInfo = new CoreRuntimeMetadata(
-            provider,
-            resolver,
-            this::requireOpen,
-            CoreRuntimeMetadata.DEFAULT_MOC_BYTE_QUOTA
-        );
+                provider, resolver, this::requireOpen, CoreRuntimeMetadata.DEFAULT_MOC_BYTE_QUOTA);
         this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
     }
 
     /** Admits one exact Core provider and its complete structural call-site table. */
     public static CoreProviderResult<RuntimeCoreModelBackend> admit(
-        final VerifiedMemberResolver resolver,
-        final CoreVersionExpectation expectation
-    ) {
+            final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
         final CoreProviderResult<CorePublicApiProvider> providerResult =
-            CorePublicApiProviderFactory.admit(resolver, expectation);
+                CorePublicApiProviderFactory.admit(resolver, expectation);
         if (!providerResult.isSuccess()) {
-            return CoreProviderResult.failed(
-                providerResult.failure().orElseThrow()
-            );
+            return CoreProviderResult.failed(providerResult.failure().orElseThrow());
         }
         final CorePublicApiProvider provider = providerResult.value().orElseThrow();
         final CoreProviderResult<CoreStructuralTracer> tracerResult =
-            CoreStructuralTracerFactory.admit(provider, resolver);
+                CoreStructuralTracerFactory.admit(provider, resolver);
         if (!tracerResult.isSuccess()) {
-            return CoreProviderResult.failed(
-                tracerResult.failure().orElseThrow()
-            );
+            return CoreProviderResult.failed(tracerResult.failure().orElseThrow());
         }
         return CoreProviderResult.success(new RuntimeCoreModelBackend(
-            new BorrowedCoreModelSource(),
-            tracerResult.value().orElseThrow(),
-            provider,
-            resolver
-        ));
+                new BorrowedCoreModelSource(), tracerResult.value().orElseThrow(), provider, resolver));
     }
 
     /**
@@ -79,32 +63,22 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
      * allowed, e.g. the MOC metadata capability). Never referenced by production wiring.
      */
     public static CoreProviderResult<RuntimeCoreModelBackend> admitForTesting(
-        final VerifiedMemberResolver resolver,
-        final CoreVersionExpectation expectation
-    ) {
+            final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
         Objects.requireNonNull(expectation, "expectation");
         final CoreProviderResult<CorePublicApiProvider> providerResult =
-            CorePublicApiProviderFactory.admitForTesting(resolver, expectation);
+                CorePublicApiProviderFactory.admitForTesting(resolver, expectation);
         if (!providerResult.isSuccess()) {
-            return CoreProviderResult.failed(
-                providerResult.failure().orElseThrow()
-            );
+            return CoreProviderResult.failed(providerResult.failure().orElseThrow());
         }
         final CorePublicApiProvider provider = providerResult.value().orElseThrow();
         final CoreProviderResult<CoreStructuralTracer> tracerResult =
-            CoreStructuralTracerFactory.admit(provider, resolver);
+                CoreStructuralTracerFactory.admit(provider, resolver);
         if (!tracerResult.isSuccess()) {
-            return CoreProviderResult.failed(
-                tracerResult.failure().orElseThrow()
-            );
+            return CoreProviderResult.failed(tracerResult.failure().orElseThrow());
         }
         return CoreProviderResult.success(new RuntimeCoreModelBackend(
-            new BorrowedCoreModelSource(),
-            tracerResult.value().orElseThrow(),
-            provider,
-            resolver
-        ));
+                new BorrowedCoreModelSource(), tracerResult.value().orElseThrow(), provider, resolver));
     }
 
     /** Returns the plugin-facing model access without exposing provider or host objects. */
@@ -118,16 +92,12 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
     }
 
     /** Publishes the current Editor-owned Core model after verified Runtime acquisition. */
-    public void publishBorrowedModel(
-        final Object borrowedModel,
-        final String modelIdentity
-    ) {
+    public void publishBorrowedModel(final Object borrowedModel, final String modelIdentity) {
         synchronized (lifecycle) {
             requireOpen();
             if (!resolver.isInstance(
-                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.MODEL_CLASS,
-                borrowedModel
-            )) {
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.MODEL_CLASS,
+                    borrowedModel)) {
                 throw new IllegalArgumentException("Borrowed model is not a verified Core CubismModel.");
             }
             source.publishBorrowedModel(borrowedModel, modelIdentity);

@@ -57,11 +57,12 @@ The declaration gate is the same contract in GUI, console, and automated modes: 
 current schema from the bundled template and initial plugin selection. On an
 existing valid v1 document, the installer changes only `disabledPlugins`; all
 other user settings remain intact, and a selection that is already current
-leaves the original bytes untouched. A recognized legacy v0 document is
-migrated to v1, validated against the complete runtime schema, and then receives
-the selected plugin state in the same atomic publication. Malformed, unknown,
-future-schema, or runtime-invalid documents fail closed before payload mutation
-without modifying the original. Retired JAR cleanup remains identity-verified
+leaves the original bytes untouched. Any other parseable document owned by
+Turboism — a legacy or unrecognized schemaVersion, unknown fields, or fields
+carrying invalid values — is normalized to v1 (valid values kept, everything
+else dropped) and receives the selected plugin state in the same atomic
+publication. Only a document whose `format` declares a different product, or
+one that cannot be parsed at all, fails closed before payload mutation. Retired JAR cleanup remains identity-verified
 and independent of config migration; any leftover retired JAR is denied by the
 runtime `PluginJarContract` boundary because the installer deletes only
 identity-proven retired JARs and never deletes unverifiable entries. Invalid,

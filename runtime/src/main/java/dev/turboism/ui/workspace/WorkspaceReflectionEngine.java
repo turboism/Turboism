@@ -5,7 +5,6 @@ import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceInfo;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
 import dev.turboism.sdk.ui.workspace.WorkspaceStatus;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
@@ -33,9 +32,21 @@ final class WorkspaceReflectionEngine {
     static final String RESET_DEFAULT = "workspace.dock.reset-default";
 
     static final Set<String> REQUIRED_ALIASES = Set.of(
-        "workspace.app.class", APP_INSTANCE, MAIN_FRAME, DOCK, PALETTE_MANAGER, CURRENT, PRESET, CUSTOM,
-        WORKSPACE_ID, WORKSPACE_NAME, ID_VALUE, CHANGE, UPDATE_DEFAULT, RESET_DEFAULT, DEFAULT_LAYOUT
-    );
+            "workspace.app.class",
+            APP_INSTANCE,
+            MAIN_FRAME,
+            DOCK,
+            PALETTE_MANAGER,
+            CURRENT,
+            PRESET,
+            CUSTOM,
+            WORKSPACE_ID,
+            WORKSPACE_NAME,
+            ID_VALUE,
+            CHANGE,
+            UPDATE_DEFAULT,
+            RESET_DEFAULT,
+            DEFAULT_LAYOUT);
 
     private final VerifiedMemberResolver resolver;
 
@@ -49,11 +60,10 @@ final class WorkspaceReflectionEngine {
             if (state == null) return unavailable("workspace.host.unavailable");
             if (state.incomplete) return unavailable("workspace.enumeration.incomplete");
             return new WorkspaceStatus(
-                WorkspaceStatus.Availability.AVAILABLE,
-                Optional.of(state.current.info),
-                state.available.stream().map(value -> value.info).toList(),
-                Optional.empty()
-            );
+                    WorkspaceStatus.Availability.AVAILABLE,
+                    Optional.of(state.current.info),
+                    state.available.stream().map(value -> value.info).toList(),
+                    Optional.empty());
         } catch (RuntimeException ignored) {
             return unavailable("workspace.mapping.failed");
         }
@@ -68,14 +78,15 @@ final class WorkspaceReflectionEngine {
             if (before.incomplete) return WorkspaceOperationResult.Outcome.FAILED;
             if (before.current.info.id().equals(requested)) return WorkspaceOperationResult.Outcome.NO_CHANGE;
             final HostWorkspace target = before.available.stream()
-                .filter(workspace -> workspace.info.id().equals(requested))
-                .findFirst().orElse(null);
+                    .filter(workspace -> workspace.info.id().equals(requested))
+                    .findFirst()
+                    .orElse(null);
             if (target == null) return WorkspaceOperationResult.Outcome.NOT_FOUND;
             resolver.invoke(CHANGE, before.dock, target.hostId);
             final State after = state();
             return after != null && !after.incomplete && after.current.info.id().equals(requested)
-                ? WorkspaceOperationResult.Outcome.CHANGED
-                : WorkspaceOperationResult.Outcome.FAILED;
+                    ? WorkspaceOperationResult.Outcome.CHANGED
+                    : WorkspaceOperationResult.Outcome.FAILED;
         } catch (RuntimeException ignored) {
             return WorkspaceOperationResult.Outcome.FAILED;
         }
@@ -97,25 +108,26 @@ final class WorkspaceReflectionEngine {
             if (UPDATE_DEFAULT.equals(alias) && !before.currentCustom) {
                 return WorkspaceOperationResult.Outcome.FAILED;
             }
-            final byte[] savedBefore = UPDATE_DEFAULT.equals(alias)
-                ? defaultLayout(before.current) : null;
+            final byte[] savedBefore = UPDATE_DEFAULT.equals(alias) ? defaultLayout(before.current) : null;
             resolver.invoke(alias, before.dock);
             final State after = state();
             if (UPDATE_DEFAULT.equals(alias)) {
-                if (after == null || after.incomplete || !after.currentCustom
-                    || after.current.hostWorkspace != before.current.hostWorkspace
-                    || !after.current.info.id().equals(before.current.info.id())) {
+                if (after == null
+                        || after.incomplete
+                        || !after.currentCustom
+                        || after.current.hostWorkspace != before.current.hostWorkspace
+                        || !after.current.info.id().equals(before.current.info.id())) {
                     return WorkspaceOperationResult.Outcome.FAILED;
                 }
                 final byte[] savedAfter = defaultLayout(after.current);
                 if (savedAfter == null && savedBefore != null) return WorkspaceOperationResult.Outcome.FAILED;
                 return java.util.Arrays.equals(savedBefore, savedAfter)
-                    ? WorkspaceOperationResult.Outcome.NO_CHANGE
-                    : WorkspaceOperationResult.Outcome.CHANGED;
+                        ? WorkspaceOperationResult.Outcome.NO_CHANGE
+                        : WorkspaceOperationResult.Outcome.CHANGED;
             }
             return after != null && !after.incomplete && after.current.info.id().equals(before.current.info.id())
-                ? WorkspaceOperationResult.Outcome.CHANGED
-                : WorkspaceOperationResult.Outcome.FAILED;
+                    ? WorkspaceOperationResult.Outcome.CHANGED
+                    : WorkspaceOperationResult.Outcome.FAILED;
         } catch (RuntimeException ignored) {
             return WorkspaceOperationResult.Outcome.FAILED;
         }
@@ -134,14 +146,14 @@ final class WorkspaceReflectionEngine {
         if (current == null) return null;
 
         final LinkedHashMap<WorkspaceId, HostWorkspace> available = new LinkedHashMap<>();
-        final int[] traversalBudget = { MAX_AVAILABLE_WORKSPACES - 1 };
+        final int[] traversalBudget = {MAX_AVAILABLE_WORKSPACES - 1};
         boolean incomplete = add(available, resolver.invoke(PRESET, dock), traversalBudget);
         final LinkedHashMap<WorkspaceId, HostWorkspace> custom = new LinkedHashMap<>();
         if (!incomplete) {
             incomplete = add(custom, resolver.invoke(CUSTOM, dock), traversalBudget);
         }
-        final boolean currentCustom = custom.containsKey(current.info.id())
-            && !available.containsKey(current.info.id());
+        final boolean currentCustom =
+                custom.containsKey(current.info.id()) && !available.containsKey(current.info.id());
         custom.forEach(available::putIfAbsent);
         available.putIfAbsent(current.info.id(), current);
         return new State(dock, current, List.copyOf(available.values()), incomplete, currentCustom);
@@ -155,10 +167,7 @@ final class WorkspaceReflectionEngine {
      * iterator so no item is consumed after the budget runs out.
      */
     private boolean add(
-        final LinkedHashMap<WorkspaceId, HostWorkspace> target,
-        final Object value,
-        final int[] traversalBudget
-    ) {
+            final LinkedHashMap<WorkspaceId, HostWorkspace> target, final Object value, final int[] traversalBudget) {
         if (!(value instanceof Iterable<?> values)) return true;
         final java.util.Iterator<?> iterator = values.iterator();
         while (iterator.hasNext() && traversalBudget[0] > 0) {
@@ -169,7 +178,6 @@ final class WorkspaceReflectionEngine {
         }
         return iterator.hasNext();
     }
-
 
     private byte[] defaultLayout(final HostWorkspace workspace) {
         final Object value = resolver.invoke(DEFAULT_LAYOUT, workspace.hostWorkspace);
@@ -193,19 +201,15 @@ final class WorkspaceReflectionEngine {
 
     private static WorkspaceStatus unavailable(final String diagnostic) {
         return new WorkspaceStatus(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            Optional.empty(),
-            List.of(),
-            Optional.of(diagnostic)
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE, Optional.empty(), List.of(), Optional.of(diagnostic));
     }
 
-    private record HostWorkspace(Object hostWorkspace, Object hostId, WorkspaceInfo info) { }
+    private record HostWorkspace(Object hostWorkspace, Object hostId, WorkspaceInfo info) {}
+
     private record State(
-        Object dock,
-        HostWorkspace current,
-        List<HostWorkspace> available,
-        boolean incomplete,
-        boolean currentCustom
-    ) { }
+            Object dock,
+            HostWorkspace current,
+            List<HostWorkspace> available,
+            boolean incomplete,
+            boolean currentCustom) {}
 }

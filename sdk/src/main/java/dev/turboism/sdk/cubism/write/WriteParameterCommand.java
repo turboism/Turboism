@@ -7,12 +7,8 @@ import dev.turboism.sdk.cubism.id.ParameterId;
  * DTO for a parameter value write operation.
  * All fields are SDK-owned types — no host references.
  */
-public record WriteParameterCommand(
-    String commandId,
-    ModelId modelId,
-    ParameterId parameterId,
-    float value
-) implements CubismWriteCommand {
+public record WriteParameterCommand(String commandId, ModelId modelId, ParameterId parameterId, float value)
+        implements CubismWriteCommand {
 
     public WriteParameterCommand {
         if (commandId == null || commandId.isBlank()) {

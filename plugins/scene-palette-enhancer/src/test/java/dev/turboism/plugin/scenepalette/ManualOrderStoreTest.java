@@ -1,5 +1,10 @@
 package dev.turboism.plugin.scenepalette;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.storage.StorageError;
@@ -7,8 +12,6 @@ import dev.turboism.sdk.storage.StorageErrorCode;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageWriteResult;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,11 +19,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class ManualOrderStoreTest {
 
@@ -29,19 +28,22 @@ final class ManualOrderStoreTest {
     @Test
     void readsCurrentAndLegacyFormats() {
         final TestLogger logger = new TestLogger();
-        final ManualOrderStore current = ManualOrderStore.storage(storage(
-            path -> CompletableFuture.completedStage(read(
-                ManualOrderStore.FORMAT_HEADER + "\nscene-2\nscene-1\nscene-2\n", false
-            )),
-            (path, content) -> CompletableFuture.completedStage(written())
-        ), logger);
-        final ManualOrderStore legacy = ManualOrderStore.storage(storage(
-            path -> CompletableFuture.completedStage(read("scene-1\nscene-2\n", false)),
-            (path, content) -> CompletableFuture.completedStage(written())
-        ), logger);
+        final ManualOrderStore current = ManualOrderStore.storage(
+                storage(
+                        path -> CompletableFuture.completedStage(
+                                read(ManualOrderStore.FORMAT_HEADER + "\nscene-2\nscene-1\nscene-2\n", false)),
+                        (path, content) -> CompletableFuture.completedStage(written())),
+                logger);
+        final ManualOrderStore legacy = ManualOrderStore.storage(
+                storage(
+                        path -> CompletableFuture.completedStage(read("scene-1\nscene-2\n", false)),
+                        (path, content) -> CompletableFuture.completedStage(written())),
+                logger);
 
-        final ManualOrderStore.LoadResult currentResult = current.load(SCOPE).toCompletableFuture().join();
-        final ManualOrderStore.LoadResult legacyResult = legacy.load(SCOPE).toCompletableFuture().join();
+        final ManualOrderStore.LoadResult currentResult =
+                current.load(SCOPE).toCompletableFuture().join();
+        final ManualOrderStore.LoadResult legacyResult =
+                legacy.load(SCOPE).toCompletableFuture().join();
 
         assertEquals(ManualOrderStore.LoadStatus.CURRENT, currentResult.status());
         assertEquals(List.of("scene-2", "scene-1"), currentResult.itemIds());
@@ -52,26 +54,31 @@ final class ManualOrderStoreTest {
     @Test
     void rejectsTruncatedAndFutureFormatsAndKeepsNotFoundSilent() {
         final TestLogger logger = new TestLogger();
-        final StoragePath path = new StoragePath(
-            dev.turboism.sdk.storage.StorageRoot.STATE,
-            "manual-order-" + SCOPE + ".txt"
-        );
+        final StoragePath path =
+                new StoragePath(dev.turboism.sdk.storage.StorageRoot.STATE, "manual-order-" + SCOPE + ".txt");
         final List<StorageReadResult<String>> reads = new ArrayList<>(List.of(
-            read(ManualOrderStore.FORMAT_HEADER + "\nscene-1", true),
-            read(ManualOrderStore.FORMAT_PREFIX + "2\nscene-1\n", false),
-            new StorageReadResult<>(Optional.empty(), Optional.of(new StorageError(
-                StorageErrorCode.NOT_FOUND, "not found", path
-            )), false)
-        ));
-        final ManualOrderStore store = ManualOrderStore.storage(storage(
-            ignored -> CompletableFuture.completedStage(reads.remove(0)),
-            (ignored, content) -> CompletableFuture.completedStage(written())
-        ), logger);
+                read(ManualOrderStore.FORMAT_HEADER + "\nscene-1", true),
+                read(ManualOrderStore.FORMAT_PREFIX + "2\nscene-1\n", false),
+                new StorageReadResult<>(
+                        Optional.empty(),
+                        Optional.of(new StorageError(StorageErrorCode.NOT_FOUND, "not found", path)),
+                        false)));
+        final ManualOrderStore store = ManualOrderStore.storage(
+                storage(
+                        ignored -> CompletableFuture.completedStage(reads.remove(0)),
+                        (ignored, content) -> CompletableFuture.completedStage(written())),
+                logger);
 
-        assertEquals(ManualOrderStore.LoadStatus.UNUSABLE, store.load(SCOPE).toCompletableFuture().join().status());
-        assertEquals(ManualOrderStore.LoadStatus.UNUSABLE, store.load(SCOPE).toCompletableFuture().join().status());
+        assertEquals(
+                ManualOrderStore.LoadStatus.UNUSABLE,
+                store.load(SCOPE).toCompletableFuture().join().status());
+        assertEquals(
+                ManualOrderStore.LoadStatus.UNUSABLE,
+                store.load(SCOPE).toCompletableFuture().join().status());
         final int warningsBeforeMissing = logger.warnings.size();
-        assertEquals(ManualOrderStore.LoadStatus.MISSING, store.load(SCOPE).toCompletableFuture().join().status());
+        assertEquals(
+                ManualOrderStore.LoadStatus.MISSING,
+                store.load(SCOPE).toCompletableFuture().join().status());
         assertEquals(warningsBeforeMissing, logger.warnings.size());
         assertTrue(logger.warnings.stream().anyMatch(message -> message.contains("truncated")));
     }
@@ -79,16 +86,22 @@ final class ManualOrderStoreTest {
     @Test
     void loadConvertsStorageExceptionsToSafeResultsButSaveReportsThem() {
         final TestLogger logger = new TestLogger();
-        final ManualOrderStore store = ManualOrderStore.storage(storage(
-            path -> {
-                throw new IllegalStateException("offline");
-            },
-            (path, content) -> CompletableFuture.failedStage(new IllegalStateException("offline"))
-        ), logger);
+        final ManualOrderStore store = ManualOrderStore.storage(
+                storage(
+                        path -> {
+                            throw new IllegalStateException("offline");
+                        },
+                        (path, content) -> CompletableFuture.failedStage(new IllegalStateException("offline"))),
+                logger);
 
-        assertEquals(ManualOrderStore.LoadStatus.UNUSABLE, store.load(SCOPE).toCompletableFuture().join().status());
-        assertThrows(java.util.concurrent.CompletionException.class,
-            () -> store.save(SCOPE, List.of("scene-1")).toCompletableFuture().join());
+        assertEquals(
+                ManualOrderStore.LoadStatus.UNUSABLE,
+                store.load(SCOPE).toCompletableFuture().join().status());
+        assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> store.save(SCOPE, List.of("scene-1"))
+                        .toCompletableFuture()
+                        .join());
         assertEquals(2, logger.warnings.size());
     }
 
@@ -99,13 +112,12 @@ final class ManualOrderStoreTest {
         final List<String> contents = new ArrayList<>();
         final CompletableFuture<StorageWriteResult> firstWrite = new CompletableFuture<>();
         final CompletableFuture<StorageWriteResult> secondWrite = new CompletableFuture<>();
-        final ManualOrderStore store = ManualOrderStore.storage(storage(
-            path -> CompletableFuture.completedStage(read("", false)),
-            (path, content) -> {
-                contents.add(content);
-                return calls.getAndIncrement() == 0 ? firstWrite : secondWrite;
-            }
-        ), logger);
+        final ManualOrderStore store = ManualOrderStore.storage(
+                storage(path -> CompletableFuture.completedStage(read("", false)), (path, content) -> {
+                    contents.add(content);
+                    return calls.getAndIncrement() == 0 ? firstWrite : secondWrite;
+                }),
+                logger);
 
         final CompletionStage<Void> first = store.save(SCOPE, List.of("scene-1"));
         final CompletionStage<Void> second = store.save(SCOPE, List.of("scene-2"));
@@ -125,13 +137,12 @@ final class ManualOrderStoreTest {
     void refusesToWriteOrderExceedingByteLimit() {
         final TestLogger logger = new TestLogger();
         final AtomicInteger writes = new AtomicInteger();
-        final ManualOrderStore store = ManualOrderStore.storage(storage(
-            path -> CompletableFuture.completedStage(read("", false)),
-            (path, content) -> {
-                writes.incrementAndGet();
-                return CompletableFuture.completedStage(written());
-            }
-        ), logger);
+        final ManualOrderStore store = ManualOrderStore.storage(
+                storage(path -> CompletableFuture.completedStage(read("", false)), (path, content) -> {
+                    writes.incrementAndGet();
+                    return CompletableFuture.completedStage(written());
+                }),
+                logger);
 
         store.save(SCOPE, List.of("x".repeat(300_000))).toCompletableFuture().join();
 
@@ -144,16 +155,18 @@ final class ManualOrderStoreTest {
         final TestLogger logger = new TestLogger();
         final CompletableFuture<StorageWriteResult> pendingWrite = new CompletableFuture<>();
         final AtomicInteger reads = new AtomicInteger();
-        final ManualOrderStore store = ManualOrderStore.storage(storage(
-            path -> {
-                reads.incrementAndGet();
-                return CompletableFuture.completedStage(read("", false));
-            },
-            (path, content) -> pendingWrite
-        ), logger);
+        final ManualOrderStore store = ManualOrderStore.storage(
+                storage(
+                        path -> {
+                            reads.incrementAndGet();
+                            return CompletableFuture.completedStage(read("", false));
+                        },
+                        (path, content) -> pendingWrite),
+                logger);
 
         final CompletionStage<Void> save = store.save(SCOPE, List.of("scene-1"));
-        final CompletableFuture<ManualOrderStore.LoadResult> load = store.load(SCOPE).toCompletableFuture();
+        final CompletableFuture<ManualOrderStore.LoadResult> load =
+                store.load(SCOPE).toCompletableFuture();
 
         assertEquals(0, reads.get());
         pendingWrite.complete(written());
@@ -172,17 +185,16 @@ final class ManualOrderStoreTest {
 
     private static PluginStorage storage(final Reader reader, final Writer writer) {
         return (PluginStorage) Proxy.newProxyInstance(
-            PluginStorage.class.getClassLoader(),
-            new Class<?>[] {PluginStorage.class},
-            (proxy, method, args) -> switch (method.getName()) {
-                case "readUtf8" -> reader.read((StoragePath) args[0]);
-                case "writeUtf8Atomic" -> writer.write((StoragePath) args[0], (String) args[1]);
-                case "toString" -> "TestPluginStorage";
-                case "hashCode" -> System.identityHashCode(proxy);
-                case "equals" -> proxy == args[0];
-                default -> throw new AssertionError("Unexpected storage call: " + method.getName());
-            }
-        );
+                PluginStorage.class.getClassLoader(),
+                new Class<?>[] {PluginStorage.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "readUtf8" -> reader.read((StoragePath) args[0]);
+                    case "writeUtf8Atomic" -> writer.write((StoragePath) args[0], (String) args[1]);
+                    case "toString" -> "TestPluginStorage";
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> throw new AssertionError("Unexpected storage call: " + method.getName());
+                });
     }
 
     @FunctionalInterface
@@ -198,10 +210,21 @@ final class ManualOrderStoreTest {
     private static final class TestLogger implements PluginLogger {
         private final List<String> warnings = new ArrayList<>();
 
-        @Override public void debug(final String message) { }
-        @Override public void info(final String message) { }
-        @Override public void warn(final String message) { warnings.add(message); }
-        @Override public void error(final String message) { }
-        @Override public void error(final String message, final Throwable throwable) { }
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {}
+
+        @Override
+        public void warn(final String message) {
+            warnings.add(message);
+        }
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
     }
 }

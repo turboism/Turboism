@@ -33,7 +33,7 @@ public final class ProtonEnvironment {
     /** Deterministic marker exported by the managed Linux/Proton launch script. */
     public static final String MANAGED_MARKER = "TURBOISM_PROTON";
 
-    private ProtonEnvironment() { }
+    private ProtonEnvironment() {}
 
     /** Whether this JVM runs as a Wine/Proton process, probing the real host. */
     public static boolean underWineOrProton() {
@@ -60,16 +60,16 @@ public final class ProtonEnvironment {
     static boolean wineFilesystemFacts(final Path systemRoot, final Path zProcSelf) {
         try {
             return Files.isRegularFile(systemRoot.resolve("system32").resolve("winecfg.exe"))
-                || (Files.isDirectory(zProcSelf)
-                    && Files.isRegularFile(zProcSelf.resolve("stat"))
-                    && Files.isRegularFile(zProcSelf.resolve("maps")));
+                    || (Files.isDirectory(zProcSelf)
+                            && Files.isRegularFile(zProcSelf.resolve("stat"))
+                            && Files.isRegularFile(zProcSelf.resolve("maps")));
         } catch (SecurityException unavailable) {
             return false;
         }
     }
 
     private static Path systemRoot(final Map<String, String> environment) {
-        for (final String name : new String[]{"SystemRoot", "windir"}) {
+        for (final String name : new String[] {"SystemRoot", "windir"}) {
             final String value = environment.get(name);
             if (value != null && !value.isBlank()) {
                 return Path.of(value);

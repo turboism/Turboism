@@ -1,8 +1,6 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.sdk.ui.appearance.PaletteEntryState;
-
-import javax.swing.JComponent;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
@@ -10,6 +8,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.WeakHashMap;
+import javax.swing.JComponent;
 
 /** Restores native component state around transient appearance overlays. */
 final class NativeStyleTracker {
@@ -18,16 +17,19 @@ final class NativeStyleTracker {
     void apply(final Component component, final Optional<PaletteEntryState> style) {
         final AppliedStyle previous = applied.get(component);
         final ComponentState observed = ComponentState.capture(component);
-        final ComponentState nativeState = previous == null || !observed.equals(previous.applied())
-            ? observed : previous.nativeState();
+        final ComponentState nativeState =
+                previous == null || !observed.equals(previous.applied()) ? observed : previous.nativeState();
         nativeState.restore(component);
         if (style.isEmpty()) {
             applied.remove(component);
             return;
         }
         final NativeControlStyle overlay = NativeControlStyle.apply(
-            nativeState.font(), nativeState.foreground(), nativeState.background(), nativeState.opaque(), style.orElseThrow()
-        );
+                nativeState.font(),
+                nativeState.foreground(),
+                nativeState.background(),
+                nativeState.opaque(),
+                style.orElseThrow());
         overlay.restore(component);
         final ComponentState result = ComponentState.capture(component);
         if (result.equals(nativeState)) applied.remove(component);
@@ -43,15 +45,15 @@ final class NativeStyleTracker {
         restore.forEach((component, style) -> style.nativeState().restore(component));
     }
 
-    private record AppliedStyle(ComponentState nativeState, ComponentState applied) {
-    }
+    private record AppliedStyle(ComponentState nativeState, ComponentState applied) {}
 
     private record ComponentState(Font font, Color foreground, Color background, boolean opaque) {
         static ComponentState capture(final Component component) {
             return new ComponentState(
-                component.getFont(), component.getForeground(), component.getBackground(),
-                component instanceof JComponent swing && swing.isOpaque()
-            );
+                    component.getFont(),
+                    component.getForeground(),
+                    component.getBackground(),
+                    component instanceof JComponent swing && swing.isOpaque());
         }
 
         void restore(final Component component) {

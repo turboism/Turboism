@@ -1,5 +1,11 @@
 package dev.turboism.ui.filter;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -12,9 +18,6 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -25,12 +28,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimePaletteFilterRegistryTest {
 
@@ -50,16 +49,16 @@ class RuntimePaletteFilterRegistryTest {
     void contributeWithoutPermissionThrowsCubismPermissionException() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { throw new CubismPermissionException(operation + " denied"); },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {
+                    throw new CubismPermissionException(operation + " denied");
+                },
+                scheduler(new RecordingPolicy()),
+                PLUGIN_ID);
 
         // When / Then
         CubismPermissionException exception = assertThrows(
-            CubismPermissionException.class,
-            () -> registry.contribute(contribution("probe.palette.filter", "PARAMETER"))
-        );
+                CubismPermissionException.class,
+                () -> registry.contribute(contribution("probe.palette.filter", "PARAMETER")));
         assertEquals("ui.palette-filter.contribute denied", exception.getMessage());
         assertEquals(0, registry.registrationCount());
     }
@@ -68,10 +67,10 @@ class RuntimePaletteFilterRegistryTest {
     void contributeWithPermissionReturnsRegistrationAndContributionIsVisible() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> assertEquals(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, permissionId),
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) ->
+                        assertEquals(PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE, permissionId),
+                scheduler(new RecordingPolicy()),
+                PLUGIN_ID);
 
         // When
         Registration registration = registry.contribute(contribution("probe.palette.filter", "PARAMETER"));
@@ -86,10 +85,7 @@ class RuntimePaletteFilterRegistryTest {
     void closingRegistrationRemovesContribution() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
         Registration registration = registry.contribute(contribution("probe.palette.filter", "PARAMETER"));
 
         // When
@@ -104,11 +100,8 @@ class RuntimePaletteFilterRegistryTest {
     void visibilityUpdateIsDispatchedThroughRuntimeSchedulerWithPaletteId() throws InterruptedException {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
-        RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(policy),
-            PLUGIN_ID
-        );
+        RuntimePaletteFilterRegistry registry =
+                new RuntimePaletteFilterRegistry((permissionId, operation) -> {}, scheduler(policy), PLUGIN_ID);
 
         // When
         registry.contribute(contribution("probe.palette.filter", "PARAMETER"));
@@ -128,17 +121,9 @@ class RuntimePaletteFilterRegistryTest {
         RecordingVisibilitySink firstSink = new RecordingVisibilitySink(1);
         RecordingVisibilitySink secondSink = new RecordingVisibilitySink(1);
         RuntimePaletteFilterRegistry first = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            runtimeScheduler,
-            "dev.turboism.plugin.first",
-            firstSink
-        );
+                (permissionId, operation) -> {}, runtimeScheduler, "dev.turboism.plugin.first", firstSink);
         RuntimePaletteFilterRegistry second = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            runtimeScheduler,
-            "dev.turboism.plugin.second",
-            secondSink
-        );
+                (permissionId, operation) -> {}, runtimeScheduler, "dev.turboism.plugin.second", secondSink);
         RecordingLocalization firstLocalization = localization("First palette placeholder");
         RecordingLocalization secondLocalization = localization("Second palette placeholder");
         first.bindLocalization(firstLocalization);
@@ -162,11 +147,7 @@ class RuntimePaletteFilterRegistryTest {
         // Given
         RecordingVisibilitySink sink = new RecordingVisibilitySink(1);
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID,
-            sink
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID, sink);
         registry.lockWithoutLocalization();
 
         // When
@@ -176,9 +157,7 @@ class RuntimePaletteFilterRegistryTest {
         assertTrue(sink.updated.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("probe.placeholder"), sink.palettePlaceholders);
         IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Late placeholder"))
-        );
+                IllegalStateException.class, () -> registry.bindLocalization(localization("Late placeholder")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -186,19 +165,14 @@ class RuntimePaletteFilterRegistryTest {
     void firstUnboundContributionLocksTheRawFallback() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
 
         // When
         registry.contribute(contribution("probe.palette.filter", "PARAMETER"));
 
         // Then
         IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Late placeholder"))
-        );
+                IllegalStateException.class, () -> registry.bindLocalization(localization("Late placeholder")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -206,19 +180,14 @@ class RuntimePaletteFilterRegistryTest {
     void localizationBindingIsIdempotentOnlyForTheSameInstance() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
         RecordingLocalization localization = localization("Bound placeholder");
         registry.bindLocalization(localization);
 
         // When / Then
         assertDoesNotThrow(() -> registry.bindLocalization(localization));
         IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindLocalization(localization("Other placeholder"))
-        );
+                IllegalStateException.class, () -> registry.bindLocalization(localization("Other placeholder")));
         assertEquals("localization ownership is already locked", error.getMessage());
     }
 
@@ -227,12 +196,8 @@ class RuntimePaletteFilterRegistryTest {
         // Given
         RecordingPolicy policy = new RecordingPolicy();
         RecordingVisibilitySink sink = new RecordingVisibilitySink(2);
-        RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(policy),
-            PLUGIN_ID,
-            sink
-        );
+        RuntimePaletteFilterRegistry registry =
+                new RuntimePaletteFilterRegistry((permissionId, operation) -> {}, scheduler(policy), PLUGIN_ID, sink);
 
         // When
         Registration registration = registry.contribute(contribution("probe.palette.filter", "PARAMETER"));
@@ -249,10 +214,7 @@ class RuntimePaletteFilterRegistryTest {
         // Given
         RecordingVisibilitySink sink = new RecordingVisibilitySink(1);
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID
-        );
+                (permissionId, operation) -> {}, scheduler(new RecordingPolicy()), PLUGIN_ID);
         registry.bindVisibilitySink(sink);
 
         // When
@@ -267,28 +229,24 @@ class RuntimePaletteFilterRegistryTest {
     void bindingVisibilitySinkTwiceFails() {
         // Given
         RuntimePaletteFilterRegistry registry = new RuntimePaletteFilterRegistry(
-            (permissionId, operation) -> { },
-            scheduler(new RecordingPolicy()),
-            PLUGIN_ID,
-            new RecordingVisibilitySink(0)
-        );
+                (permissionId, operation) -> {},
+                scheduler(new RecordingPolicy()),
+                PLUGIN_ID,
+                new RecordingVisibilitySink(0));
 
         // When / Then
         IllegalStateException error = assertThrows(
-            IllegalStateException.class,
-            () -> registry.bindVisibilitySink(new RecordingVisibilitySink(0))
-        );
+                IllegalStateException.class, () -> registry.bindVisibilitySink(new RecordingVisibilitySink(0)));
         assertEquals("palette filter visibility sink is already bound", error.getMessage());
     }
 
     private RuntimeScheduler scheduler(RecordingPolicy policy) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         scheduler = new RuntimeScheduler(
-            policy,
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                policy,
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
         return scheduler;
     }
 
@@ -321,7 +279,10 @@ class RuntimePaletteFilterRegistryTest {
             this.catalog = Map.copyOf(catalog);
         }
 
-        @Override public Locale locale() { return Locale.ENGLISH; }
+        @Override
+        public Locale locale() {
+            return Locale.ENGLISH;
+        }
 
         @Override
         public String text(final String key) {
@@ -329,8 +290,15 @@ class RuntimePaletteFilterRegistryTest {
             return catalog.getOrDefault(key, key);
         }
 
-        @Override public String format(final String key, final Object... arguments) { return text(key); }
-        @Override public boolean contains(final String key) { return catalog.containsKey(key); }
+        @Override
+        public String format(final String key, final Object... arguments) {
+            return text(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return catalog.containsKey(key);
+        }
     }
 
     private static final class RecordingVisibilitySink implements PaletteFilterVisibilitySink {
@@ -346,17 +314,15 @@ class RuntimePaletteFilterRegistryTest {
 
         @Override
         public void onPaletteFilterVisibilityChanged(
-            final String pluginId,
-            final List<PaletteFilterRegistry.PaletteFilterContribution> contributions
-        ) {
+                final String pluginId, final List<PaletteFilterRegistry.PaletteFilterContribution> contributions) {
             pluginIds.add(pluginId);
             paletteContributionCounts.add(contributions.size());
             contributions.stream()
-                .map(PaletteFilterRegistry.PaletteFilterContribution::placeholderKey)
-                .forEach(palettePlaceholders::add);
+                    .map(PaletteFilterRegistry.PaletteFilterContribution::placeholderKey)
+                    .forEach(palettePlaceholders::add);
             contributions.stream()
-                .map(PaletteFilterRegistry.PaletteFilterContribution::paletteId)
-                .forEach(paletteIds::add);
+                    .map(PaletteFilterRegistry.PaletteFilterContribution::paletteId)
+                    .forEach(paletteIds::add);
             updated.countDown();
         }
     }

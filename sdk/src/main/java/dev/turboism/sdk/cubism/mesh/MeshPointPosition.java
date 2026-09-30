@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /** A finite position for a point Cubism has not assigned an identity yet. */
 public record MeshPointPosition(float x, float y) {
 

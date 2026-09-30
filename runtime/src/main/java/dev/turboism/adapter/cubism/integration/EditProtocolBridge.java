@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.integration;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,15 +37,13 @@ import java.util.function.BiFunction;
 public final class EditProtocolBridge {
 
     /** System-property key under which the loader-neutral receiver is published. */
-    public static final String RECEIVER_PROPERTY =
-        "dev.turboism.integration.edit-protocol.receiver";
+    public static final String RECEIVER_PROPERTY = "dev.turboism.integration.edit-protocol.receiver";
 
     /**
      * Kill switch. Any value other than {@code "false"} (case-insensitive) leaves the bridge
      * active; {@code "false"} makes every message fall through natively.
      */
-    public static final String ENABLED_PROPERTY =
-        "dev.turboism.integration.edit-protocol.enabled";
+    public static final String ENABLED_PROPERTY = "dev.turboism.integration.edit-protocol.enabled";
 
     /** What the bridge concluded for the most recent message; diagnostics only. */
     public enum Outcome {
@@ -66,8 +64,7 @@ public final class EditProtocolBridge {
     private static final ObjectMapper JSON = JsonMapper.builder().build();
 
     private static final int TRACE_LIMIT = 64;
-    private final java.util.concurrent.atomic.AtomicLong traceCount =
-        new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong traceCount = new java.util.concurrent.atomic.AtomicLong();
 
     private final EditSocketWriter writer;
     private final EditApiRouter router;
@@ -87,13 +84,9 @@ public final class EditProtocolBridge {
         this(writer, EditBridgeEnvironment.unavailable());
     }
 
-    public EditProtocolBridge(
-        final EditSocketWriter writer,
-        final EditBridgeEnvironment environment
-    ) {
+    public EditProtocolBridge(final EditSocketWriter writer, final EditBridgeEnvironment environment) {
         this.writer = Objects.requireNonNull(writer, "writer");
-        this.router = new EditApiRouter(
-            Objects.requireNonNull(environment, "environment"), writer);
+        this.router = new EditApiRouter(Objects.requireNonNull(environment, "environment"), writer);
     }
 
     /**
@@ -103,8 +96,7 @@ public final class EditProtocolBridge {
      * {@code Object} and the result is read back as a boxed {@link Boolean}.</p>
      */
     public BiFunction<Object, Object, Object> receiver() {
-        return (raw, socket) ->
-            raw instanceof String message && socket != null && onMessage(message, socket)
+        return (raw, socket) -> raw instanceof String message && socket != null && onMessage(message, socket)
                 ? Boolean.TRUE
                 : Boolean.FALSE;
     }
@@ -123,7 +115,7 @@ public final class EditProtocolBridge {
         }
         if (TRACE_LIMIT > 0 && traceCount.getAndIncrement() < TRACE_LIMIT) {
             System.out.println("[turboism-edit-bridge] onMessage outcome=begin raw="
-                + (raw == null ? "null" : raw.substring(0, Math.min(120, raw.length()))));
+                    + (raw == null ? "null" : raw.substring(0, Math.min(120, raw.length()))));
         }
         if (raw == null) {
             return pass(Outcome.PASSTHROUGH_UNPARSEABLE);
@@ -197,18 +189,14 @@ public final class EditProtocolBridge {
         };
     }
 
-    private boolean respond(
-        final EditApiEnvelope envelope,
-        final Object socket,
-        final String dataJson
-    ) {
+    private boolean respond(final EditApiEnvelope envelope, final Object socket, final String dataJson) {
         final String frame = EditApiResponses.response(
-            envelope.version(), envelope.requestId(), envelope.method(), dataJson,
-            System.currentTimeMillis());
+                envelope.version(), envelope.requestId(), envelope.method(), dataJson, System.currentTimeMillis());
         try {
             writer.send(socket, frame);
             lastOutcome.set(Outcome.INTERCEPTED_RESPONDED);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             lastOutcome.set(Outcome.INTERCEPTED_SEND_FAILED);
         }
         intercepted.incrementAndGet();
@@ -216,18 +204,14 @@ public final class EditProtocolBridge {
     }
 
     private boolean answer(
-        final EditApiEnvelope envelope,
-        final Object socket,
-        final EditApiErrorCode code,
-        final Outcome outcome
-    ) {
+            final EditApiEnvelope envelope, final Object socket, final EditApiErrorCode code, final Outcome outcome) {
         final String frame = EditApiResponses.error(
-            envelope.version(), envelope.requestId(), envelope.method(), code,
-            System.currentTimeMillis());
+                envelope.version(), envelope.requestId(), envelope.method(), code, System.currentTimeMillis());
         try {
             writer.send(socket, frame);
             lastOutcome.set(outcome);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             // The message is already claimed; a failed write must not leak host-side
             // behaviour, so the outcome is still reported as intercepted.
             lastOutcome.set(Outcome.INTERCEPTED_SEND_FAILED);

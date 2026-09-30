@@ -1,14 +1,12 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import dev.turboism.sdk.plugin.Registration;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
 
 class ConditionalCanvasHintTest {
 
@@ -20,11 +18,11 @@ class ConditionalCanvasHintTest {
         AtomicBoolean problem = new AtomicBoolean(true);
 
         Registration watch = ConditionalCanvasHint.whileTrue(
-            scheduler, host,
-            new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
-            problem::get,
-            Duration.ofSeconds(1)
-        );
+                scheduler,
+                host,
+                new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
+                problem::get,
+                Duration.ofSeconds(1));
 
         assertEquals(1, recorder.shown, "the hint is shown immediately");
 
@@ -49,11 +47,11 @@ class ConditionalCanvasHintTest {
         FakeScheduler scheduler = new FakeScheduler();
 
         Registration watch = ConditionalCanvasHint.whileTrue(
-            scheduler, host,
-            new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
-            () -> true,
-            Duration.ofSeconds(1)
-        );
+                scheduler,
+                host,
+                new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
+                () -> true,
+                Duration.ofSeconds(1));
         watch.close();
 
         assertEquals(1, recorder.dismissed);
@@ -70,22 +68,24 @@ class ConditionalCanvasHintTest {
         FakeScheduler scheduler = new FakeScheduler();
 
         ConditionalCanvasHint.whileTrue(
-            scheduler, host,
-            new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
-            () -> true,
-            Duration.ofSeconds(1)
-        );
+                scheduler,
+                host,
+                new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
+                () -> true,
+                Duration.ofSeconds(1));
         assertEquals(1, scheduler.scheduled);
 
         scheduler.tick();
         assertEquals(2, scheduler.scheduled, "each renew schedules the next evaluation");
 
-        assertThrows(IllegalArgumentException.class, () -> ConditionalCanvasHint.whileTrue(
-            scheduler, host,
-            new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
-            () -> true,
-            Duration.ZERO
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> ConditionalCanvasHint.whileTrue(
+                        scheduler,
+                        host,
+                        new CanvasHintNotification("screen-color", "Incompatible", 1.0f),
+                        () -> true,
+                        Duration.ZERO));
     }
 
     /** Scheduler whose pending work runs only when the test ticks it. */
@@ -122,20 +122,19 @@ class ConditionalCanvasHintTest {
     /** Host that counts show/renew/dismiss instead of touching a native hint. */
     private static UiHostCapabilityService host(final FakeHost recorder) {
         return (UiHostCapabilityService) java.lang.reflect.Proxy.newProxyInstance(
-            UiHostCapabilityService.class.getClassLoader(),
-            new Class<?>[] { UiHostCapabilityService.class },
-            (proxy, method, args) -> {
-                // Checked before isDefault(): notifyCanvasHint is itself a default method.
-                if ("notifyCanvasHint".equals(method.getName())) {
-                    recorder.shown++;
-                    return recorder.handle();
-                }
-                if (method.isDefault()) {
-                    return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, args);
-                }
-                throw new UnsupportedOperationException(method.getName());
-            }
-        );
+                UiHostCapabilityService.class.getClassLoader(),
+                new Class<?>[] {UiHostCapabilityService.class},
+                (proxy, method, args) -> {
+                    // Checked before isDefault(): notifyCanvasHint is itself a default method.
+                    if ("notifyCanvasHint".equals(method.getName())) {
+                        recorder.shown++;
+                        return recorder.handle();
+                    }
+                    if (method.isDefault()) {
+                        return java.lang.reflect.InvocationHandler.invokeDefault(proxy, method, args);
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     /** Counts the lifecycle calls the watch makes on the hint handle. */

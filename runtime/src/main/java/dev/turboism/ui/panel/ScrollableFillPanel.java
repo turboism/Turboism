@@ -1,7 +1,7 @@
 package dev.turboism.ui.panel;
 
-import javax.swing.JPanel;
 import java.awt.Rectangle;
+import javax.swing.JPanel;
 
 /**
  * Vertical stack used as a scroll viewport's view. Implements {@code Scrollable}

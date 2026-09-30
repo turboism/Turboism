@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Invalid configuration must not accidentally enable an opt-in native optimization. */
 final class NativeOptimizationPolicy {
-    private NativeOptimizationPolicy() { }
+    private NativeOptimizationPolicy() {}
 
     static RuntimeStartupConfig load(Path home) {
         AtomicBoolean rejected = new AtomicBoolean();

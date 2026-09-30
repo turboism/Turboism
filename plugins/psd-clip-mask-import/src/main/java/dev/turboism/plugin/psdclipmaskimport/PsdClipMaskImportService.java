@@ -9,13 +9,12 @@ import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
+import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -52,21 +51,14 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     private final PsdClipMaskImportRunner runner;
 
     public PsdClipMaskImportService(
-        final CubismModelAccess models,
-        final PluginContext context,
-        final UiHostCapabilityService uiHost
-    ) {
+            final CubismModelAccess models, final PluginContext context, final UiHostCapabilityService uiHost) {
         this.models = Objects.requireNonNull(models, "models");
         this.context = Objects.requireNonNull(context, "context");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.runner = new PsdClipMaskImportRunner(
-            this::importClipMasks,
-            () -> new PsdClipMaskImportProgressDialog(context.localization()),
-            failure -> context.logger().error(
-                "PSD Clip Mask Import background operation failed safely.",
-                failure
-            )
-        );
+                this::importClipMasks,
+                () -> new PsdClipMaskImportProgressDialog(context.localization()),
+                failure -> context.logger().error("PSD Clip Mask Import background operation failed safely.", failure));
     }
 
     /** Starts one import asynchronously, or focuses the active progress window on a repeated click. */
@@ -89,19 +81,15 @@ public final class PsdClipMaskImportService implements AutoCloseable {
         // Reuse the core Turboism tab (turboism.panel.main) like the clip-mask
         // viewer plugin instead of owning a side panel.
         return uiHost.contributeCollapsibleSection(new CollapsibleSectionContribution(
-            EmbeddedPanelId.of(TURBOISM_PANEL_ID),
-            SECTION_ID,
-            context.localization().text("psd.clip-mask-import.title"),
-            SECTION_ORDER,
-            true,
-            PanelView.column(
-                PanelView.button(
-                    "import-clip-masks",
-                    context.localization().text("psd.clip-mask-import.button.import"),
-                    ACTION_ID
-                )
-            )
-        ));
+                EmbeddedPanelId.of(TURBOISM_PANEL_ID),
+                SECTION_ID,
+                context.localization().text("psd.clip-mask-import.title"),
+                SECTION_ORDER,
+                true,
+                PanelView.column(PanelView.button(
+                        "import-clip-masks",
+                        context.localization().text("psd.clip-mask-import.button.import"),
+                        ACTION_ID))));
     }
 
     /**
@@ -131,14 +119,9 @@ public final class PsdClipMaskImportService implements AutoCloseable {
         }
         final PsdClipMaskPlan plan = planned.plan();
         if (plan.isEmpty()) {
-            final ImportResult result = new ImportResult(
-                ImportOutcome.NO_WRITE, 0, plan.skips().size(), 0
-            );
-            notify(
-                "psd.clip-mask-import.no-write",
-                "INFO",
-                noWriteText(plan, result)
-            );
+            final ImportResult result =
+                    new ImportResult(ImportOutcome.NO_WRITE, 0, plan.skips().size(), 0);
+            notify("psd.clip-mask-import.no-write", "INFO", noWriteText(plan, result));
             return result;
         }
         progress.awaitingConfirmation();
@@ -147,13 +130,9 @@ public final class PsdClipMaskImportService implements AutoCloseable {
             if (progress.cancellationRequested()) return cancelledResult();
             final ImportResult result = cancelledResult();
             notify(
-                "psd.clip-mask-import.cancelled",
-                "WARNING",
-                resultText(
-                    context.localization().text("psd.clip-mask-import.cancelled"),
-                    result
-                )
-            );
+                    "psd.clip-mask-import.cancelled",
+                    "WARNING",
+                    resultText(context.localization().text("psd.clip-mask-import.cancelled"), result));
             return result;
         }
         if (progress.cancellationRequested()) return cancelledResult();
@@ -166,10 +145,9 @@ public final class PsdClipMaskImportService implements AutoCloseable {
         // psd.clip-mask-import.overwrite-required only ever describes preview
         // conflicts; a confirmed, committed import reports .import.
         notify(
-            "psd.clip-mask-import.import",
-            "INFO",
-            resultText(context.localization().text("psd.clip-mask-import.imported"), result)
-        );
+                "psd.clip-mask-import.import",
+                "INFO",
+                resultText(context.localization().text("psd.clip-mask-import.imported"), result));
         return result;
     }
 
@@ -178,7 +156,8 @@ public final class PsdClipMaskImportService implements AutoCloseable {
         try {
             final CubismModel model = models.active();
             final Identity identity = currentIdentity(model);
-            final PsdClipMaskPlan plan = planner.plan(model.psdDocuments(), model.drawables().all());
+            final PsdClipMaskPlan plan =
+                    planner.plan(model.psdDocuments(), model.drawables().all());
             return new PlannedImport(identity, plan);
         } catch (RuntimeException failure) {
             return null;
@@ -187,55 +166,52 @@ public final class PsdClipMaskImportService implements AutoCloseable {
 
     private DialogRequest preview(final PsdClipMaskPlan plan) {
         final StringBuilder body = new StringBuilder();
-        body.append(context.localization().format(
-            "psd.clip-mask-import.preview.header",
-            plan.assignments().size() + plan.conflicts().size()
-        )).append('\n');
+        body.append(context.localization()
+                        .format(
+                                "psd.clip-mask-import.preview.header",
+                                plan.assignments().size() + plan.conflicts().size()))
+                .append('\n');
         for (PsdClipMaskPlan.Assignment assignment : plan.assignments()) {
-            body.append(context.localization().format(
-                "psd.clip-mask-import.preview.relationship",
-                assignment.targetArtMeshId().value(),
-                ids(assignment.orderedMaskArtMeshIds()),
-                sources(assignment.sourceLayers())
-            )).append('\n');
+            body.append(context.localization()
+                            .format(
+                                    "psd.clip-mask-import.preview.relationship",
+                                    assignment.targetArtMeshId().value(),
+                                    ids(assignment.orderedMaskArtMeshIds()),
+                                    sources(assignment.sourceLayers())))
+                    .append('\n');
         }
         if (!plan.conflicts().isEmpty()) {
             body.append('\n')
-                .append(context.localization().text(
-                    "psd.clip-mask-import.preview.overwrite-required"
-                ))
-                .append('\n');
+                    .append(context.localization().text("psd.clip-mask-import.preview.overwrite-required"))
+                    .append('\n');
             for (PsdClipMaskPlan.Conflict conflict : plan.conflicts()) {
-                body.append(context.localization().format(
-                    "psd.clip-mask-import.preview.overwrite-row",
-                    conflict.targetArtMeshId().value(),
-                    ids(conflict.existingMaskArtMeshIds()),
-                    invertedWord(conflict.existingInverted()),
-                    ids(conflict.plannedMaskArtMeshIds()),
-                    invertedWord(false),
-                    sources(conflict.sourceLayers())
-                )).append('\n');
+                body.append(context.localization()
+                                .format(
+                                        "psd.clip-mask-import.preview.overwrite-row",
+                                        conflict.targetArtMeshId().value(),
+                                        ids(conflict.existingMaskArtMeshIds()),
+                                        invertedWord(conflict.existingInverted()),
+                                        ids(conflict.plannedMaskArtMeshIds()),
+                                        invertedWord(false),
+                                        sources(conflict.sourceLayers())))
+                        .append('\n');
             }
-            body.append(context.localization().text(
-                "psd.clip-mask-import.preview.overwrite-note"
-            )).append('\n');
+            body.append(context.localization().text("psd.clip-mask-import.preview.overwrite-note"))
+                    .append('\n');
         }
         if (!plan.skips().isEmpty()) {
             body.append('\n')
-                .append(context.localization().format(
-                    "psd.clip-mask-import.preview.skipped",
-                    plan.skips().size()
-                ))
-                .append('\n');
+                    .append(context.localization()
+                            .format(
+                                    "psd.clip-mask-import.preview.skipped",
+                                    plan.skips().size()))
+                    .append('\n');
             for (PsdClipMaskPlan.Skip skip : plan.skips()) {
                 appendSkip(body, skip);
             }
         }
         return new DialogRequest(
-            PREVIEW_DIALOG_ID,
-            context.localization().text("psd.clip-mask-import.preview.title"),
-            body.toString()
-        );
+                PREVIEW_DIALOG_ID, context.localization().text("psd.clip-mask-import.preview.title"), body.toString());
     }
 
     /**
@@ -258,10 +234,7 @@ public final class PsdClipMaskImportService implements AutoCloseable {
             }
             final int omitted = plan.skips().size() - visibleRows;
             if (omitted > 0) {
-                message.append(context.localization().format(
-                    "psd.clip-mask-import.no-write.omitted",
-                    omitted
-                ));
+                message.append(context.localization().format("psd.clip-mask-import.no-write.omitted", omitted));
             }
         }
         message.append(' ').append(counts(result));
@@ -269,12 +242,13 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     }
 
     private void appendSkip(final StringBuilder body, final PsdClipMaskPlan.Skip skip) {
-        body.append(context.localization().format(
-            "psd.clip-mask-import.preview.skip-row",
-            skip.targetArtMeshId().value(),
-            sources(skip.sourceLayers()),
-            context.localization().text(skipReasonKey(skip.reason()))
-        )).append('\n');
+        body.append(context.localization()
+                        .format(
+                                "psd.clip-mask-import.preview.skip-row",
+                                skip.targetArtMeshId().value(),
+                                sources(skip.sourceLayers()),
+                                context.localization().text(skipReasonKey(skip.reason()))))
+                .append('\n');
     }
 
     /**
@@ -283,15 +257,12 @@ public final class PsdClipMaskImportService implements AutoCloseable {
      */
     static String skipReasonKey(final PsdClipMaskPlan.SkipReason reason) {
         return "psd.clip-mask-import.skip."
-            + reason.name().toLowerCase(Locale.ROOT).replace('_', '-');
+                + reason.name().toLowerCase(Locale.ROOT).replace('_', '-');
     }
 
     private String invertedWord(final boolean inverted) {
-        return context.localization().text(
-            inverted
-                ? "psd.clip-mask-import.preview.inverted"
-                : "psd.clip-mask-import.preview.not-inverted"
-        );
+        return context.localization()
+                .text(inverted ? "psd.clip-mask-import.preview.inverted" : "psd.clip-mask-import.preview.not-inverted");
     }
 
     private static String sources(final List<PsdClipMaskPlan.SourceRef> sourceLayers) {
@@ -326,10 +297,7 @@ public final class PsdClipMaskImportService implements AutoCloseable {
      * thread, and the single Undo step are the contract of
      * {@link CubismModel#replaceArtMeshClipMasks}.
      */
-    private ImportResult commit(
-        final PlannedImport previewed,
-        final PsdClipMaskImportProgress progress
-    ) {
+    private ImportResult commit(final PlannedImport previewed, final PsdClipMaskImportProgress progress) {
         try {
             if (progress.cancellationRequested()) return cancelledResult();
             final CubismModel model = models.active();
@@ -346,15 +314,15 @@ public final class PsdClipMaskImportService implements AutoCloseable {
             if (progress.cancellationRequested()) return cancelledResult();
             model.replaceArtMeshClipMasks(toReplacements(plan));
             return new ImportResult(
-                ImportOutcome.APPLIED,
-                plan.assignments().size() + plan.conflicts().size(),
-                plan.skips().size(),
-                0
-            );
+                    ImportOutcome.APPLIED,
+                    plan.assignments().size() + plan.conflicts().size(),
+                    plan.skips().size(),
+                    0);
         } catch (RuntimeException failure) {
             return progress.cancellationRequested()
-                ? cancelledResult()
-                : new ImportResult(ImportOutcome.FAILED, 0, previewed.plan().skips().size(), 1);
+                    ? cancelledResult()
+                    : new ImportResult(
+                            ImportOutcome.FAILED, 0, previewed.plan().skips().size(), 1);
         }
     }
 
@@ -362,9 +330,8 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     private PlannedImport revalidate(final CubismModel model) {
         try {
             return new PlannedImport(
-                currentIdentity(model),
-                planner.plan(model.psdDocuments(), model.drawables().all())
-            );
+                    currentIdentity(model),
+                    planner.plan(model.psdDocuments(), model.drawables().all()));
         } catch (RuntimeException failure) {
             return null;
         }
@@ -379,30 +346,23 @@ public final class PsdClipMaskImportService implements AutoCloseable {
         final List<ClipMaskReplacement> replacements = new ArrayList<>();
         for (PsdClipMaskPlan.Assignment assignment : plan.assignments()) {
             replacements.add(new ClipMaskReplacement(
-                assignment.targetArtMeshId(),
-                List.of(),
-                false,
-                assignment.orderedMaskArtMeshIds(),
-                false
-            ));
+                    assignment.targetArtMeshId(), List.of(), false, assignment.orderedMaskArtMeshIds(), false));
         }
         for (PsdClipMaskPlan.Conflict conflict : plan.conflicts()) {
             replacements.add(new ClipMaskReplacement(
-                conflict.targetArtMeshId(),
-                conflict.existingMaskArtMeshIds(),
-                conflict.existingInverted(),
-                conflict.plannedMaskArtMeshIds(),
-                false
-            ));
+                    conflict.targetArtMeshId(),
+                    conflict.existingMaskArtMeshIds(),
+                    conflict.existingInverted(),
+                    conflict.plannedMaskArtMeshIds(),
+                    false));
         }
         return List.copyOf(replacements);
     }
 
     private Identity currentIdentity(final CubismModel model) {
-        final DocumentSnapshot document = context.cubism().activeDocument()
-            .orElseThrow(() -> new IllegalStateException("no active document"));
-        document.model()
-            .orElseThrow(() -> new IllegalStateException("active document has no model"));
+        final DocumentSnapshot document =
+                context.cubism().activeDocument().orElseThrow(() -> new IllegalStateException("no active document"));
+        document.model().orElseThrow(() -> new IllegalStateException("active document has no model"));
         // DocumentSnapshot.modelId is a runtime-generated snapshot identity, while
         // CubismModel.id is the Editor model-source GUID. They identify the same model
         // in different namespaces and must not be compared. Document identity plus the
@@ -416,10 +376,9 @@ public final class PsdClipMaskImportService implements AutoCloseable {
 
     private ImportResult notifyFailed(final ImportResult result) {
         notify(
-            "psd.clip-mask-import.stale-or-write",
-            "WARNING",
-            resultText(context.localization().text("psd.clip-mask-import.failed"), result)
-        );
+                "psd.clip-mask-import.stale-or-write",
+                "WARNING",
+                resultText(context.localization().text("psd.clip-mask-import.failed"), result));
         return result;
     }
 
@@ -429,22 +388,17 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     }
 
     private String counts(final ImportResult result) {
-        return context.localization().format(
-            "psd.clip-mask-import.counts",
-            result.applied(),
-            result.skipped(),
-            result.failures()
-        );
+        return context.localization()
+                .format("psd.clip-mask-import.counts", result.applied(), result.skipped(), result.failures());
     }
 
     private void notify(final String id, final String severity, final String message) {
         uiHost.notifyStatus(new StatusNotification(
-            id,
-            severity,
-            message == null || message.isBlank()
-                ? context.localization().text("psd.clip-mask-import.failed")
-                : message
-        ));
+                id,
+                severity,
+                message == null || message.isBlank()
+                        ? context.localization().text("psd.clip-mask-import.failed")
+                        : message));
     }
 
     /** Outcome of one import invocation. */
@@ -456,13 +410,10 @@ public final class PsdClipMaskImportService implements AutoCloseable {
     }
 
     /** Stable typed result with applied/skipped/failure counts. */
-    public record ImportResult(ImportOutcome outcome, int applied, int skipped, int failures) {
-    }
+    public record ImportResult(ImportOutcome outcome, int applied, int skipped, int failures) {}
 
     /** The previewed plan plus the active document/model identity it was built from. */
-    private record PlannedImport(Identity identity, PsdClipMaskPlan plan) {
-    }
+    private record PlannedImport(Identity identity, PsdClipMaskPlan plan) {}
 
-    private record Identity(DocumentId documentId, ModelId modelId) {
-    }
+    private record Identity(DocumentId documentId, ModelId modelId) {}
 }

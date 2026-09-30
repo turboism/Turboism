@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -19,11 +18,10 @@ import java.util.Optional;
  * @param diagnosticCode stable machine-readable reason code, empty when there is nothing to report
  */
 public record WorkspaceStatus(
-    Availability availability,
-    Optional<WorkspaceInfo> current,
-    List<WorkspaceInfo> available,
-    Optional<String> diagnosticCode
-) {
+        Availability availability,
+        Optional<WorkspaceInfo> current,
+        List<WorkspaceInfo> available,
+        Optional<String> diagnosticCode) {
     public WorkspaceStatus {
         availability = Objects.requireNonNull(availability, "availability");
         current = Objects.requireNonNull(current, "current");

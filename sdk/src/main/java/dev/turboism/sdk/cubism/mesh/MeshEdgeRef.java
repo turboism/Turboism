@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /**
  * A mesh edge as seen by a plugin, identified by its two endpoint ids.
  *

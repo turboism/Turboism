@@ -1,7 +1,6 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.lang.reflect.Method;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -13,32 +12,27 @@ import java.util.Set;
 final class CubismEditorAvailabilityPolicy {
 
     private static final List<String> REVIEWED_VERSIONS = List.of(
-            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-            "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-            "5.2.00", "5.2.01", "5.2.02", "5.2.03",
-            "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
-        );
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+            "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
     private static final Set<String> REVIEWED_VERSION_SET = Set.copyOf(REVIEWED_VERSIONS);
     // ClassValue keeps the cache with the exposed SDK interface rather than retaining unloaded
     // plugin classloaders in a global Method map. Only immutable declarations are cached.
     private static final ClassValue<java.util.concurrent.ConcurrentMap<Method, Resolution>> RESOLUTIONS =
-        new ClassValue<>() {
-            @Override
-            protected java.util.concurrent.ConcurrentMap<Method, Resolution> computeValue(final Class<?> type) {
-                return new java.util.concurrent.ConcurrentHashMap<>();
-            }
-        };
+            new ClassValue<>() {
+                @Override
+                protected java.util.concurrent.ConcurrentMap<Method, Resolution> computeValue(final Class<?> type) {
+                    return new java.util.concurrent.ConcurrentHashMap<>();
+                }
+            };
 
-    private CubismEditorAvailabilityPolicy() {
-    }
+    private CubismEditorAvailabilityPolicy() {}
 
     static Resolution resolve(final Method method) {
         return resolve(method.getDeclaringClass(), method);
     }
 
     static Resolution resolve(final Class<?> sdkInterface, final Method method) {
-        return RESOLUTIONS.get(sdkInterface)
-            .computeIfAbsent(method, key -> resolveUncached(sdkInterface, key));
+        return RESOLUTIONS.get(sdkInterface).computeIfAbsent(method, key -> resolveUncached(sdkInterface, key));
     }
 
     private static Resolution resolveUncached(final Class<?> sdkInterface, final Method method) {
@@ -51,10 +45,7 @@ final class CubismEditorAvailabilityPolicy {
             supported.retainAll(expand(declaration, apiId(method)));
         }
         return new Resolution(
-            true,
-            REVIEWED_VERSIONS.stream().filter(supported::contains).toList(),
-            declarations
-        );
+                true, REVIEWED_VERSIONS.stream().filter(supported::contains).toList(), declarations);
     }
 
     static boolean restricts(final Class<?> type) {
@@ -72,11 +63,10 @@ final class CubismEditorAvailabilityPolicy {
     }
 
     private static void collectDeclarations(
-        final Class<?> type,
-        final Method method,
-        final List<CubismEditor> declarations,
-        final Set<Class<?>> visited
-    ) {
+            final Class<?> type,
+            final Method method,
+            final List<CubismEditor> declarations,
+            final Set<Class<?>> visited) {
         if (!visited.add(type)) return;
         for (Class<?> parent : type.getInterfaces()) {
             collectDeclarations(parent, method, declarations, visited);
@@ -84,9 +74,8 @@ final class CubismEditorAvailabilityPolicy {
         final CubismEditor direct = type.getAnnotation(CubismEditor.class);
         if (direct != null) declarations.add(direct);
         try {
-            final CubismEditor methodDeclaration = type
-                .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                .getAnnotation(CubismEditor.class);
+            final CubismEditor methodDeclaration = type.getDeclaredMethod(method.getName(), method.getParameterTypes())
+                    .getAnnotation(CubismEditor.class);
             if (methodDeclaration != null) declarations.add(methodDeclaration);
         } catch (NoSuchMethodException inherited) {
             // The interface-level constraint still applies to inherited methods.
@@ -116,22 +105,21 @@ final class CubismEditorAvailabilityPolicy {
         final String to = declaration.to();
         final boolean hasRange = !from.isEmpty() || !to.isEmpty();
         if ((!exact.isEmpty() && hasRange)
-            || hasDuplicates(exact)
-            || hasDuplicates(excluded)
-            || exact.stream().anyMatch(version -> !isDeclaredOrReviewedVersion(version))
-            || exact.stream().anyMatch(version -> !isExactVersion(version))
-            || excluded.stream().anyMatch(version -> !isExactVersion(version))
-            || (!from.isEmpty() && !isExactVersion(from))
-            || (!to.isEmpty() && !isExactVersion(to))
-            || (!from.isEmpty() && !to.isEmpty() && compareVersions(from, to) > 0)) {
+                || hasDuplicates(exact)
+                || hasDuplicates(excluded)
+                || exact.stream().anyMatch(version -> !isDeclaredOrReviewedVersion(version))
+                || exact.stream().anyMatch(version -> !isExactVersion(version))
+                || excluded.stream().anyMatch(version -> !isExactVersion(version))
+                || (!from.isEmpty() && !isExactVersion(from))
+                || (!to.isEmpty() && !isExactVersion(to))
+                || (!from.isEmpty() && !to.isEmpty() && compareVersions(from, to) > 0)) {
             throw new IllegalStateException("Invalid @CubismEditor declaration on " + apiId);
         }
-        final LinkedHashSet<String> expanded = exact.isEmpty()
-            ? new LinkedHashSet<>(REVIEWED_VERSIONS)
-            : new LinkedHashSet<>(exact);
+        final LinkedHashSet<String> expanded =
+                exact.isEmpty() ? new LinkedHashSet<>(REVIEWED_VERSIONS) : new LinkedHashSet<>(exact);
         if (hasRange) {
             expanded.removeIf(version -> (!from.isEmpty() && compareVersions(version, from) < 0)
-                || (!to.isEmpty() && compareVersions(version, to) > 0));
+                    || (!to.isEmpty() && compareVersions(version, to) > 0));
         }
         expanded.removeAll(excluded);
         return Set.copyOf(expanded);
@@ -162,9 +150,8 @@ final class CubismEditorAvailabilityPolicy {
         final String[] leftComponents = left.split("\\.", -1);
         final String[] rightComponents = right.split("\\.", -1);
         for (int index = 0; index < 3; index++) {
-            final int compared = new BigInteger(leftComponents[index]).compareTo(
-                new BigInteger(rightComponents[index])
-            );
+            final int compared =
+                    new BigInteger(leftComponents[index]).compareTo(new BigInteger(rightComponents[index]));
             if (compared != 0) return compared;
         }
         return 0;
@@ -173,8 +160,7 @@ final class CubismEditorAvailabilityPolicy {
     private static String apiId(final Method method) {
         final ArrayList<String> parameters = new ArrayList<>();
         for (Class<?> parameter : method.getParameterTypes()) parameters.add(parameter.getTypeName());
-        return method.getDeclaringClass().getName() + "#" + method.getName()
-            + "(" + String.join(",", parameters) + ")";
+        return method.getDeclaringClass().getName() + "#" + method.getName() + "(" + String.join(",", parameters) + ")";
     }
 
     /**
@@ -184,11 +170,7 @@ final class CubismEditorAvailabilityPolicy {
      * @param supportedVersions the reviewed-version expansion for diagnostics
      * @param declarations the collected annotation declarations in hierarchy order
      */
-    record Resolution(
-        boolean restricted,
-        List<String> supportedVersions,
-        List<CubismEditor> declarations
-    ) {
+    record Resolution(boolean restricted, List<String> supportedVersions, List<CubismEditor> declarations) {
         Resolution {
             supportedVersions = List.copyOf(supportedVersions);
             declarations = List.copyOf(declarations);

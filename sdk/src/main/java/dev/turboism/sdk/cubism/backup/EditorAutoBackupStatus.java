@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-
 /**
  * Immutable per-document auto-backup snapshot (host {@code IFileContent} view).
  *
@@ -8,12 +7,11 @@ package dev.turboism.sdk.cubism.backup;
  * path; it is {@code null} when the host document exposes no file (fail closed).</p>
  */
 public record EditorAutoBackupStatus(
-    String documentName,
-    String filePath,
-    long lastAutoBackupTimeMillis,
-    long lastSavedTimeMillis,
-    boolean modifiedAfterSaving
-) {
+        String documentName,
+        String filePath,
+        long lastAutoBackupTimeMillis,
+        long lastSavedTimeMillis,
+        boolean modifiedAfterSaving) {
 
     public EditorAutoBackupStatus {
         if (documentName == null || documentName.isBlank()) {

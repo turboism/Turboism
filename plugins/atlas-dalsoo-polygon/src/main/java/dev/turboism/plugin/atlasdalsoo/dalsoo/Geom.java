@@ -12,8 +12,7 @@ final class Geom {
 
     static final double PRECISION = 1.0E-5;
 
-    private Geom() {
-    }
+    private Geom() {}
 
     static double[] add(final double[] a, final double[] b) {
         return new double[] {a[0] + b[0], a[1] + b[1]};
@@ -50,10 +49,7 @@ final class Geom {
     }
 
     static double[] rotate(final double[] p, final double[] cosSin) {
-        return new double[] {
-            p[0] * cosSin[0] - p[1] * cosSin[1],
-            p[0] * cosSin[1] + p[1] * cosSin[0]
-        };
+        return new double[] {p[0] * cosSin[0] - p[1] * cosSin[1], p[0] * cosSin[1] + p[1] * cosSin[0]};
     }
 
     /** Rotates every point of {@code ps} by {@code cosSin}. */
@@ -161,8 +157,7 @@ final class Geom {
         for (int i = 0; i < vs.length; i++) {
             final double[] vi = vs[i];
             final double[] vj = vs[j];
-            if ((vi[1] < p[1] && vj[1] >= p[1] || vj[1] < p[1] && vi[1] >= p[1])
-                && (vi[0] <= p[0] || vj[0] <= p[0])) {
+            if ((vi[1] < p[1] && vj[1] >= p[1] || vj[1] < p[1] && vi[1] >= p[1]) && (vi[0] <= p[0] || vj[0] <= p[0])) {
                 if (vi[0] + (p[1] - vi[1]) / (vj[1] - vi[1]) * (vj[0] - vi[0]) < p[0]) {
                     odd = !odd;
                 }
@@ -181,10 +176,8 @@ final class Geom {
      * Strict segment crossing (port of upstream {@code intersectionFast}): shared
      * endpoints and collinear contact do not count.
      */
-    static boolean segmentsCrossStrict(final double[] a, final double[] b,
-        final double[] c, final double[] d) {
-        return triangleArea(a, b, d) * triangleArea(a, b, c) < 0
-            && triangleArea(c, d, a) * triangleArea(c, d, b) < 0;
+    static boolean segmentsCrossStrict(final double[] a, final double[] b, final double[] c, final double[] d) {
+        return triangleArea(a, b, d) * triangleArea(a, b, c) < 0 && triangleArea(c, d, a) * triangleArea(c, d, b) < 0;
     }
 
     /**
@@ -192,11 +185,17 @@ final class Geom {
      * {@code overlapFast}, extended symmetrically): bounding-box early exit, then
      * either centroid inside the other polygon, then strict edge crossings.
      */
-    static boolean overlapStrict(final double[][] candidate, final double[] candidateBb,
-        final double[] candidateCentroid, final double[][] placed,
-        final double[] placedBb, final double[] placedCentroid) {
-        if (candidateBb[0] > placedBb[2] || placedBb[0] > candidateBb[2]
-            || candidateBb[1] > placedBb[3] || placedBb[1] > candidateBb[3]) {
+    static boolean overlapStrict(
+            final double[][] candidate,
+            final double[] candidateBb,
+            final double[] candidateCentroid,
+            final double[][] placed,
+            final double[] placedBb,
+            final double[] placedCentroid) {
+        if (candidateBb[0] > placedBb[2]
+                || placedBb[0] > candidateBb[2]
+                || candidateBb[1] > placedBb[3]
+                || placedBb[1] > candidateBb[3]) {
             return false;
         }
         if (insideStrict(placedCentroid, candidate) || insideStrict(candidateCentroid, placed)) {
@@ -233,8 +232,7 @@ final class Geom {
      * Fast overlap test given both bounding boxes first.
      * Port of upstream {@code overlapFast}: bounding-box early exit then {@link #overlap}.
      */
-    static boolean overlapFast(final double[][] pa, final double[][] pb,
-        final double[] bba, final double[] bbb) {
+    static boolean overlapFast(final double[][] pa, final double[][] pb, final double[] bba, final double[] bbb) {
         if (bba[0] > bbb[2] || bbb[0] > bba[2] || bba[1] > bbb[3] || bbb[1] > bba[3]) {
             return false;
         }
@@ -258,8 +256,7 @@ final class Geom {
      * Whether two segments {@code a0-a1} and {@code b0-b1} intersect, including
      * endpoint contacts. Port of upstream {@code intersect2lines}.
      */
-    static boolean segmentsIntersect(final double[] a0, final double[] a1,
-        final double[] b0, final double[] b1) {
+    static boolean segmentsIntersect(final double[] a0, final double[] a1, final double[] b0, final double[] b1) {
         final double d1 = cross2d(sub(b0, a0), sub(a1, a0)) * cross2d(sub(b1, a0), sub(a1, a0));
         final double d2 = cross2d(sub(a0, b0), sub(b1, b0)) * cross2d(sub(a1, b0), sub(b1, b0));
         return d1 <= 0 && d2 <= 0;
@@ -270,8 +267,7 @@ final class Geom {
      * {@code v0->v1} ({@code p + t*v}), or {@code -1} when parallel or outside
      * {@code [0,1]}. Port of upstream {@code factorCross2Lines}.
      */
-    static double factorCross2Lines(final double[] p, final double[] v,
-        final double[] v0, final double[] v1) {
+    static double factorCross2Lines(final double[] p, final double[] v, final double[] v0, final double[] v1) {
         final double[] w = sub(v1, v0);
         final double denominator = cross2d(v, w);
         if (denominator == 0) {
@@ -290,8 +286,7 @@ final class Geom {
      * {@code index} of {@code inps}; returns the edge index whose factor is
      * positive-maximal, or {@code -1}. Port of upstream {@code edgeCrossPolygon}.
      */
-    static int edgeCrossPolygon(final double[][] inps, final double[][] ps,
-        final double[] v, final int index) {
+    static int edgeCrossPolygon(final double[][] inps, final double[][] ps, final double[] v, final int index) {
         int j = -1;
         double fmax = Double.MAX_VALUE;
         final double[] p = inps[index];
@@ -311,8 +306,7 @@ final class Geom {
      */
     static double distanceToSeg(final double[] a, final double[] b, final double[] p) {
         final double[] ab = sub(b, a);
-        final double t = (ab[0] * (p[0] - a[0]) + ab[1] * (p[1] - a[1]))
-            / (ab[0] * ab[0] + ab[1] * ab[1]);
+        final double t = (ab[0] * (p[0] - a[0]) + ab[1] * (p[1] - a[1])) / (ab[0] * ab[0] + ab[1] * ab[1]);
         if (t < 0 || t > 1) {
             return Double.MAX_VALUE;
         }

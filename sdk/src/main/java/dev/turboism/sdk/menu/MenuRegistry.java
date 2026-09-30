@@ -1,7 +1,6 @@
 package dev.turboism.sdk.menu;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /**
@@ -48,8 +47,7 @@ public interface MenuRegistry {
      * @param actionId action invoked on click
      * @param order position hint within the menu
      */
-    record SimpleMenuContribution(String menuPath, String actionId, int order)
-        implements MenuContribution {
+    record SimpleMenuContribution(String menuPath, String actionId, int order) implements MenuContribution {
         public SimpleMenuContribution {
             Objects.requireNonNull(menuPath, "menuPath");
             Objects.requireNonNull(actionId, "actionId");

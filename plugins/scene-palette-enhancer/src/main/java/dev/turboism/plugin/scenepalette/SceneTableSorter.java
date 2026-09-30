@@ -1,7 +1,6 @@
 package dev.turboism.plugin.scenepalette;
 
 import dev.turboism.sdk.ui.table.SceneTableService;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -33,22 +32,18 @@ final class SceneTableSorter implements AutoCloseable {
     private boolean ascending;
 
     SceneTableSorter(final SceneTableService service) {
-        this(service, ManualOrderStore.unavailable(), ignored -> { });
+        this(service, ManualOrderStore.unavailable(), ignored -> {});
     }
 
     SceneTableSorter(
-        final SceneTableService service,
-        final ManualOrderStore store,
-        final dev.turboism.sdk.plugin.PluginLogger logger
-    ) {
+            final SceneTableService service,
+            final ManualOrderStore store,
+            final dev.turboism.sdk.plugin.PluginLogger logger) {
         this(service, store, logger::info);
     }
 
     private SceneTableSorter(
-        final SceneTableService service,
-        final ManualOrderStore store,
-        final Consumer<String> debug
-    ) {
+            final SceneTableService service, final ManualOrderStore store, final Consumer<String> debug) {
         this.service = Objects.requireNonNull(service, "service");
         this.store = Objects.requireNonNull(store, "store");
         this.debug = Objects.requireNonNull(debug, "debug");
@@ -82,11 +77,7 @@ final class SceneTableSorter implements AutoCloseable {
         apply();
     }
 
-    private void load(
-        final String requestedScope,
-        final long generation,
-        final long orderGeneration
-    ) {
+    private void load(final String requestedScope, final long generation, final long orderGeneration) {
         try {
             store.load(requestedScope).handle((loaded, failure) -> {
                 acceptLoad(requestedScope, generation, orderGeneration, loaded, failure);
@@ -98,12 +89,11 @@ final class SceneTableSorter implements AutoCloseable {
     }
 
     private synchronized void acceptLoad(
-        final String requestedScope,
-        final long generation,
-        final long orderGeneration,
-        final ManualOrderStore.LoadResult loaded,
-        final Throwable failure
-    ) {
+            final String requestedScope,
+            final long generation,
+            final long orderGeneration,
+            final ManualOrderStore.LoadResult loaded,
+            final Throwable failure) {
         if (closed || generation != scopeGeneration || !Objects.equals(requestedScope, scopeId)) return;
         loadPending = false;
         if (failure != null || loaded == null) {
@@ -128,15 +118,15 @@ final class SceneTableSorter implements AutoCloseable {
                     persistManualOrder();
                 }
             }
-            case MISSING -> { }
+            case MISSING -> {}
         }
         apply();
     }
 
     private static List<String> itemIds(final SceneTableService.TableSnapshot value) {
         return value == null
-            ? List.of()
-            : value.items().stream().map(SceneTableService.Item::id).toList();
+                ? List.of()
+                : value.items().stream().map(SceneTableService.Item::id).toList();
     }
 
     private static List<String> merge(final List<String> stored, final List<String> live) {
@@ -160,8 +150,9 @@ final class SceneTableSorter implements AutoCloseable {
     }
 
     synchronized void onItemOrderChanged(final SceneTableService.ItemOrderChanged changed) {
-        if (closed || !Objects.equals(SceneTableService.SCENE_TABLE_ID, changed.tableId())
-            || !Objects.equals(scopeId, changed.scopeId())) {
+        if (closed
+                || !Objects.equals(SceneTableService.SCENE_TABLE_ID, changed.tableId())
+                || !Objects.equals(scopeId, changed.scopeId())) {
             return;
         }
         manualOrder = merge(changed.itemIds(), itemIds(snapshot));
@@ -190,22 +181,23 @@ final class SceneTableSorter implements AutoCloseable {
             return;
         }
         service.setManualReordering(current.tableId(), sortColumn == null);
-        current.columns().forEach(column -> service.setHeader(
-            current.tableId(),
-            column.id(),
-            baseHeaders.getOrDefault(column.id(), stripMarker(column.label())) + marker(column.id())
-        ));
+        current.columns()
+                .forEach(column -> service.setHeader(
+                        current.tableId(),
+                        column.id(),
+                        baseHeaders.getOrDefault(column.id(), stripMarker(column.label())) + marker(column.id())));
         if (sortColumn == null) {
             service.setItemOrder(current.tableId(), manualOrder);
             return;
         }
         final List<SceneTableService.Item> sorted = new ArrayList<>(current.items());
         final int direction = ascending ? 1 : -1;
-        sorted.sort((left, right) -> direction * compareNatural(
-            left.cells().getOrDefault(sortColumn, ""),
-            right.cells().getOrDefault(sortColumn, "")
-        ));
-        service.setItemOrder(current.tableId(), sorted.stream().map(SceneTableService.Item::id).toList());
+        sorted.sort((left, right) -> direction
+                * compareNatural(
+                        left.cells().getOrDefault(sortColumn, ""), right.cells().getOrDefault(sortColumn, "")));
+        service.setItemOrder(
+                current.tableId(),
+                sorted.stream().map(SceneTableService.Item::id).toList());
     }
 
     private String marker(final String columnId) {
@@ -235,17 +227,15 @@ final class SceneTableSorter implements AutoCloseable {
                 while (bEnd < b.length() && Character.isDigit(b.charAt(bEnd))) bEnd++;
                 final String aNumber = stripLeadingZeroes(a.substring(ai, aEnd));
                 final String bNumber = stripLeadingZeroes(b.substring(bi, bEnd));
-                final int numberOrder = Comparator.comparingInt(String::length).thenComparing(String::compareTo)
-                    .compare(aNumber, bNumber);
+                final int numberOrder = Comparator.comparingInt(String::length)
+                        .thenComparing(String::compareTo)
+                        .compare(aNumber, bNumber);
                 if (numberOrder != 0) return numberOrder;
                 ai = aEnd;
                 bi = bEnd;
                 continue;
             }
-            final int characterOrder = Character.compare(
-                Character.toLowerCase(ac),
-                Character.toLowerCase(bc)
-            );
+            final int characterOrder = Character.compare(Character.toLowerCase(ac), Character.toLowerCase(bc));
             if (characterOrder != 0) return characterOrder;
             ai++;
             bi++;

@@ -1,9 +1,5 @@
 package dev.turboism.core.event;
 
-import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -11,6 +7,9 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 /**
  * No-execution resolvability oracle for the trusted domains a contract artifact may
@@ -54,10 +53,7 @@ final class ContractTypeOracle {
     private final Set<String> missing = new java.util.HashSet<>();
 
     private ContractTypeOracle(
-        final ClassLoader sdkLoader,
-        final Class<?> sdkAnchor,
-        final Map<String, Module> platformPackages
-    ) {
+            final ClassLoader sdkLoader, final Class<?> sdkAnchor, final Map<String, Module> platformPackages) {
         this.sdkLoader = sdkLoader;
         this.sdkAnchor = sdkAnchor;
         this.platformPackages = platformPackages;
@@ -76,8 +72,8 @@ final class ContractTypeOracle {
                 continue;
             }
             if (!module.isNamed()
-                || !(module.getName().startsWith("java.")
-                    || module.getName().startsWith("jdk."))) {
+                    || !(module.getName().startsWith("java.")
+                            || module.getName().startsWith("jdk."))) {
                 continue;
             }
             for (final String pkg : module.getPackages()) {
@@ -92,10 +88,7 @@ final class ContractTypeOracle {
      * {@code null} exercises the bootstrap-loaded SDK branch, which reads the anchor's
      * module resources instead of a loader view.
      */
-    static ContractTypeOracle forLoaders(
-        final ClassLoader sdkLoader,
-        final Class<?> sdkAnchor
-    ) {
+    static ContractTypeOracle forLoaders(final ClassLoader sdkLoader, final Class<?> sdkAnchor) {
         final ContractTypeOracle oracle = forSdkAnchor(sdkAnchor);
         return new ContractTypeOracle(sdkLoader, sdkAnchor, oracle.platformPackages);
     }
@@ -130,12 +123,9 @@ final class ContractTypeOracle {
         final String resource = binaryName.replace('.', '/') + ".class";
         try {
             if (binaryName.startsWith(ContractClosurePolicy.SDK_PACKAGE_PREFIX)) {
-                return sdkLoader != null
-                    ? sdkResource(resource)
-                    : moduleResource(sdkAnchor.getModule(), resource);
+                return sdkLoader != null ? sdkResource(resource) : moduleResource(sdkAnchor.getModule(), resource);
             }
-            final Module module =
-                platformPackages.get(ContractClosurePolicy.packageName(binaryName));
+            final Module module = platformPackages.get(ContractClosurePolicy.packageName(binaryName));
             return module == null ? null : moduleResource(module, resource);
         } catch (final IOException failure) {
             return null;
@@ -152,8 +142,7 @@ final class ContractTypeOracle {
         }
     }
 
-    private static byte[] moduleResource(final Module module, final String resource)
-            throws IOException {
+    private static byte[] moduleResource(final Module module, final String resource) throws IOException {
         try (InputStream stream = module.getResourceAsStream(resource)) {
             return stream == null ? null : readBounded(stream);
         }
@@ -163,7 +152,7 @@ final class ContractTypeOracle {
         final java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
         final byte[] buffer = new byte[8192];
         long size = 0;
-        for (int read; (read = stream.read(buffer)) >= 0;) {
+        for (int read; (read = stream.read(buffer)) >= 0; ) {
             if (read == 0) {
                 continue;
             }
@@ -189,14 +178,13 @@ final class ContractTypeOracle {
                 return null;
             }
             reader.accept(
-                new ClassVisitor(Opcodes.ASM9) {
-                    @Override
-                    public void visitPermittedSubclass(final String permitted) {
-                        permits.add(permitted.replace('/', '.'));
-                    }
-                },
-                ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES
-            );
+                    new ClassVisitor(Opcodes.ASM9) {
+                        @Override
+                        public void visitPermittedSubclass(final String permitted) {
+                            permits.add(permitted.replace('/', '.'));
+                        }
+                    },
+                    ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
             return new TrustedInfo(reader.getAccess(), Set.copyOf(permits));
         } catch (final RuntimeException failure) {
             return null;

@@ -1,41 +1,37 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.SwingUtilities;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeAuthoringTransactionServiceTest {
 
     @Test
     void obtainsOneBindingAndDelegatesTheSynchronousCallback() {
         final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
+                new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
         final AtomicInteger bindingReads = new AtomicInteger();
-        final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(coordinator, () -> {
-                bindingReads.incrementAndGet();
-                return Optional.of(bindingOnCurrentThread());
-            });
+        final RuntimeAuthoringTransactionService service = new RuntimeAuthoringTransactionService(coordinator, () -> {
+            bindingReads.incrementAndGet();
+            return Optional.of(bindingOnCurrentThread());
+        });
 
-        final AuthoringTransactionResult<String> result = service.execute(
-            AuthoringTransactionOptions.of("Inspect transaction"),
-            () -> "done"
-        );
+        final AuthoringTransactionResult<String> result =
+                service.execute(AuthoringTransactionOptions.of("Inspect transaction"), () -> "done");
 
         assertEquals(1, bindingReads.get());
         assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
@@ -47,33 +43,27 @@ final class RuntimeAuthoringTransactionServiceTest {
     void executesBindingLookupCallbackAndHostCallsOnTheEventDispatchThread() {
         assertFalse(SwingUtilities.isEventDispatchThread());
         final RecordingHost host = new RecordingHost();
-        final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(host);
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
         final AtomicBoolean bindingOnEdt = new AtomicBoolean();
         final AtomicBoolean workOnEdt = new AtomicBoolean();
-        final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(coordinator, () -> {
-                bindingOnEdt.set(SwingUtilities.isEventDispatchThread());
-                return Optional.of(bindingOnCurrentThread());
-            });
+        final RuntimeAuthoringTransactionService service = new RuntimeAuthoringTransactionService(coordinator, () -> {
+            bindingOnEdt.set(SwingUtilities.isEventDispatchThread());
+            return Optional.of(bindingOnCurrentThread());
+        });
 
-        final AuthoringTransactionResult<Void> result = service.execute(
-            AuthoringTransactionOptions.of("EDT transaction"),
-            () -> {
-                workOnEdt.set(SwingUtilities.isEventDispatchThread());
-                coordinator.mutate(
-                    bindingOnCurrentThread(),
-                    contribution(new AtomicInteger())
-                );
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                service.execute(AuthoringTransactionOptions.of("EDT transaction"), () -> {
+                    workOnEdt.set(SwingUtilities.isEventDispatchThread());
+                    coordinator.mutate(bindingOnCurrentThread(), contribution(new AtomicInteger()));
+                    return null;
+                });
 
         assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
         assertTrue(bindingOnEdt.get(), "binding supplier must run on the Swing EDT");
         assertTrue(workOnEdt.get(), "transaction callback must run on the Swing EDT");
-        assertTrue(host.offEdtCalls.get() == 0 && host.calls.get() > 0,
-            "every host boundary call must run on the Swing EDT");
+        assertTrue(
+                host.offEdtCalls.get() == 0 && host.calls.get() > 0,
+                "every host boundary call must run on the Swing EDT");
         assertEquals(1, host.beginCount);
         assertEquals(1, host.commitCount);
     }
@@ -81,29 +71,17 @@ final class RuntimeAuthoringTransactionServiceTest {
     @Test
     void contributionInsideTheCallbackJoinsTheAmbientRoot() {
         final RecordingHost host = new RecordingHost();
-        final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(host);
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
         final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(
-                coordinator,
-                () -> Optional.of(bindingOnCurrentThread())
-            );
+                new RuntimeAuthoringTransactionService(coordinator, () -> Optional.of(bindingOnCurrentThread()));
         final AtomicInteger value = new AtomicInteger();
 
-        final AuthoringTransactionResult<Void> result = service.execute(
-            AuthoringTransactionOptions.of("Grouped write"),
-            () -> {
-                coordinator.mutate(
-                    bindingOnCurrentThread(),
-                    contribution(value)
-                );
-                coordinator.mutate(
-                    bindingOnCurrentThread(),
-                    contribution(value)
-                );
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                service.execute(AuthoringTransactionOptions.of("Grouped write"), () -> {
+                    coordinator.mutate(bindingOnCurrentThread(), contribution(value));
+                    coordinator.mutate(bindingOnCurrentThread(), contribution(value));
+                    return null;
+                });
 
         assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
         assertEquals(1, host.beginCount, "both contributions share one root edit");
@@ -115,25 +93,16 @@ final class RuntimeAuthoringTransactionServiceTest {
     @Test
     void contributionInsideTheCallbackRollsBackWithTheRoot() {
         final RecordingHost host = new RecordingHost();
-        final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(host);
+        final EditorAuthoringTransactionCoordinator coordinator = new EditorAuthoringTransactionCoordinator(host);
         final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(
-                coordinator,
-                () -> Optional.of(bindingOnCurrentThread())
-            );
+                new RuntimeAuthoringTransactionService(coordinator, () -> Optional.of(bindingOnCurrentThread()));
         final AtomicInteger value = new AtomicInteger();
 
-        final AuthoringTransactionResult<Void> result = service.execute(
-            AuthoringTransactionOptions.of("Failing write"),
-            () -> {
-                coordinator.mutate(
-                    bindingOnCurrentThread(),
-                    contribution(value)
-                );
-                throw new IllegalStateException("later step failed");
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                service.execute(AuthoringTransactionOptions.of("Failing write"), () -> {
+                    coordinator.mutate(bindingOnCurrentThread(), contribution(value));
+                    throw new IllegalStateException("later step failed");
+                });
 
         assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
         assertEquals(0, value.get(), "compensation must restore the pre-transaction value");
@@ -145,88 +114,68 @@ final class RuntimeAuthoringTransactionServiceTest {
     @Test
     void missingBindingFailsClosedWithoutInvokingTheCallback() {
         final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
+                new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
         final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(coordinator, Optional::empty);
+                new RuntimeAuthoringTransactionService(coordinator, Optional::empty);
         final AtomicBoolean invoked = new AtomicBoolean();
 
-        final AuthoringTransactionResult<String> result = service.execute(
-            AuthoringTransactionOptions.of("Unavailable transaction"),
-            () -> {
-                invoked.set(true);
-                return "unexpected";
-            }
-        );
+        final AuthoringTransactionResult<String> result =
+                service.execute(AuthoringTransactionOptions.of("Unavailable transaction"), () -> {
+                    invoked.set(true);
+                    return "unexpected";
+                });
 
         assertFalse(invoked.get());
         assertEquals(AuthoringTransactionOutcome.UNAVAILABLE, result.outcome());
-        assertEquals(
-            Optional.of("cubism.authoring.transactions.binding-unavailable"),
-            result.diagnosticId()
-        );
+        assertEquals(Optional.of("cubism.authoring.transactions.binding-unavailable"), result.diagnosticId());
     }
 
     @Test
     void bindingResolutionFailureFailsClosedWithoutInvokingTheCallback() {
         final EditorAuthoringTransactionCoordinator coordinator =
-            new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
-        final RuntimeAuthoringTransactionService service =
-            new RuntimeAuthoringTransactionService(coordinator, () -> {
-                throw new IllegalStateException("host session changed");
-            });
+                new EditorAuthoringTransactionCoordinator(new ReadOnlyHost());
+        final RuntimeAuthoringTransactionService service = new RuntimeAuthoringTransactionService(coordinator, () -> {
+            throw new IllegalStateException("host session changed");
+        });
         final AtomicBoolean invoked = new AtomicBoolean();
 
-        final AuthoringTransactionResult<Void> result = service.execute(
-            AuthoringTransactionOptions.of("Unavailable transaction"),
-            () -> {
-                invoked.set(true);
-                return null;
-            }
-        );
+        final AuthoringTransactionResult<Void> result =
+                service.execute(AuthoringTransactionOptions.of("Unavailable transaction"), () -> {
+                    invoked.set(true);
+                    return null;
+                });
 
         assertFalse(invoked.get());
         assertEquals(AuthoringTransactionOutcome.UNAVAILABLE, result.outcome());
-        assertEquals(
-            Optional.of("cubism.authoring.transactions.binding-unavailable"),
-            result.diagnosticId()
-        );
+        assertEquals(Optional.of("cubism.authoring.transactions.binding-unavailable"), result.diagnosticId());
     }
 
     private static EditorAuthoringTransactionCoordinator.Binding bindingOnCurrentThread() {
         return new EditorAuthoringTransactionCoordinator.Binding(
-            "plugin.test",
-            "document-1",
-            1,
-            "model-1",
-            1,
-            Thread.currentThread()
-        );
+                "plugin.test", "document-1", 1, "model-1", 1, Thread.currentThread());
     }
 
     private static EditorUndoContribution contribution(final AtomicInteger value) {
         final int before = value.get();
         final int after = before + 1;
         return new EditorUndoContribution(
-            "test.write",
-            "target-1",
-            "Set value",
-            (edit, label) -> { },
-            () -> value.set(after),
-            () -> value.get() == after,
-            () -> value.set(before),
-            () -> value.get() == before,
-            Set.of()
-        );
+                "test.write",
+                "target-1",
+                "Set value",
+                (edit, label) -> {},
+                () -> value.set(after),
+                () -> value.get() == after,
+                () -> value.set(before),
+                () -> value.get() == before,
+                Set.of());
     }
 
-    private static boolean sameScope(
-        final EditorAuthoringTransactionCoordinator.Binding expected
-    ) {
+    private static boolean sameScope(final EditorAuthoringTransactionCoordinator.Binding expected) {
         return expected.documentGeneration() == 1
-            && expected.modelGeneration() == 1
-            && expected.documentIdentity().equals("document-1")
-            && expected.modelIdentity().equals("model-1")
-            && expected.isCurrentThread();
+                && expected.modelGeneration() == 1
+                && expected.documentIdentity().equals("document-1")
+                && expected.modelIdentity().equals("model-1")
+                && expected.isCurrentThread();
     }
 
     private static final class ReadOnlyHost implements EditorAuthoringTransactionCoordinator.Host {
@@ -236,63 +185,49 @@ final class RuntimeAuthoringTransactionServiceTest {
         }
 
         @Override
-        public HistorySnapshot history(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding expected) {
             return new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE,
-                1,
-                1,
-                0,
-                java.util.List.of(),
-                false,
-                false,
-                "document-binding-1",
-                "manager-binding-1"
-            );
+                    HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    1,
+                    0,
+                    java.util.List.of(),
+                    false,
+                    false,
+                    "document-binding-1",
+                    "manager-binding-1");
         }
 
         @Override
-        public Object beginEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final String label
-        ) {
+        public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding expected, final String label) {
             throw new AssertionError("read-only callback must not open an edit");
         }
 
         @Override
         public void endEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit,
-            final boolean abort
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit, final boolean abort) {
             throw new AssertionError("read-only callback must not close an edit");
         }
 
         @Override
-        public void undoEditGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit
-        ) {
+        public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {
             throw new AssertionError("read-only callback must not undo an edit group");
         }
 
         @Override
         public void refresh(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Set<EditorRefreshRequirement> requirements
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final Set<EditorRefreshRequirement> requirements) {
             throw new AssertionError("read-only callback must not refresh");
         }
 
         @Override
         public Optional<String> committedHistoryEntryId(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final HistorySnapshot before,
-            final HistorySnapshot after,
-            final String transactionId,
-            final String label
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final HistorySnapshot before,
+                final HistorySnapshot after,
+                final String transactionId,
+                final String label) {
             return Optional.empty();
         }
 
@@ -326,32 +261,26 @@ final class RuntimeAuthoringTransactionServiceTest {
         }
 
         @Override
-        public HistorySnapshot history(
-            final EditorAuthoringTransactionCoordinator.Binding expected
-        ) {
+        public HistorySnapshot history(final EditorAuthoringTransactionCoordinator.Binding expected) {
             recordThread();
             return history();
         }
 
         private HistorySnapshot history() {
             return new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE,
-                1,
-                revision,
-                position,
-                List.copyOf(entries),
-                position > 0,
-                position < entries.size(),
-                "document-binding-1",
-                "manager-binding-1"
-            );
+                    HistorySnapshot.Availability.AVAILABLE,
+                    1,
+                    revision,
+                    position,
+                    List.copyOf(entries),
+                    position > 0,
+                    position < entries.size(),
+                    "document-binding-1",
+                    "manager-binding-1");
         }
 
         @Override
-        public Object beginEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final String label
-        ) {
+        public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding expected, final String label) {
             recordThread();
             beginCount++;
             currentLabel = label;
@@ -360,10 +289,7 @@ final class RuntimeAuthoringTransactionServiceTest {
 
         @Override
         public void endEdit(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit,
-            final boolean abort
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit, final boolean abort) {
             recordThread();
             if (abort) {
                 abortCount++;
@@ -378,30 +304,25 @@ final class RuntimeAuthoringTransactionServiceTest {
         }
 
         @Override
-        public void undoEditGroup(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Object edit
-        ) {
+        public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding expected, final Object edit) {
             recordThread();
             groupUndoCount++;
         }
 
         @Override
         public void refresh(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final Set<EditorRefreshRequirement> requirements
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final Set<EditorRefreshRequirement> requirements) {
             recordThread();
         }
 
         @Override
         public Optional<String> committedHistoryEntryId(
-            final EditorAuthoringTransactionCoordinator.Binding expected,
-            final HistorySnapshot before,
-            final HistorySnapshot after,
-            final String transactionId,
-            final String label
-        ) {
+                final EditorAuthoringTransactionCoordinator.Binding expected,
+                final HistorySnapshot before,
+                final HistorySnapshot after,
+                final String transactionId,
+                final String label) {
             recordThread();
             if (after.entries().size() != before.entries().size() + 1) return Optional.empty();
             return Optional.of("history-entry-" + after.entries().size());

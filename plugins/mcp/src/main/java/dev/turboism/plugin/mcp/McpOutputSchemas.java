@@ -9,176 +9,163 @@ final class McpOutputSchemas {
 
     private static final String DRAFT = "https://json-schema.org/draft/2020-12/schema";
 
-    private McpOutputSchemas() {
-    }
+    private McpOutputSchemas() {}
 
     static Map<String, Object> modelObjectBatch() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("partialSuccess", booleanSchema()),
-                entry("stopOnError", booleanSchema()),
-                entry("stopped", booleanSchema()),
-                entry("succeeded", nonNegativeInteger()),
-                entry("failed", nonNegativeInteger()),
-                entry("results", array(modelObjectOperationResult()))
-            ),
-            List.of(
-                "ok", "partialSuccess", "stopOnError", "stopped",
-                "succeeded", "failed", "results"
-            )
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry("partialSuccess", booleanSchema()),
+                        entry("stopOnError", booleanSchema()),
+                        entry("stopped", booleanSchema()),
+                        entry("succeeded", nonNegativeInteger()),
+                        entry("failed", nonNegativeInteger()),
+                        entry("results", array(modelObjectOperationResult()))),
+                List.of("ok", "partialSuccess", "stopOnError", "stopped", "succeeded", "failed", "results")));
     }
 
     static Map<String, Object> parameterBatch() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("stopOnError", booleanSchema()),
-                entry("results", array(parameterOperationResult())),
-                entry("parameters", nullableArray(parameter())),
-                entry("parameterSnapshotWarning", error())
-            ),
-            List.of("ok", "stopOnError", "results", "parameters")
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry("stopOnError", booleanSchema()),
+                        entry("results", array(parameterOperationResult())),
+                        entry("parameters", nullableArray(parameter())),
+                        entry("parameterSnapshotWarning", error())),
+                List.of("ok", "stopOnError", "results", "parameters")));
     }
 
     static Map<String, Object> bindingBatch() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("stopOnError", booleanSchema()),
-                entry("results", array(bindingOperationResult()))
-            ),
-            List.of("ok", "stopOnError", "results")
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry("stopOnError", booleanSchema()),
+                        entry("results", array(bindingOperationResult()))),
+                List.of("ok", "stopOnError", "results")));
     }
 
     static Map<String, Object> historyRead() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("snapshot", historySnapshot()),
-                entry("diagnosticId", nullableString())
-            ),
-            List.of("ok", "snapshot", "diagnosticId")
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry("snapshot", historySnapshot()),
+                        entry("diagnosticId", nullableString())),
+                List.of("ok", "snapshot", "diagnosticId")));
     }
 
     static Map<String, Object> historyMove() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("outcome", enumSchema(List.of(
-                    "MOVED", "NO_CHANGE", "REJECTED_STALE", "INVALID_POSITION",
-                    "PARTIAL_MOVE", "UNAVAILABLE", "FAILED_UNKNOWN_POSITION"
-                ))),
-                entry("snapshot", historySnapshot()),
-                entry("diagnosticId", nullableString())
-            ),
-            List.of("ok", "outcome", "snapshot", "diagnosticId")
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry(
+                                "outcome",
+                                enumSchema(List.of(
+                                        "MOVED",
+                                        "NO_CHANGE",
+                                        "REJECTED_STALE",
+                                        "INVALID_POSITION",
+                                        "PARTIAL_MOVE",
+                                        "UNAVAILABLE",
+                                        "FAILED_UNKNOWN_POSITION"))),
+                        entry("snapshot", historySnapshot()),
+                        entry("diagnosticId", nullableString())),
+                List.of("ok", "outcome", "snapshot", "diagnosticId")));
     }
 
     static Map<String, Object> editorCommand() {
         return successOrFailure(object(
-            properties(
-                entry("ok", booleanSchema()),
-                entry("status", enumSchema(List.of(
-                    "EXECUTED", "UNAVAILABLE", "INVALID_STATE", "UNSUPPORTED_VERSION",
-                    "PERMISSION_DENIED", "REJECTED", "FAILED"
-                ))),
-                entry("commandId", stringSchema()),
-                entry("executed", booleanSchema())
-            ),
-            List.of("ok", "status", "commandId", "executed")
-        ));
+                properties(
+                        entry("ok", booleanSchema()),
+                        entry(
+                                "status",
+                                enumSchema(List.of(
+                                        "EXECUTED",
+                                        "UNAVAILABLE",
+                                        "INVALID_STATE",
+                                        "UNSUPPORTED_VERSION",
+                                        "PERMISSION_DENIED",
+                                        "REJECTED",
+                                        "FAILED"))),
+                        entry("commandId", stringSchema()),
+                        entry("executed", booleanSchema())),
+                List.of("ok", "status", "commandId", "executed")));
     }
 
     private static Map<String, Object> modelObjectOperationResult() {
         final Map<String, Object> common = properties(
-            entry("index", nonNegativeInteger()),
-            entry("operation", stringSchema()),
-            entry("ok", constant(true)),
-            entry("result", modelObjectSuccess())
-        );
+                entry("index", nonNegativeInteger()),
+                entry("operation", stringSchema()),
+                entry("ok", constant(true)),
+                entry("result", modelObjectSuccess()));
         final Map<String, Object> failed = properties(
-            entry("index", nonNegativeInteger()),
-            entry("operation", stringSchema()),
-            entry("ok", constant(false)),
-            entry("result", modelObjectFailure())
-        );
+                entry("index", nonNegativeInteger()),
+                entry("operation", stringSchema()),
+                entry("ok", constant(false)),
+                entry("result", modelObjectFailure()));
         final Map<String, Object> skipped = properties(
-            entry("index", nonNegativeInteger()),
-            entry("operation", stringSchema()),
-            entry("ok", constant(false)),
-            entry("skipped", constant(true)),
-            entry("result", modelObjectFailure())
-        );
+                entry("index", nonNegativeInteger()),
+                entry("operation", stringSchema()),
+                entry("ok", constant(false)),
+                entry("skipped", constant(true)),
+                entry("result", modelObjectFailure()));
         return oneOf(
-            object(common, List.of("index", "operation", "ok", "result")),
-            object(failed, List.of("index", "operation", "ok", "result")),
-            object(skipped, List.of("index", "operation", "ok", "skipped", "result"))
-        );
+                object(common, List.of("index", "operation", "ok", "result")),
+                object(failed, List.of("index", "operation", "ok", "result")),
+                object(skipped, List.of("index", "operation", "ok", "skipped", "result")));
     }
 
     private static Map<String, Object> modelObjectSuccess() {
         return oneOf(
-            object(
-                properties(
-                    entry("ok", constant(true)),
-                    entry("outcome", writeSuccessOutcome()),
-                    entry("retryable", constant(false)),
-                    entry("object", modelObjectDescriptor()),
-                    entry("createdObjectId", stringSchema()),
-                    entry("kind", modelObjectKind()),
-                    entry("readbackWarning", stringSchema()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of("ok", "outcome", "retryable", "object")
-            ),
-            object(
-                properties(
-                    entry("ok", constant(true)),
-                    entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
-                    entry("retryable", constant(false)),
-                    entry("createdObjectId", stringSchema()),
-                    entry("kind", modelObjectKind()),
-                    entry("readbackWarning", stringSchema()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of(
-                    "ok", "outcome", "retryable", "createdObjectId", "kind",
-                    "readbackWarning", "diagnosticId"
-                )
-            ),
-            object(
-                properties(
-                    entry("ok", constant(true)),
-                    entry("outcome", writeSuccessOutcome()),
-                    entry("retryable", constant(false)),
-                    entry("deleted", constant(true)),
-                    entry("target", modelObjectReference()),
-                    entry("policy", enumSchema(List.of("reject_referenced", "cascade"))),
-                    entry("readbackWarning", stringSchema()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of("ok", "outcome", "retryable", "deleted", "target", "policy")
-            )
-        );
+                object(
+                        properties(
+                                entry("ok", constant(true)),
+                                entry("outcome", writeSuccessOutcome()),
+                                entry("retryable", constant(false)),
+                                entry("object", modelObjectDescriptor()),
+                                entry("createdObjectId", stringSchema()),
+                                entry("kind", modelObjectKind()),
+                                entry("readbackWarning", stringSchema()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of("ok", "outcome", "retryable", "object")),
+                object(
+                        properties(
+                                entry("ok", constant(true)),
+                                entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                                entry("retryable", constant(false)),
+                                entry("createdObjectId", stringSchema()),
+                                entry("kind", modelObjectKind()),
+                                entry("readbackWarning", stringSchema()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of(
+                                "ok",
+                                "outcome",
+                                "retryable",
+                                "createdObjectId",
+                                "kind",
+                                "readbackWarning",
+                                "diagnosticId")),
+                object(
+                        properties(
+                                entry("ok", constant(true)),
+                                entry("outcome", writeSuccessOutcome()),
+                                entry("retryable", constant(false)),
+                                entry("deleted", constant(true)),
+                                entry("target", modelObjectReference()),
+                                entry("policy", enumSchema(List.of("reject_referenced", "cascade"))),
+                                entry("readbackWarning", stringSchema()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of("ok", "outcome", "retryable", "deleted", "target", "policy")));
     }
 
     private static Map<String, Object> modelObjectFailure() {
         return object(
-            properties(
-                entry("ok", constant(false)),
-                entry("outcome", writeFailureOutcome()),
-                entry("retryable", constant(false)),
-                entry("error", error()),
-                entry("diagnosticId", stringSchema())
-            ),
-            List.of("ok", "outcome", "retryable", "error")
-        );
+                properties(
+                        entry("ok", constant(false)),
+                        entry("outcome", writeFailureOutcome()),
+                        entry("retryable", constant(false)),
+                        entry("error", error()),
+                        entry("diagnosticId", stringSchema())),
+                List.of("ok", "outcome", "retryable", "error"));
     }
 
     private static Map<String, Object> writeSuccessOutcome() {
@@ -191,21 +178,16 @@ final class McpOutputSchemas {
 
     private static Map<String, Object> modelObjectDescriptor() {
         return object(
-            properties(
-                entry("kind", modelObjectKind()),
-                entry("id", stringSchema()),
-                entry("name", stringSchema()),
-                entry("parent", nullableObject(modelObjectReference()))
-            ),
-            List.of("kind", "id", "name", "parent")
-        );
+                properties(
+                        entry("kind", modelObjectKind()),
+                        entry("id", stringSchema()),
+                        entry("name", stringSchema()),
+                        entry("parent", nullableObject(modelObjectReference()))),
+                List.of("kind", "id", "name", "parent"));
     }
 
     private static Map<String, Object> modelObjectReference() {
-        return object(
-            properties(entry("kind", modelObjectKind()), entry("id", stringSchema())),
-            List.of("kind", "id")
-        );
+        return object(properties(entry("kind", modelObjectKind()), entry("id", stringSchema())), List.of("kind", "id"));
     }
 
     private static Map<String, Object> modelObjectKind() {
@@ -214,57 +196,48 @@ final class McpOutputSchemas {
 
     private static Map<String, Object> parameterOperationResult() {
         return operationResult(oneOf(
-            parameter(),
-            object(
-                properties(
-                    entry("created", array(parameter())),
-                    entry("outcome", writeSuccessOutcome()),
-                    entry("retryable", constant(false)),
-                    entry("readbackWarning", error()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of("created")
-            ),
-            object(
-                properties(
-                    entry("parameterId", stringSchema()),
-                    entry("removed", constant(true)),
-                    entry("outcome", writeSuccessOutcome()),
-                    entry("retryable", constant(false)),
-                    entry("readbackWarning", error()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of("parameterId", "removed")
-            ),
-            object(
-                properties(
-                    entry("parameterIds", array(stringSchema())),
-                    entry("removed", constant(true)),
-                    entry("outcome", writeSuccessOutcome()),
-                    entry("retryable", constant(false)),
-                    entry("readbackWarning", error()),
-                    entry("diagnosticId", stringSchema())
-                ),
-                List.of("parameterIds", "removed")
-            ),
-            parameterReadbackWarning("parameterId"),
-            parameterReadbackWarning("parameterIds")
-        ));
+                parameter(),
+                object(
+                        properties(
+                                entry("created", array(parameter())),
+                                entry("outcome", writeSuccessOutcome()),
+                                entry("retryable", constant(false)),
+                                entry("readbackWarning", error()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of("created")),
+                object(
+                        properties(
+                                entry("parameterId", stringSchema()),
+                                entry("removed", constant(true)),
+                                entry("outcome", writeSuccessOutcome()),
+                                entry("retryable", constant(false)),
+                                entry("readbackWarning", error()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of("parameterId", "removed")),
+                object(
+                        properties(
+                                entry("parameterIds", array(stringSchema())),
+                                entry("removed", constant(true)),
+                                entry("outcome", writeSuccessOutcome()),
+                                entry("retryable", constant(false)),
+                                entry("readbackWarning", error()),
+                                entry("diagnosticId", stringSchema())),
+                        List.of("parameterIds", "removed")),
+                parameterReadbackWarning("parameterId"),
+                parameterReadbackWarning("parameterIds")));
     }
 
     private static Map<String, Object> parameterReadbackWarning(final String identity) {
-        final Map<String, Object> identitySchema = "parameterIds".equals(identity)
-            ? array(stringSchema()) : stringSchema();
+        final Map<String, Object> identitySchema =
+                "parameterIds".equals(identity) ? array(stringSchema()) : stringSchema();
         return object(
-            properties(
-                entry(identity, identitySchema),
-                entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
-                entry("retryable", constant(false)),
-                entry("readbackWarning", error()),
-                entry("diagnosticId", stringSchema())
-            ),
-            List.of(identity, "outcome", "retryable", "readbackWarning", "diagnosticId")
-        );
+                properties(
+                        entry(identity, identitySchema),
+                        entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                        entry("retryable", constant(false)),
+                        entry("readbackWarning", error()),
+                        entry("diagnosticId", stringSchema())),
+                List.of(identity, "outcome", "retryable", "readbackWarning", "diagnosticId"));
     }
 
     private static Map<String, Object> bindingOperationResult() {
@@ -273,324 +246,258 @@ final class McpOutputSchemas {
 
     private static Map<String, Object> bindingWriteSuccess() {
         return object(
-            properties(
-                entry("outcome", enumSchema(List.of(
-                    "APPLIED", "APPLIED_WITH_READBACK_WARNING"
-                ))),
-                entry("retryable", constant(false)),
-                entry("canonicalPointIds", nullableArray(stringSchema())),
-                entry("scope", enumSchema(List.of("all_target_bindings"))),
-                entry("affectedParameterIds", array(stringSchema())),
-                entry("affectedBindings", array(binding())),
-                entry("parameterId", stringSchema()),
-                entry("sourceParameterId", stringSchema()),
-                entry("targetParameterId", stringSchema()),
-                entry("target", oneOf(bindingTarget(), bindingResults())),
-                entry("targets", array(bindingTarget())),
-                entry("bound", booleanSchema()),
-                entry("binding", nullableObject(binding())),
-                entry("bindings", array(bindingResult())),
-                entry("source", bindingResults()),
-                entry("readbackWarning", error()),
-                entry("diagnosticId", stringSchema())
-            ),
-            List.of("outcome", "retryable", "canonicalPointIds")
-        );
+                properties(
+                        entry("outcome", enumSchema(List.of("APPLIED", "APPLIED_WITH_READBACK_WARNING"))),
+                        entry("retryable", constant(false)),
+                        entry("canonicalPointIds", nullableArray(stringSchema())),
+                        entry("scope", enumSchema(List.of("all_target_bindings"))),
+                        entry("affectedParameterIds", array(stringSchema())),
+                        entry("affectedBindings", array(binding())),
+                        entry("parameterId", stringSchema()),
+                        entry("sourceParameterId", stringSchema()),
+                        entry("targetParameterId", stringSchema()),
+                        entry("target", oneOf(bindingTarget(), bindingResults())),
+                        entry("targets", array(bindingTarget())),
+                        entry("bound", booleanSchema()),
+                        entry("binding", nullableObject(binding())),
+                        entry("bindings", array(bindingResult())),
+                        entry("source", bindingResults()),
+                        entry("readbackWarning", error()),
+                        entry("diagnosticId", stringSchema())),
+                List.of("outcome", "retryable", "canonicalPointIds"));
     }
 
     private static Map<String, Object> operationResult(final Map<String, Object> successResult) {
         return oneOf(
-            object(
-                properties(
-                    entry("index", nonNegativeInteger()),
-                    entry("operation", stringSchema()),
-                    entry("ok", constant(true)),
-                    entry("result", successResult)
-                ),
-                List.of("index", "operation", "ok", "result")
-            ),
-            object(
-                properties(
-                    entry("index", nonNegativeInteger()),
-                    entry("operation", nullableString()),
-                    entry("ok", constant(false)),
-                    entry("error", error())
-                ),
-                List.of("index", "operation", "ok", "error")
-            )
-        );
+                object(
+                        properties(
+                                entry("index", nonNegativeInteger()),
+                                entry("operation", stringSchema()),
+                                entry("ok", constant(true)),
+                                entry("result", successResult)),
+                        List.of("index", "operation", "ok", "result")),
+                object(
+                        properties(
+                                entry("index", nonNegativeInteger()),
+                                entry("operation", nullableString()),
+                                entry("ok", constant(false)),
+                                entry("error", error())),
+                        List.of("index", "operation", "ok", "error")));
     }
 
     private static Map<String, Object> parameter() {
         return object(
-            properties(
-                entry("id", stringSchema()),
-                entry("name", stringSchema()),
-                entry("value", numberSchema()),
-                entry("minimumValue", numberSchema()),
-                entry("defaultValue", numberSchema()),
-                entry("maximumValue", numberSchema()),
-                entry("type", enumSchema(List.of("normal", "blend_shape"))),
-                entry("repeat", booleanSchema()),
-                entry("outcome", writeSuccessOutcome()),
-                entry("retryable", constant(false)),
-                entry("readbackWarning", error()),
-                entry("diagnosticId", stringSchema())
-            ),
-            List.of(
-                "id", "name", "value", "minimumValue", "defaultValue",
-                "maximumValue", "type", "repeat"
-            )
-        );
+                properties(
+                        entry("id", stringSchema()),
+                        entry("name", stringSchema()),
+                        entry("value", numberSchema()),
+                        entry("minimumValue", numberSchema()),
+                        entry("defaultValue", numberSchema()),
+                        entry("maximumValue", numberSchema()),
+                        entry("type", enumSchema(List.of("normal", "blend_shape"))),
+                        entry("repeat", booleanSchema()),
+                        entry("outcome", writeSuccessOutcome()),
+                        entry("retryable", constant(false)),
+                        entry("readbackWarning", error()),
+                        entry("diagnosticId", stringSchema())),
+                List.of("id", "name", "value", "minimumValue", "defaultValue", "maximumValue", "type", "repeat"));
     }
 
     private static Map<String, Object> bindingResult() {
         return object(
-            properties(
-                entry("parameterId", stringSchema()),
-                entry("target", bindingTarget()),
-                entry("bound", booleanSchema()),
-                entry("binding", nullableObject(binding()))
-            ),
-            List.of("parameterId", "target", "bound", "binding")
-        );
+                properties(
+                        entry("parameterId", stringSchema()),
+                        entry("target", bindingTarget()),
+                        entry("bound", booleanSchema()),
+                        entry("binding", nullableObject(binding()))),
+                List.of("parameterId", "target", "bound", "binding"));
     }
 
     private static Map<String, Object> bindingResults() {
         return object(
-            properties(
-                entry("parameterId", stringSchema()),
-                entry("bindings", array(bindingResult()))
-            ),
-            List.of("parameterId", "bindings")
-        );
+                properties(entry("parameterId", stringSchema()), entry("bindings", array(bindingResult()))),
+                List.of("parameterId", "bindings"));
     }
 
     private static Map<String, Object> binding() {
         return object(
-            properties(
-                entry("parameterId", stringSchema()),
-                entry("target", bindingTarget()),
-                entry("family", enumSchema(List.of("keyform_grid", "blend_shape"))),
-                entry("points", array(bindingPoint()))
-            ),
-            List.of("parameterId", "target", "family", "points")
-        );
+                properties(
+                        entry("parameterId", stringSchema()),
+                        entry("target", bindingTarget()),
+                        entry("family", enumSchema(List.of("keyform_grid", "blend_shape"))),
+                        entry("points", array(bindingPoint()))),
+                List.of("parameterId", "target", "family", "points"));
     }
 
     private static Map<String, Object> bindingTarget() {
         return object(
-            properties(
-                entry("type", enumSchema(List.of("art_mesh", "warp_deformer", "rotation_deformer"))),
-                entry("id", stringSchema())
-            ),
-            List.of("type", "id")
-        );
+                properties(
+                        entry("type", enumSchema(List.of("art_mesh", "warp_deformer", "rotation_deformer"))),
+                        entry("id", stringSchema())),
+                List.of("type", "id"));
     }
 
     private static Map<String, Object> bindingPoint() {
-        return object(
-            properties(entry("id", stringSchema()), entry("value", numberSchema())),
-            List.of("id", "value")
-        );
+        return object(properties(entry("id", stringSchema()), entry("value", numberSchema())), List.of("id", "value"));
     }
 
     private static Map<String, Object> historySnapshot() {
         return object(
-            properties(
-                entry("availability", enumSchema(List.of("AVAILABLE", "UNAVAILABLE"))),
-                entry("generation", nonNegativeInteger()),
-                entry("revision", nonNegativeInteger()),
-                entry("position", nonNegativeInteger()),
-                entry("entries", array(historyEntry())),
-                entry("canUndo", booleanSchema()),
-                entry("canRedo", booleanSchema())
-            ),
-            List.of(
-                "availability", "generation", "revision", "position",
-                "entries", "canUndo", "canRedo"
-            )
-        );
+                properties(
+                        entry("availability", enumSchema(List.of("AVAILABLE", "UNAVAILABLE"))),
+                        entry("generation", nonNegativeInteger()),
+                        entry("revision", nonNegativeInteger()),
+                        entry("position", nonNegativeInteger()),
+                        entry("entries", array(historyEntry())),
+                        entry("canUndo", booleanSchema()),
+                        entry("canRedo", booleanSchema())),
+                List.of("availability", "generation", "revision", "position", "entries", "canUndo", "canRedo"));
     }
 
     private static Map<String, Object> historyEntry() {
         return object(
-            properties(
-                entry("index", nonNegativeInteger()),
-                entry("label", stringSchema()),
-                entry("significant", booleanSchema()),
-                entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
-                entry("entryId", nullableString()),
-                entry("transactionId", nullableString()),
-                entry("action", nullableObject(historyAction())),
-                entry("detail", historyDetail(4))
-            ),
-            List.of(
-                "index", "label", "significant", "detailLevel",
-                "entryId", "transactionId", "action", "detail"
-            )
-        );
+                properties(
+                        entry("index", nonNegativeInteger()),
+                        entry("label", stringSchema()),
+                        entry("significant", booleanSchema()),
+                        entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
+                        entry("entryId", nullableString()),
+                        entry("transactionId", nullableString()),
+                        entry("action", nullableObject(historyAction())),
+                        entry("detail", historyDetail(4))),
+                List.of(
+                        "index",
+                        "label",
+                        "significant",
+                        "detailLevel",
+                        "entryId",
+                        "transactionId",
+                        "action",
+                        "detail"));
     }
 
     private static Map<String, Object> historyAction() {
         return object(
-            properties(
-                entry("kind", enumSchema(List.of("SET_PARAMETER_VALUE", "UNKNOWN"))),
-                entry("targetType", stringSchema()),
-                entry("targetId", stringSchema()),
-                entry("property", stringSchema()),
-                entry("before", nullableString()),
-                entry("after", nullableString()),
-                entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL")))
-            ),
-            List.of(
-                "kind", "targetType", "targetId", "property",
-                "before", "after", "detailLevel"
-            )
-        );
+                properties(
+                        entry("kind", enumSchema(List.of("SET_PARAMETER_VALUE", "UNKNOWN"))),
+                        entry("targetType", stringSchema()),
+                        entry("targetId", stringSchema()),
+                        entry("property", stringSchema()),
+                        entry("before", nullableString()),
+                        entry("after", nullableString()),
+                        entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL")))),
+                List.of("kind", "targetType", "targetId", "property", "before", "after", "detailLevel"));
     }
 
     private static Map<String, Object> historyDetail(final int remainingGroupDepth) {
         return object(
-            properties(
-                entry("summary", nonEmptyString()),
-                entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
-                entry("origin", historyOrigin()),
-                entry("targets", boundedArray(historyTarget(), 64)),
-                entry("changes", boundedArray(historyChange(), 64)),
-                entry("group", remainingGroupDepth == 0
-                    ? Map.of("type", "null")
-                    : nullableObject(historyGroup(remainingGroupDepth - 1))),
-                entry("degradationCode", nullableString())
-            ),
-            List.of("summary", "detailLevel", "origin", "targets", "changes", "group", "degradationCode")
-        );
+                properties(
+                        entry("summary", nonEmptyString()),
+                        entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
+                        entry("origin", historyOrigin()),
+                        entry("targets", boundedArray(historyTarget(), 64)),
+                        entry("changes", boundedArray(historyChange(), 64)),
+                        entry(
+                                "group",
+                                remainingGroupDepth == 0
+                                        ? Map.of("type", "null")
+                                        : nullableObject(historyGroup(remainingGroupDepth - 1))),
+                        entry("degradationCode", nullableString())),
+                List.of("summary", "detailLevel", "origin", "targets", "changes", "group", "degradationCode"));
     }
 
     private static Map<String, Object> historyOrigin() {
         return object(
-            properties(
-                entry("kind", enumSchema(List.of("TURBOISM", "HOST_UNATTRIBUTED"))),
-                entry("producerId", nullableString()),
-                entry("operationId", nullableString())
-            ),
-            List.of("kind", "producerId", "operationId")
-        );
+                properties(
+                        entry("kind", enumSchema(List.of("TURBOISM", "HOST_UNATTRIBUTED"))),
+                        entry("producerId", nullableString()),
+                        entry("operationId", nullableString())),
+                List.of("kind", "producerId", "operationId"));
     }
 
     private static Map<String, Object> historyTarget() {
         return object(
-            properties(
-                entry("type", nonEmptyString()),
-                entry("id", nullableString()),
-                entry("displayName", nullableString())
-            ),
-            List.of("type", "id", "displayName")
-        );
+                properties(
+                        entry("type", nonEmptyString()),
+                        entry("id", nullableString()),
+                        entry("displayName", nullableString())),
+                List.of("type", "id", "displayName"));
     }
 
     private static Map<String, Object> historyChange() {
         return object(
-            properties(
-                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "MOVE", "UNKNOWN"))),
-                entry("targetIndex", nullableNonNegativeInteger()),
-                entry("property", nullableString()),
-                entry("before", nullableString()),
-                entry("after", nullableString()),
-                entry("context", historyEditContext()),
-                entry("relation", nullableObject(historyRelationChange()))
-            ),
-            List.of("operation", "targetIndex", "property", "before", "after", "context", "relation")
-        );
+                properties(
+                        entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "MOVE", "UNKNOWN"))),
+                        entry("targetIndex", nullableNonNegativeInteger()),
+                        entry("property", nullableString()),
+                        entry("before", nullableString()),
+                        entry("after", nullableString()),
+                        entry("context", historyEditContext()),
+                        entry("relation", nullableObject(historyRelationChange()))),
+                List.of("operation", "targetIndex", "property", "before", "after", "context", "relation"));
     }
 
     private static Map<String, Object> historyRelationChange() {
         return object(
-            properties(
-                entry("kind", enumSchema(List.of("PART_MEMBERSHIP", "DEFORMER_PARENT"))),
-                entry("before", historyRelationEndpoint()),
-                entry("after", historyRelationEndpoint())
-            ),
-            List.of("kind", "before", "after")
-        );
+                properties(
+                        entry("kind", enumSchema(List.of("PART_MEMBERSHIP", "DEFORMER_PARENT"))),
+                        entry("before", historyRelationEndpoint()),
+                        entry("after", historyRelationEndpoint())),
+                List.of("kind", "before", "after"));
     }
 
     private static Map<String, Object> historyRelationEndpoint() {
         return object(
-            properties(
-                entry("state", enumSchema(List.of("TARGET", "ROOT", "UNKNOWN"))),
-                entry("target", nullableObject(historyTarget()))
-            ),
-            List.of("state", "target")
-        );
+                properties(
+                        entry("state", enumSchema(List.of("TARGET", "ROOT", "UNKNOWN"))),
+                        entry("target", nullableObject(historyTarget()))),
+                List.of("state", "target"));
     }
 
     private static Map<String, Object> historyEditContext() {
         return object(
-            properties(
-                entry(
-                    "kind",
-                    enumSchema(List.of("OBJECT", "DEFAULT_FORM", "KEYFORM", "DOCUMENT", "UNKNOWN"))
-                ),
-                entry("formId", nullableString()),
-                entry("coordinates", boundedArray(historyParameterCoordinate(), 64))
-            ),
-            List.of("kind", "formId", "coordinates")
-        );
+                properties(
+                        entry("kind", enumSchema(List.of("OBJECT", "DEFAULT_FORM", "KEYFORM", "DOCUMENT", "UNKNOWN"))),
+                        entry("formId", nullableString()),
+                        entry("coordinates", boundedArray(historyParameterCoordinate(), 64))),
+                List.of("kind", "formId", "coordinates"));
     }
 
     private static Map<String, Object> historyParameterCoordinate() {
         return object(
-            properties(
-                entry("parameter", historyTarget()),
-                entry("value", nonEmptyString())
-            ),
-            List.of("parameter", "value")
-        );
+                properties(entry("parameter", historyTarget()), entry("value", nonEmptyString())),
+                List.of("parameter", "value"));
     }
 
     private static Map<String, Object> historyGroup(final int remainingGroupDepth) {
         return object(
-            properties(
-                entry("groupId", nullableString()),
-                entry("children", boundedArray(historyDetail(remainingGroupDepth), 64)),
-                entry("observedChildCount", nonNegativeInteger()),
-                entry("truncated", booleanSchema())
-            ),
-            List.of("groupId", "observedChildCount", "children", "truncated")
-        );
+                properties(
+                        entry("groupId", nullableString()),
+                        entry("children", boundedArray(historyDetail(remainingGroupDepth), 64)),
+                        entry("observedChildCount", nonNegativeInteger()),
+                        entry("truncated", booleanSchema())),
+                List.of("groupId", "observedChildCount", "children", "truncated"));
     }
 
     private static Map<String, Object> successOrFailure(final Map<String, Object> success) {
-        return linked(
-            entry("$schema", DRAFT),
-            entry("type", "object"),
-            entry("oneOf", List.of(success, failure()))
-        );
+        return linked(entry("$schema", DRAFT), entry("type", "object"), entry("oneOf", List.of(success, failure())));
     }
 
     private static Map<String, Object> failure() {
-        return object(
-            properties(entry("ok", constant(false)), entry("error", error())),
-            List.of("ok", "error")
-        );
+        return object(properties(entry("ok", constant(false)), entry("error", error())), List.of("ok", "error"));
     }
 
     private static Map<String, Object> error() {
         return object(
-            properties(
-                entry("code", stringSchema()),
-                entry("message", stringSchema()),
-                entry("details", stringSchema()),
-                entry("outcome", enumSchema(List.of(
-                    "NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"
-                ))),
-                entry("retryable", constant(false)),
-                entry("canonicalPointIds", nullableArray(stringSchema())),
-                entry("diagnosticId", stringSchema())
-            ),
-            List.of("code", "message")
-        );
+                properties(
+                        entry("code", stringSchema()),
+                        entry("message", stringSchema()),
+                        entry("details", stringSchema()),
+                        entry("outcome", enumSchema(List.of("NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"))),
+                        entry("retryable", constant(false)),
+                        entry("canonicalPointIds", nullableArray(stringSchema())),
+                        entry("diagnosticId", stringSchema())),
+                List.of("code", "message"));
     }
 
     private static Map<String, Object> nullableObject(final Map<String, Object> object) {
@@ -607,16 +514,12 @@ final class McpOutputSchemas {
         return Map.of("oneOf", List.of(alternatives));
     }
 
-    private static Map<String, Object> object(
-        final Map<String, Object> properties,
-        final List<String> required
-    ) {
+    private static Map<String, Object> object(final Map<String, Object> properties, final List<String> required) {
         return linked(
-            entry("type", "object"),
-            entry("properties", properties),
-            entry("required", required),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry("properties", properties),
+                entry("required", required),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> array(final Map<String, Object> items) {
@@ -635,10 +538,7 @@ final class McpOutputSchemas {
         return Map.of("type", "string", "minLength", 1);
     }
 
-    private static Map<String, Object> boundedArray(
-        final Map<String, Object> items,
-        final int maxItems
-    ) {
+    private static Map<String, Object> boundedArray(final Map<String, Object> items, final int maxItems) {
         return Map.of("type", "array", "items", items, "maxItems", maxItems);
     }
 
@@ -672,9 +572,7 @@ final class McpOutputSchemas {
     }
 
     @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(
-        final Map.Entry<String, Object>... entries
-    ) {
+    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
         return result;

@@ -10,13 +10,13 @@ public final class FakeDirectUiScheduler implements UiScheduler {
     @Override
     public Registration runOnUiThread(Runnable work) {
         Objects.requireNonNull(work, "work").run();
-        return () -> { };
+        return () -> {};
     }
 
     @Override
     public Registration runOnUiThreadLater(Runnable work, Duration delay) {
         Objects.requireNonNull(delay, "delay");
         Objects.requireNonNull(work, "work").run();
-        return () -> { };
+        return () -> {};
     }
 }

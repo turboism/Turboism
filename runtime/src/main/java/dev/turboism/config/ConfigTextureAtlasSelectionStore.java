@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasAutoLayoutSelection;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -25,10 +24,7 @@ public final class ConfigTextureAtlasSelectionStore implements TextureAtlasAutoL
         this(new RuntimeConfigRepository(turboismHome, diagnostic), diagnostic);
     }
 
-    public ConfigTextureAtlasSelectionStore(
-        final RuntimeConfigRepository config,
-        final Consumer<String> diagnostic
-    ) {
+    public ConfigTextureAtlasSelectionStore(final RuntimeConfigRepository config, final Consumer<String> diagnostic) {
         this.config = Objects.requireNonNull(config, "config");
         this.diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
     }
@@ -47,14 +43,10 @@ public final class ConfigTextureAtlasSelectionStore implements TextureAtlasAutoL
         // while an absent key means no selection was ever made (the unset state
         // that one-time migrations may still fill).
         final String algorithmId = algorithmNode.isTextual()
-            ? algorithmNode.asText()
-            : section.has("algorithmId")
-                ? TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID
-                : null;
+                ? algorithmNode.asText()
+                : section.has("algorithmId") ? TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID : null;
         return new TextureAtlasLayoutSelection(
-            algorithmId,
-            section.path("parallel").asBoolean(false)
-        );
+                algorithmId, section.path("parallel").asBoolean(false));
     }
 
     @Override

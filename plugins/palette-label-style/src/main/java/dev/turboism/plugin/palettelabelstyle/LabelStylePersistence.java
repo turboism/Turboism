@@ -3,8 +3,6 @@ package dev.turboism.plugin.palettelabelstyle;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
-
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,15 +24,12 @@ public final class LabelStylePersistence {
     public static final String PROPERTY_TEXT = "text";
     public static final String PROPERTY_BACKGROUND = "background";
 
-    private LabelStylePersistence() {
-    }
+    private LabelStylePersistence() {}
 
     /** Storage path of the color file for a project; blank ids fall back to {@value #DEFAULT_PROJECT_ID}. */
     public static StoragePath filePath(final String projectId) {
         return new StoragePath(
-            StorageRoot.STATE,
-            "palette-label-style/colors-" + safeProjectId(projectId) + ".properties"
-        );
+                StorageRoot.STATE, "palette-label-style/colors-" + safeProjectId(projectId) + ".properties");
     }
 
     /** Normalizes a project id, mapping blank values to {@value #DEFAULT_PROJECT_ID}. */
@@ -45,8 +40,8 @@ public final class LabelStylePersistence {
     /** Entry key: {@code <PALETTE>:<objectId>:<property>}. */
     public static String key(final Location palette, final String objectId, final String property) {
         return Objects.requireNonNull(palette, "palette").name() + ":"
-            + Objects.requireNonNull(objectId, "objectId") + ":"
-            + Objects.requireNonNull(property, "property");
+                + Objects.requireNonNull(objectId, "objectId") + ":"
+                + Objects.requireNonNull(property, "property");
     }
 
     /** Splits a stored entry key back into its parts; empty when malformed. */
@@ -65,9 +60,7 @@ public final class LabelStylePersistence {
             return Optional.empty();
         }
         try {
-            return Optional.of(new StoredEntry(
-                Location.valueOf(key.substring(0, firstColon)), objectId, property
-            ));
+            return Optional.of(new StoredEntry(Location.valueOf(key.substring(0, firstColon)), objectId, property));
         } catch (IllegalArgumentException malformedPalette) {
             return Optional.empty();
         }
@@ -103,7 +96,8 @@ public final class LabelStylePersistence {
             }
             final String entryKey = trimmed.substring(0, separator);
             final String hex = trimmed.substring(separator + 1);
-            if (parseKey(entryKey).isPresent() && LabelStylePresets.parseHex(hex).isPresent()) {
+            if (parseKey(entryKey).isPresent()
+                    && LabelStylePresets.parseHex(hex).isPresent()) {
                 entries.put(entryKey, hex);
             }
         }
@@ -125,6 +119,5 @@ public final class LabelStylePersistence {
     }
 
     /** One stored entry: palette location, object id, and text/background property. */
-    public record StoredEntry(Location palette, String objectId, String property) {
-    }
+    public record StoredEntry(Location palette, String objectId, String property) {}
 }

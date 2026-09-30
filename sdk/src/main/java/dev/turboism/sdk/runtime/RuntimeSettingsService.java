@@ -34,19 +34,23 @@ public interface RuntimeSettingsService {
     enum Unavailable implements RuntimeSettingsService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public RuntimeSettings read() {
+        @Override
+        public RuntimeSettings read() {
             throw unavailable();
         }
 
-        @Override public RuntimeSettings save(final RuntimeSettings settings) {
+        @Override
+        public RuntimeSettings save(final RuntimeSettings settings) {
             throw unavailable();
         }
 
-        @Override public DockCleanupResult cleanEmptyDocks() {
+        @Override
+        public DockCleanupResult cleanEmptyDocks() {
             throw unavailable();
         }
 
@@ -54,7 +58,6 @@ public interface RuntimeSettingsService {
             return new UnsupportedOperationException("runtime settings service is not available");
         }
     }
-
 
     /** Result of {@link #cleanEmptyDocks()}; {@code message} is a non-blank summary. */
     record DockCleanupResult(String message) {

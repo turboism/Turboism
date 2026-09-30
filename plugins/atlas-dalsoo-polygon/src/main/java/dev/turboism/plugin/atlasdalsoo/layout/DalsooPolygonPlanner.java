@@ -1,17 +1,5 @@
 package dev.turboism.plugin.atlasdalsoo.layout;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.function.BooleanSupplier;
-import java.util.function.IntConsumer;
-
 import dev.turboism.plugin.atlasdalsoo.dalsoo.AutoScalePack;
 import dev.turboism.plugin.atlasdalsoo.dalsoo.PolygonPack;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy;
@@ -24,6 +12,17 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
 
 /**
  * Polygon packing planner on the ported Dalsoo kernel.
@@ -44,15 +43,14 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
     private static final double NEAR_RECT_TOLERANCE = 1.5;
     /** Maximum outline vertices per quality preset (RDP target). */
     private static final Map<TextureAtlasLayoutQuality, Double> SIMPLIFY_EPS = Map.of(
-        TextureAtlasLayoutQuality.FAST, 1.5,
-        TextureAtlasLayoutQuality.BALANCED, 0.6,
-        TextureAtlasLayoutQuality.DENSE, 0.2
-    );
+            TextureAtlasLayoutQuality.FAST, 1.5,
+            TextureAtlasLayoutQuality.BALANCED, 0.6,
+            TextureAtlasLayoutQuality.DENSE, 0.2);
+
     private static final Map<TextureAtlasLayoutQuality, Integer> AUTO_SCALE_MAX_TRY = Map.of(
-        TextureAtlasLayoutQuality.FAST, 8,
-        TextureAtlasLayoutQuality.BALANCED, 12,
-        TextureAtlasLayoutQuality.DENSE, 20
-    );
+            TextureAtlasLayoutQuality.FAST, 8,
+            TextureAtlasLayoutQuality.BALANCED, 12,
+            TextureAtlasLayoutQuality.DENSE, 20);
     private static final double AUTO_SCALE_TOLERANCE = 0.005;
     private static final double H_SKEW = 0.7;
     /**
@@ -71,17 +69,19 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
     /** Supplies the registered rectangle planner for AUTO/near-rect dispatch; may be null. */
     public interface RectPlanSupplier {
         /** Plans the rectangle path for AUTO/near-rect items; {@code parallel} enables parallel search. */
-        TextureAtlasPolygonPlan planRects(List<TextureAtlasPolygonItem> items,
-            TextureAtlasPolygonConstraints constraints, boolean parallel);
+        TextureAtlasPolygonPlan planRects(
+                List<TextureAtlasPolygonItem> items, TextureAtlasPolygonConstraints constraints, boolean parallel);
     }
 
     public DalsooPolygonPlanner() {
         this(null, null, null, true);
     }
 
-    public DalsooPolygonPlanner(final BooleanSupplier cancelled,
-        final IntConsumer progress, final RectPlanSupplier rectPlanner,
-        final boolean useAbey) {
+    public DalsooPolygonPlanner(
+            final BooleanSupplier cancelled,
+            final IntConsumer progress,
+            final RectPlanSupplier rectPlanner,
+            final boolean useAbey) {
         this(cancelled, progress, rectPlanner, useAbey, AUTO_SCALE_TOLERANCE, 0);
     }
 
@@ -91,16 +91,18 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
      * @param autoScaleMaxTry automatic-scale attempt bound (mirrors 5.4
      *        {@code AUTO_SCALE_MAX_TRY}); {@code 0} derives it from the quality preset
      */
-    public DalsooPolygonPlanner(final BooleanSupplier cancelled,
-        final IntConsumer progress, final RectPlanSupplier rectPlanner,
-        final boolean useAbey, final double autoScaleTolerance,
-        final int autoScaleMaxTry) {
+    public DalsooPolygonPlanner(
+            final BooleanSupplier cancelled,
+            final IntConsumer progress,
+            final RectPlanSupplier rectPlanner,
+            final boolean useAbey,
+            final double autoScaleTolerance,
+            final int autoScaleMaxTry) {
         if (!(autoScaleTolerance > 0) || !Double.isFinite(autoScaleTolerance)) {
             throw new IllegalArgumentException("autoScaleTolerance must be positive");
         }
         if (autoScaleMaxTry < 0) {
-            throw new IllegalArgumentException(
-                "autoScaleMaxTry must be >= 0 (0 = quality preset)");
+            throw new IllegalArgumentException("autoScaleMaxTry must be >= 0 (0 = quality preset)");
         }
         this.cancelled = cancelled;
         this.progress = progress;
@@ -112,30 +114,36 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
 
     /** Attempt bound for automatic scaling: explicit override or quality preset. */
     private int autoScaleMaxTry(final TextureAtlasPolygonConstraints constraints) {
-        return autoScaleMaxTry > 0 ? autoScaleMaxTry
-            : AUTO_SCALE_MAX_TRY.get(constraints.quality());
+        return autoScaleMaxTry > 0 ? autoScaleMaxTry : AUTO_SCALE_MAX_TRY.get(constraints.quality());
     }
 
     @Override
-    public TextureAtlasPolygonPlan plan(final List<TextureAtlasPolygonItem> items,
-        final TextureAtlasPolygonConstraints constraints) {
+    public TextureAtlasPolygonPlan plan(
+            final List<TextureAtlasPolygonItem> items, final TextureAtlasPolygonConstraints constraints) {
         return plan(items, constraints, false);
     }
 
     @Override
-    public TextureAtlasPolygonPlan plan(final List<TextureAtlasPolygonItem> items,
-        final TextureAtlasPolygonConstraints constraints, final boolean parallel) {
+    public TextureAtlasPolygonPlan plan(
+            final List<TextureAtlasPolygonItem> items,
+            final TextureAtlasPolygonConstraints constraints,
+            final boolean parallel) {
         Objects.requireNonNull(items, "items");
         Objects.requireNonNull(constraints, "constraints");
         if (constraints.backend() == TextureAtlasLayoutBackend.HOST_NATIVE) {
             // reserved slot: the host packer owns the page, there is no Turboism plan
-            return new TextureAtlasPolygonPlan(constraints.pageWidth(),
-                constraints.pageHeight(), constraints.automaticScale() ? 1
-                    : constraints.requestedScale(),
-                List.of(), items.stream().map(TextureAtlasPolygonItem::textureId).toList(),
-                TextureAtlasLayoutBackend.HOST_NATIVE,
-                Map.of("status", "delegated-to-host",
-                    "rotationMode", constraints.rotationMode().name()));
+            return new TextureAtlasPolygonPlan(
+                    constraints.pageWidth(),
+                    constraints.pageHeight(),
+                    constraints.automaticScale() ? 1 : constraints.requestedScale(),
+                    List.of(),
+                    items.stream().map(TextureAtlasPolygonItem::textureId).toList(),
+                    TextureAtlasLayoutBackend.HOST_NATIVE,
+                    Map.of(
+                            "status",
+                            "delegated-to-host",
+                            "rotationMode",
+                            constraints.rotationMode().name()));
         }
         final BackendChoice choice = chooseBackend(items, constraints);
         try {
@@ -143,10 +151,13 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 return rectPlanner.planRects(items, constraints, parallel);
             }
             return switch (choice) {
-                case RECTANGLE -> packPolygon(items, constraints, parallel,
-                    TextureAtlasLayoutBackend.DALSOO_POLYGON); // no rect planner installed
-                case POLYGON -> packPolygon(items, constraints, parallel,
-                    TextureAtlasLayoutBackend.DALSOO_POLYGON);
+                case RECTANGLE ->
+                    packPolygon(
+                            items,
+                            constraints,
+                            parallel,
+                            TextureAtlasLayoutBackend.DALSOO_POLYGON); // no rect planner installed
+                case POLYGON -> packPolygon(items, constraints, parallel, TextureAtlasLayoutBackend.DALSOO_POLYGON);
             };
         } catch (final dev.turboism.plugin.atlasdalsoo.dalsoo.PackingCancelledException e) {
             // cooperative cancellation: nothing was applied; report every item
@@ -158,19 +169,28 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                     overflow.add(item.textureId());
                 }
             }
-            return new TextureAtlasPolygonPlan(constraints.pageWidth(),
-                constraints.pageHeight(), constraints.automaticScale() ? 1
-                    : constraints.requestedScale(), List.of(), List.copyOf(overflow),
-                TextureAtlasLayoutBackend.DALSOO_POLYGON,
-                Map.of("cancelled", "true",
-                    "rotationMode", constraints.rotationMode().name()));
+            return new TextureAtlasPolygonPlan(
+                    constraints.pageWidth(),
+                    constraints.pageHeight(),
+                    constraints.automaticScale() ? 1 : constraints.requestedScale(),
+                    List.of(),
+                    List.copyOf(overflow),
+                    TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                    Map.of(
+                            "cancelled",
+                            "true",
+                            "rotationMode",
+                            constraints.rotationMode().name()));
         }
     }
 
-    private enum BackendChoice {RECTANGLE, POLYGON}
+    private enum BackendChoice {
+        RECTANGLE,
+        POLYGON
+    }
 
-    private BackendChoice chooseBackend(final List<TextureAtlasPolygonItem> items,
-        final TextureAtlasPolygonConstraints constraints) {
+    private BackendChoice chooseBackend(
+            final List<TextureAtlasPolygonItem> items, final TextureAtlasPolygonConstraints constraints) {
         if (constraints.backend() == TextureAtlasLayoutBackend.DALSOO_POLYGON) {
             return BackendChoice.POLYGON;
         }
@@ -198,9 +218,11 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
         return allNearRect ? BackendChoice.RECTANGLE : BackendChoice.POLYGON;
     }
 
-    private TextureAtlasPolygonPlan packPolygon(final List<TextureAtlasPolygonItem> items,
-        final TextureAtlasPolygonConstraints constraints, final boolean parallel,
-        final TextureAtlasLayoutBackend backend) {
+    private TextureAtlasPolygonPlan packPolygon(
+            final List<TextureAtlasPolygonItem> items,
+            final TextureAtlasPolygonConstraints constraints,
+            final boolean parallel,
+            final TextureAtlasLayoutBackend backend) {
         final double simplifyEps = SIMPLIFY_EPS.get(constraints.quality());
         final Map<String, String> diagnostics = new LinkedHashMap<>();
         final List<AutoScalePack.Prepared> prepared = new ArrayList<>();
@@ -209,9 +231,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
         int index = 0;
         for (final TextureAtlasPolygonItem item : items) {
             final String textureId = item.textureId();
-            final TextureAtlasItemLayoutPolicy policy = item.policy() == null
-                ? TextureAtlasItemLayoutPolicy.participating(textureId)
-                : item.policy();
+            final TextureAtlasItemLayoutPolicy policy =
+                    item.policy() == null ? TextureAtlasItemLayoutPolicy.participating(textureId) : item.policy();
             if (!policy.participate() && !item.currentlyPlaced()) {
                 index++;
                 continue; // off-page non-participant: neither packed nor an obstacle
@@ -221,8 +242,7 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 final double[][] simplified = OutlineGeometry.simplify(ring, simplifyEps);
                 // degenerate (collinear/zero-area) rings cannot seed a hull and
                 // would abort the whole pack; drop them to the rect fallback
-                if (simplified.length >= 3
-                    && Math.abs(OutlineGeometry.signedArea(simplified)) >= 1e-6) {
+                if (simplified.length >= 3 && Math.abs(OutlineGeometry.signedArea(simplified)) >= 1e-6) {
                     rings.add(simplified);
                 }
             }
@@ -239,22 +259,27 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             // conservative buffer: half margin each side => >= margin between
             // raw outlines; the bin is inset by the same half margin so raw
             // outlines keep a full margin from the page edge
-            final double[][] buffered = OutlineGeometry.dilate(merged,
-                constraints.margin() * 0.5);
+            final double[][] buffered = OutlineGeometry.dilate(merged, constraints.margin() * 0.5);
             final double[] matrix = item.currentMatrix();
-            final double[] issuedCosSin = matrix == null ? new double[] {1, 0}
-                : normalizeCosSin(item.currentAngleDeg());
+            final double[] issuedCosSin =
+                    matrix == null ? new double[] {1, 0} : normalizeCosSin(item.currentAngleDeg());
             final double inset = binInset(constraints.margin());
-            final double[] issuedPosition = matrix == null ? null
-                : new double[] {matrix[4] - inset, matrix[5] - inset};
+            final double[] issuedPosition = matrix == null ? null : new double[] {matrix[4] - inset, matrix[5] - inset};
             // a placed non-participant keeps its whole issued transform (host ALL lock)
             final boolean excluded = !policy.participate();
-            final boolean fixedPosition = item.currentlyPlaced()
-                && (excluded || policy.preservePosition());
-            prepared.add(new AutoScalePack.Prepared(index, textureId, merged, buffered,
-                fixedPosition, policy.preserveAngle() || fixedPosition,
-                policy.preserveScale() || excluded, issuedCosSin, issuedPosition,
-                item.currentlyPlaced(), item.currentScale()));
+            final boolean fixedPosition = item.currentlyPlaced() && (excluded || policy.preservePosition());
+            prepared.add(new AutoScalePack.Prepared(
+                    index,
+                    textureId,
+                    merged,
+                    buffered,
+                    fixedPosition,
+                    policy.preserveAngle() || fixedPosition,
+                    policy.preserveScale() || excluded,
+                    issuedCosSin,
+                    issuedPosition,
+                    item.currentlyPlaced(),
+                    item.currentScale()));
             index++;
         }
         if (stitched > 0) {
@@ -264,35 +289,35 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
             diagnostics.put("fallbackRectItems", String.valueOf(fallbackRect));
         }
 
-        final boolean abey = useAbey
-            && constraints.rotationMode() == TextureAtlasRotationMode.FREE;
+        final boolean abey = useAbey && constraints.rotationMode() == TextureAtlasRotationMode.FREE;
         final double inset = binInset(constraints.margin());
         if (parallel) {
             return planParallel(prepared, constraints, abey, inset, diagnostics, backend);
         }
         final VariantResult vr = runOnce(prepared, constraints, abey, inset);
-        return toPlan(vr.result, vr.scale, prepared, constraints, diagnostics,
-            backend, inset);
+        return toPlan(vr.result, vr.scale, prepared, constraints, diagnostics, backend, inset);
     }
 
-    private VariantResult runOnce(final List<AutoScalePack.Prepared> prepared,
-        final TextureAtlasPolygonConstraints constraints, final boolean abey,
-        final double inset) {
+    private VariantResult runOnce(
+            final List<AutoScalePack.Prepared> prepared,
+            final TextureAtlasPolygonConstraints constraints,
+            final boolean abey,
+            final double inset) {
         final AutoScalePack pack = new AutoScalePack(
-            binExtent(constraints.pageWidth(), inset),
-            binExtent(constraints.pageHeight(), inset),
-            constraints.rotationMode(), abey, H_SKEW, null);
+                binExtent(constraints.pageWidth(), inset),
+                binExtent(constraints.pageHeight(), inset),
+                constraints.rotationMode(),
+                abey,
+                H_SKEW,
+                null);
         if (constraints.automaticScale()) {
-            final AutoScalePack.Outcome outcome = pack.autoScalePack(prepared,
-                autoScaleTolerance, autoScaleMaxTry(constraints),
-                cancelled, null);
-            return new VariantResult(outcome.result, outcome.scale,
-                coverage(outcome.result, prepared), "serial");
+            final AutoScalePack.Outcome outcome =
+                    pack.autoScalePack(prepared, autoScaleTolerance, autoScaleMaxTry(constraints), cancelled, null);
+            return new VariantResult(outcome.result, outcome.scale, coverage(outcome.result, prepared), "serial");
         }
-        final PolygonPack.Result result = pack.fixedScalePack(prepared,
-            constraints.requestedScale(), cancelled, progress);
-        return new VariantResult(result, constraints.requestedScale(),
-            coverage(result, prepared), "serial");
+        final PolygonPack.Result result =
+                pack.fixedScalePack(prepared, constraints.requestedScale(), cancelled, progress);
+        return new VariantResult(result, constraints.requestedScale(), coverage(result, prepared), "serial");
     }
 
     /**
@@ -300,18 +325,20 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
      * the best result is chosen by a total order (fewest unplaced, then coverage,
      * then variant index), so output does not depend on completion order.
      */
-    private TextureAtlasPolygonPlan planParallel(final List<AutoScalePack.Prepared> prepared,
-        final TextureAtlasPolygonConstraints constraints, final boolean abey,
-        final double inset, final Map<String, String> diagnostics,
-        final TextureAtlasLayoutBackend backend) {
+    private TextureAtlasPolygonPlan planParallel(
+            final List<AutoScalePack.Prepared> prepared,
+            final TextureAtlasPolygonConstraints constraints,
+            final boolean abey,
+            final double inset,
+            final Map<String, String> diagnostics,
+            final TextureAtlasLayoutBackend backend) {
         final List<Variant> variants = List.of(
-            new Variant(abey, 0.7, "abey-h0.7"),
-            new Variant(false, 0.7, "dalalah-h0.7"),
-            new Variant(abey, 0.3, "abey-h0.3"),
-            new Variant(false, 0.3, "dalalah-h0.3")
-        );
-        final ExecutorService pool = Executors.newFixedThreadPool(
-            Math.min(4, Runtime.getRuntime().availableProcessors()));
+                new Variant(abey, 0.7, "abey-h0.7"),
+                new Variant(false, 0.7, "dalalah-h0.7"),
+                new Variant(abey, 0.3, "abey-h0.3"),
+                new Variant(false, 0.3, "dalalah-h0.3"));
+        final ExecutorService pool =
+                Executors.newFixedThreadPool(Math.min(4, Runtime.getRuntime().availableProcessors()));
         try {
             final List<Future<VariantResult>> futures = new ArrayList<>();
             for (final Variant variant : variants) {
@@ -336,42 +363,38 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 }
             }
             diagnostics.put("parallelVariant", best.name);
-            return toPlan(best.result, best.scale, prepared, constraints, diagnostics,
-                backend, inset);
+            return toPlan(best.result, best.scale, prepared, constraints, diagnostics, backend, inset);
         } finally {
             pool.shutdownNow();
         }
     }
 
-    private record VariantResult(PolygonPack.Result result, double scale,
-        double coverage, String name) {
-    }
+    private record VariantResult(PolygonPack.Result result, double scale, double coverage, String name) {}
 
-    private VariantResult runVariant(final List<AutoScalePack.Prepared> prepared,
-        final TextureAtlasPolygonConstraints constraints, final Variant variant,
-        final double inset) {
+    private VariantResult runVariant(
+            final List<AutoScalePack.Prepared> prepared,
+            final TextureAtlasPolygonConstraints constraints,
+            final Variant variant,
+            final double inset) {
         final AutoScalePack pack = new AutoScalePack(
-            binExtent(constraints.pageWidth(), inset),
-            binExtent(constraints.pageHeight(), inset),
-            constraints.rotationMode(), variant.abey(), variant.hSkew(), null);
+                binExtent(constraints.pageWidth(), inset),
+                binExtent(constraints.pageHeight(), inset),
+                constraints.rotationMode(),
+                variant.abey(),
+                variant.hSkew(),
+                null);
         if (constraints.automaticScale()) {
-            final AutoScalePack.Outcome outcome = pack.autoScalePack(prepared,
-                autoScaleTolerance, autoScaleMaxTry(constraints),
-                cancelled, null);
-            return new VariantResult(outcome.result, outcome.scale,
-                coverage(outcome.result, prepared), variant.name());
+            final AutoScalePack.Outcome outcome =
+                    pack.autoScalePack(prepared, autoScaleTolerance, autoScaleMaxTry(constraints), cancelled, null);
+            return new VariantResult(outcome.result, outcome.scale, coverage(outcome.result, prepared), variant.name());
         }
-        final PolygonPack.Result result = pack.fixedScalePack(prepared,
-            constraints.requestedScale(), cancelled, null);
-        return new VariantResult(result, constraints.requestedScale(),
-            coverage(result, prepared), variant.name());
+        final PolygonPack.Result result = pack.fixedScalePack(prepared, constraints.requestedScale(), cancelled, null);
+        return new VariantResult(result, constraints.requestedScale(), coverage(result, prepared), variant.name());
     }
 
-    private record Variant(boolean abey, double hSkew, String name) {
-    }
+    private record Variant(boolean abey, double hSkew, String name) {}
 
-    private static double coverage(final PolygonPack.Result result,
-        final List<AutoScalePack.Prepared> prepared) {
+    private static double coverage(final PolygonPack.Result result, final List<AutoScalePack.Prepared> prepared) {
         double placed = 0;
         final java.util.Set<Integer> placedIds = new java.util.HashSet<>();
         for (final dev.turboism.plugin.atlasdalsoo.dalsoo.PackOutcome o : result.outcomes) {
@@ -401,11 +424,14 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
         return a.name.compareTo(b.name); // deterministic tie-break
     }
 
-    private TextureAtlasPolygonPlan toPlan(final PolygonPack.Result result,
-        final double planScale, final List<AutoScalePack.Prepared> prepared,
-        final TextureAtlasPolygonConstraints constraints,
-        final Map<String, String> diagnostics, final TextureAtlasLayoutBackend backend,
-        final double inset) {
+    private TextureAtlasPolygonPlan toPlan(
+            final PolygonPack.Result result,
+            final double planScale,
+            final List<AutoScalePack.Prepared> prepared,
+            final TextureAtlasPolygonConstraints constraints,
+            final Map<String, String> diagnostics,
+            final TextureAtlasLayoutBackend backend,
+            final double inset) {
         final List<TextureAtlasPolygonPlacement> placements = new ArrayList<>();
         final List<String> overflow = new ArrayList<>();
         final Map<Integer, String> idToTexture = new HashMap<>();
@@ -421,8 +447,8 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
                 continue;
             }
             final double scale = src.fixScale() ? src.issuedScale() : planScale;
-            placements.add(new TextureAtlasPolygonPlacement(textureId,
-                o.trans[0] + inset, o.trans[1] + inset, o.angleDeg(), scale));
+            placements.add(new TextureAtlasPolygonPlacement(
+                    textureId, o.trans[0] + inset, o.trans[1] + inset, o.angleDeg(), scale));
         }
         for (final int unplaced : result.unplacedIds) {
             final String textureId = idToTexture.get(unplaced);
@@ -432,16 +458,19 @@ public final class DalsooPolygonPlanner implements TextureAtlasPolygonPlanner {
         }
         diagnostics.put("kernel", "dalsoo");
         diagnostics.put("rotationMode", constraints.rotationMode().name());
-        diagnostics.put("autoScaleAttempts",
-            constraints.automaticScale() ? "bisect" : "fixed");
+        diagnostics.put("autoScaleAttempts", constraints.automaticScale() ? "bisect" : "fixed");
         if (constraints.automaticScale()) {
             diagnostics.put("autoScaleTolerance", String.valueOf(autoScaleTolerance));
-            diagnostics.put("autoScaleMaxTry",
-                String.valueOf(autoScaleMaxTry(constraints)));
+            diagnostics.put("autoScaleMaxTry", String.valueOf(autoScaleMaxTry(constraints)));
         }
-        return new TextureAtlasPolygonPlan(constraints.pageWidth(),
-            constraints.pageHeight(), planScale, List.copyOf(placements),
-            List.copyOf(overflow), backend, diagnostics);
+        return new TextureAtlasPolygonPlan(
+                constraints.pageWidth(),
+                constraints.pageHeight(),
+                planScale,
+                List.copyOf(placements),
+                List.copyOf(overflow),
+                backend,
+                diagnostics);
     }
 
     /**

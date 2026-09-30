@@ -1,16 +1,5 @@
 package dev.turboism.sdk.cubism.edit;
 
-import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.cubism.CubismFacade;
-import dev.turboism.sdk.cubism.CubismServiceException;
-import dev.turboism.sdk.cubism.id.DocumentId;
-import dev.turboism.sdk.plugin.PluginContext;
-import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Method;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,13 +7,20 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.CubismServiceException;
+import dev.turboism.sdk.cubism.id.DocumentId;
+import dev.turboism.sdk.plugin.PluginContext;
+import java.lang.reflect.Method;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.Test;
+
 final class EditSessionServiceContractTest {
 
     private final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
-        PluginContext.class.getClassLoader(),
-        new Class<?>[]{PluginContext.class},
-        (proxy, method, args) -> null
-    );
+            PluginContext.class.getClassLoader(), new Class<?>[] {PluginContext.class}, (proxy, method, args) -> null);
 
     @Test
     void cubismFacadeExposesTheEditSessionService() throws Exception {
@@ -51,20 +47,18 @@ final class EditSessionServiceContractTest {
     void unavailableServiceFailsClosedOnEveryEntryPoint() throws EditSessionException {
         final EditSessionService service = EditSessionService.unavailable();
 
-        assertThrows(NullPointerException.class,
-            () -> service.open(null, new DocumentId("doc"), EditSessionOptions.defaults()));
-        assertThrows(NullPointerException.class,
-            () -> service.open(context, null, EditSessionOptions.defaults()));
-        assertThrows(NullPointerException.class,
-            () -> service.open(context, new DocumentId("doc"), null));
+        assertThrows(
+                NullPointerException.class,
+                () -> service.open(null, new DocumentId("doc"), EditSessionOptions.defaults()));
+        assertThrows(NullPointerException.class, () -> service.open(context, null, EditSessionOptions.defaults()));
+        assertThrows(NullPointerException.class, () -> service.open(context, new DocumentId("doc"), null));
         assertThrows(NullPointerException.class, () -> service.isEditApproved(null));
 
-        final EditUnavailableException approval = assertThrows(EditUnavailableException.class,
-            () -> service.isEditApproved(context));
+        final EditUnavailableException approval =
+                assertThrows(EditUnavailableException.class, () -> service.isEditApproved(context));
         assertEquals(EditUnavailableException.CODE, approval.code());
 
-        final EditSession session = service.open(
-            context, new DocumentId("doc"), EditSessionOptions.defaults());
+        final EditSession session = service.open(context, new DocumentId("doc"), EditSessionOptions.defaults());
         assertFalse(session.isOpen());
         assertSame(EditSession.unavailable(), session);
     }
@@ -99,7 +93,7 @@ final class EditSessionServiceContractTest {
     @Test
     void editExceptionsAreTypedCubismFailures() {
         assertTrue(EditSessionException.class.getSuperclass() == CubismServiceException.class
-            || CubismServiceException.class.isAssignableFrom(EditSessionException.class));
+                || CubismServiceException.class.isAssignableFrom(EditSessionException.class));
         assertThrows(EditSessionException.class, () -> {
             throw new EditSessionException("cubism.edit.test", "failure");
         });
@@ -128,14 +122,20 @@ final class EditSessionServiceContractTest {
         assertEquals(EditSessionCloseOutcome.FAILED, failed.outcome());
         assertEquals(Optional.of("cubism.edit.close.failed"), failed.diagnosticId());
 
-        assertThrows(IllegalArgumentException.class, () -> new EditSessionCloseResult(
-            EditSessionCloseOutcome.COMMITTED, Optional.of(CancelSource.USER), Optional.empty()));
-        assertThrows(IllegalArgumentException.class, () -> new EditSessionCloseResult(
-            EditSessionCloseOutcome.CANCELLED, Optional.empty(), Optional.empty()));
-        assertThrows(IllegalArgumentException.class, () -> new EditSessionCloseResult(
-            EditSessionCloseOutcome.FAILED, Optional.empty(), Optional.empty()));
-        assertThrows(IllegalArgumentException.class, () -> new EditSessionCloseResult(
-            EditSessionCloseOutcome.FAILED, Optional.empty(), Optional.of("  ")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditSessionCloseResult(
+                        EditSessionCloseOutcome.COMMITTED, Optional.of(CancelSource.USER), Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditSessionCloseResult(
+                        EditSessionCloseOutcome.CANCELLED, Optional.empty(), Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditSessionCloseResult(EditSessionCloseOutcome.FAILED, Optional.empty(), Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditSessionCloseResult(EditSessionCloseOutcome.FAILED, Optional.empty(), Optional.of("  ")));
     }
 
     @Test
@@ -167,8 +167,7 @@ final class EditSessionServiceContractTest {
     }
 
     private static void assertUnavailable(final ThrowingCall call) {
-        final EditUnavailableException failure = assertThrows(
-            EditUnavailableException.class, call::run);
+        final EditUnavailableException failure = assertThrows(EditUnavailableException.class, call::run);
         assertEquals(EditUnavailableException.CODE, failure.code());
     }
 

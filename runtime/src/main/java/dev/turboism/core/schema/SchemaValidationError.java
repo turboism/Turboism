@@ -64,6 +64,8 @@ public final class SchemaValidationError {
 
     /** How serious a finding is; only {@link #ERROR} blocks the validated artifact. */
     public enum Severity {
-        ERROR, WARNING, INFO
+        ERROR,
+        WARNING,
+        INFO
     }
 }

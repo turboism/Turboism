@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.integration;
 import dev.turboism.sdk.cubism.edit.EditSessionService;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.plugin.PluginContext;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -27,12 +26,11 @@ public final class EditBridgeEnvironment {
     private final EditApprovalGate approvalGate;
 
     public EditBridgeEnvironment(
-        final EditConnectionInspector inspector,
-        final EditSessionService editSessions,
-        final PluginContext pluginContext,
-        final Supplier<Optional<DocumentId>> activeDocument,
-        final EditApprovalGate approvalGate
-    ) {
+            final EditConnectionInspector inspector,
+            final EditSessionService editSessions,
+            final PluginContext pluginContext,
+            final Supplier<Optional<DocumentId>> activeDocument,
+            final EditApprovalGate approvalGate) {
         this.inspector = Objects.requireNonNull(inspector, "inspector");
         this.editSessions = Objects.requireNonNull(editSessions, "editSessions");
         this.pluginContext = Objects.requireNonNull(pluginContext, "pluginContext");
@@ -74,11 +72,11 @@ public final class EditBridgeEnvironment {
      */
     public static EditBridgeEnvironment unavailable(final PluginContext pluginContext) {
         return new EditBridgeEnvironment(
-            EditConnectionInspector.unavailable(),
-            EditSessionService.unavailable(),
-            Objects.requireNonNull(pluginContext, "pluginContext"),
-            Optional::empty,
-            EditApprovalGate.denyAll());
+                EditConnectionInspector.unavailable(),
+                EditSessionService.unavailable(),
+                Objects.requireNonNull(pluginContext, "pluginContext"),
+                Optional::empty,
+                EditApprovalGate.denyAll());
     }
 
     /**
@@ -99,15 +97,12 @@ public final class EditBridgeEnvironment {
      * bootstrap wires once the resolver and plugin services exist.</p>
      */
     public static EditBridgeEnvironment production(
-        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
-        final EditSessionService editSessions,
-        final PluginContext pluginContext,
-        final Supplier<Optional<DocumentId>> activeDocument,
-        final Supplier<Optional<Object>> mainWindow
-    ) {
-        return production(
-            resolver, editSessions, pluginContext, activeDocument,
-            new SwingEditApprovalGate(mainWindow));
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+            final EditSessionService editSessions,
+            final PluginContext pluginContext,
+            final Supplier<Optional<DocumentId>> activeDocument,
+            final Supplier<Optional<Object>> mainWindow) {
+        return production(resolver, editSessions, pluginContext, activeDocument, new SwingEditApprovalGate(mainWindow));
     }
 
     /**
@@ -120,17 +115,17 @@ public final class EditBridgeEnvironment {
      * 050 fallback path.</p>
      */
     public static EditBridgeEnvironment production(
-        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
-        final EditSessionService editSessions,
-        final PluginContext pluginContext,
-        final Supplier<Optional<DocumentId>> activeDocument,
-        final EditApprovalGate approvalGate
-    ) {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+            final EditSessionService editSessions,
+            final PluginContext pluginContext,
+            final Supplier<Optional<DocumentId>> activeDocument,
+            final EditApprovalGate approvalGate) {
         return new EditBridgeEnvironment(
-            new VerifiedEditConnectionInspector(
-                Objects.requireNonNull(resolver, "resolver")),
-            editSessions, pluginContext, activeDocument,
-            Objects.requireNonNull(approvalGate, "approvalGate"));
+                new VerifiedEditConnectionInspector(Objects.requireNonNull(resolver, "resolver")),
+                editSessions,
+                pluginContext,
+                activeDocument,
+                Objects.requireNonNull(approvalGate, "approvalGate"));
     }
 
     /**
@@ -141,11 +136,10 @@ public final class EditBridgeEnvironment {
      * hands it a real one.</p>
      */
     public static EditBridgeEnvironment production(
-        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
-        final EditSessionService editSessions,
-        final Supplier<Optional<DocumentId>> activeDocument,
-        final Supplier<Optional<Object>> mainWindow
-    ) {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+            final EditSessionService editSessions,
+            final Supplier<Optional<DocumentId>> activeDocument,
+            final Supplier<Optional<Object>> mainWindow) {
         return production(resolver, editSessions, UNWIRED_CONTEXT, activeDocument, mainWindow);
     }
 
@@ -157,11 +151,10 @@ public final class EditBridgeEnvironment {
      * native edit checkbox is admitted, otherwise the Swing prompt.</p>
      */
     public static EditBridgeEnvironment production(
-        final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
-        final EditSessionService editSessions,
-        final Supplier<Optional<DocumentId>> activeDocument,
-        final EditApprovalGate approvalGate
-    ) {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver,
+            final EditSessionService editSessions,
+            final Supplier<Optional<DocumentId>> activeDocument,
+            final EditApprovalGate approvalGate) {
         return production(resolver, editSessions, UNWIRED_CONTEXT, activeDocument, approvalGate);
     }
 

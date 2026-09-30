@@ -1,0 +1,15 @@
+# Python lint baseline for scripts/. Intentionally narrow: pycodestyle errors,
+# warnings and pyflakes only. Widen the select list deliberately, not by accident.
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W"]
+ignore = [
+    # Scripts keep long diagnostic strings and host-output expectations inline.
+    "E501",
+    # One-line statements (colon/semicolon) are an established script style here.
+    "E701",
+    "E702",
+    # Standalone scripts bootstrap sys.path before importing sibling helpers.
+    "E402",
+]

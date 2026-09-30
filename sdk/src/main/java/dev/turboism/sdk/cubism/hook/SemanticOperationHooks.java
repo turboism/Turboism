@@ -14,14 +14,11 @@ import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 public interface SemanticOperationHooks {
 
     /** Runs synchronously before the semantic operation is invoked. */
-    default void beforeCubismOperation(final CubismOperationEvent event) {
-    }
+    default void beforeCubismOperation(final CubismOperationEvent event) {}
 
     /** Runs after normal completion when the runtime confirms the semantic fact. */
-    default void onCubismOperationConfirmed(final CubismOperationEvent event) {
-    }
+    default void onCubismOperationConfirmed(final CubismOperationEvent event) {}
 
     /** Runs after every normal completion, after {@code on} when confirmation occurred. */
-    default void afterCubismOperation(final CubismOperationEvent event) {
-    }
+    default void afterCubismOperation(final CubismOperationEvent event) {}
 }

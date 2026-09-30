@@ -19,20 +19,31 @@ public class h {
             for (int x = 0; x < w; x++) {
                 int i = y * w + x;
                 int px = arr[i], a = (px >>> 24) & 255;
-                if (a > 3) { run = 0; last = px & 0xFFFFFF; }
-                else {
+                if (a > 3) {
+                    run = 0;
+                    last = px & 0xFFFFFF;
+                } else {
                     if (last == -1 || run >= n) arr[i] = 0x00808080;
-                    else { arr[i] = (px & 0xFF000000) | last; if (a == 0) run++; }
+                    else {
+                        arr[i] = (px & 0xFF000000) | last;
+                        if (a == 0) run++;
+                    }
                 }
             }
-            run = 0; last = -1;
+            run = 0;
+            last = -1;
             for (int x = w - 1; x >= 0; x--) {
                 int i = y * w + x;
                 int px = arr[i], a = (px >>> 24) & 255;
-                if (a > 3) { run = 0; last = px & 0xFFFFFF; }
-                else {
+                if (a > 3) {
+                    run = 0;
+                    last = px & 0xFFFFFF;
+                } else {
                     if (last == -1 || run >= n) arr[i] = 0x00808080;
-                    else { arr[i] = (px & 0xFF000000) | last; if (a == 0) run++; }
+                    else {
+                        arr[i] = (px & 0xFF000000) | last;
+                        if (a == 0) run++;
+                    }
                 }
             }
         }
@@ -41,20 +52,31 @@ public class h {
             for (int y = 0; y < hh; y++) {
                 int i = x + y * w;
                 int px = arr[i], a = (px >>> 24) & 255;
-                if (a > 3) { run = 0; last = px & 0xFFFFFF; }
-                else {
+                if (a > 3) {
+                    run = 0;
+                    last = px & 0xFFFFFF;
+                } else {
                     if (last == -1 || run >= n) arr[i] = 0x00808080;
-                    else { arr[i] = (px & 0xFF000000) | last; if (a == 0) run++; }
+                    else {
+                        arr[i] = (px & 0xFF000000) | last;
+                        if (a == 0) run++;
+                    }
                 }
             }
-            run = 0; last = -1;
+            run = 0;
+            last = -1;
             for (int y = hh - 1; y >= 0; y--) {
                 int i = x + y * w;
                 int px = arr[i], a = (px >>> 24) & 255;
-                if (a > 3) { run = 0; last = px & 0xFFFFFF; }
-                else {
+                if (a > 3) {
+                    run = 0;
+                    last = px & 0xFFFFFF;
+                } else {
                     if (last == -1 || run >= n) arr[i] = 0x00808080;
-                    else { arr[i] = (px & 0xFF000000) | last; if (a == 0) run++; }
+                    else {
+                        arr[i] = (px & 0xFF000000) | last;
+                        if (a == 0) run++;
+                    }
                 }
             }
         }

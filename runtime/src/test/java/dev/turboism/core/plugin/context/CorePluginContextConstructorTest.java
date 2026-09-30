@@ -1,5 +1,11 @@
 package dev.turboism.core.plugin.context;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
@@ -27,9 +33,6 @@ import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.UserFileAccessService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.lang.reflect.Proxy;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -41,12 +44,8 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Covers the public {@link RuntimeHostAdapterAccess} constructor overloads of
@@ -57,25 +56,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class CorePluginContextConstructorTest {
 
-    private static final Clock CLOCK =
-        Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-09-14T00:00:00Z"), ZoneOffset.UTC);
 
     /** The optional service slots a constructor argument can install; nothing else may appear. */
     private static final Set<PluginService> OPTIONAL_SLOTS = Set.of(
-        PluginService.LOCALIZATION,
-        PluginService.TASKS,
-        PluginService.STORAGE,
-        PluginService.USER_FILES,
-        PluginService.HOST_READS,
-        PluginService.RUNTIME_SETTINGS,
-        PluginService.FILE_CHOOSER_HISTORY
-    );
+            PluginService.LOCALIZATION,
+            PluginService.TASKS,
+            PluginService.STORAGE,
+            PluginService.USER_FILES,
+            PluginService.HOST_READS,
+            PluginService.RUNTIME_SETTINGS,
+            PluginService.FILE_CHOOSER_HISTORY);
 
     @Test
     void twoArgHostAccessEntryRemainsTheLegalBaseline() throws Exception {
         try (Fixture fixture = new Fixture(TEMP)) {
-            final CorePluginContext context =
-                new CorePluginContext(fixture.dependencies, fixture.session);
+            final CorePluginContext context = new CorePluginContext(fixture.dependencies, fixture.session);
 
             assertCoreInvariants(context, fixture.dependencies);
             assertOmittedServiceDefaults(context);
@@ -87,11 +83,8 @@ class CorePluginContextConstructorTest {
     void threeArgConvenienceForwardsLocalizationAndDefaultsTheRest() throws Exception {
         try (Fixture fixture = new Fixture(TEMP)) {
             final PluginLocalization localization = localization();
-            final CorePluginContext context = new CorePluginContext(
-                fixture.dependencies,
-                fixture.session,
-                localization
-            );
+            final CorePluginContext context =
+                    new CorePluginContext(fixture.dependencies, fixture.session, localization);
 
             assertCoreInvariants(context, fixture.dependencies);
             assertSame(localization, context.localization());
@@ -105,10 +98,7 @@ class CorePluginContextConstructorTest {
             assertFalse(context.hostReads().isAvailable());
             assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
             assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                context.fileChooserHistory()
-            );
+            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
             assertOptionalAvailability(context, Set.of(PluginService.LOCALIZATION));
         }
     }
@@ -118,12 +108,8 @@ class CorePluginContextConstructorTest {
         try (Fixture fixture = new Fixture(TEMP)) {
             final PluginLocalization localization = localization();
             final PluginTaskScheduler tasks = taskScheduler();
-            final CorePluginContext context = new CorePluginContext(
-                fixture.dependencies,
-                fixture.session,
-                localization,
-                tasks
-            );
+            final CorePluginContext context =
+                    new CorePluginContext(fixture.dependencies, fixture.session, localization, tasks);
 
             assertCoreInvariants(context, fixture.dependencies);
             assertSame(localization, context.localization());
@@ -136,14 +122,8 @@ class CorePluginContextConstructorTest {
             assertFalse(context.hostReads().isAvailable());
             assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
             assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                context.fileChooserHistory()
-            );
-            assertOptionalAvailability(
-                context,
-                Set.of(PluginService.LOCALIZATION, PluginService.TASKS)
-            );
+            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+            assertOptionalAvailability(context, Set.of(PluginService.LOCALIZATION, PluginService.TASKS));
         }
     }
 
@@ -153,13 +133,8 @@ class CorePluginContextConstructorTest {
             final PluginLocalization localization = localization();
             final PluginTaskScheduler tasks = taskScheduler();
             final PluginStorage storage = pluginStorage();
-            final CorePluginContext context = new CorePluginContext(
-                fixture.dependencies,
-                fixture.session,
-                localization,
-                tasks,
-                storage
-            );
+            final CorePluginContext context =
+                    new CorePluginContext(fixture.dependencies, fixture.session, localization, tasks, storage);
 
             assertCoreInvariants(context, fixture.dependencies);
             assertSame(localization, context.localization());
@@ -171,18 +146,9 @@ class CorePluginContextConstructorTest {
             assertFalse(context.hostReads().isAvailable());
             assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
             assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                context.fileChooserHistory()
-            );
+            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
             assertOptionalAvailability(
-                context,
-                Set.of(
-                    PluginService.LOCALIZATION,
-                    PluginService.TASKS,
-                    PluginService.STORAGE
-                )
-            );
+                    context, Set.of(PluginService.LOCALIZATION, PluginService.TASKS, PluginService.STORAGE));
         }
     }
 
@@ -194,13 +160,7 @@ class CorePluginContextConstructorTest {
             final PluginStorage storage = pluginStorage();
             final UserFileAccessService userFiles = userFiles();
             final CorePluginContext context = new CorePluginContext(
-                fixture.dependencies,
-                fixture.session,
-                localization,
-                tasks,
-                storage,
-                userFiles
-            );
+                    fixture.dependencies, fixture.session, localization, tasks, storage, userFiles);
 
             assertCoreInvariants(context, fixture.dependencies);
             assertSame(localization, context.localization());
@@ -211,51 +171,38 @@ class CorePluginContextConstructorTest {
             assertFalse(context.hostReads().isAvailable());
             assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
             assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                context.fileChooserHistory()
-            );
+            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
             assertOptionalAvailability(
-                context,
-                Set.of(
-                    PluginService.LOCALIZATION,
-                    PluginService.TASKS,
-                    PluginService.STORAGE,
-                    PluginService.USER_FILES
-                )
-            );
+                    context,
+                    Set.of(
+                            PluginService.LOCALIZATION,
+                            PluginService.TASKS,
+                            PluginService.STORAGE,
+                            PluginService.USER_FILES));
         }
     }
 
     @Test
     void convenienceOverloadWithAllNullOptionalsMatchesTheTwoArgBaseline() throws Exception {
-        try (Fixture control = new Fixture(TEMP); Fixture underTest = new Fixture(TEMP)) {
-            final CorePluginContext baseline =
-                new CorePluginContext(control.dependencies, control.session);
-            final CorePluginContext context = new CorePluginContext(
-                underTest.dependencies,
-                underTest.session,
-                null,
-                null,
-                null,
-                null
-            );
+        try (Fixture control = new Fixture(TEMP);
+                Fixture underTest = new Fixture(TEMP)) {
+            final CorePluginContext baseline = new CorePluginContext(control.dependencies, control.session);
+            final CorePluginContext context =
+                    new CorePluginContext(underTest.dependencies, underTest.session, null, null, null, null);
 
             assertCoreInvariants(context, underTest.dependencies);
             assertOmittedServiceDefaults(context);
             assertEquals(baseline.availableServices(), context.availableServices());
             assertEquals(
-                baseline.cubismRead().activeProject(),
-                context.cubismRead().activeProject()
-            );
+                    baseline.cubismRead().activeProject(), context.cubismRead().activeProject());
         }
     }
 
     @Test
     void strictOverloadsAssembleWithAllExplicitServices() throws Exception {
         try (Fixture seven = new Fixture(TEMP);
-             Fixture eight = new Fixture(TEMP);
-             Fixture nine = new Fixture(TEMP)) {
+                Fixture eight = new Fixture(TEMP);
+                Fixture nine = new Fixture(TEMP)) {
             final PluginLocalization localization = localization();
             final PluginTaskScheduler tasks = taskScheduler();
             final PluginStorage storage = pluginStorage();
@@ -263,14 +210,7 @@ class CorePluginContextConstructorTest {
             final AsyncHostReadService hostReads = hostReads();
 
             final CorePluginContext sevenArg = new CorePluginContext(
-                seven.dependencies,
-                seven.session,
-                localization,
-                tasks,
-                storage,
-                userFiles,
-                hostReads
-            );
+                    seven.dependencies, seven.session, localization, tasks, storage, userFiles, hostReads);
             assertCoreInvariants(sevenArg, seven.dependencies);
             assertSame(localization, sevenArg.localization());
             assertSame(tasks, sevenArg.tasks());
@@ -278,107 +218,76 @@ class CorePluginContextConstructorTest {
             assertSame(userFiles, sevenArg.userFiles());
             assertSame(hostReads, sevenArg.hostReads());
             assertSame(RuntimeSettingsService.unavailable(), sevenArg.runtimeSettings());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                sevenArg.fileChooserHistory()
-            );
+            assertSame(FileChooserHistoryService.unavailable(), sevenArg.fileChooserHistory());
             assertOptionalAvailability(
-                sevenArg,
-                Set.of(
-                    PluginService.LOCALIZATION,
-                    PluginService.TASKS,
-                    PluginService.STORAGE,
-                    PluginService.USER_FILES,
-                    PluginService.HOST_READS
-                )
-            );
+                    sevenArg,
+                    Set.of(
+                            PluginService.LOCALIZATION,
+                            PluginService.TASKS,
+                            PluginService.STORAGE,
+                            PluginService.USER_FILES,
+                            PluginService.HOST_READS));
 
             final dev.turboism.sdk.runtime.RuntimeSettingsService settings = runtimeSettings();
             final CorePluginContext eightArg = new CorePluginContext(
-                eight.dependencies,
-                eight.session,
-                localization,
-                tasks,
-                storage,
-                userFiles,
-                hostReads,
-                settings
-            );
+                    eight.dependencies, eight.session, localization, tasks, storage, userFiles, hostReads, settings);
             assertSame(settings, eightArg.runtimeSettings());
             assertOptionalAvailability(
-                eightArg,
-                Set.of(
-                    PluginService.LOCALIZATION,
-                    PluginService.TASKS,
-                    PluginService.STORAGE,
-                    PluginService.USER_FILES,
-                    PluginService.HOST_READS,
-                    PluginService.RUNTIME_SETTINGS
-                )
-            );
+                    eightArg,
+                    Set.of(
+                            PluginService.LOCALIZATION,
+                            PluginService.TASKS,
+                            PluginService.STORAGE,
+                            PluginService.USER_FILES,
+                            PluginService.HOST_READS,
+                            PluginService.RUNTIME_SETTINGS));
 
             final FileChooserHistoryService history = fileChooserHistory();
             final CorePluginContext nineArg = new CorePluginContext(
-                nine.dependencies,
-                nine.session,
-                localization,
-                tasks,
-                storage,
-                userFiles,
-                hostReads,
-                null,
-                history
-            );
+                    nine.dependencies, nine.session, localization, tasks, storage, userFiles, hostReads, null, history);
             assertNotSame(history, nineArg.fileChooserHistory());
             assertThrows(
-                CubismEditorApiUnavailableException.class,
-                () -> nineArg.fileChooserHistory().projectRecentDirectory()
-            );
+                    CubismEditorApiUnavailableException.class,
+                    () -> nineArg.fileChooserHistory().projectRecentDirectory());
             assertOptionalAvailability(
-                nineArg,
-                Set.of(
-                    PluginService.LOCALIZATION,
-                    PluginService.TASKS,
-                    PluginService.STORAGE,
-                    PluginService.USER_FILES,
-                    PluginService.HOST_READS,
-                    PluginService.FILE_CHOOSER_HISTORY
-                )
-            );
+                    nineArg,
+                    Set.of(
+                            PluginService.LOCALIZATION,
+                            PluginService.TASKS,
+                            PluginService.STORAGE,
+                            PluginService.USER_FILES,
+                            PluginService.HOST_READS,
+                            PluginService.FILE_CHOOSER_HISTORY));
         }
     }
 
     @Test
     void strictOverloadsAcceptNullOptionalTail() throws Exception {
-        try (Fixture eight = new Fixture(TEMP); Fixture nine = new Fixture(TEMP)) {
+        try (Fixture eight = new Fixture(TEMP);
+                Fixture nine = new Fixture(TEMP)) {
             final CorePluginContext eightArg = new CorePluginContext(
-                eight.dependencies,
-                eight.session,
-                localization(),
-                taskScheduler(),
-                pluginStorage(),
-                userFiles(),
-                hostReads(),
-                null
-            );
+                    eight.dependencies,
+                    eight.session,
+                    localization(),
+                    taskScheduler(),
+                    pluginStorage(),
+                    userFiles(),
+                    hostReads(),
+                    null);
             assertSame(RuntimeSettingsService.unavailable(), eightArg.runtimeSettings());
 
             final CorePluginContext nineArg = new CorePluginContext(
-                nine.dependencies,
-                nine.session,
-                localization(),
-                taskScheduler(),
-                pluginStorage(),
-                userFiles(),
-                hostReads(),
-                null,
-                null
-            );
+                    nine.dependencies,
+                    nine.session,
+                    localization(),
+                    taskScheduler(),
+                    pluginStorage(),
+                    userFiles(),
+                    hostReads(),
+                    null,
+                    null);
             assertSame(RuntimeSettingsService.unavailable(), nineArg.runtimeSettings());
-            assertSame(
-                FileChooserHistoryService.unavailable(),
-                nineArg.fileChooserHistory()
-            );
+            assertSame(FileChooserHistoryService.unavailable(), nineArg.fileChooserHistory());
         }
     }
 
@@ -395,50 +304,55 @@ class CorePluginContextConstructorTest {
             final FileChooserHistoryService history = fileChooserHistory();
 
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, (RuntimeHostAdapterAccess) null));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null, localization)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, (RuntimeHostAdapterAccess) null, localization));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null, localization, tasks)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, (RuntimeHostAdapterAccess) null, localization, tasks));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null,
-                    localization, tasks, storage)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies, (RuntimeHostAdapterAccess) null, localization, tasks, storage));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null,
-                    localization, tasks, storage, userFiles)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies, (RuntimeHostAdapterAccess) null, localization, tasks, storage, userFiles));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null,
-                    localization, tasks, storage, userFiles, hostReads)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies,
+                            (RuntimeHostAdapterAccess) null,
+                            localization,
+                            tasks,
+                            storage,
+                            userFiles,
+                            hostReads));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null,
-                    localization, tasks, storage, userFiles, hostReads, settings)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies,
+                            (RuntimeHostAdapterAccess) null,
+                            localization,
+                            tasks,
+                            storage,
+                            userFiles,
+                            hostReads,
+                            settings));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, (RuntimeHostAdapterAccess) null,
-                    localization, tasks, storage, userFiles, hostReads, settings, history)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies,
+                            (RuntimeHostAdapterAccess) null,
+                            localization,
+                            tasks,
+                            storage,
+                            userFiles,
+                            hostReads,
+                            settings,
+                            history));
         }
     }
 
@@ -446,23 +360,22 @@ class CorePluginContextConstructorTest {
     void allPublicHostAccessOverloadsRejectNullDependencies() throws Exception {
         try (Fixture fixture = new Fixture(TEMP)) {
             final HostSession session = fixture.session;
-            final CorePluginContext.Dependencies missing =
-                (CorePluginContext.Dependencies) null;
+            final CorePluginContext.Dependencies missing = (CorePluginContext.Dependencies) null;
 
+            assertThrows(NullPointerException.class, () -> new CorePluginContext(missing, session));
+            assertThrows(NullPointerException.class, () -> new CorePluginContext(missing, session, localization()));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(missing, session)
-            );
-            assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(missing, session, localization())
-            );
-            assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    missing, session, localization(), taskScheduler(), pluginStorage(),
-                    userFiles(), hostReads(), runtimeSettings(), fileChooserHistory())
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            missing,
+                            session,
+                            localization(),
+                            taskScheduler(),
+                            pluginStorage(),
+                            userFiles(),
+                            hostReads(),
+                            runtimeSettings(),
+                            fileChooserHistory()));
         }
     }
 
@@ -478,49 +391,43 @@ class CorePluginContextConstructorTest {
             final AsyncHostReadService hostReads = hostReads();
 
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, null, tasks, storage, userFiles, hostReads)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, session, null, tasks, storage, userFiles, hostReads));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, localization, null, storage, userFiles, hostReads)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies, session, localization, null, storage, userFiles, hostReads));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, localization, tasks, null, userFiles, hostReads)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies, session, localization, tasks, null, userFiles, hostReads));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, localization, tasks, storage, null, hostReads)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, session, localization, tasks, storage, null, hostReads));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, localization, tasks, storage, userFiles, null)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(dependencies, session, localization, tasks, storage, userFiles, null));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, localization, tasks, storage, userFiles,
-                    null, runtimeSettings(), fileChooserHistory())
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies,
+                            session,
+                            localization,
+                            tasks,
+                            storage,
+                            userFiles,
+                            null,
+                            runtimeSettings(),
+                            fileChooserHistory()));
             assertThrows(
-                NullPointerException.class,
-                () -> new CorePluginContext(
-                    dependencies, session, null, tasks, storage, userFiles, hostReads,
-                    null, null)
-            );
+                    NullPointerException.class,
+                    () -> new CorePluginContext(
+                            dependencies, session, null, tasks, storage, userFiles, hostReads, null, null));
         }
     }
 
     private static void assertCoreInvariants(
-        final CorePluginContext context,
-        final CorePluginContext.Dependencies dependencies
-    ) {
+            final CorePluginContext context, final CorePluginContext.Dependencies dependencies) {
         assertSame(dependencies.descriptor(), context.descriptor());
         assertSame(dependencies.paths(), context.paths());
         assertSame(dependencies.disposableScope(), context.disposableScope());
@@ -529,56 +436,64 @@ class CorePluginContextConstructorTest {
 
     private static void assertOmittedServiceDefaults(final CorePluginContext context) {
         assertSame(PluginLocalization.unavailable(), context.localization());
-            assertFalse(context.localization().isAvailable());
+        assertFalse(context.localization().isAvailable());
         assertSame(PluginTaskScheduler.unavailable(), context.tasks());
-            assertFalse(context.tasks().isAvailable());
+        assertFalse(context.tasks().isAvailable());
         assertSame(PluginStorage.unavailable(), context.storage());
-            assertFalse(context.storage().isAvailable());
+        assertFalse(context.storage().isAvailable());
         assertSame(UserFileAccessService.unavailable(), context.userFiles());
-            assertFalse(context.userFiles().isAvailable());
+        assertFalse(context.userFiles().isAvailable());
         assertSame(AsyncHostReadService.unavailable(), context.hostReads());
-            assertFalse(context.hostReads().isAvailable());
+        assertFalse(context.hostReads().isAvailable());
         assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-            assertFalse(context.runtimeSettings().isAvailable());
-        assertSame(
-            FileChooserHistoryService.unavailable(),
-            context.fileChooserHistory()
-        );
+        assertFalse(context.runtimeSettings().isAvailable());
+        assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
     }
 
     private static void assertOptionalAvailability(
-        final CorePluginContext context,
-        final Set<PluginService> expectedPresent
-    ) {
+            final CorePluginContext context, final Set<PluginService> expectedPresent) {
         final Set<PluginService> available = context.availableServices();
         for (final PluginService slot : OPTIONAL_SLOTS) {
             assertEquals(
-                expectedPresent.contains(slot),
-                available.contains(slot),
-                "unexpected availability for optional slot " + slot
-            );
+                    expectedPresent.contains(slot),
+                    available.contains(slot),
+                    "unexpected availability for optional slot " + slot);
         }
     }
 
     private static PluginLocalization localization() {
         return new PluginLocalization() {
-            @Override public Locale locale() { return Locale.ENGLISH; }
-            @Override public String text(final String key) { return key; }
-            @Override public String format(final String key, final Object... arguments) {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
                 return key;
             }
-            @Override public boolean contains(final String key) { return true; }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return key;
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
         };
     }
 
     private static PluginTaskScheduler taskScheduler() {
         return new PluginTaskScheduler() {
-            @Override public TaskSubmission submit(final PluginTaskRequest request) {
+            @Override
+            public TaskSubmission submit(final PluginTaskRequest request) {
                 return null;
             }
-            @Override public TaskSubmission scheduleWithFixedDelay(
-                final FixedDelayTaskRequest request
-            ) {
+
+            @Override
+            public TaskSubmission scheduleWithFixedDelay(final FixedDelayTaskRequest request) {
                 return null;
             }
         };
@@ -586,18 +501,16 @@ class CorePluginContextConstructorTest {
 
     private static PluginStorage pluginStorage() {
         return (PluginStorage) Proxy.newProxyInstance(
-            PluginStorage.class.getClassLoader(),
-            new Class<?>[] {PluginStorage.class},
-            (proxy, method, arguments) -> null
-        );
+                PluginStorage.class.getClassLoader(),
+                new Class<?>[] {PluginStorage.class},
+                (proxy, method, arguments) -> null);
     }
 
     private static UserFileAccessService userFiles() {
         return (UserFileAccessService) Proxy.newProxyInstance(
-            UserFileAccessService.class.getClassLoader(),
-            new Class<?>[] {UserFileAccessService.class},
-            (proxy, method, arguments) -> null
-        );
+                UserFileAccessService.class.getClassLoader(),
+                new Class<?>[] {UserFileAccessService.class},
+                (proxy, method, arguments) -> null);
     }
 
     private static AsyncHostReadService hostReads() {
@@ -606,15 +519,19 @@ class CorePluginContextConstructorTest {
 
     private static dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
         return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
-            @Override public dev.turboism.sdk.runtime.RuntimeSettings read() {
+            @Override
+            public dev.turboism.sdk.runtime.RuntimeSettings read() {
                 return null;
             }
-            @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
-                final dev.turboism.sdk.runtime.RuntimeSettings settings
-            ) {
+
+            @Override
+            public dev.turboism.sdk.runtime.RuntimeSettings save(
+                    final dev.turboism.sdk.runtime.RuntimeSettings settings) {
                 return null;
             }
-            @Override public DockCleanupResult cleanEmptyDocks() {
+
+            @Override
+            public DockCleanupResult cleanEmptyDocks() {
                 return null;
             }
         };
@@ -622,80 +539,157 @@ class CorePluginContextConstructorTest {
 
     private static FileChooserHistoryService fileChooserHistory() {
         return new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() {
+            @Override
+            public Optional<Path> projectRecentDirectory() {
                 return Optional.empty();
             }
-            @Override public Optional<Path> exportRecentDirectory() {
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
                 return Optional.empty();
             }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return false; }
-            @Override public FileChooserHistoryService.Registration registerProvider(
-                final Provider provider
-            ) {
-                return () -> { };
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return false;
+            }
+
+            @Override
+            public FileChooserHistoryService.Registration registerProvider(final Provider provider) {
+                return () -> {};
             }
         };
     }
 
-    private static CorePluginContext.Dependencies dependencies(
-        final Path dataDir,
-        final RuntimeScheduler scheduler
-    ) {
+    private static CorePluginContext.Dependencies dependencies(final Path dataDir, final RuntimeScheduler scheduler) {
         return new CorePluginContext.Dependencies(
-            descriptor(),
-            logger(),
-            paths(dataDir),
-            uiScheduler(),
-            scheduler,
-            diagnostics(),
-            new DisposableScope(),
-            emptyHostSnapshotSource(),
-            ignored -> { },
-            CLOCK
-        );
+                descriptor(),
+                logger(),
+                paths(dataDir),
+                uiScheduler(),
+                scheduler,
+                diagnostics(),
+                new DisposableScope(),
+                emptyHostSnapshotSource(),
+                ignored -> {},
+                CLOCK);
     }
 
     private static PluginDescriptor descriptor() {
         return new PluginDescriptor() {
-            @Override public String id() { return "dev.turboism.test.ConstructorTest"; }
-            @Override public String name() { return "Constructor Test"; }
-            @Override public String version() { return "0.1.0"; }
-            @Override public String description() { return "Test"; }
-            @Override public List<String> entrypoints() {
+            @Override
+            public String id() {
+                return "dev.turboism.test.ConstructorTest";
+            }
+
+            @Override
+            public String name() {
+                return "Constructor Test";
+            }
+
+            @Override
+            public String version() {
+                return "0.1.0";
+            }
+
+            @Override
+            public String description() {
+                return "Test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
                 return List.of("dev.turboism.test.ConstructorTestPlugin");
             }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "Project License"; }
-            @Override public Optional<String> website() {
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "Project License";
+            }
+
+            @Override
+            public Optional<String> website() {
                 return Optional.of("https://turboism.dev");
             }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() {
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
                 return new I18n() {
-                    @Override public String baseName() {
+                    @Override
+                    public String baseName() {
                         return "META-INF/turboism/i18n/messages";
                     }
-                    @Override public List<String> locales() { return List.of(); }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
                 };
             }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() {
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
                 return List.of(new PermissionRef() {
-                    @Override public String id() { return "turboism.cubism.project.read"; }
-                    @Override public String scope() { return "application"; }
-                    @Override public Optional<String> reason() {
+                    @Override
+                    public String id() {
+                        return "turboism.cubism.project.read";
+                    }
+
+                    @Override
+                    public String scope() {
+                        return "application";
+                    }
+
+                    @Override
+                    public Optional<String> reason() {
                         return Optional.of("Constructor matrix test");
                     }
                 });
             }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "none"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
                 };
             }
         };
@@ -703,34 +697,58 @@ class CorePluginContextConstructorTest {
 
     private static PluginLogger logger() {
         return new PluginLogger() {
-            @Override public void debug(String message) { }
-            @Override public void info(String message) { }
-            @Override public void warn(String message) { }
-            @Override public void error(String message) { }
-            @Override public void error(String message, Throwable throwable) { }
+            @Override
+            public void debug(String message) {}
+
+            @Override
+            public void info(String message) {}
+
+            @Override
+            public void warn(String message) {}
+
+            @Override
+            public void error(String message) {}
+
+            @Override
+            public void error(String message, Throwable throwable) {}
         };
     }
 
     private static PluginPaths paths(final Path dataDir) {
         return new PluginPaths() {
-            @Override public Path dataDir() { return dataDir; }
-            @Override public Path logsDir() { return dataDir.resolve("logs"); }
-            @Override public Path stateDir() { return dataDir.resolve("state"); }
-            @Override public Path cacheDir() { return dataDir.resolve("cache"); }
+            @Override
+            public Path dataDir() {
+                return dataDir;
+            }
+
+            @Override
+            public Path logsDir() {
+                return dataDir.resolve("logs");
+            }
+
+            @Override
+            public Path stateDir() {
+                return dataDir.resolve("state");
+            }
+
+            @Override
+            public Path cacheDir() {
+                return dataDir.resolve("cache");
+            }
         };
     }
 
     private static UiScheduler uiScheduler() {
         return new UiScheduler() {
-            @Override public Registration runOnUiThread(final Runnable work) {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
                 work.run();
-                return () -> { };
+                return () -> {};
             }
-            @Override public Registration runOnUiThreadLater(
-                final Runnable work,
-                final Duration delay
-            ) {
-                return () -> { };
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+                return () -> {};
             }
         };
     }
@@ -738,35 +756,57 @@ class CorePluginContextConstructorTest {
     private static RuntimeScheduler scheduler() {
         final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            SidecarDispatcher.noop(),
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                SidecarDispatcher.noop(),
+                events::add);
     }
 
     private static DiagnosticReport diagnostics() {
         return new DiagnosticReport() {
-            @Override public Instant createdAt() { return CLOCK.instant(); }
-            @Override public List<Problem> problems() { return List.of(); }
+            @Override
+            public Instant createdAt() {
+                return CLOCK.instant();
+            }
+
+            @Override
+            public List<Problem> problems() {
+                return List.of();
+            }
         };
     }
 
     private static HostSnapshotSource emptyHostSnapshotSource() {
         return new HostSnapshotSource() {
-            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
-            @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
-            @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
-            @Override public HostSelection selection() {
-                return new HostSelection(
-                    List.of(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                );
+            @Override
+            public Optional<HostProject> activeProject() {
+                return Optional.empty();
             }
-            @Override public boolean isHostPresent() { return false; }
-            @Override public long invalidationToken() { return 0; }
+
+            @Override
+            public Optional<HostDocument> activeDocument() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<HostModel> activeModel() {
+                return Optional.empty();
+            }
+
+            @Override
+            public HostSelection selection() {
+                return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
+            }
+
+            @Override
+            public boolean isHostPresent() {
+                return false;
+            }
+
+            @Override
+            public long invalidationToken() {
+                return 0;
+            }
         };
     }
 

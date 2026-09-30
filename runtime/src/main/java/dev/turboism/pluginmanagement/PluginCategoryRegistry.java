@@ -2,7 +2,6 @@ package dev.turboism.pluginmanagement;
 
 import dev.turboism.i18n.LocalizationDiagnostic;
 import dev.turboism.i18n.LocalizationDiagnosticSink;
-
 import java.util.Optional;
 import java.util.Set;
 
@@ -23,18 +22,9 @@ public final class PluginCategoryRegistry {
     public static final String FALLBACK = "other";
 
     private static final Set<String> REGISTERED = Set.of(
-        "modeling",
-        "workflow",
-        "appearance",
-        "analysis",
-        "performance",
-        "integration",
-        "system",
-        "development"
-    );
+            "modeling", "workflow", "appearance", "analysis", "performance", "integration", "system", "development");
 
-    private PluginCategoryRegistry() {
-    }
+    private PluginCategoryRegistry() {}
 
     /** Immutable set of the reviewed official category IDs. */
     public static Set<String> registered() {
@@ -60,22 +50,20 @@ public final class PluginCategoryRegistry {
      * diagnostic carrying the plugin id and the declared category.
      */
     public static String presentation(
-        final String pluginId,
-        final Optional<String> declaredCategory,
-        final LocalizationDiagnosticSink diagnostics
-    ) {
+            final String pluginId,
+            final Optional<String> declaredCategory,
+            final LocalizationDiagnosticSink diagnostics) {
         final String category = declaredCategory.orElse(null);
         if (isRegistered(category)) {
             return category;
         }
         if (category != null && diagnostics != null) {
             diagnostics.record(new LocalizationDiagnostic(
-                "PLUGIN_CATEGORY_UNKNOWN",
-                pluginId,
-                "category",
-                "",
-                "plugin " + pluginId + " declares well-formed unknown category " + category
-            ));
+                    "PLUGIN_CATEGORY_UNKNOWN",
+                    pluginId,
+                    "category",
+                    "",
+                    "plugin " + pluginId + " declares well-formed unknown category " + category));
         }
         return FALLBACK;
     }

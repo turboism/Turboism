@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.optimization.modelupdate;
 
+import static org.junit.jupiter.api.Assertions.*;
+import static org.objectweb.asm.Opcodes.*;
+
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -16,8 +19,6 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Type;
-import static org.junit.jupiter.api.Assertions.*;
-import static org.objectweb.asm.Opcodes.*;
 
 /**
  * Verifies the entry guard and after-update injection on a synthetic class carrying the
@@ -33,20 +34,21 @@ public class ModelUpdateSkipTransformerTest {
     private static final String BL = "com/live2d/cubism/view/context/bL";
 
     private static final ModelUpdateSkipTarget T5303 =
-        ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
+            ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
     private static final ModelUpdateSkipTarget T5302 =
-        ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_02).orElseThrow();
+            ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_3_02).orElseThrow();
     private static final ModelUpdateSkipTarget T5203 =
-        ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).orElseThrow();
+            ModelUpdateSkipTarget.of(ReviewedHostArtifacts.CUBISM_5_2_03).orElseThrow();
 
     private static final class Loader extends ClassLoader {
         private final ProtectionDomain domain;
+
         Loader(Path artifact) throws Exception {
             super(ModelUpdateSkipTransformerTest.class.getClassLoader());
             domain = new ProtectionDomain(
-                new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null),
-                new Permissions());
+                    new CodeSource(artifact.toUri().toURL(), (java.security.CodeSigner[]) null), new Permissions());
         }
+
         Class<?> define(String name, byte[] bytes) {
             return defineClass(name.replace('/', '.'), bytes, 0, bytes.length, domain);
         }
@@ -71,8 +73,7 @@ public class ModelUpdateSkipTransformerTest {
      * optionally returns early on the first boolean argument, then returns.
      * {@code changed} adds a NOP so the reviewed shape no longer matches.
      */
-    private static byte[] target(ModelUpdateSkipTarget target, boolean changed,
-                                 boolean twoReturns) {
+    private static byte[] target(ModelUpdateSkipTarget target, boolean changed, boolean twoReturns) {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC, target.owner(), null, "java/lang/Object", null);
         w.visitField(ACC_PUBLIC | ACC_STATIC, "calls", "I", null, null).visitEnd();
@@ -83,8 +84,7 @@ public class ModelUpdateSkipTransformerTest {
         m.visitInsn(RETURN);
         m.visitMaxs(0, 0);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC, ModelUpdateSkipTarget.METHOD, target.methodDescriptor(),
-            null, null);
+        m = w.visitMethod(ACC_PUBLIC, ModelUpdateSkipTarget.METHOD, target.methodDescriptor(), null, null);
         m.visitCode();
         if (changed) m.visitInsn(NOP);
         m.visitFieldInsn(GETSTATIC, target.owner(), "calls", "I");
@@ -114,30 +114,37 @@ public class ModelUpdateSkipTransformerTest {
         else System.getProperties().put(key, value);
     }
 
-    @Test void earlyReturnSkipsBodyAndNeverSignalsCompletion() throws Exception {
+    @Test
+    void earlyReturnSkipsBodyAndNeverSignalsCompletion() throws Exception {
         exercise(T5303, (Predicate<Object[]>) args -> true, 0, 0);
     }
 
-    @Test void falsePredicateRunsBodyAndSignalsCompletionWithModel() throws Exception {
+    @Test
+    void falsePredicateRunsBodyAndSignalsCompletionWithModel() throws Exception {
         exercise(T5303, (Predicate<Object[]>) args -> false, 1, 1);
     }
 
-    @Test void absentWrongAndThrowingSlotsFallThroughToNative() throws Exception {
+    @Test
+    void absentWrongAndThrowingSlotsFallThroughToNative() throws Exception {
         exercise(T5303, null, 1, 1);
         exercise(T5303, "not a predicate", 1, 1);
-        exercise(T5303, (Predicate<Object[]>) args -> {
-            throw new AssertionError("predicate failure");
-        }, 1, 1);
+        exercise(
+                T5303,
+                (Predicate<Object[]>) args -> {
+                    throw new AssertionError("predicate failure");
+                },
+                1,
+                1);
         exercise(T5303, (Predicate<Object[]>) args -> false, "foreign consumer", 1, 0);
     }
 
-    @Test void afterUpdateFiresOnEveryNativeReturn() throws Exception {
+    @Test
+    void afterUpdateFiresOnEveryNativeReturn() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = target(T5303, false, true);
         var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, T5303);
-        byte[] output = transformer.transform(null, loader, T5303.owner(), null,
-            loader.domain, reference);
+        byte[] output = transformer.transform(null, loader, T5303.owner(), null, loader.domain, reference);
         assertNotNull(output, transformer.failure());
         Class<?> type = loader.define(T5303.owner(), output);
         Class<?> contextType = loader.define(CTX, empty(CTX));
@@ -150,9 +157,15 @@ public class ModelUpdateSkipTransformerTest {
         try {
             put(ModelUpdateSkipBridge.CALLBACK_PROPERTY, (Predicate<Object[]>) args -> false);
             put(ModelUpdateSkipBridge.AFTER_PROPERTY, (Consumer<Object>) completed::add);
-            Method method = type.getMethod(ModelUpdateSkipTarget.METHOD,
-                contextType, modelType, boolean.class, updateType, boolean.class, tailType,
-                boolean.class);
+            Method method = type.getMethod(
+                    ModelUpdateSkipTarget.METHOD,
+                    contextType,
+                    modelType,
+                    boolean.class,
+                    updateType,
+                    boolean.class,
+                    tailType,
+                    boolean.class);
             Object model = modelType.getDeclaredConstructor().newInstance();
             Object instance = type.getDeclaredConstructor().newInstance();
             method.invoke(instance, null, model, true, null, false, null, false);
@@ -165,13 +178,13 @@ public class ModelUpdateSkipTransformerTest {
         }
     }
 
-    @Test void entryArgumentsAreBoxedInDescriptorOrder() throws Exception {
+    @Test
+    void entryArgumentsAreBoxedInDescriptorOrder() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = target(T5303, false, false);
         var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, T5303);
-        byte[] output = transformer.transform(null, loader, T5303.owner(), null,
-            loader.domain, reference);
+        byte[] output = transformer.transform(null, loader, T5303.owner(), null, loader.domain, reference);
         assertNotNull(output, transformer.failure());
         Class<?> type = loader.define(T5303.owner(), output);
         Class<?> contextType = loader.define(CTX, empty(CTX));
@@ -185,9 +198,15 @@ public class ModelUpdateSkipTransformerTest {
                 seen[0] = args;
                 return true;
             });
-            Method method = type.getMethod(ModelUpdateSkipTarget.METHOD,
-                contextType, modelType, boolean.class, updateType, boolean.class, tailType,
-                boolean.class);
+            Method method = type.getMethod(
+                    ModelUpdateSkipTarget.METHOD,
+                    contextType,
+                    modelType,
+                    boolean.class,
+                    updateType,
+                    boolean.class,
+                    tailType,
+                    boolean.class);
             Object instance = type.getDeclaredConstructor().newInstance();
             Object model = modelType.getDeclaredConstructor().newInstance();
             Object marker = tailType.getDeclaredConstructor().newInstance();
@@ -205,60 +224,58 @@ public class ModelUpdateSkipTransformerTest {
         }
     }
 
-    @Test void everyDescriptorVariantIsAdmitted() throws Exception {
+    @Test
+    void everyDescriptorVariantIsAdmitted() throws Exception {
         for (ModelUpdateSkipTarget target : List.of(T5203, T5302, T5303)) {
             Path artifact = Files.createTempFile("host", ".jar");
             Loader loader = new Loader(artifact);
             byte[] reference = target(target, false, false);
             var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, target);
-            byte[] output = transformer.transform(null, loader, target.owner(), null,
-                loader.domain, reference);
+            byte[] output = transformer.transform(null, loader, target.owner(), null, loader.domain, reference);
             assertNotNull(output, target.version() + " rejected: " + transformer.failure());
             assertEquals(1, transformer.matches());
             assertNotNull(transformer.beforeSha256());
         }
     }
 
-    @Test void changedBodyIsRejectedWithFailure() throws Exception {
+    @Test
+    void changedBodyIsRejectedWithFailure() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = target(T5303, false, false);
         var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, loader, T5303.owner(), null, loader.domain,
-            target(T5303, true, false)));
+        assertNull(transformer.transform(null, loader, T5303.owner(), null, loader.domain, target(T5303, true, false)));
         assertNotNull(transformer.failure());
         assertEquals(0, transformer.matches());
     }
 
-    @Test void wrongLoaderNameAndArtifactAreRejected() throws Exception {
+    @Test
+    void wrongLoaderNameAndArtifactAreRejected() throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = target(T5303, false, false);
         var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, T5303);
-        assertNull(transformer.transform(null, new Loader(artifact), T5303.owner(), null,
-            loader.domain, reference));
-        assertNull(transformer.transform(null, loader, "com/live2d/cubism/view/au", null,
-            loader.domain, reference));
+        assertNull(transformer.transform(null, new Loader(artifact), T5303.owner(), null, loader.domain, reference));
+        assertNull(transformer.transform(null, loader, "com/live2d/cubism/view/au", null, loader.domain, reference));
         assertNull(transformer.transform(null, loader, T5303.owner(), null, null, reference));
         Loader alien = new Loader(Files.createTempFile("other", ".jar"));
-        assertNull(transformer.transform(null, loader, T5303.owner(), null, alien.domain,
-            reference));
+        assertNull(transformer.transform(null, loader, T5303.owner(), null, alien.domain, reference));
         assertNotNull(transformer.failure());
     }
 
-    private static void exercise(ModelUpdateSkipTarget target, Object callback,
-                                 int expectedCalls, int expectedCompleted) throws Exception {
+    private static void exercise(
+            ModelUpdateSkipTarget target, Object callback, int expectedCalls, int expectedCompleted) throws Exception {
         exercise(target, callback, null, expectedCalls, expectedCompleted);
     }
 
-    private static void exercise(ModelUpdateSkipTarget target, Object callback, Object afterSlot,
-                                 int expectedCalls, int expectedCompleted) throws Exception {
+    private static void exercise(
+            ModelUpdateSkipTarget target, Object callback, Object afterSlot, int expectedCalls, int expectedCompleted)
+            throws Exception {
         Path artifact = Files.createTempFile("host", ".jar");
         Loader loader = new Loader(artifact);
         byte[] reference = target(target, false, false);
         var transformer = new ModelUpdateSkipTransformer(loader, artifact, reference, target);
-        byte[] output = transformer.transform(null, loader, target.owner(), null,
-            loader.domain, reference);
+        byte[] output = transformer.transform(null, loader, target.owner(), null, loader.domain, reference);
         assertNotNull(output, transformer.failure());
         assertEquals(1, transformer.matches());
         Class<?> type = loader.define(target.owner(), output);
@@ -267,8 +284,9 @@ public class ModelUpdateSkipTransformerTest {
         List<Object> completed = new ArrayList<>();
         try {
             put(ModelUpdateSkipBridge.CALLBACK_PROPERTY, callback);
-            put(ModelUpdateSkipBridge.AFTER_PROPERTY,
-                afterSlot == null ? (Consumer<Object>) completed::add : afterSlot);
+            put(
+                    ModelUpdateSkipBridge.AFTER_PROPERTY,
+                    afterSlot == null ? (Consumer<Object>) completed::add : afterSlot);
             Class<?>[] parameters = argumentTypes(loader, target);
             Method method = type.getMethod(ModelUpdateSkipTarget.METHOD, parameters);
             Object[] args = new Object[parameters.length];
@@ -288,8 +306,9 @@ public class ModelUpdateSkipTransformerTest {
         Type[] types = Type.getArgumentTypes(target.methodDescriptor());
         Class<?>[] result = new Class<?>[types.length];
         for (int i = 0; i < types.length; i++) {
-            result[i] = types[i].equals(Type.BOOLEAN_TYPE) ? boolean.class
-                : loader.define(types[i].getInternalName(), empty(types[i].getInternalName()));
+            result[i] = types[i].equals(Type.BOOLEAN_TYPE)
+                    ? boolean.class
+                    : loader.define(types[i].getInternalName(), empty(types[i].getInternalName()));
         }
         return result;
     }

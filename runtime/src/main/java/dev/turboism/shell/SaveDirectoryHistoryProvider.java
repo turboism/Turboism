@@ -1,7 +1,6 @@
 package dev.turboism.shell;
 
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.StringReader;
@@ -70,8 +69,7 @@ public final class SaveDirectoryHistoryProvider implements FileChooserHistorySer
                 properties.store(out, null);
             }
         } catch (IOException failure) {
-            throw new IllegalStateException(
-                "failed to persist file-chooser history to " + file, failure);
+            throw new IllegalStateException("failed to persist file-chooser history to " + file, failure);
         }
     }
 
@@ -91,7 +89,7 @@ public final class SaveDirectoryHistoryProvider implements FileChooserHistorySer
                     final Properties single = new Properties();
                     single.load(reader);
                     single.stringPropertyNames()
-                        .forEach(name -> properties.setProperty(name, single.getProperty(name)));
+                            .forEach(name -> properties.setProperty(name, single.getProperty(name)));
                 } catch (IllegalArgumentException malformed) {
                     // Ignore the malformed line.
                 }

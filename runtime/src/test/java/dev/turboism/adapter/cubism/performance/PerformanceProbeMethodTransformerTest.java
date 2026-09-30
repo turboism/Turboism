@@ -1,17 +1,16 @@
 package dev.turboism.adapter.cubism.performance;
 
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class PerformanceProbeMethodTransformerTest {
 
@@ -22,30 +21,24 @@ class PerformanceProbeMethodTransformerTest {
         recorder.startCapture();
         try {
             final PerformanceProbeMethodTransformer transformer = new PerformanceProbeMethodTransformer(
-                null,
-                null,
-                List.of(new PerformanceProbeMethodTransformer.Target(
-                    "fixture/RenderTarget",
-                    "render",
-                    "(Z)V",
-                    PerformanceProbeMetric.RENDER_SCENE
-                ))
-            );
-            final byte[] transformed = transformer.transform(
-                null, null, "fixture/RenderTarget", null, null, fixtureClass()
-            );
+                    null,
+                    null,
+                    List.of(new PerformanceProbeMethodTransformer.Target(
+                            "fixture/RenderTarget", "render", "(Z)V", PerformanceProbeMetric.RENDER_SCENE)));
+            final byte[] transformed =
+                    transformer.transform(null, null, "fixture/RenderTarget", null, null, fixtureClass());
             assertNotNull(transformed);
             final Class<?> type = new FixtureLoader().define("fixture.RenderTarget", transformed);
             final Object instance = type.getConstructor().newInstance();
 
             type.getMethod("render", boolean.class).invoke(instance, false);
-            assertThrows(InvocationTargetException.class, () ->
-                type.getMethod("render", boolean.class).invoke(instance, true)
-            );
+            assertThrows(
+                    InvocationTargetException.class,
+                    () -> type.getMethod("render", boolean.class).invoke(instance, true));
             type.getMethod("other").invoke(instance);
 
-            final PerformanceProbeRecorder.MetricSnapshot snapshot = recorder.snapshot()
-                .metrics().get(PerformanceProbeMetric.RENDER_SCENE);
+            final PerformanceProbeRecorder.MetricSnapshot snapshot =
+                    recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE);
             assertEquals(2L, snapshot.calls());
             assertEquals(2L, snapshot.sampled());
         } finally {
@@ -61,20 +54,22 @@ class PerformanceProbeMethodTransformerTest {
         recorder.startCapture();
         try {
             final PerformanceProbeMethodTransformer transformer = new PerformanceProbeMethodTransformer(
-                null,
-                null,
-                List.of(new PerformanceProbeMethodTransformer.Target(
-                    "fixture/CaughtTarget", "render", "(Z)V", PerformanceProbeMetric.RENDER_SCENE
-                ))
-            );
-            final byte[] transformed = transformer.transform(
-                null, null, "fixture/CaughtTarget", null, null, caughtFixtureClass()
-            );
+                    null,
+                    null,
+                    List.of(new PerformanceProbeMethodTransformer.Target(
+                            "fixture/CaughtTarget", "render", "(Z)V", PerformanceProbeMetric.RENDER_SCENE)));
+            final byte[] transformed =
+                    transformer.transform(null, null, "fixture/CaughtTarget", null, null, caughtFixtureClass());
             final Class<?> type = new FixtureLoader().define("fixture.CaughtTarget", transformed);
             final Object instance = type.getConstructor().newInstance();
             type.getMethod("render", boolean.class).invoke(instance, false);
             type.getMethod("render", boolean.class).invoke(instance, true);
-            assertEquals(2L, recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
+            assertEquals(
+                    2L,
+                    recorder.snapshot()
+                            .metrics()
+                            .get(PerformanceProbeMetric.RENDER_SCENE)
+                            .calls());
         } finally {
             recorder.stopCapture();
             clearCarrier();
@@ -107,8 +102,12 @@ class PerformanceProbeMethodTransformerTest {
                 method.visitTypeInsn(Opcodes.NEW, "java/lang/IllegalStateException");
                 method.visitInsn(Opcodes.DUP);
                 method.visitLdcInsn("original failure");
-                method.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/IllegalStateException", "<init>",
-                    "(Ljava/lang/String;)V", false);
+                method.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        "java/lang/IllegalStateException",
+                        "<init>",
+                        "(Ljava/lang/String;)V",
+                        false);
                 method.visitInsn(Opcodes.ATHROW);
                 method.visitLabel(normal);
                 method.visitLdcInsn(value[1]);
@@ -117,18 +116,25 @@ class PerformanceProbeMethodTransformerTest {
                 method.visitEnd();
                 writer.visitEnd();
                 final var target = new PerformanceProbeMethodTransformer.Target(
-                    "fixture/ValueTarget", "read", descriptor, PerformanceProbeMetric.RENDER_SCENE);
+                        "fixture/ValueTarget", "read", descriptor, PerformanceProbeMetric.RENDER_SCENE);
                 final var transformer = new PerformanceProbeMethodTransformer(null, null, List.of(target));
-                final byte[] bytes = transformer.transform(null, null, "fixture/ValueTarget", null, null, writer.toByteArray());
+                final byte[] bytes =
+                        transformer.transform(null, null, "fixture/ValueTarget", null, null, writer.toByteArray());
                 final Class<?> type = new FixtureLoader().define("fixture.ValueTarget", bytes);
                 final Object instance = type.getConstructor().newInstance();
                 assertEquals(value[1], type.getMethod("read", boolean.class).invoke(instance, false));
-                final InvocationTargetException failure = assertThrows(InvocationTargetException.class,
-                    () -> type.getMethod("read", boolean.class).invoke(instance, true));
+                final InvocationTargetException failure = assertThrows(
+                        InvocationTargetException.class,
+                        () -> type.getMethod("read", boolean.class).invoke(instance, true));
                 assertEquals("original failure", failure.getCause().getMessage());
                 recorder.stopCapture();
                 org.junit.jupiter.api.Assertions.assertTrue(recorder.awaitQuiescence(100));
-                assertEquals(2L, recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE).calls());
+                assertEquals(
+                        2L,
+                        recorder.snapshot()
+                                .metrics()
+                                .get(PerformanceProbeMetric.RENDER_SCENE)
+                                .calls());
             } finally {
                 recorder.stopCapture();
                 clearCarrier();
@@ -138,24 +144,28 @@ class PerformanceProbeMethodTransformerTest {
 
     private static void installCarrier(final PerformanceProbeRecorder recorder) throws Exception {
         final Class<?> callback = Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCallback");
-        final Object proxy = Proxy.newProxyInstance(callback.getClassLoader(), new Class<?>[]{callback}, (ignored, method, args) -> {
-            if (method.getName().equals("enter")) {
-                return NativePerformanceProbeBridge.enter(recorder, (int) args[0]);
-            }
-            NativePerformanceProbeBridge.exit(recorder, (int) args[0], (long) args[1]);
-            return null;
-        });
+        final Object proxy = Proxy.newProxyInstance(
+                callback.getClassLoader(), new Class<?>[] {callback}, (ignored, method, args) -> {
+                    if (method.getName().equals("enter")) {
+                        return NativePerformanceProbeBridge.enter(recorder, (int) args[0]);
+                    }
+                    NativePerformanceProbeBridge.exit(recorder, (int) args[0], (long) args[1]);
+                    return null;
+                });
         Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCarrier")
-            .getMethod("install", callback).invoke(null, proxy);
+                .getMethod("install", callback)
+                .invoke(null, proxy);
         CallbackHolder.callback = proxy;
         Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCarrier")
-            .getMethod("enable", long.class).invoke(null, ~0L);
+                .getMethod("enable", long.class)
+                .invoke(null, ~0L);
     }
 
     private static void clearCarrier() throws Exception {
         final Class<?> callback = Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCallback");
         Class.forName("dev.turboism.bootstrap.carrier.PerformanceProbeCarrier")
-            .getMethod("clear", callback).invoke(null, CallbackHolder.callback);
+                .getMethod("clear", callback)
+                .invoke(null, CallbackHolder.callback);
         CallbackHolder.callback = null;
     }
 

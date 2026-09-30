@@ -1,18 +1,18 @@
 package dev.turboism.pluginmanagement;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 /** First-party admission fails closed on unregistered categories, drift, and stale artifacts. */
 class FirstPartyMetadataVerificationTest {
-    @TempDir Path temp;
+    @TempDir
+    Path temp;
 
     @Test
     void registeredV3TrackedDescriptorAndMatchingJarPass() throws Exception {
@@ -28,9 +28,8 @@ class FirstPartyMetadataVerificationTest {
         final Path jar = jarFor(descriptor);
 
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
-            FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
-            () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar)
-        );
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar));
         assertEquals("FIRST_PARTY_CATEGORY_UNREGISTERED", failure.code());
     }
 
@@ -42,9 +41,8 @@ class FirstPartyMetadataVerificationTest {
         final Path drifted = tracked("modeling", "[\"binding\"]");
 
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
-            FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
-            () -> FirstPartyMetadataVerificationCli.verify(drifted, jar)
-        );
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(drifted, jar));
         assertEquals("FIRST_PARTY_CLASSIFICATION_MISMATCH", failure.code());
     }
 
@@ -56,9 +54,8 @@ class FirstPartyMetadataVerificationTest {
         Files.writeString(descriptor, text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 4"));
 
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
-            FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
-            () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar)
-        );
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar));
         assertEquals("FIRST_PARTY_SCHEMA_NOT_V3", failure.code());
     }
 
@@ -70,11 +67,9 @@ class FirstPartyMetadataVerificationTest {
         Files.writeString(unsupportedDescriptor, text.replace("\"schemaVersion\": 3", "\"schemaVersion\": 9"));
 
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
-            FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
-            () -> FirstPartyMetadataVerificationCli.verify(descriptor, jarFor(unsupportedDescriptor))
-        );
-        assertTrue(failure.code().startsWith("FIRST_PARTY_EMBEDDED_DESCRIPTOR_INVALID"),
-            failure.code());
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(descriptor, jarFor(unsupportedDescriptor)));
+        assertTrue(failure.code().startsWith("FIRST_PARTY_EMBEDDED_DESCRIPTOR_INVALID"), failure.code());
     }
 
     @Test
@@ -93,9 +88,8 @@ class FirstPartyMetadataVerificationTest {
 
         FirstPartyMetadataVerificationCli.verify(descriptor, sameDirFresh);
         final FirstPartyMetadataVerificationCli.FirstPartyRejection failure = assertThrows(
-            FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
-            () -> FirstPartyMetadataVerificationCli.verify(descriptor, staleJar)
-        );
+                FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
+                () -> FirstPartyMetadataVerificationCli.verify(descriptor, staleJar));
         assertTrue(failure.code().startsWith("FIRST_PARTY_JAR_"), failure.code());
     }
 
@@ -139,14 +133,16 @@ class FirstPartyMetadataVerificationTest {
         Files.createDirectories(meta);
         Files.createDirectories(i18n);
         Files.copy(descriptor, meta.resolve("plugin.json"));
-        Files.writeString(i18n.resolve("messages.properties"), "plugin.name=First Party\nplugin.description=First party\n");
+        Files.writeString(
+                i18n.resolve("messages.properties"), "plugin.name=First Party\nplugin.description=First party\n");
         final Path classFile = work.resolve("dev/turboism/plugin/firstparty/FirstPartyPlugin.class");
         Files.createDirectories(classFile.getParent());
-        Files.write(classFile, new byte[]{0});
+        Files.write(classFile, new byte[] {0});
         try (var out = new java.util.jar.JarOutputStream(Files.newOutputStream(jarPath))) {
             try (var files = Files.walk(work)) {
                 for (Path file : files.filter(Files::isRegularFile).toList()) {
-                    out.putNextEntry(new java.util.zip.ZipEntry(work.relativize(file).toString()));
+                    out.putNextEntry(
+                            new java.util.zip.ZipEntry(work.relativize(file).toString()));
                     out.write(Files.readAllBytes(file));
                     out.closeEntry();
                 }

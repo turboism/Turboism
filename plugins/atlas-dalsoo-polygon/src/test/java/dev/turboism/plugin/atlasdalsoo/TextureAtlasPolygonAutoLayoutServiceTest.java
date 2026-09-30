@@ -1,9 +1,7 @@
 package dev.turboism.plugin.atlasdalsoo;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
@@ -18,11 +16,11 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
-
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The issued session bounds must win over plugin policy: a wider plugin
@@ -30,8 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TextureAtlasPolygonAutoLayoutServiceTest {
 
-    private static final TextureAtlasLayoutTarget TARGET = new TextureAtlasLayoutTarget() {
-    };
+    private static final TextureAtlasLayoutTarget TARGET = new TextureAtlasLayoutTarget() {};
 
     private static final class FakeLayouts implements TextureAtlasPolygonLayoutService {
         private final TextureAtlasPolygonLayoutSnapshot snapshot;
@@ -47,54 +44,77 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
         }
 
         @Override
-        public TextureAtlasLayoutApplyResult apply(final TextureAtlasLayoutTarget target,
-            final TextureAtlasPolygonPlan plan) {
+        public TextureAtlasLayoutApplyResult apply(
+                final TextureAtlasLayoutTarget target, final TextureAtlasPolygonPlan plan) {
             this.applied = plan;
             return TextureAtlasLayoutApplyResult.applied();
         }
     }
 
     private static TextureAtlasPolygonItem rect(final String id) {
-        return new TextureAtlasPolygonItem(id, 40, 40,
-            TextureAtlasOutline.rect(40, 40),
-            TextureAtlasItemLayoutPolicy.participating(id),
-            TextureAtlasOutlineSource.BOUNDS_FALLBACK, null, false);
+        return new TextureAtlasPolygonItem(
+                id,
+                40,
+                40,
+                TextureAtlasOutline.rect(40, 40),
+                TextureAtlasItemLayoutPolicy.participating(id),
+                TextureAtlasOutlineSource.BOUNDS_FALLBACK,
+                null,
+                false);
     }
 
-    private static TextureAtlasPolygonLayoutSnapshot snapshot(final int w, final int h,
-        final TextureAtlasRotationMode mode, final double requestedScale,
-        final List<TextureAtlasPolygonItem> items) {
-        return new TextureAtlasPolygonLayoutSnapshot(TARGET, "doc", "model", "atlas",
-            new TextureAtlasPolygonConstraints(w, h, 0, mode, requestedScale,
-                TextureAtlasLayoutBackend.DALSOO_POLYGON, TextureAtlasLayoutQuality.FAST),
-            items, null);
+    private static TextureAtlasPolygonLayoutSnapshot snapshot(
+            final int w,
+            final int h,
+            final TextureAtlasRotationMode mode,
+            final double requestedScale,
+            final List<TextureAtlasPolygonItem> items) {
+        return new TextureAtlasPolygonLayoutSnapshot(
+                TARGET,
+                "doc",
+                "model",
+                "atlas",
+                new TextureAtlasPolygonConstraints(
+                        w,
+                        h,
+                        0,
+                        mode,
+                        requestedScale,
+                        TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                        TextureAtlasLayoutQuality.FAST),
+                items,
+                null);
     }
 
-    private static PolygonLayoutSettings policy(final TextureAtlasRotationMode rotation,
-        final boolean automaticScale, final double fixedScale) {
-        return new PolygonLayoutSettings(TextureAtlasLayoutBackend.DALSOO_POLYGON,
-            rotation, TextureAtlasLayoutQuality.FAST, automaticScale, fixedScale,
-            false, false, PolygonLayoutLockPreset.NONE,
-            PolygonLayoutSettings.DEFAULT_AUTO_SCALE_TOLERANCE,
-            PolygonLayoutSettings.AUTO_SCALE_MAX_TRY_QUALITY, Map.of());
+    private static PolygonLayoutSettings policy(
+            final TextureAtlasRotationMode rotation, final boolean automaticScale, final double fixedScale) {
+        return new PolygonLayoutSettings(
+                TextureAtlasLayoutBackend.DALSOO_POLYGON,
+                rotation,
+                TextureAtlasLayoutQuality.FAST,
+                automaticScale,
+                fixedScale,
+                false,
+                false,
+                PolygonLayoutLockPreset.NONE,
+                PolygonLayoutSettings.DEFAULT_AUTO_SCALE_TOLERANCE,
+                PolygonLayoutSettings.AUTO_SCALE_MAX_TRY_QUALITY,
+                Map.of());
     }
 
     @Test
     void sessionRotationBoundsPluginPolicy() {
-        final var layouts = new FakeLayouts(snapshot(400, 400,
-            TextureAtlasRotationMode.NONE, 0,
-            List.of(rect("a"), rect("b"))));
+        final var layouts =
+                new FakeLayouts(snapshot(400, 400, TextureAtlasRotationMode.NONE, 0, List.of(rect("a"), rect("b"))));
         final List<String> log = new ArrayList<>();
-        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
-            () -> policy(TextureAtlasRotationMode.FREE, true, 1.0), log::add);
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.FREE, true, 1.0), log::add);
         final var result = service.applyAutomaticLayout(false);
-        assertTrue(result.status().isPresent(),
-            "apply failed: " + result.message().orElse("?"));
-        assertTrue(log.stream().anyMatch(m -> m.contains("degraded")),
-            "expected a degradation log line, got " + log);
+        assertTrue(
+                result.status().isPresent(), "apply failed: " + result.message().orElse("?"));
+        assertTrue(log.stream().anyMatch(m -> m.contains("degraded")), "expected a degradation log line, got " + log);
         for (final var p : layouts.applied.placements()) {
-            assertEquals(0, Math.abs(p.angleDeg()) % 90, 1e-6,
-                "session NONE must bound plugin FREE");
+            assertEquals(0, Math.abs(p.angleDeg()) % 90, 1e-6, "session NONE must bound plugin FREE");
         }
     }
 
@@ -102,21 +122,22 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
     void freeRotationReachesPlannerEndToEnd() {
         // issued FREE session + plugin FREE policy: the plan must declare FREE
         // and placements must land on the 18-step (20°) candidate grid
-        final var layouts = new FakeLayouts(snapshot(400, 400,
-            TextureAtlasRotationMode.FREE, 0,
-            List.of(rect("a"), rect("b"), rect("c"), rect("d"))));
-        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
-            () -> policy(TextureAtlasRotationMode.FREE, true, 1.0), m -> { });
+        final var layouts = new FakeLayouts(snapshot(
+                400, 400, TextureAtlasRotationMode.FREE, 0, List.of(rect("a"), rect("b"), rect("c"), rect("d"))));
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.FREE, true, 1.0), m -> {});
         final var result = service.applyAutomaticLayout(false);
-        assertTrue(result.status().isPresent(),
-            "apply failed: " + result.message().orElse("?"));
-        assertEquals("FREE", layouts.applied.diagnostics().get("rotationMode"),
-            "the plan must declare the caller-requested FREE mode");
+        assertTrue(
+                result.status().isPresent(), "apply failed: " + result.message().orElse("?"));
+        assertEquals(
+                "FREE",
+                layouts.applied.diagnostics().get("rotationMode"),
+                "the plan must declare the caller-requested FREE mode");
         for (final var p : layouts.applied.placements()) {
             final double grid = Math.abs(p.angleDeg() % 20);
-            assertTrue(grid < 1e-6 || grid > 20 - 1e-6,
-                "FREE placement must use a 20°-grid candidate, got "
-                    + p.angleDeg());
+            assertTrue(
+                    grid < 1e-6 || grid > 20 - 1e-6,
+                    "FREE placement must use a 20°-grid candidate, got " + p.angleDeg());
         }
     }
 
@@ -124,34 +145,38 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
     void freeRotationWritesArbitraryAngleEndToEnd() {
         // a 42x10 rectangle fits a 40x40 page only at a non-quarter angle
         // (40° candidate: bounds ~= 38.6 x 34.6); QUARTER/NONE cannot place it
-        final var thin = new TextureAtlasPolygonItem("thin", 42, 10,
-            TextureAtlasOutline.rect(42, 10),
-            TextureAtlasItemLayoutPolicy.participating("thin"),
-            TextureAtlasOutlineSource.BOUNDS_FALLBACK, null, false);
-        final var layouts = new FakeLayouts(snapshot(40, 40,
-            TextureAtlasRotationMode.FREE, 1, List.of(thin)));
-        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
-            () -> policy(TextureAtlasRotationMode.FREE, false, 1.0), m -> { });
+        final var thin = new TextureAtlasPolygonItem(
+                "thin",
+                42,
+                10,
+                TextureAtlasOutline.rect(42, 10),
+                TextureAtlasItemLayoutPolicy.participating("thin"),
+                TextureAtlasOutlineSource.BOUNDS_FALLBACK,
+                null,
+                false);
+        final var layouts = new FakeLayouts(snapshot(40, 40, TextureAtlasRotationMode.FREE, 1, List.of(thin)));
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.FREE, false, 1.0), m -> {});
         final var result = service.applyAutomaticLayout(false);
-        assertTrue(result.status().isPresent(),
-            "apply failed: " + result.message().orElse("?"));
+        assertTrue(
+                result.status().isPresent(), "apply failed: " + result.message().orElse("?"));
         final var placement = layouts.applied.placementFor("thin").orElseThrow();
         final double quarter = Math.abs(placement.angleDeg() % 90);
-        assertTrue(quarter > 1e-6 && quarter < 90 - 1e-6,
-            "expected an arbitrary (non-90°) angle, got " + placement.angleDeg());
+        assertTrue(
+                quarter > 1e-6 && quarter < 90 - 1e-6,
+                "expected an arbitrary (non-90°) angle, got " + placement.angleDeg());
         final double grid = Math.abs(placement.angleDeg() % 20);
-        assertTrue(grid < 1e-6 || grid > 20 - 1e-6,
-            "angle must sit on the 18-candidate grid, got "
-                + placement.angleDeg());
+        assertTrue(
+                grid < 1e-6 || grid > 20 - 1e-6,
+                "angle must sit on the 18-candidate grid, got " + placement.angleDeg());
     }
 
     @Test
     void sessionRequestedScaleWinsOverPluginScale() {
-        final var layouts = new FakeLayouts(snapshot(400, 400,
-            TextureAtlasRotationMode.QUARTER, 0.5,
-            List.of(rect("a"), rect("b"))));
-        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
-            () -> policy(TextureAtlasRotationMode.QUARTER, true, 1.0), m -> { });
+        final var layouts = new FakeLayouts(
+                snapshot(400, 400, TextureAtlasRotationMode.QUARTER, 0.5, List.of(rect("a"), rect("b"))));
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.QUARTER, true, 1.0), m -> {});
         service.applyAutomaticLayout(false);
         assertEquals(0.5, layouts.applied.scale(), 1e-9);
     }
@@ -159,12 +184,10 @@ class TextureAtlasPolygonAutoLayoutServiceTest {
     @Test
     void automaticScaleNeverExceedsOne() {
         // one small item on a large page: the uncapped optimistic bound would be >1
-        final var layouts = new FakeLayouts(snapshot(2000, 2000,
-            TextureAtlasRotationMode.NONE, 0, List.of(rect("a"))));
-        final var service = new TextureAtlasPolygonAutoLayoutService(layouts,
-            () -> policy(TextureAtlasRotationMode.NONE, true, 1.0), m -> { });
+        final var layouts = new FakeLayouts(snapshot(2000, 2000, TextureAtlasRotationMode.NONE, 0, List.of(rect("a"))));
+        final var service = new TextureAtlasPolygonAutoLayoutService(
+                layouts, () -> policy(TextureAtlasRotationMode.NONE, true, 1.0), m -> {});
         service.applyAutomaticLayout(false);
-        assertTrue(layouts.applied.scale() <= 1.0,
-            "automatic scale must not exceed 1, got " + layouts.applied.scale());
+        assertTrue(layouts.applied.scale() <= 1.0, "automatic scale must not exceed 1, got " + layouts.applied.scale());
     }
 }

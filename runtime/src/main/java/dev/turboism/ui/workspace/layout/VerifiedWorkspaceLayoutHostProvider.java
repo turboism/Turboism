@@ -8,7 +8,6 @@ import dev.turboism.sdk.ui.workspace.layout.PaletteTab;
 import dev.turboism.sdk.ui.workspace.layout.SplitDock;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import dev.turboism.ui.panel.DockTreeTraversal;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -31,26 +30,24 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
     static final String APP_MAIN_FRAME = "cubism.ui-panel.app-controller.main-frame";
     static final String MAIN_FRAME_DOCK_MANAGER = "cubism.ui-panel.main-frame.dock-manager";
     static final String DOCK_PALETTE_MANAGER = "cubism.ui-panel.dock.palette-manager";
-    static final String PALETTE_MANAGER_CURRENT_WORKSPACE =
-        "cubism.ui-panel.palette-manager.current-workspace";
+    static final String PALETTE_MANAGER_CURRENT_WORKSPACE = "cubism.ui-panel.palette-manager.current-workspace";
     static final String WORKSPACE_ROOT_CONTAINER = "cubism.ui-panel.workspace.root-container";
     static final String ROOT_COMPONENT = "cubism.ui-panel.root.component";
     static final String PALETTE_ID = "cubism.ui-panel.palette.id";
 
     static final Set<String> REQUIRED_ALIASES = Set.of(
-        APP_INSTANCE,
-        APP_MAIN_FRAME,
-        MAIN_FRAME_DOCK_MANAGER,
-        DOCK_PALETTE_MANAGER,
-        PALETTE_MANAGER_CURRENT_WORKSPACE,
-        WORKSPACE_ROOT_CONTAINER,
-        ROOT_COMPONENT,
-        PALETTE_ID,
-        DockTreeTraversal.SPLIT_CLASS,
-        DockTreeTraversal.SPLIT_CONTENTS,
-        DockTreeTraversal.PALETTE_BOX_CLASS,
-        DockTreeTraversal.PALETTE_BOX_PALETTES
-    );
+            APP_INSTANCE,
+            APP_MAIN_FRAME,
+            MAIN_FRAME_DOCK_MANAGER,
+            DOCK_PALETTE_MANAGER,
+            PALETTE_MANAGER_CURRENT_WORKSPACE,
+            WORKSPACE_ROOT_CONTAINER,
+            ROOT_COMPONENT,
+            PALETTE_ID,
+            DockTreeTraversal.SPLIT_CLASS,
+            DockTreeTraversal.SPLIT_CONTENTS,
+            DockTreeTraversal.PALETTE_BOX_CLASS,
+            DockTreeTraversal.PALETTE_BOX_PALETTES);
 
     private static final String MAPPING_FAILED = "workspace.layout.mapping.failed";
 
@@ -60,13 +57,10 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
     public VerifiedWorkspaceLayoutHostProvider(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         if (!resolver.authorizesFeature(
-            EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
-            EmbeddedPanelVerificationManifest.CAPABILITY_ID,
-            REQUIRED_ALIASES
-        )) {
-            throw new IllegalArgumentException(
-                "resolver is not admitted for workspace layout reads"
-            );
+                EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
+                EmbeddedPanelVerificationManifest.CAPABILITY_ID,
+                REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("resolver is not admitted for workspace layout reads");
         }
         this.traversal = new DockTreeTraversal(resolver);
     }
@@ -90,10 +84,7 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
             if (paletteManager == null) {
                 return mappingFailed();
             }
-            final Object workspace = resolver.invoke(
-                PALETTE_MANAGER_CURRENT_WORKSPACE,
-                paletteManager
-            );
+            final Object workspace = resolver.invoke(PALETTE_MANAGER_CURRENT_WORKSPACE, paletteManager);
             if (workspace == null) {
                 return mappingFailed();
             }
@@ -106,10 +97,7 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
                 return mappingFailed();
             }
             return new WorkspaceLayoutSnapshot(
-                WorkspaceLayoutSnapshot.Availability.AVAILABLE,
-                buildTree(rootComponent),
-                Optional.empty()
-            );
+                    WorkspaceLayoutSnapshot.Availability.AVAILABLE, buildTree(rootComponent), Optional.empty());
         } catch (RuntimeException failure) {
             return mappingFailed();
         }
@@ -138,10 +126,7 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
     }
 
     private List<PaletteTab> paletteTabs(final Object paletteBox) {
-        final Object rawPalettes = resolver.invoke(
-            DockTreeTraversal.PALETTE_BOX_PALETTES,
-            paletteBox
-        );
+        final Object rawPalettes = resolver.invoke(DockTreeTraversal.PALETTE_BOX_PALETTES, paletteBox);
         if (!(rawPalettes instanceof List<?> palettes)) {
             throw new IllegalStateException("Cubism palette box palettes are not a list");
         }
@@ -154,9 +139,6 @@ public final class VerifiedWorkspaceLayoutHostProvider implements WorkspaceLayou
 
     private static WorkspaceLayoutSnapshot mappingFailed() {
         return new WorkspaceLayoutSnapshot(
-            WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
-            Optional.empty(),
-            Optional.of(MAPPING_FAILED)
-        );
+                WorkspaceLayoutSnapshot.Availability.UNAVAILABLE, Optional.empty(), Optional.of(MAPPING_FAILED));
     }
 }

@@ -1,16 +1,15 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.Set;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class CapabilitySelectorDependenciesTest {
     @ParameterizedTest
@@ -26,14 +25,22 @@ class CapabilitySelectorDependenciesTest {
         assertFalse(capabilities.contains("cubism.editor-model.texture.write"));
 
         final var digest = new HostArtifactDigest(100, "e".repeat(64));
-        final var report = new StaticSelectorVerifier.StructureVerificationReport(digest,
-            record.selectors().stream().map(selector -> new StaticSelectorResult(selector,
-                selector.alias().equals(missing) ? StaticVerificationStatus.MEMBER_MISSING
-                    : StaticVerificationStatus.VERIFIED_STATIC, "fixture verification")).toList());
-        final var plan = VerifiedAccessPlan.fromCompatibility(record, report, "5.3.99",
-            new HostArtifactFingerprint("5.3.99", digest.size(), digest.sha256()));
-        assertTrue(plan.authorizesFeature(record.adapterSliceId(), "cubism.editor-model.texture.read",
-            dev.turboism.mapping.verification.selector.EditorTextureSelectorContract.READ_REQUIRED_ALIASES));
+        final var report = new StaticSelectorVerifier.StructureVerificationReport(
+                digest,
+                record.selectors().stream()
+                        .map(selector -> new StaticSelectorResult(
+                                selector,
+                                selector.alias().equals(missing)
+                                        ? StaticVerificationStatus.MEMBER_MISSING
+                                        : StaticVerificationStatus.VERIFIED_STATIC,
+                                "fixture verification"))
+                        .toList());
+        final var plan = VerifiedAccessPlan.fromCompatibility(
+                record, report, "5.3.99", new HostArtifactFingerprint("5.3.99", digest.size(), digest.sha256()));
+        assertTrue(plan.authorizesFeature(
+                record.adapterSliceId(),
+                "cubism.editor-model.texture.read",
+                dev.turboism.mapping.verification.selector.EditorTextureSelectorContract.READ_REQUIRED_ALIASES));
         assertFalse(plan.authorizesFeature(record.adapterSliceId(), "cubism.editor-model.texture.write", Set.of()));
         assertThrows(IllegalArgumentException.class, () -> plan.selector(missing));
         assertEquals("5.3.99", plan.cubismVersion());
@@ -54,7 +61,8 @@ class CapabilitySelectorDependenciesTest {
     }
 
     private static StaticVerificationRecord record(final String version) throws Exception {
-        return new StaticVerificationRecordLoader().load(Path.of("../compatibility/cubism/verification",
-            "cubism-" + version + "-editor-model.json")).record();
+        return new StaticVerificationRecordLoader()
+                .load(Path.of("../compatibility/cubism/verification", "cubism-" + version + "-editor-model.json"))
+                .record();
     }
 }

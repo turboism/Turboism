@@ -1,15 +1,14 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.config.RuntimeStartupConfig;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.config.RuntimeStartupConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class TurboismAgentAtlasTileBboxPolicyTest {
     private static final String HOOK_ID = "cubism.textureatlas.tile-bbox";
@@ -19,17 +18,15 @@ final class TurboismAgentAtlasTileBboxPolicyTest {
 
     @Test
     void disabledExactPolicyPreventsEarlyInstallation() {
-        final RuntimeStartupConfig policy = new RuntimeStartupConfig(
-            false, false, false, false, false, false, false, Set.of(HOOK_ID)
-        );
+        final RuntimeStartupConfig policy =
+                new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of(HOOK_ID));
         assertFalse(AtlasTileBboxHookContributor.enabled(policy, home));
     }
 
     @Test
     void safeModePreventsEarlyInstallation() {
-        final RuntimeStartupConfig policy = new RuntimeStartupConfig(
-            true, false, false, false, false, false, false, Set.of()
-        );
+        final RuntimeStartupConfig policy =
+                new RuntimeStartupConfig(true, false, false, false, false, false, false, Set.of());
         assertFalse(AtlasTileBboxHookContributor.enabled(policy, home));
     }
 
@@ -40,11 +37,9 @@ final class TurboismAgentAtlasTileBboxPolicyTest {
 
     @Test
     void enabledPolicyPermitsInstallationWhenNothingIsPersisted() {
-        final RuntimeStartupConfig policy = new RuntimeStartupConfig(
-            false, false, false, false, false, false, false, Set.of()
-        );
-        assertTrue(AtlasTileBboxHookContributor.enabled(policy, home),
-            "the optimization defaults to enabled");
+        final RuntimeStartupConfig policy =
+                new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of());
+        assertTrue(AtlasTileBboxHookContributor.enabled(policy, home), "the optimization defaults to enabled");
     }
 
     @Test
@@ -53,9 +48,8 @@ final class TurboismAgentAtlasTileBboxPolicyTest {
             {"format": "turboism.runtime.config", "schemaVersion": 1,
              "worktreeId": "policy-test", "atlasTileBbox": false}
             """);
-        final RuntimeStartupConfig policy = new RuntimeStartupConfig(
-            false, false, false, false, false, false, false, Set.of()
-        );
+        final RuntimeStartupConfig policy =
+                new RuntimeStartupConfig(false, false, false, false, false, false, false, Set.of());
         assertFalse(AtlasTileBboxHookContributor.enabled(policy, home));
     }
 }

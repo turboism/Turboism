@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -13,7 +12,7 @@ import java.util.Set;
 /** Resolves which selected objects are whole-object mirror targets and their apply order. */
 public final class MirrorTargets {
 
-    private MirrorTargets() { }
+    private MirrorTargets() {}
 
     /**
      * Returns the selected Warp Deformers ordered parent-before-child.
@@ -29,10 +28,7 @@ public final class MirrorTargets {
      * @return ordered mirror targets; empty when nothing applies
      */
     public static List<DeformerId> resolveWarpTargets(
-        final List<DeformerId> selectedDeformers,
-        final Set<DeformerId> warpIds,
-        final ModelHierarchy hierarchy
-    ) {
+            final List<DeformerId> selectedDeformers, final Set<DeformerId> warpIds, final ModelHierarchy hierarchy) {
         final ArrayList<DeformerId> targets = new ArrayList<>();
         for (DeformerId id : selectedDeformers) {
             if (warpIds.contains(id)) {

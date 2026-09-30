@@ -9,22 +9,21 @@ final class TextureUploadPreparationHookContributor extends NativeOptimizationHo
         super("TURBOISM_TEXTURE_UPLOAD_PREPARATION");
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(TextureUploadPreparationBridge.ENABLE_PROPERTY)) {
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedTextureUploadPreparationInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true,
-            Runtime.version().feature()
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true,
+                Runtime.version().feature())) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedTextureUploadPreparationInstaller installer =
-            new VerifiedTextureUploadPreparationInstaller(
+        final VerifiedTextureUploadPreparationInstaller installer = new VerifiedTextureUploadPreparationInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;

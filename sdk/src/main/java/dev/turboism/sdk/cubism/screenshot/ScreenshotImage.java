@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-
-import javax.imageio.ImageIO;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Objects;
+import javax.imageio.ImageIO;
 
 /** Decodable PNG preview image with its pixel dimensions. */
 public record ScreenshotImage(int width, int height, byte[] png) {

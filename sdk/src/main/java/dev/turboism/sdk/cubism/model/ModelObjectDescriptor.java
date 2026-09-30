@@ -1,15 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable public description returned after a model-object operation. */
 public record ModelObjectDescriptor(
-    ModelObjectReference reference,
-    String name,
-    Optional<ModelObjectReference> parent
-) {
+        ModelObjectReference reference, String name, Optional<ModelObjectReference> parent) {
 
     public ModelObjectDescriptor {
         reference = Objects.requireNonNull(reference, "reference");

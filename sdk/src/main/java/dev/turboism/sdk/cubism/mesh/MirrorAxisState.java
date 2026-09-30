@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /**
  * The mirror axis as it stands during one edit.
  *

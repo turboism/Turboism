@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.performance;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class PerformanceLatencyHistogramTest {
     @Test
@@ -36,9 +36,21 @@ class PerformanceLatencyHistogramTest {
         assertFalse(recorder.startCapture());
         recorder.exit(PerformanceProbeMetric.RENDER_SCENE, token);
         assertTrue(recorder.awaitQuiescence(100));
-        assertEquals(1, recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE).latency().samples());
+        assertEquals(
+                1,
+                recorder.snapshot()
+                        .metrics()
+                        .get(PerformanceProbeMetric.RENDER_SCENE)
+                        .latency()
+                        .samples());
         assertTrue(recorder.startCapture());
-        assertEquals(0, recorder.snapshot().metrics().get(PerformanceProbeMetric.RENDER_SCENE).latency().samples());
+        assertEquals(
+                0,
+                recorder.snapshot()
+                        .metrics()
+                        .get(PerformanceProbeMetric.RENDER_SCENE)
+                        .latency()
+                        .samples());
         recorder.stopCapture();
     }
 }

@@ -7,8 +7,7 @@ package dev.turboism.adapter.cubism.textureatlas;
  */
 public final class AtlasAdmitDigests {
 
-    private AtlasAdmitDigests() {
-    }
+    private AtlasAdmitDigests() {}
 
     /**
      * Parses a comma-separated list of lowercase 64-hex class digests. Entries are trimmed,

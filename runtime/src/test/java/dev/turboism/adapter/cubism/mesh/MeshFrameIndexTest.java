@@ -1,16 +1,15 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 final class MeshFrameIndexTest {
 
@@ -38,12 +37,9 @@ final class MeshFrameIndexTest {
 
         final MeshFrameIndex index = new MeshFrameIndex(mesh);
 
-        assertSame(first, index.edgesByKey().get(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(2, 4, null))));
-        assertSame(reversed, index.edgesByKey().get(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(1, 5, null))));
-        assertNull(index.edgesByKey().get(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(2, 5, null))));
+        assertSame(first, index.edgesByKey().get(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(2, 4, null))));
+        assertSame(reversed, index.edgesByKey().get(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(1, 5, null))));
+        assertNull(index.edgesByKey().get(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(2, 5, null))));
     }
 
     @Test
@@ -57,8 +53,7 @@ final class MeshFrameIndexTest {
         final long duplicate = MeshFrameIndex.refEdgeKey(new MeshEdgeRef(1, 2, null));
 
         assertTrue(index.duplicatedEdgeKeys().contains(duplicate));
-        assertFalse(index.duplicatedEdgeKeys().contains(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(3, 4, null))));
+        assertFalse(index.duplicatedEdgeKeys().contains(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(3, 4, null))));
         assertSame(mesh.edges.get(0), index.edgesByKey().get(duplicate));
     }
 
@@ -72,10 +67,8 @@ final class MeshFrameIndexTest {
 
         final MeshFrameIndex index = new MeshFrameIndex(mesh).excludingEdge(source);
 
-        assertNull(index.edgesByKey().get(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(1, 2, null))));
-        assertSame(other, index.edgesByKey().get(
-            MeshFrameIndex.refEdgeKey(new MeshEdgeRef(3, 4, null))));
+        assertNull(index.edgesByKey().get(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(1, 2, null))));
+        assertSame(other, index.edgesByKey().get(MeshFrameIndex.refEdgeKey(new MeshEdgeRef(3, 4, null))));
         assertTrue(index.edgeIdentity().contains(source));
     }
 
@@ -124,18 +117,31 @@ final class MeshFrameIndexTest {
 
     public static final class PointRef {
         private final int id;
-        PointRef(final int id) { this.id = id; }
-        public int b() { return id; }
+
+        PointRef(final int id) {
+            this.id = id;
+        }
+
+        public int b() {
+            return id;
+        }
     }
 
     public static final class Edge {
         private final int first;
         private final int second;
+
         Edge(final int first, final int second) {
             this.first = first;
             this.second = second;
         }
-        public int getIndex1() { return first; }
-        public int getIndex2() { return second; }
+
+        public int getIndex1() {
+            return first;
+        }
+
+        public int getIndex2() {
+            return second;
+        }
     }
 }

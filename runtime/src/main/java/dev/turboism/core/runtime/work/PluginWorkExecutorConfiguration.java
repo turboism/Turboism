@@ -20,65 +20,52 @@ final class PluginWorkExecutorConfiguration {
     private final Duration longRunningReportInterval;
 
     private PluginWorkExecutorConfiguration(
-        Duration timeoutDuration,
-        int bulkheadPoolSize,
-        int queueCapacity,
-        float circuitBreakerFailureRateThreshold,
-        int longLaneConcurrency,
-        Duration longRunningThreshold,
-        Duration longRunningReportInterval
-    ) {
+            Duration timeoutDuration,
+            int bulkheadPoolSize,
+            int queueCapacity,
+            float circuitBreakerFailureRateThreshold,
+            int longLaneConcurrency,
+            Duration longRunningThreshold,
+            Duration longRunningReportInterval) {
         this.timeoutDuration = Objects.requireNonNull(timeoutDuration, "timeoutDuration");
         this.bulkheadPoolSize = requirePositive(bulkheadPoolSize, "bulkheadPoolSize");
         this.queueCapacity = requirePositive(queueCapacity, "queueCapacity");
-        this.circuitBreakerFailureRateThreshold = requireThreshold(
-            circuitBreakerFailureRateThreshold,
-            "circuitBreakerFailureRateThreshold"
-        );
+        this.circuitBreakerFailureRateThreshold =
+                requireThreshold(circuitBreakerFailureRateThreshold, "circuitBreakerFailureRateThreshold");
         this.longLaneConcurrency = requirePositive(longLaneConcurrency, "longLaneConcurrency");
-        this.longRunningThreshold = Objects.requireNonNull(
-            longRunningThreshold, "longRunningThreshold");
-        this.longRunningReportInterval = Objects.requireNonNull(
-            longRunningReportInterval, "longRunningReportInterval");
+        this.longRunningThreshold = Objects.requireNonNull(longRunningThreshold, "longRunningThreshold");
+        this.longRunningReportInterval = Objects.requireNonNull(longRunningReportInterval, "longRunningReportInterval");
     }
 
     static PluginWorkExecutorConfiguration of(
-        long timeoutMillis,
-        int bulkheadPoolSize,
-        int queueCapacity,
-        float circuitBreakerFailureRateThreshold
-    ) {
+            long timeoutMillis, int bulkheadPoolSize, int queueCapacity, float circuitBreakerFailureRateThreshold) {
         return of(
-            timeoutMillis,
-            bulkheadPoolSize,
-            queueCapacity,
-            circuitBreakerFailureRateThreshold,
-            DEFAULT_LONG_LANE_CONCURRENCY,
-            DEFAULT_LONG_RUNNING_THRESHOLD_MILLIS,
-            DEFAULT_LONG_RUNNING_REPORT_MILLIS
-        );
+                timeoutMillis,
+                bulkheadPoolSize,
+                queueCapacity,
+                circuitBreakerFailureRateThreshold,
+                DEFAULT_LONG_LANE_CONCURRENCY,
+                DEFAULT_LONG_RUNNING_THRESHOLD_MILLIS,
+                DEFAULT_LONG_RUNNING_REPORT_MILLIS);
     }
 
     static PluginWorkExecutorConfiguration of(
-        long timeoutMillis,
-        int bulkheadPoolSize,
-        int queueCapacity,
-        float circuitBreakerFailureRateThreshold,
-        int longLaneConcurrency,
-        long longRunningThresholdMillis,
-        long longRunningReportIntervalMillis
-    ) {
+            long timeoutMillis,
+            int bulkheadPoolSize,
+            int queueCapacity,
+            float circuitBreakerFailureRateThreshold,
+            int longLaneConcurrency,
+            long longRunningThresholdMillis,
+            long longRunningReportIntervalMillis) {
         return new PluginWorkExecutorConfiguration(
-            Duration.ofMillis(requirePositiveMillis(timeoutMillis, "timeoutMillis")),
-            bulkheadPoolSize,
-            queueCapacity,
-            circuitBreakerFailureRateThreshold,
-            longLaneConcurrency,
-            Duration.ofMillis(
-                requirePositiveMillis(longRunningThresholdMillis, "longRunningThresholdMillis")),
-            Duration.ofMillis(
-                requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis"))
-        );
+                Duration.ofMillis(requirePositiveMillis(timeoutMillis, "timeoutMillis")),
+                bulkheadPoolSize,
+                queueCapacity,
+                circuitBreakerFailureRateThreshold,
+                longLaneConcurrency,
+                Duration.ofMillis(requirePositiveMillis(longRunningThresholdMillis, "longRunningThresholdMillis")),
+                Duration.ofMillis(
+                        requirePositiveMillis(longRunningReportIntervalMillis, "longRunningReportIntervalMillis")));
     }
 
     Duration timeoutDuration() {

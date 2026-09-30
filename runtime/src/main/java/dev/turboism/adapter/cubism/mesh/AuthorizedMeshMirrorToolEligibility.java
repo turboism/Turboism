@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.Set;
 
@@ -18,10 +17,9 @@ public final class AuthorizedMeshMirrorToolEligibility implements MeshMirrorTool
     private final DisposableScope scope;
 
     public AuthorizedMeshMirrorToolEligibility(
-        final RuntimeMeshMirrorToolEligibility delegate,
-        final PermissionChecker permissions,
-        final DisposableScope scope
-    ) {
+            final RuntimeMeshMirrorToolEligibility delegate,
+            final PermissionChecker permissions,
+            final DisposableScope scope) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.scope = Objects.requireNonNull(scope, "scope");
@@ -29,10 +27,7 @@ public final class AuthorizedMeshMirrorToolEligibility implements MeshMirrorTool
 
     @Override
     public Registration extendEligibleTools(final Set<MeshEditTool> tools) {
-        permissions.check(
-            PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-            "cubism.mesh.mirror-tool-eligibility.extend"
-        );
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.mirror-tool-eligibility.extend");
         final Registration registration = delegate.extendEligibleTools(tools);
         try {
             return scope.register(registration);

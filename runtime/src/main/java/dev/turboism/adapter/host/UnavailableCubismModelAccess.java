@@ -8,8 +8,7 @@ final class UnavailableCubismModelAccess implements CubismModelAccess {
 
     static final UnavailableCubismModelAccess INSTANCE = new UnavailableCubismModelAccess();
 
-    private UnavailableCubismModelAccess() {
-    }
+    private UnavailableCubismModelAccess() {}
 
     @Override
     public CubismModel active() {

@@ -3,18 +3,22 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.List;
 
 /** One Cubism Glue relation. */
-@CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor({
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+})
 public interface Glue {
 
     /** Returns this Glue's stable identity within the model. */
     GlueId id();
 
     /** Editor display name, or the ID text when no authoring name is available. */
-    default String name() { return id().value(); }
+    default String name() {
+        return id().value();
+    }
 
     /**
      * Renames this Glue (Inspector {@code name} entry) inside the native Undo
@@ -37,7 +41,9 @@ public interface Glue {
      * Returns the Glue intensity in model space {@code [0,1]} (Inspector shows
      * {@code 0..100%}).
      */
-    default float intensity() { throw unavailable("Glue intensity"); }
+    default float intensity() {
+        throw unavailable("Glue intensity");
+    }
 
     /**
      * Writes the Glue intensity (Inspector {@code intensity} entry) in model space
@@ -64,7 +70,9 @@ public interface Glue {
     }
 
     /** Returns this Glue's position within the model's glue list. */
-    default int index() { throw unavailable("Glue index"); }
+    default int index() {
+        throw unavailable("Glue index");
+    }
 
     /** Returns the Core drawable index of the source ArtMesh. */
     int drawableA();
@@ -76,13 +84,19 @@ public interface Glue {
     IntSequence parameters();
 
     /** Returns the identity of the source ArtMesh. */
-    default ArtMeshId drawableAId() { throw unavailable("Glue drawable A"); }
+    default ArtMeshId drawableAId() {
+        throw unavailable("Glue drawable A");
+    }
 
     /** Returns the identity of the destination ArtMesh. */
-    default ArtMeshId drawableBId() { throw unavailable("Glue drawable B"); }
+    default ArtMeshId drawableBId() {
+        throw unavailable("Glue drawable B");
+    }
 
     /** Returns the identities of the parameters this Glue is bound to. */
-    default List<ParameterId> parameterIds() { throw unavailable("Glue parameters"); }
+    default List<ParameterId> parameterIds() {
+        throw unavailable("Glue parameters");
+    }
 
     private static UnsupportedOperationException unavailable(final String feature) {
         return new UnsupportedOperationException(feature + " is unavailable.");

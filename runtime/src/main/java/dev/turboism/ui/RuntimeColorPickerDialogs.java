@@ -2,27 +2,24 @@ package dev.turboism.ui;
 
 import dev.turboism.sdk.ui.ColorPickerResultListener;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.JColorChooser;
-import javax.swing.JDialog;
-import javax.swing.SwingUtilities;
 import java.awt.Color;
 import java.awt.Window;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JColorChooser;
+import javax.swing.JDialog;
+import javax.swing.SwingUtilities;
 
 /** Runtime-owned Swing rendering for the bounded SDK color picker. */
 final class RuntimeColorPickerDialogs {
 
-    private RuntimeColorPickerDialogs() {
-    }
+    private RuntimeColorPickerDialogs() {}
 
     static void openAsync(
-        final String id,
-        final String title,
-        final String initialColorHex,
-        final ColorPickerResultListener listener
-    ) {
+            final String id,
+            final String title,
+            final String initialColorHex,
+            final ColorPickerResultListener listener) {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
             listener.onResult(false, null);
             return;
@@ -36,22 +33,13 @@ final class RuntimeColorPickerDialogs {
     }
 
     private static void show(
-        final String title,
-        final String initialColorHex,
-        final ColorPickerResultListener listener
-    ) {
+            final String title, final String initialColorHex, final ColorPickerResultListener listener) {
         final Window owner = activeOwner();
         final Color initial = parseHex(initialColorHex);
         final JColorChooser chooser = new JColorChooser(initial == null ? Color.WHITE : initial);
         final AtomicReference<Color> chosen = new AtomicReference<>();
         final JDialog dialog = JColorChooser.createDialog(
-            owner,
-            title,
-            true,
-            chooser,
-            event -> chosen.set(chooser.getColor()),
-            ignored -> { }
-        );
+                owner, title, true, chooser, event -> chosen.set(chooser.getColor()), ignored -> {});
         TurboismWindowFactory.style(dialog);
         try {
             dialog.setVisible(true);
@@ -86,7 +74,6 @@ final class RuntimeColorPickerDialogs {
     }
 
     private static String hex(final Color color) {
-        return String.format(Locale.ROOT, "#%02X%02X%02X",
-            color.getRed(), color.getGreen(), color.getBlue());
+        return String.format(Locale.ROOT, "#%02X%02X%02X", color.getRed(), color.getGreen(), color.getBlue());
     }
 }

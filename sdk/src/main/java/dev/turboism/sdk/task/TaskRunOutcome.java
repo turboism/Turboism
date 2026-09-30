@@ -11,11 +11,7 @@ import java.util.Optional;
  * @param failure failure detail, present exactly when {@code status} is {@code FAILED} or
  *     {@code TIMED_OUT}
  */
-public record TaskRunOutcome(
-    long runNumber,
-    TaskRunOutcomeStatus status,
-    Optional<TaskFailure> failure
-) {
+public record TaskRunOutcome(long runNumber, TaskRunOutcomeStatus status, Optional<TaskFailure> failure) {
     /**
      * Validates the record components.
      *

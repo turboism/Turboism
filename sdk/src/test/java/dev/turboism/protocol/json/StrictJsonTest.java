@@ -1,15 +1,14 @@
 package dev.turboism.protocol.json;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class StrictJsonTest {
 
@@ -24,30 +23,25 @@ final class StrictJsonTest {
         final String encoded = StrictJson.stringify(input);
 
         assertEquals(
-            "{\"text\":\"line\\n\uD83D\uDE80\",\"number\":42,\"array\":[true,\"value\"],\"object\":{\"nested\":false}}",
-            encoded
-        );
+                "{\"text\":\"line\\n\uD83D\uDE80\",\"number\":42,\"array\":[true,\"value\"],\"object\":{\"nested\":false}}",
+                encoded);
         assertEquals(input, StrictJson.parse(encoded.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
     void rejectsMalformedUtf8BomDuplicatesAndTrailingContent() {
-        assertThrows(IllegalArgumentException.class, () -> StrictJson.parse(new byte[] {
-            (byte) 0xc3, (byte) 0x28
-        }));
-        assertThrows(IllegalArgumentException.class, () -> StrictJson.parse(new byte[] {
-            (byte) 0xef, (byte) 0xbb, (byte) 0xbf, '{', '}'
-        }));
+        assertThrows(IllegalArgumentException.class, () -> StrictJson.parse(new byte[] {(byte) 0xc3, (byte) 0x28}));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> StrictJson.parse(new byte[] {(byte) 0xef, (byte) 0xbb, (byte) 0xbf, '{', '}'}));
         assertThrows(IllegalArgumentException.class, () -> parse("{\"id\":1,\"id\":2}"));
         assertThrows(IllegalArgumentException.class, () -> parse("{} []"));
     }
 
     @Test
     void rejectsNonJsonPrefixesBeforeNumberParsing() {
-        final IllegalArgumentException failure = assertThrows(
-            IllegalArgumentException.class,
-            () -> parse("Picked up JAVA_TOOL_OPTIONS")
-        );
+        final IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> parse("Picked up JAVA_TOOL_OPTIONS"));
         assertTrue(failure.getMessage().contains("invalid JSON value"));
     }
 

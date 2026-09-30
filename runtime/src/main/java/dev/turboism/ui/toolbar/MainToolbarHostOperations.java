@@ -2,7 +2,6 @@ package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
-
 import java.util.Optional;
 
 /** Native-independent operations required by the main-toolbar provider. */
@@ -26,10 +25,7 @@ public interface MainToolbarHostOperations {
      * @return a registration that removes the button when disposed
      */
     Registration addButton(
-        MainToolbarContributionDescriptor contribution,
-        Optional<AnchorHandle> anchor,
-        Runnable action
-    );
+            MainToolbarContributionDescriptor contribution, Optional<AnchorHandle> anchor, Runnable action);
 
     /**
      * Registers a callback fired when the host rebuilds the main toolbar.
@@ -39,7 +35,7 @@ public interface MainToolbarHostOperations {
      *         registration for hosts that never rebuild
      */
     default Registration onRebuild(final Runnable reconcile) {
-        return () -> { };
+        return () -> {};
     }
 
     /**
@@ -50,10 +46,9 @@ public interface MainToolbarHostOperations {
      *         registration for hosts that never change appearance
      */
     default Registration onAppearanceChanged(final Runnable refresh) {
-        return () -> { };
+        return () -> {};
     }
 
     /** Opaque host-side anchor position resolved by {@link #anchor}. */
-    interface AnchorHandle {
-    }
+    interface AnchorHandle {}
 }

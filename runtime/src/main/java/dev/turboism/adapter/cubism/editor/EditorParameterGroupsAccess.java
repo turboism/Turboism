@@ -1,12 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,36 +26,27 @@ final class EditorParameterGroupsAccess {
     private final EditorParameterStructureAccess structureAccess;
 
     EditorParameterGroupsAccess(
-        final VerifiedMemberResolver resolver,
-        final BiConsumer<String, Object> modelGuard,
-        final EditorParameterStructureAccess structureAccess
-    ) {
+            final VerifiedMemberResolver resolver,
+            final BiConsumer<String, Object> modelGuard,
+            final EditorParameterStructureAccess structureAccess) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.structureAccess = Objects.requireNonNull(structureAccess, "structureAccess");
     }
 
-    ParameterGroups groups(
-        final String identity,
-        final Object source,
-        final Object model
-    ) {
+    ParameterGroups groups(final String identity, final Object source, final Object model) {
         return new EditorParameterGroups(identity, source, model);
     }
 
     private Object rootGroup(final Object source) {
         if (!resolver.authorizesFeature(
-            EditorParameterGroupsReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-            EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorParameterGroupsReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+                EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Parameter-group access is unavailable without exact verified host evidence."
-            );
+                    "Parameter-group access is unavailable without exact verified host evidence.");
         }
-        final Object root = resolver.invoke(
-            "cubism.editor-model.model-source.root-parameter-group", source
-        );
+        final Object root = resolver.invoke("cubism.editor-model.model-source.root-parameter-group", source);
         if (!resolver.isInstance("cubism.editor-model.parameter-group.class", root)) {
             throw unavailable("Editor root parameter group is unavailable.");
         }
@@ -64,14 +54,13 @@ final class EditorParameterGroupsAccess {
     }
 
     private void addGroups(
-        final String identity,
-        final Object source,
-        final Object model,
-        final Object group,
-        final List<ParameterGroup> groups,
-        final Set<Object> identities,
-        final Set<ParameterGroupId> ids
-    ) {
+            final String identity,
+            final Object source,
+            final Object model,
+            final Object group,
+            final List<ParameterGroup> groups,
+            final Set<Object> identities,
+            final Set<ParameterGroupId> ids) {
         if (!identities.add(group)) {
             throw unavailable("Editor parameter group hierarchy contains a cycle.");
         }
@@ -129,11 +118,7 @@ final class EditorParameterGroupsAccess {
         private final Object source;
         private final Object model;
 
-        private EditorParameterGroups(
-            final String identity,
-            final Object source,
-            final Object model
-        ) {
+        private EditorParameterGroups(final String identity, final Object source, final Object model) {
             this.identity = identity;
             this.source = source;
             this.model = model;
@@ -148,14 +133,13 @@ final class EditorParameterGroupsAccess {
             current();
             final List<ParameterGroup> groups = new ArrayList<>();
             addGroups(
-                identity,
-                source,
-                model,
-                rootGroup(source),
-                groups,
-                Collections.newSetFromMap(new IdentityHashMap<>()),
-                new HashSet<>()
-            );
+                    identity,
+                    source,
+                    model,
+                    rootGroup(source),
+                    groups,
+                    Collections.newSetFromMap(new IdentityHashMap<>()),
+                    new HashSet<>());
             return List.copyOf(groups);
         }
 
@@ -215,12 +199,8 @@ final class EditorParameterGroupsAccess {
         public ParameterGroup addGroup(final String name) {
             return EditorHostThread.dispatch("Cubism parameter groups", () -> {
                 current();
-                final ParameterGroupId created = structureAccess.addGroup(
-                    identity, source, model, name
-                );
-                return new EditorParameterGroup(
-                    identity, source, model, requireGroupById(created)
-                );
+                final ParameterGroupId created = structureAccess.addGroup(identity, source, model, name);
+                return new EditorParameterGroup(identity, source, model, requireGroupById(created));
             });
         }
 
@@ -259,11 +239,7 @@ final class EditorParameterGroupsAccess {
         private final Object group;
 
         private EditorParameterGroup(
-            final String identity,
-            final Object source,
-            final Object model,
-            final Object group
-        ) {
+                final String identity, final Object source, final Object model, final Object group) {
             this.identity = identity;
             this.source = source;
             this.model = model;
@@ -273,7 +249,7 @@ final class EditorParameterGroupsAccess {
         private void current() {
             modelGuard.accept(identity, model);
             if (!resolver.isInstance("cubism.editor-model.parameter-group.class", group)
-                || !treeContains(source, group)) {
+                    || !treeContains(source, group)) {
                 throw unavailable("Editor parameter group is unavailable.");
             }
         }
@@ -300,9 +276,7 @@ final class EditorParameterGroupsAccess {
         @Override
         public Optional<ParameterGroupId> parentId() {
             current();
-            final Object parent = resolver.invoke(
-                "cubism.editor-model.parameter-group.parent", group
-            );
+            final Object parent = resolver.invoke("cubism.editor-model.parameter-group.parent", group);
             if (parent == null) {
                 return Optional.empty();
             }
@@ -316,25 +290,20 @@ final class EditorParameterGroupsAccess {
         public List<ParameterGroupId> childGroupIds() {
             current();
             return children(group).stream()
-                .filter(child -> resolver.isInstance(
-                    "cubism.editor-model.parameter-group.class", child
-                ))
-                .map(EditorParameterGroupsAccess.this::groupId)
-                .toList();
+                    .filter(child -> resolver.isInstance("cubism.editor-model.parameter-group.class", child))
+                    .map(EditorParameterGroupsAccess.this::groupId)
+                    .toList();
         }
 
         @Override
         public List<ParameterId> parameterIds() {
             current();
             return children(group).stream()
-                .filter(child -> resolver.isInstance(
-                    "cubism.editor-model.parameter-source.class", child
-                ))
-                .map(child -> new ParameterId(text(resolver.invoke(
-                    "cubism.editor-model.id.value",
-                    resolver.invoke("cubism.editor-model.parameter-source.id", child)
-                ))))
-                .toList();
+                    .filter(child -> resolver.isInstance("cubism.editor-model.parameter-source.class", child))
+                    .map(child -> new ParameterId(text(resolver.invoke(
+                            "cubism.editor-model.id.value",
+                            resolver.invoke("cubism.editor-model.parameter-source.id", child)))))
+                    .toList();
         }
 
         @Override

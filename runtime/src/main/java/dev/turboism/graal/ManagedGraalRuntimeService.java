@@ -2,7 +2,6 @@ package dev.turboism.graal;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -16,7 +15,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -74,17 +72,12 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static final String ACTIVATION_MARKER_NAME = ".runtime-activation";
     private static final String PREVIOUS_RUNTIME_NAME = ".runtime-previous";
     private static final ObjectMapper PROTOCOL_JSON = new ObjectMapper();
-    private static final Set<String> DOWNLOAD_HOSTS = Set.of(
-        "github.com", "release-assets.githubusercontent.com"
-    );
-    private static final Set<String> INHERITED_JAVA_OPTIONS = Set.of(
-        "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"
-    );
+    private static final Set<String> DOWNLOAD_HOSTS = Set.of("github.com", "release-assets.githubusercontent.com");
+    private static final Set<String> INHERITED_JAVA_OPTIONS =
+            Set.of("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS");
     private static final Set<String> WINDOWS_RESERVED_NAMES = Set.of(
-        "CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    );
+            "CON", "PRN", "AUX", "NUL", "CLOCK$", "CONIN$", "CONOUT$", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6",
+            "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9");
 
     private final Path turboismHome;
     private final Path graalRoot;
@@ -100,43 +93,38 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private volatile Operation active;
     private volatile boolean closed;
 
-    public ManagedGraalRuntimeService(
-        final Path turboismHome,
-        final Consumer<String> diagnostic
-    ) {
+    public ManagedGraalRuntimeService(final Path turboismHome, final Consumer<String> diagnostic) {
         this(
-            turboismHome,
-            HttpClient.newBuilder()
-                .connectTimeout(CONNECT_TIMEOUT)
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build(),
-            Platform.detect(),
-            diagnostic,
-            null,
-            REQUEST_TIMEOUT
-        );
+                turboismHome,
+                HttpClient.newBuilder()
+                        .connectTimeout(CONNECT_TIMEOUT)
+                        .followRedirects(HttpClient.Redirect.NEVER)
+                        .build(),
+                Platform.detect(),
+                diagnostic,
+                null,
+                REQUEST_TIMEOUT);
     }
 
     ManagedGraalRuntimeService(
-        final Path turboismHome,
-        final HttpClient client,
-        final Platform platform,
-        final Consumer<String> diagnostic,
-        final Probe probe
-    ) {
+            final Path turboismHome,
+            final HttpClient client,
+            final Platform platform,
+            final Consumer<String> diagnostic,
+            final Probe probe) {
         this(turboismHome, client, platform, diagnostic, probe, REQUEST_TIMEOUT);
     }
 
     ManagedGraalRuntimeService(
-        final Path turboismHome,
-        final HttpClient client,
-        final Platform platform,
-        final Consumer<String> diagnostic,
-        final Probe probe,
-        final Duration downloadTimeout
-    ) {
+            final Path turboismHome,
+            final HttpClient client,
+            final Platform platform,
+            final Consumer<String> diagnostic,
+            final Probe probe,
+            final Duration downloadTimeout) {
         this.turboismHome = Objects.requireNonNull(turboismHome, "turboismHome")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         this.graalRoot = confined(this.turboismHome.resolve("graal"));
         this.runtimeHome = confined(graalRoot.resolve("runtime"));
         this.cacheRoot = confined(this.turboismHome.resolve("cache/runtime/graal"));
@@ -167,8 +155,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             requireOpen();
             if (platform == null) {
                 return completedOperation(Status.unsupported(
-                    "GraalVM Community automatic installation is unavailable on this platform."
-                ));
+                        "GraalVM Community automatic installation is unavailable on this platform."));
             }
             final Operation existing = active;
             if (existing != null && !existing.result.isDone()) return existing;
@@ -188,12 +175,10 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return managedJavaExecutableIfReady(turboismHome, runtimePlatform.javaRelativePath);
     }
 
-    static Optional<Path> managedJavaExecutableIfReady(
-        final Path turboismHome,
-        final String javaRelativePath
-    ) {
+    static Optional<Path> managedJavaExecutableIfReady(final Path turboismHome, final String javaRelativePath) {
         final Path normalizedHome = Objects.requireNonNull(turboismHome, "turboismHome")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         final Path runtime = normalizedHome.resolve("graal/runtime").normalize();
         if (!Files.exists(runtime, LinkOption.NOFOLLOW_LINKS)) return Optional.empty();
         try {
@@ -220,9 +205,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         } catch (Exception failure) {
             report("GRAAL_RUNTIME_HOST_PROBE_FAILED");
             return Status.failed(
-                "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                "The isolated Graal host probe failed: " + safeMessage(failure)
-            );
+                    "GRAAL_RUNTIME_HOST_PROBE_FAILED", "The isolated Graal host probe failed: " + safeMessage(failure));
         }
     }
 
@@ -232,9 +215,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             requireOpen();
             if (active != null && !active.result.isDone()) {
                 return Status.failed(
-                    "GRAAL_RUNTIME_BUSY",
-                    "Cancel the active GraalVM installation before removing the runtime."
-                );
+                        "GRAAL_RUNTIME_BUSY", "Cancel the active GraalVM installation before removing the runtime.");
             }
             try {
                 requireDirectoryChain(turboismHome, graalRoot);
@@ -247,9 +228,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             } catch (IOException | InstallFailure failure) {
                 report("GRAAL_RUNTIME_REMOVE_FAILED");
                 return Status.failed(
-                    "GRAAL_RUNTIME_REMOVE_FAILED",
-                    "Could not remove the Turboism-managed GraalVM runtime."
-                );
+                        "GRAAL_RUNTIME_REMOVE_FAILED", "Could not remove the Turboism-managed GraalVM runtime.");
             }
         }
     }
@@ -269,7 +248,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
         try {
             if (!executor.awaitTermination(35, java.util.concurrent.TimeUnit.SECONDS)
-                && current != null && !current.committing()) {
+                    && current != null
+                    && !current.committing()) {
                 final List<Runnable> queued = executor.shutdownNow();
                 if (!queued.isEmpty()) current.cancelBeforeStart();
             }
@@ -290,7 +270,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             requireDirectoryChain(turboismHome, graalRoot);
             requireOwnedMarker(marker);
             if (!Files.exists(runtimeHome, LinkOption.NOFOLLOW_LINKS)
-                && Files.exists(previous, LinkOption.NOFOLLOW_LINKS)) {
+                    && Files.exists(previous, LinkOption.NOFOLLOW_LINKS)) {
                 requireDirectoryChain(turboismHome, previous);
                 moveAtomically(previous, runtimeHome);
             }
@@ -312,15 +292,18 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     }
 
     private static void requireOwnedMarker(final Path marker) throws IOException {
-        final BasicFileAttributes attributes = Files.readAttributes(
-            marker, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
-        if (!hasUsableIdentity(attributes) || !attributes.isRegularFile()
-            || attributes.isSymbolicLink() || attributes.isOther()
-            || isWindowsReparsePoint(marker) || attributes.size() > 128L) {
+        final BasicFileAttributes attributes =
+                Files.readAttributes(marker, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!hasUsableIdentity(attributes)
+                || !attributes.isRegularFile()
+                || attributes.isSymbolicLink()
+                || attributes.isOther()
+                || isWindowsReparsePoint(marker)
+                || attributes.size() > 128L) {
             throw new IOException("managed runtime activation marker is unsafe");
         }
-        if (!GRAAL_VERSION.equals(Files.readString(marker, StandardCharsets.US_ASCII).trim())) {
+        if (!GRAAL_VERSION.equals(
+                Files.readString(marker, StandardCharsets.US_ASCII).trim())) {
             throw new IOException("managed runtime activation marker has wrong version");
         }
     }
@@ -328,44 +311,48 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private void writeActivationMarker(final Path marker) throws IOException, InstallFailure {
         final BasicFileAttributes parent = requireOrdinaryDirectory(graalRoot);
         Files.writeString(
-            marker,
-            GRAAL_VERSION + "\n",
-            StandardCharsets.US_ASCII,
-            java.nio.file.StandardOpenOption.CREATE_NEW,
-            java.nio.file.StandardOpenOption.WRITE,
-            LinkOption.NOFOLLOW_LINKS
-        );
+                marker,
+                GRAAL_VERSION + "\n",
+                StandardCharsets.US_ASCII,
+                java.nio.file.StandardOpenOption.CREATE_NEW,
+                java.nio.file.StandardOpenOption.WRITE,
+                LinkOption.NOFOLLOW_LINKS);
         requireDirectoryIdentity(graalRoot, parent);
         requireOwnedMarker(marker);
     }
 
     private void runInstall(final Operation operation) {
         operation.attachThread(Thread.currentThread());
-        final Path temporaryArchive = cacheRoot.resolve(
-            ".graalvm-" + UUID.randomUUID() + ".download"
-        );
-        final Path staging = graalRoot.resolve(
-            ".runtime-staging-" + UUID.randomUUID()
-        );
+        final Path temporaryArchive = cacheRoot.resolve(".graalvm-" + UUID.randomUUID() + ".download");
+        final Path staging = graalRoot.resolve(".runtime-staging-" + UUID.randomUUID());
         final Path previous = graalRoot.resolve(PREVIOUS_RUNTIME_NAME);
         final Path activationMarker = graalRoot.resolve(ACTIVATION_MARKER_NAME);
         boolean previousMoved = false;
         boolean activated = false;
         BasicFileAttributes temporaryArchiveIdentity = null;
         try {
-            operation.phase(State.DOWNLOADING, 0L, operation.manifest.archiveBytes,
-                "Downloading GraalVM Community " + GRAAL_VERSION + ".");
+            operation.phase(
+                    State.DOWNLOADING,
+                    0L,
+                    operation.manifest.archiveBytes,
+                    "Downloading GraalVM Community " + GRAAL_VERSION + ".");
             prepareRoots();
             temporaryArchiveIdentity = download(operation, temporaryArchive);
             operation.checkCancelled();
 
-            operation.phase(State.EXTRACTING, operation.manifest.archiveBytes,
-                operation.manifest.archiveBytes, "Extracting the managed runtime.");
+            operation.phase(
+                    State.EXTRACTING,
+                    operation.manifest.archiveBytes,
+                    operation.manifest.archiveBytes,
+                    "Extracting the managed runtime.");
             final Path extracted = extractZip(operation, temporaryArchive, staging);
             operation.checkCancelled();
 
-            operation.phase(State.VERIFYING, operation.manifest.archiveBytes,
-                operation.manifest.archiveBytes, "Verifying GraalVM and the isolated script host.");
+            operation.phase(
+                    State.VERIFYING,
+                    operation.manifest.archiveBytes,
+                    operation.manifest.archiveBytes,
+                    "Verifying GraalVM and the isolated script host.");
             final Path java = javaExecutable(extracted);
             requireCompatible(java);
             try {
@@ -376,20 +363,17 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 throw failure;
             } catch (Exception failure) {
                 throw failure(
-                    "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                    "The isolated Graal host probe failed: " + safeMessage(failure),
-                    failure
-                );
+                        "GRAAL_RUNTIME_HOST_PROBE_FAILED",
+                        "The isolated Graal host probe failed: " + safeMessage(failure),
+                        failure);
             }
             operation.checkCancelled();
             operation.beginCommit();
 
             if (Files.exists(previous, LinkOption.NOFOLLOW_LINKS)
-                || Files.exists(activationMarker, LinkOption.NOFOLLOW_LINKS)) {
+                    || Files.exists(activationMarker, LinkOption.NOFOLLOW_LINKS)) {
                 throw failure(
-                    "GRAAL_RUNTIME_RECOVERY_REQUIRED",
-                    "A previous managed runtime activation requires recovery."
-                );
+                        "GRAAL_RUNTIME_RECOVERY_REQUIRED", "A previous managed runtime activation requires recovery.");
             }
             writeActivationMarker(activationMarker);
             final BasicFileAttributes activationRoot = requireOrdinaryDirectory(graalRoot);
@@ -427,10 +411,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 operation.cancelled();
             } else {
                 report("GRAAL_RUNTIME_INSTALL_FAILED");
-                operation.fail(
-                    "GRAAL_RUNTIME_INSTALL_FAILED",
-                    "GraalVM installation failed: " + safeMessage(failure)
-                );
+                operation.fail("GRAAL_RUNTIME_INSTALL_FAILED", "GraalVM installation failed: " + safeMessage(failure));
             }
         } finally {
             tryDeleteOwnedFile(temporaryArchive, temporaryArchiveIdentity);
@@ -478,8 +459,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
     }
 
-    private static void createDirectoryChain(final Path root, final Path path)
-        throws IOException, InstallFailure {
+    private static void createDirectoryChain(final Path root, final Path path) throws IOException, InstallFailure {
         final Path normalizedRoot = root.toAbsolutePath().normalize();
         final Path normalized = path.toAbsolutePath().normalize();
         if (!normalized.startsWith(normalizedRoot)) {
@@ -504,20 +484,22 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     }
 
     private BasicFileAttributes download(final Operation operation, final Path target)
-        throws IOException, InterruptedException, InstallFailure {
+            throws IOException, InterruptedException, InstallFailure {
         final AtomicReference<InputStream> activeBody = new AtomicReference<>();
         final AtomicBoolean timedOut = new AtomicBoolean(false);
         final Thread installer = Thread.currentThread();
-        final Thread deadline = new Thread(() -> {
-            try {
-                Thread.sleep(downloadTimeout.toMillis());
-                timedOut.set(true);
-                closeQuietly(activeBody.get());
-                installer.interrupt();
-            } catch (InterruptedException completed) {
-                Thread.currentThread().interrupt();
-            }
-        }, "turboism-graal-runtime-download-deadline");
+        final Thread deadline = new Thread(
+                () -> {
+                    try {
+                        Thread.sleep(downloadTimeout.toMillis());
+                        timedOut.set(true);
+                        closeQuietly(activeBody.get());
+                        installer.interrupt();
+                    } catch (InterruptedException completed) {
+                        Thread.currentThread().interrupt();
+                    }
+                },
+                "turboism-graal-runtime-download-deadline");
         deadline.setDaemon(true);
         deadline.start();
         try {
@@ -526,20 +508,18 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             if (timedOut.get()) {
                 Thread.interrupted();
                 throw failure(
-                    "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
-                    "GraalVM download exceeded the whole-download deadline.",
-                    failure
-                );
+                        "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
+                        "GraalVM download exceeded the whole-download deadline.",
+                        failure);
             }
             throw failure;
         } catch (InterruptedException interrupted) {
             if (timedOut.get() && !operation.cancelRequested.get()) {
                 Thread.interrupted();
                 throw failure(
-                    "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
-                    "GraalVM download exceeded the whole-download deadline.",
-                    interrupted
-                );
+                        "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
+                        "GraalVM download exceeded the whole-download deadline.",
+                        interrupted);
             }
             throw interrupted;
         } finally {
@@ -549,31 +529,27 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     }
 
     private BasicFileAttributes downloadBeforeDeadline(
-        final Operation operation,
-        final Path target,
-        final AtomicReference<InputStream> activeBody,
-        final AtomicBoolean timedOut
-    ) throws IOException, InterruptedException, InstallFailure {
+            final Operation operation,
+            final Path target,
+            final AtomicReference<InputStream> activeBody,
+            final AtomicBoolean timedOut)
+            throws IOException, InterruptedException, InstallFailure {
         final MessageDigest digest = sha256();
         URI current = operation.manifest.uri;
         int redirects = 0;
         while (true) {
             if (timedOut.get()) {
                 throw failure(
-                    "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
-                    "GraalVM download exceeded the whole-download deadline."
-                );
+                        "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT", "GraalVM download exceeded the whole-download deadline.");
             }
             requireOfficialUri(current);
             final HttpRequest request = HttpRequest.newBuilder(current)
-                .timeout(downloadTimeout)
-                .header("Accept", "application/octet-stream")
-                .header("User-Agent", "Turboism-GraalVM-Installer/" + GRAAL_VERSION)
-                .GET()
-                .build();
-            final HttpResponse<InputStream> response = client.send(
-                request, HttpResponse.BodyHandlers.ofInputStream()
-            );
+                    .timeout(downloadTimeout)
+                    .header("Accept", "application/octet-stream")
+                    .header("User-Agent", "Turboism-GraalVM-Installer/" + GRAAL_VERSION)
+                    .GET()
+                    .build();
+            final HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             activeBody.set(response.body());
             final int status = response.statusCode();
             if (status >= 300 && status < 400) {
@@ -581,121 +557,95 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 if (++redirects > MAX_REDIRECTS) {
                     throw failure("GRAAL_RUNTIME_REDIRECT_REJECTED", "Too many download redirects.");
                 }
-                final String location = response.headers().firstValue("Location")
-                    .orElseThrow(() -> failure(
-                        "GRAAL_RUNTIME_REDIRECT_REJECTED", "Download redirect had no location."
-                    ));
+                final String location = response.headers()
+                        .firstValue("Location")
+                        .orElseThrow(
+                                () -> failure("GRAAL_RUNTIME_REDIRECT_REJECTED", "Download redirect had no location."));
                 current = current.resolve(location);
                 continue;
             }
             if (status != 200) {
                 closeQuietly(activeBody.getAndSet(null));
-                throw failure(
-                    "GRAAL_RUNTIME_DOWNLOAD_FAILED",
-                    "GraalVM download returned HTTP " + status + "."
-                );
+                throw failure("GRAAL_RUNTIME_DOWNLOAD_FAILED", "GraalVM download returned HTTP " + status + ".");
             }
-            final long declared = response.headers().firstValueAsLong("Content-Length").orElse(-1L);
+            final long declared =
+                    response.headers().firstValueAsLong("Content-Length").orElse(-1L);
             if (declared > operation.manifest.archiveBytes || declared > MAX_ARCHIVE_BYTES) {
                 closeQuietly(activeBody.getAndSet(null));
-                throw failure(
-                    "GRAAL_RUNTIME_ARCHIVE_TOO_LARGE",
-                    "GraalVM archive exceeded the pinned size."
-                );
+                throw failure("GRAAL_RUNTIME_ARCHIVE_TOO_LARGE", "GraalVM archive exceeded the pinned size.");
             }
             long written = 0L;
             try (InputStream input = new BufferedInputStream(response.body());
-                 OutputStream output = new BufferedOutputStream(Files.newOutputStream(
-                     target,
-                     java.nio.file.StandardOpenOption.CREATE_NEW,
-                     java.nio.file.StandardOpenOption.WRITE,
-                     LinkOption.NOFOLLOW_LINKS
-                 ))) {
+                    OutputStream output = new BufferedOutputStream(Files.newOutputStream(
+                            target,
+                            java.nio.file.StandardOpenOption.CREATE_NEW,
+                            java.nio.file.StandardOpenOption.WRITE,
+                            LinkOption.NOFOLLOW_LINKS))) {
                 final byte[] buffer = new byte[BUFFER_SIZE];
-                for (int read; (read = input.read(buffer)) >= 0;) {
+                for (int read; (read = input.read(buffer)) >= 0; ) {
                     if (read == 0) continue;
                     if (timedOut.get()) {
                         throw failure(
-                            "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
-                            "GraalVM download exceeded the whole-download deadline."
-                        );
+                                "GRAAL_RUNTIME_DOWNLOAD_TIMEOUT",
+                                "GraalVM download exceeded the whole-download deadline.");
                     }
                     operation.checkCancelled();
                     written += read;
                     if (written > operation.manifest.archiveBytes || written > MAX_ARCHIVE_BYTES) {
-                        throw failure(
-                            "GRAAL_RUNTIME_ARCHIVE_TOO_LARGE",
-                            "GraalVM archive exceeded the pinned size."
-                        );
+                        throw failure("GRAAL_RUNTIME_ARCHIVE_TOO_LARGE", "GraalVM archive exceeded the pinned size.");
                     }
                     digest.update(buffer, 0, read);
                     output.write(buffer, 0, read);
                     operation.phase(
-                        State.DOWNLOADING, written, operation.manifest.archiveBytes,
-                        "Downloading GraalVM Community " + GRAAL_VERSION + "."
-                    );
+                            State.DOWNLOADING,
+                            written,
+                            operation.manifest.archiveBytes,
+                            "Downloading GraalVM Community " + GRAAL_VERSION + ".");
                 }
             } finally {
                 activeBody.set(null);
             }
             if (written != operation.manifest.archiveBytes) {
                 throw failure(
-                    "GRAAL_RUNTIME_SIZE_MISMATCH",
-                    "Downloaded GraalVM archive did not match the pinned size."
-                );
+                        "GRAAL_RUNTIME_SIZE_MISMATCH", "Downloaded GraalVM archive did not match the pinned size.");
             }
             final String actual = HexFormat.of().formatHex(digest.digest());
             if (!MessageDigest.isEqual(
-                actual.getBytes(StandardCharsets.US_ASCII),
-                operation.manifest.sha256.getBytes(StandardCharsets.US_ASCII)
-            )) {
+                    actual.getBytes(StandardCharsets.US_ASCII),
+                    operation.manifest.sha256.getBytes(StandardCharsets.US_ASCII))) {
                 throw failure(
-                    "GRAAL_RUNTIME_HASH_MISMATCH",
-                    "Downloaded GraalVM archive did not match the pinned SHA-256."
-                );
+                        "GRAAL_RUNTIME_HASH_MISMATCH", "Downloaded GraalVM archive did not match the pinned SHA-256.");
             }
             return requireOrdinaryRegularFile(target);
         }
     }
 
-    private Path extractZip(
-        final Operation operation,
-        final Path archive,
-        final Path staging
-    ) throws IOException, InstallFailure {
+    private Path extractZip(final Operation operation, final Path archive, final Path staging)
+            throws IOException, InstallFailure {
         Files.createDirectory(staging);
         requireDirectoryChain(turboismHome, staging);
         String root = null;
         long extractedBytes = 0L;
         int entries = 0;
         final Set<Path> seen = new HashSet<>();
-        try (ZipInputStream zip = new ZipInputStream(
-            new BufferedInputStream(Files.newInputStream(archive)), StandardCharsets.UTF_8
-        )) {
-            for (ZipEntry entry; (entry = zip.getNextEntry()) != null;) {
+        try (ZipInputStream zip =
+                new ZipInputStream(new BufferedInputStream(Files.newInputStream(archive)), StandardCharsets.UTF_8)) {
+            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
                 operation.checkCancelled();
                 if (++entries > MAX_ARCHIVE_ENTRIES) {
-                    throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive contained too many entries."
-                    );
+                    throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive contained too many entries.");
                 }
                 final String normalizedName = normalizeEntry(entry.getName());
                 final int slash = normalizedName.indexOf('/');
                 final String entryRoot = slash < 0 ? normalizedName : normalizedName.substring(0, slash);
                 if (root == null) root = entryRoot;
                 if (!root.equals(entryRoot)) {
-                    throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive did not have one root directory."
-                    );
+                    throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive did not have one root directory.");
                 }
                 final Path target = staging.resolve(normalizedName).normalize();
                 if (!target.startsWith(staging) || !seen.add(target)) {
                     throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive contained an unsafe or duplicate path."
-                    );
+                            "GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive contained an unsafe or duplicate path.");
                 }
                 if (entry.isDirectory()) {
                     createDirectoryChain(staging, target);
@@ -704,52 +654,42 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 final long declared = entry.getSize();
                 if (declared > MAX_EXTRACTED_BYTES) {
                     throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive entry exceeded the extraction limit."
-                    );
+                            "GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive entry exceeded the extraction limit.");
                 }
                 createDirectoryChain(staging, target.getParent());
                 final BasicFileAttributes parent = requireOrdinaryDirectory(target.getParent());
                 long entryBytes = 0L;
                 try (OutputStream output = new BufferedOutputStream(Files.newOutputStream(
-                    target,
-                    java.nio.file.StandardOpenOption.CREATE_NEW,
-                    java.nio.file.StandardOpenOption.WRITE,
-                    LinkOption.NOFOLLOW_LINKS
-                ))) {
+                        target,
+                        java.nio.file.StandardOpenOption.CREATE_NEW,
+                        java.nio.file.StandardOpenOption.WRITE,
+                        LinkOption.NOFOLLOW_LINKS))) {
                     final byte[] buffer = new byte[BUFFER_SIZE];
-                    for (int read; (read = zip.read(buffer)) >= 0;) {
+                    for (int read; (read = zip.read(buffer)) >= 0; ) {
                         if (read == 0) continue;
                         operation.checkCancelled();
                         entryBytes += read;
                         extractedBytes += read;
-                        if (entryBytes > MAX_EXTRACTED_BYTES
-                            || extractedBytes > MAX_EXTRACTED_BYTES) {
+                        if (entryBytes > MAX_EXTRACTED_BYTES || extractedBytes > MAX_EXTRACTED_BYTES) {
                             throw failure(
-                                "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                                "GraalVM archive exceeded the extraction limit."
-                            );
+                                    "GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive exceeded the extraction limit.");
                         }
                         output.write(buffer, 0, read);
                     }
                 }
                 requireDirectoryIdentity(target.getParent(), parent);
-                final BasicFileAttributes extractedFile = Files.readAttributes(
-                    target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-                );
-                if (!extractedFile.isRegularFile() || !hasUsableIdentity(extractedFile)
-                    || extractedFile.isSymbolicLink() || extractedFile.isOther()
-                    || isWindowsReparsePoint(target)) {
-                    throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive extracted an unsafe file."
-                    );
+                final BasicFileAttributes extractedFile =
+                        Files.readAttributes(target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                if (!extractedFile.isRegularFile()
+                        || !hasUsableIdentity(extractedFile)
+                        || extractedFile.isSymbolicLink()
+                        || extractedFile.isOther()
+                        || isWindowsReparsePoint(target)) {
+                    throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive extracted an unsafe file.");
                 }
                 if (declared >= 0L && declared != entryBytes) {
                     throw failure(
-                        "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                        "GraalVM archive entry size did not match its metadata."
-                    );
+                            "GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive entry size did not match its metadata.");
                 }
             }
         } catch (Cancelled cancelled) {
@@ -759,21 +699,15 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive was empty.");
         }
         final Path extracted = staging.resolve(root).normalize();
-        if (!extracted.startsWith(staging)
-            || !Files.isDirectory(extracted, LinkOption.NOFOLLOW_LINKS)) {
-            throw failure(
-                "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                "GraalVM archive root was unavailable."
-            );
+        if (!extracted.startsWith(staging) || !Files.isDirectory(extracted, LinkOption.NOFOLLOW_LINKS)) {
+            throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive root was unavailable.");
         }
         return extracted;
     }
 
     private Status inspectInstalled() {
         if (platform == null) {
-            return Status.unsupported(
-                "GraalVM Community automatic installation is unavailable on this platform."
-            );
+            return Status.unsupported("GraalVM Community automatic installation is unavailable on this platform.");
         }
         if (!Files.exists(runtimeHome, LinkOption.NOFOLLOW_LINKS)) return Status.absent();
         try {
@@ -783,9 +717,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             return Status.ready(java);
         } catch (InstallFailure | IOException failure) {
             return Status.failed(
-                "GRAAL_RUNTIME_INVALID",
-                "The Turboism-managed GraalVM runtime is incomplete or incompatible."
-            );
+                    "GRAAL_RUNTIME_INVALID", "The Turboism-managed GraalVM runtime is incomplete or incompatible.");
         }
     }
 
@@ -795,32 +727,20 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             requireDirectoryChain(turboismHome, libraryRoot);
         } catch (IOException failure) {
             throw failure(
-                "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                "The packaged Graal host library path is unsafe.",
-                failure
-            );
+                    "GRAAL_RUNTIME_HOST_PROBE_FAILED", "The packaged Graal host library path is unsafe.", failure);
         }
         if (!Files.isDirectory(libraryRoot, LinkOption.NOFOLLOW_LINKS)) {
-            throw failure(
-                "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                "The packaged Graal host libraries are unavailable."
-            );
+            throw failure("GRAAL_RUNTIME_HOST_PROBE_FAILED", "The packaged Graal host libraries are unavailable.");
         }
         final String classpath = libraryRoot + java.io.File.separator + "*";
         final Process process;
         try {
             final ProcessBuilder builder = new ProcessBuilder(
-                javaExecutable.toString(), "-cp", classpath,
-                "dev.turboism.graalhost.GraalHostMain"
-            );
+                    javaExecutable.toString(), "-cp", classpath, "dev.turboism.graalhost.GraalHostMain");
             for (String key : INHERITED_JAVA_OPTIONS) builder.environment().remove(key);
             process = builder.start();
         } catch (IOException failure) {
-            throw failure(
-                "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                "Could not start the isolated Graal host probe.",
-                failure
-            );
+            throw failure("GRAAL_RUNTIME_HOST_PROBE_FAILED", "Could not start the isolated Graal host probe.", failure);
         }
         try {
             final CompletableFuture<String> stdout = CompletableFuture.supplyAsync(() -> {
@@ -842,18 +762,13 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             if (!isCompatibleReadyMessage(line)) {
                 stderr.getNow("");
                 throw failure(
-                    "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                    "The isolated Graal host rejected the managed runtime."
-                );
+                        "GRAAL_RUNTIME_HOST_PROBE_FAILED", "The isolated Graal host rejected the managed runtime.");
             }
         } catch (InstallFailure failure) {
             throw failure;
         } catch (Exception failure) {
             throw failure(
-                "GRAAL_RUNTIME_HOST_PROBE_FAILED",
-                "The isolated Graal host probe timed out or failed.",
-                failure
-            );
+                    "GRAAL_RUNTIME_HOST_PROBE_FAILED", "The isolated Graal host probe timed out or failed.", failure);
         } finally {
             destroyTree(process);
         }
@@ -882,73 +797,57 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             requireRegularFileIdentity(release, releaseAttributes);
             requireRegularFileIdentity(java, javaAttributes);
             if (!releaseValue(metadata, "IMPLEMENTOR").orElse("").equals("GraalVM Community")
-                || !releaseValue(metadata, "GRAALVM_VERSION").orElse("").equals(GRAAL_VERSION)
-                || !releaseValue(metadata, "JAVA_VERSION").orElse("").equals(JAVA_VERSION)) {
-                throw failure(
-                    "GRAAL_RUNTIME_INVALID",
-                    "GraalVM release metadata did not match the pinned runtime."
-                );
+                    || !releaseValue(metadata, "GRAALVM_VERSION").orElse("").equals(GRAAL_VERSION)
+                    || !releaseValue(metadata, "JAVA_VERSION").orElse("").equals(JAVA_VERSION)) {
+                throw failure("GRAAL_RUNTIME_INVALID", "GraalVM release metadata did not match the pinned runtime.");
             }
         } catch (IOException failure) {
-            throw failure(
-                "GRAAL_RUNTIME_INVALID", "Could not read GraalVM release metadata.", failure
-            );
+            throw failure("GRAAL_RUNTIME_INVALID", "Could not read GraalVM release metadata.", failure);
         }
     }
 
-    private static BasicFileAttributes requireOrdinaryRegularFile(final Path path)
-        throws IOException, InstallFailure {
-        final BasicFileAttributes attributes = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
-        if (!hasUsableIdentity(attributes) || !attributes.isRegularFile()
-            || attributes.isSymbolicLink() || attributes.isOther()
-            || isWindowsReparsePoint(path)) {
-            throw failure(
-                "GRAAL_RUNTIME_INVALID",
-                "GraalVM runtime contains a linked or special file."
-            );
+    private static BasicFileAttributes requireOrdinaryRegularFile(final Path path) throws IOException, InstallFailure {
+        final BasicFileAttributes attributes =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!hasUsableIdentity(attributes)
+                || !attributes.isRegularFile()
+                || attributes.isSymbolicLink()
+                || attributes.isOther()
+                || isWindowsReparsePoint(path)) {
+            throw failure("GRAAL_RUNTIME_INVALID", "GraalVM runtime contains a linked or special file.");
         }
         return attributes;
     }
 
-    private static void requireRegularFileIdentity(
-        final Path path,
-        final BasicFileAttributes expected
-    ) throws IOException, InstallFailure {
+    private static void requireRegularFileIdentity(final Path path, final BasicFileAttributes expected)
+            throws IOException, InstallFailure {
         final BasicFileAttributes current = requireOrdinaryRegularFile(path);
-        if (!sameIdentity(expected, current)
-            || expected.size() != current.size()) {
-            throw failure(
-                "GRAAL_RUNTIME_INVALID",
-                "GraalVM runtime changed while being validated."
-            );
+        if (!sameIdentity(expected, current) || expected.size() != current.size()) {
+            throw failure("GRAAL_RUNTIME_INVALID", "GraalVM runtime changed while being validated.");
         }
     }
 
     private static Optional<String> releaseValue(final String metadata, final String key) {
         final String prefix = key + "=";
         return metadata.lines()
-            .map(String::trim)
-            .filter(line -> line.startsWith(prefix))
-            .map(line -> line.substring(prefix.length()).trim())
-            .map(value -> value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
-                ? value.substring(1, value.length() - 1)
-                : value)
-            .findFirst();
+                .map(String::trim)
+                .filter(line -> line.startsWith(prefix))
+                .map(line -> line.substring(prefix.length()).trim())
+                .map(value -> value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")
+                        ? value.substring(1, value.length() - 1)
+                        : value)
+                .findFirst();
     }
 
     private void requireOfficialUri(final URI uri) throws InstallFailure {
         final String host = uri.getHost();
         if (!"https".equalsIgnoreCase(uri.getScheme())
-            || host == null
-            || !DOWNLOAD_HOSTS.contains(host.toLowerCase(Locale.ROOT))
-            || uri.getUserInfo() != null
-            || uri.getFragment() != null) {
+                || host == null
+                || !DOWNLOAD_HOSTS.contains(host.toLowerCase(Locale.ROOT))
+                || uri.getUserInfo() != null
+                || uri.getFragment() != null) {
             throw failure(
-                "GRAAL_RUNTIME_DOWNLOAD_URI_REJECTED",
-                "GraalVM download left the approved official HTTPS hosts."
-            );
+                    "GRAAL_RUNTIME_DOWNLOAD_URI_REJECTED", "GraalVM download left the approved official HTTPS hosts.");
         }
     }
 
@@ -975,22 +874,15 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return String.join("/", clean);
     }
 
-    private static void requireUnambiguousWindowsSegment(final String segment)
-        throws InstallFailure {
+    private static void requireUnambiguousWindowsSegment(final String segment) throws InstallFailure {
         if (segment.endsWith(".") || segment.endsWith(" ") || segment.indexOf(':') >= 0) {
-            throw failure(
-                "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                "GraalVM archive path had an ambiguous Windows segment."
-            );
+            throw failure("GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive path had an ambiguous Windows segment.");
         }
         final int dot = segment.indexOf('.');
-        final String base = (dot < 0 ? segment : segment.substring(0, dot))
-            .toUpperCase(Locale.ROOT);
+        final String base = (dot < 0 ? segment : segment.substring(0, dot)).toUpperCase(Locale.ROOT);
         if (WINDOWS_RESERVED_NAMES.contains(base)) {
             throw failure(
-                "GRAAL_RUNTIME_ARCHIVE_REJECTED",
-                "GraalVM archive path used a reserved Windows device name."
-            );
+                    "GRAAL_RUNTIME_ARCHIVE_REJECTED", "GraalVM archive path used a reserved Windows device name.");
         }
     }
 
@@ -1002,8 +894,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return normalized;
     }
 
-    private static void requireDirectoryChain(final Path root, final Path path)
-        throws IOException, InstallFailure {
+    private static void requireDirectoryChain(final Path root, final Path path) throws IOException, InstallFailure {
         final Path normalizedRoot = root.toAbsolutePath().normalize();
         final Path normalized = path.toAbsolutePath().normalize();
         if (!normalized.startsWith(normalizedRoot)) {
@@ -1018,31 +909,26 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
     }
 
-    private static BasicFileAttributes requireOrdinaryDirectory(final Path path)
-        throws IOException, InstallFailure {
-        final BasicFileAttributes attributes = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
-        if (attributes.isSymbolicLink() || attributes.isOther() || !attributes.isDirectory()
-            || isWindowsReparsePoint(path)) {
+    private static BasicFileAttributes requireOrdinaryDirectory(final Path path) throws IOException, InstallFailure {
+        final BasicFileAttributes attributes =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (attributes.isSymbolicLink()
+                || attributes.isOther()
+                || !attributes.isDirectory()
+                || isWindowsReparsePoint(path)) {
             throw failure(
-                "GRAAL_RUNTIME_PATH_REJECTED",
-                "Managed runtime path contains a link, reparse point, or non-directory."
-            );
+                    "GRAAL_RUNTIME_PATH_REJECTED",
+                    "Managed runtime path contains a link, reparse point, or non-directory.");
         }
         return attributes;
     }
 
-    private static void requireDirectoryIdentity(
-        final Path path,
-        final BasicFileAttributes expected
-    ) throws IOException, InstallFailure {
+    private static void requireDirectoryIdentity(final Path path, final BasicFileAttributes expected)
+            throws IOException, InstallFailure {
         final BasicFileAttributes current = requireOrdinaryDirectory(path);
         if (!sameIdentity(expected, current)) {
             throw failure(
-                "GRAAL_RUNTIME_PATH_REJECTED",
-                "Managed runtime directory changed during filesystem mutation."
-            );
+                    "GRAAL_RUNTIME_PATH_REJECTED", "Managed runtime directory changed during filesystem mutation.");
         }
     }
 
@@ -1050,39 +936,29 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return hasUsableIdentity(attributes, isWindows());
     }
 
-    static boolean hasUsableIdentity(
-        final BasicFileAttributes attributes,
-        final boolean windows
-    ) {
+    static boolean hasUsableIdentity(final BasicFileAttributes attributes, final boolean windows) {
         return attributes.fileKey() != null || windows;
     }
 
-    private static boolean sameIdentity(
-        final BasicFileAttributes expected,
-        final BasicFileAttributes current
-    ) {
+    private static boolean sameIdentity(final BasicFileAttributes expected, final BasicFileAttributes current) {
         return sameIdentity(expected, current, isWindows());
     }
 
     static boolean sameIdentity(
-        final BasicFileAttributes expected,
-        final BasicFileAttributes current,
-        final boolean windows
-    ) {
+            final BasicFileAttributes expected, final BasicFileAttributes current, final boolean windows) {
         if (expected.isRegularFile() != current.isRegularFile()
-            || expected.isDirectory() != current.isDirectory()
-            || expected.isSymbolicLink() != current.isSymbolicLink()
-            || expected.isOther() != current.isOther()) return false;
+                || expected.isDirectory() != current.isDirectory()
+                || expected.isSymbolicLink() != current.isSymbolicLink()
+                || expected.isOther() != current.isOther()) return false;
         final Object expectedKey = expected.fileKey();
         final Object currentKey = current.fileKey();
         if (expectedKey != null || currentKey != null) {
-            return expectedKey != null && currentKey != null
-                && Objects.equals(expectedKey, currentKey);
+            return expectedKey != null && currentKey != null && Objects.equals(expectedKey, currentKey);
         }
         if (!windows || !expected.creationTime().equals(current.creationTime())) return false;
         return expected.isDirectory()
-            || expected.size() == current.size()
-                && expected.lastModifiedTime().equals(current.lastModifiedTime());
+                || expected.size() == current.size()
+                        && expected.lastModifiedTime().equals(current.lastModifiedTime());
     }
 
     private static boolean isWindowsReparsePoint(final Path path) throws IOException {
@@ -1092,9 +968,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             // junctions) as BasicFileAttributes.isOther() under NOFOLLOW_LINKS. The DOS
             // attribute view has no portable raw "attributes" field and rejects it on
             // ordinary Windows paths.
-            return Files.readAttributes(
-                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-            ).isOther();
+            return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS)
+                    .isOther();
         } catch (UnsupportedOperationException | IllegalArgumentException unavailable) {
             throw new IOException("Windows reparse-point inspection was unavailable", unavailable);
         }
@@ -1104,8 +979,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 
-    private static void moveAtomically(final Path source, final Path target)
-        throws IOException {
+    private static void moveAtomically(final Path source, final Path target) throws IOException {
         try {
             Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException unsupported) {
@@ -1140,25 +1014,20 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         Files.delete(path);
     }
 
-    private static BasicFileAttributes safeAttributesForDeletion(final Path path)
-        throws IOException {
-        final BasicFileAttributes attributes = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
+    private static BasicFileAttributes safeAttributesForDeletion(final Path path) throws IOException {
+        final BasicFileAttributes attributes =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!hasUsableIdentity(attributes)
-            || attributes.isSymbolicLink()
-            || attributes.isOther()
-            || isWindowsReparsePoint(path)
-            || !attributes.isDirectory() && !attributes.isRegularFile()) {
+                || attributes.isSymbolicLink()
+                || attributes.isOther()
+                || isWindowsReparsePoint(path)
+                || !attributes.isDirectory() && !attributes.isRegularFile()) {
             throw new IOException("refusing to remove linked or special managed runtime entry");
         }
         return attributes;
     }
 
-    private static void requireSameIdentity(
-        final Path path,
-        final BasicFileAttributes expected
-    ) throws IOException {
+    private static void requireSameIdentity(final Path path, final BasicFileAttributes expected) throws IOException {
         final BasicFileAttributes current = safeAttributesForDeletion(path);
         if (!sameIdentity(expected, current)) {
             throw new IOException("managed runtime entry changed during removal");
@@ -1172,10 +1041,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
     }
 
-    private static void tryDeleteOwnedFile(
-        final Path path,
-        final BasicFileAttributes expected
-    ) {
+    private static void tryDeleteOwnedFile(final Path path, final BasicFileAttributes expected) {
         if (expected == null) return;
         try {
             requireRegularFileIdentity(path, expected);
@@ -1216,17 +1082,16 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         try {
             final JsonNode ready = PROTOCOL_JSON.readTree(line);
             return ready != null
-                && "READY".equals(ready.path("type").asText())
-                && ready.path("protocolVersion").asInt(-1) == 1
-                && ready.path("graalAvailable").asBoolean(false)
-                && JAVA_VERSION.equals(ready.path("javaVersion").asText());
+                    && "READY".equals(ready.path("type").asText())
+                    && ready.path("protocolVersion").asInt(-1) == 1
+                    && ready.path("graalAvailable").asBoolean(false)
+                    && JAVA_VERSION.equals(ready.path("javaVersion").asText());
         } catch (IOException | RuntimeException invalid) {
             return false;
         }
     }
 
-    private static String readBoundedLine(final InputStream input, final int maxBytes)
-        throws IOException {
+    private static String readBoundedLine(final InputStream input, final int maxBytes) throws IOException {
         final byte[] buffer = new byte[maxBytes + 1];
         int count = 0;
         while (count < buffer.length) {
@@ -1238,11 +1103,10 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return new String(buffer, 0, count, StandardCharsets.UTF_8);
     }
 
-    private static String drainBounded(final InputStream input, final int captureBytes)
-        throws IOException {
+    private static String drainBounded(final InputStream input, final int captureBytes) throws IOException {
         final byte[] buffer = new byte[BUFFER_SIZE];
         final ByteArrayOutputStream retained = new ByteArrayOutputStream(captureBytes);
-        for (int read; (read = input.read(buffer)) >= 0;) {
+        for (int read; (read = input.read(buffer)) >= 0; ) {
             if (read == 0) continue;
             final int remaining = captureBytes - retained.size();
             if (remaining > 0) retained.write(buffer, 0, Math.min(read, remaining));
@@ -1280,7 +1144,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static String safeMessage(final Throwable failure) {
         final String raw = failure == null ? "" : Objects.toString(failure.getMessage(), "");
         final String normalized = raw.replace('\r', ' ').replace('\n', ' ').trim();
-        if (normalized.isEmpty()) return failure == null ? "unknown error" : failure.getClass().getSimpleName();
+        if (normalized.isEmpty())
+            return failure == null ? "unknown error" : failure.getClass().getSimpleName();
         return normalized.length() <= 512 ? normalized : normalized.substring(0, 512);
     }
 
@@ -1288,11 +1153,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         return new InstallFailure(code, message, null);
     }
 
-    private static InstallFailure failure(
-        final String code,
-        final String message,
-        final Throwable cause
-    ) {
+    private static InstallFailure failure(final String code, final String message, final Throwable cause) {
         return new InstallFailure(code, message, cause);
     }
 
@@ -1310,15 +1171,14 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
 
     /** Immutable point-in-time state, progress, and terminal detail for the managed runtime. */
     public record Status(
-        State state,
-        String version,
-        String javaVersion,
-        Optional<Path> javaExecutable,
-        long completedBytes,
-        long totalBytes,
-        String code,
-        String message
-    ) {
+            State state,
+            String version,
+            String javaVersion,
+            Optional<Path> javaExecutable,
+            long completedBytes,
+            long totalBytes,
+            String code,
+            String message) {
         public Status {
             state = Objects.requireNonNull(state, "state");
             version = Objects.requireNonNullElse(version, "");
@@ -1337,9 +1197,14 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
 
         static Status ready(final Path java) {
             return new Status(
-                State.READY, GRAAL_VERSION, JAVA_VERSION, Optional.of(java), 0L, 0L, "",
-                "GraalVM Community " + GRAAL_VERSION + " is ready."
-            );
+                    State.READY,
+                    GRAAL_VERSION,
+                    JAVA_VERSION,
+                    Optional.of(java),
+                    0L,
+                    0L,
+                    "",
+                    "GraalVM Community " + GRAAL_VERSION + " is ready.");
         }
 
         static Status failed(final String code, final String message) {
@@ -1347,7 +1212,15 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
 
         static Status unsupported(final String message) {
-            return new Status(State.UNSUPPORTED, GRAAL_VERSION, JAVA_VERSION, Optional.empty(), 0L, 0L, "GRAAL_RUNTIME_PLATFORM_UNSUPPORTED", message);
+            return new Status(
+                    State.UNSUPPORTED,
+                    GRAAL_VERSION,
+                    JAVA_VERSION,
+                    Optional.empty(),
+                    0L,
+                    0L,
+                    "GRAAL_RUNTIME_PLATFORM_UNSUPPORTED",
+                    message);
         }
     }
 
@@ -1384,8 +1257,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         /** @return true only when this call requested cancellation */
         public boolean cancel() {
             synchronized (this) {
-                if (result.isDone() || committing.get()
-                    || !cancelRequested.compareAndSet(false, true)) return false;
+                if (result.isDone() || committing.get() || !cancelRequested.compareAndSet(false, true)) return false;
             }
             final Thread current = thread;
             if (current != null) current.interrupt();
@@ -1422,16 +1294,9 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             if (thread == current) thread = null;
         }
 
-        private void phase(
-            final State state,
-            final long completedBytes,
-            final long totalBytes,
-            final String message
-        ) {
+        private void phase(final State state, final long completedBytes, final long totalBytes, final String message) {
             status = new Status(
-                state, GRAAL_VERSION, JAVA_VERSION, Optional.empty(), completedBytes,
-                totalBytes, "", message
-            );
+                    state, GRAAL_VERSION, JAVA_VERSION, Optional.empty(), completedBytes, totalBytes, "", message);
         }
 
         private void checkCancelled() throws Cancelled {
@@ -1448,9 +1313,14 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
 
         private void cancelled() {
             finish(new Status(
-                State.CANCELLED, GRAAL_VERSION, JAVA_VERSION, Optional.empty(), 0L, 0L,
-                "GRAAL_RUNTIME_CANCELLED", "GraalVM installation was cancelled."
-            ));
+                    State.CANCELLED,
+                    GRAAL_VERSION,
+                    JAVA_VERSION,
+                    Optional.empty(),
+                    0L,
+                    0L,
+                    "GRAAL_RUNTIME_CANCELLED",
+                    "GraalVM installation was cancelled."));
         }
 
         private void finish(final Status terminal) {
@@ -1465,12 +1335,11 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
 
     static final class Platform {
         static final Platform WINDOWS_X64 = new Platform(
-            "windows-x64",
-            "bin/java.exe",
-            "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
-            341_299_924L,
-            "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33"
-        );
+                "windows-x64",
+                "bin/java.exe",
+                "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
+                341_299_924L,
+                "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33");
 
         private final String id;
         private final String javaRelativePath;
@@ -1479,12 +1348,11 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         private final String sha256;
 
         Platform(
-            final String id,
-            final String javaRelativePath,
-            final String archiveName,
-            final long archiveBytes,
-            final String sha256
-        ) {
+                final String id,
+                final String javaRelativePath,
+                final String archiveName,
+                final long archiveBytes,
+                final String sha256) {
             this.id = Objects.requireNonNull(id, "id");
             this.javaRelativePath = Objects.requireNonNull(javaRelativePath, "javaRelativePath");
             this.archiveName = Objects.requireNonNull(archiveName, "archiveName");
@@ -1494,24 +1362,20 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
 
         Manifest manifest() {
             return new Manifest(
-                URI.create(
-                    "https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-"
-                        + GRAAL_VERSION + "/" + archiveName
-                ), archiveBytes, sha256
-            );
+                    URI.create("https://github.com/graalvm/graalvm-ce-builds/releases/download/graal-" + GRAAL_VERSION
+                            + "/" + archiveName),
+                    archiveBytes,
+                    sha256);
         }
 
         static Platform detect() {
             final String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
             final String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
-            return os.contains("win") && ("amd64".equals(arch) || "x86_64".equals(arch))
-                ? WINDOWS_X64
-                : null;
+            return os.contains("win") && ("amd64".equals(arch) || "x86_64".equals(arch)) ? WINDOWS_X64 : null;
         }
     }
 
-    record Manifest(URI uri, long archiveBytes, String sha256) {
-    }
+    record Manifest(URI uri, long archiveBytes, String sha256) {}
 
     private static final class InstallFailure extends Exception {
         private final String code;
@@ -1522,8 +1386,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         }
     }
 
-    private static final class Cancelled extends RuntimeException {
-    }
+    private static final class Cancelled extends RuntimeException {}
 
     private static final class InstallerThreadFactory implements ThreadFactory {
         @Override

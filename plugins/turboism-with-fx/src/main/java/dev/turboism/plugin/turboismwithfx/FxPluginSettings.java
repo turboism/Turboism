@@ -4,7 +4,6 @@ import dev.turboism.sdk.config.PluginConfigException;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,18 +31,13 @@ final class FxPluginSettings implements AutoCloseable {
     private String sessionIdSnapshot;
     private boolean compatibilitySnapshot;
     private String initialPromptSnapshot = "";
-    private FxProviderConfiguration providerConfigurationSnapshot =
-        new FxProviderConfiguration();
+    private FxProviderConfiguration providerConfigurationSnapshot = new FxProviderConfiguration();
 
     FxPluginSettings(final PluginConfigRegistry config, final PluginLogger logger) {
         this(config, logger, FxSecretStore.unavailable());
     }
 
-    FxPluginSettings(
-        final PluginConfigRegistry config,
-        final PluginLogger logger,
-        final FxSecretStore secrets
-    ) {
+    FxPluginSettings(final PluginConfigRegistry config, final PluginLogger logger, final FxSecretStore secrets) {
         this.config = Objects.requireNonNull(config, "config");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.secrets = Objects.requireNonNull(secrets, "secrets");
@@ -66,17 +60,33 @@ final class FxPluginSettings implements AutoCloseable {
         }
     }
 
-    synchronized String executable() { return executableSnapshot; }
-    synchronized String sessionId() { return sessionIdSnapshot; }
-    synchronized boolean compatibilityMode() { return compatibilitySnapshot; }
-    synchronized String initialPrompt() { return initialPromptSnapshot; }
+    synchronized String executable() {
+        return executableSnapshot;
+    }
+
+    synchronized String sessionId() {
+        return sessionIdSnapshot;
+    }
+
+    synchronized boolean compatibilityMode() {
+        return compatibilitySnapshot;
+    }
+
+    synchronized String initialPrompt() {
+        return initialPromptSnapshot;
+    }
+
     synchronized FxProviderConfiguration providerConfiguration() {
         return providerConfigurationSnapshot;
     }
+
     synchronized FxCustomEndpointSettings customEndpoint() {
         return providerConfigurationSnapshot.customEndpoint();
     }
-    boolean secureApiKeyPersistenceAvailable() { return secrets.persistent(); }
+
+    boolean secureApiKeyPersistenceAvailable() {
+        return secrets.persistent();
+    }
 
     synchronized void writeExecutable(final String value) throws PluginConfigException {
         final String executable = Objects.requireNonNull(value, "value").strip();
@@ -115,47 +125,35 @@ final class FxPluginSettings implements AutoCloseable {
     }
 
     synchronized void writeUserSettings(
-        final String executable,
-        final boolean compatibilityMode,
-        final String initialPrompt
-    ) throws PluginConfigException {
-        writeUserSettings(
-            executable,
-            compatibilityMode,
-            initialPrompt,
-            providerConfigurationSnapshot
-        );
+            final String executable, final boolean compatibilityMode, final String initialPrompt)
+            throws PluginConfigException {
+        writeUserSettings(executable, compatibilityMode, initialPrompt, providerConfigurationSnapshot);
     }
 
     synchronized void writeUserSettings(
-        final String executable,
-        final boolean compatibilityMode,
-        final String initialPrompt,
-        final FxCustomEndpointSettings customEndpoint
-    ) throws PluginConfigException {
+            final String executable,
+            final boolean compatibilityMode,
+            final String initialPrompt,
+            final FxCustomEndpointSettings customEndpoint)
+            throws PluginConfigException {
         final FxProviderConfiguration current = providerConfigurationSnapshot;
         final FxProviderProfile active = current.activeProfile();
         final FxProviderConfiguration providerConfiguration;
         if (customEndpoint.enabled()) {
             final FxProviderProfile replacement = new FxProviderProfile(
-                active.id(),
-                active.name(),
-                FxProviderProfile.Kind.OPENAI_COMPATIBLE,
-                "",
-                customEndpoint.endpoint(),
-                customEndpoint.apiKeyEnvironment(),
-                customEndpoint.model(),
-                active.manualModels()
-            );
-            final java.util.ArrayList<FxProviderProfile> profiles =
-                new java.util.ArrayList<>(current.customProfiles());
+                    active.id(),
+                    active.name(),
+                    FxProviderProfile.Kind.OPENAI_COMPATIBLE,
+                    "",
+                    customEndpoint.endpoint(),
+                    customEndpoint.apiKeyEnvironment(),
+                    customEndpoint.model(),
+                    active.manualModels());
+            final java.util.ArrayList<FxProviderProfile> profiles = new java.util.ArrayList<>(current.customProfiles());
             profiles.removeIf(profile -> profile.id().equals(replacement.id()));
             profiles.add(replacement);
-            providerConfiguration = new FxProviderConfiguration(
-                replacement.id(),
-                profiles,
-                current.sessionApiKeys()
-            ).withSessionApiKey(replacement.id(), customEndpoint.sessionApiKey());
+            providerConfiguration = new FxProviderConfiguration(replacement.id(), profiles, current.sessionApiKeys())
+                    .withSessionApiKey(replacement.id(), customEndpoint.sessionApiKey());
         } else {
             providerConfiguration = current;
         }
@@ -163,43 +161,34 @@ final class FxPluginSettings implements AutoCloseable {
     }
 
     synchronized void writeUserSettings(
-        final String executable,
-        final boolean compatibilityMode,
-        final String initialPrompt,
-        final FxProviderConfiguration providerConfiguration
-    ) throws PluginConfigException {
-        final String nextExecutable = Objects.requireNonNull(executable, "executable").strip();
-        final String nextPrompt = boundedInitialPrompt(
-            Objects.requireNonNull(initialPrompt, "initialPrompt")
-        );
-        final FxProviderConfiguration nextProviders = Objects.requireNonNull(
-            providerConfiguration,
-            "providerConfiguration"
-        );
+            final String executable,
+            final boolean compatibilityMode,
+            final String initialPrompt,
+            final FxProviderConfiguration providerConfiguration)
+            throws PluginConfigException {
+        final String nextExecutable =
+                Objects.requireNonNull(executable, "executable").strip();
+        final String nextPrompt = boundedInitialPrompt(Objects.requireNonNull(initialPrompt, "initialPrompt"));
+        final FxProviderConfiguration nextProviders =
+                Objects.requireNonNull(providerConfiguration, "providerConfiguration");
         final String previousExecutable = executableSnapshot;
         final boolean previousCompatibility = compatibilitySnapshot;
         final String previousPrompt = initialPromptSnapshot;
         final FxProviderConfiguration previousProviders = providerConfigurationSnapshot;
         final List<SettingValue> next = List.of(
-            new SettingValue(EXECUTABLE, nextExecutable),
-            new SettingValue(COMPATIBILITY, Boolean.toString(compatibilityMode)),
-            new SettingValue(INITIAL_PROMPT, nextPrompt),
-            new SettingValue(ACTIVE_PROVIDER_PROFILE, nextProviders.activeProfileId()),
-            new SettingValue(
-                CUSTOM_PROVIDER_PROFILES,
-                FxProviderProfileCodec.encode(nextProviders.customProfiles())
-            )
-        );
+                new SettingValue(EXECUTABLE, nextExecutable),
+                new SettingValue(COMPATIBILITY, Boolean.toString(compatibilityMode)),
+                new SettingValue(INITIAL_PROMPT, nextPrompt),
+                new SettingValue(ACTIVE_PROVIDER_PROFILE, nextProviders.activeProfileId()),
+                new SettingValue(
+                        CUSTOM_PROVIDER_PROFILES, FxProviderProfileCodec.encode(nextProviders.customProfiles())));
         final List<SettingValue> previous = List.of(
-            new SettingValue(EXECUTABLE, previousExecutable),
-            new SettingValue(COMPATIBILITY, Boolean.toString(previousCompatibility)),
-            new SettingValue(INITIAL_PROMPT, previousPrompt),
-            new SettingValue(ACTIVE_PROVIDER_PROFILE, previousProviders.activeProfileId()),
-            new SettingValue(
-                CUSTOM_PROVIDER_PROFILES,
-                FxProviderProfileCodec.encode(previousProviders.customProfiles())
-            )
-        );
+                new SettingValue(EXECUTABLE, previousExecutable),
+                new SettingValue(COMPATIBILITY, Boolean.toString(previousCompatibility)),
+                new SettingValue(INITIAL_PROMPT, previousPrompt),
+                new SettingValue(ACTIVE_PROVIDER_PROFILE, previousProviders.activeProfileId()),
+                new SettingValue(
+                        CUSTOM_PROVIDER_PROFILES, FxProviderProfileCodec.encode(previousProviders.customProfiles())));
         int attempted = 0;
         try {
             for (SettingValue value : next) {
@@ -223,13 +212,9 @@ final class FxPluginSettings implements AutoCloseable {
 
     private FxProviderConfiguration readProviderConfiguration() {
         try {
-            final List<FxProviderProfile> profiles =
-                FxProviderProfileCodec.decode(read(CUSTOM_PROVIDER_PROFILES, ""));
+            final List<FxProviderProfile> profiles = FxProviderProfileCodec.decode(read(CUSTOM_PROVIDER_PROFILES, ""));
             return new FxProviderConfiguration(
-                read(ACTIVE_PROVIDER_PROFILE, FxProviderProfile.UNCONFIGURED_ID),
-                profiles,
-                readSecrets(profiles)
-            );
+                    read(ACTIVE_PROVIDER_PROFILE, FxProviderProfile.UNCONFIGURED_ID), profiles, readSecrets(profiles));
         } catch (IllegalArgumentException failure) {
             logger.warn("Turboism with fx ignored invalid provider profile settings");
             return new FxProviderConfiguration();
@@ -251,10 +236,7 @@ final class FxPluginSettings implements AutoCloseable {
     }
 
     /** Persists current credentials and deletes those belonging to removed profiles. */
-    private void synchronizeSecrets(
-        final FxProviderConfiguration previous,
-        final FxProviderConfiguration next
-    ) {
+    private void synchronizeSecrets(final FxProviderConfiguration previous, final FxProviderConfiguration next) {
         if (!secrets.persistent()) return;
         final java.util.LinkedHashSet<String> retained = new java.util.LinkedHashSet<>();
         for (FxProviderProfile profile : next.customProfiles()) retained.add(profile.id());
@@ -274,10 +256,8 @@ final class FxPluginSettings implements AutoCloseable {
         }
     }
 
-    private void rollbackUserSettings(
-        final int attempted,
-        final List<SettingValue> previous
-    ) throws PluginConfigException {
+    private void rollbackUserSettings(final int attempted, final List<SettingValue> previous)
+            throws PluginConfigException {
         PluginConfigException failure = null;
         for (int index = Math.min(attempted, previous.size()) - 1; index >= 0; index--) {
             final SettingValue value = previous.get(index);
@@ -298,7 +278,8 @@ final class FxPluginSettings implements AutoCloseable {
         }
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         writeScope.close();
         readScope.close();
     }

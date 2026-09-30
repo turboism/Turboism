@@ -5,11 +5,10 @@ import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
-import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +25,7 @@ import java.util.function.Supplier;
  * every admission or refresh. The native edit object is retained only inside a private token so an
  * abort can still close the exact edit mode even if the active document changes.</p>
  */
-public final class VerifiedEditorAuthoringTransactionHost
-    implements EditorAuthoringTransactionCoordinator.Host {
+public final class VerifiedEditorAuthoringTransactionHost implements EditorAuthoringTransactionCoordinator.Host {
 
     private static final String COMPONENT = "authoring-transaction";
     private static final int DIAGNOSTIC_MESSAGE_LIMIT = 160;
@@ -46,16 +44,13 @@ public final class VerifiedEditorAuthoringTransactionHost
      * @param generation current model binding generation supplier
      */
     public VerifiedEditorAuthoringTransactionHost(
-        final VerifiedMemberResolver resolver,
-        final Supplier<NativeBinding> current,
-        final LongSupplier generation
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Supplier<NativeBinding> current,
+            final LongSupplier generation) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.current = Objects.requireNonNull(current, "current");
         this.history = new EditorHistorySnapshotProvider(
-            () -> Optional.of(this.resolver),
-            Objects.requireNonNull(generation, "generation")
-        );
+                () -> Optional.of(this.resolver), Objects.requireNonNull(generation, "generation"));
     }
 
     /**
@@ -64,21 +59,18 @@ public final class VerifiedEditorAuthoringTransactionHost
      * @param pluginId owning plugin identity
      * @return current authoring binding, or empty when no stable native model is available
      */
-    public Optional<EditorAuthoringTransactionCoordinator.Binding> binding(
-        final String pluginId
-    ) {
+    public Optional<EditorAuthoringTransactionCoordinator.Binding> binding(final String pluginId) {
         final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
         if (owner.isEmpty()) throw new IllegalArgumentException("pluginId must not be blank");
         try {
             final NativeBinding binding = Objects.requireNonNull(current.get(), "current binding");
             return Optional.of(new EditorAuthoringTransactionCoordinator.Binding(
-                owner,
-                binding.identity(),
-                binding.generation(),
-                binding.identity(),
-                binding.generation(),
-                Thread.currentThread()
-            ));
+                    owner,
+                    binding.identity(),
+                    binding.generation(),
+                    binding.identity(),
+                    binding.generation(),
+                    Thread.currentThread()));
         } catch (RuntimeException unavailable) {
             return Optional.empty();
         }
@@ -90,9 +82,9 @@ public final class VerifiedEditorAuthoringTransactionHost
         try {
             final NativeBinding active = Objects.requireNonNull(current.get(), "current binding");
             return expected.documentGeneration() == active.generation()
-                && expected.modelGeneration() == active.generation()
-                && expected.documentIdentity().equals(active.identity())
-                && expected.modelIdentity().equals(active.identity());
+                    && expected.modelGeneration() == active.generation()
+                    && expected.documentIdentity().equals(active.identity())
+                    && expected.modelIdentity().equals(active.identity());
         } catch (RuntimeException unavailable) {
             return false;
         }
@@ -103,27 +95,17 @@ public final class VerifiedEditorAuthoringTransactionHost
         if (!isCurrent(binding)) return HistorySnapshot.unavailable();
         final HistorySnapshot snapshot = history.snapshot();
         return snapshot.availability() == HistorySnapshot.Availability.AVAILABLE
-            && snapshot.generation() == binding.documentGeneration()
-            ? snapshot
-            : HistorySnapshot.unavailable();
+                        && snapshot.generation() == binding.documentGeneration()
+                ? snapshot
+                : HistorySnapshot.unavailable();
     }
 
     @Override
-    public Object beginEdit(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final String label
-    ) {
+    public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding binding, final String label) {
         EditorHostThread.requireHostThread("Cubism authoring edit begin");
         final NativeBinding active = currentFor(binding);
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode",
-            active.document()
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin",
-            editMode,
-            label
-        );
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", active.document());
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, label);
         if (edit == null) {
             throw new IllegalStateException("Editor authoring edit did not begin");
         }
@@ -137,10 +119,7 @@ public final class VerifiedEditorAuthoringTransactionHost
 
     @Override
     public void endEdit(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object edit,
-        final boolean abort
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit, final boolean abort) {
         EditorHostThread.requireHostThread("Cubism authoring edit end");
         final Object editMode;
         synchronized (editLock) {
@@ -149,26 +128,16 @@ public final class VerifiedEditorAuthoringTransactionHost
         if (editMode == null) {
             throw new IllegalArgumentException("Editor authoring edit token is invalid or closed");
         }
-        resolver.invoke(
-            "cubism.editor-model.edit-mode.end",
-            editMode,
-            abort,
-            null
-        );
+        resolver.invoke("cubism.editor-model.edit-mode.end", editMode, abort, null);
     }
 
     @Override
-    public void undoEditGroup(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object edit
-    ) {
+    public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit) {
         EditorHostThread.requireHostThread("Cubism authoring edit group undo");
         currentFor(binding);
         synchronized (editLock) {
             if (!editModes.containsKey(Objects.requireNonNull(edit, "edit"))) {
-                throw new IllegalArgumentException(
-                    "Editor authoring edit token is invalid or closed"
-                );
+                throw new IllegalArgumentException("Editor authoring edit token is invalid or closed");
             }
         }
         resolver.invoke("cubism.editor-model.undo.group-undo", edit);
@@ -176,111 +145,71 @@ public final class VerifiedEditorAuthoringTransactionHost
 
     @Override
     public void refresh(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Set<EditorRefreshRequirement> requirements
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final Set<EditorRefreshRequirement> requirements) {
         final NativeBinding active = currentFor(binding);
-        final Set<EditorRefreshRequirement> requested = Set.copyOf(
-            Objects.requireNonNull(requirements, "requirements")
-        );
-        final Object app = resolver.invokeStatic(
-            "cubism.editor-model.app-controller.instance"
-        );
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack",
-            app
-        );
+        final Set<EditorRefreshRequirement> requested =
+                Set.copyOf(Objects.requireNonNull(requirements, "requirements"));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         if (requested.contains(EditorRefreshRequirement.MODEL_INSTANCES)) {
-            resolver.invoke(
-                "cubism.editor-model.model-source.update-instances",
-                active.source()
-            );
+            resolver.invoke("cubism.editor-model.model-source.update-instances", active.source());
         }
         if (requested.contains(EditorRefreshRequirement.PARAMETER_PALETTE)) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-parameter",
-                completePack,
-                Boolean.TRUE
-            );
+            resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
         }
         if (requested.contains(EditorRefreshRequirement.PART_PALETTE)) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-part-palette",
-                completePack,
-                Boolean.TRUE
-            );
+            resolver.invoke("cubism.editor-model.complete-pack.update-part-palette", completePack, Boolean.TRUE);
         }
         if (requested.contains(EditorRefreshRequirement.DEFORMER_PALETTE)) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.update-deformer-palette",
-                completePack,
-                Boolean.TRUE
-            );
+            resolver.invoke("cubism.editor-model.complete-pack.update-deformer-palette", completePack, Boolean.TRUE);
         }
         if (requested.contains(EditorRefreshRequirement.MARK_DIRTY)) {
-            resolver.invoke(
-                "cubism.editor-model.modeling-document.mark-dirty",
-                active.document()
-            );
+            resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", active.document());
         }
         if (requested.contains(EditorRefreshRequirement.CANVAS)) {
-            resolver.invoke(
-                "cubism.editor-model.complete-pack.repaint-canvas",
-                completePack,
-                Boolean.TRUE
-            );
+            resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
         }
     }
 
     @Override
     public Optional<String> committedHistoryEntryId(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final HistorySnapshot before,
-        final HistorySnapshot after,
-        final String transactionId,
-        final String label
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label) {
         return committedHistoryEntryIdInternal(
-            binding,
-            before,
-            after,
-            transactionId,
-            label,
-            Optional.empty(),
-            Optional.empty()
-        );
+                binding, before, after, transactionId, label, Optional.empty(), Optional.empty());
     }
 
     @Override
     public Optional<String> committedHistoryEntryId(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final HistorySnapshot before,
-        final HistorySnapshot after,
-        final String transactionId,
-        final String label,
-        final HistoryEntryDetail detail,
-        final Optional<HistoryAction> action
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label,
+            final HistoryEntryDetail detail,
+            final Optional<HistoryAction> action) {
         return committedHistoryEntryIdInternal(
-            binding,
-            before,
-            after,
-            transactionId,
-            label,
-            Optional.of(Objects.requireNonNull(detail, "detail")),
-            Objects.requireNonNull(action, "action")
-        );
+                binding,
+                before,
+                after,
+                transactionId,
+                label,
+                Optional.of(Objects.requireNonNull(detail, "detail")),
+                Objects.requireNonNull(action, "action"));
     }
 
     private Optional<String> committedHistoryEntryIdInternal(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final HistorySnapshot before,
-        final HistorySnapshot after,
-        final String transactionId,
-        final String label,
-        final Optional<HistoryEntryDetail> detail,
-        final Optional<HistoryAction> action
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label,
+            final Optional<HistoryEntryDetail> detail,
+            final Optional<HistoryAction> action) {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(before, "before");
         Objects.requireNonNull(after, "after");
@@ -289,12 +218,12 @@ public final class VerifiedEditorAuthoringTransactionHost
         Objects.requireNonNull(detail, "detail");
         Objects.requireNonNull(action, "action");
         if (!isCurrent(binding)
-            || before.availability() != HistorySnapshot.Availability.AVAILABLE
-            || after.availability() != HistorySnapshot.Availability.AVAILABLE
-            || before.generation() != after.generation()
-            || before.generation() != binding.documentGeneration()
-            || !before.documentBindingId().equals(after.documentBindingId())
-            || !before.managerBindingId().equals(after.managerBindingId())) {
+                || before.availability() != HistorySnapshot.Availability.AVAILABLE
+                || after.availability() != HistorySnapshot.Availability.AVAILABLE
+                || before.generation() != after.generation()
+                || before.generation() != binding.documentGeneration()
+                || !before.documentBindingId().equals(after.documentBindingId())
+                || !before.managerBindingId().equals(after.managerBindingId())) {
             return Optional.empty();
         }
         final List<HistoryEntry> prior = before.entries();
@@ -303,8 +232,8 @@ public final class VerifiedEditorAuthoringTransactionHost
             return Optional.empty();
         }
         if (committed.isEmpty()) return Optional.empty();
-        final int retainedPosition = retainedPosition(prior, before.position(),
-            committed.get(committed.size() - 1).significant());
+        final int retainedPosition = retainedPosition(
+                prior, before.position(), committed.get(committed.size() - 1).significant());
         final int expectedPosition = retainedPosition + 1;
         if (committed.size() != expectedPosition || after.position() != expectedPosition) {
             return Optional.empty();
@@ -317,31 +246,16 @@ public final class VerifiedEditorAuthoringTransactionHost
             return Optional.empty();
         }
         final NativeBinding active = currentFor(binding);
-        final Object manager = resolver.invoke(
-            "cubism.editor-history.document.undo-manager",
-            active.document()
-        );
-        final Object rawEntries = resolver.invoke(
-            "cubism.editor-history.manager.entries",
-            manager
-        );
-        if (!(rawEntries instanceof List<?> nativeEntries)
-            || nativeEntries.size() != committed.size()) {
+        final Object manager = resolver.invoke("cubism.editor-history.document.undo-manager", active.document());
+        final Object rawEntries = resolver.invoke("cubism.editor-history.manager.entries", manager);
+        if (!(rawEntries instanceof List<?> nativeEntries) || nativeEntries.size() != committed.size()) {
             return Optional.empty();
         }
         final Object nativeEntry = nativeEntries.get(expectedPosition - 1);
-        final Object nativeLabel = resolver.invoke(
-            "cubism.editor-history.entry.presentation-name",
-            nativeEntry
-        );
+        final Object nativeLabel = resolver.invoke("cubism.editor-history.entry.presentation-name", nativeEntry);
         if (!label.equals(nativeLabel)) return Optional.empty();
         if (detail.isPresent()) {
-            EditorHistoryMetadataRegistry.registerTransaction(
-                nativeEntry,
-                transactionId,
-                detail.orElseThrow(),
-                action
-            );
+            EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId, detail.orElseThrow(), action);
         } else {
             EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId);
         }
@@ -360,17 +274,17 @@ public final class VerifiedEditorAuthoringTransactionHost
 
     @Override
     public Optional<String> prepareHistoryMetadata(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object edit,
-        final String transactionId,
-        final HistoryEntryDetail detail,
-        final Optional<HistoryAction> action
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final Object edit,
+            final String transactionId,
+            final HistoryEntryDetail detail,
+            final Optional<HistoryAction> action) {
         currentFor(binding);
         synchronized (editLock) {
             if (!editModes.containsKey(edit)) throw new IllegalStateException("root edit is not owned");
         }
-        return Optional.of(EditorHistoryMetadataRegistry.prepareTransaction(edit, transactionId, detail, action).value());
+        return Optional.of(EditorHistoryMetadataRegistry.prepareTransaction(edit, transactionId, detail, action)
+                .value());
     }
 
     @Override
@@ -380,12 +294,11 @@ public final class VerifiedEditorAuthoringTransactionHost
             // Keep the root cause in the runtime log without widening the SDK-facing
             // identifier: exception class plus a bounded message, no host internals.
             RuntimeDiagnostics.warn(
-                COMPONENT,
-                checked
-                    + " failure=" + failure.getClass().getName()
-                    + " message=" + abbreviate(failure.getMessage())
-                    + " suppressed=" + failure.getSuppressed().length
-            );
+                    COMPONENT,
+                    checked
+                            + " failure=" + failure.getClass().getName()
+                            + " message=" + abbreviate(failure.getMessage())
+                            + " suppressed=" + failure.getSuppressed().length);
         }
         return checked;
     }
@@ -395,18 +308,16 @@ public final class VerifiedEditorAuthoringTransactionHost
             return "none";
         }
         return message.length() <= DIAGNOSTIC_MESSAGE_LIMIT
-            ? message
-            : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
+                ? message
+                : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
     }
 
-    private NativeBinding currentFor(
-        final EditorAuthoringTransactionCoordinator.Binding expected
-    ) {
+    private NativeBinding currentFor(final EditorAuthoringTransactionCoordinator.Binding expected) {
         final NativeBinding active = Objects.requireNonNull(current.get(), "current binding");
         if (expected.documentGeneration() != active.generation()
-            || expected.modelGeneration() != active.generation()
-            || !expected.documentIdentity().equals(active.identity())
-            || !expected.modelIdentity().equals(active.identity())) {
+                || expected.modelGeneration() != active.generation()
+                || !expected.documentIdentity().equals(active.identity())
+                || !expected.modelIdentity().equals(active.identity())) {
             throw new IllegalStateException("Editor authoring binding is stale");
         }
         return active;
@@ -421,13 +332,7 @@ public final class VerifiedEditorAuthoringTransactionHost
      * @param source active native model source
      * @param model active native model instance
      */
-    public record NativeBinding(
-        String identity,
-        long generation,
-        Object document,
-        Object source,
-        Object model
-    ) {
+    public record NativeBinding(String identity, long generation, Object document, Object source, Object model) {
 
         /** Validates one native binding. */
         public NativeBinding {
@@ -443,5 +348,4 @@ public final class VerifiedEditorAuthoringTransactionHost
             model = Objects.requireNonNull(model, "model");
         }
     }
-
 }

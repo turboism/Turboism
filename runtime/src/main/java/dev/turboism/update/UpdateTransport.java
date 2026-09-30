@@ -28,8 +28,7 @@ public interface UpdateTransport {
             etag = Objects.requireNonNull(etag, "etag");
             if (etag.isPresent()) {
                 final String value = etag.orElseThrow();
-                if (value.isBlank() || value.length() > 512
-                    || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+                if (value.isBlank() || value.length() > 512 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
                     throw new IllegalArgumentException("etag is invalid");
                 }
             }
@@ -47,8 +46,8 @@ public interface UpdateTransport {
 
         @Override
         public String toString() {
-            return "Response[statusCode=" + statusCode + ", bodyBytes=" + body.length
-                + ", etag=" + etag.map(ignored -> "present").orElse("empty") + "]";
+            return "Response[statusCode=" + statusCode + ", bodyBytes=" + body.length + ", etag="
+                    + etag.map(ignored -> "present").orElse("empty") + "]";
         }
     }
 }

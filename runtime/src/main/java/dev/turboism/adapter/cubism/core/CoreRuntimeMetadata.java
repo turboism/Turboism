@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.core.MocInfo;
 import dev.turboism.sdk.cubism.core.MocInspector;
 import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.MocVersion;
-
 import java.util.Objects;
 
 /** Runtime-owned normalization of admitted Core metadata and byte inspection. */
@@ -24,27 +23,22 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
     private final int mocByteQuota;
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider) {
-        this(provider, null, () -> { }, DEFAULT_MOC_BYTE_QUOTA);
+        this(provider, null, () -> {}, DEFAULT_MOC_BYTE_QUOTA);
     }
 
     CoreRuntimeMetadata(final CorePublicApiProvider provider, final Runnable freshness) {
         this(provider, null, freshness, DEFAULT_MOC_BYTE_QUOTA);
     }
 
-    CoreRuntimeMetadata(
-        final CorePublicApiProvider provider,
-        final Runnable freshness,
-        final int mocByteQuota
-    ) {
+    CoreRuntimeMetadata(final CorePublicApiProvider provider, final Runnable freshness, final int mocByteQuota) {
         this(provider, null, freshness, mocByteQuota);
     }
 
     CoreRuntimeMetadata(
-        final CorePublicApiProvider provider,
-        final VerifiedMemberResolver resolver,
-        final Runnable freshness,
-        final int mocByteQuota
-    ) {
+            final CorePublicApiProvider provider,
+            final VerifiedMemberResolver resolver,
+            final Runnable freshness,
+            final int mocByteQuota) {
         this.provider = Objects.requireNonNull(provider, "provider");
         this.resolver = resolver;
         this.freshness = Objects.requireNonNull(freshness, "freshness");
@@ -55,10 +49,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
     @Override
     public CoreVersion version() {
         freshness.run();
-        final CoreRuntimeVersion version = requireValue(
-            provider.runtimeVersion(),
-            "Core runtime version"
-        );
+        final CoreRuntimeVersion version = requireValue(provider.runtimeVersion(), "Core runtime version");
         return new CoreVersion(version.major(), version.minor(), version.patch());
     }
 
@@ -77,10 +68,7 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
             @Override
             public MocVersion latestVersion() {
                 freshness.run();
-                return normalizeVersion(requireValue(
-                    provider.latestMocVersion(),
-                    "Core latest MOC version"
-                ));
+                return normalizeVersion(requireValue(provider.latestMocVersion(), "Core latest MOC version"));
             }
 
             @Override
@@ -88,23 +76,16 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
                 final MocData value = Objects.requireNonNull(data, "data");
                 if (value.size() > mocByteQuota) {
                     throw new IllegalArgumentException(
-                        "MOC data exceeds the configured byte quota of " + mocByteQuota + "."
-                    );
+                            "MOC data exceeds the configured byte quota of " + mocByteQuota + ".");
                 }
                 final byte[] bytes = value.toByteArray();
                 freshness.run();
-                final int version = requireValue(
-                    provider.mocVersion(bytes.clone()),
-                    "Core MOC version"
-                );
-                final boolean consistent = requireValue(
-                    provider.hasMocConsistency(bytes.clone()),
-                    "Core MOC consistency"
-                );
+                final int version = requireValue(provider.mocVersion(bytes.clone()), "Core MOC version");
+                final boolean consistent =
+                        requireValue(provider.hasMocConsistency(bytes.clone()), "Core MOC consistency");
                 return new MocInfo(
-                    normalizeVersion(version),
-                    consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT
-                );
+                        normalizeVersion(version),
+                        consistent ? MocConsistency.CONSISTENT : MocConsistency.INCONSISTENT);
             }
         };
     }
@@ -114,16 +95,12 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
         if (resolver == null || !capabilities().mocInspection()) {
             throw unavailable("Owned MOC loading");
         }
-        final CoreProviderResult<OwnedMocRuntime> admitted = OwnedMocRuntime.admit(
-            provider,
-            resolver,
-            freshness,
-            mocByteQuota
-        );
+        final CoreProviderResult<OwnedMocRuntime> admitted =
+                OwnedMocRuntime.admit(provider, resolver, freshness, mocByteQuota);
         final CoreProviderFailure failure = admitted.failure().orElse(null);
         if (failure != null) {
             if (failure.code() == CoreProviderFailure.Code.ADAPTER_UNAVAILABLE
-                || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
+                    || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
                 throw unavailable("Owned MOC loading");
             }
             throw new IllegalStateException("Owned MOC loading failed: " + failure.code());
@@ -131,17 +108,14 @@ final class CoreRuntimeMetadata implements CoreRuntimeInfo {
         return admitted.value().orElseThrow();
     }
 
-    private static <T> T requireValue(
-        final CoreProviderResult<T> result,
-        final String feature
-    ) {
-        final CoreProviderFailure failure = Objects.requireNonNull(result, "result")
-            .failure().orElse(null);
+    private static <T> T requireValue(final CoreProviderResult<T> result, final String feature) {
+        final CoreProviderFailure failure =
+                Objects.requireNonNull(result, "result").failure().orElse(null);
         if (failure == null) {
             return result.value().orElseThrow();
         }
         if (failure.code() == CoreProviderFailure.Code.ADAPTER_UNAVAILABLE
-            || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
+                || failure.code() == CoreProviderFailure.Code.EVIDENCE_REJECTED) {
             throw unavailable(feature);
         }
         throw new IllegalStateException(feature + " failed: " + failure.code());

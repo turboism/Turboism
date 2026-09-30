@@ -1,5 +1,10 @@
 package dev.turboism.update;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
@@ -7,14 +12,11 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.net.HttpURLConnection;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,26 +28,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class RuntimeUpdateServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-07T00:00:00Z");
 
     @Test
     void startsAutomaticallyOnlyAfterTheConfiguredDelayAndPersistsTheAttempt(@TempDir final Path home)
-        throws Exception {
+            throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofMillis(150), Duration.ofDays(1)
-        );
+                home, scheduler, new MutableSettings(false), transport, Duration.ofMillis(150), Duration.ofDays(1));
         try {
             service.start();
             assertFalse(transport.requested.await(20, TimeUnit.MILLISECONDS));
@@ -61,21 +58,18 @@ final class RuntimeUpdateServiceTest {
     void everyLaunchChecksOnceEvenWithinThePreviousInterval(@TempDir final Path home) throws Exception {
         // A previous session checked a minute ago. Opening the editor again must still check, because
         // the user who just started the editor is exactly the one who should hear about a release.
-        new UpdateStateStore(home).save(new UpdateStateStore.State(
-            Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()
-        ));
+        new UpdateStateStore(home)
+                .save(new UpdateStateStore.State(
+                        Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofMillis(20), Duration.ofDays(1)
-        );
+                home, scheduler, new MutableSettings(false), transport, Duration.ofMillis(20), Duration.ofDays(1));
         try {
             service.start();
             assertTrue(
-                transport.requested.await(2, TimeUnit.SECONDS),
-                "a session start must check instead of waiting out the interval"
-            );
+                    transport.requested.await(2, TimeUnit.SECONDS),
+                    "a session start must check instead of waiting out the interval");
             assertEquals(1, transport.calls.get());
         } finally {
             service.close();
@@ -84,24 +78,20 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void aSecondAutomaticCheckWithinTheSessionWaitsForTheInterval(@TempDir final Path home)
-        throws Exception {
+    void aSecondAutomaticCheckWithinTheSessionWaitsForTheInterval(@TempDir final Path home) throws Exception {
         // The interval still governs the session: one check at launch, not one per timer tick.
-        new UpdateStateStore(home).save(new UpdateStateStore.State(
-            Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()
-        ));
+        new UpdateStateStore(home)
+                .save(new UpdateStateStore.State(
+                        Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ZERO, Duration.ofHours(24)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ZERO, Duration.ofHours(24));
         try {
             service.start();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithDocument(
-                "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\",\"release\":null}"
-            );
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\",\"release\":null}");
             TimeUnit.MILLISECONDS.sleep(300);
             assertEquals(1, transport.calls.get(), "the session must not poll the service");
         } finally {
@@ -111,14 +101,11 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void coalescesManualChecksAndEmitsOneReminderForOneVersion(@TempDir final Path home)
-        throws Exception {
+    void coalescesManualChecksAndEmitsOneReminderForOneVersion(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         final List<CoreUpdateService.Snapshot> snapshots = new ArrayList<>();
         service.subscribe(snapshots::add);
         try {
@@ -129,7 +116,8 @@ final class RuntimeUpdateServiceTest {
             assertSame(first, second);
 
             transport.completeWithVersion("1.2.3");
-            final CoreUpdateService.Snapshot result = first.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            final CoreUpdateService.Snapshot result =
+                    first.toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, result.status());
             assertTrue(result.reminder());
             assertEquals(1, transport.calls.get());
@@ -146,16 +134,14 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void automaticChecksCanBeDisabledWithoutDisablingAnExplicitManualCheck(@TempDir final Path home)
-        throws Exception {
+    void automaticChecksCanBeDisabledWithoutDisablingAnExplicitManualCheck(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
-            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false)).saved());
+            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false))
+                    .saved());
             service.start();
             assertEquals(CoreUpdateService.Status.DISABLED, service.snapshot().status());
             assertEquals(0, transport.calls.get());
@@ -163,8 +149,9 @@ final class RuntimeUpdateServiceTest {
             final CompletionStage<CoreUpdateService.Snapshot> manual = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithVersion("0.9.0");
-            assertEquals(CoreUpdateService.Status.UP_TO_DATE,
-                manual.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    manual.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         } finally {
             service.close();
             scheduler.shutdown();
@@ -172,19 +159,21 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void safeModeMakesBothAutomaticAndManualRequestsUnavailable(@TempDir final Path home)
-        throws Exception {
+    void safeModeMakesBothAutomaticAndManualRequestsUnavailable(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(true), transport,
-            Duration.ZERO, Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(true), transport, Duration.ZERO, Duration.ofDays(1));
         try {
             service.start();
-            assertEquals(CoreUpdateService.Status.UNAVAILABLE, service.snapshot().status());
-            assertEquals(CoreUpdateService.Status.UNAVAILABLE,
-                service.checkManual().toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE, service.snapshot().status());
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    service.checkManual()
+                            .toCompletableFuture()
+                            .get(2, TimeUnit.SECONDS)
+                            .status());
             assertEquals(0, transport.calls.get());
         } finally {
             service.close();
@@ -193,28 +182,35 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void reportsNetworkFailureAndRejectsAResponseThatArrivesAfterClose(@TempDir final Path home)
-        throws Exception {
+    void reportsNetworkFailureAndRejectsAResponseThatArrivesAfterClose(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = new RuntimeUpdateService(
-            home, scheduler, new MutableSettings(false), transport,
-            Clock.fixed(NOW, ZoneOffset.UTC), installed("1.0.0"), Duration.ofDays(1), Duration.ofDays(1), diagnostics::add
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                transport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installed("1.0.0"),
+                Duration.ofDays(1),
+                Duration.ofDays(1),
+                diagnostics::add);
         try {
             final CompletionStage<CoreUpdateService.Snapshot> failed = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.fail(new IllegalStateException("offline"));
-            assertEquals(CoreUpdateService.Status.UNAVAILABLE,
-                failed.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    failed.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             assertTrue(diagnostics.contains("UPDATE_NETWORK_UNAVAILABLE"));
 
             final CompletionStage<CoreUpdateService.Snapshot> late = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             service.close();
-            assertEquals(CoreUpdateService.Status.CLOSED,
-                late.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.CLOSED,
+                    late.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             transport.completeWithVersion("9.9.9");
             assertEquals(CoreUpdateService.Status.CLOSED, service.snapshot().status());
         } finally {
@@ -224,19 +220,22 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void recoversFromAClockFutureAttemptBySchedulingABoundedFreshCheck(@TempDir final Path home)
-        throws Exception {
-        new UpdateStateStore(home).save(new UpdateStateStore.State(
-            Optional.of(NOW.plusSeconds(1)), Optional.empty(), Optional.empty()
-        ));
+    void recoversFromAClockFutureAttemptBySchedulingABoundedFreshCheck(@TempDir final Path home) throws Exception {
+        new UpdateStateStore(home)
+                .save(new UpdateStateStore.State(Optional.of(NOW.plusSeconds(1)), Optional.empty(), Optional.empty()));
         final DeferredTransport transport = new DeferredTransport();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = new RuntimeUpdateService(
-            home, scheduler, new MutableSettings(false), transport,
-            Clock.fixed(NOW, ZoneOffset.UTC), installed("1.0.0"), Duration.ofMillis(20), Duration.ofDays(1),
-            diagnostics::add
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                transport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installed("1.0.0"),
+                Duration.ofMillis(20),
+                Duration.ofDays(1),
+                diagnostics::add);
         try {
             assertTrue(diagnostics.contains("UPDATE_STATE_FUTURE_TIMESTAMP"));
             service.start();
@@ -248,17 +247,22 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void unknownOrDevelopmentLocalVersionNeverStartsNetworkRequests(@TempDir final Path home)
-        throws Exception {
+    void unknownOrDevelopmentLocalVersionNeverStartsNetworkRequests(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = new RuntimeUpdateService(
-            home, scheduler, new MutableSettings(false), transport,
-            Clock.fixed(NOW, ZoneOffset.UTC), installed("dev"), Duration.ZERO, Duration.ofDays(1), ignored -> { }
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                transport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installed("dev"),
+                Duration.ZERO,
+                Duration.ofDays(1),
+                ignored -> {});
         try {
-            final CoreUpdateService.Snapshot result = service.checkManual()
-                .toCompletableFuture().get(2, TimeUnit.SECONDS);
+            final CoreUpdateService.Snapshot result =
+                    service.checkManual().toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(CoreUpdateService.Status.UNAVAILABLE, result.status());
             assertEquals(0, transport.calls.get());
         } finally {
@@ -271,18 +275,17 @@ final class RuntimeUpdateServiceTest {
     void closeDuringTransportStartupCancelsTheLateCreatedStage(@TempDir final Path home) throws Exception {
         final LateStageTransport transport = new LateStageTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.entered.await(2, TimeUnit.SECONDS));
             service.close();
             transport.release.countDown();
             assertTrue(transport.cancelled.await(2, TimeUnit.SECONDS));
-            assertEquals(CoreUpdateService.Status.CLOSED,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.CLOSED,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         } finally {
             service.close();
             scheduler.shutdown();
@@ -291,17 +294,16 @@ final class RuntimeUpdateServiceTest {
 
     @Test
     void disablingAutomaticChecksDuringTransportStartupCancelsTheLateCreatedStage(@TempDir final Path home)
-        throws Exception {
+            throws Exception {
         final LateStageTransport transport = new LateStageTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ZERO, Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ZERO, Duration.ofDays(1));
         try {
             service.start();
             assertTrue(transport.entered.await(2, TimeUnit.SECONDS));
-            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false)).saved());
+            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false))
+                    .saved());
             transport.release.countDown();
             assertTrue(transport.cancelled.await(2, TimeUnit.SECONDS));
             assertEquals(CoreUpdateService.Status.DISABLED, service.snapshot().status());
@@ -317,18 +319,21 @@ final class RuntimeUpdateServiceTest {
         final TrackingHttpConnection connection = new TrackingHttpConnection(body);
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false),
-            new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
+                Duration.ofDays(1),
+                Duration.ofDays(1));
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
             service.close();
             assertTrue(body.closed.await(2, TimeUnit.SECONDS));
             assertTrue(connection.disconnected.get());
-            assertEquals(CoreUpdateService.Status.CLOSED,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.CLOSED,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         } finally {
             service.close();
             scheduler.shutdown();
@@ -341,14 +346,17 @@ final class RuntimeUpdateServiceTest {
         final TrackingHttpConnection connection = new TrackingHttpConnection(body);
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false),
-            new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
-            Duration.ZERO, Duration.ofDays(1)
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
+                Duration.ZERO,
+                Duration.ofDays(1));
         try {
             service.start();
             assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
-            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false)).saved());
+            assertTrue(service.savePreferences(new CoreUpdateService.Preferences(false))
+                    .saved());
             assertTrue(body.closed.await(2, TimeUnit.SECONDS));
             assertTrue(connection.disconnected.get());
             assertEquals(CoreUpdateService.Status.DISABLED, service.snapshot().status());
@@ -363,36 +371,39 @@ final class RuntimeUpdateServiceTest {
         final BlockingHttpInputStream body = new BlockingHttpInputStream();
         final CountDownLatch disconnectStarted = new CountDownLatch(1);
         final CountDownLatch releaseDisconnect = new CountDownLatch(1);
-        final TrackingHttpConnection connection = new TrackingHttpConnection(
-            body, disconnectStarted, releaseDisconnect
-        );
+        final TrackingHttpConnection connection =
+                new TrackingHttpConnection(body, disconnectStarted, releaseDisconnect);
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false),
-            new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
+                Duration.ofDays(1),
+                Duration.ofDays(1));
         Thread closer = null;
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
             final CountDownLatch closeReturned = new CountDownLatch(1);
-            closer = new Thread(() -> {
-                service.close();
-                closeReturned.countDown();
-            }, "update-service-close");
+            closer = new Thread(
+                    () -> {
+                        service.close();
+                        closeReturned.countDown();
+                    },
+                    "update-service-close");
             closer.setDaemon(true);
             closer.start();
             assertTrue(
-                closeReturned.await(500, TimeUnit.MILLISECONDS),
-                "service.close must not wait for connection teardown"
-            );
+                    closeReturned.await(500, TimeUnit.MILLISECONDS),
+                    "service.close must not wait for connection teardown");
             assertTrue(disconnectStarted.await(2, TimeUnit.SECONDS));
             releaseDisconnect.countDown();
             assertTrue(body.closed.await(2, TimeUnit.SECONDS));
             assertTrue(connection.disconnected.get());
-            assertEquals(CoreUpdateService.Status.CLOSED,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.CLOSED,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         } finally {
             releaseDisconnect.countDown();
             if (closer != null) closer.join(2_000);
@@ -403,35 +414,38 @@ final class RuntimeUpdateServiceTest {
 
     @Test
     void disablingAutomaticChecksReturnsBeforeABlockingConnectionDisconnectCompletes(@TempDir final Path home)
-        throws Exception {
+            throws Exception {
         final BlockingHttpInputStream body = new BlockingHttpInputStream();
         final CountDownLatch disconnectStarted = new CountDownLatch(1);
         final CountDownLatch releaseDisconnect = new CountDownLatch(1);
-        final TrackingHttpConnection connection = new TrackingHttpConnection(
-            body, disconnectStarted, releaseDisconnect
-        );
+        final TrackingHttpConnection connection =
+                new TrackingHttpConnection(body, disconnectStarted, releaseDisconnect);
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false),
-            new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
-            Duration.ZERO, Duration.ofDays(1)
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                new HttpUpdateTransport(Duration.ofSeconds(2), ignored -> connection),
+                Duration.ZERO,
+                Duration.ofDays(1));
         Thread disabler = null;
         try {
             service.start();
             assertTrue(body.readStarted.await(2, TimeUnit.SECONDS));
             final CountDownLatch disableReturned = new CountDownLatch(1);
             final AtomicBoolean saved = new AtomicBoolean();
-            disabler = new Thread(() -> {
-                saved.set(service.savePreferences(new CoreUpdateService.Preferences(false)).saved());
-                disableReturned.countDown();
-            }, "update-service-disable");
+            disabler = new Thread(
+                    () -> {
+                        saved.set(service.savePreferences(new CoreUpdateService.Preferences(false))
+                                .saved());
+                        disableReturned.countDown();
+                    },
+                    "update-service-disable");
             disabler.setDaemon(true);
             disabler.start();
             assertTrue(
-                disableReturned.await(500, TimeUnit.MILLISECONDS),
-                "disabling automatic checks must not wait for connection teardown"
-            );
+                    disableReturned.await(500, TimeUnit.MILLISECONDS),
+                    "disabling automatic checks must not wait for connection teardown");
             assertTrue(disconnectStarted.await(2, TimeUnit.SECONDS));
             releaseDisconnect.countDown();
             assertTrue(body.closed.await(2, TimeUnit.SECONDS));
@@ -447,26 +461,30 @@ final class RuntimeUpdateServiceTest {
     }
 
     private static RuntimeUpdateService service(
-        final Path home,
-        final RuntimeScheduler scheduler,
-        final MutableSettings settings,
-        final UpdateTransport transport,
-        final Duration startupDelay,
-        final Duration interval
-    ) {
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final MutableSettings settings,
+            final UpdateTransport transport,
+            final Duration startupDelay,
+            final Duration interval) {
         return new RuntimeUpdateService(
-            home, scheduler, settings, transport, Clock.fixed(NOW, ZoneOffset.UTC), installed("1.0.0"),
-            startupDelay, interval, ignored -> { }
-        );
+                home,
+                scheduler,
+                settings,
+                transport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installed("1.0.0"),
+                startupDelay,
+                interval,
+                ignored -> {});
     }
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     @Test
@@ -475,15 +493,17 @@ final class RuntimeUpdateServiceTest {
         final RuntimeScheduler scheduler = scheduler();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
-            home, scheduler, transport, InstalledBuild.of(
-                "0.43.10", java.util.OptionalLong.of(4L), "0.43.10 (stable, Build 4)"
-            ), diagnostics::add
-        );
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of("0.43.10", java.util.OptionalLong.of(4L), "0.43.10 (stable, Build 4)"),
+                diagnostics::add);
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithBuild("0.43.10", 5L);
-            final CoreUpdateService.Snapshot result = request.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            final CoreUpdateService.Snapshot result =
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, result.status());
             assertEquals(Optional.of("0.43.10"), result.availableVersion());
             assertEquals(java.util.OptionalLong.of(5L), result.availableBuildNumber());
@@ -496,21 +516,22 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void aLowerBuildNumberIsNeverAdvertisedAsAnUpdateAcrossVersionOrdering(@TempDir final Path home)
-        throws Exception {
+    void aLowerBuildNumberIsNeverAdvertisedAsAnUpdateAcrossVersionOrdering(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = installedService(
-            home, scheduler, transport, InstalledBuild.of(
-                "0.43.10", java.util.OptionalLong.of(5L), "0.43.10 (stable, Build 5)"
-            ), ignored -> { }
-        );
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of("0.43.10", java.util.OptionalLong.of(5L), "0.43.10 (stable, Build 5)"),
+                ignored -> {});
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithBuild("0.43.11", 4L);
-            assertEquals(CoreUpdateService.Status.UP_TO_DATE,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             assertEquals(1, transport.calls.get());
         } finally {
             service.close();
@@ -519,22 +540,23 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
-    void anEqualBuildNumberWithADifferentVersionIsAConflictNotAnUpdate(@TempDir final Path home)
-        throws Exception {
+    void anEqualBuildNumberWithADifferentVersionIsAConflictNotAnUpdate(@TempDir final Path home) throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
-            home, scheduler, transport, InstalledBuild.of(
-                "0.43.10", java.util.OptionalLong.of(4L), "0.43.10 (stable, Build 4)"
-            ), diagnostics::add
-        );
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of("0.43.10", java.util.OptionalLong.of(4L), "0.43.10 (stable, Build 4)"),
+                diagnostics::add);
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithBuild("0.43.11", 4L);
-            assertEquals(CoreUpdateService.Status.UP_TO_DATE,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             assertTrue(diagnostics.contains("UPDATE_BUILD_IDENTITY_CONFLICT"));
         } finally {
             service.close();
@@ -547,15 +569,17 @@ final class RuntimeUpdateServiceTest {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeUpdateService service = installedService(
-            home, scheduler, transport, InstalledBuild.of(
-                "0.43.9", java.util.OptionalLong.empty(), "0.43.9"
-            ), ignored -> { }
-        );
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of("0.43.9", java.util.OptionalLong.empty(), "0.43.9"),
+                ignored -> {});
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithBuild("0.43.10", 4L);
-            final CoreUpdateService.Snapshot result = request.toCompletableFuture().get(2, TimeUnit.SECONDS);
+            final CoreUpdateService.Snapshot result =
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS);
             assertEquals(CoreUpdateService.Status.UPDATE_AVAILABLE, result.status());
             assertEquals(Optional.of("0.43.10 (Build 4)"), result.availableIdentity());
         } finally {
@@ -566,29 +590,27 @@ final class RuntimeUpdateServiceTest {
 
     @Test
     void aChannelWithoutAPublishedBuildIsUpToDateWhileAnUnavailableServiceIsNot(@TempDir final Path home)
-        throws Exception {
+            throws Exception {
         final DeferredTransport transport = new DeferredTransport();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeUpdateService service = service(
-            home, scheduler, new MutableSettings(false), transport,
-            Duration.ofDays(1), Duration.ofDays(1)
-        );
+        final RuntimeUpdateService service =
+                service(home, scheduler, new MutableSettings(false), transport, Duration.ofDays(1), Duration.ofDays(1));
         try {
             final CompletionStage<CoreUpdateService.Snapshot> notPublished = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithDocument(
-                "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\",\"release\":null}"
-            );
-            assertEquals(CoreUpdateService.Status.UP_TO_DATE,
-                notPublished.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\",\"release\":null}");
+            assertEquals(
+                    CoreUpdateService.Status.UP_TO_DATE,
+                    notPublished.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
 
             final CompletionStage<CoreUpdateService.Snapshot> unavailable = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithDocument(
-                "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"unavailable\",\"release\":null}"
-            );
-            assertEquals(CoreUpdateService.Status.UNAVAILABLE,
-                unavailable.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+                    "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"unavailable\",\"release\":null}");
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    unavailable.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         } finally {
             service.close();
             scheduler.shutdown();
@@ -601,15 +623,18 @@ final class RuntimeUpdateServiceTest {
         final RuntimeScheduler scheduler = scheduler();
         final List<String> diagnostics = new ArrayList<>();
         final RuntimeUpdateService service = installedService(
-            home, scheduler, transport, InstalledBuild.of("0.43.10", java.util.OptionalLong.empty(), "0.43.10"),
-            diagnostics::add
-        );
+                home,
+                scheduler,
+                transport,
+                InstalledBuild.of("0.43.10", java.util.OptionalLong.empty(), "0.43.10"),
+                diagnostics::add);
         try {
             final CompletionStage<CoreUpdateService.Snapshot> request = service.checkManual();
             assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
             transport.completeWithDocument("{\"schemaVersion\":1,\"channel\":\"nightly\",\"status\":\"ready\"}");
-            assertEquals(CoreUpdateService.Status.UNAVAILABLE,
-                request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
+            assertEquals(
+                    CoreUpdateService.Status.UNAVAILABLE,
+                    request.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
             assertTrue(diagnostics.contains("UPDATE_DISCOVERY_INVALID"));
         } finally {
             service.close();
@@ -618,17 +643,21 @@ final class RuntimeUpdateServiceTest {
     }
 
     private static RuntimeUpdateService installedService(
-        final Path home,
-        final RuntimeScheduler scheduler,
-        final UpdateTransport transport,
-        final InstalledBuild installed,
-        final java.util.function.Consumer<String> diagnostic
-    ) {
+            final Path home,
+            final RuntimeScheduler scheduler,
+            final UpdateTransport transport,
+            final InstalledBuild installed,
+            final java.util.function.Consumer<String> diagnostic) {
         return new RuntimeUpdateService(
-            home, scheduler, new MutableSettings(false), transport,
-            Clock.fixed(NOW, ZoneOffset.UTC), installed,
-            Duration.ofDays(1), Duration.ofDays(1), diagnostic
-        );
+                home,
+                scheduler,
+                new MutableSettings(false),
+                transport,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                installed,
+                Duration.ofDays(1),
+                Duration.ofDays(1),
+                diagnostic);
     }
 
     private static InstalledBuild installed(final String version) {
@@ -641,14 +670,14 @@ final class RuntimeUpdateServiceTest {
 
     private static String validJson(final String version, final Long buildNumber) {
         return "{"
-            + "\"schemaVersion\":1,"
-            + "\"channel\":\"stable\","
-            + "\"status\":\"ready\","
-            + "\"release\":{"
-            + "\"version\":\"" + version + "\","
-            + (buildNumber == null ? "" : "\"buildNumber\":" + buildNumber + ",")
-            + "\"publishedAt\":\"2026-09-07T00:00:00Z\""
-            + "}}";
+                + "\"schemaVersion\":1,"
+                + "\"channel\":\"stable\","
+                + "\"status\":\"ready\","
+                + "\"release\":{"
+                + "\"version\":\"" + version + "\","
+                + (buildNumber == null ? "" : "\"buildNumber\":" + buildNumber + ",")
+                + "\"publishedAt\":\"2026-09-07T00:00:00Z\""
+                + "}}";
     }
 
     private static final class TrackingHttpConnection extends HttpURLConnection {
@@ -662,10 +691,10 @@ final class RuntimeUpdateServiceTest {
         }
 
         TrackingHttpConnection(
-            final BlockingHttpInputStream input,
-            final CountDownLatch disconnectStarted,
-            final CountDownLatch releaseDisconnect
-        ) throws Exception {
+                final BlockingHttpInputStream input,
+                final CountDownLatch disconnectStarted,
+                final CountDownLatch releaseDisconnect)
+                throws Exception {
             super(HttpUpdateTransport.ENDPOINT.toURL());
             this.input = input;
             this.disconnectStarted = disconnectStarted;
@@ -697,8 +726,7 @@ final class RuntimeUpdateServiceTest {
         }
 
         @Override
-        public void connect() {
-        }
+        public void connect() {}
 
         @Override
         public int getResponseCode() {
@@ -768,7 +796,7 @@ final class RuntimeUpdateServiceTest {
         public CompletionStage<Response> fetch(final Optional<String> etag) {
             entered.countDown();
             boolean interrupted = false;
-            for (;;) {
+            for (; ; ) {
                 try {
                     release.await();
                     break;
@@ -807,9 +835,8 @@ final class RuntimeUpdateServiceTest {
         void completeWithDocument(final String document) {
             final CompletableFuture<Response> current = pending;
             reset();
-            current.complete(new Response(
-                200, document.getBytes(StandardCharsets.UTF_8), Optional.of("\"release-1\""))
-            );
+            current.complete(
+                    new Response(200, document.getBytes(StandardCharsets.UTF_8), Optional.of("\"release-1\"")));
         }
 
         void fail(final Throwable failure) {

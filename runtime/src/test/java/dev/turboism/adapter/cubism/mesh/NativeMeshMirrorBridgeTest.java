@@ -1,23 +1,22 @@
 package dev.turboism.adapter.cubism.mesh;
 
-import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 final class NativeMeshMirrorBridgeTest {
 
     @AfterEach
     void clearBridge() throws Exception {
         // Attachment diagnostics are also emitted by deferred Swing callbacks.
-        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
         NativeMeshMirrorBridge.uninstall();
     }
 
@@ -110,8 +109,7 @@ final class NativeMeshMirrorBridgeTest {
 
     private static MeshEditUiService.MirrorAxisAngleControl angleControl() {
         return new MeshEditUiService.MirrorAxisAngleControl(
-            "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> { }
-        );
+                "mesh.mirror-axis.angle", "Angle", "Reset", -180.0f, 180.0f, 0.1f, ignored -> {});
     }
 
     @Test
@@ -126,17 +124,17 @@ final class NativeMeshMirrorBridgeTest {
 
         axis.setCurrentAngleDegrees(45.0f);
         axis.observeAxis(0.0f, true, 0.0f, 0.0f);
-        final Point reflected = (Point) NativeMeshMirrorBridge.adjustPoint(original, new State("VERTICAL", 0.0f), source);
+        final Point reflected =
+                (Point) NativeMeshMirrorBridge.adjustPoint(original, new State("VERTICAL", 0.0f), source);
         assertEquals(-1.0f, reflected.getX(), 0.0001f);
         assertEquals(-1.0f, reflected.getY(), 0.0001f);
-        assertEquals(true, NativeMeshMirrorBridge.adjustHit(
-            false, new State("VERTICAL", 0.0f), new Point(2.0f, -1.95f), 0.1f
-        ));
+        assertEquals(
+                true,
+                NativeMeshMirrorBridge.adjustHit(false, new State("VERTICAL", 0.0f), new Point(2.0f, -1.95f), 0.1f));
         axis.setCurrentAngleDegrees(-45.0f);
         // mirrorState is ignored: the cached vertical axis rotated -45° is the line y = x.
-        final Point recomputed = (Point) NativeMeshMirrorBridge.adjustAxisPoint(
-            original, new State("HORIZONTAL", 2.0f), new Point(3.0f, 1.0f)
-        );
+        final Point recomputed = (Point)
+                NativeMeshMirrorBridge.adjustAxisPoint(original, new State("HORIZONTAL", 2.0f), new Point(3.0f, 1.0f));
         assertEquals(2.0f, recomputed.getX(), 0.0001f);
         assertEquals(2.0f, recomputed.getY(), 0.0001f);
     }
@@ -146,9 +144,7 @@ final class NativeMeshMirrorBridgeTest {
         final Point original = new Point(4.0f, 5.0f);
 
         assertSame(original, NativeMeshMirrorBridge.adjustPoint(original, new State("VERTICAL", 0.0f), original));
-        assertEquals(false, NativeMeshMirrorBridge.adjustHit(
-            false, new State("VERTICAL", 0.0f), original, 0.1f
-        ));
+        assertEquals(false, NativeMeshMirrorBridge.adjustHit(false, new State("VERTICAL", 0.0f), original, 0.1f));
     }
 
     @Test
@@ -165,8 +161,7 @@ final class NativeMeshMirrorBridgeTest {
         assertEquals(-1.0f, line.direction().x(), 0.0001f);
         assertEquals(0.0f, line.direction().y(), 0.0001f);
         final Point projected = (Point) NativeMeshMirrorBridge.adjustAxisPoint(
-            new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f)
-        );
+                new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f));
         assertEquals(120.0f, projected.getX(), 0.0001f);
         assertEquals(-50.0f, projected.getY(), 0.0001f);
     }
@@ -197,9 +192,10 @@ final class NativeMeshMirrorBridgeTest {
         NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
         NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Object());
 
-        assertSame(original, NativeMeshMirrorBridge.adjustAxisPoint(
-            original, new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f)
-        ));
+        assertSame(
+                original,
+                NativeMeshMirrorBridge.adjustAxisPoint(
+                        original, new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f)));
     }
 
     @Test
@@ -217,8 +213,7 @@ final class NativeMeshMirrorBridgeTest {
         assertEquals(100.0f, line.anchor().x(), 0.0001f);
         assertEquals(-50.0f, line.anchor().y(), 0.0001f);
         final Point projected = (Point) NativeMeshMirrorBridge.adjustAxisPoint(
-            new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(220.0f, 30.0f)
-        );
+                new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(220.0f, 30.0f));
         assertEquals(220.0f, projected.getX(), 0.0001f);
         assertEquals(-50.0f, projected.getY(), 0.0001f);
     }
@@ -236,16 +231,12 @@ final class NativeMeshMirrorBridgeTest {
         final Point original = new Point(9.0f, 9.0f);
 
         // Cached vertical axis: anchor rotate((0, 50), (100, 50), 90°) = (100, -50), dir (-1, 0).
-        final Point reflected = (Point) NativeMeshMirrorBridge.adjustPoint(
-            original, new Object(), new Point(1.0f, 1.0f)
-        );
+        final Point reflected =
+                (Point) NativeMeshMirrorBridge.adjustPoint(original, new Object(), new Point(1.0f, 1.0f));
         assertEquals(1.0f, reflected.getX(), 0.0001f);
         assertEquals(-101.0f, reflected.getY(), 0.0001f);
-        assertEquals(true, NativeMeshMirrorBridge.adjustHit(
-            false, new Object(), new Point(1.0f, -50.05f), 0.1f
-        ));
+        assertEquals(true, NativeMeshMirrorBridge.adjustHit(false, new Object(), new Point(1.0f, -50.05f), 0.1f));
     }
-
 
     @Test
     void explicitHostContextClearMakesOperationsFailClosed() {
@@ -256,85 +247,135 @@ final class NativeMeshMirrorBridgeTest {
         NativeMeshMirrorBridge.clearHostContext();
         final Point original = new Point(9.0f, 9.0f);
 
-        assertSame(original, NativeMeshMirrorBridge.adjustAxisPoint(
-            original, new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f)
-        ));
+        assertSame(
+                original,
+                NativeMeshMirrorBridge.adjustAxisPoint(
+                        original, new State("HORIZONTAL", 25.0f), new Point(120.0f, 30.0f)));
     }
 
     private static void assertProjectedX(final Panel panel, final float expected) {
         final Point projected = (Point) NativeMeshMirrorBridge.adjustAxisPoint(
-            new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(expected + 20.0f, 30.0f)
-        );
+                new Point(9.0f, 9.0f), new State("HORIZONTAL", 25.0f), new Point(expected + 20.0f, 30.0f));
         assertEquals(expected, projected.getX(), 0.0001f);
     }
 
     public static final class Panel {
         public final ToolMode toolMode;
-        public Panel(final float width, final float height) { toolMode = new ToolMode(width, height); }
+
+        public Panel(final float width, final float height) {
+            toolMode = new ToolMode(width, height);
+        }
     }
 
     public static final class ToolMode {
         final Controller controller;
-        ToolMode(final float width, final float height) { controller = new Controller(width, height); }
-        public Controller getCtrl$cubism() { return controller; }
+
+        ToolMode(final float width, final float height) {
+            controller = new Controller(width, height);
+        }
+
+        public Controller getCtrl$cubism() {
+            return controller;
+        }
     }
 
     public static final class Controller {
         public final CompletePack completePack;
-        Controller(final float width, final float height) { completePack = new CompletePack(width, height); }
+
+        Controller(final float width, final float height) {
+            completePack = new CompletePack(width, height);
+        }
     }
 
     public static final class CompletePack {
         public ViewContext currentViewContext;
-        CompletePack(final float width, final float height) { currentViewContext = new ViewContext(width, height); }
+
+        CompletePack(final float width, final float height) {
+            currentViewContext = new ViewContext(width, height);
+        }
     }
 
     public static final class ViewContext {
         public EditMode currentEditMode;
-        ViewContext(final float width, final float height) { currentEditMode = new EditMode(width, height); }
+
+        ViewContext(final float width, final float height) {
+            currentEditMode = new EditMode(width, height);
+        }
     }
 
     public static final class EditMode {
         public Model currentModel;
-        EditMode(final float width, final float height) { currentModel = new Model(width, height); }
+
+        EditMode(final float width, final float height) {
+            currentModel = new Model(width, height);
+        }
     }
 
     public static final class Model {
         public Source source;
-        Model(final float width, final float height) { source = new Source(width, height); }
+
+        Model(final float width, final float height) {
+            source = new Source(width, height);
+        }
     }
 
     public static final class Source {
         public Canvas canvas;
-        Source(final float width, final float height) { canvas = new Canvas(width, height); }
+
+        Source(final float width, final float height) {
+            canvas = new Canvas(width, height);
+        }
     }
 
     public record Canvas(float width, float height) {
-        public float getPixelWidth() { return width; }
-        public float getPixelHeight() { return height; }
+        public float getPixelWidth() {
+            return width;
+        }
+
+        public float getPixelHeight() {
+            return height;
+        }
     }
 
     /** Getter-only panel chain: every link is a Kotlin-style property (no backing field). */
     public static final class GetterChain {
         private final Canvas canvas;
 
-        public GetterChain(final float width, final float height) { canvas = new Canvas(width, height); }
+        public GetterChain(final float width, final float height) {
+            canvas = new Canvas(width, height);
+        }
 
-        public GetterChain getToolMode() { return this; }
+        public GetterChain getToolMode() {
+            return this;
+        }
 
-        public GetterChain getCtrl$cubism() { return this; }
+        public GetterChain getCtrl$cubism() {
+            return this;
+        }
 
-        public GetterChain getCompletePack() { return this; }
+        public GetterChain getCompletePack() {
+            return this;
+        }
 
-        public GetterChain getCurrentViewContext() { return this; }
+        public GetterChain getCurrentViewContext() {
+            return this;
+        }
 
-        public GetterChain getCurrentEditMode() { return this; }
+        public GetterChain getCurrentEditMode() {
+            return this;
+        }
 
-        public GetterChain getCurrentModel() { return this; }
+        public GetterChain getCurrentModel() {
+            return this;
+        }
 
-        public GetterChain getSource() { return this; }
+        public GetterChain getSource() {
+            return this;
+        }
 
-        public Canvas getCanvas() { return canvas; }
+        public Canvas getCanvas() {
+            return canvas;
+        }
     }
 
     public static final class Point {
@@ -346,12 +387,22 @@ final class NativeMeshMirrorBridgeTest {
             this.y = y;
         }
 
-        public float getX() { return x; }
-        public float getY() { return y; }
+        public float getX() {
+            return x;
+        }
+
+        public float getY() {
+            return y;
+        }
     }
 
     public record State(String orientation, float axisValue) {
-        public Object b() { return orientation; }
-        public float c() { return axisValue; }
+        public Object b() {
+            return orientation;
+        }
+
+        public float c() {
+            return axisValue;
+        }
     }
 }

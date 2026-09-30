@@ -1,7 +1,6 @@
 package dev.turboism.preview.report;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -25,13 +24,10 @@ public final class PreviewReportWriter {
     private final PreviewReportSanitizer sanitizer = new PreviewReportSanitizer();
     private final PreviewReportTruncator truncator = new PreviewReportTruncator();
 
-    public PreviewReportWriter(
-        final Path stateDirectory,
-        final Consumer<Diagnostic> diagnosticSink
-    ) {
+    public PreviewReportWriter(final Path stateDirectory, final Consumer<Diagnostic> diagnosticSink) {
         this.stateDirectory = Objects.requireNonNull(stateDirectory, "stateDirectory")
-            .toAbsolutePath()
-            .normalize();
+                .toAbsolutePath()
+                .normalize();
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
@@ -45,12 +41,9 @@ public final class PreviewReportWriter {
      * @return an unmodifiable map from every report type to whether its file was written
      * @throws NullPointerException if {@code documents} is {@code null}
      */
-    public Map<PreviewReportType, Boolean> writeAll(
-        final Map<PreviewReportType, ObjectNode> documents
-    ) {
+    public Map<PreviewReportType, Boolean> writeAll(final Map<PreviewReportType, ObjectNode> documents) {
         Objects.requireNonNull(documents, "documents");
-        final EnumMap<PreviewReportType, Boolean> results =
-            new EnumMap<>(PreviewReportType.class);
+        final EnumMap<PreviewReportType, Boolean> results = new EnumMap<>(PreviewReportType.class);
         for (PreviewReportType type : PreviewReportType.values()) {
             final ObjectNode document = documents.get(type);
             results.put(type, document != null && write(type, document));
@@ -79,10 +72,7 @@ public final class PreviewReportWriter {
      * @return whether the file was published
      * @throws NullPointerException if either argument is {@code null}
      */
-    public boolean write(
-        final PreviewReportType expectedType,
-        final ObjectNode document
-    ) {
+    public boolean write(final PreviewReportType expectedType, final ObjectNode document) {
         Objects.requireNonNull(expectedType, "expectedType");
         Objects.requireNonNull(document, "document");
         Path temporary = null;
@@ -90,26 +80,17 @@ public final class PreviewReportWriter {
             final ObjectNode sanitized = document.deepCopy();
             sanitizer.sanitize(sanitized);
             final byte[] bytes = truncator.truncate(sanitized);
-            final PreviewReportValidator.ValidatedReport validated =
-                PreviewReportValidator.validate(bytes);
+            final PreviewReportValidator.ValidatedReport validated = PreviewReportValidator.validate(bytes);
             if (validated.reportType() != expectedType) {
                 throw new PreviewReportValidationException(
-                    "REPORT_TYPE_MISMATCH",
-                    "Preview report target and discriminator do not match."
-                );
+                        "REPORT_TYPE_MISMATCH", "Preview report target and discriminator do not match.");
             }
             prepareStateDirectory();
             final Path target = stateDirectory.resolve(expectedType.fileName());
-            temporary = stateDirectory.resolve(
-                "." + expectedType.fileName() + ".turboism-" + UUID.randomUUID() + ".tmp"
-            );
+            temporary =
+                    stateDirectory.resolve("." + expectedType.fileName() + ".turboism-" + UUID.randomUUID() + ".tmp");
             writeForced(temporary, bytes);
-            Files.move(
-                temporary,
-                target,
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             temporary = null;
             return true;
         } catch (PreviewReportValidationException exception) {
@@ -128,21 +109,14 @@ public final class PreviewReportWriter {
 
     private void prepareStateDirectory() throws IOException {
         Files.createDirectories(stateDirectory);
-        if (Files.isSymbolicLink(stateDirectory)
-            || !Files.isDirectory(stateDirectory, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(stateDirectory) || !Files.isDirectory(stateDirectory, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("Preview report state directory is unsafe.");
         }
     }
 
-    private static void writeForced(
-        final Path temporary,
-        final byte[] bytes
-    ) throws IOException {
-        try (FileChannel channel = FileChannel.open(
-            temporary,
-            StandardOpenOption.CREATE_NEW,
-            StandardOpenOption.WRITE
-        )) {
+    private static void writeForced(final Path temporary, final byte[] bytes) throws IOException {
+        try (FileChannel channel =
+                FileChannel.open(temporary, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
             final ByteBuffer buffer = ByteBuffer.wrap(bytes);
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
@@ -151,26 +125,18 @@ public final class PreviewReportWriter {
         }
     }
 
-    private void emitRejected(
-        final PreviewReportType type,
-        final String validationCode
-    ) {
+    private void emitRejected(final PreviewReportType type, final String validationCode) {
         diagnosticSink.accept(new Diagnostic(
-            "PREVIEW_REPORT_WRITE_REJECTED",
-            type,
-            "Preview report was rejected by strict validation: " + safeCode(validationCode)
-        ));
+                "PREVIEW_REPORT_WRITE_REJECTED",
+                type,
+                "Preview report was rejected by strict validation: " + safeCode(validationCode)));
     }
 
-    private void emitFailure(
-        final PreviewReportType type,
-        final String failureCode
-    ) {
+    private void emitFailure(final PreviewReportType type, final String failureCode) {
         diagnosticSink.accept(new Diagnostic(
-            "PREVIEW_REPORT_WRITE_FAILED",
-            type,
-            "Preview report persistence failed safely: " + safeCode(failureCode)
-        ));
+                "PREVIEW_REPORT_WRITE_FAILED",
+                type,
+                "Preview report persistence failed safely: " + safeCode(failureCode)));
     }
 
     private static String safeCode(final String value) {
@@ -201,11 +167,7 @@ public final class PreviewReportWriter {
      * @param reportType the report whose write was abandoned
      * @param message human-readable detail ending in the sanitized cause code
      */
-    public record Diagnostic(
-        String code,
-        PreviewReportType reportType,
-        String message
-    ) {
+    public record Diagnostic(String code, PreviewReportType reportType, String message) {
         public Diagnostic {
             code = Objects.requireNonNull(code, "code");
             reportType = Objects.requireNonNull(reportType, "reportType");

@@ -23,7 +23,6 @@ import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,10 +59,12 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
     }
 
     private static void recordTask(PluginContext context, Map<String, String> marker) throws Exception {
-        var submission = context.tasks().submit(new PluginTaskRequest(
-            new TaskId("context-fixture-task"), PluginTaskKind.COMPUTE, PluginTaskPriority.NORMAL,
-            token -> { }
-        ));
+        var submission = context.tasks()
+                .submit(new PluginTaskRequest(
+                        new TaskId("context-fixture-task"),
+                        PluginTaskKind.COMPUTE,
+                        PluginTaskPriority.NORMAL,
+                        token -> {}));
         require(submission.status() == TaskSubmissionStatus.ACCEPTED, "task status");
         require(submission.accepted(), "task accepted");
         var outcome = submission.handle().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
@@ -75,8 +76,10 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
 
     private static void recordStorage(PluginContext context, Map<String, String> marker) throws Exception {
         StoragePath path = new StoragePath(StorageRoot.DATA, "characterization/value.txt");
-        var written = context.storage().writeUtf8Atomic(path, "characterization-value")
-            .toCompletableFuture().get(5, TimeUnit.SECONDS);
+        var written = context.storage()
+                .writeUtf8Atomic(path, "characterization-value")
+                .toCompletableFuture()
+                .get(5, TimeUnit.SECONDS);
         var read = context.storage().readUtf8(path, 1024).toCompletableFuture().get(5, TimeUnit.SECONDS);
         require(written.written(), "storage write");
         require(written.error().isEmpty() && read.error().isEmpty(), "storage error");
@@ -90,11 +93,14 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
 
     private static void recordConfig(PluginContext context, Map<String, String> marker) throws Exception {
         ConfigKey<Boolean> key = new ConfigKey<>("context-fixture", "enabled", true, ConfigCodecs.booleanValue());
-        context.config().registerSchema(new ConfigSchema(
-            "context-fixture", "context-fixture/config.cfg", 1, List.of(key)
-        ), List.of()).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        context.config()
+                .registerSchema(
+                        new ConfigSchema("context-fixture", "context-fixture/config.cfg", 1, List.of(key)), List.of())
+                .toCompletableFuture()
+                .get(5, TimeUnit.SECONDS);
         var defaultRead = context.config().read(key).toCompletableFuture().get(5, TimeUnit.SECONDS);
-        var configWrite = context.config().write(key, false, 0).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        var configWrite =
+                context.config().write(key, false, 0).toCompletableFuture().get(5, TimeUnit.SECONDS);
         var storedRead = context.config().read(key).toCompletableFuture().get(5, TimeUnit.SECONDS);
         require(defaultRead.error().isEmpty(), "default config error");
         require(defaultRead.value().source() == ConfigValueSource.STORED, "default config source");
@@ -110,11 +116,10 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
     }
 
     private static void recordConfigValues(
-        Map<String, String> marker,
-        ConfigReadResult<Boolean> defaults,
-        ConfigWriteResult write,
-        ConfigReadResult<Boolean> stored
-    ) {
+            Map<String, String> marker,
+            ConfigReadResult<Boolean> defaults,
+            ConfigWriteResult write,
+            ConfigReadResult<Boolean> stored) {
         marker.put("config.default.source", defaults.value().source().name());
         marker.put("config.default.revision", Long.toString(defaults.value().revision()));
         marker.put("config.default.value", Boolean.toString(defaults.value().value()));
@@ -127,10 +132,15 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
     }
 
     private static void recordUserFiles(PluginContext context, Map<String, String> marker) throws Exception {
-        var userFile = context.userFiles().request(new UserFileRequest(
-            "context-fixture-file", "Select fixture file", List.of("txt"), UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        var userFile = context.userFiles()
+                .request(new UserFileRequest(
+                        "context-fixture-file",
+                        "Select fixture file",
+                        List.of("txt"),
+                        UserFileMode.READ,
+                        UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(5, TimeUnit.SECONDS);
         require(userFile.status() == UserFileRequestStatus.UNAVAILABLE, "user file status");
         require(userFile.handle().isEmpty(), "user file handle");
         require(userFile.error().orElseThrow().code().name().equals("RUNTIME_UNAVAILABLE"), "user file error");
@@ -140,9 +150,9 @@ public final class PreviewContextServicesPlugin implements TurboismPlugin {
     }
 
     private static void recordHostReads(PluginContext context, Map<String, String> marker) {
-        var hostRead = context.hostReads().submit(new AsyncHostReadRequest(
-            AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT, Duration.ofSeconds(1)
-        ));
+        var hostRead = context.hostReads()
+                .submit(new AsyncHostReadRequest(
+                        AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT, Duration.ofSeconds(1)));
         require(hostRead.status() == AsyncHostReadSubmissionStatus.REJECTED, "host read status");
         require(hostRead.handle().isEmpty(), "host read handle");
         require(hostRead.error().orElseThrow().code().name().equals("PERMISSION_DENIED"), "host read error");

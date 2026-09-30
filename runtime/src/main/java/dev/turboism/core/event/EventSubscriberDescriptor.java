@@ -1,46 +1,42 @@
 package dev.turboism.core.event;
 
+import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
 import dev.turboism.sdk.failure.FailureBoundary;
 import dev.turboism.sdk.failure.NoFailureInterception;
-import dev.turboism.core.runtime.ContextClassLoaderScope;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Objects;
 
 /** One validated subscriber and its deterministic ordering metadata. */
 public record EventSubscriberDescriptor(
-    Object entrypoint,
-    Method method,
-    Class<? extends EventBus.TurboismEvent> eventType,
-    EventPriority priority,
-    int entrypointOrdinal,
-    int methodOrdinal,
-    String canonicalSignature,
-    EventSubscriberHandler<EventBus.TurboismEvent> handler
-) {
+        Object entrypoint,
+        Method method,
+        Class<? extends EventBus.TurboismEvent> eventType,
+        EventPriority priority,
+        int entrypointOrdinal,
+        int methodOrdinal,
+        String canonicalSignature,
+        EventSubscriberHandler<EventBus.TurboismEvent> handler) {
     public EventSubscriberDescriptor(
-        final Object entrypoint,
-        final Method method,
-        final Class<? extends EventBus.TurboismEvent> eventType,
-        final EventPriority priority,
-        final int entrypointOrdinal,
-        final int methodOrdinal,
-        final String canonicalSignature
-    ) {
+            final Object entrypoint,
+            final Method method,
+            final Class<? extends EventBus.TurboismEvent> eventType,
+            final EventPriority priority,
+            final int entrypointOrdinal,
+            final int methodOrdinal,
+            final String canonicalSignature) {
         this(
-            entrypoint,
-            method,
-            eventType,
-            priority,
-            entrypointOrdinal,
-            methodOrdinal,
-            canonicalSignature,
-            reflective(entrypoint, method, canonicalSignature)
-        );
+                entrypoint,
+                method,
+                eventType,
+                priority,
+                entrypointOrdinal,
+                methodOrdinal,
+                canonicalSignature,
+                reflective(entrypoint, method, canonicalSignature));
     }
 
     public EventSubscriberDescriptor {
@@ -55,27 +51,24 @@ public record EventSubscriberDescriptor(
     }
 
     static <T extends EventBus.TurboismEvent> EventSubscriberDescriptor generated(
-        final Object entrypoint,
-        final Class<T> eventType,
-        final EventPriority priority,
-        final int entrypointOrdinal,
-        final int methodOrdinal,
-        final String canonicalSignature,
-        final EventSubscriberHandler<T> handler
-    ) {
+            final Object entrypoint,
+            final Class<T> eventType,
+            final EventPriority priority,
+            final int entrypointOrdinal,
+            final int methodOrdinal,
+            final String canonicalSignature,
+            final EventSubscriberHandler<T> handler) {
         @SuppressWarnings("unchecked")
-        final EventSubscriberHandler<EventBus.TurboismEvent> untyped = event ->
-            handler.handle(eventType.cast(event));
+        final EventSubscriberHandler<EventBus.TurboismEvent> untyped = event -> handler.handle(eventType.cast(event));
         return new EventSubscriberDescriptor(
-            entrypoint,
-            generatedMethod(entrypoint, eventType, canonicalSignature),
-            eventType,
-            priority,
-            entrypointOrdinal,
-            methodOrdinal,
-            canonicalSignature,
-            untyped
-        );
+                entrypoint,
+                generatedMethod(entrypoint, eventType, canonicalSignature),
+                eventType,
+                priority,
+                entrypointOrdinal,
+                methodOrdinal,
+                canonicalSignature,
+                untyped);
     }
 
     /** Returns the subscriber failure boundary declared on its method or entrypoint type. */
@@ -84,36 +77,25 @@ public record EventSubscriberDescriptor(
         if (methodBoundary != null) {
             return requireText(methodBoundary.value(), "@FailureBoundary value");
         }
-        final FailureBoundary typeBoundary = entrypoint.getClass().getAnnotation(
-            FailureBoundary.class
-        );
-        return typeBoundary == null
-            ? "event.subscribe"
-            : requireText(typeBoundary.value(), "@FailureBoundary value");
+        final FailureBoundary typeBoundary = entrypoint.getClass().getAnnotation(FailureBoundary.class);
+        return typeBoundary == null ? "event.subscribe" : requireText(typeBoundary.value(), "@FailureBoundary value");
     }
 
     /** Returns whether centralized failure interception is disabled for this subscriber. */
     public boolean noFailureInterception() {
         return entrypoint.getClass().isAnnotationPresent(NoFailureInterception.class)
-            || (method != null && method.isAnnotationPresent(NoFailureInterception.class));
+                || (method != null && method.isAnnotationPresent(NoFailureInterception.class));
     }
 
     private static <T extends EventBus.TurboismEvent> Method generatedMethod(
-        final Object entrypoint,
-        final Class<T> eventType,
-        final String canonicalSignature
-    ) {
+            final Object entrypoint, final Class<T> eventType, final String canonicalSignature) {
         final Object target = Objects.requireNonNull(entrypoint, "entrypoint");
         try {
-            return target.getClass().getMethod(
-                methodName(canonicalSignature),
-                Objects.requireNonNull(eventType, "eventType")
-            );
+            return target.getClass()
+                    .getMethod(methodName(canonicalSignature), Objects.requireNonNull(eventType, "eventType"));
         } catch (NoSuchMethodException failure) {
             throw new IllegalArgumentException(
-                "Generated subscriber method is unavailable: " + canonicalSignature,
-                failure
-            );
+                    "Generated subscriber method is unavailable: " + canonicalSignature, failure);
         }
     }
 
@@ -122,9 +104,7 @@ public record EventSubscriberDescriptor(
         final int separator = signature.indexOf('#');
         final int parameters = signature.indexOf('(', separator + 1);
         if (separator < 0 || parameters <= separator + 1) {
-            throw new IllegalArgumentException(
-                "Generated subscriber canonicalSignature is invalid: " + signature
-            );
+            throw new IllegalArgumentException("Generated subscriber canonicalSignature is invalid: " + signature);
         }
         return signature.substring(separator + 1, parameters);
     }
@@ -142,10 +122,7 @@ public record EventSubscriberDescriptor(
     }
 
     private static EventSubscriberHandler<EventBus.TurboismEvent> reflective(
-        final Object entrypoint,
-        final Method method,
-        final String canonicalSignature
-    ) {
+            final Object entrypoint, final Method method, final String canonicalSignature) {
         final Object target = Objects.requireNonNull(entrypoint, "entrypoint");
         final Method reflected = Objects.requireNonNull(method, "method");
         return event -> {
@@ -155,9 +132,7 @@ public record EventSubscriberDescriptor(
                 throw failure.getCause();
             } catch (IllegalAccessException failure) {
                 throw new IllegalStateException(
-                    "Validated event subscriber became inaccessible: " + canonicalSignature,
-                    failure
-                );
+                        "Validated event subscriber became inaccessible: " + canonicalSignature, failure);
             }
         };
     }

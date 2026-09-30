@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-
 import java.util.Objects;
 
 /** Sanitized result of one semantic Editor command invocation. */

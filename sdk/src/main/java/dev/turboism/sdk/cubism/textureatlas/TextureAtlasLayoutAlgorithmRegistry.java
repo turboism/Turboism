@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

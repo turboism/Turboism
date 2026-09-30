@@ -25,12 +25,27 @@ interface PsdClipMaskImportProgress extends AutoCloseable {
     enum NoopProgress implements PsdClipMaskImportProgress {
         INSTANCE;
 
-        @Override public void show() { }
-        @Override public void preparing() { }
-        @Override public void awaitingConfirmation() { }
-        @Override public void applying() { }
-        @Override public void focus() { }
-        @Override public boolean cancellationRequested() { return false; }
-        @Override public void close() { }
+        @Override
+        public void show() {}
+
+        @Override
+        public void preparing() {}
+
+        @Override
+        public void awaitingConfirmation() {}
+
+        @Override
+        public void applying() {}
+
+        @Override
+        public void focus() {}
+
+        @Override
+        public boolean cancellationRequested() {
+            return false;
+        }
+
+        @Override
+        public void close() {}
     }
 }

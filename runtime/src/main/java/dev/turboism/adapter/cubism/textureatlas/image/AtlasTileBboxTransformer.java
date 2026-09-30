@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.textureatlas.image;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import dev.turboism.bootstrap.tilebbox.AtlasTileBboxDelegate;
 
 /**
  * Exact-selector transformer for the host's private per-image alpha workaround.
@@ -27,8 +27,8 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
      * list of at most {@value #MAX_EXTRA_ADMITS} lowercase 64-hex digests; absent by default,
      * so production installs admit only each target's reviewed digest.
      */
-    static final String ADMIT_CLASS_SHA256_PROPERTY =
-        "turboism.atlasTileBbox.admitClassSha256";
+    static final String ADMIT_CLASS_SHA256_PROPERTY = "turboism.atlasTileBbox.admitClassSha256";
+
     private static final int MAX_EXTRA_ADMITS = 8;
 
     /** What the transformer concluded, for diagnostics and tests. */
@@ -54,20 +54,18 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
         this(java.util.Arrays.asList(AtlasTileBboxTarget.REVIEWED), extraAdmittedDigests());
     }
 
-    AtlasTileBboxTransformer(final AtlasTileBboxTarget target,
-                             final java.util.Set<String> admittedSha256) {
+    AtlasTileBboxTransformer(final AtlasTileBboxTarget target, final java.util.Set<String> admittedSha256) {
         this(java.util.List.of(Objects.requireNonNull(target, "target")), admittedSha256);
     }
 
-    AtlasTileBboxTransformer(final java.util.Collection<AtlasTileBboxTarget> targets,
-                             final java.util.Set<String> admittedSha256) {
+    AtlasTileBboxTransformer(
+            final java.util.Collection<AtlasTileBboxTarget> targets, final java.util.Set<String> admittedSha256) {
         final java.util.Map<String, AtlasTileBboxTarget> byName = new java.util.HashMap<>();
         for (final AtlasTileBboxTarget target : targets) {
             byName.put(Objects.requireNonNull(target, "target").internalName(), target);
         }
         this.targets = java.util.Map.copyOf(byName);
-        this.admittedSha256 = java.util.Set.copyOf(
-            Objects.requireNonNull(admittedSha256, "admittedSha256"));
+        this.admittedSha256 = java.util.Set.copyOf(Objects.requireNonNull(admittedSha256, "admittedSha256"));
     }
 
     /** The reviewed digests plus any bounded extras admitted via the system property. */
@@ -83,8 +81,7 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
 
     /** Comma-separated lowercase 64-hex digests, bounded; malformed entries are dropped. */
     static java.util.Set<String> parseDigestList(final String raw) {
-        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(
-            raw, MAX_EXTRA_ADMITS);
+        return dev.turboism.adapter.cubism.textureatlas.AtlasAdmitDigests.parse(raw, MAX_EXTRA_ADMITS);
     }
 
     /** Latest observed outcome; {@code NONE} until a target class has been defined. */
@@ -98,30 +95,35 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
     }
 
     @Override
-    public byte[] transform(final ClassLoader loader, final String className,
-                            final Class<?> classBeingRedefined, final ProtectionDomain domain,
-                            final byte[] classfileBuffer) {
+    public byte[] transform(
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer) {
         return transform(null, className, classBeingRedefined, domain, classfileBuffer);
     }
 
     @Override
-    public byte[] transform(final Module module, final ClassLoader loader, final String className,
-                            final Class<?> classBeingRedefined, final ProtectionDomain domain,
-                            final byte[] classfileBuffer) {
+    public byte[] transform(
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer) {
         final AtlasTileBboxTarget target = targets.get(className);
         if (classfileBuffer == null || target == null) return null;
         final String observed = sha256(classfileBuffer);
         if (!observed.equals(target.reviewedSha256()) && !admittedSha256.contains(observed)) {
             if (outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH)) {
-                diagnostic.compareAndSet("",
-                    target.internalName() + " observed=" + observed);
+                diagnostic.compareAndSet("", target.internalName() + " observed=" + observed);
                 report(Outcome.HASH_MISMATCH, target, "observed=" + observed);
             }
             return null;
         }
         try {
-            final byte[] patched =
-                AtlasTileBboxPatcher.patch(classfileBuffer, target.internalName());
+            final byte[] patched = AtlasTileBboxPatcher.patch(classfileBuffer, target.internalName());
             // The delegate is bootstrap-loaded and reaches the jp.noids.* helpers
             // reflectively through the patched class's loader. Prove all ten handles
             // resolve before committing the patched bytes: a missing helper can only
@@ -149,13 +151,13 @@ public final class AtlasTileBboxTransformer implements ClassFileTransformer {
      * One stderr line per terminal outcome. RuntimeDiagnostics has no sink during premain, so
      * the console is the only place the transform verdict survives on a real host.
      */
-    private static void report(final Outcome outcome, final AtlasTileBboxTarget target,
-                               final String detail) {
+    private static void report(final Outcome outcome, final AtlasTileBboxTarget target, final String detail) {
         try {
             System.err.println("[turboism] atlas-tile-bbox " + outcome
-                + " " + target.internalName()
-                + (detail == null || detail.isEmpty() ? "" : " " + detail));
+                    + " " + target.internalName()
+                    + (detail == null || detail.isEmpty() ? "" : " " + detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // The console is evidence, never a failure source.
         }
     }

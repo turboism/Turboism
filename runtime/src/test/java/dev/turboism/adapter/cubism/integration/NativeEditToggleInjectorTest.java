@@ -1,25 +1,5 @@
 package dev.turboism.adapter.cubism.integration;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.JPanel;
-import javax.swing.JToggleButton;
-import javax.swing.SwingUtilities;
-import java.awt.Component;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,6 +9,24 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import java.awt.Component;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JPanel;
+import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
 /**
  * Fake-host contract tests for {@link NativeEditToggleInjector}: the fake dialog singleton
  * mirrors the verified member shapes ({@code y.p} static remote checkbox,
@@ -37,22 +35,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class NativeEditToggleInjectorTest {
 
-    private static final String CAPABILITY =
-        "cubism.integration.external-app-settings.edit-toggle";
-    private static final String DIALOG_CLASS_ALIAS =
-        "cubism.integration.external-app-settings.dialog.class";
+    private static final String CAPABILITY = "cubism.integration.external-app-settings.edit-toggle";
+    private static final String DIALOG_CLASS_ALIAS = "cubism.integration.external-app-settings.dialog.class";
     private static final String REMOTE_CHECKBOX_ALIAS =
-        "cubism.integration.external-app-settings.dialog.remote-checkbox";
-    private static final String JCHECKBOX_ALIAS =
-        "cubism.integration.external-app-settings.checkbox.jcheckbox";
-    private static final String BUILD_ALIAS =
-        "cubism.integration.external-app-settings.dialog.build";
-    private static final String CONFIG_INSTANCE_ALIAS =
-        "cubism.integration.external-app-settings.config.instance";
-    private static final String CONFIG_READ_ALIAS =
-        "cubism.integration.external-app-settings.config.read";
-    private static final String CONFIG_WRITE_ALIAS =
-        "cubism.integration.external-app-settings.config.write";
+            "cubism.integration.external-app-settings.dialog.remote-checkbox";
+    private static final String JCHECKBOX_ALIAS = "cubism.integration.external-app-settings.checkbox.jcheckbox";
+    private static final String BUILD_ALIAS = "cubism.integration.external-app-settings.dialog.build";
+    private static final String CONFIG_INSTANCE_ALIAS = "cubism.integration.external-app-settings.config.instance";
+    private static final String CONFIG_READ_ALIAS = "cubism.integration.external-app-settings.config.read";
+    private static final String CONFIG_WRITE_ALIAS = "cubism.integration.external-app-settings.config.write";
 
     @AfterEach
     void resetKillSwitch() {
@@ -70,7 +61,8 @@ class NativeEditToggleInjectorTest {
             final Component[] children = host.row.getComponents();
             assertEquals(5, children.length);
             assertSame(children[4], findInjected(host.row));
-            assertEquals(NativeEditToggleInjector.EDIT_LABEL, findInjected(host.row).getText());
+            assertEquals(
+                    NativeEditToggleInjector.EDIT_LABEL, findInjected(host.row).getText());
             assertFalse(injector.state().isEnabled(), "toggle starts fail-closed");
         });
     }
@@ -90,15 +82,13 @@ class NativeEditToggleInjectorTest {
     void noInjectionWithoutVerifiedAdmission() throws Exception {
         final FakeHost host = new FakeHost();
         final VerifiedMemberResolver denied = TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-model.read"),
-            selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)),
-            FakeHost.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-model.read"),
+                selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)),
+                FakeHost.class.getClassLoader());
 
-        assertEquals(Optional.empty(),
-            NativeEditToggleInjector.fromVerifiedResolver(denied));
+        assertEquals(Optional.empty(), NativeEditToggleInjector.fromVerifiedResolver(denied));
         onEdt(() -> assertNull(findInjected(host.row), "row stays native"));
     }
 
@@ -107,8 +97,7 @@ class NativeEditToggleInjectorTest {
         final FakeHost host = new FakeHost();
         final VerifiedMemberResolver resolver = host.resolver("5.4.00");
 
-        assertEquals(Optional.empty(),
-            NativeEditToggleInjector.fromVerifiedResolver(resolver));
+        assertEquals(Optional.empty(), NativeEditToggleInjector.fromVerifiedResolver(resolver));
     }
 
     @Test
@@ -117,34 +106,38 @@ class NativeEditToggleInjectorTest {
 
         // Missing alias: drop the jcheckbox selector from the plan.
         final VerifiedMemberResolver missingAlias = TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of(CAPABILITY),
-            List.of(
-                StaticSelector.classSelector(DIALOG_CLASS_ALIAS, internal(FakeDialogY.class)),
-                StaticSelector.field(REMOTE_CHECKBOX_ALIAS, internal(FakeDialogY.class),
-                    "p", "L" + internal(FakeCheckBox.class) + ";", 0x001A)),
-            FakeHost.class.getClassLoader()
-        );
-        assertEquals(Optional.empty(),
-            NativeEditToggleInjector.fromVerifiedResolver(missingAlias));
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of(CAPABILITY),
+                List.of(
+                        StaticSelector.classSelector(DIALOG_CLASS_ALIAS, internal(FakeDialogY.class)),
+                        StaticSelector.field(
+                                REMOTE_CHECKBOX_ALIAS,
+                                internal(FakeDialogY.class),
+                                "p",
+                                "L" + internal(FakeCheckBox.class) + ";",
+                                0x001A)),
+                FakeHost.class.getClassLoader());
+        assertEquals(Optional.empty(), NativeEditToggleInjector.fromVerifiedResolver(missingAlias));
 
         // Kind drift: the remote-checkbox alias resolves to a method, not a static field.
         // Every other required alias stays admitted, so the drift is what closes the gate.
-        final java.util.List<StaticSelector> drifted = new ArrayList<>(
-            selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)));
+        final java.util.List<StaticSelector> drifted =
+                new ArrayList<>(selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)));
         drifted.removeIf(selector -> REMOTE_CHECKBOX_ALIAS.equals(selector.alias()));
-        drifted.add(StaticSelector.method(REMOTE_CHECKBOX_ALIAS, internal(FakeDialogY.class),
-            "p", "()L" + internal(FakeCheckBox.class) + ";", StaticSelector.ACCESS_PUBLIC));
+        drifted.add(StaticSelector.method(
+                REMOTE_CHECKBOX_ALIAS,
+                internal(FakeDialogY.class),
+                "p",
+                "()L" + internal(FakeCheckBox.class) + ";",
+                StaticSelector.ACCESS_PUBLIC));
         final VerifiedMemberResolver kindDrift = TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of(CAPABILITY),
-            drifted,
-            FakeHost.class.getClassLoader()
-        );
-        assertEquals(Optional.empty(),
-            NativeEditToggleInjector.fromVerifiedResolver(kindDrift));
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of(CAPABILITY),
+                drifted,
+                FakeHost.class.getClassLoader());
+        assertEquals(Optional.empty(), NativeEditToggleInjector.fromVerifiedResolver(kindDrift));
     }
 
     @Test
@@ -208,8 +201,8 @@ class NativeEditToggleInjectorTest {
         final EditToggleState state = new EditToggleState();
         final List<Boolean> transitions = new ArrayList<>();
         state.addListener(transitions::add);
-        final NativeEditToggleInjector injector =
-            NativeEditToggleInjector.fromVerifiedResolver(host.resolver("5.3.02"), state)
+        final NativeEditToggleInjector injector = NativeEditToggleInjector.fromVerifiedResolver(
+                        host.resolver("5.3.02"), state)
                 .orElseThrow();
 
         onEdt(() -> {
@@ -220,8 +213,7 @@ class NativeEditToggleInjectorTest {
             edit.setSelected(false);
         });
 
-        assertEquals(List.of(true, false), transitions,
-            "one callback per effective transition, none for no-op writes");
+        assertEquals(List.of(true, false), transitions, "one callback per effective transition, none for no-op writes");
         assertFalse(state.isEnabled());
     }
 
@@ -229,14 +221,11 @@ class NativeEditToggleInjectorTest {
     void stateSourceDeniesApprovalWhenUnavailable() {
         final EditToggleState state = new EditToggleState();
         final EditToggleApprovalGate gate = new EditToggleApprovalGate(state);
-        final EditConnectionInfo connection =
-            new EditConnectionInfo(true, true, "session", "plugin");
+        final EditConnectionInfo connection = new EditConnectionInfo(true, true, "session", "plugin");
 
         assertFalse(gate.isApproved(connection));
-        assertFalse(gate.requestApproval(connection),
-            "the checkbox surface never prompts; unchecked denies");
-        assertTrue(gate.isLiveState(),
-            "the toggle is a live global state, not a latched per-connection decision");
+        assertFalse(gate.requestApproval(connection), "the checkbox surface never prompts; unchecked denies");
+        assertTrue(gate.isLiveState(), "the toggle is a live global state, not a latched per-connection decision");
 
         state.setEnabled(true);
         assertTrue(gate.isApproved(connection));
@@ -256,23 +245,21 @@ class NativeEditToggleInjectorTest {
     }
 
     private static NativeEditToggleInjector admitted(final FakeHost host) {
-        return NativeEditToggleInjector
-            .fromVerifiedResolver(host.resolver("5.3.02"), new EditToggleState())
-            .orElseThrow(() -> new AssertionError("admission unexpectedly denied"));
+        return NativeEditToggleInjector.fromVerifiedResolver(host.resolver("5.3.02"), new EditToggleState())
+                .orElseThrow(() -> new AssertionError("admission unexpectedly denied"));
     }
 
     private static JCheckBox findInjected(final JPanel row) {
         for (final Component child : row.getComponents()) {
             if (child instanceof JCheckBox box
-                && Boolean.TRUE.equals(box.getClientProperty(NativeEditToggleInjector.MARKER_KEY))) {
+                    && Boolean.TRUE.equals(box.getClientProperty(NativeEditToggleInjector.MARKER_KEY))) {
                 return box;
             }
         }
         return null;
     }
 
-    private static void onEdt(final Runnable body)
-        throws InvocationTargetException, InterruptedException {
+    private static void onEdt(final Runnable body) throws InvocationTargetException, InterruptedException {
         if (SwingUtilities.isEventDispatchThread()) {
             body.run();
             return;
@@ -296,22 +283,28 @@ class NativeEditToggleInjectorTest {
     private static List<StaticSelector> selectors(final String y, final String checkBox) {
         final String config = internal(FakeUUConfig.class);
         return List.of(
-            StaticSelector.classSelector(DIALOG_CLASS_ALIAS, y),
-            StaticSelector.field(REMOTE_CHECKBOX_ALIAS, y,
-                "p", "L" + checkBox + ";", 0x001A),
-            StaticSelector.method(JCHECKBOX_ALIAS, checkBox,
-                "getJCheckBox", "()Ljavax/swing/JCheckBox;", StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method(BUILD_ALIAS, y,
-                "b", "(Lcom/live2d/ui/window/V;)V", 0x0012),
-            StaticSelector.field(CONFIG_INSTANCE_ALIAS, config,
-                "a", "L" + config + ";", 0x0019),
-            StaticSelector.method(CONFIG_READ_ALIAS, config,
-                "a", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-                StaticSelector.ACCESS_PUBLIC),
-            StaticSelector.method(CONFIG_WRITE_ALIAS, config,
-                "b", "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
-                StaticSelector.ACCESS_PUBLIC)
-        );
+                StaticSelector.classSelector(DIALOG_CLASS_ALIAS, y),
+                StaticSelector.field(REMOTE_CHECKBOX_ALIAS, y, "p", "L" + checkBox + ";", 0x001A),
+                StaticSelector.method(
+                        JCHECKBOX_ALIAS,
+                        checkBox,
+                        "getJCheckBox",
+                        "()Ljavax/swing/JCheckBox;",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(BUILD_ALIAS, y, "b", "(Lcom/live2d/ui/window/V;)V", 0x0012),
+                StaticSelector.field(CONFIG_INSTANCE_ALIAS, config, "a", "L" + config + ";", 0x0019),
+                StaticSelector.method(
+                        CONFIG_READ_ALIAS,
+                        config,
+                        "a",
+                        "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                        StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method(
+                        CONFIG_WRITE_ALIAS,
+                        config,
+                        "b",
+                        "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                        StaticSelector.ACCESS_PUBLIC));
     }
 
     private static String internal(final Class<?> type) {
@@ -362,20 +355,19 @@ class NativeEditToggleInjectorTest {
         FakeHost() {
             FakeDialogY.p = remote;
             FakeUUConfig.a.values.clear();
-            row.add(new JComboBox<String>());   // port
-            row.add(new JToggleButton());       // server toggle
-            row.add(new JPanel());              // hgrow spacer
-            row.add(remote.getJCheckBox());     // remote checkbox
+            row.add(new JComboBox<String>()); // port
+            row.add(new JToggleButton()); // server toggle
+            row.add(new JPanel()); // hgrow spacer
+            row.add(remote.getJCheckBox()); // remote checkbox
         }
 
         VerifiedMemberResolver resolver(final String version) {
             return TestVerifiedResolvers.create(
-                version,
-                "adapter.editor-model.readwrite",
-                Set.of(CAPABILITY),
-                selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)),
-                FakeHost.class.getClassLoader()
-            );
+                    version,
+                    "adapter.editor-model.readwrite",
+                    Set.of(CAPABILITY),
+                    selectors(internal(FakeDialogY.class), internal(FakeCheckBox.class)),
+                    FakeHost.class.getClassLoader());
         }
     }
 }

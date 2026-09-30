@@ -1,29 +1,28 @@
 package dev.turboism.plugin.clipmaskviewer.ui;
 
-import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.plugin.clipmaskviewer.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JComponent;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
-import java.awt.event.MouseEvent;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.image.BufferedImage;
+import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import javax.swing.JComponent;
+import org.junit.jupiter.api.Test;
 
 class GraphPanelTest {
 
@@ -32,23 +31,24 @@ class GraphPanelTest {
     @Test
     void circularLayoutKeepsSquareAspectAndAvoidsRowOverflow() {
         final ClipMaskViewerState state = stateWith(20); // 60 节点（top 20 / middle 0 / bottom 40）
-        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
 
         final Dimension size = panel.getPreferredSize();
         // 多层同心扇区布局：长宽比 1:1；同 60 节点下行布局需 ~4880px 宽，圆形显著收窄。
-        assertTrue(Math.abs((double) size.width / size.height - 1.0) < 0.01,
-            "expected square aspect, got " + size);
-        assertTrue(size.width < LEGACY_ROW_WIDTH_ESTIMATE / 2,
-            "circular width " + size.width + " must be well below row-layout width "
-                + LEGACY_ROW_WIDTH_ESTIMATE);
+        assertTrue(Math.abs((double) size.width / size.height - 1.0) < 0.01, "expected square aspect, got " + size);
+        assertTrue(
+                size.width < LEGACY_ROW_WIDTH_ESTIMATE / 2,
+                "circular width " + size.width + " must be well below row-layout width " + LEGACY_ROW_WIDTH_ESTIMATE);
 
         // 中心非空：存在内圈节点（距圆心 < 总半径（面板半径 = size/2）的一半；旧单圈布局所有节点都在最外圈）。
         final int center = size.width / 2;
         final double minDistance = panel.nodeCenters().stream()
-            .mapToDouble(p -> Math.hypot(p.x - center, p.y - center))
-            .min().orElse(Double.MAX_VALUE);
-        assertTrue(minDistance < size.width / 4.0,
-            "inner ring must fill the center area, min node distance " + minDistance);
+                .mapToDouble(p -> Math.hypot(p.x - center, p.y - center))
+                .min()
+                .orElse(Double.MAX_VALUE);
+        assertTrue(
+                minDistance < size.width / 4.0,
+                "inner ring must fill the center area, min node distance " + minDistance);
 
         // 层数/容量正确：top 类 20 节点 → 3 层（容量 5+7+8，末层 8 个）；
         // bottom 类 40 节点 → 5 层（5+7+9+11+8）。
@@ -59,7 +59,7 @@ class GraphPanelTest {
     @Test
     void emptyStateKeepsLegacyEmptySize() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
-        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
         assertEquals(new Dimension(400, 200), panel.getPreferredSize());
 
         state.refreshData(service(record("user-1", "A", false, "mask-1")));
@@ -74,9 +74,7 @@ class GraphPanelTest {
     @Test
     void clickOnNodeInvokesCallbackAndCenterClickDoesNot() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
-        state.refreshData(service(
-            record("user-1", "A", false, "mask-1"),
-            record("mask-1", "M", false)));
+        state.refreshData(service(record("user-1", "A", false, "mask-1"), record("mask-1", "M", false)));
         final List<String> clicked = new ArrayList<>();
         final GraphPanel panel = new GraphPanel(state, localization(), clicked::add);
 
@@ -100,11 +98,10 @@ class GraphPanelTest {
     @Test
     void paintRendersLegendEdgesAndNodesWithoutFailure() {
         final ClipMaskViewerState state = stateWith(6);
-        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
         final Dimension size = panel.getPreferredSize();
         panel.setSize(size);
-        final BufferedImage image =
-            new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
+        final BufferedImage image = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = image.createGraphics();
         try {
             panel.paint(graphics);
@@ -113,21 +110,21 @@ class GraphPanelTest {
         }
     }
 
-
     void compactMultiRingLayoutShrinksTotalRadius() {
-        final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(20), localization(), clicked -> {});
         final int width = panel.getPreferredSize().width;
         // 60 节点 → top 3 层、bottom 5 层（5+7+9+11+8）→ 总半径 = 160 + (5-1)*66 = 424。
         final int expectedRadius = 160 + 4 * (3 * 22);
         assertEquals((expectedRadius + 40) * 2, width);
         final int oldSingleRingRadius = (int) Math.round(60 * (2 * 22 + 8) / (2 * Math.PI));
-        assertTrue(width < (oldSingleRingRadius + 40) * 2,
-            "multi-ring layout must be tighter than the old single-ring +8 gap");
+        assertTrue(
+                width < (oldSingleRingRadius + 40) * 2,
+                "multi-ring layout must be tighter than the old single-ring +8 gap");
     }
 
     @Test
     void smallGroupsDegenerateToSingleRing() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         final Dimension size = panel.getPreferredSize();
         // 每类 2 节点 ≤ 首层容量 5 → 单圈退化：半径 = MIN_RADIUS（160），尺寸与旧布局一致。
         assertEquals((160 + 40) * 2, size.width);
@@ -141,7 +138,7 @@ class GraphPanelTest {
 
     @Test
     void zoomKeepsCursorAnchorFixedAndClamps() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         panel.zoomAt(new Point(100, 120), 1.2);
         assertEquals(1.2, panel.scale(), 1e-9);
         // 锚点不变性：光标 (100,120) 下的逻辑坐标缩放前后一致 → offset 按公式移动。
@@ -166,10 +163,19 @@ class GraphPanelTest {
 
     @Test
     void wheelEventZoomsInAroundCursor() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
-        panel.dispatchEvent(new MouseWheelEvent(panel, MouseEvent.MOUSE_WHEEL,
-            System.currentTimeMillis(), 0, 100, 120, 0, false,
-            MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, -1));
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
+        panel.dispatchEvent(new MouseWheelEvent(
+                panel,
+                MouseEvent.MOUSE_WHEEL,
+                System.currentTimeMillis(),
+                0,
+                100,
+                120,
+                0,
+                false,
+                MouseWheelEvent.WHEEL_UNIT_SCROLL,
+                3,
+                -1));
         assertEquals(1.2, panel.scale(), 1e-9);
         assertEquals(-20, panel.offsetX());
         assertEquals(-24, panel.offsetY());
@@ -177,7 +183,7 @@ class GraphPanelTest {
 
     @Test
     void panByShiftsViewportAndHitDetection() {
-        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> {});
         panel.panBy(30, -10);
         assertEquals(30, panel.offsetX());
         assertEquals(-10, panel.offsetY());
@@ -211,23 +217,27 @@ class GraphPanelTest {
     @Test
     void filterKeepsMatchingNodesAndDirectNeighbors() {
         // Alpha 使用 Beta、Gamma；Delta 使用 Alpha（mask→user 边：Beta→Alpha、Gamma→Alpha、Alpha→Delta）。
-        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
 
         panel.setFilter("Alpha");
-        assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()),
-            "match + direct neighbors (masks of match + users of match)");
+        assertEquals(
+                Set.of("gA", "gB", "gC", "gD"),
+                new java.util.HashSet<>(panel.nodeGuids()),
+                "match + direct neighbors (masks of match + users of match)");
 
         // 按语义：匹配 Beta → 邻居仅以 Beta 为 mask 的使用者 Alpha；Delta 不是 Beta 的直接邻居。
         panel.setFilter("Beta");
-        assertEquals(Set.of("gA", "gB"), new java.util.HashSet<>(panel.nodeGuids()),
-            "users of match only, non-direct neighbor Delta excluded");
+        assertEquals(
+                Set.of("gA", "gB"),
+                new java.util.HashSet<>(panel.nodeGuids()),
+                "users of match only, non-direct neighbor Delta excluded");
     }
 
     @Test
     void filterMatchesDisplayNameAndIdButNotGuid() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(record("guid-secret-xyz", "HairMesh-01", "Hair Mesh A", false)));
-        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
         panel.setShowUnrelated(true);
         panel.rebuild();
 
@@ -248,12 +258,11 @@ class GraphPanelTest {
 
     @Test
     void clearFilterRestoresAllNodes() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         assertEquals(6, panel.nodeGuids().size());
 
         panel.setFilter("Both 0");
-        assertEquals(Set.of("both-0", "mask-0"), new java.util.HashSet<>(panel.nodeGuids()),
-            "matched node + its mask");
+        assertEquals(Set.of("both-0", "mask-0"), new java.util.HashSet<>(panel.nodeGuids()), "matched node + its mask");
 
         panel.setFilter("");
         assertEquals(6, panel.nodeGuids().size(), "clearing the filter restores all nodes");
@@ -265,12 +274,12 @@ class GraphPanelTest {
         // 角色：Beta/Gamma 纯蒙版 → mask 类；Alpha 既是蒙版又是使用者 → both；Delta 使用者 → user；Epsilon → unrelated。
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
-            record("gA", "idA", "Alpha", false, "gB", "gC"),
-            record("gB", "idB", "Beta", false),
-            record("gC", "idC", "Gamma", false),
-            record("gD", "idD", "Delta", false, "gA"),
-            record("gE", "idE", "Epsilon", false)));
-        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> { });
+                record("gA", "idA", "Alpha", false, "gB", "gC"),
+                record("gB", "idB", "Beta", false),
+                record("gC", "idC", "Gamma", false),
+                record("gD", "idD", "Delta", false, "gA"),
+                record("gE", "idE", "Epsilon", false)));
+        final GraphPanel panel = new GraphPanel(state, localization(), clicked -> {});
         panel.setShowUnrelated(true);
         panel.rebuild();
         assertEquals(5, panel.nodeGuids().size());
@@ -278,8 +287,10 @@ class GraphPanelTest {
         panel.setCategoryVisible("mask", false);
         // H = {B,C} ∪ 直接邻居（以 B/C 为 mask 的使用者 Alpha）→ 隐藏 A,B,C。
         // D 是 A 的邻居而非 B/C 的直接邻居 → 保留（A 隐藏后 D 成孤立但仍显示）。
-        assertEquals(Set.of("gD", "gE"), new java.util.HashSet<>(panel.nodeGuids()),
-            "hidden category nodes and their direct neighbors disappear; non-direct neighbor D stays");
+        assertEquals(
+                Set.of("gD", "gE"),
+                new java.util.HashSet<>(panel.nodeGuids()),
+                "hidden category nodes and their direct neighbors disappear; non-direct neighbor D stays");
         assertEquals(Set.of("mask"), panel.hiddenCategories());
         assertFalse(panel.categoryVisible("mask"));
 
@@ -290,23 +301,27 @@ class GraphPanelTest {
 
     @Test
     void categoryToggleCombinesWithTextFilter() {
-        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
         panel.setFilter("Alpha");
         assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()));
 
         panel.setCategoryVisible("mask", false);
         // V = {gD}（B、C 及其直接邻居 A 被隐藏）；有效集 = V ∩ (M∪N) = {gD}。
-        assertEquals(Set.of("gD"), new java.util.HashSet<>(panel.nodeGuids()),
-            "AND semantics: category visible set ∩ filter set");
+        assertEquals(
+                Set.of("gD"),
+                new java.util.HashSet<>(panel.nodeGuids()),
+                "AND semantics: category visible set ∩ filter set");
 
         panel.setCategoryVisible("mask", true);
-        assertEquals(Set.of("gA", "gB", "gC", "gD"), new java.util.HashSet<>(panel.nodeGuids()),
-            "clearing the category restores the filtered view");
+        assertEquals(
+                Set.of("gA", "gB", "gC", "gD"),
+                new java.util.HashSet<>(panel.nodeGuids()),
+                "clearing the category restores the filtered view");
     }
 
     @Test
     void legendClickTogglesCategory() {
-        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> {});
         paintPanel(panel);
         final List<Rectangle> bounds = panel.legendHitBounds();
         assertEquals(5, bounds.size(), "legend paints five hit rectangles");
@@ -325,7 +340,7 @@ class GraphPanelTest {
 
     @Test
     void allCategoriesHiddenShowsEmptyState() {
-        final GraphPanel panel = new GraphPanel(stateWith(1), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(1), localization(), clicked -> {});
         panel.setCategoryVisible("mask", false);
         panel.setCategoryVisible("user", false);
         panel.setCategoryVisible("both", false);
@@ -337,13 +352,15 @@ class GraphPanelTest {
 
     @Test
     void selectHighlightsNodeNeighborsAndEdges() {
-        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(filterState(), localization(), clicked -> {});
 
         panel.setSelected("gA");
-        assertEquals(Set.of("gA", "gB", "gC", "gD"), panel.selectionHighlightGuids(),
-            "selected node + direct neighbors");
-        assertEquals(Set.of("gA", "gB", "gC", "gD"), panel.selectionEdgeEndpoints(),
-            "endpoints of edges touching the selected node");
+        assertEquals(
+                Set.of("gA", "gB", "gC", "gD"), panel.selectionHighlightGuids(), "selected node + direct neighbors");
+        assertEquals(
+                Set.of("gA", "gB", "gC", "gD"),
+                panel.selectionEdgeEndpoints(),
+                "endpoints of edges touching the selected node");
 
         // 选中状态下绘制不抛异常（红色高亮路径）。
         final Dimension size = panel.getPreferredSize();
@@ -363,12 +380,14 @@ class GraphPanelTest {
 
     @Test
     void selectedNodeCanBeDraggedAndUnhitDragPansViewport() {
-        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> {});
 
         // 命中节点：按下选中 + 拖动移动节点；画布 offset 不变。
         dispatchPress(panel, 339, 280);
-        assertEquals(Set.of("user-1", "mask-1"), panel.selectionHighlightGuids(),
-            "press on node selects it and its direct neighbor (its mask)");
+        assertEquals(
+                Set.of("user-1", "mask-1"),
+                panel.selectionHighlightGuids(),
+                "press on node selects it and its direct neighbor (its mask)");
         dispatchDrag(panel, 400, 320);
         dispatchRelease(panel, 400, 320);
         assertTrue(panel.nodeCenters().contains(new Point(400, 320)), "node follows the drag");
@@ -387,7 +406,7 @@ class GraphPanelTest {
 
     @Test
     void doubleClickResetsViewTransform() {
-        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWithUserAndMask(), localization(), clicked -> {});
         panel.zoomAt(new Point(300, 300), 2.0);
         panel.panBy(40, 50);
         assertTrue(panel.scale() > 1);
@@ -399,7 +418,7 @@ class GraphPanelTest {
 
     @Test
     void setViewScaleClampsAndAnchorsAtViewportCenter() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         panel.setSize(800, 600);
 
         panel.setViewScale(0.05);
@@ -420,7 +439,7 @@ class GraphPanelTest {
 
     @Test
     void viewScaleListenerFiresOnZoomResetAndSet() {
-        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> { });
+        final GraphPanel panel = new GraphPanel(stateWith(2), localization(), clicked -> {});
         final List<Double> seen = new ArrayList<>();
         panel.setViewScaleListener(seen::add);
 
@@ -438,7 +457,7 @@ class GraphPanelTest {
         assertEquals(1 / 1.2, seen.get(3), 1e-9);
 
         // 空态（无节点）时 scale 变化仍同步 listener。
-        final GraphPanel empty = new GraphPanel(new ClipMaskViewerState(), localization(), clicked -> { });
+        final GraphPanel empty = new GraphPanel(new ClipMaskViewerState(), localization(), clicked -> {});
         final List<Double> emptySeen = new ArrayList<>();
         empty.setViewScaleListener(emptySeen::add);
         empty.setViewScale(3.0);
@@ -479,9 +498,8 @@ class GraphPanelTest {
             if (angle < 0) {
                 angle += 360;
             }
-            final boolean inside = startDeg < endDeg
-                ? angle >= startDeg && angle < endDeg
-                : angle >= startDeg || angle < endDeg;
+            final boolean inside =
+                    startDeg < endDeg ? angle >= startDeg && angle < endDeg : angle >= startDeg || angle < endDeg;
             if (!inside) {
                 continue;
             }
@@ -510,42 +528,45 @@ class GraphPanelTest {
             graphics.dispose();
         }
     }
+
     private static void dispatchClick(final JComponent panel, final int x, final int y) {
         dispatchClick(panel, x, y, 1);
     }
 
-    private static void dispatchClick(
-        final JComponent panel,
-        final int x,
-        final int y,
-        final int clickCount
-    ) {
-        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_CLICKED,
-            System.currentTimeMillis(), 0, x, y, clickCount, false, MouseEvent.BUTTON1));
+    private static void dispatchClick(final JComponent panel, final int x, final int y, final int clickCount) {
+        panel.dispatchEvent(new MouseEvent(
+                panel,
+                MouseEvent.MOUSE_CLICKED,
+                System.currentTimeMillis(),
+                0,
+                x,
+                y,
+                clickCount,
+                false,
+                MouseEvent.BUTTON1));
     }
 
     private static void dispatchPress(final JComponent panel, final int x, final int y) {
-        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED,
-            System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
+        panel.dispatchEvent(new MouseEvent(
+                panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
     private static void dispatchDrag(final JComponent panel, final int x, final int y) {
-        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_DRAGGED,
-            System.currentTimeMillis(), 0, x, y, 0, false, MouseEvent.BUTTON1));
+        panel.dispatchEvent(new MouseEvent(
+                panel, MouseEvent.MOUSE_DRAGGED, System.currentTimeMillis(), 0, x, y, 0, false, MouseEvent.BUTTON1));
     }
 
     private static void dispatchRelease(final JComponent panel, final int x, final int y) {
-        panel.dispatchEvent(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED,
-            System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
+        panel.dispatchEvent(new MouseEvent(
+                panel, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0, x, y, 1, false, MouseEvent.BUTTON1));
     }
 
     private static ClipMaskViewerState stateWithUserAndMask() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
-        state.refreshData(service(
-            record("user-1", "A", false, "mask-1"),
-            record("mask-1", "M", false)));
+        state.refreshData(service(record("user-1", "A", false, "mask-1"), record("mask-1", "M", false)));
         return state;
     }
+
     private static ClipMaskViewerState stateWith(final int perGroup) {
         final List<ClipMaskRecord> records = new ArrayList<>();
         for (int i = 0; i < perGroup; i++) {
@@ -564,10 +585,10 @@ class GraphPanelTest {
     private static ClipMaskViewerState filterState() {
         final ClipMaskViewerState state = new ClipMaskViewerState();
         state.refreshData(service(
-            record("gA", "idA", "Alpha", false, "gB", "gC"),
-            record("gB", "idB", "Beta", false),
-            record("gC", "idC", "Gamma", false),
-            record("gD", "idD", "Delta", false, "gA")));
+                record("gA", "idA", "Alpha", false, "gB", "gC"),
+                record("gB", "idB", "Beta", false),
+                record("gC", "idC", "Gamma", false),
+                record("gD", "idD", "Delta", false, "gA")));
         return state;
     }
 
@@ -576,29 +597,40 @@ class GraphPanelTest {
     }
 
     private static ClipMaskRecord record(
-        final String guid,
-        final String id,
-        final boolean inverted,
-        final String... masks
-    ) {
+            final String guid, final String id, final boolean inverted, final String... masks) {
         return new ClipMaskRecord(guid, id, guid, inverted, List.of(masks));
     }
+
     private static ClipMaskRecord record(
-        final String guid,
-        final String id,
-        final String displayName,
-        final boolean inverted,
-        final String... masks
-    ) {
+            final String guid,
+            final String id,
+            final String displayName,
+            final boolean inverted,
+            final String... masks) {
         return new ClipMaskRecord(guid, id, displayName, inverted, List.of(masks));
     }
 
     private static PluginLocalization localization() {
         return new PluginLocalization() {
-            @Override public Locale locale() { return Locale.ENGLISH; }
-            @Override public String text(final String key) { return key; }
-            @Override public String format(final String key, final Object... arguments) { return key; }
-            @Override public boolean contains(final String key) { return true; }
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return key;
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return key;
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
         };
     }
 }

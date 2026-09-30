@@ -1,17 +1,5 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
-import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -19,6 +7,17 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.UiScheduler;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 final class McpExecutionBridgeTest {
 
@@ -28,10 +27,12 @@ final class McpExecutionBridgeTest {
         final McpExecutionBridge bridge = new McpExecutionBridge(scheduler, Duration.ofMillis(30));
         final AtomicBoolean written = new AtomicBoolean();
 
-        assertThrows(McpExecutionBridge.ExecutionFailure.class, () -> bridge.ui(() -> {
-            written.set(true);
-            return "committed";
-        }));
+        assertThrows(
+                McpExecutionBridge.ExecutionFailure.class,
+                () -> bridge.ui(() -> {
+                    written.set(true);
+                    return "committed";
+                }));
 
         scheduler.queued.get().run();
         assertFalse(written.get());
@@ -44,18 +45,20 @@ final class McpExecutionBridgeTest {
         final AtomicBoolean written = new AtomicBoolean();
         final AtomicBoolean interrupted = new AtomicBoolean();
         final AtomicReference<Throwable> failure = new AtomicReference<>();
-        final Thread request = new Thread(() -> {
-            try {
-                bridge.ui(() -> {
-                    written.set(true);
-                    return "committed";
-                });
-            } catch (Throwable caught) {
-                failure.set(caught);
-            } finally {
-                interrupted.set(Thread.currentThread().isInterrupted());
-            }
-        }, "queued-mcp-request");
+        final Thread request = new Thread(
+                () -> {
+                    try {
+                        bridge.ui(() -> {
+                            written.set(true);
+                            return "committed";
+                        });
+                    } catch (Throwable caught) {
+                        failure.set(caught);
+                    } finally {
+                        interrupted.set(Thread.currentThread().isInterrupted());
+                    }
+                },
+                "queued-mcp-request");
         request.start();
         try {
             assertTrue(scheduler.scheduled.await(5, TimeUnit.SECONDS));
@@ -93,10 +96,8 @@ final class McpExecutionBridgeTest {
         assertTrue(pending.isCancelled());
     }
 
-    private static void assertStartedWorkCompletes(
-        final boolean interruptWaiter,
-        final AssertionError hostFailure
-    ) throws Exception {
+    private static void assertStartedWorkCompletes(final boolean interruptWaiter, final AssertionError hostFailure)
+            throws Exception {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicBoolean written = new AtomicBoolean();
@@ -106,29 +107,31 @@ final class McpExecutionBridgeTest {
         final CompletableFuture<Void> finished = new CompletableFuture<>();
         final AsyncUi scheduler = new AsyncUi();
         final McpExecutionBridge bridge = new McpExecutionBridge(scheduler, Duration.ofMillis(30));
-        final Thread request = new Thread(() -> {
-            try {
-                value.set(bridge.ui(() -> {
-                    entered.countDown();
+        final Thread request = new Thread(
+                () -> {
                     try {
-                        if (!release.await(5, TimeUnit.SECONDS)) {
-                            throw new AssertionError("test did not release the host");
-                        }
-                    } catch (InterruptedException caught) {
-                        Thread.currentThread().interrupt();
-                        throw new AssertionError(caught);
+                        value.set(bridge.ui(() -> {
+                            entered.countDown();
+                            try {
+                                if (!release.await(5, TimeUnit.SECONDS)) {
+                                    throw new AssertionError("test did not release the host");
+                                }
+                            } catch (InterruptedException caught) {
+                                Thread.currentThread().interrupt();
+                                throw new AssertionError(caught);
+                            }
+                            if (hostFailure != null) throw hostFailure;
+                            written.set(true);
+                            return "committed";
+                        }));
+                    } catch (Throwable caught) {
+                        failure.set(caught);
+                    } finally {
+                        interrupted.set(Thread.currentThread().isInterrupted());
+                        finished.complete(null);
                     }
-                    if (hostFailure != null) throw hostFailure;
-                    written.set(true);
-                    return "committed";
-                }));
-            } catch (Throwable caught) {
-                failure.set(caught);
-            } finally {
-                interrupted.set(Thread.currentThread().isInterrupted());
-                finished.complete(null);
-            }
-        }, "started-mcp-request");
+                },
+                "started-mcp-request");
         request.start();
         try {
             assertTrue(entered.await(5, TimeUnit.SECONDS));
@@ -157,13 +160,15 @@ final class McpExecutionBridgeTest {
         final AtomicReference<Runnable> queued = new AtomicReference<>();
         final CountDownLatch scheduled = new CountDownLatch(1);
 
-        @Override public Registration runOnUiThread(final Runnable work) {
+        @Override
+        public Registration runOnUiThread(final Runnable work) {
             queued.set(work);
             scheduled.countDown();
-            return () -> { };
+            return () -> {};
         }
 
-        @Override public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+        @Override
+        public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
             throw new UnsupportedOperationException();
         }
     }
@@ -171,14 +176,16 @@ final class McpExecutionBridgeTest {
     private static final class AsyncUi implements UiScheduler {
         final AtomicReference<Thread> thread = new AtomicReference<>();
 
-        @Override public Registration runOnUiThread(final Runnable work) {
+        @Override
+        public Registration runOnUiThread(final Runnable work) {
             final Thread ui = new Thread(work, "execution-bridge-test-ui");
             thread.set(ui);
             ui.start();
-            return () -> { };
+            return () -> {};
         }
 
-        @Override public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+        @Override
+        public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
             throw new UnsupportedOperationException();
         }
     }

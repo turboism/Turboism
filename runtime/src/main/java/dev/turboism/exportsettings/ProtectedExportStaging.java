@@ -2,12 +2,12 @@ package dev.turboism.exportsettings;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocLoader;
 import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
 import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
@@ -46,13 +46,7 @@ public final class ProtectedExportStaging {
      * than published.
      */
     public record ParameterExpectation(
-        String id,
-        float minimumValue,
-        float maximumValue,
-        float defaultValue,
-        Boolean repeat,
-        List<Float> keys
-    ) {
+            String id, float minimumValue, float maximumValue, float defaultValue, Boolean repeat, List<Float> keys) {
         public ParameterExpectation {
             id = Objects.requireNonNull(id, "id");
             keys = keys == null ? List.of() : List.copyOf(keys);
@@ -67,11 +61,7 @@ public final class ProtectedExportStaging {
      * fields and requires the artifact to reproduce every serialized value —
      * only the identity tokens may differ from the authored document.
      */
-    public record PhysicsSettingExpectation(
-        String idToken,
-        String nameToken,
-        List<String> signature
-    ) {
+    public record PhysicsSettingExpectation(String idToken, String nameToken, List<String> signature) {
         public PhysicsSettingExpectation {
             idToken = Objects.requireNonNull(idToken, "idToken");
             nameToken = Objects.requireNonNull(nameToken, "nameToken");
@@ -95,8 +85,7 @@ public final class ProtectedExportStaging {
         private final String retainedPath;
 
         RetainedRecoveryException(final Path retainedPath) {
-            super("protected-export rollback incomplete; recovery material retained at "
-                + retainedPath);
+            super("protected-export rollback incomplete; recovery material retained at " + retainedPath);
             this.retainedPath = retainedPath.toString();
         }
 
@@ -141,28 +130,19 @@ public final class ProtectedExportStaging {
      * compares element-wise.
      */
     public record BehaviorSnapshot(
-        List<BehaviorSample> samples,
-        Map<String, float[]> baseline,
-        List<Map<String, float[]>> frames
-    ) {
+            List<BehaviorSample> samples, Map<String, float[]> baseline, List<Map<String, float[]>> frames) {
         public BehaviorSnapshot {
             samples = samples == null ? List.of() : List.copyOf(samples);
             baseline = baseline == null ? Map.of() : Map.copyOf(baseline);
             frames = frames == null ? List.of() : List.copyOf(frames);
             if (frames.size() != samples.size()) {
-                throw new IllegalArgumentException(
-                    "frames must align with samples");
+                throw new IllegalArgumentException("frames must align with samples");
             }
         }
     }
 
     /** Outcome of a staged-output validation. */
-    public record Validation(
-        boolean valid,
-        String failureKey,
-        String failureDetail,
-        List<Path> stagedFiles
-    ) {
+    public record Validation(boolean valid, String failureKey, String failureDetail, List<Path> stagedFiles) {
         static Validation ok(final List<Path> files) {
             return new Validation(true, null, null, List.copyOf(files));
         }
@@ -171,9 +151,7 @@ public final class ProtectedExportStaging {
             return rejected(failureKey, null);
         }
 
-        static Validation rejected(final String failureKey,
-            final String failureDetail
-        ) {
+        static Validation rejected(final String failureKey, final String failureDetail) {
             return new Validation(false, failureKey, failureDetail, List.of());
         }
     }
@@ -190,21 +168,15 @@ public final class ProtectedExportStaging {
         this(mocLoader, null);
     }
 
-    public ProtectedExportStaging(
-        final MocLoader mocLoader,
-        final CoreParameterWriter parameterWriter
-    ) {
-        this(mocLoader, parameterWriter,
-            (source, target) -> Files.move(source, target,
-                StandardCopyOption.REPLACE_EXISTING));
+    public ProtectedExportStaging(final MocLoader mocLoader, final CoreParameterWriter parameterWriter) {
+        this(
+                mocLoader,
+                parameterWriter,
+                (source, target) -> Files.move(source, target, StandardCopyOption.REPLACE_EXISTING));
     }
 
     /** Test seam: drives the atomic publish through an injected move. */
-    ProtectedExportStaging(
-        final MocLoader mocLoader,
-        final CoreParameterWriter parameterWriter,
-        final MoveOp moveOp
-    ) {
+    ProtectedExportStaging(final MocLoader mocLoader, final CoreParameterWriter parameterWriter, final MoveOp moveOp) {
         this.mocLoader = mocLoader; // may be null; validated lazily when a moc3 is staged
         this.parameterWriter = parameterWriter; // null disables the behavior oracle
         this.moveOp = Objects.requireNonNull(moveOp, "moveOp");
@@ -241,21 +213,20 @@ public final class ProtectedExportStaging {
      *     parameter-sample replay, or validation fails closed
      */
     public Validation validate(
-        final File stagedPick,
-        final List<String> reportedPaths,
-        final Set<String> expectedDrawableIds,
-        final Map<String, ParameterExpectation> expectedParameters,
-        final Set<String> expectedPartIds,
-        final Set<String> expectedGlueIds,
-        final List<PhysicsSettingExpectation> expectedPhysicsSettings,
-        final List<String> expectedPhysicsSet,
-        final BehaviorSnapshot behavior
-    ) {
+            final File stagedPick,
+            final List<String> reportedPaths,
+            final Set<String> expectedDrawableIds,
+            final Map<String, ParameterExpectation> expectedParameters,
+            final Set<String> expectedPartIds,
+            final Set<String> expectedGlueIds,
+            final List<PhysicsSettingExpectation> expectedPhysicsSettings,
+            final List<String> expectedPhysicsSet,
+            final BehaviorSnapshot behavior) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
             return Validation.rejected("protected-export.staging-empty");
         }
-        final Path stagedParent = stagedPick.toPath().toAbsolutePath().normalize()
-            .getParent();
+        final Path stagedParent =
+                stagedPick.toPath().toAbsolutePath().normalize().getParent();
         if (stagedParent == null) {
             return Validation.rejected("protected-export.staging-root-missing");
         }
@@ -287,8 +258,7 @@ public final class ProtectedExportStaging {
             if (name.endsWith(".moc3")) {
                 sawMoc = true;
                 final MocFailure failure = validateMoc(
-                    path, expectedDrawableIds, expectedParameters, expectedPartIds,
-                    expectedGlueIds, behavior);
+                        path, expectedDrawableIds, expectedParameters, expectedPartIds, expectedGlueIds, behavior);
                 if (failure != null) {
                     return Validation.rejected(failure.key(), failure.detail());
                 }
@@ -301,8 +271,7 @@ public final class ProtectedExportStaging {
                 // behavior: when a physics3.json was staged, its setting IDs
                 // must be exactly the planned tokens and every serialized value
                 // must reproduce the census — parameter references included.
-                final MocFailure physics = validatePhysics3(
-                    path, expectedPhysicsSettings, expectedPhysicsSet);
+                final MocFailure physics = validatePhysics3(path, expectedPhysicsSettings, expectedPhysicsSet);
                 if (physics != null) {
                     return Validation.rejected(physics.key(), physics.detail());
                 }
@@ -322,13 +291,12 @@ public final class ProtectedExportStaging {
      * positions) identical to the pre-mutation census.
      */
     private MocFailure validateMoc(
-        final Path path,
-        final Set<String> expectedDrawableIds,
-        final Map<String, ParameterExpectation> expectedParameters,
-        final Set<String> expectedPartIds,
-        final Set<String> expectedGlueIds,
-        final BehaviorSnapshot behavior
-    ) {
+            final Path path,
+            final Set<String> expectedDrawableIds,
+            final Map<String, ParameterExpectation> expectedParameters,
+            final Set<String> expectedPartIds,
+            final Set<String> expectedGlueIds,
+            final BehaviorSnapshot behavior) {
         if (mocLoader == null) {
             return new MocFailure("protected-export.moc3-loader-absent", null);
         }
@@ -340,73 +308,65 @@ public final class ProtectedExportStaging {
                 }
                 try (var model = moc.instantiateModel()) {
                     if (model == null) {
-                        return new MocFailure(
-                            "protected-export.moc3-model-null", null);
+                        return new MocFailure("protected-export.moc3-model-null", null);
                     }
                     final Set<String> drawableIds = model.drawables().stream()
-                        .map(d -> d.id())
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                            .map(d -> d.id())
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!expectedDrawableIds.containsAll(drawableIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-drawable-ids",
-                            "unexpected=" + bounded(diff(drawableIds,
-                                expectedDrawableIds)));
+                                "protected-export.moc3-drawable-ids",
+                                "unexpected=" + bounded(diff(drawableIds, expectedDrawableIds)));
                     }
                     final Set<String> parameterIds = model.parameters().stream()
-                        .map(p -> p.id())
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                            .map(p -> p.id())
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!parameterIds.equals(expectedParameters.keySet())) {
                         return new MocFailure(
-                            "protected-export.moc3-parameter-ids",
-                            setDiffDetail(parameterIds, expectedParameters.keySet()));
+                                "protected-export.moc3-parameter-ids",
+                                setDiffDetail(parameterIds, expectedParameters.keySet()));
                     }
-                    final MocFailure contract = validateParameterContracts(
-                        model.parameters(), expectedParameters);
+                    final MocFailure contract = validateParameterContracts(model.parameters(), expectedParameters);
                     if (contract != null) {
                         return contract;
                     }
-                    final MocFailure behaviorDrift =
-                        validateBehavior(model, behavior);
+                    final MocFailure behaviorDrift = validateBehavior(model, behavior);
                     if (behaviorDrift != null) {
                         return behaviorDrift;
                     }
                     final Set<String> partIds = model.parts().stream()
-                        .map(p -> p.id())
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                            .map(p -> p.id())
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!partIds.equals(expectedPartIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-part-ids",
-                            setDiffDetail(partIds, expectedPartIds));
+                                "protected-export.moc3-part-ids", setDiffDetail(partIds, expectedPartIds));
                     }
                     if (!model.deformers().isEmpty()) {
                         final Set<String> deformerIds = model.deformers().stream()
-                            .map(d -> d.id())
-                            .collect(Collectors.toCollection(LinkedHashSet::new));
+                                .map(d -> d.id())
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
                         return new MocFailure(
-                            "protected-export.moc3-deformers-remain",
-                            "remaining=" + bounded(deformerIds));
+                                "protected-export.moc3-deformers-remain", "remaining=" + bounded(deformerIds));
                     }
                     // Glue is pass-through: the staged artifact must carry every
                     // censused Glue under its unchanged ID — no drops, no extras.
                     final Set<String> glueIds = model.glues().stream()
-                        .map(g -> g.id())
-                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                            .map(g -> g.id())
+                            .collect(Collectors.toCollection(LinkedHashSet::new));
                     if (!glueIds.equals(expectedGlueIds)) {
                         return new MocFailure(
-                            "protected-export.moc3-glue-ids",
-                            setDiffDetail(glueIds, expectedGlueIds));
+                                "protected-export.moc3-glue-ids", setDiffDetail(glueIds, expectedGlueIds));
                     }
                     return null;
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             final String message = failure.getMessage();
             return new MocFailure(
-                "protected-export.moc3-invalid",
-                failure.getClass().getSimpleName() + ": "
-                    + (message == null
-                        ? ""
-                        : message.substring(0, Math.min(160, message.length()))));
+                    "protected-export.moc3-invalid",
+                    failure.getClass().getSimpleName() + ": "
+                            + (message == null ? "" : message.substring(0, Math.min(160, message.length()))));
         }
     }
 
@@ -420,34 +380,44 @@ public final class ProtectedExportStaging {
      * unbound parameter may legitimately serialize a different implicit key list.
      */
     private MocFailure validateParameterContracts(
-        final List<dev.turboism.sdk.cubism.core.OwnedParameter> stagedParameters,
-        final Map<String, ParameterExpectation> expectedParameters
-    ) {
+            final List<dev.turboism.sdk.cubism.core.OwnedParameter> stagedParameters,
+            final Map<String, ParameterExpectation> expectedParameters) {
         for (var staged : stagedParameters) {
             final ParameterExpectation expected = expectedParameters.get(staged.id());
             if (expected == null) {
                 return new MocFailure(
-                    "protected-export.moc3-parameter-contract",
-                    "unplanned parameter id=" + staged.id());
+                        "protected-export.moc3-parameter-contract", "unplanned parameter id=" + staged.id());
             }
             final StringBuilder drift = new StringBuilder();
             if (Float.compare(staged.minimumValue(), expected.minimumValue()) != 0) {
-                drift.append("min ").append(staged.minimumValue())
-                    .append("!=").append(expected.minimumValue()).append(';');
+                drift.append("min ")
+                        .append(staged.minimumValue())
+                        .append("!=")
+                        .append(expected.minimumValue())
+                        .append(';');
             }
             if (Float.compare(staged.maximumValue(), expected.maximumValue()) != 0) {
-                drift.append("max ").append(staged.maximumValue())
-                    .append("!=").append(expected.maximumValue()).append(';');
+                drift.append("max ")
+                        .append(staged.maximumValue())
+                        .append("!=")
+                        .append(expected.maximumValue())
+                        .append(';');
             }
             if (Float.compare(staged.defaultValue(), expected.defaultValue()) != 0) {
-                drift.append("default ").append(staged.defaultValue())
-                    .append("!=").append(expected.defaultValue()).append(';');
+                drift.append("default ")
+                        .append(staged.defaultValue())
+                        .append("!=")
+                        .append(expected.defaultValue())
+                        .append(';');
             }
             if (expected.repeat() != null
-                && staged.repeat().isPresent()
-                && !staged.repeat().orElseThrow().equals(expected.repeat())) {
-                drift.append("repeat ").append(staged.repeat().orElseThrow())
-                    .append("!=").append(expected.repeat()).append(';');
+                    && staged.repeat().isPresent()
+                    && !staged.repeat().orElseThrow().equals(expected.repeat())) {
+                drift.append("repeat ")
+                        .append(staged.repeat().orElseThrow())
+                        .append("!=")
+                        .append(expected.repeat())
+                        .append(';');
             }
             if (!expected.keys().isEmpty()) {
                 // One-sided bound: every staged key position must come from an
@@ -460,15 +430,15 @@ public final class ProtectedExportStaging {
                 final Set<Float> expectedKeys = new LinkedHashSet<>(expected.keys());
                 if (!expectedKeys.containsAll(stagedKeys)) {
                     drift.append("keys unexpected=")
-                        .append(bounded(floatDiff(stagedKeys, expectedKeys)))
-                        .append(';');
+                            .append(bounded(floatDiff(stagedKeys, expectedKeys)))
+                            .append(';');
                 }
             }
             if (drift.length() > 0) {
                 final String detail = "id=" + staged.id() + " " + drift;
                 return new MocFailure(
-                    "protected-export.moc3-parameter-contract",
-                    detail.length() > 160 ? detail.substring(0, 160) : detail);
+                        "protected-export.moc3-parameter-contract",
+                        detail.length() > 160 ? detail.substring(0, 160) : detail);
             }
         }
         return null;
@@ -483,16 +453,12 @@ public final class ProtectedExportStaging {
      * up as positional drift. Fail-closed: no writable parameter seam or zero
      * comparable drawables is a rejection, not a skip.
      */
-    private MocFailure validateBehavior(
-        final OwnedModel model,
-        final BehaviorSnapshot snapshot
-    ) {
+    private MocFailure validateBehavior(final OwnedModel model, final BehaviorSnapshot snapshot) {
         if (snapshot == null) {
             return null;
         }
         if (parameterWriter == null) {
-            return new MocFailure(
-                "protected-export.moc3-behavior-oracle-absent", null);
+            return new MocFailure("protected-export.moc3-behavior-oracle-absent", null);
         }
         // Baseline: reset every parameter to its (contract-verified) default.
         final Map<String, Float> defaults = new java.util.LinkedHashMap<>();
@@ -501,13 +467,11 @@ public final class ProtectedExportStaging {
         }
         try {
             for (Map.Entry<String, Float> entry : defaults.entrySet()) {
-                parameterWriter.writeParameterValue(
-                    model, entry.getKey(), entry.getValue());
+                parameterWriter.writeParameterValue(model, entry.getKey(), entry.getValue());
             }
             model.update();
             final int[] compared = {0};
-            MocFailure failure = compareFrame(
-                "baseline", snapshot.baseline(), model, compared);
+            MocFailure failure = compareFrame("baseline", snapshot.baseline(), model, compared);
             if (failure != null) {
                 return failure;
             }
@@ -515,43 +479,39 @@ public final class ProtectedExportStaging {
                 final BehaviorSample sample = snapshot.samples().get(index);
                 if (!defaults.containsKey(sample.parameterId())) {
                     return new MocFailure(
-                        "protected-export.moc3-behavior-parameter-absent",
-                        "id=" + sample.parameterId());
+                            "protected-export.moc3-behavior-parameter-absent", "id=" + sample.parameterId());
                 }
-                parameterWriter.writeParameterValue(
-                    model, sample.parameterId(), sample.value());
+                parameterWriter.writeParameterValue(model, sample.parameterId(), sample.value());
                 model.update();
                 failure = compareFrame(
-                    "sample=" + index + " param=" + sample.parameterId()
-                        + " value=" + sample.value(),
-                    snapshot.frames().get(index), model, compared);
+                        "sample=" + index + " param=" + sample.parameterId() + " value=" + sample.value(),
+                        snapshot.frames().get(index),
+                        model,
+                        compared);
                 // Isolate the next sample — and never leave a sampled value
                 // behind on the failure path either.
-                parameterWriter.writeParameterValue(
-                    model, sample.parameterId(), defaults.get(sample.parameterId()));
+                parameterWriter.writeParameterValue(model, sample.parameterId(), defaults.get(sample.parameterId()));
                 if (failure != null) {
                     return failure;
                 }
             }
             if (compared[0] == 0) {
                 return new MocFailure(
-                    "protected-export.moc3-behavior-unverifiable",
-                    "no snapshot drawable present in output");
+                        "protected-export.moc3-behavior-unverifiable", "no snapshot drawable present in output");
             }
             return null;
         } catch (RuntimeException failure) {
             final String message = failure.getMessage();
             return new MocFailure(
-                "protected-export.moc3-behavior-eval-failed",
-                failure.getClass().getSimpleName() + ": " + (message == null
-                    ? "" : message.substring(0, Math.min(160, message.length()))));
+                    "protected-export.moc3-behavior-eval-failed",
+                    failure.getClass().getSimpleName() + ": "
+                            + (message == null ? "" : message.substring(0, Math.min(160, message.length()))));
         } finally {
             // Restore every touched parameter to its default so a rejected or
             // partially replayed validation cannot leave sampled values behind.
             for (Map.Entry<String, Float> entry : defaults.entrySet()) {
                 try {
-                    parameterWriter.writeParameterValue(
-                        model, entry.getKey(), entry.getValue());
+                    parameterWriter.writeParameterValue(model, entry.getKey(), entry.getValue());
                 } catch (RuntimeException ignored) {
                     // Best-effort restore: the staged model is task-owned and
                     // discarded after validation either way.
@@ -567,11 +527,7 @@ public final class ProtectedExportStaging {
      * number of drawables actually compared across all frames.
      */
     private MocFailure compareFrame(
-        final String label,
-        final Map<String, float[]> expected,
-        final OwnedModel model,
-        final int[] compared
-    ) {
+            final String label, final Map<String, float[]> expected, final OwnedModel model, final int[] compared) {
         if (expected == null || expected.isEmpty()) {
             return null;
         }
@@ -602,9 +558,8 @@ public final class ProtectedExportStaging {
             final String invalid = invalidPositions(expectedPositions);
             if (invalid != null) {
                 return new MocFailure(
-                    "protected-export.moc3-behavior-drift",
-                    label + " drawable=" + entry.getKey()
-                        + " invalid-snapshot:" + invalid);
+                        "protected-export.moc3-behavior-drift",
+                        label + " drawable=" + entry.getKey() + " invalid-snapshot:" + invalid);
             }
             final List<Float> actual = positions.get(entry.getKey());
             if (actual == null) {
@@ -612,29 +567,25 @@ public final class ProtectedExportStaging {
             }
             if (actual.isEmpty() || (actual.size() & 1) != 0) {
                 return new MocFailure(
-                    "protected-export.moc3-behavior-drift",
-                    label + " drawable=" + entry.getKey()
-                        + " invalid-output-vertices=" + actual.size());
+                        "protected-export.moc3-behavior-drift",
+                        label + " drawable=" + entry.getKey() + " invalid-output-vertices=" + actual.size());
             }
             if (actual.size() != expectedPositions.length) {
                 return new MocFailure(
-                    "protected-export.moc3-behavior-drift",
-                    label + " drawable=" + entry.getKey()
-                        + " vertex-count " + actual.size()
-                        + "!=" + expectedPositions.length);
+                        "protected-export.moc3-behavior-drift",
+                        label + " drawable=" + entry.getKey()
+                                + " vertex-count " + actual.size()
+                                + "!=" + expectedPositions.length);
             }
             compared[0]++;
             for (int i = 0; i < expectedPositions.length; i++) {
                 final float actualValue = actual.get(i);
                 if (!Float.isFinite(actualValue)) {
                     return new MocFailure(
-                        "protected-export.moc3-behavior-drift",
-                        label + " drawable=" + entry.getKey()
-                            + " non-finite-output-index=" + i);
+                            "protected-export.moc3-behavior-drift",
+                            label + " drawable=" + entry.getKey() + " non-finite-output-index=" + i);
                 }
-                final float projected = (i & 1) == 0
-                    ? actualValue * ppu + originX
-                    : -actualValue * ppu + originY;
+                final float projected = (i & 1) == 0 ? actualValue * ppu + originX : -actualValue * ppu + originY;
                 final float delta = Math.abs(projected - expectedPositions[i]);
                 if (delta > worst) {
                     worst = delta;
@@ -648,14 +599,14 @@ public final class ProtectedExportStaging {
         }
         if (worst > BEHAVIOR_TOLERANCE) {
             return new MocFailure(
-                "protected-export.moc3-behavior-drift",
-                label + " drawable=" + worstDrawable + " index=" + worstIndex
-                    + " expected=" + worstExpected + " actual=" + worstActual
-                    + " delta=" + worst + " drifted=" + driftedTotal
-                    + " canvas=" + canvas.widthPixels() + "x"
-                    + canvas.heightPixels() + " origin=("
-                    + canvas.originXPixels() + "," + canvas.originYPixels()
-                    + ") ppu=" + canvas.pixelsPerUnit());
+                    "protected-export.moc3-behavior-drift",
+                    label + " drawable=" + worstDrawable + " index=" + worstIndex
+                            + " expected=" + worstExpected + " actual=" + worstActual
+                            + " delta=" + worst + " drifted=" + driftedTotal
+                            + " canvas=" + canvas.widthPixels() + "x"
+                            + canvas.heightPixels() + " origin=("
+                            + canvas.originXPixels() + "," + canvas.originYPixels()
+                            + ") ppu=" + canvas.pixelsPerUnit());
         }
         return null;
     }
@@ -670,10 +621,9 @@ public final class ProtectedExportStaging {
      * actually be compared.
      */
     public static String behaviorDrift(
-        final BehaviorSnapshot original,
-        final BehaviorSnapshot transformed,
-        final Map<String, String> guidToToken
-    ) {
+            final BehaviorSnapshot original,
+            final BehaviorSnapshot transformed,
+            final Map<String, String> guidToToken) {
         if (original == null || transformed == null || guidToToken == null) {
             return "snapshot-or-mapping-absent";
         }
@@ -681,13 +631,14 @@ public final class ProtectedExportStaging {
             return "sample-sequence-mismatch";
         }
         final int[] compared = {0};
-        String drift = frameDrift(
-            "baseline", original.baseline(), transformed.baseline(),
-            guidToToken, compared);
+        String drift = frameDrift("baseline", original.baseline(), transformed.baseline(), guidToToken, compared);
         for (int i = 0; drift == null && i < original.frames().size(); i++) {
             drift = frameDrift(
-                "sample=" + i, original.frames().get(i),
-                transformed.frames().get(i), guidToToken, compared);
+                    "sample=" + i,
+                    original.frames().get(i),
+                    transformed.frames().get(i),
+                    guidToToken,
+                    compared);
         }
         if (drift == null && compared[0] == 0) {
             drift = "no-comparable-drawables";
@@ -696,12 +647,11 @@ public final class ProtectedExportStaging {
     }
 
     private static String frameDrift(
-        final String label,
-        final Map<String, float[]> original,
-        final Map<String, float[]> transformed,
-        final Map<String, String> guidToToken,
-        final int[] compared
-    ) {
+            final String label,
+            final Map<String, float[]> original,
+            final Map<String, float[]> transformed,
+            final Map<String, String> guidToToken,
+            final int[] compared) {
         // Coverage is driven by the plan, not by either frame's key set: a mesh
         // missing from BOTH snapshots must still reject, never be equivalent.
         for (Map.Entry<String, String> entry : guidToToken.entrySet()) {
@@ -717,17 +667,14 @@ public final class ProtectedExportStaging {
             }
             String invalid = invalidPositions(expected);
             if (invalid != null) {
-                return label + " guid=" + guid + " invalid-original:"
-                    + invalid;
+                return label + " guid=" + guid + " invalid-original:" + invalid;
             }
             invalid = invalidPositions(actual);
             if (invalid != null) {
-                return label + " drawable=" + token + " invalid-transformed:"
-                    + invalid;
+                return label + " drawable=" + token + " invalid-transformed:" + invalid;
             }
             if (actual.length != expected.length) {
-                return label + " drawable=" + token + " vertex-count "
-                    + actual.length + "!=" + expected.length;
+                return label + " drawable=" + token + " vertex-count " + actual.length + "!=" + expected.length;
             }
             compared[0]++;
             int drifted = 0;
@@ -752,10 +699,10 @@ public final class ProtectedExportStaging {
             }
             if (drifted > 0) {
                 return label + " drawable=" + token + " index=" + firstDrift
-                    + " delta=" + worstDelta
-                    + " drifted=" + drifted + "/" + expected.length
-                    + " meanDelta=(" + (sumDx / drifted) + ","
-                    + (sumDy / drifted) + ")";
+                        + " delta=" + worstDelta
+                        + " drifted=" + drifted + "/" + expected.length
+                        + " meanDelta=(" + (sumDx / drifted) + ","
+                        + (sumDy / drifted) + ")";
             }
         }
         for (String key : original.keySet()) {
@@ -801,8 +748,7 @@ public final class ProtectedExportStaging {
     }
 
     /** Bounded moc3 rejection: a stable key plus a one-line cause detail. */
-    private record MocFailure(String key, String detail) {
-    }
+    private record MocFailure(String key, String detail) {}
 
     /** {@code actual \ expected} preserving iteration order. */
     private static Set<String> diff(final Set<String> actual, final Set<String> expected) {
@@ -813,8 +759,7 @@ public final class ProtectedExportStaging {
 
     /** Both directions of a set mismatch, bounded for the evidence line. */
     private static String setDiffDetail(final Set<String> actual, final Set<String> expected) {
-        return "unexpected=" + bounded(diff(actual, expected))
-            + ",missing=" + bounded(diff(expected, actual));
+        return "unexpected=" + bounded(diff(actual, expected)) + ",missing=" + bounded(diff(expected, actual));
     }
 
     /** Joins ids into a bounded {@code [a,b,...]} rendering. */
@@ -891,10 +836,7 @@ public final class ProtectedExportStaging {
      * positional IDs with the planned name tokens.
      */
     private MocFailure validatePhysics3(
-        final Path physicsJson,
-        final List<PhysicsSettingExpectation> expected,
-        final List<String> expectedSet
-    ) {
+            final Path physicsJson, final List<PhysicsSettingExpectation> expected, final List<String> expectedSet) {
         final JsonNode root;
         try {
             root = json.readTree(Files.readAllBytes(physicsJson));
@@ -912,8 +854,7 @@ public final class ProtectedExportStaging {
             return new MocFailure("protected-export.physics3-invalid", null);
         }
         if (settings.size() != expected.size()) {
-            return new MocFailure("protected-export.physics3-ids",
-                "count=" + settings.size() + "!=" + expected.size());
+            return new MocFailure("protected-export.physics3-ids", "count=" + settings.size() + "!=" + expected.size());
         }
         final JsonNode meta = root.get("Meta");
         if (meta == null || !meta.isObject()) {
@@ -921,10 +862,8 @@ public final class ProtectedExportStaging {
         }
         final JsonNode dictionary = meta.get("PhysicsDictionary");
         if (!expected.isEmpty()
-            && (dictionary == null || !dictionary.isArray()
-                || dictionary.size() != expected.size())) {
-            return new MocFailure("protected-export.physics3-content",
-                "dictionary-missing");
+                && (dictionary == null || !dictionary.isArray() || dictionary.size() != expected.size())) {
+            return new MocFailure("protected-export.physics3-content", "dictionary-missing");
         }
         final Map<String, String> setTokens = new LinkedHashMap<>();
         for (String token : expectedSet) {
@@ -940,46 +879,43 @@ public final class ProtectedExportStaging {
             final PhysicsSettingExpectation expectation = expected.get(i);
             final String positional = "PhysicsSetting" + (i + 1);
             final JsonNode staged = settings.get(i);
-            final JsonNode stagedId = staged.get("Id") == null
-                ? staged.get("id") : staged.get("Id");
-            if (stagedId == null || !stagedId.isTextual()
-                || (!positional.equals(stagedId.asText())
-                    && !expectation.idToken().equals(stagedId.asText()))) {
-                return new MocFailure("protected-export.physics3-ids",
-                    "setting=" + i + " id=" + textOf(stagedId));
+            final JsonNode stagedId = staged.get("Id") == null ? staged.get("id") : staged.get("Id");
+            if (stagedId == null
+                    || !stagedId.isTextual()
+                    || (!positional.equals(stagedId.asText())
+                            && !expectation.idToken().equals(stagedId.asText()))) {
+                return new MocFailure("protected-export.physics3-ids", "setting=" + i + " id=" + textOf(stagedId));
             }
             if (dictionary != null && dictionary.isArray() && i < dictionary.size()) {
                 final JsonNode dictEntry = dictionary.get(i);
                 final JsonNode dictId = dictEntry.get("Id");
                 final JsonNode dictName = dictEntry.get("Name");
-                if (dictId == null || !stagedId.asText().equals(textOf(dictId))
-                    || dictName == null
-                    || !expectation.nameToken().equals(textOf(dictName))) {
-                    return new MocFailure("protected-export.physics3-content",
-                        "dictionary." + i + " id=" + textOf(dictId)
-                            + " name=" + textOf(dictName)
-                            + " want=" + expectation.nameToken());
+                if (dictId == null
+                        || !stagedId.asText().equals(textOf(dictId))
+                        || dictName == null
+                        || !expectation.nameToken().equals(textOf(dictName))) {
+                    return new MocFailure(
+                            "protected-export.physics3-content",
+                            "dictionary." + i + " id=" + textOf(dictId)
+                                    + " name=" + textOf(dictName)
+                                    + " want=" + expectation.nameToken());
                 }
             }
             final ParsedPhysics parsed;
             try {
                 parsed = ParsedPhysics.parse(expectation.signature());
             } catch (RuntimeException malformed) {
-                return new MocFailure("protected-export.physics3-content",
-                    "signature-unparseable setting=" + i);
+                return new MocFailure("protected-export.physics3-content", "signature-unparseable setting=" + i);
             }
             totalInputs += parsed.inputs.size();
             totalOutputs += parsed.outputs.size();
             totalVertices += parsed.vertices.size();
-            final String detail = physicsSettingDrift(staged, parsed,
-                expectation.idToken());
+            final String detail = physicsSettingDrift(staged, parsed, expectation.idToken());
             if (detail != null) {
-                return new MocFailure("protected-export.physics3-content",
-                    expectation.idToken() + " " + detail);
+                return new MocFailure("protected-export.physics3-content", expectation.idToken() + " " + detail);
             }
         }
-        return physics3Meta(meta, setTokens,
-            expected.size(), totalInputs, totalOutputs, totalVertices);
+        return physics3Meta(meta, setTokens, expected.size(), totalInputs, totalOutputs, totalVertices);
     }
 
     /**
@@ -988,17 +924,16 @@ public final class ProtectedExportStaging {
      * a configured-but-dropped FPS is drift, an absent-when-unset field is not.
      */
     private static MocFailure physics3Meta(
-        final JsonNode meta,
-        final Map<String, String> setTokens,
-        final int settings,
-        final int inputs,
-        final int outputs,
-        final int vertices
-    ) {
+            final JsonNode meta,
+            final Map<String, String> setTokens,
+            final int settings,
+            final int inputs,
+            final int outputs,
+            final int vertices) {
         if (!intEquals(meta.get("PhysicsSettingCount"), settings)
-            || !intEquals(meta.get("TotalInputCount"), inputs)
-            || !intEquals(meta.get("TotalOutputCount"), outputs)
-            || !intEquals(meta.get("VertexCount"), vertices)) {
+                || !intEquals(meta.get("TotalInputCount"), inputs)
+                || !intEquals(meta.get("TotalOutputCount"), outputs)
+                || !intEquals(meta.get("VertexCount"), vertices)) {
             return new MocFailure("protected-export.physics3-content", "meta-counts");
         }
         final String gravity = setTokens.get("gravity");
@@ -1006,30 +941,26 @@ public final class ProtectedExportStaging {
         if (gravity != null || wind != null) {
             final JsonNode forces = meta.get("EffectiveForces");
             if (forces == null
-                || !vectorEquals(forces.get("Gravity"), gravity)
-                || !vectorEquals(forces.get("Wind"), wind)) {
-                return new MocFailure(
-                    "protected-export.physics3-content", "effective-forces");
+                    || !vectorEquals(forces.get("Gravity"), gravity)
+                    || !vectorEquals(forces.get("Wind"), wind)) {
+                return new MocFailure("protected-export.physics3-content", "effective-forces");
             }
         }
         final String fps = setTokens.get("fps");
         final JsonNode fpsNode = meta.get("Fps");
         if (fps == null || "null".equals(fps)) {
             if (fpsNode != null && !fpsNode.isNull()) {
-                return new MocFailure(
-                    "protected-export.physics3-content", "fps-unexpected");
+                return new MocFailure("protected-export.physics3-content", "fps-unexpected");
             }
         } else {
             final int expected;
             try {
                 expected = Integer.parseInt(fps);
             } catch (NumberFormatException malformed) {
-                return new MocFailure(
-                    "protected-export.physics3-content", "fps-unparseable");
+                return new MocFailure("protected-export.physics3-content", "fps-unparseable");
             }
             if (!intEquals(fpsNode, expected)) {
-                return new MocFailure(
-                    "protected-export.physics3-content", "fps");
+                return new MocFailure("protected-export.physics3-content", "fps");
             }
         }
         return null;
@@ -1041,19 +972,15 @@ public final class ProtectedExportStaging {
      * {@code null} when every serialized field matches.
      */
     private static String physicsSettingDrift(
-        final JsonNode setting,
-        final ParsedPhysics expected,
-        final String idToken
-    ) {
+            final JsonNode setting, final ParsedPhysics expected, final String idToken) {
         final JsonNode normalization = setting.get("Normalization");
         if (normalization == null
-            || !windowEquals(normalization.get("Position"), expected.normPosition)
-            || !windowEquals(normalization.get("Angle"), expected.normAngle)) {
+                || !windowEquals(normalization.get("Position"), expected.normPosition)
+                || !windowEquals(normalization.get("Angle"), expected.normAngle)) {
             return "normalization";
         }
         final JsonNode inputs = setting.get("Input");
-        if (inputs == null || !inputs.isArray()
-            || inputs.size() != expected.inputs.size()) {
+        if (inputs == null || !inputs.isArray() || inputs.size() != expected.inputs.size()) {
             return "input-count";
         }
         for (int i = 0; i < expected.inputs.size(); i++) {
@@ -1061,18 +988,16 @@ public final class ProtectedExportStaging {
             final JsonNode actual = inputs.get(i);
             final JsonNode source = actual.get("Source");
             if (source == null
-                || !"Parameter".equals(textOf(source.get("Target")))
-                || !wanted.parameterId().equals(textOf(source.get("Id")))
-                || !floatEquals(actual.get("Weight"), wanted.weight())
-                || !wanted.type().equals(textOf(actual.get("Type")))
-                || !Boolean.valueOf(wanted.reflect())
-                    .equals(boolOf(actual.get("Reflect")))) {
+                    || !"Parameter".equals(textOf(source.get("Target")))
+                    || !wanted.parameterId().equals(textOf(source.get("Id")))
+                    || !floatEquals(actual.get("Weight"), wanted.weight())
+                    || !wanted.type().equals(textOf(actual.get("Type")))
+                    || !Boolean.valueOf(wanted.reflect()).equals(boolOf(actual.get("Reflect")))) {
                 return "input." + i;
             }
         }
         final JsonNode outputs = setting.get("Output");
-        if (outputs == null || !outputs.isArray()
-            || outputs.size() != expected.outputs.size()) {
+        if (outputs == null || !outputs.isArray() || outputs.size() != expected.outputs.size()) {
             return "output-count";
         }
         for (int i = 0; i < expected.outputs.size(); i++) {
@@ -1080,20 +1005,18 @@ public final class ProtectedExportStaging {
             final JsonNode actual = outputs.get(i);
             final JsonNode destination = actual.get("Destination");
             if (destination == null
-                || !"Parameter".equals(textOf(destination.get("Target")))
-                || !wanted.parameterId().equals(textOf(destination.get("Id")))
-                || !intEquals(actual.get("VertexIndex"), wanted.vertexIndex())
-                || !floatEquals(actual.get("Scale"), wanted.serializedScale())
-                || !floatEquals(actual.get("Weight"), wanted.weight())
-                || !wanted.type().equals(textOf(actual.get("Type")))
-                || !Boolean.valueOf(wanted.reflect())
-                    .equals(boolOf(actual.get("Reflect")))) {
+                    || !"Parameter".equals(textOf(destination.get("Target")))
+                    || !wanted.parameterId().equals(textOf(destination.get("Id")))
+                    || !intEquals(actual.get("VertexIndex"), wanted.vertexIndex())
+                    || !floatEquals(actual.get("Scale"), wanted.serializedScale())
+                    || !floatEquals(actual.get("Weight"), wanted.weight())
+                    || !wanted.type().equals(textOf(actual.get("Type")))
+                    || !Boolean.valueOf(wanted.reflect()).equals(boolOf(actual.get("Reflect")))) {
                 return "output." + i;
             }
         }
         final JsonNode vertices = setting.get("Vertices");
-        if (vertices == null || !vertices.isArray()
-            || vertices.size() != expected.vertices.size()) {
+        if (vertices == null || !vertices.isArray() || vertices.size() != expected.vertices.size()) {
             return "vertex-count";
         }
         for (int i = 0; i < expected.vertices.size(); i++) {
@@ -1101,12 +1024,12 @@ public final class ProtectedExportStaging {
             final JsonNode actual = vertices.get(i);
             final JsonNode position = actual.get("Position");
             if (position == null
-                || !floatEquals(position.get("X"), wanted.x)
-                || !floatEquals(position.get("Y"), wanted.y)
-                || !floatEquals(actual.get("Mobility"), wanted.mobility)
-                || !floatEquals(actual.get("Delay"), wanted.delay)
-                || !floatEquals(actual.get("Acceleration"), wanted.acceleration)
-                || !floatEquals(actual.get("Radius"), wanted.radius)) {
+                    || !floatEquals(position.get("X"), wanted.x)
+                    || !floatEquals(position.get("Y"), wanted.y)
+                    || !floatEquals(actual.get("Mobility"), wanted.mobility)
+                    || !floatEquals(actual.get("Delay"), wanted.delay)
+                    || !floatEquals(actual.get("Acceleration"), wanted.acceleration)
+                    || !floatEquals(actual.get("Radius"), wanted.radius)) {
                 return "vertex." + i;
             }
         }
@@ -1123,16 +1046,13 @@ public final class ProtectedExportStaging {
         if (node == null || !node.isNumber()) {
             return false;
         }
-        final java.math.BigDecimal wanted = java.math.BigDecimal
-            .valueOf((double) expected)
-            .setScale(3, java.math.RoundingMode.HALF_EVEN);
-        return wanted.compareTo(
-            java.math.BigDecimal.valueOf(node.doubleValue())) == 0;
+        final java.math.BigDecimal wanted =
+                java.math.BigDecimal.valueOf((double) expected).setScale(3, java.math.RoundingMode.HALF_EVEN);
+        return wanted.compareTo(java.math.BigDecimal.valueOf(node.doubleValue())) == 0;
     }
 
     private static boolean intEquals(final JsonNode node, final int expected) {
-        return node != null && node.isNumber()
-            && node.longValue() == expected;
+        return node != null && node.isNumber() && node.longValue() == expected;
     }
 
     private static String textOf(final JsonNode node) {
@@ -1154,7 +1074,7 @@ public final class ProtectedExportStaging {
         }
         try {
             return floatEquals(node.get("X"), Float.parseFloat(parts[0]))
-                && floatEquals(node.get("Y"), Float.parseFloat(parts[1]));
+                    && floatEquals(node.get("Y"), Float.parseFloat(parts[1]));
         } catch (NumberFormatException malformed) {
             return false;
         }
@@ -1163,9 +1083,9 @@ public final class ProtectedExportStaging {
     /** {@code {"Minimum":..,"Default":..,"Maximum":..}} equals {@code "min|def|max"}. */
     private static boolean windowEquals(final JsonNode node, final float[] window) {
         return node != null
-            && floatEquals(node.get("Minimum"), window[0])
-            && floatEquals(node.get("Default"), window[1])
-            && floatEquals(node.get("Maximum"), window[2]);
+                && floatEquals(node.get("Minimum"), window[0])
+                && floatEquals(node.get("Default"), window[1])
+                && floatEquals(node.get("Maximum"), window[2]);
     }
 
     /**
@@ -1217,14 +1137,16 @@ public final class ProtectedExportStaging {
     }
 
     /** physics3 {@code Input[]} entry surface: source parameter, weight, type, reflect. */
-    private record ParsedInput(String parameterId, float weight, String type,
-        boolean reflect) {
+    private record ParsedInput(String parameterId, float weight, String type, boolean reflect) {
         static ParsedInput parse(final String[] fields) {
             if (fields.length < 4) {
                 throw new IllegalArgumentException("malformed input token");
             }
-            return new ParsedInput(fields[0], Float.parseFloat(fields[1]),
-                physicsJsonType(fields[2]), Boolean.parseBoolean(fields[3]));
+            return new ParsedInput(
+                    fields[0],
+                    Float.parseFloat(fields[1]),
+                    physicsJsonType(fields[2]),
+                    Boolean.parseBoolean(fields[3]));
         }
     }
 
@@ -1233,8 +1155,15 @@ public final class ProtectedExportStaging {
      * type-dependently by the native writer: X/Y read the translation-scale
      * axis, angle reads the angle scale — matching the pinned members exactly.
      */
-    private record ParsedOutput(String parameterId, int vertexIndex, float weight,
-        String type, boolean reflect, float angleScale, float tx, float ty) {
+    private record ParsedOutput(
+            String parameterId,
+            int vertexIndex,
+            float weight,
+            String type,
+            boolean reflect,
+            float angleScale,
+            float tx,
+            float ty) {
         static ParsedOutput parse(final String[] fields) {
             if (fields.length < 9) {
                 throw new IllegalArgumentException("malformed output token");
@@ -1243,10 +1172,15 @@ public final class ProtectedExportStaging {
             if (scale.length != 2) {
                 throw new IllegalArgumentException("malformed output scale");
             }
-            return new ParsedOutput(fields[0], Integer.parseInt(fields[1]),
-                Float.parseFloat(fields[2]), physicsJsonType(fields[3]),
-                Boolean.parseBoolean(fields[4]), Float.parseFloat(fields[5]),
-                Float.parseFloat(scale[0]), Float.parseFloat(scale[1]));
+            return new ParsedOutput(
+                    fields[0],
+                    Integer.parseInt(fields[1]),
+                    Float.parseFloat(fields[2]),
+                    physicsJsonType(fields[3]),
+                    Boolean.parseBoolean(fields[4]),
+                    Float.parseFloat(fields[5]),
+                    Float.parseFloat(scale[0]),
+                    Float.parseFloat(scale[1]));
         }
 
         float serializedScale() {
@@ -1259,8 +1193,7 @@ public final class ProtectedExportStaging {
     }
 
     /** physics3 {@code Vertices[]} entry surface: position, mobility, delay, accel, radius. */
-    private record ParsedVertex(float x, float y, float mobility, float delay,
-        float acceleration, float radius) {
+    private record ParsedVertex(float x, float y, float mobility, float delay, float acceleration, float radius) {
         static ParsedVertex parse(final String[] fields) {
             if (fields.length < 5) {
                 throw new IllegalArgumentException("malformed vertex token");
@@ -1269,10 +1202,13 @@ public final class ProtectedExportStaging {
             if (position.length != 2) {
                 throw new IllegalArgumentException("malformed vertex position");
             }
-            return new ParsedVertex(Float.parseFloat(position[0]),
-                Float.parseFloat(position[1]), Float.parseFloat(fields[1]),
-                Float.parseFloat(fields[2]), Float.parseFloat(fields[3]),
-                Float.parseFloat(fields[4]));
+            return new ParsedVertex(
+                    Float.parseFloat(position[0]),
+                    Float.parseFloat(position[1]),
+                    Float.parseFloat(fields[1]),
+                    Float.parseFloat(fields[2]),
+                    Float.parseFloat(fields[3]),
+                    Float.parseFloat(fields[4]));
         }
     }
 
@@ -1309,33 +1245,26 @@ public final class ProtectedExportStaging {
      * @param realPick the user's originally picked destination {@code File}
      * @return the published destination files
      */
-    public List<Path> publish(
-        final File stagedPick,
-        final List<Path> stagedFiles,
-        final File realPick
-    ) throws IOException {
+    public List<Path> publish(final File stagedPick, final List<Path> stagedFiles, final File realPick)
+            throws IOException {
         return publish(stagedPick, stagedFiles, realPick, moveOp);
     }
 
-    List<Path> publish(
-        final File stagedPick,
-        final List<Path> stagedFiles,
-        final File realPick,
-        final MoveOp moveOp
-    ) throws IOException {
+    List<Path> publish(final File stagedPick, final List<Path> stagedFiles, final File realPick, final MoveOp moveOp)
+            throws IOException {
         Objects.requireNonNull(stagedPick, "stagedPick");
         Objects.requireNonNull(stagedFiles, "stagedFiles");
         Objects.requireNonNull(realPick, "realPick");
-        final Path destinationParent = realPick.toPath().toAbsolutePath().normalize()
-            .getParent();
-        if (destinationParent == null || !Files.isDirectory(destinationParent)
-            || !Files.isWritable(destinationParent)) {
+        final Path destinationParent =
+                realPick.toPath().toAbsolutePath().normalize().getParent();
+        if (destinationParent == null
+                || !Files.isDirectory(destinationParent)
+                || !Files.isWritable(destinationParent)) {
             throw new IOException("protected-export destination directory is not writable");
         }
-        final Path stagedParent = stagedPick.toPath().toAbsolutePath().normalize()
-            .getParent();
-        final Path scratch = Files.createTempDirectory(
-            destinationParent, ".turboism-publish-");
+        final Path stagedParent =
+                stagedPick.toPath().toAbsolutePath().normalize().getParent();
+        final Path scratch = Files.createTempDirectory(destinationParent, ".turboism-publish-");
         final Path incoming = scratch.resolve("incoming");
         final Path backups = scratch.resolve("backups");
         final List<Path> placed = new ArrayList<>();
@@ -1347,8 +1276,8 @@ public final class ProtectedExportStaging {
             final List<Path> copies = new ArrayList<>();
             final List<Path> targets = new ArrayList<>();
             for (Path staged : stagedFiles) {
-                final Path relative = stagedParent.relativize(
-                    staged.toAbsolutePath().normalize());
+                final Path relative =
+                        stagedParent.relativize(staged.toAbsolutePath().normalize());
                 final Path copy = incoming.resolve(relative);
                 Files.createDirectories(copy.getParent());
                 Files.copy(staged, copy, StandardCopyOption.REPLACE_EXISTING);
@@ -1359,9 +1288,8 @@ public final class ProtectedExportStaging {
             // destination aborts the publish with the destination untouched.
             for (Path target : targets) {
                 if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
-                    && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
-                    throw new IOException(
-                        "protected-export destination is not a regular file: " + target);
+                        && !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+                    throw new IOException("protected-export destination is not a regular file: " + target);
                 }
             }
             for (int i = 0; i < copies.size(); i++) {
@@ -1389,6 +1317,7 @@ public final class ProtectedExportStaging {
                 }
             }
         } catch (Throwable publishFailure) {
+            FatalErrors.rethrowIfFatal(publishFailure);
             failure = publishFailure;
             if (!rollback(moveOp, placed, restore, createdDirs, failure)) {
                 rollbackComplete[0] = false;
@@ -1405,6 +1334,7 @@ public final class ProtectedExportStaging {
             try {
                 deleteRecursively(scratch);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 if (failure == null) {
                     throw cleanup;
                 }
@@ -1427,12 +1357,10 @@ public final class ProtectedExportStaging {
     }
 
     /** Resolves a staged relative path to a destination target; escapes reject. */
-    private static Path targetFor(final Path destinationParent, final Path relative)
-        throws IOException {
+    private static Path targetFor(final Path destinationParent, final Path relative) throws IOException {
         final Path target = destinationParent.resolve(relative).normalize();
         if (!target.startsWith(destinationParent)) {
-            throw new IOException(
-                "protected-export publish target escapes destination: " + relative);
+            throw new IOException("protected-export publish target escapes destination: " + relative);
         }
         return target;
     }
@@ -1441,16 +1369,12 @@ public final class ProtectedExportStaging {
      * Creates {@code parent} and any missing ancestors, recording the directories
      * this publish created so a rollback can remove the ones it left empty.
      */
-    private static void createMissingParents(
-        final Path parent,
-        final List<Path> createdDirs
-    ) throws IOException {
+    private static void createMissingParents(final Path parent, final List<Path> createdDirs) throws IOException {
         if (parent == null || Files.isDirectory(parent)) {
             return;
         }
         final List<Path> missing = new ArrayList<>();
-        for (Path current = parent; current != null && !Files.exists(current);
-             current = current.getParent()) {
+        for (Path current = parent; current != null && !Files.exists(current); current = current.getParent()) {
             missing.add(0, current);
         }
         Files.createDirectories(parent);
@@ -1466,15 +1390,12 @@ public final class ProtectedExportStaging {
      *     retained for recovery.
      */
     private static boolean restoreTarget(
-        final MoveOp moveOp,
-        final Path target,
-        final Path backup,
-        final Throwable failure
-    ) {
+            final MoveOp moveOp, final Path target, final Path backup, final Throwable failure) {
         boolean complete = true;
         try {
             deleteIfExists(target);
         } catch (Throwable cleanup) {
+            FatalErrors.rethrowIfFatal(cleanup);
             failure.addSuppressed(cleanup);
             complete = false;
         }
@@ -1482,6 +1403,7 @@ public final class ProtectedExportStaging {
             try {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1499,17 +1421,17 @@ public final class ProtectedExportStaging {
      *     means recovery material must be retained rather than deleted.
      */
     private static boolean rollback(
-        final MoveOp moveOp,
-        final List<Path> placed,
-        final List<Path> restore,
-        final List<Path> createdDirs,
-        final Throwable failure
-    ) {
+            final MoveOp moveOp,
+            final List<Path> placed,
+            final List<Path> restore,
+            final List<Path> createdDirs,
+            final Throwable failure) {
         boolean complete = true;
         for (int i = placed.size() - 1; i >= 0; i--) {
             try {
                 deleteIfExists(placed.get(i));
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1520,6 +1442,7 @@ public final class ProtectedExportStaging {
             try {
                 moveOp.move(backup, target);
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }
@@ -1530,6 +1453,7 @@ public final class ProtectedExportStaging {
             } catch (DirectoryNotEmptyException foreign) {
                 // Another writer put content there — not publish-owned residue.
             } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
                 failure.addSuppressed(cleanup);
                 complete = false;
             }

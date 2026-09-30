@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-
 /**
  * Signals an attempt to begin a transaction while one is already active on the same scope;
  * transactions do not nest. Carries error code 1001 at {@code ERROR} severity.

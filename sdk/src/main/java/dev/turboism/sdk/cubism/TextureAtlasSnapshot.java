@@ -11,12 +11,7 @@ import java.util.List;
  * @param textureIds unmodifiable copy of the identifiers of the textures packed into this atlas;
  *     carries no placement information, only membership
  */
-public record TextureAtlasSnapshot(
-    String atlasId,
-    int width,
-    int height,
-    List<String> textureIds
-) {
+public record TextureAtlasSnapshot(String atlasId, int width, int height, List<String> textureIds) {
     /**
      * Validates the record components.
      *

@@ -5,17 +5,12 @@ import java.util.Objects;
 
 /** Immutable runtime-session failure evidence snapshot. */
 public record RuntimeFailureSnapshot(
-    List<RuntimeFailure> taskFailures,
-    List<RuntimeFailure> storageFailures,
-    List<RuntimeFailure> configFailures,
-    List<RuntimeFailure> eventFailures
-) {
-    private static final RuntimeFailureSnapshot EMPTY = new RuntimeFailureSnapshot(
-        List.of(),
-        List.of(),
-        List.of(),
-        List.of()
-    );
+        List<RuntimeFailure> taskFailures,
+        List<RuntimeFailure> storageFailures,
+        List<RuntimeFailure> configFailures,
+        List<RuntimeFailure> eventFailures) {
+    private static final RuntimeFailureSnapshot EMPTY =
+            new RuntimeFailureSnapshot(List.of(), List.of(), List.of(), List.of());
 
     public RuntimeFailureSnapshot {
         taskFailures = List.copyOf(Objects.requireNonNull(taskFailures, "taskFailures"));

@@ -36,7 +36,8 @@ public record UpdateVersion(int major, int minor, int patch) implements Comparab
      */
     public static UpdateVersion parseInstalled(final String value) {
         Objects.requireNonNull(value, "value");
-        final Matcher matcher = Pattern.compile(CANONICAL.pattern() + "(?=$|[-+])").matcher(value);
+        final Matcher matcher =
+                Pattern.compile(CANONICAL.pattern() + "(?=$|[-+])").matcher(value);
         if (!matcher.find()) {
             throw new IllegalArgumentException("installed version has no canonical numeric core");
         }

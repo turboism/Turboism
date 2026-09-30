@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.time.Duration;
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
@@ -25,8 +24,7 @@ public final class ConditionalCanvasHint {
     /** How often the condition is re-evaluated while the hint is being watched. */
     public static final Duration DEFAULT_CADENCE = Duration.ofSeconds(1);
 
-    private ConditionalCanvasHint() {
-    }
+    private ConditionalCanvasHint() {}
 
     /**
      * Shows {@code notification} and keeps renewing it while {@code condition} holds.
@@ -43,11 +41,10 @@ public final class ConditionalCanvasHint {
      * @throws NullPointerException when any argument is null
      */
     public static Registration whileTrue(
-        final UiScheduler scheduler,
-        final UiHostCapabilityService uiHost,
-        final CanvasHintNotification notification,
-        final BooleanSupplier condition
-    ) {
+            final UiScheduler scheduler,
+            final UiHostCapabilityService uiHost,
+            final CanvasHintNotification notification,
+            final BooleanSupplier condition) {
         return whileTrue(scheduler, uiHost, notification, condition, DEFAULT_CADENCE);
     }
 
@@ -65,12 +62,11 @@ public final class ConditionalCanvasHint {
      * @throws IllegalArgumentException when {@code cadence} is zero or negative
      */
     public static Registration whileTrue(
-        final UiScheduler scheduler,
-        final UiHostCapabilityService uiHost,
-        final CanvasHintNotification notification,
-        final BooleanSupplier condition,
-        final Duration cadence
-    ) {
+            final UiScheduler scheduler,
+            final UiHostCapabilityService uiHost,
+            final CanvasHintNotification notification,
+            final BooleanSupplier condition,
+            final Duration cadence) {
         Objects.requireNonNull(scheduler, "scheduler");
         Objects.requireNonNull(uiHost, "uiHost");
         Objects.requireNonNull(notification, "notification");
@@ -97,11 +93,10 @@ public final class ConditionalCanvasHint {
         private Registration pendingTick;
 
         private Watch(
-            final UiScheduler scheduler,
-            final CanvasHintHandle handle,
-            final BooleanSupplier condition,
-            final Duration cadence
-        ) {
+                final UiScheduler scheduler,
+                final CanvasHintHandle handle,
+                final BooleanSupplier condition,
+                final Duration cadence) {
             this.scheduler = scheduler;
             this.handle = handle;
             this.condition = condition;

@@ -9,10 +9,7 @@ import java.util.Optional;
  *     this flag and the error is set
  * @param error present exactly when nothing was written
  */
-public record StorageWriteResult(
-    boolean written,
-    Optional<StorageError> error
-) {
+public record StorageWriteResult(boolean written, Optional<StorageError> error) {
     public StorageWriteResult {
         error = StorageContracts.requireOptional(error, "error");
         StorageContracts.validateWrite(written, error);

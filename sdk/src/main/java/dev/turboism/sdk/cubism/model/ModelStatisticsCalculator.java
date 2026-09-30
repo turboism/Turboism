@@ -7,8 +7,7 @@ import java.util.Set;
 
 final class ModelStatisticsCalculator {
 
-    private ModelStatisticsCalculator() {
-    }
+    private ModelStatisticsCalculator() {}
 
     static ModelStatistics calculate(final CubismModel model) {
         final List<Drawable> drawables = model.drawables().all();
@@ -30,18 +29,17 @@ final class ModelStatisticsCalculator {
             }
         }
         return new ModelStatistics(
-            model.parameters().all().size(),
-            model.parts().all().size(),
-            drawables.size(),
-            drawables.size(),
-            model.deformers().all().size(),
-            vertices,
-            triangles,
-            maxTexture + 1,
-            masked,
-            maskGroups.size(),
-            OptionalInt.empty(),
-            OptionalInt.empty()
-        );
+                model.parameters().all().size(),
+                model.parts().all().size(),
+                drawables.size(),
+                drawables.size(),
+                model.deformers().all().size(),
+                vertices,
+                triangles,
+                maxTexture + 1,
+                masked,
+                maskGroups.size(),
+                OptionalInt.empty(),
+                OptionalInt.empty());
     }
 }

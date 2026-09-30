@@ -1,9 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.sdk.cubism.id.ParameterId;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ParameterResetContractTest {
 
@@ -27,12 +27,33 @@ class ParameterResetContractTest {
             this.defaultValue = defaultValue;
         }
 
-        @Override public ParameterId id() { return new ParameterId("ParamA"); }
-        @Override public float getValue() { return value; }
-        @Override public float getMinimumValue() { return -1.0F; }
-        @Override public float getMaximumValue() { return 1.0F; }
-        @Override public float getDefaultValue() { return defaultValue; }
-        @Override public void setValue(final float nextValue) {
+        @Override
+        public ParameterId id() {
+            return new ParameterId("ParamA");
+        }
+
+        @Override
+        public float getValue() {
+            return value;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -1.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 1.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return defaultValue;
+        }
+
+        @Override
+        public void setValue(final float nextValue) {
             value = nextValue;
             writeCount++;
         }

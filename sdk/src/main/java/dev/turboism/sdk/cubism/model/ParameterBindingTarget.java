@@ -2,7 +2,6 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
-
 import java.util.Objects;
 
 /** Typed identity of an Editor object that owns a parameter binding. */
@@ -22,9 +21,8 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
      */
     public static ParameterBindingTarget artMesh(final ArtMeshId id) {
         return new ParameterBindingTarget(
-            ParameterBindingTargetType.ART_MESH,
-            Objects.requireNonNull(id, "id").value()
-        );
+                ParameterBindingTargetType.ART_MESH,
+                Objects.requireNonNull(id, "id").value());
     }
 
     /**
@@ -35,9 +33,8 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
      */
     public static ParameterBindingTarget warpDeformer(final DeformerId id) {
         return new ParameterBindingTarget(
-            ParameterBindingTargetType.WARP_DEFORMER,
-            Objects.requireNonNull(id, "id").value()
-        );
+                ParameterBindingTargetType.WARP_DEFORMER,
+                Objects.requireNonNull(id, "id").value());
     }
 
     /**
@@ -48,8 +45,7 @@ public record ParameterBindingTarget(ParameterBindingTargetType type, String id)
      */
     public static ParameterBindingTarget rotationDeformer(final DeformerId id) {
         return new ParameterBindingTarget(
-            ParameterBindingTargetType.ROTATION_DEFORMER,
-            Objects.requireNonNull(id, "id").value()
-        );
+                ParameterBindingTargetType.ROTATION_DEFORMER,
+                Objects.requireNonNull(id, "id").value());
     }
 }

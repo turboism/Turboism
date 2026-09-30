@@ -10,48 +10,48 @@ public final class EditorObjectLifecycleCoordinator implements AutoCloseable {
 
     public EditorObjectLifecycleCoordinator() {
         this(
-            new DrawableLifecycleCoordinator(),
-            new DeformerLifecycleCoordinator(),
-            new SemanticOperationLifecycleCoordinator()
-        );
+                new DrawableLifecycleCoordinator(),
+                new DeformerLifecycleCoordinator(),
+                new SemanticOperationLifecycleCoordinator());
     }
 
     public EditorObjectLifecycleCoordinator(
-        final DrawableLifecycleCoordinator drawable,
-        final DeformerLifecycleCoordinator deformer
-    ) {
+            final DrawableLifecycleCoordinator drawable, final DeformerLifecycleCoordinator deformer) {
         this(drawable, deformer, new SemanticOperationLifecycleCoordinator());
     }
 
     public EditorObjectLifecycleCoordinator(
-        final DrawableLifecycleCoordinator drawable,
-        final DeformerLifecycleCoordinator deformer,
-        final SemanticOperationLifecycleCoordinator semantic
-    ) {
+            final DrawableLifecycleCoordinator drawable,
+            final DeformerLifecycleCoordinator deformer,
+            final SemanticOperationLifecycleCoordinator semantic) {
         this.drawable = Objects.requireNonNull(drawable, "drawable");
         this.deformer = Objects.requireNonNull(deformer, "deformer");
         this.semantic = Objects.requireNonNull(semantic, "semantic");
     }
 
     /** @return the ArtMesh write coordinator owned by this session. */
-    public DrawableLifecycleCoordinator drawable() { return drawable; }
+    public DrawableLifecycleCoordinator drawable() {
+        return drawable;
+    }
     /** @return the Warp and Rotation Deformer write coordinator owned by this session. */
-    public DeformerLifecycleCoordinator deformer() { return deformer; }
+    public DeformerLifecycleCoordinator deformer() {
+        return deformer;
+    }
     /** @return the coordinator for semantic operations shared across editor object kinds. */
-    public SemanticOperationLifecycleCoordinator semantic() { return semantic; }
+    public SemanticOperationLifecycleCoordinator semantic() {
+        return semantic;
+    }
 
     /** Attaches the session event broker to every migrated editor-object family. */
     public void attachEventBroker(final dev.turboism.core.event.RuntimeEventBroker broker) {
-        final dev.turboism.core.event.RuntimeEventBroker value = Objects.requireNonNull(
-            broker,
-            "broker"
-        );
+        final dev.turboism.core.event.RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         drawable.attachEventBroker(value);
         deformer.attachEventBroker(value);
         semantic.attachEventBroker(value);
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         semantic.close();
         deformer.close();
         drawable.close();

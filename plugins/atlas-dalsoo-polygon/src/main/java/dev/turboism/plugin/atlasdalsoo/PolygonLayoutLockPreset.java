@@ -30,8 +30,7 @@ public enum PolygonLayoutLockPreset {
     private final boolean fixRotate;
     private final boolean fixScale;
 
-    PolygonLayoutLockPreset(final boolean fixPosition, final boolean fixRotate,
-        final boolean fixScale) {
+    PolygonLayoutLockPreset(final boolean fixPosition, final boolean fixRotate, final boolean fixScale) {
         this.fixPosition = fixPosition;
         this.fixRotate = fixRotate;
         this.fixScale = fixScale;
@@ -39,7 +38,6 @@ public enum PolygonLayoutLockPreset {
 
     /** The default per-item policy this preset implies. */
     public TextureAtlasItemLayoutPolicy toPolicy(final String textureId) {
-        return new TextureAtlasItemLayoutPolicy(textureId, true,
-            fixRotate, fixScale, fixPosition);
+        return new TextureAtlasItemLayoutPolicy(textureId, true, fixRotate, fixScale, fixPosition);
     }
 }

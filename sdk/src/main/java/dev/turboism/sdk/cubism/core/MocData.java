@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.Objects;
 
 /** Defensive-copy wrapper for MOC bytes submitted for inspection. */

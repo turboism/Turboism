@@ -1,14 +1,5 @@
 package dev.turboism.adapter;
 
-import dev.turboism.adapter.cubism.RecentPreviewHostFixture;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
 import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelChain;
 import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.panelResolver;
 import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectChain;
@@ -18,6 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.cubism.RecentPreviewHostFixture;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class RecentPreviewAdapterBundleTest {
 
@@ -29,8 +28,7 @@ class RecentPreviewAdapterBundleTest {
         final VerifiedMemberResolver panel = panelResolver("5.3.02", loader);
         final RuntimeHostAdapters base = RuntimeHostAdapters.safeMode();
 
-        final RuntimeHostAdapters bundle =
-            RuntimeHostAdapters.withVerifiedRecentPreview(base, project, panel);
+        final RuntimeHostAdapters bundle = RuntimeHostAdapters.withVerifiedRecentPreview(base, project, panel);
 
         RecentPreviewHostFixture.ProjectHost.setRoot(projectChain(current));
         RecentPreviewHostFixture.PanelHost.setRoot(panelChain(recentMenu()));
@@ -48,22 +46,25 @@ class RecentPreviewAdapterBundleTest {
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedMemberResolver project = projectResolver("5.3.01", loader);
         final VerifiedMemberResolver panel = panelResolver("5.3.02", loader);
-        assertThrows(IllegalArgumentException.class,
-            () -> RuntimeHostAdapters.withVerifiedRecentPreview(
-                RuntimeHostAdapters.safeMode(), project, panel
-            ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> RuntimeHostAdapters.withVerifiedRecentPreview(RuntimeHostAdapters.safeMode(), project, panel));
     }
 
     @Test
     void safeModeBundleKeepsAllRecentPreviewSlotsFailingClosed() {
         final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
         assertEquals(List.of(), safe.recentFiles().list());
-        assertThrows(java.util.concurrent.CompletionException.class, () -> safe.screenshots()
-            .capture(new dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest(
-                new dev.turboism.sdk.cubism.recentfile.RecentFileId("0".repeat(64)), 150, 150))
-            .toCompletableFuture().join());
-        assertThrows(UnsupportedOperationException.class,
-            () -> safe.recentPreviews().contribute(summary -> java.util.Optional.empty()));
+        assertThrows(
+                java.util.concurrent.CompletionException.class,
+                () -> safe.screenshots()
+                        .capture(new dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest(
+                                new dev.turboism.sdk.cubism.recentfile.RecentFileId("0".repeat(64)), 150, 150))
+                        .toCompletableFuture()
+                        .join());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> safe.recentPreviews().contribute(summary -> java.util.Optional.empty()));
         safe.recentPreviews().refresh();
     }
 }

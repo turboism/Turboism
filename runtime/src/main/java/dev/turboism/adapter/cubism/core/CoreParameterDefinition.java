@@ -11,15 +11,14 @@ import java.util.Optional;
  * enum names, normalize ranges, or clamp the current value.</p>
  */
 record CoreParameterDefinition(
-    String id,
-    int typeNumber,
-    float minimumValue,
-    float maximumValue,
-    float defaultValue,
-    float currentValue,
-    List<Float> keyValues,
-    Optional<Boolean> repeat
-) {
+        String id,
+        int typeNumber,
+        float minimumValue,
+        float maximumValue,
+        float defaultValue,
+        float currentValue,
+        List<Float> keyValues,
+        Optional<Boolean> repeat) {
 
     CoreParameterDefinition {
         id = requireText(id, "id");

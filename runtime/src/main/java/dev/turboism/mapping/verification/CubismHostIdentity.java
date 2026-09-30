@@ -22,13 +22,12 @@ import java.util.Optional;
  * @param artifact size/SHA-256 digest of the artifact that declared this identity
  */
 public record CubismHostIdentity(
-    String product,
-    String version,
-    Optional<String> date,
-    int build,
-    String declarationClass,
-    HostArtifactDigest artifact
-) {
+        String product,
+        String version,
+        Optional<String> date,
+        int build,
+        String declarationClass,
+        HostArtifactDigest artifact) {
 
     public CubismHostIdentity {
         product = requireText(product, "product");

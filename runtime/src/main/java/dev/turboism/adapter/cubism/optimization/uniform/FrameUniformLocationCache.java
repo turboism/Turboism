@@ -51,12 +51,14 @@ final class FrameUniformLocationCache implements AutoCloseable {
             invalidate();
             return 0;
         }
-        if (sequence == Long.MAX_VALUE) { close(); return 0; }
+        if (sequence == Long.MAX_VALUE) {
+            close();
+            return 0;
+        }
         scope = ++sequence;
         owner = Thread.currentThread();
         active = supported && current != null;
-        if (!(persistent && active && current == context
-                && retainedOwner == Thread.currentThread())) {
+        if (!(persistent && active && current == context && retainedOwner == Thread.currentThread())) {
             context = active ? current : null;
             clear();
         }
@@ -65,20 +67,29 @@ final class FrameUniformLocationCache implements AutoCloseable {
 
     private boolean owns(Object current) {
         if (closed || !active || owner != Thread.currentThread()) return false;
-        if (current == null || current != context) { invalidate(); return false; }
+        if (current == null || current != context) {
+            invalidate();
+            return false;
+        }
         return true;
     }
+
     private static boolean valid(int program, String name) {
         return program > 0 && name != null && name.length() <= 512;
     }
+
     synchronized int lookup(Object current, int program, String name) {
         if (!owns(current) || !valid(program, name) || size == 0) return MISS;
         int slot = find(program, name);
         return names[slot] != null && confirmed[slot] ? locations[slot] : MISS;
     }
+
     synchronized void record(Object current, int program, String name, int result) {
         if (!owns(current) || !valid(program, name)) return;
-        if (result < -1) { invalidate(); return; }
+        if (result < -1) {
+            invalidate();
+            return;
+        }
         if (names.length == 0) grow();
         int slot = find(program, name);
         if (names[slot] != null) {
@@ -101,17 +112,23 @@ final class FrameUniformLocationCache implements AutoCloseable {
         occupiedSlots[size++] = slot;
         pendingSlots[pendingCount++] = slot;
     }
+
     synchronized void checkedError(Object current, int error) {
         if (!owns(current)) return;
-        if (error != 0) { invalidate(); return; }
+        if (error != 0) {
+            invalidate();
+            return;
+        }
         for (int index = 0; index < pendingCount; index++) confirmed[pendingSlots[index]] = true;
         pendingCount = 0;
     }
+
     synchronized void invalidate() {
         clear();
         active = false;
         context = null;
     }
+
     synchronized void end(long token) {
         end(token, false);
     }
@@ -138,6 +155,7 @@ final class FrameUniformLocationCache implements AutoCloseable {
         owner = null;
         scope = 0;
     }
+
     private int find(int program, String name) {
         int slot = hash(program, name) & (names.length - 1);
         while (names[slot] != null) {
@@ -146,10 +164,12 @@ final class FrameUniformLocationCache implements AutoCloseable {
         }
         return slot;
     }
+
     private static int hash(int program, String name) {
         int hash = 31 * program + name.hashCode();
         return hash ^ (hash >>> 16);
     }
+
     private void grow() {
         int capacity = names.length == 0 ? 16 : Math.multiplyExact(names.length, 2);
         String[] nextNames = new String[capacity];
@@ -179,6 +199,7 @@ final class FrameUniformLocationCache implements AutoCloseable {
         pendingSlots = nextPending;
         pendingCount = nextPendingCount;
     }
+
     private void clear() {
         retainedOwner = null;
         for (int index = 0; index < size; index++) {
@@ -189,8 +210,13 @@ final class FrameUniformLocationCache implements AutoCloseable {
         size = 0;
         pendingCount = 0;
     }
-    synchronized int retained() { return size; }
-    @Override public synchronized void close() {
+
+    synchronized int retained() {
+        return size;
+    }
+
+    @Override
+    public synchronized void close() {
         closed = true;
         clear();
         active = false;

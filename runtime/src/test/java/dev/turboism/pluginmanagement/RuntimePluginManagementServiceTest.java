@@ -1,30 +1,32 @@
 package dev.turboism.pluginmanagement;
 
-import dev.turboism.config.RuntimeConfigRepository;
-import dev.turboism.internal.core.CorePluginManagement;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.config.RuntimeConfigRepository;
+import dev.turboism.internal.core.CorePluginManagement;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 class RuntimePluginManagementServiceTest {
-    @TempDir Path home;
+    @TempDir
+    Path home;
 
     @Test
     void coreCannotBeDisabledOrUninstalled() {
         final RuntimePluginManagementService service = service(Optional::empty);
-        assertFalse(service.setEnabled(CorePluginManagement.CORE_PLUGIN_ID, false).accepted());
+        assertFalse(
+                service.setEnabled(CorePluginManagement.CORE_PLUGIN_ID, false).accepted());
         assertFalse(service.uninstall(CorePluginManagement.CORE_PLUGIN_ID).accepted());
-        assertTrue(service.plugins().stream().filter(CorePluginManagement.PluginInfo::core)
-            .allMatch(plugin -> plugin.desiredState().equals("ENABLED")));
+        assertTrue(service.plugins().stream()
+                .filter(CorePluginManagement.PluginInfo::core)
+                .allMatch(plugin -> plugin.desiredState().equals("ENABLED")));
     }
 
     @Test
@@ -36,8 +38,9 @@ class RuntimePluginManagementServiceTest {
         final var installed = service.install();
         assertTrue(installed.accepted(), installed.message());
         assertFalse(Files.exists(home.resolve("plugins/example.plugin.jar")));
-        assertTrue(service.plugins().stream().anyMatch(plugin ->
-            plugin.id().equals("example.plugin") && plugin.pendingOperation().orElse("").equals("INSTALL")));
+        assertTrue(service.plugins().stream()
+                .anyMatch(plugin -> plugin.id().equals("example.plugin")
+                        && plugin.pendingOperation().orElse("").equals("INSTALL")));
 
         final var applied = RuntimePluginManagementService.applyPending(home);
         assertTrue(applied.applied(), applied.code());
@@ -67,10 +70,14 @@ class RuntimePluginManagementServiceTest {
         final RuntimePluginManagementService service = service(Optional::empty);
 
         assertTrue(service.setEnabled("example.plugin", false).accepted());
-        assertTrue(new RuntimeConfigRepository(home, ignored -> { }).disabledPlugins().contains("example.plugin"));
+        assertTrue(new RuntimeConfigRepository(home, ignored -> {})
+                .disabledPlugins()
+                .contains("example.plugin"));
         assertArrayEquals(before, Files.readAllBytes(home.resolve("plugins/example.plugin.jar")));
         assertTrue(service.setEnabled("example.plugin", true).accepted());
-        assertFalse(new RuntimeConfigRepository(home, ignored -> { }).disabledPlugins().contains("example.plugin"));
+        assertFalse(new RuntimeConfigRepository(home, ignored -> {})
+                .disabledPlugins()
+                .contains("example.plugin"));
     }
 
     @Test
@@ -92,21 +99,30 @@ class RuntimePluginManagementServiceTest {
 
         assertEquals("PLUGIN_INSTALL_PENDING", service.install().code());
         assertEquals("PLUGIN_INSTALL_PENDING", service.install().code());
-        assertEquals(1, service.plugins().stream().filter(plugin ->
-            plugin.id().equals("example.plugin") && plugin.pendingOperation().orElse("").equals("INSTALL")
-        ).count());
+        assertEquals(
+                1,
+                service.plugins().stream()
+                        .filter(plugin -> plugin.id().equals("example.plugin")
+                                && plugin.pendingOperation().orElse("").equals("INSTALL"))
+                        .count());
 
-        assertEquals("PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
-        assertEquals("PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
-        assertEquals(1, service.plugins().stream().filter(plugin ->
-            plugin.id().equals("example.plugin") && plugin.pendingOperation().orElse("").equals("UNINSTALL")
-        ).count());
+        assertEquals(
+                "PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
+        assertEquals(
+                "PLUGIN_UNINSTALL_PENDING", service.uninstall("example.plugin").code());
+        assertEquals(
+                1,
+                service.plugins().stream()
+                        .filter(plugin -> plugin.id().equals("example.plugin")
+                                && plugin.pendingOperation().orElse("").equals("UNINSTALL"))
+                        .count());
     }
 
     @Test
     void rejectsReservedCorePackage() throws Exception {
         final Path source = home.resolve("core.jar");
-        Files.write(source, PluginManagementPackageFixture.pluginJarBytes(CorePluginManagement.CORE_PLUGIN_ID, "1.0.0"));
+        Files.write(
+                source, PluginManagementPackageFixture.pluginJarBytes(CorePluginManagement.CORE_PLUGIN_ID, "1.0.0"));
         final var result = service(() -> Optional.of(source)).install();
         assertFalse(result.accepted());
         assertEquals("PLUGIN_RESERVED_ID", result.code());

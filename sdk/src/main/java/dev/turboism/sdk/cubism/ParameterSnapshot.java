@@ -18,15 +18,15 @@ import java.util.Objects;
  * @param editable whether the user may change the value; a visible parameter may still be locked
  */
 public record ParameterSnapshot(
-    String id,
-    String name,
-    double value,
-    double defaultValue,
-    double minValue,
-    double maxValue,
-    boolean visible,
-    boolean editable
-) implements ModelObjectSnapshot {
+        String id,
+        String name,
+        double value,
+        double defaultValue,
+        double minValue,
+        double maxValue,
+        boolean visible,
+        boolean editable)
+        implements ModelObjectSnapshot {
     public ParameterSnapshot {
         id = Objects.requireNonNull(id, "id");
         name = Objects.requireNonNull(name, "name");

@@ -1,29 +1,37 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
+import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import java.util.List;
 import java.util.Optional;
 
 /** One evaluated Cubism drawable/ArtMesh. */
-@CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+@CubismEditor({
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+})
 public interface Drawable {
 
     /** Returns this ArtMesh's stable identity within the model. */
     ArtMeshId id();
 
     /** Returns this ArtMesh's Cubism palette UI projection. */
-    default DrawableAppearance ui() { return DrawableAppearance.unavailable(); }
+    default DrawableAppearance ui() {
+        return DrawableAppearance.unavailable();
+    }
 
     /** Returns this ArtMesh's position within its owner's child list. */
-    default int index() { throw unavailable("ArtMesh index"); }
+    default int index() {
+        throw unavailable("ArtMesh index");
+    }
 
     /** Returns whether this ArtMesh renders on both faces (no back-face culling). */
-    default boolean doubleSided() { throw unavailable("ArtMesh double-sided state"); }
+    default boolean doubleSided() {
+        throw unavailable("ArtMesh double-sided state");
+    }
 
     /** Returns this ArtMesh's current evaluation state. */
     default DrawableEvaluationState evaluationState() {
@@ -31,7 +39,9 @@ public interface Drawable {
     }
 
     /** Returns the parent Part identity, or empty when this ArtMesh is not under a Part. */
-    default Optional<PartId> parentPartId() { throw unavailable("ArtMesh parent Part"); }
+    default Optional<PartId> parentPartId() {
+        throw unavailable("ArtMesh parent Part");
+    }
 
     /** Returns the parent Deformer identity, or empty when this ArtMesh is at the model root. */
     default Optional<DeformerId> parentDeformerId() {
@@ -39,13 +49,19 @@ public interface Drawable {
     }
 
     /** Returns the identities of the parameters bound to this ArtMesh. */
-    default List<ParameterId> parameterIds() { throw unavailable("ArtMesh parameters"); }
+    default List<ParameterId> parameterIds() {
+        throw unavailable("ArtMesh parameters");
+    }
 
     /** Returns the identities of the ArtMeshes in this ArtMesh's clipping-mask list. */
-    default List<ArtMeshId> maskIds() { throw unavailable("ArtMesh masks"); }
+    default List<ArtMeshId> maskIds() {
+        throw unavailable("ArtMesh masks");
+    }
 
     /** Stable ArtMesh GUID (distinct from {@link #id()}); unavailable until the host access implements it. */
-    default String guid() { throw unavailable("ArtMesh guid"); }
+    default String guid() {
+        throw unavailable("ArtMesh guid");
+    }
 
     /** Renames this Drawable through the verified Editor authoring seam. */
     default void setName(String name) {
@@ -135,7 +151,6 @@ public interface Drawable {
     default void setOpacity(final float opacity) {
         throw unavailable("ArtMesh opacity editing");
     }
-
 
     /**
      * Renames this ArtMesh's Editor ID (Inspector {@code setId} envelope).
@@ -305,8 +320,8 @@ public interface Drawable {
     /** Returns this ArtMesh's morph-target (BLEND_SHAPE) bindings only. */
     default List<ParameterBinding> getMorphParameterBindings() {
         return getParameterBindings().stream()
-            .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
-            .toList();
+                .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
+                .toList();
     }
 
     /**
@@ -336,7 +351,6 @@ public interface Drawable {
     default MorphTargets morphTargets() {
         throw unavailable("ArtMesh Morph Targets");
     }
-
 
     private static UnsupportedOperationException unavailable(final String feature) {
         return new UnsupportedOperationException(feature + " is unavailable.");

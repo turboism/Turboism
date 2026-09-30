@@ -1,15 +1,9 @@
 package dev.turboism.sdk.failure;
 
-
 import java.util.Objects;
 
 /** Privacy-safe scalar context supplied to exception-advice handlers. */
-public record FailureContext(
-    String pluginId,
-    String operationId,
-    String eventType,
-    String exceptionType
-) {
+public record FailureContext(String pluginId, String operationId, String eventType, String exceptionType) {
     public FailureContext {
         pluginId = requireText(pluginId, "pluginId");
         operationId = requireText(operationId, "operationId");

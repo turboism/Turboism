@@ -24,9 +24,11 @@ import java.util.Set;
  *  - set the per-OS default install path before the target-directory panel;
  *  - handle config.json before any payload file is copied: seed from the
  *    canonical template on fresh targets, update only disabledPlugins on a
- *    valid current document, or atomically migrate the explicit legacy schema
- *    before applying selection; fail closed before payload mutation on invalid,
- *    future, oversized, symlinked, or escaping config targets;
+ *    valid current document, or atomically normalize any other parseable
+ *    Turboism-owned document (legacy or unrecognized schemaVersion, unknown
+ *    fields, invalid values) to the current schema before applying selection;
+ *    fail closed before payload mutation only on foreign-format, unparseable,
+ *    oversized, symlinked, or escaping config targets;
  *  - mark the bundled uninstall.command executable on macOS, only after the
  *    file has been copied (afterPacks).
  *
@@ -129,11 +131,19 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         boolean lite = "lite".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR));
 
         Map<String, Object> seed = ConfigMerge.loadExisting(home);
-        final boolean current = seed != null && ConfigMerge.schemaVersion(seed) == 1L;
+        boolean current = false;
         if (seed == null) {
             seed = ConfigMerge.loadTemplate();
-        } else if (!current) {
-            seed = ConfigMerge.migrateToCurrent(seed);
+        } else {
+            try {
+                ConfigMerge.validateCurrent(seed);
+                current = true;
+            } catch (ConfigMerge.ConfigException invalid) {
+                // Compatibility path: a legacy/future schema, unknown fields, or
+                // invalid values are normalized to v1 instead of aborting the
+                // install before payload writes.
+                seed = ConfigMerge.normalizeToCurrent(seed);
+            }
         }
 
         List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
@@ -146,7 +156,7 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         }
 
         // Config validation and any required atomic publication complete before managed files are
-        // retired. An invalid/future config therefore cannot mutate the installation tree.
+        // retired. A foreign or unreadable config therefore cannot mutate the installation tree.
         ConfigMerge.retireManagedPlugins(home);
     }
 

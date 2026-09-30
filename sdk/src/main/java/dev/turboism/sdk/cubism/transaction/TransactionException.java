@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-
 /**
  * Checked exception for transaction lifecycle errors.
  * Carries SDK-safe diagnostic information.
@@ -30,19 +29,25 @@ public class TransactionException extends Exception {
      *
      * @return the transaction id
      */
-    public String transactionId() { return transactionId; }
+    public String transactionId() {
+        return transactionId;
+    }
 
     /**
      * Returns the diagnostic error code.
      *
      * @return the error code
      */
-    public int errorCode() { return errorCode; }
+    public int errorCode() {
+        return errorCode;
+    }
 
     /**
      * Returns the failure severity.
      *
      * @return the severity label
      */
-    public String severity() { return severity; }
+    public String severity() {
+        return severity;
+    }
 }

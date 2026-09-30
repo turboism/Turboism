@@ -10,7 +10,6 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -57,94 +56,73 @@ public class PermissionProbePlugin implements TurboismPlugin {
         disposableScope = context.disposableScope();
 
         tryRegister("action", () -> {
-            Registration registration = context.actions().register(
-                "probe.action",
-                new ActionRegistry.Action() {
-                    @Override
-                    public String id() {
-                        return "probe.action";
-                    }
-
-                    @Override
-                    public String label() {
-                        return "Probe Action";
-                    }
-
-                    @Override
-                    public Consumer<ActionRegistry.ActionContext> handler() {
-                        return ctx -> {
-                        };
-                    }
+            Registration registration = context.actions().register("probe.action", new ActionRegistry.Action() {
+                @Override
+                public String id() {
+                    return "probe.action";
                 }
-            );
+
+                @Override
+                public String label() {
+                    return "Probe Action";
+                }
+
+                @Override
+                public Consumer<ActionRegistry.ActionContext> handler() {
+                    return ctx -> {};
+                }
+            });
             disposableScope.register(registration);
             actionRegistrationCount++;
         });
 
         tryRegister("menu", () -> {
-            Registration registration = context.menus().contribute(
-                new MenuRegistry.MenuContribution() {
-                    @Override
-                    public String menuPath() {
-                        return "Probe";
-                    }
-
-                    @Override
-                    public String actionId() {
-                        return "probe.action";
-                    }
-
-                    @Override
-                    public int order() {
-                        return 100;
-                    }
+            Registration registration = context.menus().contribute(new MenuRegistry.MenuContribution() {
+                @Override
+                public String menuPath() {
+                    return "Probe";
                 }
-            );
+
+                @Override
+                public String actionId() {
+                    return "probe.action";
+                }
+
+                @Override
+                public int order() {
+                    return 100;
+                }
+            });
             disposableScope.register(registration);
             menuRegistrationCount++;
         });
 
         tryRegister("mainToolbar", () -> {
-            Registration registration = context.mainToolbar().contribute(
-                new MainToolbarRegistry.MainToolbarContribution(
-                    "probe.toolbar",
-                    "probe.action",
-                    "probe.toolbar.label",
-                    "/probe/icon.png",
-                    "end",
-                    100
-                )
-            );
+            Registration registration = context.mainToolbar()
+                    .contribute(new MainToolbarRegistry.MainToolbarContribution(
+                            "probe.toolbar", "probe.action", "probe.toolbar.label", "/probe/icon.png", "end", 100));
             disposableScope.register(registration);
             mainToolbarRegistrationCount++;
         });
 
         tryRegister("paletteToolbar", () -> {
-            Registration registration = context.paletteToolbar().contribute(
-                new PaletteToolbarRegistry.PaletteToolbarContribution(
-                    "probe.palette",
-                    "probe.action",
-                    "probe.palette.label",
-                    "/probe/palette-icon.png",
-                    "parameters",
-                    "end",
-                    100
-                )
-            );
+            Registration registration = context.paletteToolbar()
+                    .contribute(new PaletteToolbarRegistry.PaletteToolbarContribution(
+                            "probe.palette",
+                            "probe.action",
+                            "probe.palette.label",
+                            "/probe/palette-icon.png",
+                            "parameters",
+                            "end",
+                            100));
             disposableScope.register(registration);
             paletteToolbarRegistrationCount++;
         });
 
         tryRegister("contextMenu", () -> {
-            Registration registration = context.contextMenu().contribute(
-                new ContextMenuRegistry.ContextMenuContribution(
-                    "probe.context",
-                    "Probe Context",
-                    null,
-                    "parameter",
-                    100
-                )
-            );
+            Registration registration = context.contextMenu()
+                    .contribute(new ContextMenuRegistry.ContextMenuContribution(
+                            "probe.context", "Probe Context", null, "parameter", 100));
             disposableScope.register(registration);
             contextMenuRegistrationCount++;
         });
@@ -156,8 +134,7 @@ public class PermissionProbePlugin implements TurboismPlugin {
         });
 
         tryRegister("event", () -> {
-            Registration registration = context.eventBus().subscribe(ProbeEvent.class, event -> {
-            });
+            Registration registration = context.eventBus().subscribe(ProbeEvent.class, event -> {});
             disposableScope.register(registration);
             eventSubscriptionCount++;
         });

@@ -5,41 +5,44 @@ import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 /** Declarative contributor for the verified dock-tab popup hook. */
 final class DockTabPopupHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_DOCK_TAB_POPUP_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         if (!environment.hookRuntimeAdmitted()) {
             return false;
         }
         if (environment.safeMode()) {
-            environment.runtime().ifPresent(runtime ->
-                runtime.info("bootstrap", "Turboism dock-tab popup hook skipped in safe mode"));
+            environment
+                    .runtime()
+                    .ifPresent(
+                            runtime -> runtime.info("bootstrap", "Turboism dock-tab popup hook skipped in safe mode"));
             return false;
         }
         return true;
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         final var resolver = environment.sliceResolver(
-            new VerifiedEmbeddedPanelResolverFactory(),
-            "cubism-" + environment.profile() + "-ui-embedded-panel.json",
-            "ui-embedded-panel"
-        );
-        final VerifiedDockTabPopupHookInstaller installer =
-            new VerifiedDockTabPopupHookInstaller(
+                new VerifiedEmbeddedPanelResolverFactory(),
+                "cubism-" + environment.profile() + "-ui-embedded-panel.json",
+                "ui-embedded-panel");
+        final VerifiedDockTabPopupHookInstaller installer = new VerifiedDockTabPopupHookInstaller(
                 environment.instrumentation(),
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.operation"),
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.palette-field"),
                 resolver.verifiedSelector("cubism.ui-panel.dock-tab-popup.menu-append"),
-                host.classLoader()
-            );
+                host.classLoader());
         installer.install();
         return installer;
     }

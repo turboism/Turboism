@@ -1,13 +1,12 @@
 package dev.turboism.preview;
 
-import org.junit.jupiter.api.Test;
-
-import java.net.URL;
-import java.net.URLClassLoader;
-
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.net.URL;
+import java.net.URLClassLoader;
+import org.junit.jupiter.api.Test;
 
 /**
  * Focused regression for the bootstrap-loaded SDK parent selection and the internal
@@ -22,9 +21,8 @@ class PreviewPluginLoaderParentTest {
     @Test
     void nullSdkLoaderDelegatesToPlatformClassLoader() {
         assertSame(
-            ClassLoader.getPlatformClassLoader(),
-            PreviewPluginLoader.resolvePluginParent(null).getParent()
-        );
+                ClassLoader.getPlatformClassLoader(),
+                PreviewPluginLoader.resolvePluginParent(null).getParent());
     }
 
     @Test
@@ -36,16 +34,9 @@ class PreviewPluginLoaderParentTest {
 
     @Test
     void nullSelectedParentLoadsJdkPlatformClass() throws Exception {
-        try (URLClassLoader loader = new URLClassLoader(
-            new URL[0],
-            PreviewPluginLoader.resolvePluginParent(null)
-        )) {
+        try (URLClassLoader loader = new URLClassLoader(new URL[0], PreviewPluginLoader.resolvePluginParent(null))) {
             // Real class resolution through the selected parent, not a mock
-            final Class<?> server = Class.forName(
-                "com.sun.net.httpserver.HttpServer",
-                false,
-                loader
-            );
+            final Class<?> server = Class.forName("com.sun.net.httpserver.HttpServer", false, loader);
             assertNotNull(server);
             assertSame(server, loader.loadClass("com.sun.net.httpserver.HttpServer"));
         }
@@ -54,48 +45,42 @@ class PreviewPluginLoaderParentTest {
     @Test
     void internalManagementContractsAreDenied() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[0],
-            PreviewPluginLoader.resolvePluginParent(
-                PreviewPluginLoaderParentTest.class.getClassLoader())
-        )) {
-            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.internal.core.CorePluginManagement"));
-            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.internal.core.ShellServices"));
+                new URL[0],
+                PreviewPluginLoader.resolvePluginParent(PreviewPluginLoaderParentTest.class.getClassLoader()))) {
+            assertThrows(
+                    ClassNotFoundException.class,
+                    () -> loader.loadClass("dev.turboism.internal.core.CorePluginManagement"));
+            assertThrows(
+                    ClassNotFoundException.class, () -> loader.loadClass("dev.turboism.internal.core.ShellServices"));
         }
     }
 
     @Test
     void shellAndShadedAgentNamespacesAreDenied() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[0],
-            PreviewPluginLoader.resolvePluginParent(
-                PreviewPluginLoaderParentTest.class.getClassLoader())
-        )) {
+                new URL[0],
+                PreviewPluginLoader.resolvePluginParent(PreviewPluginLoaderParentTest.class.getClassLoader()))) {
             // The class genuinely exists on the test classpath — the boundary, not the
             // classpath, is what keeps it away from external plugins.
-            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.shell.CoreShell"));
-            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.plugin.core.MainToolbarPlugin"));
-            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
-                "dev.turboism.agent.shaded.jackson.databind.ObjectMapper"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass("dev.turboism.shell.CoreShell"));
+            assertThrows(
+                    ClassNotFoundException.class, () -> loader.loadClass("dev.turboism.plugin.core.MainToolbarPlugin"));
+            assertThrows(
+                    ClassNotFoundException.class,
+                    () -> loader.loadClass("dev.turboism.agent.shaded.jackson.databind.ObjectMapper"));
         }
     }
 
     @Test
     void sdkIdentityIsPreservedThroughTheBoundary() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(
-            new URL[0],
-            PreviewPluginLoader.resolvePluginParent(
-                PreviewPluginLoaderParentTest.class.getClassLoader())
-        )) {
+                new URL[0],
+                PreviewPluginLoader.resolvePluginParent(PreviewPluginLoaderParentTest.class.getClassLoader()))) {
             // A plugin linking the SDK type must get the exact same Class identity the
             // runtime uses — the boundary only denies implementation namespaces.
             assertSame(
-                dev.turboism.sdk.plugin.TurboismPlugin.class,
-                loader.loadClass("dev.turboism.sdk.plugin.TurboismPlugin")
-            );
+                    dev.turboism.sdk.plugin.TurboismPlugin.class,
+                    loader.loadClass("dev.turboism.sdk.plugin.TurboismPlugin"));
         }
     }
 }

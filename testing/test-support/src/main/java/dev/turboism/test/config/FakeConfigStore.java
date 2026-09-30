@@ -1,7 +1,6 @@
 package dev.turboism.test.config;
 
 import dev.turboism.sdk.config.PluginConfigException;
-
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +29,8 @@ public final class FakeConfigStore {
         validateRelativePath(relativePath);
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(value, "value");
-        data.computeIfAbsent(normalizePath(relativePath), k -> new ConcurrentHashMap<>()).put(key, value);
+        data.computeIfAbsent(normalizePath(relativePath), k -> new ConcurrentHashMap<>())
+                .put(key, value);
     }
 
     private void validateRelativePath(String relativePath) throws PluginConfigException {

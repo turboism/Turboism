@@ -2,13 +2,6 @@ package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.plugin.PluginContext;
-
-import javax.swing.AbstractButton;
-import javax.swing.JDialog;
-import javax.swing.JFileChooser;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
@@ -22,6 +15,12 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.AbstractButton;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+import javax.swing.SwingUtilities;
 
 /** Exact-host probe for the user-visible Plugin Management -> Install plugin chooser. */
 public final class PluginManagementChooserValidationProbe implements CubismPlugin {
@@ -29,12 +28,10 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
     static final String RESULT_RELATIVE = "state/plugin-management-chooser-result.properties";
     static final String READY_MARKER = "PLUGIN_CHOOSER_PROBE_READY";
     private static final Duration UI_TIMEOUT = Duration.ofSeconds(90);
-    private static final List<String> MANAGEMENT_LABELS = List.of(
-        "Plugin Management", "插件管理", "外掛管理", "プラグイン管理", "플러그인 관리"
-    );
-    private static final List<String> INSTALL_LABELS = List.of(
-        "Install plugin…", "安装插件…", "安裝外掛…", "プラグインをインストール…", "플러그인 설치…"
-    );
+    private static final List<String> MANAGEMENT_LABELS =
+            List.of("Plugin Management", "插件管理", "外掛管理", "プラグイン管理", "플러그인 관리");
+    private static final List<String> INSTALL_LABELS =
+            List.of("Install plugin…", "安装插件…", "安裝外掛…", "プラグインをインストール…", "플러그인 설치…");
 
     private PluginContext context;
     private Thread validationThread;
@@ -71,31 +68,29 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
         boolean pending = false;
         try {
             final JMenuItem management = await(
-                () -> onEdt(() -> findMenuItem(MANAGEMENT_LABELS)), UI_TIMEOUT, "plugin-management menu item");
+                    () -> onEdt(() -> findMenuItem(MANAGEMENT_LABELS)), UI_TIMEOUT, "plugin-management menu item");
             SwingUtilities.invokeLater(management::doClick);
 
             final JDialog managementDialog = await(
-                () -> onEdt(PluginManagementChooserValidationProbe::findManagementDialog),
-                UI_TIMEOUT,
-                "plugin-management dialog"
-            );
+                    () -> onEdt(PluginManagementChooserValidationProbe::findManagementDialog),
+                    UI_TIMEOUT,
+                    "plugin-management dialog");
             final AbstractButton install = await(
-                () -> onEdt(() -> findButton(managementDialog, INSTALL_LABELS)),
-                UI_TIMEOUT,
-                "install-plugin button"
-            );
+                    () -> onEdt(() -> findButton(managementDialog, INSTALL_LABELS)),
+                    UI_TIMEOUT,
+                    "install-plugin button");
             SwingUtilities.invokeLater(install::doClick);
 
             final JFileChooser chooser = await(
-                () -> onEdt(PluginManagementChooserValidationProbe::findShowingChooser),
-                UI_TIMEOUT,
-                "install-plugin file chooser"
-            );
+                    () -> onEdt(PluginManagementChooserValidationProbe::findShowingChooser),
+                    UI_TIMEOUT,
+                    "install-plugin file chooser");
             observation = onEdt(() -> observeChooser(chooser));
             final Path selectedJar = Path.of(requireProperty("turboism.validation.selectedJar"));
-            context.logger().info("PLUGIN_CHOOSER_SELECTED path=" + selectedJar
-                + " regular=" + Files.isRegularFile(selectedJar)
-                + " size=" + (Files.isRegularFile(selectedJar) ? Files.size(selectedJar) : -1L));
+            context.logger()
+                    .info("PLUGIN_CHOOSER_SELECTED path=" + selectedJar
+                            + " regular=" + Files.isRegularFile(selectedJar)
+                            + " size=" + (Files.isRegularFile(selectedJar) ? Files.size(selectedJar) : -1L));
             if (!Files.isRegularFile(selectedJar)) {
                 throw new IllegalStateException("Selected validation JAR is not a regular file: " + selectedJar);
             }
@@ -106,18 +101,23 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
             });
             Thread.sleep(2_000L);
             context.logger().info("PLUGIN_CHOOSER_AFTER_APPROVE chooserShowing=" + onEdt(chooser::isShowing));
-            await(() -> pendingInstallReady(home) ? Boolean.TRUE : null, Duration.ofSeconds(20), "pending direct-JAR install");
-            context.logger().info("PLUGIN_CHOOSER_PENDING journal="
-                + home.resolve("state/runtime/plugin-management/pending.json"));
+            await(
+                    () -> pendingInstallReady(home) ? Boolean.TRUE : null,
+                    Duration.ofSeconds(20),
+                    "pending direct-JAR install");
+            context.logger()
+                    .info("PLUGIN_CHOOSER_PENDING journal="
+                            + home.resolve("state/runtime/plugin-management/pending.json"));
             pending = true;
-            writeResult(result, runId, hostVersion, observation, pending,
-                (System.nanoTime() - startedNanos) / 1_000_000L);
-            context.logger().info("PLUGIN_CHOOSER_RESULT status=" + (observation.passed() && pending ? "PASS" : "FAIL")
-                + " description=" + observation.description()
-                + " acceptAll=" + observation.acceptAllEnabled()
-                + " jarAccepted=" + observation.jarAccepted()
-                + " tpluginAccepted=" + observation.tpluginAccepted()
-                + " pending=" + pending);
+            writeResult(
+                    result, runId, hostVersion, observation, pending, (System.nanoTime() - startedNanos) / 1_000_000L);
+            context.logger()
+                    .info("PLUGIN_CHOOSER_RESULT status=" + (observation.passed() && pending ? "PASS" : "FAIL")
+                            + " description=" + observation.description()
+                            + " acceptAll=" + observation.acceptAllEnabled()
+                            + " jarAccepted=" + observation.jarAccepted()
+                            + " tpluginAccepted=" + observation.tpluginAccepted()
+                            + " pending=" + pending);
             onEdt(() -> {
                 managementDialog.dispose();
                 return null;
@@ -125,8 +125,13 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
         } catch (Exception failure) {
             context.logger().error("PLUGIN_CHOOSER_RESULT status=FAIL", failure);
             try {
-                writeResult(result, runId, hostVersion, observation, pending,
-                    (System.nanoTime() - startedNanos) / 1_000_000L);
+                writeResult(
+                        result,
+                        runId,
+                        hostVersion,
+                        observation,
+                        pending,
+                        (System.nanoTime() - startedNanos) / 1_000_000L);
             } catch (Exception writeFailure) {
                 context.logger().error("Plugin chooser result file could not be written", writeFailure);
             }
@@ -144,40 +149,39 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
         final boolean acceptAll = chooser.isAcceptAllFileFilterUsed();
         final javax.swing.filechooser.FileFilter active = chooser.getFileFilter();
         final String description = active == null ? "none" : String.valueOf(active.getDescription());
-        final boolean jarAccepted = active != null && active.accept(Path.of("validation-plugin.jar").toFile());
-        final boolean tpluginAccepted = active != null && active.accept(Path.of("validation-plugin.tplugin").toFile());
+        final boolean jarAccepted =
+                active != null && active.accept(Path.of("validation-plugin.jar").toFile());
+        final boolean tpluginAccepted = active != null
+                && active.accept(Path.of("validation-plugin.tplugin").toFile());
         final boolean mentionsJar = description.toLowerCase(Locale.ROOT).contains("*.jar");
         final boolean mentionsLegacy = description.toLowerCase(Locale.ROOT).contains("tplugin");
         final boolean passed = !acceptAll && jarAccepted && !tpluginAccepted && mentionsJar && !mentionsLegacy;
-        return new ChooserObservation(
-            acceptAll, jarAccepted, tpluginAccepted, description.replace('\n', ' '), passed
-        );
+        return new ChooserObservation(acceptAll, jarAccepted, tpluginAccepted, description.replace('\n', ' '), passed);
     }
 
     static void writeResult(
-        final Path result,
-        final String runId,
-        final String hostVersion,
-        final ChooserObservation observation,
-        final boolean pending,
-        final long durationMillis
-    ) throws Exception {
+            final Path result,
+            final String runId,
+            final String hostVersion,
+            final ChooserObservation observation,
+            final boolean pending,
+            final long durationMillis)
+            throws Exception {
         Files.createDirectories(result.getParent());
         Files.writeString(
-            result,
-            "schemaVersion=1\n"
-                + "runId=" + singleLine(runId) + "\n"
-                + "hostVersion=" + singleLine(hostVersion) + "\n"
-                + "acceptAllEnabled=" + observation.acceptAllEnabled() + "\n"
-                + "jarAccepted=" + observation.jarAccepted() + "\n"
-                + "tpluginAccepted=" + observation.tpluginAccepted() + "\n"
-                + "description=" + singleLine(observation.description()) + "\n"
-                + "pending=" + pending + "\n"
-                + "durationMillis=" + durationMillis + "\n"
-                + "status=" + (observation.passed() && pending ? "PASS" : "FAIL") + "\n",
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING
-        );
+                result,
+                "schemaVersion=1\n"
+                        + "runId=" + singleLine(runId) + "\n"
+                        + "hostVersion=" + singleLine(hostVersion) + "\n"
+                        + "acceptAllEnabled=" + observation.acceptAllEnabled() + "\n"
+                        + "jarAccepted=" + observation.jarAccepted() + "\n"
+                        + "tpluginAccepted=" + observation.tpluginAccepted() + "\n"
+                        + "description=" + singleLine(observation.description()) + "\n"
+                        + "pending=" + pending + "\n"
+                        + "durationMillis=" + durationMillis + "\n"
+                        + "status=" + (observation.passed() && pending ? "PASS" : "FAIL") + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING);
     }
 
     private static boolean pendingInstallReady(final Path home) {
@@ -187,11 +191,11 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
             if (!Files.isRegularFile(pending) || !Files.isDirectory(packages)) return false;
             final String journal = Files.readString(pending);
             final String expectedPluginId = requireProperty("turboism.validation.expectedPluginId");
-            if (!journal.contains(expectedPluginId)
-                || !journal.matches("(?s).*\\\"type\\\"\\s*:\\s*\\\"INSTALL\\\".*")) return false;
+            if (!journal.contains(expectedPluginId) || !journal.matches("(?s).*\\\"type\\\"\\s*:\\s*\\\"INSTALL\\\".*"))
+                return false;
             try (var files = Files.list(packages)) {
                 return files.anyMatch(path -> Files.isRegularFile(path)
-                    && path.getFileName().toString().endsWith(".jar"));
+                        && path.getFileName().toString().endsWith(".jar"));
             }
         } catch (Exception ignored) {
             return false;
@@ -212,8 +216,8 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
 
     private static JDialog findManagementDialog() {
         for (Window window : Window.getWindows()) {
-            if (window instanceof JDialog dialog && dialog.isShowing()
-                && MANAGEMENT_LABELS.contains(dialog.getTitle())) return dialog;
+            if (window instanceof JDialog dialog && dialog.isShowing() && MANAGEMENT_LABELS.contains(dialog.getTitle()))
+                return dialog;
         }
         return null;
     }
@@ -230,11 +234,9 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
         }
         return null;
     }
+
     private static <T extends Component> T findComponent(
-        final Component component,
-        final Class<T> type,
-        final java.util.function.Predicate<T> predicate
-    ) {
+            final Component component, final Class<T> type, final java.util.function.Predicate<T> predicate) {
         if (type.isInstance(component)) {
             final T candidate = type.cast(component);
             if (predicate.test(candidate)) return candidate;
@@ -254,11 +256,8 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
         return null;
     }
 
-    private static <T> T await(
-        final Callable<T> query,
-        final Duration timeout,
-        final String description
-    ) throws Exception {
+    private static <T> T await(final Callable<T> query, final Duration timeout, final String description)
+            throws Exception {
         final long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
             final T value = query.call();
@@ -300,12 +299,11 @@ public final class PluginManagementChooserValidationProbe implements CubismPlugi
     }
 
     record ChooserObservation(
-        boolean acceptAllEnabled,
-        boolean jarAccepted,
-        boolean tpluginAccepted,
-        String description,
-        boolean passed
-    ) {
+            boolean acceptAllEnabled,
+            boolean jarAccepted,
+            boolean tpluginAccepted,
+            String description,
+            boolean passed) {
         static ChooserObservation failure(final String description) {
             return new ChooserObservation(true, false, true, description, false);
         }

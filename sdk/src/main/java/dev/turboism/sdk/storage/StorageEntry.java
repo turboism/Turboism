@@ -10,11 +10,7 @@ import java.util.Objects;
  * @param sizeBytes size in bytes as reported by the host filesystem; never
  *     negative
  */
-public record StorageEntry(
-    StoragePath path,
-    StorageEntryType type,
-    long sizeBytes
-) {
+public record StorageEntry(StoragePath path, StorageEntryType type, long sizeBytes) {
     public StorageEntry {
         path = Objects.requireNonNull(path, "path");
         type = Objects.requireNonNull(type, "type");

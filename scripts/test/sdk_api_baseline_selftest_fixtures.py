@@ -47,6 +47,15 @@ def base_sources() -> dict[str, str]:
         "sample/api/Point.java": "package sample.api;\npublic record Point(int x, int y) {}\n",
         "sample/api/Shape.java": "package sample.api;\npublic sealed interface Shape permits Circle {}\n",
         "sample/api/Circle.java": "package sample.api;\npublic final class Circle implements Shape {}\n",
+        "dev/turboism/sdk/Incubating.java": """package dev.turboism.sdk;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD, ElementType.RECORD_COMPONENT, ElementType.PARAMETER})
+public @interface Incubating {}
+""",
     }
 
 
@@ -91,6 +100,8 @@ def service_method(variant: str) -> str:
         return "T read(CharSequence key) throws IOException;"
     if variant == "forbidden":
         return "com.live2d.privateapi.Host read(String key) throws IOException;"
+    if variant == "incubating":
+        return "T read(String key) throws IOException;\n    @dev.turboism.sdk.Incubating int experimental();"
     return "T read(String key) throws IOException;"
 
 
@@ -99,4 +110,17 @@ def variant_sources(variant: str) -> dict[str, str]:
         return {"sample/api/Extra.java": "package sample.api;\npublic final class Extra {}\n"}
     if variant == "forbidden":
         return {"com/live2d/privateapi/Host.java": "package com.live2d.privateapi;\npublic final class Host {}\n"}
+    if variant == "incubating":
+        return {
+            "sample/incubating/Experimental.java": """package sample.incubating;
+@dev.turboism.sdk.Incubating
+public final class Experimental {
+    public int field;
+    public int method() { return 1; }
+    public static final class Nested {
+        public int nestedMethod() { return 2; }
+    }
+}
+""",
+        }
     return {}

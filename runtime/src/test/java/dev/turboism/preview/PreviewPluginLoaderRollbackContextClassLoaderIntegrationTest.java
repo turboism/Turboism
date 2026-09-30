@@ -1,28 +1,26 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
 
@@ -45,9 +43,7 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
         System.clearProperty(SHUTDOWN_PROPERTY);
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
-            final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log
-            );
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
 
@@ -57,9 +53,8 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
                 assertEquals(RESOURCE_VALUE, System.getProperty(DISABLE_PROPERTY));
                 assertEquals(RESOURCE_VALUE, System.getProperty(SHUTDOWN_PROPERTY));
                 assertSame(originalContextLoader, Thread.currentThread().getContextClassLoader());
-                assertFalse(runtime.loadedPlugins().stream().anyMatch(plugin ->
-                    plugin.id().equals(PLUGIN_ID)
-                ));
+                assertFalse(runtime.loadedPlugins().stream()
+                        .anyMatch(plugin -> plugin.id().equals(PLUGIN_ID)));
 
                 Files.delete(pluginJar);
                 assertFalse(Files.exists(pluginJar));
@@ -77,9 +72,7 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
     private Path writePlugin(final Path pluginDirectory) throws Exception {
         final Path sourceRoot = temporary.resolve("rollback-source");
         final Path classes = temporary.resolve("rollback-classes");
-        final Path source = sourceRoot.resolve(
-            "dev/example/rollback/RollbackEntrypoint.java"
-        );
+        final Path source = sourceRoot.resolve("dev/example/rollback/RollbackEntrypoint.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, """
             package dev.example.rollback;
@@ -122,15 +115,14 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
         Files.createDirectories(classes);
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         final int result = compiler.run(
-            null,
-            null,
-            null,
-            "-classpath",
-            System.getProperty("java.class.path"),
-            "-d",
-            classes.toString(),
-            source.toString()
-        );
+                null,
+                null,
+                null,
+                "-classpath",
+                System.getProperty("java.class.path"),
+                "-d",
+                classes.toString(),
+                source.toString());
         if (result != 0) {
             throw new IllegalStateException("fixture compilation failed");
         }
@@ -140,24 +132,16 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(jar))) {
             try (var paths = Files.walk(classes)) {
                 for (Path path : paths.filter(Files::isRegularFile)
-                    .sorted(Comparator.naturalOrder()).toList()) {
-                    add(
-                        output,
-                        classes.relativize(path).toString().replace('\\', '/'),
-                        Files.readAllBytes(path)
-                    );
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
+                    add(output, classes.relativize(path).toString().replace('\\', '/'), Files.readAllBytes(path));
                 }
             }
             add(
-                output,
-                "dev/example/rollback/rollback-owned.txt",
-                (RESOURCE_VALUE + "\n").getBytes(StandardCharsets.UTF_8)
-            );
-            add(
-                output,
-                "META-INF/turboism/plugin.json",
-                descriptor().getBytes(StandardCharsets.UTF_8)
-            );
+                    output,
+                    "dev/example/rollback/rollback-owned.txt",
+                    (RESOURCE_VALUE + "\n").getBytes(StandardCharsets.UTF_8));
+            add(output, "META-INF/turboism/plugin.json", descriptor().getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
         return jar;
@@ -181,18 +165,13 @@ class PreviewPluginLoaderRollbackContextClassLoaderIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
-    private static void add(
-        final JarOutputStream output,
-        final String name,
-        final byte[] content
-    ) throws Exception {
+    private static void add(final JarOutputStream output, final String name, final byte[] content) throws Exception {
         output.putNextEntry(new JarEntry(name));
         output.write(content);
         output.closeEntry();

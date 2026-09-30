@@ -1,11 +1,15 @@
 package dev.turboism.preview.report;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -14,14 +18,8 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertTimeout;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PreviewReportWriterTest {
 
@@ -34,19 +32,17 @@ class PreviewReportWriterTest {
         final List<PreviewReportWriter.Diagnostic> diagnostics = new ArrayList<>();
         final PreviewReportWriter writer = new PreviewReportWriter(state, diagnostics::add);
         final Map<PreviewReportType, ObjectNode> documents =
-            PreviewReportDocuments.emptyReportSet(
-                "runtime-writer-test",
-                Instant.parse("2026-07-15T00:00:00Z")
-            );
+                PreviewReportDocuments.emptyReportSet("runtime-writer-test", Instant.parse("2026-07-15T00:00:00Z"));
 
         final Map<PreviewReportType, Boolean> results = writer.writeAll(documents);
 
-        assertEquals(Map.of(
-            PreviewReportType.PREVIEW_RUNTIME, true,
-            PreviewReportType.PLUGIN_LOAD, true,
-            PreviewReportType.CAPABILITY, true,
-            PreviewReportType.I18N, true
-        ), results);
+        assertEquals(
+                Map.of(
+                        PreviewReportType.PREVIEW_RUNTIME, true,
+                        PreviewReportType.PLUGIN_LOAD, true,
+                        PreviewReportType.CAPABILITY, true,
+                        PreviewReportType.I18N, true),
+                results);
         final Map<PreviewReportType, byte[]> written = new EnumMap<>(PreviewReportType.class);
         for (PreviewReportType type : PreviewReportType.values()) {
             final Path target = state.resolve(type.fileName());
@@ -61,32 +57,20 @@ class PreviewReportWriterTest {
     }
 
     @Test
-    void invalidReplacementPreservesPreviousValidReportAndEmitsSanitizedDiagnostic()
-        throws Exception {
+    void invalidReplacementPreservesPreviousValidReportAndEmitsSanitizedDiagnostic() throws Exception {
         final Path state = temporary.resolve("state");
         final List<PreviewReportWriter.Diagnostic> diagnostics = new ArrayList<>();
         final PreviewReportWriter writer = new PreviewReportWriter(state, diagnostics::add);
         final ObjectNode valid = PreviewReportDocuments.emptyReport(
-            PreviewReportType.PLUGIN_LOAD,
-            "runtime-writer-test",
-            Instant.parse("2026-07-15T00:00:00Z")
-        );
+                PreviewReportType.PLUGIN_LOAD, "runtime-writer-test", Instant.parse("2026-07-15T00:00:00Z"));
         assertTrue(writer.write(PreviewReportType.PLUGIN_LOAD, valid));
         final Path target = state.resolve(PreviewReportType.PLUGIN_LOAD.fileName());
         final byte[] before = Files.readAllBytes(target);
 
         final ObjectNode invalid = valid.deepCopy();
         final ObjectNode plugin = PreviewReportDocuments.pluginLoadEntry(
-            "dev.example.plugin",
-            "../private/plugin.jar",
-            null,
-            "DISCOVERED",
-            "RESOLVED",
-            "ENABLED",
-            false
-        );
-        ((com.fasterxml.jackson.databind.node.ArrayNode) invalid.path("payload").path("plugins"))
-            .add(plugin);
+                "dev.example.plugin", "../private/plugin.jar", null, "DISCOVERED", "RESOLVED", "ENABLED", false);
+        ((com.fasterxml.jackson.databind.node.ArrayNode) invalid.path("payload").path("plugins")).add(plugin);
 
         assertFalse(writer.write(PreviewReportType.PLUGIN_LOAD, invalid));
         assertArrayEquals(before, Files.readAllBytes(target));
@@ -98,12 +82,9 @@ class PreviewReportWriterTest {
     @Test
     void typeMismatchFailsWithoutCreatingPlaceholder() throws Exception {
         final Path state = temporary.resolve("state");
-        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> { });
+        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> {});
         final ObjectNode wrong = PreviewReportDocuments.emptyReport(
-            PreviewReportType.I18N,
-            "runtime-writer-test",
-            Instant.parse("2026-07-15T00:00:00Z")
-        );
+                PreviewReportType.I18N, "runtime-writer-test", Instant.parse("2026-07-15T00:00:00Z"));
         assertFalse(writer.write(PreviewReportType.CAPABILITY, wrong));
         assertFalse(Files.exists(state.resolve(PreviewReportType.CAPABILITY.fileName())));
     }
@@ -111,7 +92,7 @@ class PreviewReportWriterTest {
     @Test
     void sanitizesSensitiveTextAcrossAllFourVariantsBeforeStrictValidation() throws Exception {
         final Path state = temporary.resolve("state");
-        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> { });
+        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> {});
         for (PreviewReportType type : PreviewReportType.values()) {
             final ObjectNode report = reportWithSensitiveText(type);
             assertTrue(writer.write(type, report), type.name());
@@ -137,20 +118,20 @@ class PreviewReportWriterTest {
     }
 
     @Test
-    void deterministicallyTruncatesEveryOversizedVariantAndStrictlyValidatesOutput()
-        throws Exception {
+    void deterministicallyTruncatesEveryOversizedVariantAndStrictlyValidatesOutput() throws Exception {
         for (PreviewReportType type : PreviewReportType.values()) {
             final ObjectNode first = oversized(type);
             final ObjectNode second = oversized(type);
             final Path firstState = temporary.resolve("first-" + type.name());
             final Path secondState = temporary.resolve("second-" + type.name());
-            assertTrue(new PreviewReportWriter(firstState, ignored -> { }).write(type, first));
-            assertTrue(new PreviewReportWriter(secondState, ignored -> { }).write(type, second));
+            assertTrue(new PreviewReportWriter(firstState, ignored -> {}).write(type, first));
+            assertTrue(new PreviewReportWriter(secondState, ignored -> {}).write(type, second));
             final byte[] firstBytes = Files.readAllBytes(firstState.resolve(type.fileName()));
             final byte[] secondBytes = Files.readAllBytes(secondState.resolve(type.fileName()));
             assertArrayEquals(firstBytes, secondBytes, type.name());
             assertTrue(firstBytes.length <= PreviewReportValidator.MAX_REPORT_BYTES, type.name());
-            final JsonNode validated = PreviewReportValidator.validate(firstBytes).document();
+            final JsonNode validated =
+                    PreviewReportValidator.validate(firstBytes).document();
             assertTrue(validated.path("truncation").path("truncated").booleanValue(), type.name());
             assertTrue(validated.path("truncation").path("droppedEntries").longValue() > 0, type.name());
             assertNotEquals("NONE", validated.path("truncation").path("reason").textValue());
@@ -163,8 +144,7 @@ class PreviewReportWriterTest {
             final PreviewReportSanitizer sanitizer = new PreviewReportSanitizer();
             for (int index = 0; index < 1000; index++) {
                 final ObjectNode report = baseReport(PreviewReportType.PREVIEW_RUNTIME);
-                ((ObjectNode) report.path("payload").path("host"))
-                    .put("product", "x".repeat(10_000));
+                ((ObjectNode) report.path("payload").path("host")).put("product", "x".repeat(10_000));
                 sanitizer.sanitize(report);
             }
         });
@@ -181,12 +161,11 @@ class PreviewReportWriterTest {
             addFailure((ArrayNode) payload.path("eventFailures"), "event-" + index + "-" + "x".repeat(900));
         }
         final Path state = temporary.resolve("categories");
-        assertTrue(new PreviewReportWriter(state, ignored -> { }).write(
-            PreviewReportType.PREVIEW_RUNTIME, report
-        ));
-        final JsonNode payloadWritten = PreviewReportValidator.validate(Files.readAllBytes(
-            state.resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())
-        )).document().path("payload");
+        assertTrue(new PreviewReportWriter(state, ignored -> {}).write(PreviewReportType.PREVIEW_RUNTIME, report));
+        final JsonNode payloadWritten = PreviewReportValidator.validate(
+                        Files.readAllBytes(state.resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())))
+                .document()
+                .path("payload");
         for (JsonNode failure : payloadWritten.path("taskFailures")) {
             assertTrue(failure.path("message").asText().startsWith("task-"));
         }
@@ -204,12 +183,9 @@ class PreviewReportWriterTest {
     @Test
     void minimumSummaryStillOverLimitPreservesPreviousValidFile() throws Exception {
         final Path state = temporary.resolve("state");
-        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> { });
+        final PreviewReportWriter writer = new PreviewReportWriter(state, ignored -> {});
         final ObjectNode valid = PreviewReportDocuments.emptyReport(
-            PreviewReportType.PREVIEW_RUNTIME,
-            "runtime-writer-test",
-            Instant.parse("2026-07-15T00:00:00Z")
-        );
+                PreviewReportType.PREVIEW_RUNTIME, "runtime-writer-test", Instant.parse("2026-07-15T00:00:00Z"));
         assertTrue(writer.write(PreviewReportType.PREVIEW_RUNTIME, valid));
         final Path target = state.resolve(PreviewReportType.PREVIEW_RUNTIME.fileName());
         final byte[] before = Files.readAllBytes(target);
@@ -224,15 +200,14 @@ class PreviewReportWriterTest {
     private static ObjectNode reportWithSensitiveText(final PreviewReportType type) {
         final ObjectNode report = baseReport(type);
         final String sensitive = "C:/Users/alice/private.txt "
-            + "\\\\fileserver\\private\\item /home/alice/private.txt ~/private.txt "
-            + "https://private.example/path Authorization: bearer-secret "
-            + "token-super-secret grant-private-id handle-private-id "
-            + "com.private.HostException: private detail";
+                + "\\\\fileserver\\private\\item /home/alice/private.txt ~/private.txt "
+                + "https://private.example/path Authorization: bearer-secret "
+                + "token-super-secret grant-private-id handle-private-id "
+                + "com.private.HostException: private detail";
         report.put("runtimeId", "token-private-runtime");
         report.put("relativeRecordPath", "/home/alice/private-record.json");
         switch (type) {
-            case PREVIEW_RUNTIME -> ((ObjectNode) report.path("payload").path("host"))
-                .put("product", sensitive);
+            case PREVIEW_RUNTIME -> ((ObjectNode) report.path("payload").path("host")).put("product", sensitive);
             case PLUGIN_LOAD -> addPlugin(report, sensitive);
             case CAPABILITY -> addCapability(report, sensitive);
             case I18N -> addI18n(report, sensitive);
@@ -246,9 +221,8 @@ class PreviewReportWriterTest {
         for (int index = 0; index < 2000; index++) {
             final String value = padding + index;
             switch (type) {
-                case PREVIEW_RUNTIME -> addFailure(
-                    (ArrayNode) report.path("payload").path("taskFailures"), value
-                );
+                case PREVIEW_RUNTIME ->
+                    addFailure((ArrayNode) report.path("payload").path("taskFailures"), value);
                 case PLUGIN_LOAD -> addPlugin(report, value);
                 case CAPABILITY -> addCapability(report, value);
                 case I18N -> addI18n(report, value);
@@ -258,43 +232,38 @@ class PreviewReportWriterTest {
     }
 
     private static ObjectNode baseReport(final PreviewReportType type) {
-        return PreviewReportDocuments.emptyReport(
-            type,
-            "runtime-writer-test",
-            Instant.parse("2026-07-15T00:00:00Z")
-        );
+        return PreviewReportDocuments.emptyReport(type, "runtime-writer-test", Instant.parse("2026-07-15T00:00:00Z"));
     }
 
     private static void addFailure(final ArrayNode failures, final String message) {
         failures.add(PreviewReportDocuments.failure(
-            "PRIVATE_FAILURE", "ERROR", "runtime", null, null, null, message, null, 1
-        ));
+                "PRIVATE_FAILURE", "ERROR", "runtime", null, null, null, message, null, 1));
     }
 
     private static void addPlugin(final ObjectNode report, final String message) {
         final ObjectNode plugin = PreviewReportDocuments.pluginLoadEntry(
-            "dev.example.plugin", null, null, "DISCOVERED", "RESOLVED", "ENABLED", false
-        );
+                "dev.example.plugin", null, null, "DISCOVERED", "RESOLVED", "ENABLED", false);
         addFailure((ArrayNode) plugin.path("failures"), message);
         ((ArrayNode) report.path("payload").path("plugins")).add(plugin);
     }
 
     private static void addCapability(final ObjectNode report, final String summary) {
         final ObjectNode capability = PreviewReportDocuments.capabilityEntry(
-            "dev.example.plugin", "cubism.project.read", "cubism.project.read", null,
-            "UNKNOWN", "NOT_DECLARED", "NONE"
-        );
-        ((ArrayNode) capability.path("evidence")).add(PreviewReportDocuments.evidence(
-            "DECLARED", "UNKNOWN", summary, null, null
-        ));
+                "dev.example.plugin",
+                "cubism.project.read",
+                "cubism.project.read",
+                null,
+                "UNKNOWN",
+                "NOT_DECLARED",
+                "NONE");
+        ((ArrayNode) capability.path("evidence"))
+                .add(PreviewReportDocuments.evidence("DECLARED", "UNKNOWN", summary, null, null));
         ((ArrayNode) report.path("payload").path("capabilities")).add(capability);
     }
 
     private static void addI18n(final ObjectNode report, final String marker) {
         final ObjectNode plugin = PreviewReportDocuments.i18nPluginEntry(
-            "dev.example.plugin", "JVM_DISPLAY_DEFAULT", "en-US", "en-US",
-            List.of("en", "base", "marker")
-        );
+                "dev.example.plugin", "JVM_DISPLAY_DEFAULT", "en-US", "en-US", List.of("en", "base", "marker"));
         final ObjectNode missing = PreviewReportDocuments.JSON.createObjectNode();
         missing.put("key", "missing.key");
         missing.put("locale", "en-US");

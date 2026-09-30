@@ -5,12 +5,12 @@ import dev.turboism.adapter.cubism.PreviewCaptureHostOperations;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.RecentFileAdapter;
 import dev.turboism.adapter.cubism.RecentPreviewContributionAdapter;
-import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
-import dev.turboism.adapter.cubism.VerifiedRecentFileListHostOperations;
-import dev.turboism.adapter.cubism.VerifiedRecentPreviewPopupHostOperations;
 import dev.turboism.adapter.cubism.RenderStatusAdapter;
+import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
+import dev.turboism.adapter.cubism.VerifiedRecentFileListHostOperations;
+import dev.turboism.adapter.cubism.VerifiedRecentPreviewPopupHostOperations;
 import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.cubism.backup.VerifiedAutoBackupHostOperations;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
@@ -19,15 +19,13 @@ import dev.turboism.adapter.ui.ThemeStatusAdapter;
 import dev.turboism.adapter.ui.ThemeStatusAdapterImpl;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapterImpl;
-import dev.turboism.adapter.ui.VerifiedCxStatusBarHostAccess;
-import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
+import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.resource.UiResourceService;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -38,18 +36,17 @@ import java.util.function.Consumer;
  * adapters without changing plugin-facing SDK APIs.</p>
  */
 public record RuntimeHostAdapters(
-    ThemeStatusAdapter themeStatus,
-    RenderStatusAdapter renderStatus,
-    ProjectWorkspaceAdapter projectWorkspace,
-    ClipMaskReadAdapter clipMaskRead,
-    StatusToolbarAdapter statusToolbar,
-    UiSurfaceAdapter uiSurface,
-    RecentFileAdapter recentFiles,
-    ScreenshotCaptureAdapter screenshots,
-    RecentPreviewContributionAdapter recentPreviews,
-    AutoBackupAdapter autoBackup,
-    UiResourceService uiResources
-) {
+        ThemeStatusAdapter themeStatus,
+        RenderStatusAdapter renderStatus,
+        ProjectWorkspaceAdapter projectWorkspace,
+        ClipMaskReadAdapter clipMaskRead,
+        StatusToolbarAdapter statusToolbar,
+        UiSurfaceAdapter uiSurface,
+        RecentFileAdapter recentFiles,
+        ScreenshotCaptureAdapter screenshots,
+        RecentPreviewContributionAdapter recentPreviews,
+        AutoBackupAdapter autoBackup,
+        UiResourceService uiResources) {
 
     public RuntimeHostAdapters {
         themeStatus = Objects.requireNonNull(themeStatus, "themeStatus");
@@ -67,46 +64,49 @@ public record RuntimeHostAdapters(
 
     /** Compatibility constructor: the UI resource provider stays in fail-closed safe mode. */
     public RuntimeHostAdapters(
-        final ThemeStatusAdapter themeStatus,
-        final RenderStatusAdapter renderStatus,
-        final ProjectWorkspaceAdapter projectWorkspace,
-        final ClipMaskReadAdapter clipMaskRead,
-        final StatusToolbarAdapter statusToolbar,
-        final UiSurfaceAdapter uiSurface,
-        final RecentFileAdapter recentFiles,
-        final ScreenshotCaptureAdapter screenshots,
-        final RecentPreviewContributionAdapter recentPreviews,
-        final AutoBackupAdapter autoBackup
-    ) {
+            final ThemeStatusAdapter themeStatus,
+            final RenderStatusAdapter renderStatus,
+            final ProjectWorkspaceAdapter projectWorkspace,
+            final ClipMaskReadAdapter clipMaskRead,
+            final StatusToolbarAdapter statusToolbar,
+            final UiSurfaceAdapter uiSurface,
+            final RecentFileAdapter recentFiles,
+            final ScreenshotCaptureAdapter screenshots,
+            final RecentPreviewContributionAdapter recentPreviews,
+            final AutoBackupAdapter autoBackup) {
         this(
-            themeStatus,
-            renderStatus,
-            projectWorkspace,
-            clipMaskRead,
-            statusToolbar,
-            uiSurface,
-            recentFiles,
-            screenshots,
-            recentPreviews,
-            autoBackup,
-            UiResourceService.unavailable()
-        );
+                themeStatus,
+                renderStatus,
+                projectWorkspace,
+                clipMaskRead,
+                statusToolbar,
+                uiSurface,
+                recentFiles,
+                screenshots,
+                recentPreviews,
+                autoBackup,
+                UiResourceService.unavailable());
     }
 
     /** Compatibility constructor: recent-preview slots stay in safe mode. */
     public RuntimeHostAdapters(
-        final ThemeStatusAdapter themeStatus,
-        final RenderStatusAdapter renderStatus,
-        final ProjectWorkspaceAdapter projectWorkspace,
-        final ClipMaskReadAdapter clipMaskRead,
-        final StatusToolbarAdapter statusToolbar,
-        final UiSurfaceAdapter uiSurface
-    ) {
+            final ThemeStatusAdapter themeStatus,
+            final RenderStatusAdapter renderStatus,
+            final ProjectWorkspaceAdapter projectWorkspace,
+            final ClipMaskReadAdapter clipMaskRead,
+            final StatusToolbarAdapter statusToolbar,
+            final UiSurfaceAdapter uiSurface) {
         this(
-            themeStatus, renderStatus, projectWorkspace, clipMaskRead, statusToolbar, uiSurface,
-            RecentFileAdapter.safeMode(), ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode(), AutoBackupAdapter.safeMode()
-        );
+                themeStatus,
+                renderStatus,
+                projectWorkspace,
+                clipMaskRead,
+                statusToolbar,
+                uiSurface,
+                RecentFileAdapter.safeMode(),
+                ScreenshotCaptureAdapter.safeMode(),
+                RecentPreviewContributionAdapter.safeMode(),
+                AutoBackupAdapter.safeMode());
     }
 
     /**
@@ -117,47 +117,40 @@ public record RuntimeHostAdapters(
      */
     public static RuntimeHostAdapters safeMode() {
         return new RuntimeHostAdapters(
-            ThemeStatusAdapterImpl.safeMode(),
-            RenderStatusAdapter.Impl.safeMode(),
-            ProjectWorkspaceAdapter.Impl.safeMode(),
-            ClipMaskReadAdapter.Impl.safeMode(),
-            StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode(),
-            RecentFileAdapter.safeMode(),
-            ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode(),
-            AutoBackupAdapter.safeMode()
-        );
+                ThemeStatusAdapterImpl.safeMode(),
+                RenderStatusAdapter.Impl.safeMode(),
+                ProjectWorkspaceAdapter.Impl.safeMode(),
+                ClipMaskReadAdapter.Impl.safeMode(),
+                StatusToolbarAdapterImpl.safeMode(),
+                UiSurfaceAdapterImpl.safeMode(),
+                RecentFileAdapter.safeMode(),
+                ScreenshotCaptureAdapter.safeMode(),
+                RecentPreviewContributionAdapter.safeMode(),
+                AutoBackupAdapter.safeMode());
     }
 
     /**
      * Connects only the statically verified project/workspace slice.
      * Other adapters remain in safe mode until they receive their own evidence.
      */
-    static RuntimeHostAdapters withVerifiedProjectWorkspace(
-        final VerifiedMemberResolver resolver
-    ) {
+    static RuntimeHostAdapters withVerifiedProjectWorkspace(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
         if (!ProjectWorkspaceVerificationManifest.authorizes(resolver)) {
             throw new IllegalArgumentException(
-                "resolver does not authorize the complete project/workspace adapter slice"
-            );
+                    "resolver does not authorize the complete project/workspace adapter slice");
         }
         return new RuntimeHostAdapters(
-            ThemeStatusAdapterImpl.safeMode(),
-            RenderStatusAdapter.Impl.safeMode(),
-            ProjectWorkspaceAdapter.Impl.connected(new VerifiedProjectWorkspaceHostOperations(
-                resolver,
-                resolver.cubismVersion()
-            )),
-            ClipMaskReadAdapter.Impl.safeMode(),
-            StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode(),
-            RecentFileAdapter.safeMode(),
-            ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode(),
-            AutoBackupAdapter.safeMode()
-        );
+                ThemeStatusAdapterImpl.safeMode(),
+                RenderStatusAdapter.Impl.safeMode(),
+                ProjectWorkspaceAdapter.Impl.connected(
+                        new VerifiedProjectWorkspaceHostOperations(resolver, resolver.cubismVersion())),
+                ClipMaskReadAdapter.Impl.safeMode(),
+                StatusToolbarAdapterImpl.safeMode(),
+                UiSurfaceAdapterImpl.safeMode(),
+                RecentFileAdapter.safeMode(),
+                ScreenshotCaptureAdapter.safeMode(),
+                RecentPreviewContributionAdapter.safeMode(),
+                AutoBackupAdapter.safeMode());
     }
 
     /**
@@ -167,51 +160,42 @@ public record RuntimeHostAdapters(
     static RuntimeHostAdapters withVerifiedClipMask(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
         if (!ClipMaskVerificationManifest.reviewedCubismVersions().contains(resolver.admittedCubismVersion())
-            || !resolver.authorizes(
-                ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
-                ClipMaskVerificationManifest.CAPABILITY_IDS,
-                ClipMaskVerificationManifest.REQUIRED_ALIASES
-            )) {
-            throw new IllegalArgumentException(
-                "resolver does not authorize the complete clip-mask adapter slice"
-            );
+                || !resolver.authorizes(
+                        ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+                        ClipMaskVerificationManifest.CAPABILITY_IDS,
+                        ClipMaskVerificationManifest.REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("resolver does not authorize the complete clip-mask adapter slice");
         }
         return new RuntimeHostAdapters(
-            ThemeStatusAdapterImpl.safeMode(),
-            RenderStatusAdapter.Impl.safeMode(),
-            ProjectWorkspaceAdapter.Impl.safeMode(),
-            ClipMaskReadAdapter.Impl.connected(new VerifiedClipMaskHostOperations(
-                resolver,
-                resolver.cubismVersion()
-            )),
-            StatusToolbarAdapterImpl.safeMode(),
-            UiSurfaceAdapterImpl.safeMode(),
-            RecentFileAdapter.safeMode(),
-            ScreenshotCaptureAdapter.safeMode(),
-            RecentPreviewContributionAdapter.safeMode(),
-            AutoBackupAdapter.safeMode()
-        );
+                ThemeStatusAdapterImpl.safeMode(),
+                RenderStatusAdapter.Impl.safeMode(),
+                ProjectWorkspaceAdapter.Impl.safeMode(),
+                ClipMaskReadAdapter.Impl.connected(
+                        new VerifiedClipMaskHostOperations(resolver, resolver.cubismVersion())),
+                StatusToolbarAdapterImpl.safeMode(),
+                UiSurfaceAdapterImpl.safeMode(),
+                RecentFileAdapter.safeMode(),
+                ScreenshotCaptureAdapter.safeMode(),
+                RecentPreviewContributionAdapter.safeMode(),
+                AutoBackupAdapter.safeMode());
     }
 
     /** Atomically combines independently verified read-only slices into one adapter bundle. */
     static RuntimeHostAdapters withVerifiedProjectWorkspaceAndClipMask(
-        final VerifiedMemberResolver projectWorkspaceResolver,
-        final VerifiedMemberResolver clipMaskResolver
-    ) {
+            final VerifiedMemberResolver projectWorkspaceResolver, final VerifiedMemberResolver clipMaskResolver) {
         final RuntimeHostAdapters project = withVerifiedProjectWorkspace(projectWorkspaceResolver);
         final RuntimeHostAdapters clip = withVerifiedClipMask(clipMaskResolver);
         return new RuntimeHostAdapters(
-            project.themeStatus(),
-            project.renderStatus(),
-            project.projectWorkspace(),
-            clip.clipMaskRead(),
-            project.statusToolbar(),
-            project.uiSurface(),
-            project.recentFiles(),
-            project.screenshots(),
-            project.recentPreviews(),
-            project.autoBackup()
-        );
+                project.themeStatus(),
+                project.renderStatus(),
+                project.projectWorkspace(),
+                clip.clipMaskRead(),
+                project.statusToolbar(),
+                project.uiSurface(),
+                project.recentFiles(),
+                project.screenshots(),
+                project.recentPreviews(),
+                project.autoBackup());
     }
 
     /**
@@ -220,37 +204,29 @@ public record RuntimeHostAdapters(
      * other adapter is preserved.
      */
     static RuntimeHostAdapters withVerifiedStatusBar(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver statusBarResolver
-    ) {
+            final RuntimeHostAdapters base, final VerifiedMemberResolver statusBarResolver) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(statusBarResolver, "statusBarResolver");
         final String resolverVersion = statusBarResolver.admittedCubismVersion();
         if (!StatusBarVerificationManifest.reviewedCubismVersions().contains(resolverVersion)
-            || !statusBarResolver.authorizes(
-                StatusBarVerificationManifest.ADAPTER_SLICE_ID,
-                StatusBarVerificationManifest.CAPABILITY_IDS,
-                StatusBarVerificationManifest.REQUIRED_ALIASES
-            )) {
-            throw new IllegalArgumentException(
-                "resolver does not authorize the complete status-bar adapter slice"
-            );
+                || !statusBarResolver.authorizes(
+                        StatusBarVerificationManifest.ADAPTER_SLICE_ID,
+                        StatusBarVerificationManifest.CAPABILITY_IDS,
+                        StatusBarVerificationManifest.REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("resolver does not authorize the complete status-bar adapter slice");
         }
         return new RuntimeHostAdapters(
-            base.themeStatus(),
-            base.renderStatus(),
-            base.projectWorkspace(),
-            base.clipMaskRead(),
-            StatusToolbarAdapterImpl.connectedVerifiedCx(
-                statusBarResolver
-            ),
-            base.uiSurface(),
-            base.recentFiles(),
-            base.screenshots(),
-            base.recentPreviews(),
-            base.autoBackup(),
-            base.uiResources()
-        );
+                base.themeStatus(),
+                base.renderStatus(),
+                base.projectWorkspace(),
+                base.clipMaskRead(),
+                StatusToolbarAdapterImpl.connectedVerifiedCx(statusBarResolver),
+                base.uiSurface(),
+                base.recentFiles(),
+                base.screenshots(),
+                base.recentPreviews(),
+                base.autoBackup(),
+                base.uiResources());
     }
 
     /**
@@ -259,43 +235,38 @@ public record RuntimeHostAdapters(
      * captures. Every other adapter is preserved.
      */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver
-    ) {
+            final RuntimeHostAdapters base,
+            final VerifiedMemberResolver projectResolver,
+            final VerifiedMemberResolver panelResolver) {
         return withVerifiedRecentPreview(
-            base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale::resolve
-        );
+                base, projectResolver, panelResolver, dev.turboism.i18n.CubismHostLocale::resolve);
     }
 
     /** Connects the verified recent-preview slice with the caller's resolved effective locale. */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver,
-        final java.util.Locale locale
-    ) {
-        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
+            final RuntimeHostAdapters base,
+            final VerifiedMemberResolver projectResolver,
+            final VerifiedMemberResolver panelResolver,
+            final java.util.Locale locale) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> {});
     }
 
     /** Connects the verified recent-preview slice with the caller's effective-locale source. */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver,
-        final java.util.function.Supplier<java.util.Locale> locale
-    ) {
-        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
+            final RuntimeHostAdapters base,
+            final VerifiedMemberResolver projectResolver,
+            final VerifiedMemberResolver panelResolver,
+            final java.util.function.Supplier<java.util.Locale> locale) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> {});
     }
 
     /** Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink. */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver,
-        final java.util.Locale locale,
-        final Consumer<String> diagnostics
-    ) {
+            final RuntimeHostAdapters base,
+            final VerifiedMemberResolver projectResolver,
+            final VerifiedMemberResolver panelResolver,
+            final java.util.Locale locale,
+            final Consumer<String> diagnostics) {
         return withVerifiedRecentPreview(base, projectResolver, panelResolver, fixedLocale(locale), diagnostics);
     }
 
@@ -306,40 +277,35 @@ public record RuntimeHostAdapters(
      *     bundle's composition is honored
      */
     public static RuntimeHostAdapters withVerifiedRecentPreview(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver projectResolver,
-        final VerifiedMemberResolver panelResolver,
-        final java.util.function.Supplier<java.util.Locale> locale,
-        final Consumer<String> diagnostics
-    ) {
+            final RuntimeHostAdapters base,
+            final VerifiedMemberResolver projectResolver,
+            final VerifiedMemberResolver panelResolver,
+            final java.util.function.Supplier<java.util.Locale> locale,
+            final Consumer<String> diagnostics) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(locale, "locale");
         Objects.requireNonNull(diagnostics, "diagnostics");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
         final VerifiedRecentFileListHostOperations files =
-            new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
+                new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
         final VerifiedRecentPreviewPopupHostOperations popup =
-            new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale, diagnostics);
+                new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale, diagnostics);
         return new RuntimeHostAdapters(
-            base.themeStatus(),
-            base.renderStatus(),
-            base.projectWorkspace(),
-            base.clipMaskRead(),
-            base.statusToolbar(),
-            base.uiSurface(),
-            RecentFileAdapter.connected(files),
-            ScreenshotCaptureAdapter.connected(new PreviewCaptureHostOperations(
-                panelResolver, files, popup, diagnostics
-            )),
-            RecentPreviewContributionAdapter.connected(popup),
-            base.autoBackup(),
-            base.uiResources()
-        );
+                base.themeStatus(),
+                base.renderStatus(),
+                base.projectWorkspace(),
+                base.clipMaskRead(),
+                base.statusToolbar(),
+                base.uiSurface(),
+                RecentFileAdapter.connected(files),
+                ScreenshotCaptureAdapter.connected(
+                        new PreviewCaptureHostOperations(panelResolver, files, popup, diagnostics)),
+                RecentPreviewContributionAdapter.connected(popup),
+                base.autoBackup(),
+                base.uiResources());
     }
 
-    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
-        final java.util.Locale locale
-    ) {
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(final java.util.Locale locale) {
         final java.util.Locale required = Objects.requireNonNull(locale, "locale");
         return () -> required;
     }
@@ -350,33 +316,27 @@ public record RuntimeHostAdapters(
      * adapter is preserved.
      */
     public static RuntimeHostAdapters withVerifiedAutoBackup(
-        final RuntimeHostAdapters base,
-        final VerifiedMemberResolver autoBackupResolver
-    ) {
+            final RuntimeHostAdapters base, final VerifiedMemberResolver autoBackupResolver) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(autoBackupResolver, "autoBackupResolver");
         if (!autoBackupResolver.authorizes(
-            AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
-            AutoBackupVerificationManifest.CAPABILITY_IDS,
-            AutoBackupVerificationManifest.REQUIRED_ALIASES
-        )) {
-            throw new IllegalArgumentException(
-                "resolver does not authorize the complete auto-backup adapter slice"
-            );
+                AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
+                AutoBackupVerificationManifest.CAPABILITY_IDS,
+                AutoBackupVerificationManifest.REQUIRED_ALIASES)) {
+            throw new IllegalArgumentException("resolver does not authorize the complete auto-backup adapter slice");
         }
         return new RuntimeHostAdapters(
-            base.themeStatus(),
-            base.renderStatus(),
-            base.projectWorkspace(),
-            base.clipMaskRead(),
-            base.statusToolbar(),
-            base.uiSurface(),
-            base.recentFiles(),
-            base.screenshots(),
-            base.recentPreviews(),
-            AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver)),
-            base.uiResources()
-        );
+                base.themeStatus(),
+                base.renderStatus(),
+                base.projectWorkspace(),
+                base.clipMaskRead(),
+                base.statusToolbar(),
+                base.uiSurface(),
+                base.recentFiles(),
+                base.screenshots(),
+                base.recentPreviews(),
+                AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(autoBackupResolver)),
+                base.uiResources());
     }
 
     /**
@@ -385,23 +345,20 @@ public record RuntimeHostAdapters(
      * of the {@code RuntimeUiResourceService} owner, not this SDK view.
      */
     public static RuntimeHostAdapters withUiResources(
-        final RuntimeHostAdapters base,
-        final UiResourceService uiResources
-    ) {
+            final RuntimeHostAdapters base, final UiResourceService uiResources) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(uiResources, "uiResources");
         return new RuntimeHostAdapters(
-            base.themeStatus(),
-            base.renderStatus(),
-            base.projectWorkspace(),
-            base.clipMaskRead(),
-            base.statusToolbar(),
-            base.uiSurface(),
-            base.recentFiles(),
-            base.screenshots(),
-            base.recentPreviews(),
-            base.autoBackup(),
-            uiResources
-        );
+                base.themeStatus(),
+                base.renderStatus(),
+                base.projectWorkspace(),
+                base.clipMaskRead(),
+                base.statusToolbar(),
+                base.uiSurface(),
+                base.recentFiles(),
+                base.screenshots(),
+                base.recentPreviews(),
+                base.autoBackup(),
+                uiResources);
     }
 }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 import java.util.Objects;
 
 /** Runtime identity of one script execution. */

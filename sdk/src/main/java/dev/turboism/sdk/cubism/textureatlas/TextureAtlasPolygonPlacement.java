@@ -11,13 +11,7 @@ import java.util.Objects;
  * uniform scale. The effective transform is {@code T(x,y) . R(angle) . S(scale)}
  * applied to the item outline and model rectangle.</p>
  */
-public record TextureAtlasPolygonPlacement(
-    String textureId,
-    double x,
-    double y,
-    double angleDeg,
-    double scale
-) {
+public record TextureAtlasPolygonPlacement(String textureId, double x, double y, double angleDeg, double scale) {
 
     public TextureAtlasPolygonPlacement {
         Objects.requireNonNull(textureId, "textureId");

@@ -146,7 +146,7 @@ public final class PerformanceProbeRecorder {
      * @param failures how many probe failures occurred during the capture; any non-zero
      *                 value means the capture was cut short
      */
-    public record Snapshot(Map<PerformanceProbeMetric, MetricSnapshot> metrics, long failures) { }
+    public record Snapshot(Map<PerformanceProbeMetric, MetricSnapshot> metrics, long failures) {}
 
     /**
      * Counters for one metric within a capture window.
@@ -159,8 +159,7 @@ public final class PerformanceProbeRecorder {
      * @param maxNanos   the longest single sampled call, or {@code 0} when nothing was sampled
      * @param latency    fixed-bucket estimates over completed sampled calls, including failures
      */
-    public record MetricSnapshot(long calls, long sampled, long totalNanos, long maxNanos,
-                                 LatencySnapshot latency) {
+    public record MetricSnapshot(long calls, long sampled, long totalNanos, long maxNanos, LatencySnapshot latency) {
         /** Creates a legacy counter-only reading with no histogram observations. */
         public MetricSnapshot(final long calls, final long sampled, final long totalNanos, final long maxNanos) {
             this(calls, sampled, totalNanos, maxNanos, new LatencySnapshot(0, 0, 0, 0));
@@ -175,8 +174,8 @@ public final class PerformanceProbeRecorder {
      * @param p95UpperBoundNanos upper bound for the sampled 95th percentile
      * @param p99UpperBoundNanos upper bound for the sampled 99th percentile
      */
-    public record LatencySnapshot(long samples, long p50UpperBoundNanos,
-                                  long p95UpperBoundNanos, long p99UpperBoundNanos) { }
+    public record LatencySnapshot(
+            long samples, long p50UpperBoundNanos, long p95UpperBoundNanos, long p99UpperBoundNanos) {}
 
     private static final class Metric {
         private final AtomicLong calls = new AtomicLong();

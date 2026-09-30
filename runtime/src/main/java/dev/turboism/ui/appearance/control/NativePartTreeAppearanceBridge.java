@@ -1,21 +1,21 @@
 package dev.turboism.ui.appearance.control;
 
 import dev.turboism.core.reflect.MethodHandleCache;
-
-import javax.swing.JLabel;
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.awt.Component;
 import java.awt.Container;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JLabel;
 
 /** Fail-closed ingress from exact-version native Part-tree renderer hooks. */
 public final class NativePartTreeAppearanceBridge {
     private static final AtomicReference<Callback> CALLBACK = new AtomicReference<>();
     private static final AtomicReference<PartTreeControlAppearanceProvider> PROVIDER = new AtomicReference<>();
 
-    private NativePartTreeAppearanceBridge() { }
+    private NativePartTreeAppearanceBridge() {}
 
     /**
      * Entry point the instrumented host Part-tree renderer calls after producing a row component.
@@ -32,8 +32,12 @@ public final class NativePartTreeAppearanceBridge {
         if (component == null) return null;
         final Callback callback = CALLBACK.get();
         if (callback == null || !javax.swing.SwingUtilities.isEventDispatchThread()) return component;
-        try { return Objects.requireNonNullElse(callback.apply(component, value), component); }
-        catch (Throwable ignored) { return component; }
+        try {
+            return Objects.requireNonNullElse(callback.apply(component, value), component);
+        } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
+            return component;
+        }
     }
 
     /**
@@ -51,10 +55,7 @@ public final class NativePartTreeAppearanceBridge {
      * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
      */
     public static void install(
-        final long hostGeneration,
-        final Selectors selectors,
-        final PartTreeControlAppearanceProvider provider
-    ) {
+            final long hostGeneration, final Selectors selectors, final PartTreeControlAppearanceProvider provider) {
         Objects.requireNonNull(selectors, "selectors");
         Objects.requireNonNull(provider, "provider");
         PROVIDER.set(provider);
@@ -90,17 +91,22 @@ public final class NativePartTreeAppearanceBridge {
         if (provider != null) provider.close();
     }
 
-    static void clearForTesting() { uninstall(); }
+    static void clearForTesting() {
+        uninstall();
+    }
 
     private static Component label(final Component component) {
         if (component instanceof JLabel) return component;
-        if (component instanceof Container container && container.getComponentCount() > 0
-            && container.getComponent(0) instanceof JLabel label) return label;
+        if (component instanceof Container container
+                && container.getComponentCount() > 0
+                && container.getComponent(0) instanceof JLabel label) return label;
         return null;
     }
 
     @FunctionalInterface
-    interface Callback { Component apply(Component component, Object value); }
+    interface Callback {
+        Component apply(Component component, Object value);
+    }
 
     /**
      * Reflective coordinates of the host's Part-tree internals: how to get from a tree node to the
@@ -126,16 +132,15 @@ public final class NativePartTreeAppearanceBridge {
      * @throws NullPointerException if any component is {@code null}
      */
     public record Selectors(
-        String nodeOwner,
-        String nodeSourceMethod,
-        String partSourceOwner,
-        String deformerSourceOwner,
-        String artMeshSourceOwner,
-        String partIdMethod,
-        String idStringMethod,
-        String childrenMethod,
-        ClassLoader hostClassLoader
-    ) {
+            String nodeOwner,
+            String nodeSourceMethod,
+            String partSourceOwner,
+            String deformerSourceOwner,
+            String artMeshSourceOwner,
+            String partIdMethod,
+            String idStringMethod,
+            String childrenMethod,
+            ClassLoader hostClassLoader) {
         public Selectors {
             requireText(nodeOwner, "nodeOwner");
             requireText(nodeSourceMethod, "nodeSourceMethod");
@@ -149,11 +154,16 @@ public final class NativePartTreeAppearanceBridge {
         }
 
         /** Row source kind: parts resolve the PART palette; deformers and art meshes share DEFORMER_PART. */
-        public enum SourceKind { PART, DEFORMER, ART_MESH }
+        public enum SourceKind {
+            PART,
+            DEFORMER,
+            ART_MESH
+        }
 
         Part part(final Object node) throws ReflectiveOperationException {
-            if (node == null || node.getClass().getClassLoader() != hostClassLoader
-                || !isTypeOrSuper(node.getClass(), nodeOwner.replace('/', '.'))) return null;
+            if (node == null
+                    || node.getClass().getClassLoader() != hostClassLoader
+                    || !isTypeOrSuper(node.getClass(), nodeOwner.replace('/', '.'))) return null;
             final Object source = invoke(node, nodeSourceMethod);
             if (source == null || source.getClass().getClassLoader() != hostClassLoader) return null;
             final SourceKind kind;
@@ -177,8 +187,7 @@ public final class NativePartTreeAppearanceBridge {
             return new Part(text, !values.isEmpty(), kind);
         }
 
-        private static Object invoke(final Object target, final String methodName)
-            throws ReflectiveOperationException {
+        private static Object invoke(final Object target, final String methodName) throws ReflectiveOperationException {
             final Method method = MethodHandleCache.method(target.getClass(), methodName);
             if (!method.canAccess(target) && !method.trySetAccessible()) return null;
             return method.invoke(target);
@@ -197,6 +206,6 @@ public final class NativePartTreeAppearanceBridge {
             return value;
         }
 
-        record Part(String id, boolean folder, SourceKind kind) { }
+        record Part(String id, boolean folder, SourceKind kind) {}
     }
 }

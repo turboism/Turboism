@@ -20,10 +20,7 @@ public interface TextureAtlasPolygonPlanner {
      * @param constraints host-issued page constraints including the rotation mode
      * @return the plan to validate and apply through the host boundary
      */
-    TextureAtlasPolygonPlan plan(
-        List<TextureAtlasPolygonItem> items,
-        TextureAtlasPolygonConstraints constraints
-    );
+    TextureAtlasPolygonPlan plan(List<TextureAtlasPolygonItem> items, TextureAtlasPolygonConstraints constraints);
 
     /**
      * Plans with the option of internal parallelism. The default delegates to
@@ -31,10 +28,7 @@ public interface TextureAtlasPolygonPlanner {
      * must preserve determinism.
      */
     default TextureAtlasPolygonPlan plan(
-        List<TextureAtlasPolygonItem> items,
-        TextureAtlasPolygonConstraints constraints,
-        boolean parallel
-    ) {
+            List<TextureAtlasPolygonItem> items, TextureAtlasPolygonConstraints constraints, boolean parallel) {
         return plan(items, constraints);
     }
 }

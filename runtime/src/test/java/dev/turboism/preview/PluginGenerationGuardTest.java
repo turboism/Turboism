@@ -1,18 +1,5 @@
 package dev.turboism.preview;
 
-import dev.turboism.sdk.plugin.DisposableScope;
-import dev.turboism.sdk.plugin.GuardedServiceFixture;
-import dev.turboism.sdk.plugin.PluginContext;
-import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
-import java.lang.reflect.Proxy;
-import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -20,15 +7,23 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.GuardedServiceFixture;
+import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.PluginLogger;
+import java.lang.reflect.Proxy;
+import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+
 class PluginGenerationGuardTest {
 
     @Test
     void fencedContextDeniesNewAdmissionButKeepsDiagnostics() {
         final AtomicReference<String> logSink = new AtomicReference<>();
-        final PluginContext delegate = stubContext(
-            new DisposableScope(),
-            new SinkLogger(logSink)
-        );
+        final PluginContext delegate = stubContext(new DisposableScope(), new SinkLogger(logSink));
         final PluginGenerationGuard guard = new PluginGenerationGuard("p");
         final PluginContext guarded = guard.wrap(delegate);
 
@@ -49,10 +44,7 @@ class PluginGenerationGuardTest {
     void fencePropagatesToHandlesAcquiredBeforeFence() {
         final FixtureService service = new FixtureService();
         final PluginGenerationGuard guard = new PluginGenerationGuard("p");
-        final GuardedServiceFixture guarded = guard.wrapForTesting(
-            service,
-            GuardedServiceFixture.class
-        );
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
         final GuardedServiceFixture child = guarded.child();
 
         assertEquals("m:a", guarded.mutate("a"));
@@ -61,8 +53,10 @@ class PluginGenerationGuardTest {
         guard.fence();
 
         assertThrows(IllegalStateException.class, () -> guarded.mutate("b"));
-        assertThrows(IllegalStateException.class, () -> child.mutate("d"),
-            "handles acquired before fencing must deny new admission too");
+        assertThrows(
+                IllegalStateException.class,
+                () -> child.mutate("d"),
+                "handles acquired before fencing must deny new admission too");
         // Terminal release still works so teardown can detach handles.
         guarded.close();
         child.close();
@@ -76,10 +70,7 @@ class PluginGenerationGuardTest {
         // resources actually detach (atlas-style blocking closers included).
         final FixtureService registration = new FixtureService();
         final PluginGenerationGuard guard = new PluginGenerationGuard("p");
-        final GuardedServiceFixture guarded = guard.wrapForTesting(
-            registration,
-            GuardedServiceFixture.class
-        );
+        final GuardedServiceFixture guarded = guard.wrapForTesting(registration, GuardedServiceFixture.class);
 
         final DisposableScope scope = new DisposableScope();
         scope.register(guarded::close);
@@ -87,11 +78,7 @@ class PluginGenerationGuardTest {
         scope.seal();
         scope.close();
 
-        assertEquals(
-            1,
-            registration.closes.get(),
-            "scope teardown must reach the guarded registration's close()"
-        );
+        assertEquals(1, registration.closes.get(), "scope teardown must reach the guarded registration's close()");
     }
 
     @Test
@@ -111,10 +98,7 @@ class PluginGenerationGuardTest {
             }
         };
         final PluginGenerationGuard guard = new PluginGenerationGuard("p");
-        final GuardedServiceFixture guarded = guard.wrapForTesting(
-            service,
-            GuardedServiceFixture.class
-        );
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
 
         final AtomicReference<String> outcome = new AtomicReference<>();
         final Thread caller = new Thread(() -> outcome.set(guarded.mutate("x")));
@@ -132,47 +116,36 @@ class PluginGenerationGuardTest {
     void repeatedAccessReturnsSameWrappedHandle() {
         final PluginGenerationGuard guard = new PluginGenerationGuard("p");
         final FixtureService service = new FixtureService();
-        final GuardedServiceFixture first = guard.wrapForTesting(
-            service,
-            GuardedServiceFixture.class
-        );
-        final GuardedServiceFixture second = guard.wrapForTesting(
-            service,
-            GuardedServiceFixture.class
-        );
+        final GuardedServiceFixture first = guard.wrapForTesting(service, GuardedServiceFixture.class);
+        final GuardedServiceFixture second = guard.wrapForTesting(service, GuardedServiceFixture.class);
         assertSame(first, second);
         assertTrue(Proxy.isProxyClass(first.getClass()));
     }
 
-    private static PluginContext stubContext(
-        final DisposableScope scope,
-        final PluginLogger logger
-    ) {
+    private static PluginContext stubContext(final DisposableScope scope, final PluginLogger logger) {
         return (PluginContext) Proxy.newProxyInstance(
-            PluginGenerationGuardTest.class.getClassLoader(),
-            new Class<?>[] {PluginContext.class},
-            (proxy, method, arguments) -> switch (method.getName()) {
-                case "descriptor" -> null;
-                case "logger" -> logger;
-                case "disposableScope" -> scope;
-                case "paths" -> (dev.turboism.sdk.plugin.PluginPaths) Proxy.newProxyInstance(
-                    PluginGenerationGuardTest.class.getClassLoader(),
-                    new Class<?>[] {dev.turboism.sdk.plugin.PluginPaths.class},
-                    (p, m, a) -> switch (m.getName()) {
-                        case "dataDir" -> Path.of("data");
-                        case "stateDir" -> Path.of("state");
-                        case "toString" -> "paths";
-                        default -> null;
-                    }
-                );
-                default -> throw new UnsupportedOperationException(method.getName());
-            }
-        );
+                PluginGenerationGuardTest.class.getClassLoader(),
+                new Class<?>[] {PluginContext.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "descriptor" -> null;
+                    case "logger" -> logger;
+                    case "disposableScope" -> scope;
+                    case "paths" ->
+                        (dev.turboism.sdk.plugin.PluginPaths) Proxy.newProxyInstance(
+                                PluginGenerationGuardTest.class.getClassLoader(),
+                                new Class<?>[] {dev.turboism.sdk.plugin.PluginPaths.class},
+                                (p, m, a) -> switch (m.getName()) {
+                                    case "dataDir" -> Path.of("data");
+                                    case "stateDir" -> Path.of("state");
+                                    case "toString" -> "paths";
+                                    default -> null;
+                                });
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     private static class FixtureService implements GuardedServiceFixture {
-        final java.util.concurrent.atomic.AtomicInteger closes =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
 
         @Override
         public String mutate(final String value) {
@@ -197,10 +170,21 @@ class PluginGenerationGuardTest {
             this.sink = sink;
         }
 
-        @Override public void debug(final String message) { }
-        @Override public void info(final String message) { sink.set(message); }
-        @Override public void warn(final String message) { }
-        @Override public void error(final String message) { }
-        @Override public void error(final String message, final Throwable throwable) { }
+        @Override
+        public void debug(final String message) {}
+
+        @Override
+        public void info(final String message) {
+            sink.set(message);
+        }
+
+        @Override
+        public void warn(final String message) {}
+
+        @Override
+        public void error(final String message) {}
+
+        @Override
+        public void error(final String message, final Throwable throwable) {}
     }
 }

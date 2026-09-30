@@ -4,7 +4,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CollapsibleSectionContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,17 +45,15 @@ public final class PanelCollapsibleContentCoordinator {
         return SHARED;
     }
 
-    private static final PanelCollapsibleContentCoordinator SHARED =
-        new PanelCollapsibleContentCoordinator();
+    private static final PanelCollapsibleContentCoordinator SHARED = new PanelCollapsibleContentCoordinator();
 
     /** 注入条目的注册归属：贡献者 pluginId + 注入贡献本身。 */
-    private record OwnerSection(String pluginId, CollapsibleSectionContribution contribution) { }
+    private record OwnerSection(String pluginId, CollapsibleSectionContribution contribution) {}
 
     private final Object monitor = new Object();
     private final Set<EmbeddedPanelId> registeredPanels = new HashSet<>();
     /** 内容表：targetPanelId → sectionId → (pluginId, 注入贡献)。插入序 map：冲突时后注册覆盖。 */
-    private final Map<EmbeddedPanelId, Map<String, OwnerSection>> sections =
-        new HashMap<>();
+    private final Map<EmbeddedPanelId, Map<String, OwnerSection>> sections = new HashMap<>();
 
     /**
      * 在内容表中登记一个注入分区（B 入口）。目标 panel 尚未注册时条目保持 pending，
@@ -68,21 +65,17 @@ public final class PanelCollapsibleContentCoordinator {
      * @throws NullPointerException 任一参数为 {@code null}
      * @throws IllegalStateException 同一目标 panel 上该 sectionId 已被登记
      */
-    public Registration register(
-        final String pluginId,
-        final CollapsibleSectionContribution contribution
-    ) {
+    public Registration register(final String pluginId, final CollapsibleSectionContribution contribution) {
         Objects.requireNonNull(pluginId, "pluginId");
         Objects.requireNonNull(contribution, "contribution");
         final EmbeddedPanelId target = contribution.targetPanelId();
         final String sectionId = contribution.sectionId();
         synchronized (monitor) {
             final Map<String, OwnerSection> panelSections =
-                sections.computeIfAbsent(target, ignored -> new LinkedHashMap<>());
+                    sections.computeIfAbsent(target, ignored -> new LinkedHashMap<>());
             if (panelSections.containsKey(sectionId)) {
                 throw new IllegalStateException(
-                    "collapsible section " + sectionId + " is already registered for panel \""
-                        + target.value());
+                        "collapsible section " + sectionId + " is already registered for panel \"" + target.value());
             }
             panelSections.put(sectionId, new OwnerSection(pluginId, contribution));
             return () -> unregister(target, sectionId, contribution);
@@ -131,15 +124,15 @@ public final class PanelCollapsibleContentCoordinator {
             }
             snapshot = new ArrayList<>(panelSections.values());
         }
-        snapshot.sort(Comparator
-            .comparingInt((OwnerSection owner) -> owner.contribution().order())
-            .thenComparing(owner -> owner.contribution().sectionId()));
+        snapshot.sort(Comparator.comparingInt(
+                        (OwnerSection owner) -> owner.contribution().order())
+                .thenComparing(owner -> owner.contribution().sectionId()));
         return snapshot.stream()
-            .map(owner -> (PanelView) PanelView.collapsibleSection(
-                owner.contribution().title(),
-                owner.contribution().expandedByDefault(),
-                owner.contribution().content()))
-            .toList();
+                .map(owner -> (PanelView) PanelView.collapsibleSection(
+                        owner.contribution().title(),
+                        owner.contribution().expandedByDefault(),
+                        owner.contribution().content()))
+                .toList();
     }
 
     /**
@@ -186,10 +179,7 @@ public final class PanelCollapsibleContentCoordinator {
     }
 
     private static void collectButtonOwners(
-        final PanelView view,
-        final String pluginId,
-        final Map<String, String> owners
-    ) {
+            final PanelView view, final String pluginId, final Map<String, String> owners) {
         if (view instanceof PanelView.Button button) {
             owners.put(button.actionId(), pluginId);
         } else if (view instanceof PanelView.Column column) {
@@ -210,15 +200,12 @@ public final class PanelCollapsibleContentCoordinator {
     // Ownership removal is identity-scoped: only the registering contribution may unregister.
     @SuppressWarnings("ReferenceEquality")
     private void unregister(
-        final EmbeddedPanelId target,
-        final String sectionId,
-        final CollapsibleSectionContribution contribution
-    ) {
+            final EmbeddedPanelId target, final String sectionId, final CollapsibleSectionContribution contribution) {
         synchronized (monitor) {
             final Map<String, OwnerSection> panelSections = sections.get(target);
             if (panelSections == null
-                || panelSections.get(sectionId) == null
-                || panelSections.get(sectionId).contribution() != contribution) {
+                    || panelSections.get(sectionId) == null
+                    || panelSections.get(sectionId).contribution() != contribution) {
                 return; // 幂等：仅移除本注册自己的条目
             }
             panelSections.remove(sectionId);

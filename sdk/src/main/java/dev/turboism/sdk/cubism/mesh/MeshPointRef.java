@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 /**
  * A mesh point as seen by a plugin: a host-assigned identity plus its position.
  *

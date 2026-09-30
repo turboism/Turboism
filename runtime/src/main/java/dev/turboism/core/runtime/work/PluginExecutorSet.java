@@ -27,19 +27,13 @@ public final class PluginExecutorSet {
     private volatile boolean closed;
 
     PluginExecutorSet(
-        String pluginId,
-        PluginWorkExecutorConfiguration configuration,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink,
-        Clock clock
-    ) {
+            String pluginId,
+            PluginWorkExecutorConfiguration configuration,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock) {
         this.pluginId = pluginId;
         this.configuration = Objects.requireNonNull(configuration, "configuration");
-        this.taskExecutor = new PluginWorkExecutor(
-            pluginId,
-            configuration,
-            diagnosticSink,
-            clock
-        );
+        this.taskExecutor = new PluginWorkExecutor(pluginId, configuration, diagnosticSink, clock);
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
@@ -58,11 +52,7 @@ public final class PluginExecutorSet {
             synchronized (this) {
                 lane = eventLane;
                 if (lane == null) {
-                    lane = new PluginEventLane(
-                        pluginId,
-                        configuration.queueCapacity(),
-                        diagnosticSink
-                    );
+                    lane = new PluginEventLane(pluginId, configuration.queueCapacity(), diagnosticSink);
                     eventLane = lane;
                     if (closed) {
                         lane.shutdown();
@@ -84,13 +74,12 @@ public final class PluginExecutorSet {
                 lane = longLane;
                 if (lane == null) {
                     lane = new PluginLongLane(
-                        pluginId,
-                        configuration.longLaneConcurrency(),
-                        configuration.queueCapacity(),
-                        configuration.longRunningThreshold(),
-                        configuration.longRunningReportInterval(),
-                        diagnosticSink
-                    );
+                            pluginId,
+                            configuration.longLaneConcurrency(),
+                            configuration.queueCapacity(),
+                            configuration.longRunningThreshold(),
+                            configuration.longRunningReportInterval(),
+                            diagnosticSink);
                     longLane = lane;
                     if (closed) {
                         lane.shutdown();
@@ -124,7 +113,7 @@ public final class PluginExecutorSet {
         final PluginEventLane events = eventLane;
         final PluginLongLane longs = longLane;
         return taskExecutor.isTerminated()
-            && (events == null || events.isTerminated())
-            && (longs == null || longs.isTerminated());
+                && (events == null || events.isTerminated())
+                && (longs == null || longs.isTerminated());
     }
 }

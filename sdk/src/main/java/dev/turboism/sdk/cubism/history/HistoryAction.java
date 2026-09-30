@@ -1,19 +1,17 @@
 package dev.turboism.sdk.cubism.history;
 
-
 import java.util.Objects;
 import java.util.Optional;
 
 /** Structured, immutable detail for a history entry when its semantics are known safely. */
 public record HistoryAction(
-    Kind kind,
-    String targetType,
-    String targetId,
-    String property,
-    Optional<String> before,
-    Optional<String> after,
-    DetailLevel detailLevel
-) {
+        Kind kind,
+        String targetType,
+        String targetId,
+        String property,
+        Optional<String> before,
+        Optional<String> after,
+        DetailLevel detailLevel) {
 
     public HistoryAction {
         kind = Objects.requireNonNull(kind, "kind");

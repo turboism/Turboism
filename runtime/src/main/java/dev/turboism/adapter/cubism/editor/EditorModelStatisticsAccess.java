@@ -1,9 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.sdk.cubism.model.ModelStatistics;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -18,9 +17,7 @@ final class EditorModelStatisticsAccess {
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
 
     EditorModelStatisticsAccess(
-        final VerifiedMemberResolver resolver,
-        final EditorObjectReadAccess.CurrentGuard currentGuard
-    ) {
+            final VerifiedMemberResolver resolver, final EditorObjectReadAccess.CurrentGuard currentGuard) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
     }
@@ -28,23 +25,16 @@ final class EditorModelStatisticsAccess {
     ModelStatistics statistics(final String identity, final Object source, final Object model) {
         requireAuthorized();
         currentGuard.requireCurrent(identity, model);
-        final List<?> artMeshes = list(
-            resolver.invoke("cubism.editor-model.model.all-art-meshes", model),
-            "Editor ArtMesh collection"
-        );
-        final List<?> deformers = list(
-            resolver.invoke("cubism.editor-model.model.all-deformers", model),
-            "Editor Deformer collection"
-        );
-        final List<?> parts = list(
-            resolver.invoke("cubism.editor-model.model-source.parts", source),
-            "Editor Part collection"
-        );
+        final List<?> artMeshes =
+                list(resolver.invoke("cubism.editor-model.model.all-art-meshes", model), "Editor ArtMesh collection");
+        final List<?> deformers =
+                list(resolver.invoke("cubism.editor-model.model.all-deformers", model), "Editor Deformer collection");
+        final List<?> parts =
+                list(resolver.invoke("cubism.editor-model.model-source.parts", source), "Editor Part collection");
         final Object parameterSet = resolver.invoke("cubism.editor-model.model.parameter-set", model);
         final List<?> parameters = list(
-            resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
-            "Editor parameter collection"
-        );
+                resolver.invoke("cubism.editor-model.parameter-set.parameters", parameterSet),
+                "Editor parameter collection");
 
         int vertices = 0;
         int triangles = 0;
@@ -54,31 +44,27 @@ final class EditorModelStatisticsAccess {
         for (Object mesh : artMeshes) {
             final Object meshSource = resolver.invoke("cubism.editor-model.art-mesh.source", mesh);
             final int positionLength = arrayLength(
-                resolver.invoke("cubism.editor-model.art-mesh-source.positions", meshSource),
-                "Editor ArtMesh positions"
-            );
+                    resolver.invoke("cubism.editor-model.art-mesh-source.positions", meshSource),
+                    "Editor ArtMesh positions");
             if (positionLength % 2 != 0) {
-                throw new IllegalStateException(
-                    "Editor ArtMesh positions do not contain XY pairs."
-                );
+                throw new IllegalStateException("Editor ArtMesh positions do not contain XY pairs.");
             }
             final int vertexCount = positionLength / 2;
             final int[] indices = indices(
-                resolver.invoke("cubism.editor-model.art-mesh-source.indices", meshSource),
-                "Editor ArtMesh indices"
-            );
+                    resolver.invoke("cubism.editor-model.art-mesh-source.indices", meshSource),
+                    "Editor ArtMesh indices");
             validateTriangleIndices(indices, vertexCount, "Editor ArtMesh indices");
             vertices = Math.addExact(vertices, vertexCount);
             triangles = Math.addExact(triangles, indices.length / 3);
             final Object texture = resolver.invoke("cubism.editor-model.art-mesh-source.texture", meshSource);
             if (texture != null) {
                 final Object textureGuid = resolver.invoke("cubism.editor-model.texture.guid", texture);
-                if (textureGuid != null) textures.add(text(resolver.invoke("cubism.editor-model.guid.value", textureGuid)));
+                if (textureGuid != null)
+                    textures.add(text(resolver.invoke("cubism.editor-model.guid.value", textureGuid)));
             }
             final List<?> clips = list(
-                resolver.invoke("cubism.editor-model.art-mesh-source.clip-guid-list", meshSource),
-                "Editor clipping-mask collection"
-            );
+                    resolver.invoke("cubism.editor-model.art-mesh-source.clip-guid-list", meshSource),
+                    "Editor clipping-mask collection");
             if (!clips.isEmpty()) {
                 masked++;
                 final ArrayList<String> group = new ArrayList<>(clips.size());
@@ -107,17 +93,23 @@ final class EditorModelStatisticsAccess {
 
         currentGuard.requireCurrent(identity, model);
         return new ModelStatistics(
-            parameters.size(), parts.size(), artMeshes.size(), artMeshes.size(), deformers.size(),
-            vertices, triangles, textures.size(), masked, maskGroups.size(),
-            offscreenCount, maxOffscreenDepth
-        );
+                parameters.size(),
+                parts.size(),
+                artMeshes.size(),
+                artMeshes.size(),
+                deformers.size(),
+                vertices,
+                triangles,
+                textures.size(),
+                masked,
+                maskGroups.size(),
+                offscreenCount,
+                maxOffscreenDepth);
     }
 
     private int partDepth(final Object part) {
         int depth = 1;
-        final Set<Object> visited = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<>()
-        );
+        final Set<Object> visited = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         visited.add(part);
         Object parent = resolver.invoke("cubism.editor-model.part-source.parent", part);
         while (parent != null) {
@@ -131,9 +123,7 @@ final class EditorModelStatisticsAccess {
     }
 
     private boolean offscreen(final Object part) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.part-source.use-offscreen", part
-        );
+        final Object value = resolver.invoke("cubism.editor-model.part-source.use-offscreen", part);
         if (!(value instanceof Boolean result)) {
             throw new IllegalStateException("Editor Part offscreen state is invalid.");
         }
@@ -141,20 +131,16 @@ final class EditorModelStatisticsAccess {
     }
 
     private void requireAuthorized() {
-        final java.util.HashSet<String> aliases = new java.util.HashSet<>(
-            EditorObjectReadSelectorContract.STATISTICS_ALIASES
-        );
+        final java.util.HashSet<String> aliases =
+                new java.util.HashSet<>(EditorObjectReadSelectorContract.STATISTICS_ALIASES);
         if (supportsOffscreenStatistics(resolver.cubismVersion())) {
             aliases.addAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         }
         if (!resolver.authorizesFeature(
-            EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
-            aliases
-        )) {
-            throw new UnsupportedOperationException(
-                "Editor model statistics require exact verified host evidence."
-            );
+                EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
+                aliases)) {
+            throw new UnsupportedOperationException("Editor model statistics require exact verified host evidence.");
         }
     }
 
@@ -186,19 +172,13 @@ final class EditorModelStatisticsAccess {
         return indices;
     }
 
-    private static void validateTriangleIndices(
-        final int[] values,
-        final int vertexCount,
-        final String label
-    ) {
+    private static void validateTriangleIndices(final int[] values, final int vertexCount, final String label) {
         if (values.length % 3 != 0) {
             throw new IllegalStateException(label + " does not contain triangle triples.");
         }
         for (int value : values) {
             if (value < 0 || value >= vertexCount) {
-                throw new IllegalStateException(
-                    label + " contains an out-of-range vertex index."
-                );
+                throw new IllegalStateException(label + " contains an out-of-range vertex index.");
             }
         }
     }

@@ -1,18 +1,16 @@
 package dev.turboism.sdk.ui;
 
-
 import java.util.List;
 import java.util.Objects;
 
 /** Bounded form dialog descriptor (text and color fields) rendered by the runtime. */
 public record FormDialogRequest(
-    String id,
-    String title,
-    List<FormDialogField> fields,
-    String acceptLabel,
-    String cancelLabel,
-    List<ChoiceDialogAction> actions
-) {
+        String id,
+        String title,
+        List<FormDialogField> fields,
+        String acceptLabel,
+        String cancelLabel,
+        List<ChoiceDialogAction> actions) {
     public FormDialogRequest {
         Objects.requireNonNull(id, "id");
         if (id.isBlank() || id.length() > 128) {
@@ -38,12 +36,11 @@ public record FormDialogRequest(
     }
 
     public FormDialogRequest(
-        final String id,
-        final String title,
-        final List<FormDialogField> fields,
-        final String acceptLabel,
-        final String cancelLabel
-    ) {
+            final String id,
+            final String title,
+            final List<FormDialogField> fields,
+            final String acceptLabel,
+            final String cancelLabel) {
         this(id, title, fields, acceptLabel, cancelLabel, List.of());
     }
 

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-
 import java.util.concurrent.CompletionStage;
 
 /** Handle for a running or queued script execution. */

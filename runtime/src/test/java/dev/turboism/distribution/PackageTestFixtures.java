@@ -14,16 +14,16 @@ final class PackageTestFixtures {
 
     static byte[] framework(String value) throws Exception {
         return framework(
-            jarBytes("dev/turboism/bootstrap/Agent.class", value),
-            jarBytes("dev/turboism/sdk/Plugin.class", value));
+                jarBytes("dev/turboism/bootstrap/Agent.class", value),
+                jarBytes("dev/turboism/sdk/Plugin.class", value));
     }
 
     static byte[] framework(byte[] runtime, byte[] sdk) throws Exception {
         String manifest = "{\"format\":\"turboism.framework.package\",\"schemaVersion\":1,"
-            + "\"kind\":\"framework\",\"id\":\"dev.turboism.framework\",\"version\":\"0.1.0\","
-            + "\"apiVersion\":\"0.1.0\",\"javaVersion\":17,\"artifacts\":["
-            + artifact("runtime", "payload/runtime.jar", runtime) + ","
-            + artifact("sdk", "payload/sdk.jar", sdk) + "]}";
+                + "\"kind\":\"framework\",\"id\":\"dev.turboism.framework\",\"version\":\"0.1.0\","
+                + "\"apiVersion\":\"0.1.0\",\"javaVersion\":17,\"artifacts\":["
+                + artifact("runtime", "payload/runtime.jar", runtime) + ","
+                + artifact("sdk", "payload/sdk.jar", sdk) + "]}";
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(output)) {
             add(zip, ManifestReader.NAME, manifest.getBytes(StandardCharsets.UTF_8));
@@ -48,8 +48,8 @@ final class PackageTestFixtures {
     }
 
     private static String artifact(String role, String path, byte[] bytes) throws Exception {
-        return "{\"role\":\"" + role + "\",\"path\":\"" + path + "\",\"installPath\":\"lib/"
-            + role + ".jar\",\"sha256\":\"" + sha256(bytes) + "\",\"size\":" + bytes.length + "}";
+        return "{\"role\":\"" + role + "\",\"path\":\"" + path + "\",\"installPath\":\"lib/" + role
+                + ".jar\",\"sha256\":\"" + sha256(bytes) + "\",\"size\":" + bytes.length + "}";
     }
 
     private static String sha256(byte[] bytes) throws Exception {

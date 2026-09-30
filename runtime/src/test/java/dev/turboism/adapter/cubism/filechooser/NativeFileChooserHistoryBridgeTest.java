@@ -1,25 +1,23 @@
 package dev.turboism.adapter.cubism.filechooser;
 
-import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class NativeFileChooserHistoryBridgeTest {
 
-    private static final String EXPORT_CONTEXT =
-        NativeFileChooserHistoryBridgeTest.class.getName();
+    private static final String EXPORT_CONTEXT = NativeFileChooserHistoryBridgeTest.class.getName();
 
     @TempDir
     Path tempDir;
@@ -36,31 +34,42 @@ class NativeFileChooserHistoryBridgeTest {
 
     private static FileChooserHistoryHostProfile profile(final String... contextClasses) {
         return new FileChooserHistoryHostProfile(
-            "5.3.02",
-            List.of(
-                new FileChooserHistoryHostProfile.SaveDialogMethod(
-                    "c", "(Ljava/lang/Object;)Ljava/io/File;"
-                )
-            ),
-            List.of(contextClasses)
-        );
+                "5.3.02",
+                List.of(new FileChooserHistoryHostProfile.SaveDialogMethod("c", "(Ljava/lang/Object;)Ljava/io/File;")),
+                List.of(contextClasses));
     }
 
     private static FileChooserHistoryService disabledService() {
         return new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return false; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return false;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
     }
 
-    private void install(
-        final FileChooserHistoryService service,
-        final FileChooserHistoryHostProfile profile
-    ) {
+    private void install(final FileChooserHistoryService service, final FileChooserHistoryHostProfile profile) {
         installedBridge = new NativeFileChooserHistoryBridge(service, profile);
         NativeFileChooserHistoryBridge.install(installedBridge);
     }
@@ -89,12 +98,33 @@ class NativeFileChooserHistoryBridgeTest {
         assertTrue(exportDir.toFile().mkdirs());
         final AtomicReference<Path> captured = new AtomicReference<>();
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.of(exportDir); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.of(exportDir);
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile(EXPORT_CONTEXT));
 
@@ -117,14 +147,35 @@ class NativeFileChooserHistoryBridgeTest {
         assertTrue(projectDir.toFile().mkdirs());
         final AtomicReference<Path> captured = new AtomicReference<>();
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.of(projectDir); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public void setExportRecentDirectory(final Path dir) {
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.of(projectDir);
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {
                 throw new AssertionError("must not persist export directory outside export context");
             }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile("com.example.never.ExportContext"));
 
@@ -151,12 +202,33 @@ class NativeFileChooserHistoryBridgeTest {
         }
         final AtomicReference<Path> captured = new AtomicReference<>();
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile(EXPORT_CONTEXT));
 
@@ -172,12 +244,31 @@ class NativeFileChooserHistoryBridgeTest {
     @Test
     void applyIsSkippedWhenExportDirectoryIsUnset() {
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile(EXPORT_CONTEXT));
 
@@ -194,12 +285,33 @@ class NativeFileChooserHistoryBridgeTest {
     void captureIsSkippedWhenNothingWasChosen() {
         final AtomicReference<Path> captured = new AtomicReference<>();
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile("com.example.never.ExportContext"));
 
@@ -215,14 +327,33 @@ class NativeFileChooserHistoryBridgeTest {
     void malformedChooserFailsClosed() {
         final AtomicReference<Path> captured = new AtomicReference<>();
         final FileChooserHistoryService service = new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() { return Optional.empty(); }
-            @Override public Optional<Path> exportRecentDirectory() {
+            @Override
+            public Optional<Path> projectRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
                 return Optional.of(tempDir);
             }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { captured.set(dir); }
-            @Override public boolean exportSeparationEnabled() { return true; }
-            @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {
+                captured.set(dir);
+            }
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return true;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
+            }
         };
         install(service, profile(EXPORT_CONTEXT));
 

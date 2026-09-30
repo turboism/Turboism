@@ -2,21 +2,6 @@ package dev.turboism.shell;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
-
-import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextPane;
-import javax.swing.JTextField;
-import javax.swing.Timer;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
-import javax.swing.text.StyledDocument;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Desktop;
@@ -34,14 +19,26 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextField;
+import javax.swing.JTextPane;
+import javax.swing.Timer;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 
 /** Built-in core viewer for the Runtime-owned Turboism log. */
 final class CoreLogWindow implements AutoCloseable {
 
-    private static final Pattern LEVEL = Pattern.compile(
-        "^\\S+ \\[(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)] \\[",
-        Pattern.MULTILINE
-    );
+    private static final Pattern LEVEL =
+            Pattern.compile("^\\S+ \\[(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)] \\[", Pattern.MULTILINE);
 
     private final PluginLocalization i18n;
     private final RuntimeLogReader logs;
@@ -83,7 +80,7 @@ final class CoreLogWindow implements AutoCloseable {
         value.setLayout(new BorderLayout(8, 8));
 
         keyword = new JTextField(22);
-        minimumLevel = new JComboBox<>(new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
+        minimumLevel = new JComboBox<>(new String[] {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
         minimumLevel.setSelectedItem("TRACE");
         output = new JTextPane();
         output.setEditable(false);
@@ -110,15 +107,33 @@ final class CoreLogWindow implements AutoCloseable {
         buttons.add(close);
 
         keyword.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(final DocumentEvent event) { refresh(); }
-            @Override public void removeUpdate(final DocumentEvent event) { refresh(); }
-            @Override public void changedUpdate(final DocumentEvent event) { refresh(); }
+            @Override
+            public void insertUpdate(final DocumentEvent event) {
+                refresh();
+            }
+
+            @Override
+            public void removeUpdate(final DocumentEvent event) {
+                refresh();
+            }
+
+            @Override
+            public void changedUpdate(final DocumentEvent event) {
+                refresh();
+            }
         });
         minimumLevel.addActionListener(ignored -> refresh());
         refreshTimer = new Timer(1_000, ignored -> refresh());
         value.addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(final WindowEvent event) { refreshTimer.stop(); }
-            @Override public void windowClosed(final WindowEvent event) { refreshTimer.stop(); }
+            @Override
+            public void windowClosing(final WindowEvent event) {
+                refreshTimer.stop();
+            }
+
+            @Override
+            public void windowClosed(final WindowEvent event) {
+                refreshTimer.stop();
+            }
         });
 
         value.add(filters, BorderLayout.NORTH);
@@ -129,11 +144,12 @@ final class CoreLogWindow implements AutoCloseable {
 
     private void refresh() {
         if (output == null) return;
-        render(output, filter(
-            logs.snapshot().lines(),
-            keyword.getText(),
-            Objects.toString(minimumLevel.getSelectedItem(), "INFO")
-        ));
+        render(
+                output,
+                filter(
+                        logs.snapshot().lines(),
+                        keyword.getText(),
+                        Objects.toString(minimumLevel.getSelectedItem(), "INFO")));
         output.setCaretPosition(output.getDocument().getLength());
     }
 
@@ -174,20 +190,13 @@ final class CoreLogWindow implements AutoCloseable {
     }
 
     private static void applyStyle(
-        final StyledDocument document,
-        final int start,
-        final int length,
-        final SimpleAttributeSet style
-    ) {
+            final StyledDocument document, final int start, final int length, final SimpleAttributeSet style) {
         if (length > 0) document.setCharacterAttributes(start, length, style, false);
     }
 
     private static SimpleAttributeSet[] levelStyles(final JTextPane output) {
         final boolean dark = isDark(output.getBackground());
-        final Color foreground = Objects.requireNonNullElse(
-            output.getForeground(),
-            dark ? Color.WHITE : Color.BLACK
-        );
+        final Color foreground = Objects.requireNonNullElse(output.getForeground(), dark ? Color.WHITE : Color.BLACK);
         final SimpleAttributeSet[] styles = new SimpleAttributeSet[6];
         for (int level = 0; level < styles.length; level++) {
             styles[level] = new SimpleAttributeSet();
@@ -231,14 +240,15 @@ final class CoreLogWindow implements AutoCloseable {
     }
 
     private static void appendIfMatching(
-        final List<String> matches,
-        final List<String> entry,
-        final int level,
-        final int minimum,
-        final String query
-    ) {
+            final List<String> matches,
+            final List<String> entry,
+            final int level,
+            final int minimum,
+            final String query) {
         if (entry.isEmpty() || level < minimum) return;
-        if (!query.isEmpty() && entry.stream().noneMatch(line -> line.toLowerCase(Locale.ROOT).contains(query))) return;
+        if (!query.isEmpty()
+                && entry.stream()
+                        .noneMatch(line -> line.toLowerCase(Locale.ROOT).contains(query))) return;
         matches.addAll(entry);
     }
 

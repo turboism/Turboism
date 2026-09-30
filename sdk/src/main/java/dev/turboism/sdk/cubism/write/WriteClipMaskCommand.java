@@ -2,7 +2,6 @@ package dev.turboism.sdk.cubism.write;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-
 import java.util.List;
 
 /**
@@ -17,7 +16,8 @@ import java.util.List;
  * @param clippedMeshIds art meshes the mask should clip after the write; an empty list clears the
  *     mask's targets
  */
-public record WriteClipMaskCommand(String commandId, ModelObjectId clipMaskId, List<ArtMeshId> clippedMeshIds) implements CubismWriteCommand {
+public record WriteClipMaskCommand(String commandId, ModelObjectId clipMaskId, List<ArtMeshId> clippedMeshIds)
+        implements CubismWriteCommand {
     /**
      * Validates the record components.
      *

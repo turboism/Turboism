@@ -5,16 +5,6 @@ import dev.turboism.sdk.ui.FormDialogField;
 import dev.turboism.sdk.ui.FormDialogRequest;
 import dev.turboism.sdk.ui.FormDialogResultListener;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JColorChooser;
-import javax.swing.JComboBox;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -26,17 +16,22 @@ import java.awt.Insets;
 import java.awt.Window;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JColorChooser;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /** Runtime-owned Swing rendering for bounded SDK form dialogs. */
 final class RuntimeFormDialogs {
 
-    private RuntimeFormDialogs() {
-    }
+    private RuntimeFormDialogs() {}
 
-    static void openAsync(
-        final FormDialogRequest request,
-        final FormDialogResultListener listener
-    ) {
+    static void openAsync(final FormDialogRequest request, final FormDialogResultListener listener) {
         if (java.awt.GraphicsEnvironment.isHeadless()) {
             listener.onResult(false, null, Map.of());
             return;
@@ -49,10 +44,7 @@ final class RuntimeFormDialogs {
         }
     }
 
-    private static void show(
-        final FormDialogRequest request,
-        final FormDialogResultListener listener
-    ) {
+    private static void show(final FormDialogRequest request, final FormDialogResultListener listener) {
         final Window owner = activeOwner();
         final JDialog dialog = TurboismWindowFactory.dialog(owner, request.title(), true);
         if (dialog == null) {
@@ -97,14 +89,11 @@ final class RuntimeFormDialogs {
                 };
                 picker.addActionListener(ignored -> {
                     final Color current = parseColor(field.value());
-                    final Color chosen = JColorChooser.showDialog(
-                        dialog,
-                        field.label(),
-                        current == null ? Color.WHITE : current
-                    );
+                    final Color chosen =
+                            JColorChooser.showDialog(dialog, field.label(), current == null ? Color.WHITE : current);
                     if (chosen != null) {
-                        final String hex = String.format("#%02X%02X%02X",
-                            chosen.getRed(), chosen.getGreen(), chosen.getBlue());
+                        final String hex =
+                                String.format("#%02X%02X%02X", chosen.getRed(), chosen.getGreen(), chosen.getBlue());
                         picker.setText(hex);
                         picker.setToolTipText(hex);
                         refreshSwatch.run();
@@ -116,9 +105,7 @@ final class RuntimeFormDialogs {
                 colorButtons.put(field.id(), picker);
                 fields.add(colorRow, gbc);
             } else if (field.kind() == dev.turboism.sdk.ui.FormFieldKind.SELECT) {
-                final JComboBox<String> combo = new JComboBox<>(
-                    field.options().toArray(new String[0])
-                );
+                final JComboBox<String> combo = new JComboBox<>(field.options().toArray(new String[0]));
                 combo.setSelectedItem(field.value());
                 if (combo.getSelectedIndex() < 0 && !field.options().isEmpty()) {
                     combo.setSelectedIndex(0);
@@ -166,11 +153,10 @@ final class RuntimeFormDialogs {
     }
 
     private static Map<String, String> collect(
-        final FormDialogRequest request,
-        final Map<String, JTextField> textFields,
-        final Map<String, JButton> colorButtons,
-        final Map<String, JComboBox<String>> selectFields
-    ) {
+            final FormDialogRequest request,
+            final Map<String, JTextField> textFields,
+            final Map<String, JButton> colorButtons,
+            final Map<String, JComboBox<String>> selectFields) {
         final LinkedHashMap<String, String> values = new LinkedHashMap<>();
         for (FormDialogField field : request.fields()) {
             if (field.kind() == dev.turboism.sdk.ui.FormFieldKind.COLOR) {
@@ -189,8 +175,9 @@ final class RuntimeFormDialogs {
 
     private static String normalizeColor(final String value) {
         final Color color = parseColor(value);
-        return color == null ? "#000000" : String.format("#%02X%02X%02X",
-            color.getRed(), color.getGreen(), color.getBlue());
+        return color == null
+                ? "#000000"
+                : String.format("#%02X%02X%02X", color.getRed(), color.getGreen(), color.getBlue());
     }
 
     private static Color parseColor(final String value) {
@@ -205,7 +192,8 @@ final class RuntimeFormDialogs {
     }
 
     private static Window activeOwner() {
-        final Window active = java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+        final Window active =
+                java.awt.KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
         if (active != null && active.isShowing()) {
             return active;
         }

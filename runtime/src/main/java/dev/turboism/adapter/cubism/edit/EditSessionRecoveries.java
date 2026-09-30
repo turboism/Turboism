@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.edit;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.Objects;
 
 /** The supported {@link EditSessionRecovery} strategies and their selection policy. */
@@ -16,8 +15,7 @@ public final class EditSessionRecoveries {
      * The always-compensating selection policy — kept for tests and for hosts whose record
      * drops the revert row.
      */
-    public static final EditSessionRecovery.Selector ALWAYS_COMPENSATING =
-        (host, binding) -> compensating();
+    public static final EditSessionRecovery.Selector ALWAYS_COMPENSATING = (host, binding) -> compensating();
 
     /**
      * The capability-driven selection policy: the official {@code CUndoManager.revert()} path
@@ -27,10 +25,9 @@ public final class EditSessionRecoveries {
      * compensating path remains the fallback for unverified records.
      */
     public static final EditSessionRecovery.Selector PREFER_REVERT_WHEN_VERIFIED =
-        (host, binding) -> host.undoRevertVerified(binding) ? reverting() : compensating();
+            (host, binding) -> host.undoRevertVerified(binding) ? reverting() : compensating();
 
-    private EditSessionRecoveries() {
-    }
+    private EditSessionRecoveries() {}
 
     /**
      * Returns the compensating recovery: undo the session's active {@code GroupUndo} in place
@@ -63,24 +60,19 @@ public final class EditSessionRecoveries {
      * current: the displaced-session reconciliation is safe whether or not the group was
      * actually displaced.
      */
-    static boolean sessionGroupIsCurrent(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) {
+    static boolean sessionGroupIsCurrent(final EditorEditSessionHost host, final EditSessionRecoveryRequest request) {
         final Object current;
         try {
             current = host.currentEditGroup(request.binding());
         } catch (RuntimeException failure) {
-            request.diagnose(
-                "edit-session recovery: current undo group unreadable ("
-                    + failure.getMessage() + "); reconciling conservatively");
+            request.diagnose("edit-session recovery: current undo group unreadable (" + failure.getMessage()
+                    + "); reconciling conservatively");
             return false;
         }
         if (current == request.editToken()) {
             return true;
         }
-        request.diagnose(
-            "edit-session recovery: the session undo group was displaced by a host-side edit"
+        request.diagnose("edit-session recovery: the session undo group was displaced by a host-side edit"
                 + (current == null ? " (no group is current)" : " (a foreign group is current)"));
         return false;
     }
@@ -104,27 +96,22 @@ public final class EditSessionRecoveries {
      *   <li>verify the exact pre-session snapshot.</li>
      * </ol>
      */
-    static void reconcileToStart(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) throws EditSessionException {
+    static void reconcileToStart(final EditorEditSessionHost host, final EditSessionRecoveryRequest request)
+            throws EditSessionException {
         RuntimeException failure = null;
         Object current = null;
         try {
             current = host.currentEditGroup(request.binding());
         } catch (RuntimeException readFailure) {
             failure = readFailure;
-            request.diagnose(
-                "edit-session recovery: current undo group unreadable ("
-                    + readFailure.getMessage() + ")");
+            request.diagnose("edit-session recovery: current undo group unreadable (" + readFailure.getMessage() + ")");
         }
         if (current != null) {
             try {
                 host.undoGroup(request.binding(), current);
             } catch (RuntimeException undoFailure) {
                 failure = merge(failure, undoFailure);
-                request.diagnose(
-                    "edit-session recovery: could not undo the current undo group ("
+                request.diagnose("edit-session recovery: could not undo the current undo group ("
                         + undoFailure.getMessage() + ")");
             }
         }
@@ -133,8 +120,7 @@ public final class EditSessionRecoveries {
                 host.undoGroup(request.binding(), request.editToken());
             } catch (RuntimeException undoFailure) {
                 failure = merge(failure, undoFailure);
-                request.diagnose(
-                    "edit-session recovery: could not undo the session undo group ("
+                request.diagnose("edit-session recovery: could not undo the session undo group ("
                         + undoFailure.getMessage() + ")");
             }
         }
@@ -142,9 +128,7 @@ public final class EditSessionRecoveries {
             host.endEdit(request.binding(), request.editToken(), true);
         } catch (RuntimeException endFailure) {
             failure = merge(failure, endFailure);
-            request.diagnose(
-                "edit-session recovery: could not end the session edit ("
-                    + endFailure.getMessage() + ")");
+            request.diagnose("edit-session recovery: could not end the session edit (" + endFailure.getMessage() + ")");
         }
         try {
             reconcileCommittedTail(host, request);
@@ -165,27 +149,22 @@ public final class EditSessionRecoveries {
      * reported as not-at-tip.
      */
     private static boolean cursorAtHistoryTip(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) {
+            final EditorEditSessionHost host, final EditSessionRecoveryRequest request) {
         final HistorySnapshot snapshot;
         try {
             snapshot = host.history(request.binding());
         } catch (RuntimeException failure) {
-            request.diagnose(
-                "edit-session recovery: history snapshot unreadable ("
-                    + failure.getMessage() + "); using the compensating recovery");
+            request.diagnose("edit-session recovery: history snapshot unreadable (" + failure.getMessage()
+                    + "); using the compensating recovery");
             return false;
         }
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
             request.diagnose(
-                "edit-session recovery: history snapshot unavailable; "
-                    + "using the compensating recovery");
+                    "edit-session recovery: history snapshot unavailable; " + "using the compensating recovery");
             return false;
         }
         if (snapshot.position() < snapshot.entries().size()) {
-            request.diagnose(
-                "edit-session recovery: a redo tail is present (position "
+            request.diagnose("edit-session recovery: a redo tail is present (position "
                     + snapshot.position() + " of " + snapshot.entries().size()
                     + "); using the compensating recovery");
             return false;
@@ -207,9 +186,7 @@ public final class EditSessionRecoveries {
      * recovery failure instead of claiming a clean cancel.
      */
     private static void reconcileCommittedTail(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) throws EditSessionException {
+            final EditorEditSessionHost host, final EditSessionRecoveryRequest request) throws EditSessionException {
         final int start = request.historyBefore().position();
         HistorySnapshot snapshot = host.history(request.binding());
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
@@ -218,13 +195,13 @@ public final class EditSessionRecoveries {
         int guard = snapshot.entries().size() + 1;
         while (snapshot.position() > start && snapshot.canUndo() && guard-- > 0) {
             if (host.undoRevertVerified(request.binding())
-                && request.historyBefore().availability() == HistorySnapshot.Availability.AVAILABLE
-                && snapshot.position() - 1 >= request.historyBefore().entries().size()) {
+                    && request.historyBefore().availability() == HistorySnapshot.Availability.AVAILABLE
+                    && snapshot.position() - 1
+                            >= request.historyBefore().entries().size()) {
                 try {
                     host.revert(request.binding());
                 } catch (RuntimeException revertFailure) {
-                    request.diagnose(
-                        "edit-session recovery: revert of a committed entry failed ("
+                    request.diagnose("edit-session recovery: revert of a committed entry failed ("
                             + revertFailure.getMessage() + "); moving the history cursor");
                     host.undoRedoTo(request.binding(), start);
                     return;
@@ -244,16 +221,13 @@ public final class EditSessionRecoveries {
      * Verifies the exact pre-session snapshot; on a mismatch first reconciles committed entries
      * above the start position through {@link #reconcileCommittedTail} and verifies once more.
      */
-    private static void verifyOrReconcile(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) throws EditSessionException {
+    private static void verifyOrReconcile(final EditorEditSessionHost host, final EditSessionRecoveryRequest request)
+            throws EditSessionException {
         try {
             verifyHistoryRestored(host, request);
             return;
         } catch (EditSessionException first) {
-            request.diagnose(
-                "edit-session recovery: history snapshot mismatch after close; "
+            request.diagnose("edit-session recovery: history snapshot mismatch after close; "
                     + "reconciling the committed tail");
             try {
                 reconcileCommittedTail(host, request);
@@ -277,10 +251,8 @@ public final class EditSessionRecoveries {
         INSTANCE;
 
         @Override
-        public void recover(
-            final EditorEditSessionHost host,
-            final EditSessionRecoveryRequest request
-        ) throws EditSessionException {
+        public void recover(final EditorEditSessionHost host, final EditSessionRecoveryRequest request)
+                throws EditSessionException {
             Objects.requireNonNull(host, "host");
             Objects.requireNonNull(request, "request");
             if (!sessionGroupIsCurrent(host, request)) {
@@ -315,10 +287,8 @@ public final class EditSessionRecoveries {
         INSTANCE;
 
         @Override
-        public void recover(
-            final EditorEditSessionHost host,
-            final EditSessionRecoveryRequest request
-        ) throws EditSessionException {
+        public void recover(final EditorEditSessionHost host, final EditSessionRecoveryRequest request)
+                throws EditSessionException {
             Objects.requireNonNull(host, "host");
             Objects.requireNonNull(request, "request");
             if (!sessionGroupIsCurrent(host, request)) {
@@ -340,9 +310,8 @@ public final class EditSessionRecoveries {
                 // The session group never committed — fall back to the compensating
                 // reconciliation (undo the pending group, abort the bracket, reconcile the
                 // cursor) rather than reporting a bare close failure.
-                request.diagnose(
-                    "edit-session recovery: commit-for-revert failed ("
-                        + endFailure.getMessage() + "); falling back to group undo");
+                request.diagnose("edit-session recovery: commit-for-revert failed (" + endFailure.getMessage()
+                        + "); falling back to group undo");
                 try {
                     reconcileToStart(host, request);
                 } catch (EditSessionException | RuntimeException reconcileFailure) {
@@ -356,9 +325,8 @@ public final class EditSessionRecoveries {
             } catch (RuntimeException revertFailure) {
                 // The session entry already committed — never re-undo the token's group
                 // (its undoables live in the history entry now). Reconcile at the cursor.
-                request.diagnose(
-                    "edit-session recovery: revert failed ("
-                        + revertFailure.getMessage() + "); reconciling the history cursor");
+                request.diagnose("edit-session recovery: revert failed (" + revertFailure.getMessage()
+                        + "); reconciling the history cursor");
                 try {
                     reconcileCommittedTail(host, request);
                 } catch (RuntimeException reconcileFailure) {
@@ -371,25 +339,19 @@ public final class EditSessionRecoveries {
         }
     }
 
-    static void verifyHistoryRestored(
-        final EditorEditSessionHost host,
-        final EditSessionRecoveryRequest request
-    ) throws EditSessionException {
+    static void verifyHistoryRestored(final EditorEditSessionHost host, final EditSessionRecoveryRequest request)
+            throws EditSessionException {
         final HistorySnapshot after;
         try {
             after = host.history(request.binding());
         } catch (RuntimeException failure) {
             throw new EditUnavailableException(
-                RECOVERY_FAILED_CODE,
-                "Cubism edit session recovery could not read the Undo history"
-            );
+                    RECOVERY_FAILED_CODE, "Cubism edit session recovery could not read the Undo history");
         }
         if (after.availability() != HistorySnapshot.Availability.AVAILABLE
-            || !request.historyBefore().equals(after)) {
+                || !request.historyBefore().equals(after)) {
             throw new EditUnavailableException(
-                RECOVERY_FAILED_CODE,
-                "Cubism edit session recovery left the Undo history changed"
-            );
+                    RECOVERY_FAILED_CODE, "Cubism edit session recovery left the Undo history changed");
         }
     }
 }

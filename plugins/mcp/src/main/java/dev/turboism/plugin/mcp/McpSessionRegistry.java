@@ -21,18 +21,15 @@ final class McpSessionRegistry {
     private final java.util.function.Consumer<String> onExpired;
 
     McpSessionRegistry() {
-        this(DEFAULT_IDLE_TIMEOUT, Clock.systemUTC(), ignored -> { });
+        this(DEFAULT_IDLE_TIMEOUT, Clock.systemUTC(), ignored -> {});
     }
 
     McpSessionRegistry(final Duration idleTimeout, final Clock clock) {
-        this(idleTimeout, clock, ignored -> { });
+        this(idleTimeout, clock, ignored -> {});
     }
 
     McpSessionRegistry(
-        final Duration idleTimeout,
-        final Clock clock,
-        final java.util.function.Consumer<String> onExpired
-    ) {
+            final Duration idleTimeout, final Clock clock, final java.util.function.Consumer<String> onExpired) {
         this.idleTimeout = java.util.Objects.requireNonNull(idleTimeout, "idleTimeout");
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.onExpired = java.util.Objects.requireNonNull(onExpired, "onExpired");
@@ -66,10 +63,8 @@ final class McpSessionRegistry {
         pruneExpired();
         final StoredSession current = sessions.get(id);
         if (current == null) return false;
-        sessions.put(id, new StoredSession(
-            new Session(id, current.session().protocolVersion(), true),
-            clock.instant()
-        ));
+        sessions.put(
+                id, new StoredSession(new Session(id, current.session().protocolVersion(), true), clock.instant()));
         return true;
     }
 
@@ -89,9 +84,7 @@ final class McpSessionRegistry {
         expired.forEach(onExpired);
     }
 
-    record Session(String id, String protocolVersion, boolean initialized) {
-    }
+    record Session(String id, String protocolVersion, boolean initialized) {}
 
-    private record StoredSession(Session session, Instant lastAccess) {
-    }
+    private record StoredSession(Session session, Instant lastAccess) {}
 }

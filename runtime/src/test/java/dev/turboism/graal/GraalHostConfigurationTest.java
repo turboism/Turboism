@@ -1,11 +1,10 @@
 package dev.turboism.graal;
 
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
 
 final class GraalHostConfigurationTest {
 
@@ -29,7 +28,8 @@ final class GraalHostConfigurationTest {
         } finally {
             restore("turboism.graal.java", originalJava);
             try (var paths = java.nio.file.Files.walk(home)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             }
@@ -40,7 +40,10 @@ final class GraalHostConfigurationTest {
     void explicitClasspathWithWindowsWildcardDoesNotResolveTheWildcardAsAPath() throws Exception {
         final Path home = java.nio.file.Files.createTempDirectory("turboism-graal-classpath-");
         final String executableName = System.getProperty("os.name", "")
-            .toLowerCase(java.util.Locale.ROOT).contains("win") ? "java.exe" : "java";
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .contains("win")
+                ? "java.exe"
+                : "java";
         final Path javaExecutable = home.resolve("graal/bin").resolve(executableName);
         java.nio.file.Files.createDirectories(javaExecutable.getParent());
         java.nio.file.Files.write(javaExecutable, new byte[] {1});
@@ -63,7 +66,8 @@ final class GraalHostConfigurationTest {
             restore("turboism.graal.java", originalJava);
             restore("turboism.graal.classpath", originalClasspath);
             try (var paths = java.nio.file.Files.walk(home)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             }
@@ -75,7 +79,10 @@ final class GraalHostConfigurationTest {
         final Path home = java.nio.file.Files.createTempDirectory("turboism-graal-linked-");
         final Path outside = java.nio.file.Files.createTempDirectory("turboism-graal-outside-");
         final String executableName = System.getProperty("os.name", "")
-            .toLowerCase(java.util.Locale.ROOT).contains("win") ? "java.exe" : "java";
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .contains("win")
+                ? "java.exe"
+                : "java";
         final Path executable = outside.resolve("runtime/bin").resolve(executableName);
         java.nio.file.Files.createDirectories(executable.getParent());
         java.nio.file.Files.write(executable, new byte[] {1});
@@ -97,7 +104,8 @@ final class GraalHostConfigurationTest {
             java.nio.file.Files.deleteIfExists(home.resolve("graal"));
             java.nio.file.Files.deleteIfExists(home);
             try (var paths = java.nio.file.Files.walk(outside)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             }
@@ -108,7 +116,10 @@ final class GraalHostConfigurationTest {
     void incompatibleManagedRuntimeDoesNotShadowAUsableLegacyRuntime() throws Exception {
         final Path home = java.nio.file.Files.createTempDirectory("turboism-graal-shadow-");
         final String executableName = System.getProperty("os.name", "")
-            .toLowerCase(java.util.Locale.ROOT).contains("win") ? "java.exe" : "java";
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .contains("win")
+                ? "java.exe"
+                : "java";
         final Path managed = home.resolve("graal/runtime/bin").resolve(executableName);
         java.nio.file.Files.createDirectories(managed.getParent());
         java.nio.file.Files.write(managed, new byte[] {1});
@@ -133,7 +144,8 @@ final class GraalHostConfigurationTest {
             assertEquals(legacy.toAbsolutePath().normalize().toString(), configuration.javaBinary());
         } finally {
             try (var paths = java.nio.file.Files.walk(home)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             }
@@ -144,8 +156,12 @@ final class GraalHostConfigurationTest {
     void managedRuntimeIsUsedWithoutEnvironmentConfiguration() throws Exception {
         final Path home = java.nio.file.Files.createTempDirectory("turboism-graal-managed-");
         final Path executable = home.resolve("graal/runtime/bin/")
-            .resolve(System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")
-                ? "java.exe" : "java");
+                .resolve(
+                        System.getProperty("os.name", "")
+                                        .toLowerCase(java.util.Locale.ROOT)
+                                        .contains("win")
+                                ? "java.exe"
+                                : "java");
         java.nio.file.Files.createDirectories(executable.getParent());
         java.nio.file.Files.write(executable, new byte[] {1});
         java.nio.file.Files.writeString(home.resolve("graal/runtime/release"), """
@@ -161,7 +177,8 @@ final class GraalHostConfigurationTest {
             assertEquals(executable.toAbsolutePath().normalize().toString(), configuration.javaBinary());
         } finally {
             try (var paths = java.nio.file.Files.walk(home)) {
-                for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                for (Path path :
+                        paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             }

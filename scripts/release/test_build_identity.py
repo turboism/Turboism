@@ -1,4 +1,5 @@
-import importlib.util,json,unittest
+import importlib.util
+import unittest
 from pathlib import Path
 P=Path(__file__).parent/'turboism_release'/'build_identity.py'
 spec=importlib.util.spec_from_file_location('build_identity_tested',P);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)

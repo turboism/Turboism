@@ -1,21 +1,20 @@
 package dev.turboism.exportsettings;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.plugin.Registration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Loader-neutral bridge channel tests: the transformed host bytecode may only ever
@@ -60,32 +59,25 @@ class NativeExportSettingsDialogBridgeTest {
         assertNotNull(System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY));
         assertNotNull(System.getProperties().get(NativeExportSettingsDialogBridge.CANCEL_KEY));
         assertNotNull(System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY));
-        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY)
-            instanceof BiFunction);
-        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.CANCEL_KEY)
-            instanceof Consumer);
-        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY)
-            instanceof Function);
+        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY) instanceof BiFunction);
+        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.CANCEL_KEY) instanceof Consumer);
+        assertTrue(System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY) instanceof Function);
 
         @SuppressWarnings("unchecked")
-        final BiFunction<Object, Object, Object> attach =
-            (BiFunction<Object, Object, Object>) System.getProperties().get(
-                NativeExportSettingsDialogBridge.ATTACH_KEY
-            );
+        final BiFunction<Object, Object, Object> attach = (BiFunction<Object, Object, Object>)
+                System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY);
         assertNull(attach.apply(owner, container));
         assertEquals(List.of("attach"), calls);
 
         @SuppressWarnings("unchecked")
-        final Consumer<Object> cancel = (Consumer<Object>) System.getProperties().get(
-            NativeExportSettingsDialogBridge.CANCEL_KEY
-        );
+        final Consumer<Object> cancel =
+                (Consumer<Object>) System.getProperties().get(NativeExportSettingsDialogBridge.CANCEL_KEY);
         cancel.accept(owner);
         assertEquals(List.of("attach", "cancel"), calls);
 
         @SuppressWarnings("unchecked")
-        final Function<Object, Object> decide = (Function<Object, Object>) System.getProperties().get(
-            NativeExportSettingsDialogBridge.DECIDE_KEY
-        );
+        final Function<Object, Object> decide =
+                (Function<Object, Object>) System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY);
         assertSame(Boolean.TRUE, decide.apply(owner));
         assertEquals(List.of("attach", "cancel", "decide"), calls);
 
@@ -96,9 +88,7 @@ class NativeExportSettingsDialogBridgeTest {
         assertNull(System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY));
 
         // Reinstall after teardown must succeed and carry the new handler.
-        installed = NativeExportSettingsDialogBridge.install(
-            (owner2, container2) -> null
-        );
+        installed = NativeExportSettingsDialogBridge.install((owner2, container2) -> null);
         assertNotNull(System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY));
     }
 
@@ -106,9 +96,8 @@ class NativeExportSettingsDialogBridgeTest {
     void refusesASecondInstallWhileOneIsActive() {
         installed = NativeExportSettingsDialogBridge.install((owner, container) -> null);
         assertThrows(
-            IllegalStateException.class,
-            () -> NativeExportSettingsDialogBridge.install((owner, container) -> null)
-        );
+                IllegalStateException.class,
+                () -> NativeExportSettingsDialogBridge.install((owner, container) -> null));
     }
 
     @Test
@@ -135,20 +124,16 @@ class NativeExportSettingsDialogBridgeTest {
         });
         final Object owner = new Object();
         @SuppressWarnings("unchecked")
-        final BiFunction<Object, Object, Object> attach =
-            (BiFunction<Object, Object, Object>) System.getProperties().get(
-                NativeExportSettingsDialogBridge.ATTACH_KEY
-            );
+        final BiFunction<Object, Object, Object> attach = (BiFunction<Object, Object, Object>)
+                System.getProperties().get(NativeExportSettingsDialogBridge.ATTACH_KEY);
         assertNull(attach.apply(owner, new Object()), "attach must fail open");
         @SuppressWarnings("unchecked")
-        final Consumer<Object> cancel = (Consumer<Object>) System.getProperties().get(
-            NativeExportSettingsDialogBridge.CANCEL_KEY
-        );
+        final Consumer<Object> cancel =
+                (Consumer<Object>) System.getProperties().get(NativeExportSettingsDialogBridge.CANCEL_KEY);
         cancel.accept(owner);
         @SuppressWarnings("unchecked")
-        final Function<Object, Object> decide = (Function<Object, Object>) System.getProperties().get(
-            NativeExportSettingsDialogBridge.DECIDE_KEY
-        );
+        final Function<Object, Object> decide =
+                (Function<Object, Object>) System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY);
         assertSame(Boolean.FALSE, decide.apply(owner), "decide must fail closed");
         assertEquals(List.of("attach", "cancel", "decide"), calls);
     }
@@ -167,14 +152,12 @@ class NativeExportSettingsDialogBridgeTest {
             }
         });
         @SuppressWarnings("unchecked")
-        final Function<Object, Object> decide = (Function<Object, Object>) System.getProperties().get(
-            NativeExportSettingsDialogBridge.DECIDE_KEY
-        );
-        assertSame(Boolean.FALSE, decide.apply(new Object()),
-            "a null handler decision must reject the selected path");
+        final Function<Object, Object> decide =
+                (Function<Object, Object>) System.getProperties().get(NativeExportSettingsDialogBridge.DECIDE_KEY);
+        assertSame(Boolean.FALSE, decide.apply(new Object()), "a null handler decision must reject the selected path");
         installed.close();
         installed = null;
-        assertSame(Boolean.FALSE, decide.apply(new Object()),
-            "a cached callback after bridge teardown must fail closed");
+        assertSame(
+                Boolean.FALSE, decide.apply(new Object()), "a cached callback after bridge teardown must fail closed");
     }
 }

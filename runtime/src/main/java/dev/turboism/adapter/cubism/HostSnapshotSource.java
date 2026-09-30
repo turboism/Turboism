@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -136,23 +135,18 @@ public interface HostSnapshotSource {
      * versioning.
      */
     record SdkRuntimeObservation(
-        Observation host,
-        ProjectSnapshot project,
-        DocumentSnapshot document,
-        SelectionSnapshot selection,
-        Object evidence
-    ) {
+            Observation host,
+            ProjectSnapshot project,
+            DocumentSnapshot document,
+            SelectionSnapshot selection,
+            Object evidence) {
         public SdkRuntimeObservation {
-            if (host != null
-                && (project != null || document != null || selection != null || evidence != null)) {
+            if (host != null && (project != null || document != null || selection != null || evidence != null)) {
                 throw new IllegalArgumentException(
-                    "SdkRuntimeObservation carries either a host observation or SDK snapshots"
-                );
+                        "SdkRuntimeObservation carries either a host observation or SDK snapshots");
             }
             if (host == null && evidence == null) {
-                throw new IllegalArgumentException(
-                    "SDK-shaped observation requires evidence for versioning"
-                );
+                throw new IllegalArgumentException("SDK-shaped observation requires evidence for versioning");
             }
         }
     }
@@ -181,12 +175,11 @@ public interface HostSnapshotSource {
          * @param evidence opaque value for the producing source, or {@code null}
          */
         public Observation(
-            final Optional<HostProject> project,
-            final Optional<HostDocument> document,
-            final Optional<HostModel> model,
-            final HostSelection selection,
-            final Object evidence
-        ) {
+                final Optional<HostProject> project,
+                final Optional<HostDocument> document,
+                final Optional<HostModel> model,
+                final HostSelection selection,
+                final Object evidence) {
             this.project = Objects.requireNonNull(project, "project");
             this.document = Objects.requireNonNull(document, "document");
             this.model = Objects.requireNonNull(model, "model");
@@ -230,12 +223,11 @@ public interface HostSnapshotSource {
      * @param documents documents belonging to the project (copied defensively); never null
      */
     record HostProject(
-        String projectId,
-        String name,
-        Optional<Path> projectDirectory,
-        List<HostProjectContent> contents,
-        List<HostDocument> documents
-    ) {
+            String projectId,
+            String name,
+            Optional<Path> projectDirectory,
+            List<HostProjectContent> contents,
+            List<HostDocument> documents) {
         public HostProject {
             projectDirectory = Objects.requireNonNull(projectDirectory, "projectDirectory");
             contents = List.copyOf(Objects.requireNonNull(contents, "contents"));
@@ -243,11 +235,10 @@ public interface HostSnapshotSource {
         }
 
         public HostProject(
-            final String projectId,
-            final String name,
-            final Optional<Path> projectDirectory,
-            final List<HostDocument> documents
-        ) {
+                final String projectId,
+                final String name,
+                final Optional<Path> projectDirectory,
+                final List<HostDocument> documents) {
             this(projectId, name, projectDirectory, List.of(), documents);
         }
     }
@@ -263,13 +254,12 @@ public interface HostSnapshotSource {
      * @param resources resources attached to the content (copied defensively); never null
      */
     record HostProjectContent(
-        String contentId,
-        String name,
-        ProjectContentKind kind,
-        Optional<Path> filePath,
-        List<String> documentIds,
-        List<HostProjectResource> resources
-    ) {
+            String contentId,
+            String name,
+            ProjectContentKind kind,
+            Optional<Path> filePath,
+            List<String> documentIds,
+            List<HostProjectResource> resources) {
         public HostProjectContent {
             kind = Objects.requireNonNull(kind, "kind");
             filePath = Objects.requireNonNull(filePath, "filePath");
@@ -286,12 +276,7 @@ public interface HostSnapshotSource {
      * @param kind the resource classification; never null
      * @param relativePath project-relative path when the host reported one; never null
      */
-    record HostProjectResource(
-        String resourceId,
-        String name,
-        ResourceKind kind,
-        Optional<String> relativePath
-    ) {
+    record HostProjectResource(String resourceId, String name, ResourceKind kind, Optional<String> relativePath) {
         public HostProjectResource {
             kind = Objects.requireNonNull(kind, "kind");
             relativePath = Objects.requireNonNull(relativePath, "relativePath");
@@ -313,15 +298,14 @@ public interface HostSnapshotSource {
      *        must be empty for any other kind; never null
      */
     record HostDocument(
-        String documentId,
-        String name,
-        DocumentKind kind,
-        String relativePath,
-        Optional<Path> filePath,
-        Optional<String> contentId,
-        Optional<HostModel> model,
-        Optional<HostAnimation> animation
-    ) {
+            String documentId,
+            String name,
+            DocumentKind kind,
+            String relativePath,
+            Optional<Path> filePath,
+            Optional<String> contentId,
+            Optional<HostModel> model,
+            Optional<HostAnimation> animation) {
         public HostDocument {
             kind = Objects.requireNonNull(kind, "kind");
             filePath = Objects.requireNonNull(filePath, "filePath");
@@ -332,29 +316,25 @@ public interface HostSnapshotSource {
                 throw new IllegalArgumentException("Only MODEL documents may own HostModel");
             }
             if (kind != DocumentKind.ANIMATION_SCENE && animation.isPresent()) {
-                throw new IllegalArgumentException(
-                    "Only ANIMATION_SCENE documents may own HostAnimation"
-                );
+                throw new IllegalArgumentException("Only ANIMATION_SCENE documents may own HostAnimation");
             }
         }
 
         public HostDocument(
-            final String documentId,
-            final String name,
-            final String relativePath,
-            final Optional<Path> filePath,
-            final Optional<HostModel> model
-        ) {
+                final String documentId,
+                final String name,
+                final String relativePath,
+                final Optional<Path> filePath,
+                final Optional<HostModel> model) {
             this(
-                documentId,
-                name,
-                model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
-                relativePath,
-                filePath,
-                Optional.empty(),
-                model,
-                Optional.empty()
-            );
+                    documentId,
+                    name,
+                    model.isPresent() ? DocumentKind.MODEL : DocumentKind.OTHER,
+                    relativePath,
+                    filePath,
+                    Optional.empty(),
+                    model,
+                    Optional.empty());
         }
     }
 
@@ -369,19 +349,15 @@ public interface HostSnapshotSource {
      * @param activeSceneDocumentId id of the currently active scene when one is active; never null
      */
     record HostAnimation(
-        String animationId,
-        String name,
-        Optional<Path> filePath,
-        List<String> sceneDocumentIds,
-        Optional<String> activeSceneDocumentId
-    ) {
+            String animationId,
+            String name,
+            Optional<Path> filePath,
+            List<String> sceneDocumentIds,
+            Optional<String> activeSceneDocumentId) {
         public HostAnimation {
             filePath = Objects.requireNonNull(filePath, "filePath");
             sceneDocumentIds = List.copyOf(Objects.requireNonNull(sceneDocumentIds, "sceneDocumentIds"));
-            activeSceneDocumentId = Objects.requireNonNull(
-                activeSceneDocumentId,
-                "activeSceneDocumentId"
-            );
+            activeSceneDocumentId = Objects.requireNonNull(activeSceneDocumentId, "activeSceneDocumentId");
         }
     }
 
@@ -395,12 +371,11 @@ public interface HostSnapshotSource {
      * @param deformers model deformers (copied defensively); never null
      */
     record HostModel(
-        String modelId,
-        String name,
-        List<HostParameter> parameters,
-        List<HostArtMesh> artMeshes,
-        List<HostDeformer> deformers
-    ) {
+            String modelId,
+            String name,
+            List<HostParameter> parameters,
+            List<HostArtMesh> artMeshes,
+            List<HostDeformer> deformers) {
         public HostModel {
             parameters = List.copyOf(parameters);
             artMeshes = List.copyOf(artMeshes);
@@ -418,11 +393,10 @@ public interface HostSnapshotSource {
      * @param activeDeformerId id of the active deformer when one is active; never null
      */
     record HostSelection(
-        List<String> selectedObjectIds,
-        Optional<String> activeParameterId,
-        Optional<String> activeArtMeshId,
-        Optional<String> activeDeformerId
-    ) {
+            List<String> selectedObjectIds,
+            Optional<String> activeParameterId,
+            Optional<String> activeArtMeshId,
+            Optional<String> activeDeformerId) {
         public HostSelection {
             selectedObjectIds = List.copyOf(selectedObjectIds);
             activeParameterId = Objects.requireNonNull(activeParameterId, "activeParameterId");
@@ -453,16 +427,14 @@ public interface HostSnapshotSource {
      * @param editable whether the parameter can be edited through the host palette
      */
     record HostParameter(
-        String id,
-        String name,
-        double value,
-        double defaultValue,
-        double minValue,
-        double maxValue,
-        boolean visible,
-        boolean editable
-    ) {
-    }
+            String id,
+            String name,
+            double value,
+            double defaultValue,
+            double minValue,
+            double maxValue,
+            boolean visible,
+            boolean editable) {}
 
     /**
      * Immutable projection of one ArtMesh.
@@ -474,13 +446,7 @@ public interface HostSnapshotSource {
      * @param renderable whether the ArtMesh can actually render (for example not fully
      *        masked or clipped away)
      */
-    record HostArtMesh(
-        String id,
-        String name,
-        Optional<String> textureId,
-        boolean visible,
-        boolean renderable
-    ) {
+    record HostArtMesh(String id, String name, Optional<String> textureId, boolean visible, boolean renderable) {
         public HostArtMesh {
             textureId = Objects.requireNonNull(textureId, "textureId");
         }
@@ -495,13 +461,7 @@ public interface HostSnapshotSource {
      * @param parentId id of the parent deformer when one exists; never null
      * @param childIds ids of the child deformers (copied defensively); never null
      */
-    record HostDeformer(
-        String id,
-        String name,
-        DeformerType type,
-        Optional<String> parentId,
-        List<String> childIds
-    ) {
+    record HostDeformer(String id, String name, DeformerType type, Optional<String> parentId, List<String> childIds) {
         public HostDeformer {
             parentId = Objects.requireNonNull(parentId, "parentId");
             childIds = List.copyOf(childIds);

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-
 /**
  * Immutable auto-backup settings projection of the host's auto-backup manager
  * ({@code com.live2d.cubism.util.a}, CEAutobackupManager).
@@ -10,12 +9,7 @@ package dev.turboism.sdk.cubism.backup;
  * mutated through this API. It is {@code null} when the host did not expose
  * a backup directory (fail closed).</p>
  */
-public record EditorAutoBackupSettings(
-    boolean enabled,
-    int intervalMinutes,
-    int maxMB,
-    String backupDir
-) {
+public record EditorAutoBackupSettings(boolean enabled, int intervalMinutes, int maxMB, String backupDir) {
 
     public static final int MIN_INTERVAL_MINUTES = 1;
     public static final int MAX_INTERVAL_MINUTES = 1440;
@@ -24,15 +18,12 @@ public record EditorAutoBackupSettings(
 
     public EditorAutoBackupSettings {
         if (intervalMinutes < MIN_INTERVAL_MINUTES || intervalMinutes > MAX_INTERVAL_MINUTES) {
-            throw new IllegalArgumentException(
-                "intervalMinutes must be within [" + MIN_INTERVAL_MINUTES + ", "
-                    + MAX_INTERVAL_MINUTES + "], got " + intervalMinutes
-            );
+            throw new IllegalArgumentException("intervalMinutes must be within [" + MIN_INTERVAL_MINUTES + ", "
+                    + MAX_INTERVAL_MINUTES + "], got " + intervalMinutes);
         }
         if (maxMB < MIN_MAX_MB || maxMB > MAX_MAX_MB) {
             throw new IllegalArgumentException(
-                "maxMB must be within [" + MIN_MAX_MB + ", " + MAX_MAX_MB + "], got " + maxMB
-            );
+                    "maxMB must be within [" + MIN_MAX_MB + ", " + MAX_MAX_MB + "], got " + maxMB);
         }
     }
 

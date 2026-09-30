@@ -13,14 +13,14 @@ final class VerifiedMemberResolverFactory {
     private final HostClassSourceAttestor attestor = new HostClassSourceAttestor();
 
     VerifiedMemberResolver create(
-        final Path recordPath,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader,
-        final String requiredVerificationId,
-        final String requiredAdapterSliceId,
-        final Set<String> requiredCapabilityIds,
-        final Set<String> requiredAliases
-    ) throws IOException {
+            final Path recordPath,
+            final Path verifiedArtifact,
+            final ClassLoader hostClassLoader,
+            final String requiredVerificationId,
+            final String requiredAdapterSliceId,
+            final Set<String> requiredCapabilityIds,
+            final Set<String> requiredAliases)
+            throws IOException {
         Objects.requireNonNull(recordPath, "recordPath");
         Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -34,25 +34,18 @@ final class VerifiedMemberResolverFactory {
         if (!record.verificationId().equals(requiredVerificationId)) {
             throw new IllegalArgumentException("verification record ID is not authorized");
         }
-        final StaticVerificationReport report = verifier.verify(
-            verifiedArtifact,
-            record.artifact(),
-            record.selectors()
-        );
+        final StaticVerificationReport report =
+                verifier.verify(verifiedArtifact, record.artifact(), record.selectors());
         final VerifiedAccessPlan accessPlan = VerifiedAccessPlan.from(record, report);
         if (!accessPlan.authorizes(
-            requiredAdapterSliceId,
-            Set.copyOf(requiredCapabilityIds),
-            Set.copyOf(requiredAliases)
-        )) {
+                requiredAdapterSliceId, Set.copyOf(requiredCapabilityIds), Set.copyOf(requiredAliases))) {
             throw new IllegalArgumentException(
-                "verification record does not authorize the exact adapter capabilities and selectors"
-            );
+                    "verification record does not authorize the exact adapter capabilities and selectors");
         }
         attestor.attest(verifiedArtifact, hostClassLoader, accessPlan.selectors());
         final HostArtifactDigest afterAttestation = HostArtifactDigest.from(verifiedArtifact);
         if (afterAttestation.size() != record.artifact().size()
-            || !afterAttestation.sha256().equals(record.artifact().sha256())) {
+                || !afterAttestation.sha256().equals(record.artifact().sha256())) {
             throw new IllegalArgumentException("verified artifact changed during runtime attestation");
         }
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);

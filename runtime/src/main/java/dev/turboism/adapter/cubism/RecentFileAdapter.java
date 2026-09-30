@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;

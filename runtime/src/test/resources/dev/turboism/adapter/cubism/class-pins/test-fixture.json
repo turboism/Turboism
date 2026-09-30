@@ -1,0 +1,9 @@
+{
+  "5.2.03": {
+    "com/example/ClassA": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    "com/example/ClassB": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "5.3.02": {
+    "com/example/ClassA": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  }
+}

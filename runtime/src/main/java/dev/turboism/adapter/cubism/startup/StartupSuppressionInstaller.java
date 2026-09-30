@@ -3,8 +3,6 @@ package dev.turboism.adapter.cubism.startup;
 import dev.turboism.adapter.cubism.optimization.ReviewedHostContract;
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
-import dev.turboism.mapping.verification.StartupSuppressionVerificationManifest;
-
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
@@ -19,11 +17,9 @@ import java.util.function.Consumer;
 public final class StartupSuppressionInstaller {
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            StartupSuppressionProfile.reviewedClassSha256(), version -> version);
+            ReviewedHostContract.candidates(StartupSuppressionProfile.reviewedClassSha256(), version -> version);
 
-    private StartupSuppressionInstaller() {
-    }
+    private StartupSuppressionInstaller() {}
 
     /**
      * Locates the single host artifact admitted from the startup class path.
@@ -32,15 +28,12 @@ public final class StartupSuppressionInstaller {
      * @param workingDirectory directory used to resolve relative entries
      * @return the located host artifact, or empty when admission is ambiguous or unavailable
      */
-    public static java.util.Optional<Path> locateHostArtifact(
-        final String classPath,
-        final Path workingDirectory
-    ) {
+    public static java.util.Optional<Path> locateHostArtifact(final String classPath, final Path workingDirectory) {
         final StartupHostArtifactLocator.Result located =
-            StartupHostArtifactLocator.locate(classPath, workingDirectory);
+                StartupHostArtifactLocator.locate(classPath, workingDirectory);
         return located.status() == StartupHostArtifactLocator.Status.FOUND
-            ? java.util.Optional.of(located.artifact())
-            : java.util.Optional.empty();
+                ? java.util.Optional.of(located.artifact())
+                : java.util.Optional.empty();
     }
 
     /**
@@ -70,13 +63,12 @@ public final class StartupSuppressionInstaller {
      * @throws NullPointerException when any argument other than {@code classPath} is {@code null}
      */
     public static Installation install(
-        final AttachmentMode mode,
-        final Instrumentation instrumentation,
-        final Path turboismHome,
-        final String classPath,
-        final Path workingDirectory,
-        final Consumer<String> diagnostic
-    ) {
+            final AttachmentMode mode,
+            final Instrumentation instrumentation,
+            final Path turboismHome,
+            final String classPath,
+            final Path workingDirectory,
+            final Consumer<String> diagnostic) {
         Objects.requireNonNull(mode, "mode");
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(turboismHome, "turboismHome");
@@ -93,9 +85,11 @@ public final class StartupSuppressionInstaller {
         }
 
         final StartupHostArtifactLocator.Result located =
-            StartupHostArtifactLocator.locate(classPath, workingDirectory);
+                StartupHostArtifactLocator.locate(classPath, workingDirectory);
         if (located.status() != StartupHostArtifactLocator.Status.FOUND) {
-            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_" + located.status().name());
+            report(
+                    diagnostic,
+                    "STARTUP_SUPPRESSION_ARTIFACT_" + located.status().name());
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
         }
 
@@ -107,14 +101,9 @@ public final class StartupSuppressionInstaller {
             report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_UNREADABLE");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
         } finally {
-            report(
-                diagnostic,
-                "STARTUP_SUPPRESSION_ARTIFACT_HASH_MILLIS_"
-                    + elapsedMillis(digestStartedNanos)
-            );
+            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_HASH_MILLIS_" + elapsedMillis(digestStartedNanos));
         }
-        final Optional<StartupSuppressionProfile> admitted =
-            runtimeProfileForArtifact(located.artifact(), digest);
+        final Optional<StartupSuppressionProfile> admitted = runtimeProfileForArtifact(located.artifact(), digest);
         if (admitted.isEmpty()) {
             report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_NOT_RUNTIME_ADMITTED");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
@@ -125,10 +114,8 @@ public final class StartupSuppressionInstaller {
             return Installation.completed(Status.TARGET_ALREADY_LOADED, policy);
         }
 
-        final AtomicReference<StartupSuppressionClassFileTransformer> reference =
-            new AtomicReference<>();
-        final StartupSuppressionClassFileTransformer transformer =
-            new StartupSuppressionClassFileTransformer(
+        final AtomicReference<StartupSuppressionClassFileTransformer> reference = new AtomicReference<>();
+        final StartupSuppressionClassFileTransformer transformer = new StartupSuppressionClassFileTransformer(
                 located.artifact(),
                 profile,
                 policy,
@@ -138,8 +125,7 @@ public final class StartupSuppressionInstaller {
                         instrumentation.removeTransformer(installed);
                     }
                 },
-                diagnostic
-            );
+                diagnostic);
         reference.set(transformer);
         try {
             instrumentation.addTransformer(transformer, false);
@@ -158,31 +144,23 @@ public final class StartupSuppressionInstaller {
      * attests the snapshot without selecting a version.
      */
     static Optional<StartupSuppressionProfile> runtimeProfileForArtifact(
-        final Path artifact,
-        final HostArtifactDigest observedDigest
-    ) {
+            final Path artifact, final HostArtifactDigest observedDigest) {
         Objects.requireNonNull(artifact, "artifact");
         Objects.requireNonNull(observedDigest, "observedDigest");
         final var resolution = ReviewedHostContract.resolve(artifact, CANDIDATES);
         if (!(resolution instanceof ReviewedHostContract.Bound<String> bound)
-            || !observedDigest.equals(bound.probe().identity().orElseThrow().artifact())) {
+                || !observedDigest.equals(bound.probe().identity().orElseThrow().artifact())) {
             return Optional.empty();
         }
-        return StartupSuppressionProfile.forReviewedVersion(
-            bound.contract(), observedDigest);
+        return StartupSuppressionProfile.forReviewedVersion(bound.contract(), observedDigest);
     }
 
     private static boolean requested(final RuntimeStartupConfig policy) {
         return !policy.safeMode()
-            && (policy.skipStartupUpdateCheck()
-                || policy.skipStartupSplash()
-                || policy.skipStartupInformation());
+                && (policy.skipStartupUpdateCheck() || policy.skipStartupSplash() || policy.skipStartupInformation());
     }
 
-    private static boolean targetAlreadyLoaded(
-        final Instrumentation instrumentation,
-        final String targetOwner
-    ) {
+    private static boolean targetAlreadyLoaded(final Instrumentation instrumentation, final String targetOwner) {
         final String binaryName = targetOwner.replace('/', '.');
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
@@ -244,29 +222,24 @@ public final class StartupSuppressionInstaller {
         private final AtomicBoolean closed = new AtomicBoolean(false);
 
         private Installation(
-            final Status status,
-            final RuntimeStartupConfig policy,
-            final Instrumentation instrumentation,
-            final StartupSuppressionClassFileTransformer transformer
-        ) {
+                final Status status,
+                final RuntimeStartupConfig policy,
+                final Instrumentation instrumentation,
+                final StartupSuppressionClassFileTransformer transformer) {
             this.status = Objects.requireNonNull(status, "status");
             this.policy = Objects.requireNonNull(policy, "policy");
             this.instrumentation = instrumentation;
             this.transformer = transformer;
         }
 
-        private static Installation completed(
-            final Status status,
-            final RuntimeStartupConfig policy
-        ) {
+        private static Installation completed(final Status status, final RuntimeStartupConfig policy) {
             return new Installation(status, policy, null, null);
         }
 
         private static Installation installed(
-            final RuntimeStartupConfig policy,
-            final Instrumentation instrumentation,
-            final StartupSuppressionClassFileTransformer transformer
-        ) {
+                final RuntimeStartupConfig policy,
+                final Instrumentation instrumentation,
+                final StartupSuppressionClassFileTransformer transformer) {
             return new Installation(Status.INSTALLED, policy, instrumentation, transformer);
         }
 

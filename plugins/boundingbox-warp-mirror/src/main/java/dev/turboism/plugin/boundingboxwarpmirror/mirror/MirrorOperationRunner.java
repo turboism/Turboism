@@ -8,7 +8,6 @@ import dev.turboism.sdk.cubism.mirror.WarpMirrorOutcome;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorRequest;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorResult;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorService;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -22,18 +21,10 @@ import java.util.Objects;
 public final class MirrorOperationRunner {
 
     /** One target that did not apply cleanly. */
-    public record Failure(
-        String targetId,
-        WarpMirrorOutcome outcome,
-        List<WarpMirrorBlockerCode> blockerCodes
-    ) { }
+    public record Failure(String targetId, WarpMirrorOutcome outcome, List<WarpMirrorBlockerCode> blockerCodes) {}
 
     /** Aggregated outcome of one confirmed dialog run. */
-    public record Summary(
-        int applied,
-        int noChange,
-        List<Failure> failures
-    ) {
+    public record Summary(int applied, int noChange, List<Failure> failures) {
         public Summary {
             failures = List.copyOf(Objects.requireNonNull(failures, "failures"));
         }
@@ -61,26 +52,27 @@ public final class MirrorOperationRunner {
      * @return the aggregated summary
      */
     public Summary apply(
-        final WarpMirrorService service,
-        final List<DeformerId> targets,
-        final WarpMirrorDirection direction,
-        final boolean preserveDescendants
-    ) {
+            final WarpMirrorService service,
+            final List<DeformerId> targets,
+            final WarpMirrorDirection direction,
+            final boolean preserveDescendants) {
         Objects.requireNonNull(service, "service");
         int applied = 0;
         int noChange = 0;
         final ArrayList<Failure> failures = new ArrayList<>();
         for (DeformerId target : targets) {
-            final WarpMirrorResult result = service.apply(
-                new WarpMirrorRequest(target, direction, preserveDescendants));
+            final WarpMirrorResult result =
+                    service.apply(new WarpMirrorRequest(target, direction, preserveDescendants));
             switch (result.outcome()) {
                 case APPLIED -> applied++;
                 case NO_CHANGE -> noChange++;
-                case BLOCKED, RECOVERY_FAILED -> failures.add(new Failure(
-                    target.value(),
-                    result.outcome(),
-                    result.blockers().stream().map(WarpMirrorBlocker::code).toList()
-                ));
+                case BLOCKED, RECOVERY_FAILED ->
+                    failures.add(new Failure(
+                            target.value(),
+                            result.outcome(),
+                            result.blockers().stream()
+                                    .map(WarpMirrorBlocker::code)
+                                    .toList()));
             }
         }
         return new Summary(applied, noChange, List.copyOf(failures));

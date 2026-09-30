@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-
 /**
  * Signals that a transaction's staged writes could not be applied to the Cubism host,
  * leaving the model in whatever state the failed commit produced. Carries error code 1201

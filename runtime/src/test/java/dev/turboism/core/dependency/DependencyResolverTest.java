@@ -1,12 +1,11 @@
 package dev.turboism.core.dependency;
 
-import dev.turboism.sdk.plugin.PluginDescriptor;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class DependencyResolverTest {
 
@@ -25,7 +24,9 @@ class DependencyResolverTest {
     }
 
     private static List<String> ids(DependencyResolver.ResolutionResult result) {
-        return result.loadOrder().stream().map(DependencyResolver.ResolvedPlugin::id).toList();
+        return result.loadOrder().stream()
+                .map(DependencyResolver.ResolvedPlugin::id)
+                .toList();
     }
 
     @Test
@@ -56,8 +57,10 @@ class DependencyResolverTest {
 
     @Test
     void cyclicOrderingDisablesCycleMembers() {
-        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "required", "after")));
-        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0", "required", "after")));
+        PluginDescriptor a = descriptor(
+                "dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "required", "after")));
+        PluginDescriptor b = descriptor(
+                "dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0", "required", "after")));
 
         DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b));
 
@@ -70,8 +73,10 @@ class DependencyResolverTest {
     void mutualRequiredWithoutOrderingIsNotACycle() {
         // Required refs gate on existence and version, not order: with no declared ordering
         // edge the plugins load in discovery order and neither is disabled.
-        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
-        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0")));
+        PluginDescriptor a =
+                descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b =
+                descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0")));
 
         DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b));
 
@@ -83,8 +88,10 @@ class DependencyResolverTest {
     @Test
     void optionalOrderingCycleDisablesMembers() {
         // A ordering-only cycle through optional refs is unsatisfiable and diagnosed the same way.
-        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "optional", "before")));
-        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0", "optional", "before")));
+        PluginDescriptor a = descriptor(
+                "dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "optional", "before")));
+        PluginDescriptor b = descriptor(
+                "dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.a", "0.1.0", "optional", "before")));
         PluginDescriptor free = descriptor("dev.turboism.plugin.free", "0.1.0", List.of());
 
         DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b, free));
@@ -99,10 +106,10 @@ class DependencyResolverTest {
         // Two cycles sharing a member: both must be diagnosed and every member disabled, in any
         // discovery order.
         PluginDescriptor a = descriptor("a", "0.1.0", List.of(dep("b", "0.1.0", "optional", "before")));
-        PluginDescriptor b = descriptor("b", "0.1.0", List.of(
-            dep("a", "0.1.0", "optional", "before"),
-            dep("c", "0.1.0", "optional", "before")
-        ));
+        PluginDescriptor b = descriptor(
+                "b",
+                "0.1.0",
+                List.of(dep("a", "0.1.0", "optional", "before"), dep("c", "0.1.0", "optional", "before")));
         PluginDescriptor c = descriptor("c", "0.1.0", List.of(dep("b", "0.1.0", "optional", "before")));
         PluginDescriptor free = descriptor("free", "0.1.0", List.of());
 
@@ -133,8 +140,10 @@ class DependencyResolverTest {
 
     @Test
     void transitiveDependencyFailureDisablesDependentPlugin() {
-        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
-        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.missing", "0.1.0")));
+        PluginDescriptor a =
+                descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b =
+                descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.missing", "0.1.0")));
 
         DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b));
 
@@ -144,18 +153,18 @@ class DependencyResolverTest {
 
     @Test
     void cycleFailureDisablesTransitiveDependents() {
-        PluginDescriptor a = descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
-        PluginDescriptor b = descriptor("dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.c", "0.1.0", "required", "after")));
-        PluginDescriptor c = descriptor("dev.turboism.plugin.c", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "required", "after")));
+        PluginDescriptor a =
+                descriptor("dev.turboism.plugin.a", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0")));
+        PluginDescriptor b = descriptor(
+                "dev.turboism.plugin.b", "0.1.0", List.of(dep("dev.turboism.plugin.c", "0.1.0", "required", "after")));
+        PluginDescriptor c = descriptor(
+                "dev.turboism.plugin.c", "0.1.0", List.of(dep("dev.turboism.plugin.b", "0.1.0", "required", "after")));
 
         DependencyResolver.ResolutionResult result = resolver.resolve(List.of(a, b, c));
 
         assertFalse(result.cycles().isEmpty());
-        assertTrue(result.disabledIds().containsAll(List.of(
-            "dev.turboism.plugin.a",
-            "dev.turboism.plugin.b",
-            "dev.turboism.plugin.c"
-        )));
+        assertTrue(result.disabledIds()
+                .containsAll(List.of("dev.turboism.plugin.a", "dev.turboism.plugin.b", "dev.turboism.plugin.c")));
         assertTrue(result.loadOrder().isEmpty());
     }
 
@@ -171,9 +180,12 @@ class DependencyResolverTest {
     void requiredOrderingControlsLoadDirection() {
         // ordering is the declarer's position relative to the dependency target: consumer
         // declaring "after" provider loads behind it, "before" ahead of it, "none" unconstrained.
-        PluginDescriptor consumerAfter = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "after")));
-        PluginDescriptor consumerBefore = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "before")));
-        PluginDescriptor consumerNone = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "none")));
+        PluginDescriptor consumerAfter =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "after")));
+        PluginDescriptor consumerBefore =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "before")));
+        PluginDescriptor consumerNone =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "none")));
         PluginDescriptor provider = descriptor("provider", "0.1.0", List.of());
 
         assertEquals(List.of("provider", "consumer"), ids(resolver.resolve(List.of(consumerAfter, provider))));
@@ -185,12 +197,16 @@ class DependencyResolverTest {
 
     @Test
     void requiredBeforeStillGatesOnExistenceAndVersion() {
-        PluginDescriptor missing = descriptor("consumer", "0.1.0", List.of(dep("absent", "0.1.0", "required", "before")));
-        PluginDescriptor incompatible = descriptor("consumer", "0.1.0", List.of(dep("provider", "[0.2.0,0.3.0)", "required", "before")));
+        PluginDescriptor missing =
+                descriptor("consumer", "0.1.0", List.of(dep("absent", "0.1.0", "required", "before")));
+        PluginDescriptor incompatible =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "[0.2.0,0.3.0)", "required", "before")));
         PluginDescriptor provider = descriptor("provider", "0.1.0", List.of());
 
         assertEquals(List.of("consumer"), resolver.resolve(List.of(missing)).disabledIds());
-        assertEquals(List.of("consumer"), resolver.resolve(List.of(incompatible, provider)).disabledIds());
+        assertEquals(
+                List.of("consumer"),
+                resolver.resolve(List.of(incompatible, provider)).disabledIds());
     }
 
     @Test
@@ -198,10 +214,14 @@ class DependencyResolverTest {
         // An optional ref never disables its declarer; ordering applies only while the target is
         // present, resolvable, and inside the declared range.
         PluginDescriptor provider = descriptor("provider", "0.1.0", List.of());
-        PluginDescriptor absent = descriptor("consumer", "0.1.0", List.of(dep("absent", "0.1.0", "optional", "before")));
-        PluginDescriptor after = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "after")));
-        PluginDescriptor before = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "before")));
-        PluginDescriptor mismatched = descriptor("consumer", "0.1.0", List.of(dep("provider", "[0.2.0,0.3.0)", "optional", "after")));
+        PluginDescriptor absent =
+                descriptor("consumer", "0.1.0", List.of(dep("absent", "0.1.0", "optional", "before")));
+        PluginDescriptor after =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "after")));
+        PluginDescriptor before =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "before")));
+        PluginDescriptor mismatched =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "[0.2.0,0.3.0)", "optional", "after")));
 
         assertEquals(List.of("consumer"), ids(resolver.resolve(List.of(absent))));
         assertEquals(List.of("provider", "consumer"), ids(resolver.resolve(List.of(after, provider))));
@@ -229,8 +249,10 @@ class DependencyResolverTest {
     void unsupportedOrderingTokenDisablesDeclarerWithReason() {
         // Ordering tokens outside before/after/none fail closed like the admission-time schema
         // check rather than silently picking a direction.
-        PluginDescriptor consumer = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "sideways")));
-        PluginDescriptor optional = descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "sideways")));
+        PluginDescriptor consumer =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "required", "sideways")));
+        PluginDescriptor optional =
+                descriptor("consumer", "0.1.0", List.of(dep("provider", "0.1.0", "optional", "sideways")));
         PluginDescriptor provider = descriptor("provider", "0.1.0", List.of());
 
         DependencyResolver.ResolutionResult required = resolver.resolve(List.of(consumer, provider));
@@ -243,37 +265,90 @@ class DependencyResolverTest {
         assertEquals(List.of("provider"), ids(optionalResult));
     }
 
-    private record StubDescriptor(String id, String version, List<String> entrypoints,
-                                  String turboismApi, List<DependencyRef> dependencies,
-                                  List<PermissionRef> permissions, Environment environment) implements PluginDescriptor {
+    private record StubDescriptor(
+            String id,
+            String version,
+            List<String> entrypoints,
+            String turboismApi,
+            List<DependencyRef> dependencies,
+            List<PermissionRef> permissions,
+            Environment environment)
+            implements PluginDescriptor {
 
         StubDescriptor(String id, String version, List<DependencyRef> deps) {
-            this(id, version, List.of(id + ".Plugin"), "[0.1.0,0.2.0)", deps,
-                List.of(), new StubEnvironment());
+            this(id, version, List.of(id + ".Plugin"), "[0.1.0,0.2.0)", deps, List.of(), new StubEnvironment());
         }
 
-        @Override public String name() { return id; }
-        @Override public String description() { return ""; }
-        @Override public List<Author> authors() { return List.of(); }
-        @Override public String license() { return "UNSPECIFIED"; }
-        @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
-        @Override public List<String> resources() { return List.of(); }
-        @Override public I18n i18n() { return new StubI18n(); }
-        @Override public List<String> capabilities() { return List.of(); }
+        @Override
+        public String name() {
+            return id;
+        }
+
+        @Override
+        public String description() {
+            return "";
+        }
+
+        @Override
+        public List<Author> authors() {
+            return List.of();
+        }
+
+        @Override
+        public String license() {
+            return "UNSPECIFIED";
+        }
+
+        @Override
+        public Optional<String> website() {
+            return Optional.of("https://turboism.dev");
+        }
+
+        @Override
+        public List<String> resources() {
+            return List.of();
+        }
+
+        @Override
+        public I18n i18n() {
+            return new StubI18n();
+        }
+
+        @Override
+        public List<String> capabilities() {
+            return List.of();
+        }
     }
 
     private record StubI18n() implements PluginDescriptor.I18n {
-        @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
-        @Override public List<String> locales() { return List.of(); }
+        @Override
+        public String baseName() {
+            return "META-INF/turboism/i18n/messages";
+        }
+
+        @Override
+        public List<String> locales() {
+            return List.of();
+        }
     }
 
     private record StubDependencyRef(String id, String version, String type, String ordering)
-        implements PluginDescriptor.DependencyRef {
-        @Override public Optional<String> reason() { return Optional.empty(); }
+            implements PluginDescriptor.DependencyRef {
+        @Override
+        public Optional<String> reason() {
+            return Optional.empty();
+        }
     }
 
     private static class StubEnvironment implements PluginDescriptor.Environment {
-        @Override public boolean requiresCubism() { return false; }
-        @Override public String ui() { return "none"; }
+        @Override
+        public boolean requiresCubism() {
+            return false;
+        }
+
+        @Override
+        public String ui() {
+            return "none";
+        }
     }
 }

@@ -8,7 +8,6 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -21,10 +20,9 @@ public final class AuthorizedMeshMirrorCounterparts implements MeshMirrorCounter
     private final AtomicReference<MeshMirrorCounterpartResolver> resolver = new AtomicReference<>();
 
     public AuthorizedMeshMirrorCounterparts(
-        final RuntimeMeshMirrorCounterparts delegate,
-        final PermissionChecker permissions,
-        final DisposableScope scope
-    ) {
+            final RuntimeMeshMirrorCounterparts delegate,
+            final PermissionChecker permissions,
+            final DisposableScope scope) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.scope = Objects.requireNonNull(scope, "scope");

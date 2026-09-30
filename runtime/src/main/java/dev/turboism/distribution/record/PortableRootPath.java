@@ -5,10 +5,8 @@ import java.util.Set;
 
 final class PortableRootPath {
     private static final Set<String> RESERVED = Set.of(
-        "CON", "PRN", "AUX", "NUL", "CLOCK$",
-        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-    );
+            "CON", "PRN", "AUX", "NUL", "CLOCK$", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+            "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9");
 
     private PortableRootPath() {}
 
@@ -23,8 +21,11 @@ final class PortableRootPath {
 
     private static int prefixLength(String value) {
         if (value.startsWith("/")) return value.startsWith("//") ? -1 : 1;
-        if (value.length() >= 3 && value.charAt(0) >= 'A' && value.charAt(0) <= 'Z'
-            && value.charAt(1) == ':' && value.charAt(2) == '/') return 3;
+        if (value.length() >= 3
+                && value.charAt(0) >= 'A'
+                && value.charAt(0) <= 'Z'
+                && value.charAt(1) == ':'
+                && value.charAt(2) == '/') return 3;
         return -1;
     }
 

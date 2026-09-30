@@ -1,16 +1,18 @@
 package dev.turboism.plugin.atlasmaxrectsbssf.layout;
 
-import dev.turboism.sdk.cubism.textureatlas.*;
-import org.junit.jupiter.api.Test;
-import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
+
+import dev.turboism.sdk.cubism.textureatlas.*;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class CurrentPageTextureAtlasPlannerTest {
 
     @Test
     void smallFullFitParallelRequestUsesSerialPreflightWithoutPartitioning() {
         var items = java.util.stream.IntStream.range(0, 16)
-            .mapToObj(i -> new TextureAtlasLayoutItem("item-" + i, 48, 48)).toList();
+                .mapToObj(i -> new TextureAtlasLayoutItem("item-" + i, 48, 48))
+                .toList();
         var c = TextureAtlasLayoutConstraints.currentPage(512, 512, 3, true, 1);
         var planner = new CurrentPageTextureAtlasPlanner();
         assertEquals(planner.plan(items, c, false), planner.plan(items, c, true));
@@ -38,21 +40,42 @@ class CurrentPageTextureAtlasPlannerTest {
 
     @Test
     void paddingReservationMayExceedIntegerRangeWithoutOverflowingContentCoordinates() {
-        final var constraints = new TextureAtlasLayoutConstraints(Integer.MAX_VALUE, Integer.MAX_VALUE,
-            0, 4, 1, false, false, new TextureAtlasSinglePageOptions(1));
-        final var plan = new CurrentPageTextureAtlasPlanner().plan(List.of(
-            new TextureAtlasLayoutItem("wide", Integer.MAX_VALUE, 1),
-            new TextureAtlasLayoutItem("small", 1, 1)), constraints, false);
+        final var constraints = new TextureAtlasLayoutConstraints(
+                Integer.MAX_VALUE, Integer.MAX_VALUE, 0, 4, 1, false, false, new TextureAtlasSinglePageOptions(1));
+        final var plan = new CurrentPageTextureAtlasPlanner()
+                .plan(
+                        List.of(
+                                new TextureAtlasLayoutItem("wide", Integer.MAX_VALUE, 1),
+                                new TextureAtlasLayoutItem("small", 1, 1)),
+                        constraints,
+                        false);
         assertEquals(2, plan.placements().size());
-        final var wide = plan.placements().stream().filter(p -> p.textureId().equals("wide")).findFirst().orElseThrow();
-        final var small = plan.placements().stream().filter(p -> p.textureId().equals("small")).findFirst().orElseThrow();
+        final var wide = plan.placements().stream()
+                .filter(p -> p.textureId().equals("wide"))
+                .findFirst()
+                .orElseThrow();
+        final var small = plan.placements().stream()
+                .filter(p -> p.textureId().equals("small"))
+                .findFirst()
+                .orElseThrow();
         assertEquals(0, wide.x());
         assertEquals(Integer.MAX_VALUE, wide.width());
         assertEquals(5, small.y());
-        final var hugeGap = new TextureAtlasLayoutConstraints(Integer.MAX_VALUE, Integer.MAX_VALUE,
-            0, Integer.MAX_VALUE, 1, false, false, new TextureAtlasSinglePageOptions(1));
-        assertEquals(1, new CurrentPageTextureAtlasPlanner().plan(List.of(
-            new TextureAtlasLayoutItem("only", 1, 1)), hugeGap, false).placements().size());
+        final var hugeGap = new TextureAtlasLayoutConstraints(
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE,
+                0,
+                Integer.MAX_VALUE,
+                1,
+                false,
+                false,
+                new TextureAtlasSinglePageOptions(1));
+        assertEquals(
+                1,
+                new CurrentPageTextureAtlasPlanner()
+                        .plan(List.of(new TextureAtlasLayoutItem("only", 1, 1)), hugeGap, false)
+                        .placements()
+                        .size());
     }
 
     @Test
@@ -60,15 +83,17 @@ class CurrentPageTextureAtlasPlannerTest {
         final var random = new java.util.Random(51);
         final var items = new java.util.ArrayList<TextureAtlasLayoutItem>();
         for (int i = 0; i < 500; i++) {
-            items.add(new TextureAtlasLayoutItem(String.format(java.util.Locale.ROOT, "item-%05d", i),
-                16 + random.nextInt(81), 16 + random.nextInt(81)));
+            items.add(new TextureAtlasLayoutItem(
+                    String.format(java.util.Locale.ROOT, "item-%05d", i),
+                    16 + random.nextInt(81),
+                    16 + random.nextInt(81)));
         }
         final var constraints = TextureAtlasLayoutConstraints.currentPage(512, 512, 1, true, 0);
         final var planner = new CurrentPageTextureAtlasPlanner();
-        final var serial = assertTimeoutPreemptively(java.time.Duration.ofSeconds(10),
-            () -> planner.plan(items, constraints, false));
-        final var parallel = assertTimeoutPreemptively(java.time.Duration.ofSeconds(10),
-            () -> planner.plan(items, constraints, true));
+        final var serial = assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(10), () -> planner.plan(items, constraints, false));
+        final var parallel = assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(10), () -> planner.plan(items, constraints, true));
         assertEquals(500, serial.placements().size());
         assertEquals(500, parallel.placements().size());
         // Captured before feasibility pruning: do not buy speed with a smaller result.
@@ -86,17 +111,26 @@ class CurrentPageTextureAtlasPlannerTest {
             for (int i = 0, count = 1 + random.nextInt(45); i < count; i++) {
                 items.add(new TextureAtlasLayoutItem("image-" + i, 1 + random.nextInt(120), 1 + random.nextInt(120)));
             }
-            final var c = TextureAtlasLayoutConstraints.currentPage(64 + random.nextInt(96), 64 + random.nextInt(96),
-                1 + random.nextInt(3), random.nextBoolean(), trial % 3 == 0 ? 0 : 0.5 + random.nextInt(3) * 0.5);
+            final var c = TextureAtlasLayoutConstraints.currentPage(
+                    64 + random.nextInt(96),
+                    64 + random.nextInt(96),
+                    1 + random.nextInt(3),
+                    random.nextBoolean(),
+                    trial % 3 == 0 ? 0 : 0.5 + random.nextInt(3) * 0.5);
             final boolean parallel = random.nextBoolean();
             final var result = planner.plan(items, c, parallel);
             assertEquals(1, result.pageCount());
-            final var byId = items.stream().collect(java.util.stream.Collectors.toMap(TextureAtlasLayoutItem::textureId, i -> i));
+            final var byId = items.stream()
+                    .collect(java.util.stream.Collectors.toMap(TextureAtlasLayoutItem::textureId, i -> i));
             for (var placed : result.placements()) {
                 final var source = byId.get(placed.textureId());
                 assertNotNull(source);
-                assertEquals(Math.ceil((placed.rotated() ? source.height() : source.width()) * result.scale()), placed.width());
-                assertEquals(Math.ceil((placed.rotated() ? source.width() : source.height()) * result.scale()), placed.height());
+                assertEquals(
+                        Math.ceil((placed.rotated() ? source.height() : source.width()) * result.scale()),
+                        placed.width());
+                assertEquals(
+                        Math.ceil((placed.rotated() ? source.width() : source.height()) * result.scale()),
+                        placed.height());
                 assertTrue(!placed.rotated() || c.allowRotation());
                 assertTrue(placed.x() >= c.edgeMargin() && placed.y() >= c.edgeMargin());
                 assertTrue(placed.x() + placed.width() <= c.pageWidth() - c.edgeMargin());
@@ -104,9 +138,9 @@ class CurrentPageTextureAtlasPlannerTest {
                 for (var other : result.placements()) {
                     if (placed == other) continue;
                     assertTrue(placed.x() + placed.width() + c.itemPadding() <= other.x()
-                        || other.x() + other.width() + c.itemPadding() <= placed.x()
-                        || placed.y() + placed.height() + c.itemPadding() <= other.y()
-                        || other.y() + other.height() + c.itemPadding() <= placed.y());
+                            || other.x() + other.width() + c.itemPadding() <= placed.x()
+                            || placed.y() + placed.height() + c.itemPadding() <= other.y()
+                            || other.y() + other.height() + c.itemPadding() <= placed.y());
                 }
             }
             java.util.Collections.shuffle(items, random);
@@ -117,10 +151,14 @@ class CurrentPageTextureAtlasPlannerTest {
     @Test
     void denseFixedScaleInputReturnsOverflowWithoutSearchingSubsequentPages() {
         final var random = new java.util.Random(51);
-        final var items = java.util.stream.IntStream.range(0, 500).mapToObj(i ->
-            new TextureAtlasLayoutItem("image-" + i, 16 + random.nextInt(81), 16 + random.nextInt(81))).toList();
-        final var result = assertTimeoutPreemptively(java.time.Duration.ofSeconds(10), () ->
-            new CurrentPageTextureAtlasPlanner().plan(items, TextureAtlasLayoutConstraints.currentPage(512, 512, 1, false, 1), false));
+        final var items = java.util.stream.IntStream.range(0, 500)
+                .mapToObj(
+                        i -> new TextureAtlasLayoutItem("image-" + i, 16 + random.nextInt(81), 16 + random.nextInt(81)))
+                .toList();
+        final var result = assertTimeoutPreemptively(
+                java.time.Duration.ofSeconds(10),
+                () -> new CurrentPageTextureAtlasPlanner()
+                        .plan(items, TextureAtlasLayoutConstraints.currentPage(512, 512, 1, false, 1), false));
         assertEquals(1, result.pageCount());
         assertEquals(1D, result.scale());
         assertTrue(result.placements().size() > 0 && result.placements().size() < items.size());
@@ -129,8 +167,10 @@ class CurrentPageTextureAtlasPlannerTest {
     @Test
     void automaticScaleUsesAnAreaBoundRatherThanAnAbsoluteMinimumScale() {
         final var planner = new CurrentPageTextureAtlasPlanner();
-        final var plan = planner.plan(List.of(new TextureAtlasLayoutItem("huge", 1_000_000, 1_000_000)),
-            TextureAtlasLayoutConstraints.currentPage(10, 10, 0, false, 0), false);
+        final var plan = planner.plan(
+                List.of(new TextureAtlasLayoutItem("huge", 1_000_000, 1_000_000)),
+                TextureAtlasLayoutConstraints.currentPage(10, 10, 0, false, 0),
+                false);
         assertEquals(1, plan.placements().size());
         assertTrue(plan.scale() > 0 && plan.scale() <= 0.00001);
         assertEquals(10, plan.placements().get(0).width());
@@ -140,7 +180,8 @@ class CurrentPageTextureAtlasPlannerTest {
     void regionParallelPackingIsDeterministicAndSpansRegionsWithinOnePage() {
         final var planner = new CurrentPageTextureAtlasPlanner();
         final var items = java.util.stream.IntStream.range(0, 32)
-            .mapToObj(i -> new TextureAtlasLayoutItem(String.format("image-%02d", i), 4, 4)).toList();
+                .mapToObj(i -> new TextureAtlasLayoutItem(String.format("image-%02d", i), 4, 4))
+                .toList();
         final var constraints = TextureAtlasLayoutConstraints.currentPage(64, 64, 1, false, 1);
         final var serial = planner.plan(items, constraints, false);
         final var parallel = planner.plan(items, constraints, true);
@@ -161,10 +202,13 @@ class CurrentPageTextureAtlasPlannerTest {
         assertEquals(1, plan.placements().size());
         assertEquals(0.5, plan.scale(), 1.0 / 256);
         assertTrue(plan.placements().get(0).width() <= 10);
-        final var small = planner.plan(List.of(new TextureAtlasLayoutItem("small", 2, 2)),
-            TextureAtlasLayoutConstraints.currentPage(10, 10, 0, false, 0), false);
+        final var small = planner.plan(
+                List.of(new TextureAtlasLayoutItem("small", 2, 2)),
+                TextureAtlasLayoutConstraints.currentPage(10, 10, 0, false, 0),
+                false);
         assertEquals(1D, small.scale(), "automatic scale must not enlarge images");
     }
+
     @Test
     void fixedScaleAndRotationRespectTheCurrentPageSettings() {
         final var planner = new CurrentPageTextureAtlasPlanner();
@@ -174,8 +218,8 @@ class CurrentPageTextureAtlasPlannerTest {
         assertEquals(1, plan.pageCount());
         assertEquals(0.5, plan.scale());
         assertEquals(List.of(new TextureAtlasPlacement("image", 0, 1, 1, 4, 6, true)), plan.placements());
-        final var noRotation = planner.plan(items,
-            TextureAtlasLayoutConstraints.currentPage(6, 8, 1, false, 0.5), false);
+        final var noRotation =
+                planner.plan(items, TextureAtlasLayoutConstraints.currentPage(6, 8, 1, false, 0.5), false);
         assertTrue(noRotation.placements().isEmpty());
         assertEquals(0.5, noRotation.scale());
     }

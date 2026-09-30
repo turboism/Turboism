@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
@@ -22,12 +22,11 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
     private boolean transformerRemoved;
 
     private VerifiedTextureAtlasDataModelHookInstaller(
-        final Instrumentation instrumentation,
-        final StaticSelector init,
-        final StaticSelector dataModel,
-        final ClassLoader hostClassLoader,
-        final TextureAtlasDataModelCapture capture
-    ) {
+            final Instrumentation instrumentation,
+            final StaticSelector init,
+            final StaticSelector dataModel,
+            final ClassLoader hostClassLoader,
+            final TextureAtlasDataModelCapture capture) {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.targetClassName = init.ownerInternalName().replace('/', '.');
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -35,14 +34,13 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
             throw new IllegalArgumentException("Texture-atlas hook selectors must share one owner.");
         }
         this.transformer = new TextureAtlasDataModelTransformer(
-            init.ownerInternalName(),
-            init.memberName(),
-            init.descriptor(),
-            hostClassLoader,
-            dataModel.memberName(),
-            dataModel.descriptor(),
-            capture.key()
-        );
+                init.ownerInternalName(),
+                init.memberName(),
+                init.descriptor(),
+                hostClassLoader,
+                dataModel.memberName(),
+                dataModel.descriptor(),
+                capture.key());
     }
 
     /**
@@ -65,38 +63,30 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
      * @throws NullPointerException if {@code resolver} or {@code capture} is null
      */
     public static VerifiedTextureAtlasDataModelHookInstaller fromVerifiedResolver(
-        final Instrumentation instrumentation,
-        final VerifiedMemberResolver resolver,
-        final ClassLoader hostClassLoader,
-        final TextureAtlasDataModelCapture capture
-    ) {
+            final Instrumentation instrumentation,
+            final VerifiedMemberResolver resolver,
+            final ClassLoader hostClassLoader,
+            final TextureAtlasDataModelCapture capture) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final VerifiedTextureAtlasSelectorContract.Profile profile =
-            VerifiedTextureAtlasSelectorContract.profileFor(verified.cubismVersion())
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Texture-atlas data-model hook version is unsupported."
-                ));
+        final VerifiedTextureAtlasSelectorContract.Profile profile = VerifiedTextureAtlasSelectorContract.profileFor(
+                        verified.cubismVersion())
+                .orElseThrow(
+                        () -> new IllegalArgumentException("Texture-atlas data-model hook version is unsupported."));
         final Set<String> hookAliases = profile.hookAliases();
         if (!verified.authorizesFeature(
-            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, hookAliases
-        )) {
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID, CAPABILITY_ID, hookAliases)) {
             throw new IllegalArgumentException("Texture-atlas data-model hook is not authorized.");
         }
         final StaticSelector init = verified.verifiedSelector(INIT_ALIAS);
         final StaticSelector dataModel = verified.verifiedSelector(DATA_MODEL_ALIAS);
         if (init.kind() != StaticSelector.Kind.METHOD
-            || dataModel.kind() != StaticSelector.Kind.METHOD
-            || (init.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
-            || (dataModel.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
+                || dataModel.kind() != StaticSelector.Kind.METHOD
+                || (init.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0
+                || (dataModel.forbiddenAccessFlags() & StaticSelector.ACCESS_STATIC) == 0) {
             throw new IllegalArgumentException("Verified texture-atlas hook selectors must be instance methods.");
         }
         return new VerifiedTextureAtlasDataModelHookInstaller(
-            instrumentation,
-            init,
-            dataModel,
-            hostClassLoader,
-            Objects.requireNonNull(capture, "capture")
-        );
+                instrumentation, init, dataModel, hostClassLoader, Objects.requireNonNull(capture, "capture"));
     }
 
     /**
@@ -122,13 +112,14 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                     break;
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -146,13 +137,14 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
                 }
             }
             installed = false;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("Texture-atlas hook restoration failed.", failure);
         }
     }

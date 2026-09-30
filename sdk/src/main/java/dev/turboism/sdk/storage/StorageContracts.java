@@ -6,8 +6,7 @@ import java.util.Optional;
 
 final class StorageContracts {
 
-    private StorageContracts() {
-    }
+    private StorageContracts() {}
 
     static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
@@ -25,48 +24,27 @@ final class StorageContracts {
         return List.copyOf(Objects.requireNonNull(value, name));
     }
 
-    static void validateRead(
-        final boolean hasValue,
-        final Optional<StorageError> error,
-        final boolean truncated
-    ) {
+    static void validateRead(final boolean hasValue, final Optional<StorageError> error, final boolean truncated) {
         if (hasValue == error.isPresent()) {
-            throw new IllegalArgumentException(
-                "storage read must contain exactly one of value or error"
-            );
+            throw new IllegalArgumentException("storage read must contain exactly one of value or error");
         }
         if (error.isPresent() && truncated) {
-            throw new IllegalArgumentException(
-                "failed storage read must not be truncated"
-            );
+            throw new IllegalArgumentException("failed storage read must not be truncated");
         }
     }
 
-    static void validateWrite(
-        final boolean written,
-        final Optional<StorageError> error
-    ) {
+    static void validateWrite(final boolean written, final Optional<StorageError> error) {
         if (written == error.isPresent()) {
-            throw new IllegalArgumentException(
-                "storage write success/error algebra is invalid"
-            );
+            throw new IllegalArgumentException("storage write success/error algebra is invalid");
         }
     }
 
-    static void validateMutation(
-        final boolean changed,
-        final Optional<StorageError> error
-    ) {
+    static void validateMutation(final boolean changed, final Optional<StorageError> error) {
         if (!changed && error.isEmpty()) {
-            throw new IllegalArgumentException(
-                "unchanged storage mutation requires an error"
-            );
+            throw new IllegalArgumentException("unchanged storage mutation requires an error");
         }
-        if (changed && error.isPresent()
-            && error.orElseThrow().code() != StorageErrorCode.PARTIAL_DELETE) {
-            throw new IllegalArgumentException(
-                "changed storage mutation may contain only PARTIAL_DELETE"
-            );
+        if (changed && error.isPresent() && error.orElseThrow().code() != StorageErrorCode.PARTIAL_DELETE) {
+            throw new IllegalArgumentException("changed storage mutation may contain only PARTIAL_DELETE");
         }
     }
 }

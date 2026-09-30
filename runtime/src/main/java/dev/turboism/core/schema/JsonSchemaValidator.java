@@ -1,7 +1,6 @@
 package dev.turboism.core.schema;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.util.List;
 
 /**

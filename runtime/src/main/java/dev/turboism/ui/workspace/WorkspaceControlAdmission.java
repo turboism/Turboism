@@ -2,7 +2,6 @@ package dev.turboism.ui.workspace;
 
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.util.Set;
 
 /**
@@ -79,23 +78,17 @@ final class WorkspaceControlAdmission {
         if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
             return false;
         }
-        final String adapterSliceId = CUBISM_VERSION_5_2_03.equals(cubismVersion)
-            ? ADAPTER_SLICE_ID_5_2_03
-            : ADAPTER_SLICE_ID_5_3_02;
-        return resolver.authorizes(
-            adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES
-        );
+        final String adapterSliceId =
+                CUBISM_VERSION_5_2_03.equals(cubismVersion) ? ADAPTER_SLICE_ID_5_2_03 : ADAPTER_SLICE_ID_5_3_02;
+        return resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
     }
 
     private static boolean authorizes(
-        final VerifiedMemberResolver resolver,
-        final String cubismVersion,
-        final String adapterSliceId
-    ) {
+            final VerifiedMemberResolver resolver, final String cubismVersion, final String adapterSliceId) {
         return resolver != null
-            && resolver.isAdmittedCubismVersion(cubismVersion)
-            && resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
+                && resolver.isAdmittedCubismVersion(cubismVersion)
+                && resolver.authorizes(adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES);
     }
 
-    private WorkspaceControlAdmission() { }
+    private WorkspaceControlAdmission() {}
 }

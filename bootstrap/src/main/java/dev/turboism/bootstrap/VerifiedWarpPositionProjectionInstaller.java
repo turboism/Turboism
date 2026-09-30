@@ -28,23 +28,26 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
     private final WarpPositionProjectionBridge bridge;
     private boolean installed, restored;
 
-    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
+    private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES = ReviewedHostContract.candidates(
             WarpPositionProjectionTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested, int jvm) {
-        return requested && jvm == 17 && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return requested
+                && jvm == 17
+                && config.hookEnabled(HOOK_ID)
+                && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedWarpPositionProjectionInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
+    VerifiedWarpPositionProjectionInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
+            throws Exception {
         if (Runtime.version().feature() != 17) {
             throw new IllegalArgumentException("warp projection requires JVM17");
         }
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "warp projection");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "warp projection");
         this.instrumentation = instrumentation;
-        if (!instrumentation.isRetransformClassesSupported()) throw new IllegalStateException("retransform unavailable");
+        if (!instrumentation.isRetransformClassesSupported())
+            throw new IllegalStateException("retransform unavailable");
         target = Class.forName(WarpPositionProjectionTransformer.TARGET.replace('/', '.'), false, loader);
         Class<?> form = Class.forName("com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerForm", false, loader);
         Class<?> vector = Class.forName("com.live2d.graphics3d.type.GVector2", false, loader);
@@ -54,21 +57,38 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         try (JarFile jar = new JarFile(artifact.toFile())) {
             attest(target, loader, artifact);
             transformer = new WarpPositionProjectionTransformer(loader, artifact, reference(jar, target));
-            for (Method method : new Method[]{form.getMethod("getPositions"), form.getMethod("getSource"),
-                form.getMethod("get_source$cubism"), form.getMethod("getAllPointRef"), refs.getMethod("getPos"),
-                vector.getMethod("setX", float.class), vector.getMethod("setY", float.class),
+            for (Method method : new Method[] {
+                form.getMethod("getPositions"),
+                form.getMethod("getSource"),
+                form.getMethod("get_source$cubism"),
+                form.getMethod("getAllPointRef"),
+                refs.getMethod("getPos"),
+                vector.getMethod("setX", float.class),
+                vector.getMethod("setY", float.class),
                 helper.getMethod("a", float[].class, int.class, int.class, vector, int.class, Object.class),
-                helper.getMethod("a", float[].class, int.class, int.class, vector)}) {
+                helper.getMethod("a", float[].class, int.class, int.class, vector)
+            }) {
                 Class<?> owner = method.getDeclaringClass();
                 attest(owner, loader, artifact);
-                verifyMethod(jar, owner, method.getName(), MethodType.methodType(method.getReturnType(), method.getParameterTypes()).descriptorString(), observed);
+                verifyMethod(
+                        jar,
+                        owner,
+                        method.getName(),
+                        MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                                .descriptorString(),
+                        observed);
             }
             attest(vector, loader, artifact);
             verifyMethod(jar, vector, "<init>", "(FF)V", observed);
             verifyMethod(jar, vector, "<init>", "()V", observed);
             attest(refs, loader, artifact);
             Class<?> source = form.getMethod("getSource").getReturnType();
-            verifyMethod(jar, refs, "<init>", MethodType.methodType(void.class, source, int.class, form).descriptorString(), observed);
+            verifyMethod(
+                    jar,
+                    refs,
+                    "<init>",
+                    MethodType.methodType(void.class, source, int.class, form).descriptorString(),
+                    observed);
             verifyMethod(jar, refs, "a", MethodType.methodType(void.class, form).descriptorString(), observed);
             verifyMethod(jar, refs, "a", "()I", observed);
         }
@@ -77,15 +97,26 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
     }
 
     private static void attest(Class<?> type, ClassLoader loader, Path artifact) throws Exception {
-        if (type.getClassLoader() != loader || !Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
-            .toAbsolutePath().normalize().equals(artifact.toAbsolutePath().normalize())) {
+        if (type.getClassLoader() != loader
+                || !Path.of(type.getProtectionDomain()
+                                .getCodeSource()
+                                .getLocation()
+                                .toURI())
+                        .toAbsolutePath()
+                        .normalize()
+                        .equals(artifact.toAbsolutePath().normalize())) {
             throw new IllegalArgumentException("warp dependency loader/source mismatch");
         }
     }
 
-    private void verifyMethod(JarFile jar, Class<?> type, String name, String descriptor, Map<Class<?>, byte[]> observed) throws Exception {
+    private void verifyMethod(
+            JarFile jar, Class<?> type, String name, String descriptor, Map<Class<?>, byte[]> observed)
+            throws Exception {
         byte[] actual = observed.get(type);
-        if (actual == null) { actual = capture(type); observed.put(type, actual); }
+        if (actual == null) {
+            actual = capture(type);
+            observed.put(type, actual);
+        }
         String owner = type.getName().replace('.', '/');
         var expected = ReviewedMethodShape.read(reference(jar, type), owner, name, descriptor);
         if (expected == null || !expected.equals(ReviewedMethodShape.read(actual, owner, name, descriptor))) {
@@ -103,14 +134,24 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException("warp dependency unmodifiable");
         AtomicReference<byte[]> result = new AtomicReference<>();
         ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module, ClassLoader loader, String name, Class<?> redefined, ProtectionDomain domain, byte[] bytes) {
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader loader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] bytes) {
                 if (redefined == type) result.set(bytes.clone());
                 return null;
             }
         };
         instrumentation.addTransformer(observer, true);
-        try { instrumentation.retransformClasses(type); }
-        finally { instrumentation.removeTransformer(observer); }
+        try {
+            instrumentation.retransformClasses(type);
+        } finally {
+            instrumentation.removeTransformer(observer);
+        }
         if (result.get() == null) throw new IllegalStateException("warp dependency inspection absent");
         return result.get();
     }
@@ -120,26 +161,40 @@ final class VerifiedWarpPositionProjectionInstaller implements AutoCloseable {
         if (!instrumentation.isModifiableClass(target)) throw new IllegalStateException("warp consumer unmodifiable");
         bridge.install();
         try {
-            instrumentation.addTransformer(transformer, true); installed = true;
+            instrumentation.addTransformer(transformer, true);
+            installed = true;
             instrumentation.retransformClasses(target);
-            if (transformer.matches() != 1 || transformer.failure() != null) throw new IllegalStateException("warp consumer not admitted: " + transformer.failure());
+            if (transformer.matches() != 1 || transformer.failure() != null)
+                throw new IllegalStateException("warp consumer not admitted: " + transformer.failure());
         } catch (Exception | Error failure) {
-            try { close(); } catch (Exception | Error cleanup) { failure.addSuppressed(cleanup); }
-            bridge.close(); throw failure;
+            try {
+                close();
+            } catch (Exception | Error cleanup) {
+                failure.addSuppressed(cleanup);
+            }
+            bridge.close();
+            throw failure;
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         try {
             byte[] original = capture(target);
-            String hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(original));
+            String hash = HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(original));
             restored = hash.equals(transformer.beforeSha256());
             if (!restored) throw new IllegalStateException("native warp consumer restoration not proven");
             installed = false;
-        } catch (Exception failure) { throw new IllegalStateException("warp restoration failed", failure); }
+        } catch (Exception failure) {
+            throw new IllegalStateException("warp restoration failed", failure);
+        }
     }
-    boolean restored() { return restored; }
+
+    boolean restored() {
+        return restored;
+    }
 }
