@@ -96,6 +96,16 @@ final class CubismFacadeAdapters {
                     }
                 };
             }
+
+            @Override
+            public dev.turboism.sdk.cubism.core.MocLoader mocLoader() {
+                facade.requireModelRead("coreRuntime.mocLoader");
+                final dev.turboism.sdk.cubism.core.MocLoader loader = delegate.mocLoader();
+                return data -> {
+                    facade.requireModelRead("coreRuntime.mocLoader.load");
+                    return new PermissionCheckedOwnedMoc(facade, loader.load(data));
+                };
+            }
         };
     }
 

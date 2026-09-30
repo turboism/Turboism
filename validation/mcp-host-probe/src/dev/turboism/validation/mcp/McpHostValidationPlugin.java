@@ -85,6 +85,9 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     }
 
     private void awaitResult() {
+        if (Boolean.getBoolean("turboism.validation.ownedMoc")) {
+            if (!CoreOwnedMocProbe.run(context, validationStateRoot())) return;
+        }
         final Path result = validationStateRoot().resolve(RESULT_FILE);
         final long deadline = System.currentTimeMillis() + RESULT_TIMEOUT_MILLIS;
         boolean textureRoundTripHandled = false;

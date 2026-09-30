@@ -5,7 +5,7 @@ package dev.turboism.sdk.cubism.core;
  *
  * <p>This is the read-only projection of the owned-Moc workflow: the plugin supplies
  * {@code .moc3} bytes, and the runtime builds a Core model through the verified Core
- * public API (both 5.2.03 and 5.3.02). All evaluated reads are immutable adapter-owned
+ * public API of the admitted exact Core artifact. All evaluated reads are immutable adapter-owned
  * copies; no Core write member ({@code setValue}/{@code setOpacity}) is exposed.</p>
  *
  * <p>Fail-closed: without an admitted host Core runtime the loader is unavailable and

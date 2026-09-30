@@ -1,0 +1,11 @@
+{
+  "fixture": "Haru.moc3",
+  "repository": "https://github.com/Live2D/CubismWebSamples",
+  "revision": "b1de66b0b1f1cb881d95fb6158622aeb6a2827bd",
+  "path": "Samples/Resources/Haru/Haru.moc3",
+  "sha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+  "source": "https://raw.githubusercontent.com/Live2D/CubismWebSamples/b1de66b0b1f1cb881d95fb6158622aeb6a2827bd/Samples/Resources/Haru/Haru.moc3",
+  "licenseNotice": "https://github.com/Live2D/CubismWebSamples/blob/b1de66b0b1f1cb881d95fb6158622aeb6a2827bd/LICENSE.md",
+  "modelTerms": "https://www.live2d.com/eula/live2d-sample-model-terms_en.html",
+  "packaging": "Opt-in local validation artifact only; binary is not committed or shipped in production"
+}

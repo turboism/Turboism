@@ -24,6 +24,7 @@ javac --release 17 -cp "$sdk_jar" -d "$out" \
   "$helper_root/WindowsHistoryNativeUiHostClose.java" \
   "$helper_root/McpValidationHostClose.java" \
   "$helper_root/McpTexturePersistenceProbe.java" \
+  "$src/dev/turboism/validation/mcp/CoreOwnedMocProbe.java" \
   "$src/dev/turboism/validation/mcp/McpHostValidationPlugin.java"
 cp -r "$src/META-INF" "$out/"
 mkdir -p "$out/META-INF/turboism/verification"
@@ -31,6 +32,15 @@ for record in "$repo_root"/compatibility/cubism/verification/cubism-*-editor-mod
   cp "$record" \
     "$out/META-INF/turboism/verification/"
 done
+
+if [ -n "${TURBOISM_VALIDATION_MOC_FIXTURE:-}" ]; then
+  moc_hash="$(sha256sum "$TURBOISM_VALIDATION_MOC_FIXTURE" | cut -d ' ' -f 1)"
+  [ "$moc_hash" = 'aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543' ] \
+    || { echo 'error: official MOC fixture hash mismatch' >&2; exit 1; }
+  mkdir -p "$out/validation/moc"
+  cp "$TURBOISM_VALIDATION_MOC_FIXTURE" "$out/validation/moc/Haru.moc3"
+  cp "$base/moc-fixture-source.json" "$out/validation/moc/source.json"
+fi
 
 output="$repo_root/build/mcp-host-validation-probe.jar"
 jar cf "$output" -C "$out" .
