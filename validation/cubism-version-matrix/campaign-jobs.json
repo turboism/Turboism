@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "jobs": [
+    {
+      "version": "5.3.01",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "c0b19db9-0672-4133-bd50-2cf4c066d16c",
+      "preparedDigest": "2debbc5fff83d5343269d2269eec325813fcf9db8227c97d149afedd52904d27",
+      "evidenceDirectory": "jobs/c0b19db9-0672-4133-bd50-2cf4c066d16c/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "FINAL",
+      "result": {
+        "runId": "queue-b76a9e44dcea40d882af36d5e27aa189",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "error": null,
+        "nativeCoreVersion": "6.0.257",
+        "stableSnapshots": 3,
+        "modelInstancesCount": 1,
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "editorHashMatch": true,
+        "coreHashMatch": true,
+        "sameDefiningClassLoader": true
+      }
+    },
+    {
+      "version": "5.2.02",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "f904278a-181d-42f5-9cc4-1eec6fca419c",
+      "preparedDigest": "769ea1c864703b62243660dca276a46d1c940be261e297cdf6597ddc0073f56d",
+      "evidenceDirectory": "jobs/f904278a-181d-42f5-9cc4-1eec6fca419c/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "FINAL",
+      "result": {
+        "runId": "queue-20a929e324094c39a6e6d43f8dda1760",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "error": null,
+        "nativeCoreVersion": "5.0.256",
+        "stableSnapshots": 3,
+        "modelInstancesCount": 1,
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "editorHashMatch": true,
+        "coreHashMatch": true,
+        "sameDefiningClassLoader": true
+      }
+    },
+    {
+      "version": "5.0.00",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "bed59650-04aa-444f-bbd7-4d78ff72b636",
+      "preparedDigest": "0dba59f20e700b8ce4c4536f5ffc78cc4d7dd680bf7c3550a59841537ae226ed",
+      "evidenceDirectory": "jobs/bed59650-04aa-444f-bbd7-4d78ff72b636/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "SUBMITTED"
+    },
+    {
+      "version": "5.1.03",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "c7a96026-77fe-49b8-9dc0-a2ff4288a65a",
+      "preparedDigest": "892ba0b750b50f16e94c42058df57acc468f6b184ee4b357bccd670675179472",
+      "evidenceDirectory": "jobs/c7a96026-77fe-49b8-9dc0-a2ff4288a65a/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "SUBMITTED"
+    },
+    {
+      "version": "5.2.00",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "d3190394-7f8d-410d-9f72-c3f71524337f",
+      "preparedDigest": "4f1462787c4d4b54ce60d55a3cc13d8809b8ce4940f3417a662c607d1a32c6e3",
+      "evidenceDirectory": "jobs/d3190394-7f8d-410d-9f72-c3f71524337f/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "SUBMITTED"
+    },
+    {
+      "version": "5.3.00",
+      "task": "core-acquisition",
+      "round": "allversions-r1",
+      "jobId": "0cda0dcf-16fb-4eae-a0c5-9ed67bcced22",
+      "preparedDigest": "d16b6baf25f411f099e9488c557a8b69bf00321800fdafa1ac1ac1eccbe91279",
+      "evidenceDirectory": "jobs/0cda0dcf-16fb-4eae-a0c5-9ed67bcced22/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "SUBMITTED"
+    }
+  ]
+}

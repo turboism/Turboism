@@ -44,6 +44,7 @@ public final class CoreAcquisitionProbeAgent {
     private static final long TIMEOUT_MILLIS = 360_000L;
     private static final long POLL_MILLIS = 250L;
     private static final AtomicBoolean STARTED = new AtomicBoolean();
+    private static volatile String observedCoreVersion = "";
 
     private CoreAcquisitionProbeAgent() {}
 
@@ -82,7 +83,13 @@ public final class CoreAcquisitionProbeAgent {
                 }
                 final Loaded loaded = Loaded.find(instrumentation.getAllLoadedClasses());
                 if (loaded.ready()) {
-                    final StableCapture capture = onEdt(() -> captureStable(loaded));
+                    final StableCapture capture = onEdt(() -> {
+                        if (observedCoreVersion.isEmpty()
+                                && config.expectedCoreSha256.equals(hash(loaded.coreModel))) {
+                            observedCoreVersion = readNativeVersion(loaded.coreModel);
+                        }
+                        return captureStable(loaded);
+                    });
                     last = capture.observation;
                     if (capture.stable) {
                         accepted = capture.observation;
@@ -122,6 +129,7 @@ public final class CoreAcquisitionProbeAgent {
         result.put("expectedEditorSha256", expectedEditor);
         result.put("profile", profile);
         result.put("runId", runId);
+        result.put("nativeCoreVersion", observedCoreVersion);
         result.put("stableSnapshots", Integer.toString(observation == null ? 0 : observation.stableSnapshots));
         result.put("status", status);
         if (error != null) result.put("error", error);
@@ -139,6 +147,27 @@ public final class CoreAcquisitionProbeAgent {
         } catch (Throwable failure) {
             System.err.println("CORE_ACQUISITION_RESULT status=FAIL bridgeStatus=ERROR");
         }
+    }
+
+    private static String readNativeVersion(final Class<?> coreModel) throws Exception {
+        final Class<?> api = Class.forName("com.live2d.sdk.cubism.core.Live2DCubismCore",
+                false, coreModel.getClassLoader());
+        if (api.getClassLoader() != coreModel.getClassLoader()
+                || !api.getProtectionDomain().getCodeSource().getLocation().equals(
+                        coreModel.getProtectionDomain().getCodeSource().getLocation())) {
+            throw new IllegalStateException("Core version probe artifact/classloader mismatch");
+        }
+        final Object version = api.getMethod("getVersion").invoke(null);
+        return nativeVersionTuple(invokeGetter(version, "getMajor"),
+                invokeGetter(version, "getMinor"), invokeGetter(version, "getPatch"));
+    }
+
+    static String nativeVersionTuple(final Object major, final Object minor, final Object patch) {
+        if (!(major instanceof Integer a) || !(minor instanceof Integer b)
+                || !(patch instanceof Integer c) || a < 0 || b < 0 || c < 0) {
+            throw new IllegalArgumentException("Invalid native Core version components");
+        }
+        return a + "." + b + "." + c;
     }
 
     static boolean isFreeStartupButton(final String title, final String text) {
@@ -431,6 +460,7 @@ public final class CoreAcquisitionProbeAgent {
         field(json, "schemaVersion", "1", false, true);
         field(json, "runId", runId, true, true);
         field(json, "profile", profile, true, true);
+        field(json, "nativeCoreVersion", observedCoreVersion, true, true);
         field(json, "status", status, true, true);
         field(json, "bridgeStatus", bridgeStatus, true, true);
         field(json, "thread", observation == null ? Thread.currentThread().getName() : observation.thread, true, true);
@@ -567,8 +597,29 @@ public final class CoreAcquisitionProbeAgent {
         }
         static Config read() {
             final String profile = required("turboism.coreAcquisition.profile");
-            if (!"cubism-5.2".equals(profile) && !"cubism-5.3.02".equals(profile)
-                && !"cubism-5.3.03-distribution".equals(profile) && !"cubism-5.3.04".equals(profile)) {
+            if (!java.util.Set.of(
+                    "cubism-5.0.00",
+                    "cubism-5.0.01",
+                    "cubism-5.0.02",
+                    "cubism-5.0.03",
+                    "cubism-5.0.04",
+                    "cubism-5.0.05",
+                    "cubism-5.0.06",
+                    "cubism-5.1.00",
+                    "cubism-5.1.01",
+                    "cubism-5.1.02",
+                    "cubism-5.1.03",
+                    "cubism-5.2.00",
+                    "cubism-5.2.01",
+                    "cubism-5.2.02",
+                    "cubism-5.2.03",
+                    "cubism-5.3.00",
+                    "cubism-5.3.01",
+                    "cubism-5.3.02",
+                    "cubism-5.3.03",
+                    "cubism-5.3.04",
+                    "cubism-5.2",
+                    "cubism-5.3.03-distribution").contains(profile)) {
                 throw new IllegalArgumentException("unsupported Core acquisition profile: " + profile);
             }
             final String editor = digest("turboism.coreAcquisition.expectedEditorSha256");
