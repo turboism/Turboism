@@ -43,7 +43,7 @@ final class EditSessionServiceContractTest {
 
     private static void assertBackportRange(final CubismEditor availability) {
         assertArrayEquals(new String[0], availability.value());
-        assertEquals("5.2.03", availability.from());
+        assertEquals("5.1.02", availability.from());
         assertEquals("5.3.99", availability.to());
     }
 

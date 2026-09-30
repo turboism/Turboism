@@ -193,7 +193,11 @@ class ExportSettingsHostProfileTest {
             ).isEmpty()
         );
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
+            List.of(
+                "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+                "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            ),
             ExportSettingsHostProfile.supportedHostVersions()
         );
     }

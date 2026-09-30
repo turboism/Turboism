@@ -18,6 +18,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Exact, generation-bound Editor projection of the model texture library.
@@ -122,11 +123,19 @@ final class EditorTextureAccess {
         }
     }
 
+    private boolean legacyRawImageRemoval() {
+        return !resolver.authorizesFeature(
+            EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+            EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
+            Set.of(REMOVE_RAW_IMAGE)
+        );
+    }
+
     private void requireRawImageRemoval() {
         if (!resolver.authorizesFeature(
             EditorTextureSelectorContract.ADAPTER_SLICE_ID,
             EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
-            resolver.isAdmittedCubismVersion("5.2.03")
+            legacyRawImageRemoval()
                 ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
                 : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES
         )) {
@@ -562,7 +571,7 @@ final class EditorTextureAccess {
             requireRawImageRemoval();
             Objects.requireNonNull(id, "id");
             modelGuard.requireCurrent(identity, model);
-            if (resolver.isAdmittedCubismVersion("5.2.03")) {
+            if (legacyRawImageRemoval()) {
                 // Match the 5.3 handler's false branch: clear this raw image's layer inputs,
                 // then remove only its raw-image entry. Never invoke the 5.2 dialog or layer purge.
                 final List<Object> prepared = prepareRawImageRemoval5203(source, id);

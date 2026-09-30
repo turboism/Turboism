@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-parameter-host-validation.sh <5203|5302|5303> [mode] [run-label] [runner-options...]" >&2
+  echo "usage: run-parameter-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [mode] [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -27,6 +27,14 @@ case "$mode" in
   matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|perf-observe-batch|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4|native-tuned5|native-tuned6|native-tuned7) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
+    exit 2
+    ;;
+esac
+
+case "$version" in
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
+  *)
+    echo "error: unsupported version: $version" >&2
     exit 2
     ;;
 esac

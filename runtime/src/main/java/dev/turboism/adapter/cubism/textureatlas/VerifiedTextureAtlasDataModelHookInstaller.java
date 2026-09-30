@@ -49,7 +49,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
      * Builds an installer after verifying that this host is one the data-model hook is authorized
      * for.
      *
-     * <p>Admits exact Cubism 5.3.03, 5.3.02, and 5.2.03 profiles, checks the version's hook aliases against the
+     * <p>Admits an exact reviewed version whose profile covers the hook scope, checks the version's hook aliases against the
      * authorization contract, and requires both verified selectors to be instance methods sharing
      * a single owning class. Nothing is instrumented until {@link #install()} is called.
      *

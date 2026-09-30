@@ -935,8 +935,8 @@ def check_launcher_and_shortcut_contract():
     check("L6 installer keeps BAT integration explicit without defensive help copy",
           "only if explicitly selected" in text
           and "仅在明确勾选时" in text
-          and "当前支持版本：5.2.03, 5.3.02, 5.3.03" in text
-          and "Currently supported versions: 5.2.03, 5.3.02, 5.3.03" in text
+          and "当前支持版本：5.0.00–5.3.04" in text
+          and "Currently supported versions: 5.0.00–5.3.04" in text
           and "BatIntegrationHelp" not in text
           and "$integrateCubismBat" in text
           and "$batCheck" in configure)

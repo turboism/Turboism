@@ -148,10 +148,11 @@ final class EditorModelInstanceAccess {
     }
 
     private boolean supportsOnionSkin() {
-        return resolver.isAdmittedCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
-            || resolver.isAdmittedCubismVersion(
-                EditorModelInstanceReadSelectorContract.CUBISM_5_3_03_VERSION
-            );
+        return resolver.authorizesFeature(
+            EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
+            EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES
+        );
     }
 
     private static IllegalStateException unavailable(final String message) {

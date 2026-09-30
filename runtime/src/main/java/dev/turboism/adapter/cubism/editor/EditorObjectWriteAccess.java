@@ -86,7 +86,7 @@ final class EditorObjectWriteAccess {
     }
 
     private boolean isCubism52() {
-        return resolver.isAdmittedCubismVersion(EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.CUBISM_VERSION);
+        return !resolver.admittedCubismVersion().startsWith("5.3.");
     }
 
     private void requireInspectorWriteAuthorized() {

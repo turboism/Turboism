@@ -163,16 +163,21 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
      */
     private static ProbeProfile profileForVersion(final String cubismVersion, final String scenario) {
         if ("images".equals(scenario)) {
-            if (!ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
+            if (!cubismVersion.startsWith("5.3.")
+                || !ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
                 throw new IllegalArgumentException(
-                    "image performance diagnostics require declared Cubism 5.3.02"
+                    "image performance diagnostics require a reviewed Cubism 5.3.x version"
                 );
             }
-            return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+            return new ProbeProfile(cubismVersion,
                 PerformanceProbeTargets.cubism5302Images());
         }
         if (!"camera".equals(scenario) && !"edit".equals(scenario)) {
             throw new IllegalArgumentException("unsupported performance probe scenario");
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_00_VERSION.equals(cubismVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_01_VERSION.equals(cubismVersion)) {
+            return new ProbeProfile(cubismVersion, PerformanceProbeTargets.cubism5302());
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
             return new ProbeProfile(
@@ -180,11 +185,9 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 PerformanceProbeTargets.cubism5302()
             );
         }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return new ProbeProfile(
-                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-                PerformanceProbeTargets.cubism5303()
-            );
+        if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(cubismVersion)) {
+            return new ProbeProfile(cubismVersion, PerformanceProbeTargets.cubism5303());
         }
         throw new IllegalArgumentException(
             "unsupported declared Cubism version for performance probe: " + cubismVersion

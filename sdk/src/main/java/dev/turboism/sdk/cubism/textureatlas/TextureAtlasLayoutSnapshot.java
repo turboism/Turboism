@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Complete immutable planning input for the active texture atlas. */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record TextureAtlasLayoutSnapshot(
     TextureAtlasLayoutTarget target,
     String documentId,

@@ -21,7 +21,7 @@ import host_validation_queue as queue
 
 class IsolatedBackend:
     """Only runs in test temporary directories; never invokes a host executable."""
-    def busy(self):
+    def busy(self, owned_markers=frozenset()):
         return []
 
     def run(self, store, job, admission_fd):

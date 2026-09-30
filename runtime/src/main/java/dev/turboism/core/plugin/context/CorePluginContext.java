@@ -1151,6 +1151,12 @@ public final class CorePluginContext implements PluginContext {
         )) {
             available.add(PluginService.BACKUP);
         }
+        if (installed(
+            exportSettingsContributionService,
+            ExportSettingsContributionService.unavailable()
+        )) {
+            available.add(PluginService.EXPORT_SETTINGS);
+        }
         if (installed(mainToolbarRegistry, MainToolbarRegistry.unavailable())) {
             available.add(PluginService.MAIN_TOOLBAR);
         }

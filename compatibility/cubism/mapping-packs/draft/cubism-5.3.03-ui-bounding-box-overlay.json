@@ -220,6 +220,10 @@
     "capabilityIds": [
       "cubism.editor-ui.bounding-box-overlay-button"
     ],
-    "verificationRecordSha256": "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000"
+    "verificationRecordSha256": "fd67451595cbf68ca3084504c730daee3b110577e67852680db64b3a6f81e000",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 42010633,
+    "profileId": "cubism-5.3.03",
+    "verificationId": "cubism-5.3.03.ui-bounding-box-overlay.static"
   }
 }

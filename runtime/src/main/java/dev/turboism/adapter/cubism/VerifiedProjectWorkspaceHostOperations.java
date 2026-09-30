@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism;
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
@@ -164,9 +165,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
 
     @Override
     public boolean supportsProjectWorkspaceRead() {
-        return "5.2.03".equals(contractVersion())
-            || "5.3.02".equals(contractVersion())
-            || "5.3.03".equals(contractVersion());
+        return ReviewedHostArtifacts.reviewedCubismVersions().contains(contractVersion());
     }
 
     @Override

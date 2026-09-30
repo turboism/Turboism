@@ -19,7 +19,7 @@ import java.util.List;
  * edit, Undo, rollback and refresh dependencies. Raw-image removal requires an
  * admitted non-dialog native route selected from the matched mapping.</p>
  */
-@CubismEditor(from = "5.2.03")
+@CubismEditor(from = "5.0.00")
 public interface ModelTextures {
 
     /** Raw layered images registered on the model. */
@@ -37,19 +37,19 @@ public interface ModelTextures {
      * <p>Editor {@code CModelImageGroup} carries no stable guid, so the group is
      * located afterwards through {@link #modelImageGroups()} by group name.</p>
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void addModelImageGroup(String name);
 
     /** Removes one model image by id. */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void removeModelImage(ModelImageId id);
 
     /** Creates a new texture atlas with the given canvas size and returns its id. */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     TextureAtlasId addTextureAtlas(String name, int widthPixels, int heightPixels);
 
     /** Removes one texture atlas by id. */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void removeTextureAtlas(TextureAtlasId id);
 
     /**
@@ -57,6 +57,6 @@ public interface ModelTextures {
      * ArtMeshes and texture atlases. The 5.2.03 route composes exact native Undo factories;
      * the 5.3 routes use the native non-cascading handler. No confirmation dialog is opened.
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor({"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void removeRawImage(RawImageId id);
 }

@@ -11,7 +11,7 @@ import java.util.Optional;
  * overflow, and rotation/scaling must match the issued constraints. The caller must not plan
  * other pages or reuse a target after its originating invocation ends.
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public interface TextureAtlasLayoutService {
 
     /**

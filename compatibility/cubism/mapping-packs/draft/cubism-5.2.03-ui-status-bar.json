@@ -18,7 +18,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
@@ -78,7 +77,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
         "requiredAccessFlags": 1,
@@ -118,7 +116,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/ui/window/CFrame",
         "requiredAccessFlags": 1,
@@ -158,7 +155,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/ui/CWidget",
         "requiredAccessFlags": 1025,
@@ -258,7 +254,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/ui/container/CContainer",
         "requiredAccessFlags": 1025,
@@ -338,7 +333,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/ui/control/CLabel",
         "requiredAccessFlags": 1,
@@ -418,7 +412,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/ui/control/CMemoryViewerPanel",
         "requiredAccessFlags": 17,
@@ -438,7 +431,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
         "requiredAccessFlags": 1,
@@ -518,7 +510,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
         "requiredAccessFlags": 1,

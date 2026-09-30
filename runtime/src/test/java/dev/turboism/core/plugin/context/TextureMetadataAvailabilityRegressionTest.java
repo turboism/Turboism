@@ -62,7 +62,7 @@ final class TextureMetadataAvailabilityRegressionTest {
 
     @Test
     void compatibleTextureContractEnablesReadsAndWrites() {
-        for (String version : List.of("5.3.04", "5.4.00")) {
+        for (String version : List.of("5.3.04", "5.2.03")) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
             textures.addModelImageGroup("group");
@@ -76,6 +76,20 @@ final class TextureMetadataAvailabilityRegressionTest {
             assertEquals(5, delegate.writes);
             assertEquals(3, delegate.reads);
         }
+    }
+
+    @Test
+    void declaredVersionOutsideTheExactWriteSetReadsButCannotWrite() {
+        final RecordingTextures delegate = new RecordingTextures();
+        final ModelTextures textures = wrapped("5.4.00", delegate);
+        assertEquals(List.of(), textures.rawImages());
+        assertEquals(List.of(), textures.modelImageGroups());
+        assertEquals(List.of(), textures.textureAtlases());
+        assertThrows(CubismEditorApiUnavailableException.class,
+            () -> textures.addModelImageGroup("group"));
+        assertThrows(CubismEditorApiUnavailableException.class,
+            () -> textures.removeRawImage(new RawImageId("raw")));
+        assertEquals(0, delegate.writes);
     }
 
     @Test
@@ -128,7 +142,7 @@ final class TextureMetadataAvailabilityRegressionTest {
     @Test
     void declaredVersionBelowTheFloorIsRejectedBeforeAnyTextureRead() {
         final RecordingTextures delegate = new RecordingTextures();
-        final ModelTextures textures = wrapped("5.1.99", delegate);
+        final ModelTextures textures = wrapped("4.9.99", delegate);
         assertThrows(CubismEditorApiUnavailableException.class, textures::rawImages);
         assertThrows(CubismEditorApiUnavailableException.class, textures::modelImageGroups);
         assertThrows(CubismEditorApiUnavailableException.class, textures::textureAtlases);

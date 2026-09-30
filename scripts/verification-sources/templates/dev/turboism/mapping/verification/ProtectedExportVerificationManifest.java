@@ -73,8 +73,124 @@ public final class ProtectedExportVerificationManifest {
         "${record:cubism-5.3.03-protected-export.json:profileId}"
     );
 
+
+    // <version-matrix:pe-consts>
+    /** Cubism version reported for the reviewed 5.1.00 artifact. */
+    public static final String CUBISM_VERSION_5_1_00 = "${record:cubism-5.1.00-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.1.01 artifact. */
+    public static final String CUBISM_VERSION_5_1_01 = "${record:cubism-5.1.01-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.1.02 artifact. */
+    public static final String CUBISM_VERSION_5_1_02 = "${record:cubism-5.1.02-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.1.03 artifact. */
+    public static final String CUBISM_VERSION_5_1_03 = "${record:cubism-5.1.03-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.2.00 artifact. */
+    public static final String CUBISM_VERSION_5_2_00 = "${record:cubism-5.2.00-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.2.01 artifact. */
+    public static final String CUBISM_VERSION_5_2_01 = "${record:cubism-5.2.01-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.2.02 artifact. */
+    public static final String CUBISM_VERSION_5_2_02 = "${record:cubism-5.2.02-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.3.00 artifact. */
+    public static final String CUBISM_VERSION_5_3_00 = "${record:cubism-5.3.00-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.3.01 artifact. */
+    public static final String CUBISM_VERSION_5_3_01 = "${record:cubism-5.3.01-protected-export.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.3.04 artifact. */
+    public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-protected-export.json:cubismVersion}";
+    /** Reviewed protected-export record admitted for exact Cubism 5.1.00. */
+    public static final ReviewedSliceRecord RECORD_5_1_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_1_00,
+        "${record:cubism-5.1.00-protected-export.json:verificationId}",
+        "${record:cubism-5.1.00-protected-export.json:sha256}",
+        CUBISM_VERSION_5_1_00,
+        "${record:cubism-5.1.00-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.1.01. */
+    public static final ReviewedSliceRecord RECORD_5_1_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_1_01,
+        "${record:cubism-5.1.01-protected-export.json:verificationId}",
+        "${record:cubism-5.1.01-protected-export.json:sha256}",
+        CUBISM_VERSION_5_1_01,
+        "${record:cubism-5.1.01-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.1.02. */
+    public static final ReviewedSliceRecord RECORD_5_1_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_1_02,
+        "${record:cubism-5.1.02-protected-export.json:verificationId}",
+        "${record:cubism-5.1.02-protected-export.json:sha256}",
+        CUBISM_VERSION_5_1_02,
+        "${record:cubism-5.1.02-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.1.03. */
+    public static final ReviewedSliceRecord RECORD_5_1_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_1_03,
+        "${record:cubism-5.1.03-protected-export.json:verificationId}",
+        "${record:cubism-5.1.03-protected-export.json:sha256}",
+        CUBISM_VERSION_5_1_03,
+        "${record:cubism-5.1.03-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.2.00. */
+    public static final ReviewedSliceRecord RECORD_5_2_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_00,
+        "${record:cubism-5.2.00-protected-export.json:verificationId}",
+        "${record:cubism-5.2.00-protected-export.json:sha256}",
+        CUBISM_VERSION_5_2_00,
+        "${record:cubism-5.2.00-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.2.01. */
+    public static final ReviewedSliceRecord RECORD_5_2_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_01,
+        "${record:cubism-5.2.01-protected-export.json:verificationId}",
+        "${record:cubism-5.2.01-protected-export.json:sha256}",
+        CUBISM_VERSION_5_2_01,
+        "${record:cubism-5.2.01-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.2.02. */
+    public static final ReviewedSliceRecord RECORD_5_2_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_02,
+        "${record:cubism-5.2.02-protected-export.json:verificationId}",
+        "${record:cubism-5.2.02-protected-export.json:sha256}",
+        CUBISM_VERSION_5_2_02,
+        "${record:cubism-5.2.02-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.3.00. */
+    public static final ReviewedSliceRecord RECORD_5_3_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_00,
+        "${record:cubism-5.3.00-protected-export.json:verificationId}",
+        "${record:cubism-5.3.00-protected-export.json:sha256}",
+        CUBISM_VERSION_5_3_00,
+        "${record:cubism-5.3.00-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.3.01. */
+    public static final ReviewedSliceRecord RECORD_5_3_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_01,
+        "${record:cubism-5.3.01-protected-export.json:verificationId}",
+        "${record:cubism-5.3.01-protected-export.json:sha256}",
+        CUBISM_VERSION_5_3_01,
+        "${record:cubism-5.3.01-protected-export.json:profileId}"
+    );
+    /** Reviewed protected-export record admitted for exact Cubism 5.3.04. */
+    public static final ReviewedSliceRecord RECORD_5_3_04 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_04,
+        "${record:cubism-5.3.04-protected-export.json:verificationId}",
+        "${record:cubism-5.3.04-protected-export.json:sha256}",
+        CUBISM_VERSION_5_3_04,
+        "${record:cubism-5.3.04-protected-export.json:profileId}"
+    );
+    // </version-matrix:pe-consts>
+
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
-        RECORD_5_2_03, RECORD_5_3_02, RECORD_5_3_03
+        RECORD_5_1_00,
+        RECORD_5_1_01,
+        RECORD_5_1_02,
+        RECORD_5_1_03,
+        RECORD_5_2_00,
+        RECORD_5_2_01,
+        RECORD_5_2_02,
+        RECORD_5_2_03,
+        RECORD_5_3_00,
+        RECORD_5_3_01,
+        RECORD_5_3_02,
+        RECORD_5_3_03,
+        RECORD_5_3_04
     );
 
     /**
@@ -341,6 +457,38 @@ public final class ProtectedExportVerificationManifest {
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
         final ReviewedSliceRecord record =
             ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "protected-export");
+        // <version-matrix:pe-arms>
+        if (RECORD_5_1_00.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_1_01.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_1_02.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_1_03.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_2_00.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_2_01.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_2_02.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
+        }
+        if (RECORD_5_3_00.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
+        }
+        if (RECORD_5_3_01.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
+        }
+        if (RECORD_5_3_04.equals(record)) {
+            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
+        }
+        // </version-matrix:pe-arms>
         if (RECORD_5_2_03.equals(record)) {
             return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, cubism52Aliases());
         }

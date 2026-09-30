@@ -72,7 +72,7 @@ final class McpGlueDomainTest {
         assertEquals("list", output.get("operation"));
         assertEquals("AVAILABLE", output.get("availability"));
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
+            McpGlueDomain.SUPPORTED_VERSIONS,
             object(output.get("provider")).get("supportedVersions")
         );
         assertEquals("5.3.02", object(output.get("provider")).get("activeVersion"));

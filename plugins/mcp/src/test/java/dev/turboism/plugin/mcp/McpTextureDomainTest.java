@@ -60,7 +60,7 @@ final class McpTextureDomainTest {
         final McpVersionSupport support = tools.registration(McpTextureDomain.TEXTURES_WRITE).versionSupport();
         assertTrue(support.scoped());
         assertEquals("cubism.editor-model.texture.write", support.providerCapabilityId());
-        assertEquals(List.of("5.2.03", "5.3.02", "5.3.03"), support.supportedVersions());
+        assertEquals(List.of("5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"), support.supportedVersions());
         assertEquals(McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
             support.operations().get(0).undoVerification(),
             "exact-host verification is the parent's responsibility");
@@ -80,7 +80,7 @@ final class McpTextureDomainTest {
                 .collect(java.util.stream.Collectors.toSet()));
         for (McpVersionSupport.OperationSupport operation : writes.operations()) {
             assertFalse(operation.transactionEligible());
-            assertEquals(List.of("5.2.03", "5.3.02", "5.3.03"), operation.supportedVersions());
+            assertEquals(List.of("5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"), operation.supportedVersions());
         }
     }
 

@@ -20,9 +20,10 @@ Turboism is a Windows-first runtime enhancement tool and plugin framework for **
 
 | Cubism Editor | Support |
 | --- | --- |
-| **5.2.03** | Exact-version adapters |
-| **5.3.02** | Exact-version adapters |
-| **5.3.03** | Exact-version adapters |
+| **5.0.00 – 5.0.06** | Exact-version adapters |
+| **5.1.00 – 5.1.03** | Exact-version adapters |
+| **5.2.00 – 5.2.03** | Exact-version adapters |
+| **5.3.00 – 5.3.04** | Exact-version adapters |
 
 **Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 

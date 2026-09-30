@@ -17,8 +17,8 @@ final class TurboismAgentExportSettingsAdmissionTest {
         assertFalse(contributor.admitted(environment("5.3.02", false)));
         assertFalse(contributor.admitted(environment("5.2.03", false)));
         assertFalse(contributor.admitted(environment("5.3.03", false)));
-        assertFalse(contributor.admitted(environment("5.2.02", true)));
-        assertFalse(contributor.admitted(environment("5.3.04", true)));
+        assertFalse(contributor.admitted(environment("5.0.00", true)));
+        assertFalse(contributor.admitted(environment("5.0.06", true)));
         assertFalse(contributor.admitted(environment("5.3", true)));
         assertFalse(contributor.admitted(environment("5.3.02.1", true)));
     }

@@ -6,6 +6,7 @@ import dev.turboism.mapping.verification.StaticSelector;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -18,24 +19,33 @@ final class SceneTableHostProfileTest {
 
     @Test
     void admitsOnlyReviewedArtifactsWithStaticSceneEvidence() {
-        assertEquals(
-            "5.2.03",
-            SceneTableHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_2_03)
-                .orElseThrow().cubismVersion()
-        );
-        assertEquals(
-            "5.3.02",
-            SceneTableHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
-                .orElseThrow().cubismVersion()
-        );
-        assertEquals(
-            "5.3.03",
-            SceneTableHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03)
-                .orElseThrow().cubismVersion()
-        );
+        for (final String version : ReviewedHostArtifacts.reviewedCubismVersions()) {
+            final Optional<HostArtifactDigest> artifact = reviewedArtifactFor(version);
+            assertTrue(artifact.isPresent(), "no reviewed artifact for " + version);
+            assertEquals(
+                version,
+                SceneTableHostProfile.forArtifact(artifact.orElseThrow())
+                    .orElseThrow().cubismVersion()
+            );
+        }
         assertFalse(SceneTableHostProfile.forArtifact(
             new HostArtifactDigest(1L, "0".repeat(64))
         ).isPresent());
+    }
+
+    private static Optional<HostArtifactDigest> reviewedArtifactFor(final String version) {
+        return java.util.Arrays.stream(ReviewedHostArtifacts.class.getFields())
+            .filter(field -> field.getName().matches("CUBISM_\\d+_\\d+_\\d+"))
+            .map(field -> {
+                try {
+                    return (HostArtifactDigest) field.get(null);
+                } catch (IllegalAccessException failure) {
+                    throw new IllegalStateException(failure);
+                }
+            })
+            .filter(digest -> ReviewedHostArtifacts.cubismVersionOf(digest)
+                .map(version::equals).orElse(false))
+            .findFirst();
     }
 
     @Test

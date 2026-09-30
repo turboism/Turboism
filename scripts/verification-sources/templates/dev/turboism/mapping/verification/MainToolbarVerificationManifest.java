@@ -11,16 +11,50 @@ import java.util.Set;
  */
 public final class MainToolbarVerificationManifest {
 
+    /** Cubism version reported for the reviewed 5.2.00 artifact. */
+    public static final String CUBISM_VERSION_5_2_00 = "${record:cubism-5.2.00-ui-main-toolbar.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.2.01 artifact. */
+    public static final String CUBISM_VERSION_5_2_01 = "${record:cubism-5.2.01-ui-main-toolbar.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.2.02 artifact. */
+    public static final String CUBISM_VERSION_5_2_02 = "${record:cubism-5.2.02-ui-main-toolbar.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.2.03 artifact. */
     public static final String CUBISM_VERSION_5_2_03 = "${record:cubism-5.2.03-ui-main-toolbar.json:cubismVersion}";
-
+    /** Cubism version reported for the reviewed 5.3.00 artifact. */
+    public static final String CUBISM_VERSION_5_3_00 = "${record:cubism-5.3.00-ui-main-toolbar.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.3.01 artifact. */
+    public static final String CUBISM_VERSION_5_3_01 = "${record:cubism-5.3.01-ui-main-toolbar.json:cubismVersion}";
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "${record:cubism-5.3.02-ui-main-toolbar.json:cubismVersion}";
-
     /** Cubism version reported for the reviewed 5.3.03 artifact. */
     public static final String CUBISM_VERSION_5_3_03 = "${record:cubism-5.3.03-ui-main-toolbar.json:cubismVersion}";
+    /** Cubism version reported for the reviewed 5.3.04 artifact. */
+    public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-ui-main-toolbar.json:cubismVersion}";
 
-    /** Reviewed main-toolbar record admitted for exact Cubism 5.2.03. */
+    /** Reviewed record admitted for exact Cubism 5.2.00. */
+    public static final ReviewedSliceRecord RECORD_5_2_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_00,
+        "${record:cubism-5.2.00-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_2_00,
+        "${record:cubism-5.2.00-ui-main-toolbar.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.2.01. */
+    public static final ReviewedSliceRecord RECORD_5_2_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_01,
+        "${record:cubism-5.2.01-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_2_01,
+        "${record:cubism-5.2.01-ui-main-toolbar.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.2.02. */
+    public static final ReviewedSliceRecord RECORD_5_2_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_02,
+        "${record:cubism-5.2.02-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_2_02,
+        "${record:cubism-5.2.02-ui-main-toolbar.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "${record:cubism-5.2.03-ui-main-toolbar.json:verificationId}",
@@ -28,8 +62,23 @@ public final class MainToolbarVerificationManifest {
         CUBISM_VERSION_5_2_03,
         "${record:cubism-5.2.03-ui-main-toolbar.json:profileId}"
     );
-
-    /** Reviewed main-toolbar record admitted for exact Cubism 5.3.02. */
+    /** Reviewed record admitted for exact Cubism 5.3.00. */
+    public static final ReviewedSliceRecord RECORD_5_3_00 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_00,
+        "${record:cubism-5.3.00-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_3_00,
+        "${record:cubism-5.3.00-ui-main-toolbar.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.3.01. */
+    public static final ReviewedSliceRecord RECORD_5_3_01 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_01,
+        "${record:cubism-5.3.01-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_3_01,
+        "${record:cubism-5.3.01-ui-main-toolbar.json:profileId}"
+    );
+    /** Reviewed record admitted for exact Cubism 5.3.02. */
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "${record:cubism-5.3.02-ui-main-toolbar.json:verificationId}",
@@ -37,8 +86,7 @@ public final class MainToolbarVerificationManifest {
         CUBISM_VERSION_5_3_02,
         "${record:cubism-5.3.02-ui-main-toolbar.json:profileId}"
     );
-
-    /** Reviewed main-toolbar record admitted for exact Cubism 5.3.03 static resolution. */
+    /** Reviewed record admitted for exact Cubism 5.3.03. */
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "${record:cubism-5.3.03-ui-main-toolbar.json:verificationId}",
@@ -46,12 +94,29 @@ public final class MainToolbarVerificationManifest {
         CUBISM_VERSION_5_3_03,
         "${record:cubism-5.3.03-ui-main-toolbar.json:profileId}"
     );
-
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(
-        RECORD_5_2_03,
-        RECORD_5_3_02,
-        RECORD_5_3_03
+    /** Reviewed record admitted for exact Cubism 5.3.04. */
+    public static final ReviewedSliceRecord RECORD_5_3_04 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_04,
+        "${record:cubism-5.3.04-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:sha256}",
+        CUBISM_VERSION_5_3_04,
+        "${record:cubism-5.3.04-ui-main-toolbar.json:profileId}"
     );
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_00,
+        RECORD_5_2_01,
+        RECORD_5_2_02,
+        RECORD_5_2_03,
+        RECORD_5_3_00,
+        RECORD_5_3_01,
+        RECORD_5_3_02,
+        RECORD_5_3_03,
+        RECORD_5_3_04
+    );
+
+
+
+
 
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-ui-main-toolbar.json:adapterSliceId}";
     public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";

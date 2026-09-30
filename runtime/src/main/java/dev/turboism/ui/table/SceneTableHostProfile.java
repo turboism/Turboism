@@ -177,25 +177,15 @@ public final class SceneTableHostProfile {
         }
     }
 
-    /** Admits the exact reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts; unknown artifacts stay closed. */
+    /**
+     * Admits every reviewed Cubism 5 artifact: all 23 contract members were verified
+     * structurally on each exact jar, and {@link #bindArtifact(Path, ClassLoader)} re-verifies
+     * them against the loaded host at bind time, so unknown artifacts stay closed.
+     */
     public static Optional<SceneTableHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
-            return Optional.of(new SceneTableHostProfile(
-                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION, artifact, REVIEWED_SELECTORS
-            ));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
-            return Optional.of(new SceneTableHostProfile(
-                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, artifact, REVIEWED_SELECTORS
-            ));
-        }
-        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
-            return Optional.of(new SceneTableHostProfile(
-                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, artifact, REVIEWED_SELECTORS
-            ));
-        }
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(artifact)
+            .map(version -> new SceneTableHostProfile(version, artifact, REVIEWED_SELECTORS));
     }
 
     /** Binds the common Cubism 5 contract to the declared host and its actual runtime owners. */
