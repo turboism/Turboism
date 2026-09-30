@@ -56,28 +56,28 @@ public interface ParameterQueryService {
     enum Unavailable implements ParameterQueryService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Optional<ParameterSummary> findById(final ParameterId id)
-            throws CubismServiceException {
+        @Override
+        public Optional<ParameterSummary> findById(final ParameterId id) throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public List<ParameterSummary> listAll() throws CubismServiceException {
+        @Override
+        public List<ParameterSummary> listAll() throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public boolean exists(final ParameterId id) throws CubismServiceException {
+        @Override
+        public boolean exists(final ParameterId id) throws CubismServiceException {
             throw unavailable();
         }
 
         private static CubismServiceException unavailable() {
-            return new CubismServiceException(
-                "cubism.query.unavailable",
-                "parameterQuery service is not available"
-            );
+            return new CubismServiceException("cubism.query.unavailable", "parameterQuery service is not available");
         }
     }
 }

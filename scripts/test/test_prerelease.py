@@ -1,5 +1,4 @@
 """Beta and Nightly share verified publication, never a mutable channel toggle."""
-import copy
 import hashlib
 import importlib
 import json

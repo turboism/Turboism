@@ -1,5 +1,9 @@
 package dev.turboism.tests.cubism;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -11,17 +15,12 @@ import dev.turboism.test.fake.FakeCubismDocument;
 import dev.turboism.test.fake.FakeCubismHost;
 import dev.turboism.test.fake.FakeCubismModel;
 import dev.turboism.test.fake.FakeCubismProject;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class FacadePermissionGatingTest {
 
@@ -36,9 +35,8 @@ class FacadePermissionGatingTest {
         final CubismPermissionException error = assertThrows(CubismPermissionException.class, facade::activeProject);
 
         assertEquals(
-            "Plugin plugin.demo is missing required Cubism permission turboism.cubism.project.read for activeProject",
-            error.getMessage()
-        );
+                "Plugin plugin.demo is missing required Cubism permission turboism.cubism.project.read for activeProject",
+                error.getMessage());
         assertEquals(1, auditEvents.size());
         assertAuditEvent(auditEvents.get(0), CubismFacadeImpl.PROJECT_READ_PERMISSION, "activeProject");
     }
@@ -49,16 +47,15 @@ class FacadePermissionGatingTest {
         final CubismFacade facade = facadeWith(sampleHost(), auditEvents, CubismFacadeImpl.PROJECT_READ_PERMISSION);
 
         final CubismPermissionException modelError = assertThrows(CubismPermissionException.class, facade::activeModel);
-        final CubismPermissionException documentError = assertThrows(CubismPermissionException.class, facade::activeDocument);
+        final CubismPermissionException documentError =
+                assertThrows(CubismPermissionException.class, facade::activeDocument);
 
         assertEquals(
-            "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for activeModel",
-            modelError.getMessage()
-        );
+                "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for activeModel",
+                modelError.getMessage());
         assertEquals(
-            "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for activeDocument",
-            documentError.getMessage()
-        );
+                "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for activeDocument",
+                documentError.getMessage());
         assertEquals(2, auditEvents.size());
         assertAuditEvent(auditEvents.get(0), CubismFacadeImpl.MODEL_READ_PERMISSION, "activeModel");
         assertAuditEvent(auditEvents.get(1), CubismFacadeImpl.MODEL_READ_PERMISSION, "activeDocument");
@@ -86,31 +83,27 @@ class FacadePermissionGatingTest {
         final CubismPermissionException error = assertThrows(CubismPermissionException.class, facade::runtime);
 
         assertEquals(
-            "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for runtime",
-            error.getMessage()
-        );
+                "Plugin plugin.demo is missing required Cubism permission turboism.cubism.model.read for runtime",
+                error.getMessage());
         assertEquals(1, auditEvents.size());
         assertAuditEvent(auditEvents.get(0), CubismFacadeImpl.MODEL_READ_PERMISSION, "runtime");
     }
 
     private static CubismFacade facadeWith(
-        final FakeCubismHost host,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final String... permissionIds
-    ) {
-        return new CubismFacadeImpl(new FakeHostSnapshotSource(host), new CubismPermissionGate(
-            PLUGIN_ID,
-            List.of(permissionIds).stream().map(FacadePermissionGatingTest::permission).toList(),
-            auditEvents::add,
-            FIXED_CLOCK
-        ));
+            final FakeCubismHost host, final List<CubismFacadeAuditEvent> auditEvents, final String... permissionIds) {
+        return new CubismFacadeImpl(
+                new FakeHostSnapshotSource(host),
+                new CubismPermissionGate(
+                        PLUGIN_ID,
+                        List.of(permissionIds).stream()
+                                .map(FacadePermissionGatingTest::permission)
+                                .toList(),
+                        auditEvents::add,
+                        FIXED_CLOCK));
     }
 
     private static void assertAuditEvent(
-        final CubismFacadeAuditEvent event,
-        final String permissionId,
-        final String methodName
-    ) {
+            final CubismFacadeAuditEvent event, final String permissionId, final String methodName) {
         assertEquals(PLUGIN_ID, event.pluginId());
         assertEquals(permissionId, event.permissionId());
         assertEquals(methodName, event.methodName());

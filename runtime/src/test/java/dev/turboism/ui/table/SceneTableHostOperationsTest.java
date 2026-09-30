@@ -1,19 +1,18 @@
 package dev.turboism.ui.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.StaticSelector;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.swing.SwingUtilities;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class SceneTableHostOperationsTest {
 
@@ -24,32 +23,27 @@ final class SceneTableHostOperationsTest {
     void unsupportedArtifactAndReadFailureNeverPoll() throws Exception {
         final AtomicInteger polls = new AtomicInteger();
         final SceneTableHostOperations unsupported = new SceneTableHostOperations(
-            (artifact, loader) -> SceneTableHostProfile.forArtifact(
-                HostArtifactDigest.from(artifact)
-            ).map(profile -> profile.bind(loader)),
-            ignored -> null,
-            (delay, operation) -> polls.incrementAndGet()
-        );
+                (artifact, loader) -> SceneTableHostProfile.forArtifact(HostArtifactDigest.from(artifact))
+                        .map(profile -> profile.bind(loader)),
+                ignored -> null,
+                (delay, operation) -> polls.incrementAndGet());
         final Path unknown = Files.writeString(temporaryDirectory.resolve("unknown.jar"), "unknown");
 
         assertEquals(
-            SceneTableHostOperations.State.UNSUPPORTED,
-            unsupported.connect(unknown, getClass().getClassLoader())
-        );
+                SceneTableHostOperations.State.UNSUPPORTED,
+                unsupported.connect(unknown, getClass().getClassLoader()));
         flushEdt();
         assertEquals(0, polls.get());
 
         final SceneTableHostOperations unreadable = new SceneTableHostOperations(
-            (artifact, loader) -> SceneTableHostProfile.forArtifact(
-                HostArtifactDigest.from(artifact)
-            ).map(profile -> profile.bind(loader)),
-            ignored -> null,
-            (delay, operation) -> polls.incrementAndGet()
-        );
+                (artifact, loader) -> SceneTableHostProfile.forArtifact(HostArtifactDigest.from(artifact))
+                        .map(profile -> profile.bind(loader)),
+                ignored -> null,
+                (delay, operation) -> polls.incrementAndGet());
         assertEquals(
-            SceneTableHostOperations.State.FAILED,
-            unreadable.connect(temporaryDirectory.resolve("missing.jar"), getClass().getClassLoader())
-        );
+                SceneTableHostOperations.State.FAILED,
+                unreadable.connect(
+                        temporaryDirectory.resolve("missing.jar"), getClass().getClassLoader()));
         flushEdt();
         assertEquals(0, polls.get());
     }
@@ -58,34 +52,32 @@ final class SceneTableHostOperationsTest {
     void bindingFailureNeverPollsAndDisconnectInvalidatesOldRetry() throws Exception {
         final AtomicInteger polls = new AtomicInteger();
         final SceneTableHostOperations failed = new SceneTableHostOperations(
-            (artifact, loader) -> {
-                throw new IllegalArgumentException("selector mismatch");
-            },
-            ignored -> null,
-            (delay, operation) -> polls.incrementAndGet()
-        );
+                (artifact, loader) -> {
+                    throw new IllegalArgumentException("selector mismatch");
+                },
+                ignored -> null,
+                (delay, operation) -> polls.incrementAndGet());
         assertEquals(
-            SceneTableHostOperations.State.FAILED,
-            failed.connect(temporaryDirectory.resolve("host.jar"), getClass().getClassLoader())
-        );
+                SceneTableHostOperations.State.FAILED,
+                failed.connect(
+                        temporaryDirectory.resolve("host.jar"), getClass().getClassLoader()));
         flushEdt();
         assertEquals(0, polls.get());
 
         final List<Runnable> retries = new ArrayList<>();
         final SceneTableHostProfile profile = new SceneTableHostProfile(
-            "test",
-            new HostArtifactDigest(0L, "0".repeat(64)),
-            List.of(StaticSelector.classSelector("fixture", getClass().getName().replace('.', '/')))
-        );
+                "test",
+                new HostArtifactDigest(0L, "0".repeat(64)),
+                List.of(StaticSelector.classSelector(
+                        "fixture", getClass().getName().replace('.', '/'))));
         final SceneTableHostOperations connecting = new SceneTableHostOperations(
-            (artifact, loader) -> Optional.of(profile.bind(loader)),
-            ignored -> null,
-            (delay, operation) -> retries.add(operation)
-        );
+                (artifact, loader) -> Optional.of(profile.bind(loader)),
+                ignored -> null,
+                (delay, operation) -> retries.add(operation));
         assertEquals(
-            SceneTableHostOperations.State.CONNECTING,
-            connecting.connect(temporaryDirectory.resolve("host.jar"), getClass().getClassLoader())
-        );
+                SceneTableHostOperations.State.CONNECTING,
+                connecting.connect(
+                        temporaryDirectory.resolve("host.jar"), getClass().getClassLoader()));
         flushEdt();
         assertEquals(1, retries.size());
         connecting.disconnect();
@@ -96,6 +88,6 @@ final class SceneTableHostOperationsTest {
     }
 
     private static void flushEdt() throws Exception {
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
     }
 }

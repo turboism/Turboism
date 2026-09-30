@@ -1,12 +1,11 @@
 package dev.turboism.plugin.atlasdalsoo.dalsoo;
 
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
-
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 
 /**
  * Fixed-scale and automatic-scale packing driver, mirroring the Cubism 5.4
@@ -21,11 +20,18 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 public final class AutoScalePack {
 
     /** Outline preparation for one item: raw and margin-buffered rings at scale 1. */
-    public record Prepared(int id, String textureId, double[][] inpts,
-        double[][] outHalf, boolean fixPosition, boolean fixRotate,
-        boolean fixScale, double[] issuedCosSin, double[] issuedPosition,
-        boolean issuedPlaced, double issuedScale) {
-    }
+    public record Prepared(
+            int id,
+            String textureId,
+            double[][] inpts,
+            double[][] outHalf,
+            boolean fixPosition,
+            boolean fixRotate,
+            boolean fixScale,
+            double[] issuedCosSin,
+            double[] issuedPosition,
+            boolean issuedPlaced,
+            double issuedScale) {}
 
     private final double pageWidth;
     private final double pageHeight;
@@ -34,9 +40,13 @@ public final class AutoScalePack {
     private final double hSkew;
     private final Double segmentMaxLength;
 
-    public AutoScalePack(final double pageWidth, final double pageHeight,
-        final TextureAtlasRotationMode rotationMode, final boolean abey,
-        final double hSkew, final Double segmentMaxLength) {
+    public AutoScalePack(
+            final double pageWidth,
+            final double pageHeight,
+            final TextureAtlasRotationMode rotationMode,
+            final boolean abey,
+            final double hSkew,
+            final Double segmentMaxLength) {
         this.pageWidth = pageWidth;
         this.pageHeight = pageHeight;
         this.rotationMode = rotationMode;
@@ -59,11 +69,13 @@ public final class AutoScalePack {
     }
 
     /** Packs at an exact uniform scale; free items get it, fixed-scale items keep theirs. */
-    public PolygonPack.Result fixedScalePack(final List<Prepared> items,
-        final double scale, final BooleanSupplier cancelled,
-        final IntConsumer progress) {
-        return new PolygonPack(pageWidth, pageHeight, rotationMode, abey, hSkew,
-            segmentMaxLength).pack(sources(items, scale), cancelled, progress);
+    public PolygonPack.Result fixedScalePack(
+            final List<Prepared> items,
+            final double scale,
+            final BooleanSupplier cancelled,
+            final IntConsumer progress) {
+        return new PolygonPack(pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength)
+                .pack(sources(items, scale), cancelled, progress);
     }
 
     /**
@@ -77,23 +89,25 @@ public final class AutoScalePack {
      * the ladder descends); otherwise the result with fewest unplaced items is
      * returned, ties preferring the larger scale.</p>
      */
-    public Outcome autoScalePack(final List<Prepared> items, final double tolerance,
-        final int maxTry, final BooleanSupplier cancelled,
-        final DoubleConsumer progress) {
+    public Outcome autoScalePack(
+            final List<Prepared> items,
+            final double tolerance,
+            final int maxTry,
+            final BooleanSupplier cancelled,
+            final DoubleConsumer progress) {
         final double hi = initialUpperBound(items);
         final int tries = Math.max(1, maxTry);
         // geometric ladder: hi, hi*k, ..., ~tolerance
         final double floor = Math.max(tolerance, 1e-4);
-        final double k = tries <= 1 ? 1
-            : Math.pow(Math.min(floor / Math.max(hi, floor), 1.0), 1.0 / (tries - 1));
+        final double k = tries <= 1 ? 1 : Math.pow(Math.min(floor / Math.max(hi, floor), 1.0), 1.0 / (tries - 1));
         PolygonPack.Result best = null;
         double bestScale = hi;
         int attempts = 0;
         for (int i = 0; i < tries; i++) {
             final double scale = i == 0 ? hi : Math.max(hi * Math.pow(k, i), floor);
-            final PolygonPack.Result attempt = new PolygonPack(pageWidth, pageHeight,
-                rotationMode, abey, hSkew, segmentMaxLength)
-                .pack(sources(items, scale), cancelled, null);
+            final PolygonPack.Result attempt = new PolygonPack(
+                            pageWidth, pageHeight, rotationMode, abey, hSkew, segmentMaxLength)
+                    .pack(sources(items, scale), cancelled, null);
             attempts++;
             if (progress != null) {
                 progress.accept((double) attempts / tries);
@@ -101,8 +115,7 @@ public final class AutoScalePack {
             if (attempt.complete()) {
                 return new Outcome(scale, attempt, attempts);
             }
-            if (best == null
-                || attempt.unplacedIds.size() < best.unplacedIds.size()) {
+            if (best == null || attempt.unplacedIds.size() < best.unplacedIds.size()) {
                 best = attempt;
                 bestScale = scale;
             }
@@ -130,15 +143,14 @@ public final class AutoScalePack {
         final List<SourcePoly> out = new ArrayList<>(items.size());
         for (final Prepared p : items) {
             final double s = p.fixScale() ? p.issuedScale() : scale;
-            out.add(SourcePoly.builder(p.id(), p.textureId(),
-                    scaleRing(p.inpts(), s), scaleRing(p.outHalf(), s))
-                .fixPosition(p.fixPosition())
-                .fixRotate(p.fixRotate())
-                .fixScale(p.fixScale())
-                .issuedCosSin(p.issuedCosSin())
-                .issuedPosition(p.issuedPosition())
-                .issuedPlaced(p.issuedPlaced())
-                .build());
+            out.add(SourcePoly.builder(p.id(), p.textureId(), scaleRing(p.inpts(), s), scaleRing(p.outHalf(), s))
+                    .fixPosition(p.fixPosition())
+                    .fixRotate(p.fixRotate())
+                    .fixScale(p.fixScale())
+                    .issuedCosSin(p.issuedCosSin())
+                    .issuedPosition(p.issuedPosition())
+                    .issuedPlaced(p.issuedPlaced())
+                    .build());
         }
         return out;
     }

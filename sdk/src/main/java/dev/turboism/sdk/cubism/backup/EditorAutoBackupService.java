@@ -3,8 +3,6 @@ package dev.turboism.sdk.cubism.backup;
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.plugin.Registration;
-
-import java.io.File;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -122,7 +120,8 @@ public interface EditorAutoBackupService {
     enum Unavailable implements EditorAutoBackupService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
@@ -145,16 +144,14 @@ public interface EditorAutoBackupService {
         @Override
         public CompletionStage<BackupRunResult> backupNow() {
             return CompletableFuture.failedStage(
-                new UnsupportedOperationException("auto-backup service is not available")
-            );
+                    new UnsupportedOperationException("auto-backup service is not available"));
         }
 
         @Override
         public CompletionStage<BackupRunResult> backupAfterSave(final ProjectContentSnapshot saved) {
             Objects.requireNonNull(saved, "saved");
             return CompletableFuture.failedStage(
-                new UnsupportedOperationException("auto-backup service is not available")
-            );
+                    new UnsupportedOperationException("auto-backup service is not available"));
         }
 
         @Override

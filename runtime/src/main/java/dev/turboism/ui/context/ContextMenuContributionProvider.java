@@ -9,7 +9,6 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -23,42 +22,42 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
     private final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus;
 
     public ContextMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final ContextMenuHostOperations host,
-        final EditorUiActionRouter actionRouter
-    ) {
+            final EditorUiProviderAdmission admission,
+            final ContextMenuHostOperations host,
+            final EditorUiActionRouter actionRouter) {
         this(admission, host, actionRouter, null);
     }
 
     public ContextMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final ContextMenuHostOperations host,
-        final EditorUiActionRouter actionRouter,
-        final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus
-    ) {
-        this(admission, host, (pluginId, actionId, context) -> {
-            if (actionRouter instanceof RuntimeEditorUiActionRouter runtime) {
-                runtime.invoke(pluginId, actionId, context);
-            } else {
-                actionRouter.invoke(pluginId, actionId);
-            }
-        }, panelTabMenus);
+            final EditorUiProviderAdmission admission,
+            final ContextMenuHostOperations host,
+            final EditorUiActionRouter actionRouter,
+            final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus) {
+        this(
+                admission,
+                host,
+                (pluginId, actionId, context) -> {
+                    if (actionRouter instanceof RuntimeEditorUiActionRouter runtime) {
+                        runtime.invoke(pluginId, actionId, context);
+                    } else {
+                        actionRouter.invoke(pluginId, actionId);
+                    }
+                },
+                panelTabMenus);
     }
 
     public ContextMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final ContextMenuHostOperations host,
-        final ContextActionRouter actionRouter
-    ) {
+            final EditorUiProviderAdmission admission,
+            final ContextMenuHostOperations host,
+            final ContextActionRouter actionRouter) {
         this(admission, host, actionRouter, null);
     }
 
     public ContextMenuContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final ContextMenuHostOperations host,
-        final ContextActionRouter actionRouter,
-        final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus
-    ) {
+            final EditorUiProviderAdmission admission,
+            final ContextMenuHostOperations host,
+            final ContextActionRouter actionRouter,
+            final dev.turboism.ui.panel.PanelTabMenuCoordinator panelTabMenus) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.CONTEXT_MENU) {
             throw new IllegalArgumentException("context-menu provider requires CONTEXT_MENU admission");
@@ -79,40 +78,42 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("context-menu provider admission is stale");
         }
         final List<Registration> registrations = new ArrayList<>();
         if (panelTabMenus != null) {
-            panelTabMenus.update(hostGeneration, contributions.stream()
-                .filter(value -> value.descriptor()
-                    instanceof dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution
-                    && contribution.target()
-                        == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
-                .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+            panelTabMenus.update(
                     hostGeneration,
-                    value.identity().pluginId(),
-                    (dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution) value.descriptor()
-                ))
-                .toList());
+                    contributions.stream()
+                            .filter(value -> value.descriptor()
+                                            instanceof
+                                            dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution
+                                                    contribution
+                                    && contribution.target()
+                                            == dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.PANEL_TAB)
+                            .map(value -> new dev.turboism.ui.panel.PanelTabMenuContribution(
+                                    hostGeneration,
+                                    value.identity().pluginId(),
+                                    (dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution)
+                                            value.descriptor()))
+                            .toList());
         }
         try {
             for (EditorUiContribution<?> contribution : contributions) {
-                if (contribution.descriptor() instanceof
-                    dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution value
-                    && value.target() != dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.SELECTION) {
+                if (contribution.descriptor()
+                                instanceof dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution value
+                        && value.target() != dev.turboism.sdk.ui.context.ContextMenuRegistry.Target.SELECTION) {
                     continue;
                 }
                 final ContextMenuContributionDescriptor descriptor =
-                    ContextMenuContributionDescriptor.from(contribution);
-                registrations.add(Objects.requireNonNull(host.addItem(
-                    descriptor,
-                    (selection, actionId) -> route(descriptor, actionId, hostGeneration, selection)
-                ), "host.addItem()"));
+                        ContextMenuContributionDescriptor.from(contribution);
+                registrations.add(Objects.requireNonNull(
+                        host.addItem(
+                                descriptor,
+                                (selection, actionId) -> route(descriptor, actionId, hostGeneration, selection)),
+                        "host.addItem()"));
             }
         } catch (RuntimeException | Error failure) {
             closeAllSuppressing(registrations, failure);
@@ -125,19 +126,14 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
     }
 
     private void route(
-        final ContextMenuContributionDescriptor descriptor,
-        final String actionId,
-        final long hostGeneration,
-        final ContextMenuSelection selection
-    ) {
+            final ContextMenuContributionDescriptor descriptor,
+            final String actionId,
+            final long hostGeneration,
+            final ContextMenuSelection selection) {
         if (selection.hostGeneration() != hostGeneration || !descriptor.matches(selection)) {
             return;
         }
-        actionRouter.invoke(
-            descriptor.pluginId(),
-            actionId,
-            new ContextMenuActionContext(selection)
-        );
+        actionRouter.invoke(descriptor.pluginId(), actionId, new ContextMenuActionContext(selection));
     }
 
     /** Route from a context-menu activation to the owning plugin's action registry. */
@@ -151,8 +147,7 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         void invoke(String pluginId, String actionId, ActionRegistry.ActionContext context);
     }
 
-    private record ContextMenuActionContext(ContextMenuSelection selection)
-        implements ActionRegistry.ActionContext {
+    private record ContextMenuActionContext(ContextMenuSelection selection) implements ActionRegistry.ActionContext {
         @Override
         public java.util.Optional<ContextMenuSelection> contextMenuSelection() {
             return java.util.Optional.of(selection);
@@ -177,10 +172,7 @@ public final class ContextMenuContributionProvider implements EditorUiContributi
         }
     }
 
-    private static void closeAllSuppressing(
-        final List<? extends Registration> registrations,
-        final Throwable failure
-    ) {
+    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
                 registrations.get(index).close();

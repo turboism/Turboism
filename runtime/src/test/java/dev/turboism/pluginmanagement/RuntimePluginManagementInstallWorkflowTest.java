@@ -1,5 +1,9 @@
 package dev.turboism.pluginmanagement;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -7,9 +11,6 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.action.ActionRegistry;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -23,13 +24,12 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimePluginManagementInstallWorkflowTest {
-    @TempDir Path home;
+    @TempDir
+    Path home;
 
     @Test
     void chooserAcceptsOnlyPluginJars() {
@@ -38,10 +38,10 @@ class RuntimePluginManagementInstallWorkflowTest {
         RuntimePluginManagementService.configurePluginJarChooser(chooser);
 
         final javax.swing.filechooser.FileNameExtensionFilter filter =
-            org.junit.jupiter.api.Assertions.assertInstanceOf(
-                javax.swing.filechooser.FileNameExtensionFilter.class, chooser.getFileFilter());
+                org.junit.jupiter.api.Assertions.assertInstanceOf(
+                        javax.swing.filechooser.FileNameExtensionFilter.class, chooser.getFileFilter());
         assertEquals("Turboism plugin JAR (*.jar)", filter.getDescription());
-        org.junit.jupiter.api.Assertions.assertArrayEquals(new String[]{"jar"}, filter.getExtensions());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(new String[] {"jar"}, filter.getExtensions());
         assertFalse(chooser.isAcceptAllFileFilterUsed());
         assertTrue(filter.accept(Path.of("sample.JAR").toFile()));
         assertFalse(filter.accept(Path.of("sample.tplugin").toFile()));
@@ -54,23 +54,27 @@ class RuntimePluginManagementInstallWorkflowTest {
         final ControlledChooser chooser = new ControlledChooser();
         final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
-            SidecarDispatcher.noop(), events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                events::add);
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
-        final RuntimeActionRegistry actions = new RuntimeActionRegistry(
-            scheduler, ignored -> { }, "turboism.core", PermissionChecker.allowAll()
-        );
-        actions.register("install", action("install", ignored -> service.requestInstall(result -> {
-            results.add(result);
-            completed.countDown();
-        })));
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
+        final RuntimeActionRegistry actions =
+                new RuntimeActionRegistry(scheduler, ignored -> {}, "turboism.core", PermissionChecker.allowAll());
+        actions.register(
+                "install",
+                action(
+                        "install",
+                        ignored -> service.requestInstall(result -> {
+                            results.add(result);
+                            completed.countDown();
+                        })));
 
         try {
-            actions.execute("install", new ActionRegistry.ActionContext() { });
+            actions.execute("install", new ActionRegistry.ActionContext() {});
             assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
             Thread.sleep(120L);
             assertFalse(events.stream().anyMatch(event -> event.phase().name().equals("TIMED_OUT")), events.toString());
@@ -91,23 +95,27 @@ class RuntimePluginManagementInstallWorkflowTest {
         final ControlledChooser chooser = new ControlledChooser();
         final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
-            SidecarDispatcher.noop(), events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(50L, 1, 8, events::add, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                events::add);
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
-        final RuntimeActionRegistry actions = new RuntimeActionRegistry(
-            scheduler, ignored -> { }, "turboism.core", PermissionChecker.allowAll()
-        );
-        actions.register("install", action("install", ignored -> service.requestInstall(result -> {
-            results.add(result);
-            completed.countDown();
-        })));
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
+        final RuntimeActionRegistry actions =
+                new RuntimeActionRegistry(scheduler, ignored -> {}, "turboism.core", PermissionChecker.allowAll());
+        actions.register(
+                "install",
+                action(
+                        "install",
+                        ignored -> service.requestInstall(result -> {
+                            results.add(result);
+                            completed.countDown();
+                        })));
 
         try {
-            actions.execute("install", new ActionRegistry.ActionContext() { });
+            actions.execute("install", new ActionRegistry.ActionContext() {});
             assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
             Thread.sleep(120L);
             chooser.complete(Optional.empty());
@@ -127,7 +135,8 @@ class RuntimePluginManagementInstallWorkflowTest {
         Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
 
         service.requestInstall(results::add);
         assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
@@ -150,19 +159,19 @@ class RuntimePluginManagementInstallWorkflowTest {
         final CountDownLatch closeDeactivated = new CountDownLatch(1);
         final AtomicBoolean dialogCreated = new AtomicBoolean();
         final RuntimePluginManagementService.SwingPackageChooser chooser =
-            new RuntimePluginManagementService.SwingPackageChooser(
-                () -> {
-                    dialogCreated.set(true);
-                    return new javax.swing.JFileChooser();
-                },
-                () -> {
-                    passedActiveCheck.countDown();
-                    await(allowPublication);
-                },
-                closeDeactivated::countDown
-            );
+                new RuntimePluginManagementService.SwingPackageChooser(
+                        () -> {
+                            dialogCreated.set(true);
+                            return new javax.swing.JFileChooser();
+                        },
+                        () -> {
+                            passedActiveCheck.countDown();
+                            await(allowPublication);
+                        },
+                        closeDeactivated::countDown);
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
         final CountDownLatch completed = new CountDownLatch(1);
 
         service.requestInstall(result -> {
@@ -191,10 +200,10 @@ class RuntimePluginManagementInstallWorkflowTest {
         final ControlledChooser chooser = new ControlledChooser();
         final ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.shutdownNow();
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, chooser, List::of, executor
-        );
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, chooser, List::of, executor);
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
         final CountDownLatch completed = new CountDownLatch(1);
 
         service.requestInstall(result -> {
@@ -218,10 +227,10 @@ class RuntimePluginManagementInstallWorkflowTest {
         Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final HoldingExecutor executor = new HoldingExecutor();
-        final RuntimePluginManagementService service = new RuntimePluginManagementService(
-            home, chooser, List::of, executor
-        );
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final RuntimePluginManagementService service =
+                new RuntimePluginManagementService(home, chooser, List::of, executor);
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> results =
+                new CopyOnWriteArrayList<>();
 
         service.requestInstall(results::add);
         assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
@@ -239,10 +248,11 @@ class RuntimePluginManagementInstallWorkflowTest {
     void overlappingInstallRequestIsRejectedAsBusy() throws Exception {
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> second = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.internal.core.CorePluginManagement.OperationResult> second =
+                new CopyOnWriteArrayList<>();
 
         try {
-            service.requestInstall(ignored -> { });
+            service.requestInstall(ignored -> {});
             assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
             service.requestInstall(second::add);
 
@@ -262,14 +272,22 @@ class RuntimePluginManagementInstallWorkflowTest {
         }
     }
 
-    private static ActionRegistry.Action action(
-        final String id,
-        final Consumer<ActionRegistry.ActionContext> handler
-    ) {
+    private static ActionRegistry.Action action(final String id, final Consumer<ActionRegistry.ActionContext> handler) {
         return new ActionRegistry.Action() {
-            @Override public String id() { return id; }
-            @Override public String label() { return id; }
-            @Override public Consumer<ActionRegistry.ActionContext> handler() { return handler; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String label() {
+                return id;
+            }
+
+            @Override
+            public Consumer<ActionRegistry.ActionContext> handler() {
+                return handler;
+            }
         };
     }
 
@@ -277,12 +295,34 @@ class RuntimePluginManagementInstallWorkflowTest {
         private volatile boolean shutdown;
         private volatile Runnable submitted;
 
-        @Override public void shutdown() { shutdown = true; }
-        @Override public List<Runnable> shutdownNow() { shutdown = true; return List.of(); }
-        @Override public boolean isShutdown() { return shutdown; }
-        @Override public boolean isTerminated() { return shutdown; }
-        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) { return shutdown; }
-        @Override public void execute(final Runnable command) {
+        @Override
+        public void shutdown() {
+            shutdown = true;
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            shutdown = true;
+            return List.of();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return shutdown;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return shutdown;
+        }
+
+        @Override
+        public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+            return shutdown;
+        }
+
+        @Override
+        public void execute(final Runnable command) {
             if (shutdown) throw new java.util.concurrent.RejectedExecutionException();
             submitted = command;
         }
@@ -293,7 +333,8 @@ class RuntimePluginManagementInstallWorkflowTest {
         private final AtomicBoolean closed = new AtomicBoolean();
         private volatile Consumer<Optional<Path>> completion;
 
-        @Override public void choose(final Consumer<Optional<Path>> completion) {
+        @Override
+        public void choose(final Consumer<Optional<Path>> completion) {
             this.completion = completion;
             opened.countDown();
         }
@@ -303,7 +344,8 @@ class RuntimePluginManagementInstallWorkflowTest {
             if (current != null) current.accept(selection);
         }
 
-        @Override public void close() {
+        @Override
+        public void close() {
             closed.set(true);
         }
     }

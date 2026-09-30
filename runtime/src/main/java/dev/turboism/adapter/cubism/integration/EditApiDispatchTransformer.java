@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -7,11 +12,6 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Injects a guard at the entry of the host message dispatcher
@@ -54,8 +54,7 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
     private final String callbackKey;
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
-    private final java.util.concurrent.atomic.AtomicLong transformations =
-        new java.util.concurrent.atomic.AtomicLong();
+    private final java.util.concurrent.atomic.AtomicLong transformations = new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Creates a transformer for the exact dispatcher entry.
@@ -68,21 +67,20 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
      * @param callbackKey       system-property key holding the {@code BiFunction} receiver
      */
     public EditApiDispatchTransformer(
-        final String ownerInternalName,
-        final String methodName,
-        final String descriptor,
-        final ClassLoader expectedClassLoader,
-        final String callbackKey
-    ) {
+            final String ownerInternalName,
+            final String methodName,
+            final String descriptor,
+            final ClassLoader expectedClassLoader,
+            final String callbackKey) {
         this.ownerInternalName = requireText(ownerInternalName, "ownerInternalName");
         this.methodName = requireText(methodName, "methodName");
         this.descriptor = requireText(descriptor, "descriptor");
         final Type[] arguments = Type.getArgumentTypes(descriptor);
-        if (arguments.length != 2 || !arguments[0].equals(Type.getType(String.class))
-            || arguments[1].getSort() != Type.OBJECT
-            || !Type.getReturnType(descriptor).equals(Type.VOID_TYPE)) {
-            throw new IllegalArgumentException(
-                "descriptor must be (Ljava/lang/String;L<ref>;)V: " + descriptor);
+        if (arguments.length != 2
+                || !arguments[0].equals(Type.getType(String.class))
+                || arguments[1].getSort() != Type.OBJECT
+                || !Type.getReturnType(descriptor).equals(Type.VOID_TYPE)) {
+            throw new IllegalArgumentException("descriptor must be (Ljava/lang/String;L<ref>;)V: " + descriptor);
         }
         // The dispatch entry is private final (0x0012); a static or public replacement is not
         // the reviewed shape and must be refused rather than patched.
@@ -108,33 +106,31 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
 
     @Override
     public byte[] transform(
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
-        return transform(null, loader, className, classBeingRedefined, protectionDomain,
-            classfileBuffer);
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
+        return transform(null, loader, className, classBeingRedefined, protectionDomain, classfileBuffer);
     }
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer) {
         if (!ownerInternalName.equals(className)
-            || classfileBuffer == null
-            || (expectedClassLoader != null && loader != expectedClassLoader)) {
+                || classfileBuffer == null
+                || (expectedClassLoader != null && loader != expectedClassLoader)) {
             return null;
         }
         try {
             return rewrite(classfileBuffer);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             outcome.set(Outcome.SHAPE_REJECTED);
             diagnostic.compareAndSet("", "transform failed: " + failure);
             return null;
@@ -149,61 +145,72 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         if (!ownerInternalName.equals(reader.getClassName())) {
             return reject("class bytes do not belong to target owner");
         }
-        reader.accept(new ClassVisitor(Opcodes.ASM9) {
-            @Override public MethodVisitor visitMethod(
-                final int access, final String name, final String methodDescriptor,
-                final String signature, final String[] exceptions
-            ) {
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
-                matches[0]++;
-                if ((access & requiredAccess) != requiredAccess || (access & forbiddenAccess) != 0) {
-                    rejected[0] = true;
-                }
-                return new MethodVisitor(Opcodes.ASM9) {
-                    @Override public void visitCode() { hasCode[0] = true; }
-                    @Override public void visitLdcInsn(final Object value) {
-                        if (callbackKey.equals(value)) rejected[0] = true;
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) return null;
+                        matches[0]++;
+                        if ((access & requiredAccess) != requiredAccess || (access & forbiddenAccess) != 0) {
+                            rejected[0] = true;
+                        }
+                        return new MethodVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visitCode() {
+                                hasCode[0] = true;
+                            }
+
+                            @Override
+                            public void visitLdcInsn(final Object value) {
+                                if (callbackKey.equals(value)) rejected[0] = true;
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                },
+                ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         if (matches[0] != 1 || !hasCode[0] || rejected[0]) {
             return reject("target shape or existing callback marker rejected: matches=" + matches[0]);
         }
-        final ClassWriter writer = new ClassWriter(
-            reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override protected ClassLoader getClassLoader() {
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
                 return expectedClassLoader == null ? super.getClassLoader() : expectedClassLoader;
             }
         };
-        reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
-            @Override
-            public MethodVisitor visitMethod(
-                final int access,
-                final String name,
-                final String methodDescriptor,
-                final String signature,
-                final String[] exceptions
-            ) {
-                final MethodVisitor delegate = super.visitMethod(
-                    access, name, methodDescriptor, signature, exceptions);
-                if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
-                    return delegate;
-                }
-                return new MethodVisitor(Opcodes.ASM9, delegate) {
+        reader.accept(
+                new ClassVisitor(Opcodes.ASM9, writer) {
                     @Override
-                    public void visitCode() {
-                        super.visitCode();
-                        injectGuard(mv);
-                    }
+                    public MethodVisitor visitMethod(
+                            final int access,
+                            final String name,
+                            final String methodDescriptor,
+                            final String signature,
+                            final String[] exceptions) {
+                        final MethodVisitor delegate =
+                                super.visitMethod(access, name, methodDescriptor, signature, exceptions);
+                        if (!methodName.equals(name) || !descriptor.equals(methodDescriptor)) {
+                            return delegate;
+                        }
+                        return new MethodVisitor(Opcodes.ASM9, delegate) {
+                            @Override
+                            public void visitCode() {
+                                super.visitCode();
+                                injectGuard(mv);
+                            }
 
-                    @Override
-                    public void visitMaxs(final int maxStack, final int maxLocals) {
-                        super.visitMaxs(maxStack + 4, maxLocals);
+                            @Override
+                            public void visitMaxs(final int maxStack, final int maxLocals) {
+                                super.visitMaxs(maxStack + 4, maxLocals);
+                            }
+                        };
                     }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
+                },
+                ClassReader.EXPAND_FRAMES);
         final byte[] result = writer.toByteArray();
         outcome.set(Outcome.PATCHED);
         diagnostic.set("");
@@ -227,7 +234,8 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
      *     Object res = ((BiFunction) r).apply(arg1, arg2);
      *     if (res instanceof Boolean &amp;&amp; ((Boolean) res).booleanValue()) return;
      *   }
-     * } catch (Throwable ignored) { }
+     * } catch (Throwable ignored) {
+     * FatalErrors.rethrowIfFatal(ignored); }
      * </pre>
      */
     private void injectGuard(final MethodVisitor mv) {
@@ -240,11 +248,11 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
 
         mv.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
         mv.visitLabel(start);
-        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/System",
-            "getProperties", "()Ljava/util/Properties;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESTATIC, "java/lang/System", "getProperties", "()Ljava/util/Properties;", false);
         mv.visitLdcInsn(callbackKey);
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/util/Properties",
-            "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL, "java/util/Properties", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/util/function/BiFunction");
         mv.visitJumpInsn(Opcodes.IFNE, receiver);
@@ -255,14 +263,17 @@ public final class EditApiDispatchTransformer implements ClassFileTransformer {
         // Instance method slots: 0=this, 1=raw message, 2=socket.
         mv.visitVarInsn(Opcodes.ALOAD, 1);
         mv.visitVarInsn(Opcodes.ALOAD, 2);
-        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/function/BiFunction",
-            "apply", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", true);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEINTERFACE,
+                "java/util/function/BiFunction",
+                "apply",
+                "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                true);
         mv.visitInsn(Opcodes.DUP);
         mv.visitTypeInsn(Opcodes.INSTANCEOF, "java/lang/Boolean");
         mv.visitJumpInsn(Opcodes.IFEQ, notBoolean);
         mv.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
-        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean",
-            "booleanValue", "()Z", false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false);
         mv.visitJumpInsn(Opcodes.IFEQ, end);
         mv.visitInsn(Opcodes.RETURN);
         mv.visitLabel(notBoolean);

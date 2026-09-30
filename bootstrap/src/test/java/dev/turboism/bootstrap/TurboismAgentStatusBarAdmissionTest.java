@@ -1,10 +1,10 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import org.junit.jupiter.api.Test;
 
 final class TurboismAgentStatusBarAdmissionTest {
 
@@ -18,8 +18,8 @@ final class TurboismAgentStatusBarAdmissionTest {
 
     private static HookEnvironment environment(final String profile, final boolean admitted) {
         return HookEnvironment.builder()
-            .profile(profile)
-            .fullRuntimeAdmission(admitted)
-            .build();
+                .profile(profile)
+                .fullRuntimeAdmission(admitted)
+                .build();
     }
 }

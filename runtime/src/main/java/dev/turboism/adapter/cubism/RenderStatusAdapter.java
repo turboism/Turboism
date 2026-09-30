@@ -4,7 +4,6 @@ import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.HostUiVersionCheck;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
 import dev.turboism.sdk.cubism.RenderStatusSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -58,10 +57,7 @@ public interface RenderStatusAdapter {
      * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
      * @param <T> the observed value type
      */
-    record AdapterResult<T>(
-        Optional<T> value,
-        Optional<SafeModeDiagnostic> diagnostic
-    ) {
+    record AdapterResult<T>(Optional<T> value, Optional<SafeModeDiagnostic> diagnostic) {
         public AdapterResult {
             value = Objects.requireNonNull(value, "value");
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -153,7 +149,7 @@ public interface RenderStatusAdapter {
         private AdapterResult<Optional<RenderStatusSnapshot>> callIfSupported(final HostOperations operations) {
             try {
                 final Optional<SafeModeDiagnostic> versionDiagnostic =
-                    HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
+                        HostUiVersionCheck.diagnosticFor(CAPABILITY_ID, operations.hostVersion());
                 if (versionDiagnostic.isPresent()) {
                     return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
                 }
@@ -165,9 +161,7 @@ public interface RenderStatusAdapter {
                 return AdapterResult.unavailable(exception.diagnostic());
             } catch (RuntimeException exception) {
                 return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                    CAPABILITY_ID,
-                    "Host render-status adapter call failed safely."
-                ));
+                        CAPABILITY_ID, "Host render-status adapter call failed safely."));
             }
         }
 

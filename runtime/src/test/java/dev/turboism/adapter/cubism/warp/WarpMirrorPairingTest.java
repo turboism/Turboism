@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.warp;
 
-import dev.turboism.sdk.cubism.mirror.WarpMirrorDirection;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.mirror.WarpMirrorDirection;
+import org.junit.jupiter.api.Test;
 
 /**
  * Direction semantics and structural symmetry of the index-symmetric pairing:
@@ -72,7 +72,7 @@ final class WarpMirrorPairingTest {
     @Test
     void leftToRightCopiesTheLeftHalfOntoTheRight() {
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         for (int row = 0; row < 3; row++) {
             // Right column takes the reflection of the left column (y skew 0).
@@ -88,7 +88,7 @@ final class WarpMirrorPairingTest {
     @Test
     void rightToLeftCopiesTheRightHalfOntoTheLeft() {
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.RIGHT_TO_LEFT);
+                WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.RIGHT_TO_LEFT);
         assertNotNull(result);
         for (int row = 0; row < 3; row++) {
             assertEquals(0f, x(result.positions(), 0, row), EPS);
@@ -109,8 +109,7 @@ final class WarpMirrorPairingTest {
                 grid[offset++] = row * 10f;
             }
         }
-        final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(grid, 3, 3, WarpMirrorDirection.TOP_TO_BOTTOM);
+        final WarpMirrorPairing.Result result = WarpMirrorPairing.mirror(grid, 3, 3, WarpMirrorDirection.TOP_TO_BOTTOM);
         assertNotNull(result);
         for (int col = 0; col < 3; col++) {
             // Bottom row takes the reflection of the top row (y=0 → y=20, x skew +0).
@@ -129,8 +128,7 @@ final class WarpMirrorPairingTest {
                 grid[offset++] = row * 10f;
             }
         }
-        final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(grid, 3, 3, WarpMirrorDirection.BOTTOM_TO_TOP);
+        final WarpMirrorPairing.Result result = WarpMirrorPairing.mirror(grid, 3, 3, WarpMirrorDirection.BOTTOM_TO_TOP);
         assertNotNull(result);
         for (int col = 0; col < 3; col++) {
             // Top row takes the bottom row's x skew (+2) reflected to y=0.
@@ -143,7 +141,7 @@ final class WarpMirrorPairingTest {
     void irregularGridMirrorsExactlyAcrossTheCentreSeam() {
         // xs = [0, 3, 5.5, 11]; seam axis = (3 + 5.5)/2 = 4.25.
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(irregularGrid(), 4, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(irregularGrid(), 4, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         assertEquals(4, result.pairedCount());
         for (int row = 0; row < 2; row++) {
@@ -161,17 +159,18 @@ final class WarpMirrorPairingTest {
     void irregularGridMirroredResultIsExactlySymmetric() {
         for (WarpMirrorDirection direction : WarpMirrorDirection.values()) {
             final float[] grid = irregularGrid();
-            final WarpMirrorPairing.Result first =
-                WarpMirrorPairing.mirror(grid, 4, 2, direction);
+            final WarpMirrorPairing.Result first = WarpMirrorPairing.mirror(grid, 4, 2, direction);
             assertNotNull(first);
             // Mirroring the result a second time must be a no-op: the output is
             // already symmetric across the fold, by construction.
-            final WarpMirrorPairing.Result second =
-                WarpMirrorPairing.mirror(first.positions(), 4, 2, direction);
+            final WarpMirrorPairing.Result second = WarpMirrorPairing.mirror(first.positions(), 4, 2, direction);
             assertNotNull(second);
             for (int index = 0; index < grid.length; index++) {
-                assertEquals(first.positions()[index], second.positions()[index], EPS,
-                    direction + " second pass changed index " + index);
+                assertEquals(
+                        first.positions()[index],
+                        second.positions()[index],
+                        EPS,
+                        direction + " second pass changed index " + index);
             }
         }
     }
@@ -179,7 +178,7 @@ final class WarpMirrorPairingTest {
     @Test
     void centreLinePointsAreSkippedByIndex() {
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(skewedGrid(), 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         // The middle column is the fold line; it must not be rewritten.
         for (int row = 0; row < 3; row++) {
@@ -198,7 +197,7 @@ final class WarpMirrorPairingTest {
             20f, 110f, 10f, 55f, 0f, 5f
         };
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(flipped, 3, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(flipped, 3, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         // Axis = centre-column mean = 10. Visual-left source (flat col 2)
         // reflects onto flat col 0: (0,y) -> (20,y).
@@ -220,7 +219,7 @@ final class WarpMirrorPairingTest {
             5f, 10f, 5f, 10f
         };
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(onAxis, 2, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(onAxis, 2, 2, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         for (int index = 0; index < onAxis.length; index++) {
             assertEquals(onAxis[index], result.positions()[index], EPS);
@@ -247,7 +246,7 @@ final class WarpMirrorPairingTest {
             0f, 10f, 10f, 10f, 20f, 10f
         };
         final WarpMirrorPairing.Result result =
-            WarpMirrorPairing.mirror(symmetric, 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
+                WarpMirrorPairing.mirror(symmetric, 3, 3, WarpMirrorDirection.LEFT_TO_RIGHT);
         assertNotNull(result);
         assertEquals(3, result.pairedCount());
         // Caller-level NO_CHANGE check: output equals input.

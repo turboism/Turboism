@@ -1,23 +1,22 @@
 package dev.turboism.adapter.cubism.editor.history;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.cubism.event.CubismOperation;
-import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.internal;
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.event.CubismOperation;
+import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 /**
  * Verifies the native edit ingress publishes only facts an exact decode proves, publishes them
@@ -87,13 +86,11 @@ class NativeEditIngressTest {
 
         final var observed = EditorHistoryMetadataRegistry.observed(committed);
         assertTrue(
-            observed.isPresent(),
-            "the detail proven while the entry was the tip must survive for later projections"
-        );
+                observed.isPresent(),
+                "the detail proven while the entry was the tip must survive for later projections");
         assertFalse(
-            EditorHistoryMetadataRegistry.claimsProvenance(committed),
-            "an observed detail must not turn a host edit into a Turboism-authored one"
-        );
+                EditorHistoryMetadataRegistry.claimsProvenance(committed),
+                "an observed detail must not turn a host edit into a Turboism-authored one");
     }
 
     @Test
@@ -118,10 +115,9 @@ class NativeEditIngressTest {
         assertEquals(CubismOperationOrigin.HOST_UI, recorder.origin());
         assertTrue(recorder.subject().isEmpty());
         assertEquals(
-            Optional.of("Rename part"),
-            recorder.label(),
-            "a native name may be published as presentation, but never as an identity"
-        );
+                Optional.of("Rename part"),
+                recorder.label(),
+                "a native name may be published as presentation, but never as an identity");
     }
 
     @Test
@@ -167,8 +163,7 @@ class NativeEditIngressTest {
 
     @Test
     void aPublisherFailureIsCountedInsteadOfEscapingTheDrain() {
-        final NativeUndoIngressObserverTest.Manager manager =
-            new NativeUndoIngressObserverTest.Manager();
+        final NativeUndoIngressObserverTest.Manager manager = new NativeUndoIngressObserverTest.Manager();
         final NativeEditIngress ingress = new NativeEditIngress(resolver(), manager, (o, r, s, l) -> {
             throw new IllegalStateException("publisher failure");
         });
@@ -183,142 +178,101 @@ class NativeEditIngressTest {
 
     private static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-history.read", "cubism.editor-history.semantic-read"),
-            selectors(),
-            NativeEditIngressTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-history.read", "cubism.editor-history.semantic-read"),
+                selectors(),
+                NativeEditIngressTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final ArrayList<StaticSelector> all = new ArrayList<>();
         all.add(method(
-            "cubism.editor-history.manager.entries",
-            NativeUndoIngressObserverTest.Manager.class,
-            "entries",
-            "()Ljava/util/List;"
-        ));
+                "cubism.editor-history.manager.entries",
+                NativeUndoIngressObserverTest.Manager.class,
+                "entries",
+                "()Ljava/util/List;"));
         all.add(method(
-            "cubism.editor-history.manager.position",
-            NativeUndoIngressObserverTest.Manager.class,
-            "position",
-            "()I"
-        ));
+                "cubism.editor-history.manager.position",
+                NativeUndoIngressObserverTest.Manager.class,
+                "position",
+                "()I"));
         all.add(method(
-            "cubism.editor-history.entry.presentation-name",
-            NativeUndoIngressObserverTest.Entry.class,
-            "presentationName",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-history.entry.presentation-name",
+                NativeUndoIngressObserverTest.Entry.class,
+                "presentationName",
+                "()Ljava/lang/String;"));
         all.add(StaticSelector.classSelector(
-            NativeUndoIngressObserver.LISTENER_CLASS_ALIAS,
-            internal(NativeUndoIngressObserverTest.Listener.class)
-        ));
+                NativeUndoIngressObserver.LISTENER_CLASS_ALIAS,
+                internal(NativeUndoIngressObserverTest.Listener.class)));
         all.add(method(
-            NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
-            NativeUndoIngressObserverTest.Manager.class,
-            "addUndoStateChangeListener",
-            "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"
-        ));
+                NativeUndoIngressObserver.LISTENER_ADD_ALIAS,
+                NativeUndoIngressObserverTest.Manager.class,
+                "addUndoStateChangeListener",
+                "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"));
         all.add(method(
-            NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
-            NativeUndoIngressObserverTest.Manager.class,
-            "removeUndoStateChangeListener",
-            "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"
-        ));
+                NativeUndoIngressObserver.LISTENER_REMOVE_ALIAS,
+                NativeUndoIngressObserverTest.Manager.class,
+                "removeUndoStateChangeListener",
+                "(L" + internal(NativeUndoIngressObserverTest.Listener.class) + ";)V"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-history.semantic.part-membership.class",
-            internal(PartMembershipEntry.class)
-        ));
+                "cubism.editor-history.semantic.part-membership.class", internal(PartMembershipEntry.class)));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.part",
-            PartMembershipEntry.class,
-            "getPart",
-            "()L" + internal(PartSourceDouble.class) + ";"
-        ));
+                "cubism.editor-history.semantic.part-membership.part",
+                PartMembershipEntry.class,
+                "getPart",
+                "()L" + internal(PartSourceDouble.class) + ";"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.child",
-            PartMembershipEntry.class,
-            "getChild",
-            "()L" + internal(ArtMeshDouble.class) + ";"
-        ));
+                "cubism.editor-history.semantic.part-membership.child",
+                PartMembershipEntry.class,
+                "getChild",
+                "()L" + internal(ArtMeshDouble.class) + ";"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.index",
-            PartMembershipEntry.class,
-            "getInsertIndex",
-            "()I"
-        ));
+                "cubism.editor-history.semantic.part-membership.index",
+                PartMembershipEntry.class,
+                "getInsertIndex",
+                "()I"));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.is-add",
-            PartMembershipEntry.class,
-            "isAdd",
-            "()Z"
-        ));
+                "cubism.editor-history.semantic.part-membership.is-add", PartMembershipEntry.class, "isAdd", "()Z"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.part-source.class",
-            internal(PartSourceDouble.class)
-        ));
+                "cubism.editor-model.part-source.class", internal(PartSourceDouble.class)));
         all.add(method(
-            "cubism.editor-model.part-source.id",
-            PartSourceDouble.class,
-            "id",
-            "()L" + internal(PartId.class) + ";"
-        ));
-        all.add(method(
-            "cubism.editor-model.part-id.value",
-            PartId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.part-source.id",
+                PartSourceDouble.class,
+                "id",
+                "()L" + internal(PartId.class) + ";"));
+        all.add(method("cubism.editor-model.part-id.value", PartId.class, "value", "()Ljava/lang/String;"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.art-mesh-source.class",
-            internal(ArtMeshDouble.class)
-        ));
+                "cubism.editor-model.art-mesh-source.class", internal(ArtMeshDouble.class)));
+        all.add(StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpDouble.class)));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.warp-source.class",
-            internal(WarpDouble.class)
-        ));
-        all.add(StaticSelector.classSelector(
-            "cubism.editor-model.rotation-source.class",
-            internal(RotationDouble.class)
-        ));
+                "cubism.editor-model.rotation-source.class", internal(RotationDouble.class)));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.id",
-            ControllableSource.class,
-            "id",
-            "()L" + internal(SourceId.class) + ";"
-        ));
+                "cubism.editor-model.parameter-controllable-source.id",
+                ControllableSource.class,
+                "id",
+                "()L" + internal(SourceId.class) + ";"));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.local-name",
-            SourceBase.class,
-            "getLocalName",
-            "()Ljava/lang/String;"
-        ));
-        all.add(method(
-            "cubism.editor-model.id.value",
-            SourceId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.parameter-controllable-source.local-name",
+                SourceBase.class,
+                "getLocalName",
+                "()Ljava/lang/String;"));
+        all.add(method("cubism.editor-model.id.value", SourceId.class, "value", "()Ljava/lang/String;"));
         return List.copyOf(all);
     }
 
     /** One wired ingress plus the publications it produced. */
     private static final class Recorder {
-        private final NativeUndoIngressObserverTest.Manager manager =
-            new NativeUndoIngressObserverTest.Manager();
+        private final NativeUndoIngressObserverTest.Manager manager = new NativeUndoIngressObserverTest.Manager();
         private final List<Published> published = new ArrayList<>();
         private final NativeEditIngress ingress;
 
         Recorder() {
             this.ingress = new NativeEditIngress(
-                resolver(),
-                manager,
-                (operation, origin, subject, label) -> published.add(
-                    new Published(operation, origin, subject, label)
-                )
-            );
+                    resolver(),
+                    manager,
+                    (operation, origin, subject, label) ->
+                            published.add(new Published(operation, origin, subject, label)));
             this.ingress.attach();
         }
 
@@ -344,12 +298,10 @@ class NativeEditIngressTest {
     }
 
     private record Published(
-        CubismOperation operation,
-        CubismOperationOrigin origin,
-        Optional<String> subjectId,
-        Optional<String> label
-    ) {
-    }
+            CubismOperation operation,
+            CubismOperationOrigin origin,
+            Optional<String> subjectId,
+            Optional<String> label) {}
 
     /** Test double for {@code Editor_Part$Undo_AddOrRemovePartChild}. */
     public static final class PartMembershipEntry extends NativeUndoIngressObserverTest.Entry {
@@ -430,22 +382,16 @@ class NativeEditIngressTest {
         final Object first = new Object();
         final Object second = new Object();
 
-        assertTrue(
-            NativeEditIngress.isCurrentTip(List.of(first), 1, first),
-            "the entry at position - 1 is the tip"
-        );
+        assertTrue(NativeEditIngress.isCurrentTip(List.of(first), 1, first), "the entry at position - 1 is the tip");
         assertFalse(
-            NativeEditIngress.isCurrentTip(List.of(first, second), 1, first),
-            "a cursor behind the tail means later entries exist"
-        );
+                NativeEditIngress.isCurrentTip(List.of(first, second), 1, first),
+                "a cursor behind the tail means later entries exist");
         assertTrue(
-            NativeEditIngress.isCurrentTip(List.of(first, second), 2, second),
-            "the last entry with the cursor at the end is the tip"
-        );
+                NativeEditIngress.isCurrentTip(List.of(first, second), 2, second),
+                "the last entry with the cursor at the end is the tip");
         assertFalse(
-            NativeEditIngress.isCurrentTip(List.of(first, second), 2, first),
-            "only the entry the cursor points at may be read"
-        );
+                NativeEditIngress.isCurrentTip(List.of(first, second), 2, first),
+                "only the entry the cursor points at may be read");
         assertFalse(NativeEditIngress.isCurrentTip(List.of(), 0, first), "an empty list has no tip");
         assertFalse(NativeEditIngress.isCurrentTip(null, 1, first), "an unreadable list has no tip");
     }
@@ -460,9 +406,7 @@ class NativeEditIngressTest {
         }
     }
 
-    public record SourceId(String value) {
-    }
+    public record SourceId(String value) {}
 
-    public record PartId(String value) {
-    }
+    public record PartId(String value) {}
 }

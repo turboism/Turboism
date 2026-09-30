@@ -41,11 +41,13 @@ public interface PaletteToolbarRegistry {
     enum Unavailable implements PaletteToolbarRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final PaletteToolbarContribution contribution) {
+        @Override
+        public Registration contribute(final PaletteToolbarContribution contribution) {
             java.util.Objects.requireNonNull(contribution, "contribution");
             throw new UnsupportedOperationException("paletteToolbar registry is not available");
         }
@@ -64,12 +66,11 @@ public interface PaletteToolbarRegistry {
      * @param order sort key among contributions sharing the same anchor; lower sorts earlier
      */
     record PaletteToolbarContribution(
-        String contributionId,
-        String actionId,
-        String labelKey,
-        String iconResourcePath,
-        String paletteId,
-        String anchor,
-        int order
-    ) {}
+            String contributionId,
+            String actionId,
+            String labelKey,
+            String iconResourcePath,
+            String paletteId,
+            String anchor,
+            int order) {}
 }

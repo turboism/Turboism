@@ -3,15 +3,6 @@ package dev.turboism.plugin.boundingboxwarpmirror.ui;
 import dev.turboism.sdk.cubism.mirror.WarpMirrorDirection;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComponent;
-import javax.swing.JDialog;
-import javax.swing.JPanel;
-import javax.swing.KeyStroke;
-import javax.swing.plaf.basic.BasicArrowButton;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -25,6 +16,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JPanel;
+import javax.swing.KeyStroke;
+import javax.swing.plaf.basic.BasicArrowButton;
 
 /**
  * Modal direction chooser for the BoundingBox overlay mirror, reusing the legacy
@@ -71,24 +70,44 @@ public final class MirrorDirectionDialog extends JDialog {
         grid.setOpaque(false);
         grid.add(placeholder());
         grid.add(directionButton(
-            BasicArrowButton.NORTH, "dialog.direction.bottomToTop",
-            localization, WarpMirrorDirection.BOTTOM_TO_TOP,
-            selected, selectedButton, directionButtons, confirm));
+                BasicArrowButton.NORTH,
+                "dialog.direction.bottomToTop",
+                localization,
+                WarpMirrorDirection.BOTTOM_TO_TOP,
+                selected,
+                selectedButton,
+                directionButtons,
+                confirm));
         grid.add(placeholder());
         grid.add(directionButton(
-            BasicArrowButton.WEST, "dialog.direction.rightToLeft",
-            localization, WarpMirrorDirection.RIGHT_TO_LEFT,
-            selected, selectedButton, directionButtons, confirm));
+                BasicArrowButton.WEST,
+                "dialog.direction.rightToLeft",
+                localization,
+                WarpMirrorDirection.RIGHT_TO_LEFT,
+                selected,
+                selectedButton,
+                directionButtons,
+                confirm));
         grid.add(placeholder());
         grid.add(directionButton(
-            BasicArrowButton.EAST, "dialog.direction.leftToRight",
-            localization, WarpMirrorDirection.LEFT_TO_RIGHT,
-            selected, selectedButton, directionButtons, confirm));
+                BasicArrowButton.EAST,
+                "dialog.direction.leftToRight",
+                localization,
+                WarpMirrorDirection.LEFT_TO_RIGHT,
+                selected,
+                selectedButton,
+                directionButtons,
+                confirm));
         grid.add(placeholder());
         grid.add(directionButton(
-            BasicArrowButton.SOUTH, "dialog.direction.topToBottom",
-            localization, WarpMirrorDirection.TOP_TO_BOTTOM,
-            selected, selectedButton, directionButtons, confirm));
+                BasicArrowButton.SOUTH,
+                "dialog.direction.topToBottom",
+                localization,
+                WarpMirrorDirection.TOP_TO_BOTTOM,
+                selected,
+                selectedButton,
+                directionButtons,
+                confirm));
         grid.add(placeholder());
         // Keep the 3x3 grid at its preferred size so cells stay square; a
         // stretched CENTER cell would widen them into rectangles.
@@ -123,26 +142,25 @@ public final class MirrorDirectionDialog extends JDialog {
         root.add(footer, BorderLayout.SOUTH);
         setContentPane(root);
         getRootPane().setDefaultButton(confirm);
-        getRootPane().registerKeyboardAction(
-            event -> dispose(),
-            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-            JComponent.WHEN_IN_FOCUSED_WINDOW
-        );
+        getRootPane()
+                .registerKeyboardAction(
+                        event -> dispose(),
+                        KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                        JComponent.WHEN_IN_FOCUSED_WINDOW);
         pack();
         setMinimumSize(new Dimension(280, 0));
         setLocationRelativeTo(null);
     }
 
     private BasicArrowButton directionButton(
-        final int arrowDirection,
-        final String tooltipKey,
-        final PluginLocalization localization,
-        final WarpMirrorDirection direction,
-        final AtomicReference<WarpMirrorDirection> selected,
-        final AtomicReference<BasicArrowButton> selectedButton,
-        final List<BasicArrowButton> directionButtons,
-        final JButton confirm
-    ) {
+            final int arrowDirection,
+            final String tooltipKey,
+            final PluginLocalization localization,
+            final WarpMirrorDirection direction,
+            final AtomicReference<WarpMirrorDirection> selected,
+            final AtomicReference<BasicArrowButton> selectedButton,
+            final List<BasicArrowButton> directionButtons,
+            final JButton confirm) {
         final Dimension size = new Dimension(DIRECTION_BUTTON_SIZE, DIRECTION_BUTTON_SIZE);
         final BasicArrowButton button = new BasicArrowButton(arrowDirection) {
             @Override
@@ -190,24 +208,20 @@ public final class MirrorDirectionDialog extends JDialog {
     }
 
     private static void restyleDirections(
-        final List<BasicArrowButton> buttons,
-        final BasicArrowButton hoveredButton,
-        final AtomicReference<BasicArrowButton> selectedButton
-    ) {
+            final List<BasicArrowButton> buttons,
+            final BasicArrowButton hoveredButton,
+            final AtomicReference<BasicArrowButton> selectedButton) {
         final BasicArrowButton selected = selectedButton.get();
         for (BasicArrowButton button : buttons) {
-            restyle(button, button == selected,
-                button == hoveredButton && button.getClientProperty("hovered") == Boolean.TRUE);
+            restyle(
+                    button,
+                    button == selected,
+                    button == hoveredButton && button.getClientProperty("hovered") == Boolean.TRUE);
         }
     }
 
-    private static void restyle(
-        final BasicArrowButton button,
-        final boolean selected,
-        final boolean hovered
-    ) {
-        button.setBorder(BorderFactory.createLineBorder(
-            selected ? WARNING_COLOR : borderColor(), selected ? 2 : 1));
+    private static void restyle(final BasicArrowButton button, final boolean selected, final boolean hovered) {
+        button.setBorder(BorderFactory.createLineBorder(selected ? WARNING_COLOR : borderColor(), selected ? 2 : 1));
         if (selected) {
             button.setBackground(new Color(255, 235, 235));
         } else if (hovered) {
@@ -225,9 +239,9 @@ public final class MirrorDirectionDialog extends JDialog {
     private static Color hoverColor() {
         final Color base = normalButtonColor();
         return new Color(
-            Math.min(255, base.getRed() + 14),
-            Math.min(255, base.getGreen() + 14),
-            Math.min(255, base.getBlue() + 18));
+                Math.min(255, base.getRed() + 14),
+                Math.min(255, base.getGreen() + 14),
+                Math.min(255, base.getBlue() + 18));
     }
 
     private static Component placeholder() {

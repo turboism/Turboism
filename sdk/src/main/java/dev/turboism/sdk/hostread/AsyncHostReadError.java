@@ -12,10 +12,7 @@ import java.util.Objects;
  * @param code machine-readable classification the caller is expected to branch on
  * @param message human-readable detail, never blank and never longer than 256 characters
  */
-public record AsyncHostReadError(
-    AsyncHostReadErrorCode code,
-    String message
-) {
+public record AsyncHostReadError(AsyncHostReadErrorCode code, String message) {
     public AsyncHostReadError {
         code = Objects.requireNonNull(code, "code");
         message = Objects.requireNonNull(message, "message");

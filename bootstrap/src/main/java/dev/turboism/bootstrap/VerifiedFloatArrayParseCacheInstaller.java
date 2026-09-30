@@ -25,25 +25,31 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
     private boolean restored;
 
     private static final List<ReviewedHostContract.Candidate<String>> CANDIDATES =
-        ReviewedHostContract.candidates(
-            FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
+            ReviewedHostContract.candidates(FloatArrayParseTransformer.reviewedClassSha256(), version -> HOOK_ID);
 
     static boolean admitted(Path artifact, RuntimeStartupConfig config, boolean requested) {
-        return requested && config.hookEnabled(HOOK_ID)
-            && ReviewedHostContract.resolved(artifact, CANDIDATES);
+        return requested && config.hookEnabled(HOOK_ID) && ReviewedHostContract.resolved(artifact, CANDIDATES);
     }
 
-    VerifiedFloatArrayParseCacheInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader) throws Exception {
+    VerifiedFloatArrayParseCacheInstaller(Instrumentation instrumentation, Path artifact, ClassLoader loader)
+            throws Exception {
         final var contract = ReviewedHostContract.requireBound(
-            ReviewedHostContract.resolve(artifact, CANDIDATES), "float array reuse");
+                ReviewedHostContract.resolve(artifact, CANDIDATES), "float array reuse");
         this.instrumentation = instrumentation;
         target = Class.forName(FloatArrayParseTransformer.TARGET.replace('/', '.'), false, loader);
-        if (target.getClassLoader() != loader || !artifact.toAbsolutePath().normalize().equals(
-            Path.of(target.getProtectionDomain().getCodeSource().getLocation().toURI()).toAbsolutePath().normalize())) {
+        if (target.getClassLoader() != loader
+                || !artifact.toAbsolutePath()
+                        .normalize()
+                        .equals(Path.of(target.getProtectionDomain()
+                                        .getCodeSource()
+                                        .getLocation()
+                                        .toURI())
+                                .toAbsolutePath()
+                                .normalize())) {
             throw new IllegalArgumentException("float array host loader or artifact mismatch");
         }
         try (JarFile jar = new JarFile(artifact.toFile());
-             var input = jar.getInputStream(jar.getJarEntry(FloatArrayParseTransformer.TARGET + ".class"))) {
+                var input = jar.getInputStream(jar.getJarEntry(FloatArrayParseTransformer.TARGET + ".class"))) {
             transformer = new FloatArrayParseTransformer(loader, artifact, input.readAllBytes());
         }
         contract.requireUnchanged(artifact);
@@ -63,30 +69,46 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
                 throw new IllegalStateException("native float serializer not admitted: " + transformer.failure());
             }
         } catch (Exception | Error failure) {
-            try { close(); } catch (Exception | Error cleanup) { failure.addSuppressed(cleanup); }
+            try {
+                close();
+            } catch (Exception | Error cleanup) {
+                failure.addSuppressed(cleanup);
+            }
             bridge.close();
             throw failure;
         }
     }
 
-    @Override public synchronized void close() {
+    @Override
+    public synchronized void close() {
         bridge.close();
         if (!installed) return;
         instrumentation.removeTransformer(transformer);
         AtomicReference<String> observed = new AtomicReference<>();
         ClassFileTransformer observer = new ClassFileTransformer() {
-            @Override public byte[] transform(Module module, ClassLoader loader, String name, Class<?> redefined,
-                                              ProtectionDomain domain, byte[] bytes) {
-                if (redefined == target) try {
-                    observed.set(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
-                } catch (Exception failure) { observed.set("unavailable"); }
+            @Override
+            public byte[] transform(
+                    Module module,
+                    ClassLoader loader,
+                    String name,
+                    Class<?> redefined,
+                    ProtectionDomain domain,
+                    byte[] bytes) {
+                if (redefined == target)
+                    try {
+                        observed.set(HexFormat.of()
+                                .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+                    } catch (Exception failure) {
+                        observed.set("unavailable");
+                    }
                 return null;
             }
         };
         instrumentation.addTransformer(observer, true);
         try {
             instrumentation.retransformClasses(target);
-            restored = transformer.beforeSha256() != null && transformer.beforeSha256().equals(observed.get());
+            restored = transformer.beforeSha256() != null
+                    && transformer.beforeSha256().equals(observed.get());
             if (!restored) throw new IllegalStateException("native float serializer restoration not proven");
             installed = false;
         } catch (java.lang.instrument.UnmodifiableClassException failure) {
@@ -96,5 +118,7 @@ final class VerifiedFloatArrayParseCacheInstaller implements AutoCloseable {
         }
     }
 
-    boolean restored() { return restored; }
+    boolean restored() {
+        return restored;
+    }
 }

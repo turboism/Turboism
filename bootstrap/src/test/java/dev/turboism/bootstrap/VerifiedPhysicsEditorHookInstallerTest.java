@@ -1,19 +1,18 @@
 package dev.turboism.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
-import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class VerifiedPhysicsEditorHookInstallerTest {
 
@@ -21,26 +20,38 @@ class VerifiedPhysicsEditorHookInstallerTest {
     void installsOneExactTransformerAndRetransformsAnAlreadyLoadedPanel() throws Exception {
         final List<String> calls = new ArrayList<>();
         final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
-            getClass().getClassLoader(),
-            new Class<?>[]{Instrumentation.class},
-            (proxy, method, arguments) -> switch (method.getName()) {
-                case "isRetransformClassesSupported" -> true;
-                case "addTransformer" -> { calls.add("add:" + arguments[1]); yield null; }
-                case "getAllLoadedClasses" -> new Class<?>[]{TargetPanel.class};
-                case "isModifiableClass" -> true;
-                case "retransformClasses" -> {
-                    calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());
-                    yield null;
-                }
-                case "removeTransformer" -> { calls.add("remove"); yield true; }
-                default -> defaultValue(method.getReturnType());
-            }
-        );
+                getClass().getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported" -> true;
+                    case "addTransformer" -> {
+                        calls.add("add:" + arguments[1]);
+                        yield null;
+                    }
+                    case "getAllLoadedClasses" -> new Class<?>[] {TargetPanel.class};
+                    case "isModifiableClass" -> true;
+                    case "retransformClasses" -> {
+                        calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());
+                        yield null;
+                    }
+                    case "removeTransformer" -> {
+                        calls.add("remove");
+                        yield true;
+                    }
+                    default -> defaultValue(method.getReturnType());
+                });
         final PhysicsEditorHostProfile profile = new PhysicsEditorHostProfile(
-            TargetPanel.class.getName().replace('.', '/'),
-            "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",
-            "b", "n", "d"
-        );
+                TargetPanel.class.getName().replace('.', '/'),
+                "getTableArea",
+                "this$0",
+                "l",
+                "getSources",
+                "getEnable",
+                "setEnable",
+                "getGuid",
+                "b",
+                "n",
+                "d");
 
         final PrintStream originalOut = System.out;
         final PrintStream originalErr = System.err;
@@ -49,11 +60,7 @@ class VerifiedPhysicsEditorHookInstallerTest {
             System.setOut(stream);
             System.setErr(stream);
             try (VerifiedPhysicsEditorHookInstaller installer = new VerifiedPhysicsEditorHookInstaller(
-                instrumentation,
-                TargetPanel.class.getClassLoader(),
-                new PhysicsEditorCoordinator(),
-                profile
-            )) {
+                    instrumentation, TargetPanel.class.getClassLoader(), new PhysicsEditorCoordinator(), profile)) {
                 installer.install();
             }
         } finally {
@@ -62,11 +69,7 @@ class VerifiedPhysicsEditorHookInstallerTest {
         }
 
         assertTrue(captured.toString(StandardCharsets.UTF_8).isEmpty());
-        assertEquals(List.of(
-            "add:true",
-            "retransform:" + TargetPanel.class.getName(),
-            "remove"
-        ), calls);
+        assertEquals(List.of("add:true", "retransform:" + TargetPanel.class.getName(), "remove"), calls);
     }
 
     private static Object defaultValue(final Class<?> type) {
@@ -82,5 +85,5 @@ class VerifiedPhysicsEditorHookInstallerTest {
         return null;
     }
 
-    public static final class TargetPanel { }
+    public static final class TargetPanel {}
 }

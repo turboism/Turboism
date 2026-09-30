@@ -1,16 +1,15 @@
 package dev.turboism.ui.appearance;
 
-import dev.turboism.sdk.appearance.AppearanceBase;
-import dev.turboism.sdk.appearance.AppearanceRequest;
-import dev.turboism.sdk.appearance.AppearanceStatus;
-import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.appearance.AppearanceBase;
+import dev.turboism.sdk.appearance.AppearanceRequest;
+import dev.turboism.sdk.appearance.AppearanceStatus;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
 
 class DynamicAppearanceHostProviderTest {
 
@@ -43,17 +42,37 @@ class DynamicAppearanceHostProviderTest {
             this.id = id;
         }
 
-        @Override public boolean isAvailable() { return true; }
-        @Override public AppearanceStatus readStatus() {
-            return new AppearanceStatus(
-                AppearanceStatus.Availability.AVAILABLE,
-                AppearanceStatus.Source.NATIVE,
-                Optional.of(id), AppearanceBase.DARK, 0, Optional.empty()
-            );
+        @Override
+        public boolean isAvailable() {
+            return true;
         }
-        @Override public RestorePoint captureRestorePoint() { return new Point(); }
-        @Override public ApplyOutcome apply(final AppearanceRequest request) { return ApplyOutcome.APPLIED; }
-        @Override public void restore(final RestorePoint restorePoint) { restoreCount++; }
-        private static final class Point implements RestorePoint { }
+
+        @Override
+        public AppearanceStatus readStatus() {
+            return new AppearanceStatus(
+                    AppearanceStatus.Availability.AVAILABLE,
+                    AppearanceStatus.Source.NATIVE,
+                    Optional.of(id),
+                    AppearanceBase.DARK,
+                    0,
+                    Optional.empty());
+        }
+
+        @Override
+        public RestorePoint captureRestorePoint() {
+            return new Point();
+        }
+
+        @Override
+        public ApplyOutcome apply(final AppearanceRequest request) {
+            return ApplyOutcome.APPLIED;
+        }
+
+        @Override
+        public void restore(final RestorePoint restorePoint) {
+            restoreCount++;
+        }
+
+        private static final class Point implements RestorePoint {}
     }
 }

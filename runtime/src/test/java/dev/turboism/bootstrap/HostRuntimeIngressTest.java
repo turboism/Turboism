@@ -1,20 +1,19 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.host.HostInstanceDescriptor;
-import dev.turboism.adapter.host.HostVerificationEvidence;
-import dev.turboism.adapter.host.HostSession;
-import dev.turboism.adapter.host.HostSessionFailure;
-import org.junit.jupiter.api.Test;
-
-import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.adapter.host.HostInstanceDescriptor;
+import dev.turboism.adapter.host.HostSession;
+import dev.turboism.adapter.host.HostSessionFailure;
+import dev.turboism.adapter.host.HostVerificationEvidence;
+import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 class HostRuntimeIngressTest {
 
@@ -27,9 +26,8 @@ class HostRuntimeIngressTest {
         assertEquals(HostSession.State.FAILED, ingress.publish(descriptor("unreviewed")));
         assertFalse(ingress.adapters().projectWorkspace().activeProject().isAvailable());
         assertEquals(
-            HostSessionFailure.Code.CONNECTION_FAILED,
-            ingress.lastFailure().orElseThrow().code()
-        );
+                HostSessionFailure.Code.CONNECTION_FAILED,
+                ingress.lastFailure().orElseThrow().code());
 
         assertEquals(HostSession.State.SAFE_MODE, ingress.clear());
         ingress.close();
@@ -70,18 +68,11 @@ class HostRuntimeIngressTest {
         AtomicReference<Throwable> publishFailure = new AtomicReference<>();
         AtomicReference<Throwable> closeFailure = new AtomicReference<>();
         Thread publishing = new Thread(
-            () -> captureFailure(
-                () -> publishResult.set(ingress.publish(descriptor("racing"))),
-                publishFailure
-            ),
-            "ingress-publish"
-        );
+                () -> captureFailure(() -> publishResult.set(ingress.publish(descriptor("racing"))), publishFailure),
+                "ingress-publish");
         publishing.start();
         assertTrue(sourceEntered.await(5, TimeUnit.SECONDS));
-        Thread closing = new Thread(
-            () -> captureFailure(ingress::close, closeFailure),
-            "ingress-close"
-        );
+        Thread closing = new Thread(() -> captureFailure(ingress::close, closeFailure), "ingress-close");
         closing.start();
         final long closeDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (!ingress.isCloseRequestedForTest() && System.nanoTime() < closeDeadline) {
@@ -106,40 +97,35 @@ class HostRuntimeIngressTest {
     @Test
     void publicApiDoesNotExposeClosableHostSession() {
         assertFalse(java.util.Arrays.stream(HostRuntimeIngress.class.getMethods())
-            .anyMatch(method -> method.getName().equals("hostSession")));
-        assertTrue(dev.turboism.adapter.host.RuntimeHostAdapterAccess.class
-            .isInstance(new HostRuntimeIngress().adapterAccess()));
+                .anyMatch(method -> method.getName().equals("hostSession")));
+        assertTrue(dev.turboism.adapter.host.RuntimeHostAdapterAccess.class.isInstance(
+                new HostRuntimeIngress().adapterAccess()));
     }
 
     @Test
     void lifecycleDoesNotHoldIngressMonitorAcrossSessionCallbacks() {
         AtomicReference<HostRuntimeIngress> ingressRef = new AtomicReference<>();
-        HostRuntimeIngress ingress = new HostRuntimeIngress(
-            source -> new HostSession(() -> {
-                Thread callback = new Thread(() -> ingressRef.get().state());
-                callback.start();
-                try {
-                    callback.join(2_000);
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException(exception);
-                }
-                if (callback.isAlive()) {
-                    throw new IllegalStateException("ingress callback blocked");
-                }
-                return source.current();
-            })
-        );
+        HostRuntimeIngress ingress = new HostRuntimeIngress(source -> new HostSession(() -> {
+            Thread callback = new Thread(() -> ingressRef.get().state());
+            callback.start();
+            try {
+                callback.join(2_000);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(exception);
+            }
+            if (callback.isAlive()) {
+                throw new IllegalStateException("ingress callback blocked");
+            }
+            return source.current();
+        }));
         ingressRef.set(ingress);
 
         assertEquals(HostSession.State.FAILED, ingress.publish(descriptor("session-a")));
         assertEquals(HostSession.State.SAFE_MODE, ingress.clear());
     }
 
-    private static void captureFailure(
-        final Runnable action,
-        final AtomicReference<Throwable> failure
-    ) {
+    private static void captureFailure(final Runnable action, final AtomicReference<Throwable> failure) {
         try {
             action.run();
         } catch (Throwable throwable) {
@@ -160,12 +146,10 @@ class HostRuntimeIngressTest {
 
     private static HostInstanceDescriptor descriptor(final String sessionId) {
         return new HostInstanceDescriptor(
-            sessionId,
-            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
-                Path.of("records/reviewed.json"),
-                Path.of("host/Live2D_Cubism.jar"),
-                HostRuntimeIngressTest.class.getClassLoader()
-            ))
-        );
+                sessionId,
+                HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                        Path.of("records/reviewed.json"),
+                        Path.of("host/Live2D_Cubism.jar"),
+                        HostRuntimeIngressTest.class.getClassLoader())));
     }
 }

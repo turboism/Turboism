@@ -35,6 +35,6 @@ public record EditParameterKeyCondition(Optional<ParameterId> parameter, Optiona
             throw new IllegalArgumentException("value must be finite");
         }
         return new EditParameterKeyCondition(
-            Optional.of(Objects.requireNonNull(parameter, "parameter")), Optional.of(value));
+                Optional.of(Objects.requireNonNull(parameter, "parameter")), Optional.of(value));
     }
 }

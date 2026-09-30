@@ -24,33 +24,29 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
     private final Consumer<Throwable> failureHandler;
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final AtomicReference<PsdClipMaskImportProgress> activeProgress =
-        new AtomicReference<>();
+    private final AtomicReference<PsdClipMaskImportProgress> activeProgress = new AtomicReference<>();
     private final Object lifecycleLock = new Object();
     private volatile Thread runningThread;
 
     PsdClipMaskImportRunner(
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory,
-        final Consumer<Throwable> failureHandler
-    ) {
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory,
+            final Consumer<Throwable> failureHandler) {
         this(defaultExecutor(), operation, progressFactory, failureHandler);
     }
 
     PsdClipMaskImportRunner(
-        final ExecutorService executor,
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory
-    ) {
-        this(executor, operation, progressFactory, ignored -> { });
+            final ExecutorService executor,
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory) {
+        this(executor, operation, progressFactory, ignored -> {});
     }
 
     PsdClipMaskImportRunner(
-        final ExecutorService executor,
-        final ImportOperation operation,
-        final Supplier<PsdClipMaskImportProgress> progressFactory,
-        final Consumer<Throwable> failureHandler
-    ) {
+            final ExecutorService executor,
+            final ImportOperation operation,
+            final Supplier<PsdClipMaskImportProgress> progressFactory,
+            final Consumer<Throwable> failureHandler) {
         this.executor = Objects.requireNonNull(executor, "executor");
         this.operation = Objects.requireNonNull(operation, "operation");
         this.progressFactory = Objects.requireNonNull(progressFactory, "progressFactory");
@@ -72,6 +68,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         try {
             executor.execute(() -> runImport(progress));
             return true;
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             if (!(failure instanceof RejectedExecutionException)) reportFailure(failure);
             finish(progress);
@@ -98,6 +96,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         runningThread = Thread.currentThread();
         try {
             if (!progress.cancellationRequested()) operation.run(progress);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             reportFailure(failure);
         } finally {
@@ -134,6 +134,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
         final PsdClipMaskImportProgress progress;
         try {
             progress = progressFactory.get();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable unavailable) {
             reportFailure(unavailable);
             return guarded(PsdClipMaskImportProgress.noop());
@@ -143,27 +145,56 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
 
     private PsdClipMaskImportProgress guarded(final PsdClipMaskImportProgress delegate) {
         return new PsdClipMaskImportProgress() {
-            @Override public void show() { safely(delegate::show); }
-            @Override public void preparing() { safely(delegate::preparing); }
-            @Override public void awaitingConfirmation() { safely(delegate::awaitingConfirmation); }
-            @Override public void applying() { safely(delegate::applying); }
-            @Override public void focus() { safely(delegate::focus); }
-            @Override public boolean cancellationRequested() {
+            @Override
+            public void show() {
+                safely(delegate::show);
+            }
+
+            @Override
+            public void preparing() {
+                safely(delegate::preparing);
+            }
+
+            @Override
+            public void awaitingConfirmation() {
+                safely(delegate::awaitingConfirmation);
+            }
+
+            @Override
+            public void applying() {
+                safely(delegate::applying);
+            }
+
+            @Override
+            public void focus() {
+                safely(delegate::focus);
+            }
+
+            @Override
+            public boolean cancellationRequested() {
                 if (closed.get() || Thread.currentThread().isInterrupted()) return true;
                 try {
                     return delegate.cancellationRequested();
+                } catch (ThreadDeath | VirtualMachineError fatal) {
+                    throw fatal;
                 } catch (Throwable failure) {
                     reportFailure(failure);
                     return true;
                 }
             }
-            @Override public void close() { safely(delegate::close); }
+
+            @Override
+            public void close() {
+                safely(delegate::close);
+            }
         };
     }
 
     private void safely(final Runnable action) {
         try {
             action.run();
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable failure) {
             reportFailure(failure);
         }
@@ -172,6 +203,8 @@ final class PsdClipMaskImportRunner implements AutoCloseable {
     private void reportFailure(final Throwable failure) {
         try {
             failureHandler.accept(failure);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
         } catch (Throwable ignored) {
             // A failing diagnostic sink must not escape onto the executor thread.
         }

@@ -1,5 +1,11 @@
 package dev.turboism.core.event;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.PluginTask;
@@ -10,23 +16,21 @@ import dev.turboism.core.runtime.sidecar.SidecarResult;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.sdk.permission.CubismPermissionException;
-import dev.turboism.sdk.event.SubscribeEvent;
-import dev.turboism.sdk.event.TurboismEvent;
-import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.cubism.backup.BackupArtifact;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.ParameterValueEvent;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
+import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.event.TurboismEvent;
+import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
-import dev.turboism.sdk.cubism.model.Parameter;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,34 +45,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeEventBrokerTest {
 
-    private static final Clock CLOCK = Clock.fixed(
-        Instant.parse("2026-08-23T00:00:00Z"),
-        ZoneOffset.UTC
-    );
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
     void eventPublishedByOneFacadeReachesSubscriberOwnedByAnotherPlugin() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus publisher = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
-        final PluginEventBus subscriber = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus publisher =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
+        final PluginEventBus subscriber =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), PermissionChecker.allowAll());
         final CountDownLatch delivered = new CountDownLatch(1);
         final AtomicReference<TestEvent> received = new AtomicReference<>();
         final TestEvent event = new TestEvent("cross-plugin");
@@ -99,15 +89,12 @@ class RuntimeEventBrokerTest {
                 await(releaseBlocker);
             }
         });
-        final dev.turboism.sdk.plugin.Registration registration = broker.subscribe(
-            subscriber.key(),
-            TestEvent.class,
-            event -> {
-                if ("queued".equals(event.value())) {
-                    closedDelivered.countDown();
-                }
-            }
-        );
+        final dev.turboism.sdk.plugin.Registration registration =
+                broker.subscribe(subscriber.key(), TestEvent.class, event -> {
+                    if ("queued".equals(event.value())) {
+                        closedDelivered.countDown();
+                    }
+                });
         publisher.activate();
         subscriber.activate();
 
@@ -126,30 +113,20 @@ class RuntimeEventBrokerTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.transform");
-        final AtomicReference<dev.turboism.sdk.plugin.Registration> second =
-            new AtomicReference<>();
-        broker.subscribe(
-            subscriber.key(),
-            TestTransformEvent.class,
-            event -> {
-                event.value += 1;
-                second.get().close();
-            }
-        );
-        second.set(broker.subscribe(
-            subscriber.key(),
-            TestTransformEvent.class,
-            event -> event.value *= 2
-        ));
+        final AtomicReference<dev.turboism.sdk.plugin.Registration> second = new AtomicReference<>();
+        broker.subscribe(subscriber.key(), TestTransformEvent.class, event -> {
+            event.value += 1;
+            second.get().close();
+        });
+        second.set(broker.subscribe(subscriber.key(), TestTransformEvent.class, event -> event.value *= 2));
         subscriber.activate();
 
         final int transformed = broker.publishRuntimeTransform(
-            TestTransformEvent.class,
-            2,
-            value -> new TestTransformCallback(value),
-            event -> ((TestTransformEvent) event).value,
-            ignored -> true
-        );
+                TestTransformEvent.class,
+                2,
+                value -> new TestTransformCallback(value),
+                event -> ((TestTransformEvent) event).value,
+                ignored -> true);
 
         assertEquals(6, transformed);
         scheduler.shutdown();
@@ -161,15 +138,9 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
-        final ClassLoader pluginClassLoader = new ClassLoader(
-            RuntimeEventBrokerTest.class.getClassLoader()
-        ) { };
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            subscriber.key(),
-            PermissionChecker.allowAll(),
-            pluginClassLoader
-        );
+        final ClassLoader pluginClassLoader = new ClassLoader(RuntimeEventBrokerTest.class.getClassLoader()) {};
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, subscriber.key(), PermissionChecker.allowAll(), pluginClassLoader);
         final CountDownLatch delivered = new CountDownLatch(1);
         final AtomicReference<ClassLoader> observed = new AtomicReference<>();
         eventBus.subscribe(TestEvent.class, ignored -> {
@@ -216,11 +187,9 @@ class RuntimeEventBrokerTest {
         final CountDownLatch annotatedDelivered = new CountDownLatch(1);
         broker.subscribe(subscriber.key(), TestEvent.class, ignored -> manualDelivered.countDown());
         broker.registerAnnotated(
-            publisher.key(),
-            new EntrypointSubscriberCatalog().inspect(List.of(
-                new InitializingAnnotatedSubscriber(annotatedDelivered)
-            ))
-        );
+                publisher.key(),
+                new EntrypointSubscriberCatalog()
+                        .inspect(List.of(new InitializingAnnotatedSubscriber(annotatedDelivered))));
         subscriber.activate();
         publisher.beginInitializing();
 
@@ -238,11 +207,7 @@ class RuntimeEventBrokerTest {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner owner = broker.admit("dev.example.enabling");
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            owner.key(),
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus eventBus = new PluginEventBus(broker, owner.key(), PermissionChecker.allowAll());
         final CountDownLatch delivered = new CountDownLatch(1);
         owner.beginInitializing();
         owner.beginEnabling();
@@ -281,10 +246,7 @@ class RuntimeEventBrokerTest {
         subscriber.beginClosing();
 
         assertFalse(subscriber.awaitQuiescence(Duration.ofMillis(50)));
-        assertThrows(
-            IllegalStateException.class,
-            () -> broker.publish(subscriber.key(), new TestEvent("closed"))
-        );
+        assertThrows(IllegalStateException.class, () -> broker.publish(subscriber.key(), new TestEvent("closed")));
         release.countDown();
         assertTrue(subscriber.awaitQuiescence(Duration.ofSeconds(1)));
         assertFalse(secondDelivered.await(100, TimeUnit.MILLISECONDS));
@@ -301,7 +263,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker.Owner first = broker.admit("dev.example.subscriber");
         final RuntimeEventBroker.Owner replacement = broker.admit("dev.example.subscriber");
         final CountDownLatch replacementDelivered = new CountDownLatch(1);
-        broker.subscribe(first.key(), TestEvent.class, ignored -> { });
+        broker.subscribe(first.key(), TestEvent.class, ignored -> {});
         broker.subscribe(replacement.key(), TestEvent.class, ignored -> replacementDelivered.countDown());
         publisher.activate();
         first.activate();
@@ -319,19 +281,11 @@ class RuntimeEventBrokerTest {
     @Test
     void manualSubscriberFailureIsContainedAsAnEventDiagnostic() throws Exception {
         final List<PluginWorkBudgetEvent> workDiagnostics = new CopyOnWriteArrayList<>();
-        final List<RuntimeEventBroker.DeliveryDiagnostic> eventDiagnostics =
-            new CopyOnWriteArrayList<>();
+        final List<RuntimeEventBroker.DeliveryDiagnostic> eventDiagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(workDiagnostics);
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler,
-            64,
-            eventDiagnostics::add
-        );
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.failure",
-            PermissionChecker.allowAll()
-        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 64, eventDiagnostics::add);
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.failure"), PermissionChecker.allowAll());
         final CountDownLatch laterSubscriber = new CountDownLatch(1);
         eventBus.subscribe(TestEvent.class, ignored -> {
             throw new IllegalStateException("subscriber failed");
@@ -342,19 +296,18 @@ class RuntimeEventBrokerTest {
 
         assertTrue(laterSubscriber.await(1, TimeUnit.SECONDS));
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-        while (eventDiagnostics.stream().noneMatch(event ->
-            event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
-        ) && System.nanoTime() < deadline) {
+        while (eventDiagnostics.stream()
+                        .noneMatch(
+                                event -> event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED)
+                && System.nanoTime() < deadline) {
             Thread.onSpinWait();
         }
-        assertTrue(eventDiagnostics.stream().anyMatch(event ->
-            event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
-                && event.owner().pluginId().equals("dev.example.failure")
-        ));
-        assertFalse(workDiagnostics.stream().anyMatch(event ->
-            event.pluginId().equals("dev.example.failure")
-                && event.phase() == PluginWorkBudgetEvent.Phase.FAILED
-        ));
+        assertTrue(eventDiagnostics.stream()
+                .anyMatch(event -> event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                        && event.owner().pluginId().equals("dev.example.failure")));
+        assertFalse(workDiagnostics.stream()
+                .anyMatch(event -> event.pluginId().equals("dev.example.failure")
+                        && event.phase() == PluginWorkBudgetEvent.Phase.FAILED));
         scheduler.shutdown();
     }
 
@@ -362,27 +315,19 @@ class RuntimeEventBrokerTest {
     void parameterEventSubscriptionsRequireTheirDomainPermissions() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            (permissionId, operation) -> {
-                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
-                    permissionId
-                )) {
-                    return;
-                }
-                throw new CubismPermissionException("missing " + permissionId);
-            }
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), (permissionId, operation) -> {
+                    if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
+                        return;
+                    }
+                    throw new CubismPermissionException("missing " + permissionId);
+                });
 
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(ParameterValueEvent.Before.class, ignored -> { })
-        );
+                CubismPermissionException.class,
+                () -> eventBus.subscribe(ParameterValueEvent.Before.class, ignored -> {}));
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(ParameterValueEvent.On.class, ignored -> { })
-        );
+                CubismPermissionException.class, () -> eventBus.subscribe(ParameterValueEvent.On.class, ignored -> {}));
         scheduler.shutdown();
     }
 
@@ -390,15 +335,9 @@ class RuntimeEventBrokerTest {
     void pluginCannotPublishRuntimeOwnedParameterEvents() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
-        final ParameterValueEvent.After event = new ParameterValueEvent.After(
-            new TestParameter(),
-            1.0F
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
+        final ParameterValueEvent.After event = new ParameterValueEvent.After(new TestParameter(), 1.0F);
 
         assertThrows(IllegalArgumentException.class, () -> eventBus.publish(event));
         scheduler.shutdown();
@@ -408,43 +347,32 @@ class RuntimeEventBrokerTest {
     void pluginsCannotForgeRuntimeOwnedAppearanceOrBackupObservations() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
         final AppearanceStatus nativeStatus = new AppearanceStatus(
-            AppearanceStatus.Availability.AVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            java.util.Optional.empty(),
-            AppearanceBase.DARK,
-            0L,
-            java.util.Optional.empty()
-        );
+                AppearanceStatus.Availability.AVAILABLE,
+                AppearanceStatus.Source.NATIVE,
+                java.util.Optional.empty(),
+                AppearanceBase.DARK,
+                0L,
+                java.util.Optional.empty());
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new AppearanceChangedEvent(
-                nativeStatus,
-                new AppearanceStatus(
-                    AppearanceStatus.Availability.AVAILABLE,
-                    AppearanceStatus.Source.PLUGIN_OVERLAY,
-                    java.util.Optional.of("theme"),
-                    AppearanceBase.DARK,
-                    1L,
-                    java.util.Optional.empty()
-                ),
-                "dev.example.publisher"
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new AppearanceChangedEvent(
+                        nativeStatus,
+                        new AppearanceStatus(
+                                AppearanceStatus.Availability.AVAILABLE,
+                                AppearanceStatus.Source.PLUGIN_OVERLAY,
+                                java.util.Optional.of("theme"),
+                                AppearanceBase.DARK,
+                                1L,
+                                java.util.Optional.empty()),
+                        "dev.example.publisher")));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new BackupCompletedEvent(
-                1L,
-                List.of(new BackupArtifact("model_backup.cmo3", 128L, false)),
-                List.of()
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new BackupCompletedEvent(
+                        1L, List.of(new BackupArtifact("model_backup.cmo3", 128L, false)), List.of())));
         scheduler.shutdown();
     }
 
@@ -452,27 +380,18 @@ class RuntimeEventBrokerTest {
     void appearanceAndBackupSubscriptionsRequireDomainPermissions() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            (permissionId, operation) -> {
-                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
-                    permissionId
-                )) {
-                    return;
-                }
-                throw new CubismPermissionException("missing " + permissionId);
-            }
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), (permissionId, operation) -> {
+                    if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
+                        return;
+                    }
+                    throw new CubismPermissionException("missing " + permissionId);
+                });
 
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(AppearanceChangedEvent.class, ignored -> { })
-        );
+                CubismPermissionException.class, () -> eventBus.subscribe(AppearanceChangedEvent.class, ignored -> {}));
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(BackupCompletedEvent.class, ignored -> { })
-        );
+                CubismPermissionException.class, () -> eventBus.subscribe(BackupCompletedEvent.class, ignored -> {}));
         scheduler.shutdown();
     }
 
@@ -480,27 +399,19 @@ class RuntimeEventBrokerTest {
     void selectionAndSceneTableSubscriptionsRequireDomainPermissions() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            (permissionId, operation) -> {
-                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
-                    permissionId
-                )) {
-                    return;
-                }
-                throw new CubismPermissionException("missing " + permissionId);
-            }
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), (permissionId, operation) -> {
+                    if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
+                        return;
+                    }
+                    throw new CubismPermissionException("missing " + permissionId);
+                });
 
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(SelectionChangedEvent.class, ignored -> { })
-        );
+                CubismPermissionException.class, () -> eventBus.subscribe(SelectionChangedEvent.class, ignored -> {}));
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(SceneTableHeaderClickEvent.class, ignored -> { })
-        );
+                CubismPermissionException.class,
+                () -> eventBus.subscribe(SceneTableHeaderClickEvent.class, ignored -> {}));
         scheduler.shutdown();
     }
 
@@ -508,25 +419,16 @@ class RuntimeEventBrokerTest {
     void pluginsCannotForgeRuntimeOwnedSelectionOrSceneTableObservations() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new SelectionChangedEvent(
-                SelectionSummary.empty(),
-                SelectionSummary.empty()
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new SelectionChangedEvent(SelectionSummary.empty(), SelectionSummary.empty())));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new SceneTableHeaderClickEvent(
-                new SceneTableService.HeaderClick(SceneTableService.SCENE_TABLE_ID, "name")
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new SceneTableHeaderClickEvent(
+                        new SceneTableService.HeaderClick(SceneTableService.SCENE_TABLE_ID, "name"))));
         scheduler.shutdown();
     }
 
@@ -534,40 +436,23 @@ class RuntimeEventBrokerTest {
     void genericObservationSubscriptionsRequireDomainPermissions() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            (permissionId, operation) -> {
-                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
-                    permissionId
-                )) {
-                    return;
-                }
-                throw new CubismPermissionException("missing " + permissionId);
-            }
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), (permissionId, operation) -> {
+                    if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(permissionId)) {
+                        return;
+                    }
+                    throw new CubismPermissionException("missing " + permissionId);
+                });
 
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(
-                dev.turboism.sdk.runtime.CubismLogBatchEvent.class,
-                ignored -> { }
-            )
-        );
+                CubismPermissionException.class,
+                () -> eventBus.subscribe(dev.turboism.sdk.runtime.CubismLogBatchEvent.class, ignored -> {}));
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(
-                dev.turboism.sdk.performance.PerformanceSampleEvent.class,
-                ignored -> { }
-            )
-        );
+                CubismPermissionException.class,
+                () -> eventBus.subscribe(dev.turboism.sdk.performance.PerformanceSampleEvent.class, ignored -> {}));
         assertThrows(
-            CubismPermissionException.class,
-            () -> eventBus.subscribe(
-                dev.turboism.sdk.action.ActionInvocationEvent.class,
-                ignored -> { }
-            )
-        );
+                CubismPermissionException.class,
+                () -> eventBus.subscribe(dev.turboism.sdk.action.ActionInvocationEvent.class, ignored -> {}));
         scheduler.shutdown();
     }
 
@@ -575,33 +460,19 @@ class RuntimeEventBrokerTest {
     void pluginsCannotForgeGenericRuntimeObservations() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus eventBus = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus eventBus =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
 
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new dev.turboism.sdk.runtime.CubismLogBatchEvent(
-                List.of(new dev.turboism.sdk.runtime.CubismLogBatchEvent.Entry(
-                    dev.turboism.sdk.runtime.CubismLogService.LogLevel.INFO,
-                    "forged",
-                    1L
-                )),
-                0L
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new dev.turboism.sdk.runtime.CubismLogBatchEvent(
+                        List.of(new dev.turboism.sdk.runtime.CubismLogBatchEvent.Entry(
+                                dev.turboism.sdk.runtime.CubismLogService.LogLevel.INFO, "forged", 1L)),
+                        0L)));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> eventBus.publish(new dev.turboism.sdk.action.ActionInvocationEvent(
-                "dev.example.publisher",
-                "forged.action",
-                java.util.Optional.empty(),
-                false,
-                false
-            ))
-        );
+                IllegalArgumentException.class,
+                () -> eventBus.publish(new dev.turboism.sdk.action.ActionInvocationEvent(
+                        "dev.example.publisher", "forged.action", java.util.Optional.empty(), false, false)));
         scheduler.shutdown();
     }
 
@@ -626,8 +497,7 @@ class RuntimeEventBrokerTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         broker.publishRuntimeRetained(new TestEvent("latest"));
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.replay");
-        final java.util.concurrent.atomic.AtomicInteger deliveries =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger deliveries = new java.util.concurrent.atomic.AtomicInteger();
         final CountDownLatch delivered = new CountDownLatch(1);
         broker.subscribe(subscriber.key(), TestEvent.class, ignored -> {
             deliveries.incrementAndGet();
@@ -661,13 +531,8 @@ class RuntimeEventBrokerTest {
     @Test
     void mailboxSaturationProducesStructuredDiagnostic() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
-        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
-            new CopyOnWriteArrayList<>();
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler,
-            1,
-            diagnostics::add
-        );
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 1, diagnostics::add);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
         final CountDownLatch entered = new CountDownLatch(1);
@@ -686,9 +551,10 @@ class RuntimeEventBrokerTest {
 
         assertEquals(1L, subscriber.droppedDeliveries());
         assertEquals(
-            List.of(RuntimeEventBroker.DeliveryDiagnostic.Code.MAILBOX_SATURATED),
-            diagnostics.stream().map(RuntimeEventBroker.DeliveryDiagnostic::code).toList()
-        );
+                List.of(RuntimeEventBroker.DeliveryDiagnostic.Code.MAILBOX_SATURATED),
+                diagnostics.stream()
+                        .map(RuntimeEventBroker.DeliveryDiagnostic::code)
+                        .toList());
         release.countDown();
         subscriber.beginClosing();
         assertTrue(subscriber.awaitQuiescence(Duration.ofSeconds(1)));
@@ -699,17 +565,13 @@ class RuntimeEventBrokerTest {
     void slowSubscriberDeliveryIsNotInterruptedByTaskTimeLimiter() throws Exception {
         // Given: a plugin executor whose task time limiter fires long before the subscriber
         // returns. Event delivery must not inherit that wall-clock interrupt.
-        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
-            new CopyOnWriteArrayList<>();
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(50, 1, 8, ignored -> { }, CLOCK),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler, 64, diagnostics::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(50, 1, 8, ignored -> {}, CLOCK),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler, 64, diagnostics::add);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
         final CountDownLatch delivered = new CountDownLatch(1);
@@ -730,15 +592,14 @@ class RuntimeEventBrokerTest {
         broker.publish(publisher.key(), new TestEvent("slow"));
 
         assertTrue(
-            delivered.await(2, TimeUnit.SECONDS),
-            "a subscriber slower than the task timeout must still finish its delivery"
-        );
+                delivered.await(2, TimeUnit.SECONDS),
+                "a subscriber slower than the task timeout must still finish its delivery");
         assertFalse(interrupted.get(), "event delivery must never interrupt a subscriber");
         assertTrue(
-            diagnostics.stream().noneMatch(diagnostic ->
-                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED),
-            "no subscriber failure may be reported for a merely slow delivery: " + diagnostics
-        );
+                diagnostics.stream()
+                        .noneMatch(diagnostic ->
+                                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED),
+                "no subscriber failure may be reported for a merely slow delivery: " + diagnostics);
         scheduler.shutdown();
     }
 
@@ -746,11 +607,10 @@ class RuntimeEventBrokerTest {
     void eventDeliveryDoesNotCompeteWithSaturatedTaskExecutor() throws Exception {
         // Given: one worker and a queue of one; plugin task work saturates both.
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(500, 1, 1, ignored -> { }, CLOCK),
-            new NoOpSidecarDispatcher(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(500, 1, 1, ignored -> {}, CLOCK),
+                new NoOpSidecarDispatcher(),
+                ignored -> {});
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
@@ -762,30 +622,23 @@ class RuntimeEventBrokerTest {
         final CountDownLatch blockerRunning = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
-        final PluginTask saturatingTask = new PluginTask(
-            "plugin.compute.normal", "dev.example.subscriber", "saturating work", "none"
-        );
-        final PluginWorkSubmission running = scheduler.submitLightweight(
-            saturatingTask,
-            token,
-            () -> {
-                blockerRunning.countDown();
-                await(release);
-            }
-        );
+        final PluginTask saturatingTask =
+                new PluginTask("plugin.compute.normal", "dev.example.subscriber", "saturating work", "none");
+        final PluginWorkSubmission running = scheduler.submitLightweight(saturatingTask, token, () -> {
+            blockerRunning.countDown();
+            await(release);
+        });
         assertTrue(running.accepted());
         assertTrue(blockerRunning.await(1, TimeUnit.SECONDS));
         assertTrue(
-            scheduler.submitLightweight(saturatingTask, token, () -> { }).accepted(),
-            "the queue slot must be occupied so the task executor is saturated"
-        );
+                scheduler.submitLightweight(saturatingTask, token, () -> {}).accepted(),
+                "the queue slot must be occupied so the task executor is saturated");
 
         broker.publish(publisher.key(), new TestEvent("delivery"));
 
         assertTrue(
-            delivered.await(2, TimeUnit.SECONDS),
-            "event delivery must not queue behind the saturated plugin task executor"
-        );
+                delivered.await(2, TimeUnit.SECONDS),
+                "event delivery must not queue behind the saturated plugin task executor");
         release.countDown();
         scheduler.shutdown();
     }
@@ -795,11 +648,10 @@ class RuntimeEventBrokerTest {
         // Given: drains that exceed the task time limiter must not charge the task circuit.
         final List<PluginWorkBudgetEvent> workDiagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(50, 1, 8, workDiagnostics::add, CLOCK),
-            new NoOpSidecarDispatcher(),
-            workDiagnostics::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(50, 1, 8, workDiagnostics::add, CLOCK),
+                new NoOpSidecarDispatcher(),
+                workDiagnostics::add);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
@@ -833,33 +685,20 @@ class RuntimeEventBrokerTest {
         }
 
         final PluginWorkSubmission submission = scheduler.submitLightweight(
-            new PluginTask(
-                "plugin.compute.normal", "dev.example.subscriber", "probe", "none"
-            ),
-            new RuntimeCancellationToken(),
-            () -> { }
-        );
-        assertTrue(
-            submission.accepted(),
-            "event drain failures must not open the plugin task circuit breaker"
-        );
+                new PluginTask("plugin.compute.normal", "dev.example.subscriber", "probe", "none"),
+                new RuntimeCancellationToken(),
+                () -> {});
+        assertTrue(submission.accepted(), "event drain failures must not open the plugin task circuit breaker");
         scheduler.shutdown();
     }
 
     @Test
     void slowSubscriberIsDiagnosedOncePerOwnerAndEventType() throws Exception {
         // Given: a broker whose slow-delivery threshold is small enough to trip in-test.
-        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics =
-            new CopyOnWriteArrayList<>();
+        final List<RuntimeEventBroker.DeliveryDiagnostic> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler();
-        final RuntimeEventBroker broker = new RuntimeEventBroker(
-            scheduler,
-            64,
-            diagnostics::add,
-            ignored -> { },
-            null,
-            Duration.ofMillis(30)
-        );
+        final RuntimeEventBroker broker =
+                new RuntimeEventBroker(scheduler, 64, diagnostics::add, ignored -> {}, null, Duration.ofMillis(30));
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
         final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
         final CountDownLatch delivered = new CountDownLatch(2);
@@ -878,24 +717,22 @@ class RuntimeEventBrokerTest {
         broker.publish(publisher.key(), new TestEvent("two"));
 
         assertTrue(delivered.await(2, TimeUnit.SECONDS));
-        awaitTrue(() -> diagnostics.stream().anyMatch(diagnostic ->
-            diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
+        awaitTrue(() -> diagnostics.stream()
+                .anyMatch(
+                        diagnostic -> diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW));
         // The second delivery's dedup check runs right after its latch: give the drain a beat.
         Thread.sleep(100L);
         assertEquals(
-            1,
-            diagnostics.stream()
-                .filter(diagnostic -> diagnostic.code()
-                    == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW)
-                .count(),
-            "two slow deliveries of one owner/type pair must diagnose exactly once"
-        );
+                1,
+                diagnostics.stream()
+                        .filter(diagnostic ->
+                                diagnostic.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_SLOW)
+                        .count(),
+                "two slow deliveries of one owner/type pair must diagnose exactly once");
         scheduler.shutdown();
     }
 
-    private static void awaitTrue(
-        final java.util.function.BooleanSupplier condition
-    ) throws InterruptedException {
+    private static void awaitTrue(final java.util.function.BooleanSupplier condition) throws InterruptedException {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         while (!condition.getAsBoolean()) {
             if (System.nanoTime() > deadline) {
@@ -910,16 +747,10 @@ class RuntimeEventBrokerTest {
         final List<PluginWorkBudgetEvent> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = scheduler(diagnostics);
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
-        final PluginEventBus publisher = new PluginEventBus(
-            broker,
-            "dev.example.publisher",
-            PermissionChecker.allowAll()
-        );
-        final PluginEventBus subscriber = new PluginEventBus(
-            broker,
-            "dev.example.subscriber",
-            PermissionChecker.allowAll()
-        );
+        final PluginEventBus publisher =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.publisher"), PermissionChecker.allowAll());
+        final PluginEventBus subscriber =
+                new PluginEventBus(broker, broker.pluginOwner("dev.example.subscriber"), PermissionChecker.allowAll());
         final CountDownLatch delivered = new CountDownLatch(1);
         subscriber.subscribe(TestEvent.class, ignored -> delivered.countDown());
 
@@ -949,24 +780,42 @@ class RuntimeEventBrokerTest {
         return scheduler(new CopyOnWriteArrayList<>());
     }
 
-    private static RuntimeScheduler scheduler(
-        final List<PluginWorkBudgetEvent> diagnostics
-    ) {
+    private static RuntimeScheduler scheduler(final List<PluginWorkBudgetEvent> diagnostics) {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
-            new NoOpSidecarDispatcher(),
-            diagnostics::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 8, diagnostics::add, CLOCK),
+                new NoOpSidecarDispatcher(),
+                diagnostics::add);
     }
 
     private static final class TestParameter implements Parameter {
-        @Override public ParameterId id() { return new ParameterId("ParamAngleX"); }
-        @Override public float getValue() { return 1.0F; }
-        @Override public float getMinimumValue() { return -30.0F; }
-        @Override public float getMaximumValue() { return 30.0F; }
-        @Override public float getDefaultValue() { return 0.0F; }
-        @Override public void setValue(final float value) { }
+        @Override
+        public ParameterId id() {
+            return new ParameterId("ParamAngleX");
+        }
+
+        @Override
+        public float getValue() {
+            return 1.0F;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -30.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 30.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public void setValue(final float value) {}
     }
 
     public static final class InitializingAnnotatedSubscriber {
@@ -982,8 +831,7 @@ class RuntimeEventBrokerTest {
         }
     }
 
-    public record TestEvent(String value) implements TurboismEvent {
-    }
+    public record TestEvent(String value) implements TurboismEvent {}
 
     private static final class TestTransformEvent implements TurboismEvent {
         private int value;
@@ -993,8 +841,7 @@ class RuntimeEventBrokerTest {
         }
     }
 
-    private static final class TestTransformCallback
-        implements RuntimeEventBroker.TransformCallback {
+    private static final class TestTransformCallback implements RuntimeEventBroker.TransformCallback {
         private final TestTransformEvent event;
 
         private TestTransformCallback(final int value) {
@@ -1007,17 +854,13 @@ class RuntimeEventBrokerTest {
         }
 
         @Override
-        public void close() {
-        }
+        public void close() {}
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
 
         @Override
-        public CompletionStage<SidecarResult> dispatch(
-            final PluginTask task,
-            final Runnable callback
-        ) {
+        public CompletionStage<SidecarResult> dispatch(final PluginTask task, final Runnable callback) {
             return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }

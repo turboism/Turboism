@@ -1,14 +1,13 @@
 package dev.turboism.sdk.ui.dialog;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /** Lane A: pure data-model contract for the host dialog automation SDK surface. */
 class HostDialogMatcherContractTest {
@@ -23,28 +22,20 @@ class HostDialogMatcherContractTest {
     @Test
     void prefixIsStrippedAndBlankBecomesEmpty() {
         assertEquals(
-            Optional.of("com.live2d.ui.window"),
-            new HostDialogMatcher(Optional.of("  com.live2d.ui.window  "), Optional.empty())
-                .windowClassPrefix()
-        );
-        assertEquals(
-            Optional.empty(),
-            new HostDialogMatcher(Optional.of("   "), Optional.empty()).windowClassPrefix()
-        );
+                Optional.of("com.live2d.ui.window"),
+                new HostDialogMatcher(Optional.of("  com.live2d.ui.window  "), Optional.empty()).windowClassPrefix());
+        assertEquals(Optional.empty(), new HostDialogMatcher(Optional.of("   "), Optional.empty()).windowClassPrefix());
     }
 
     @Test
     void optionTypeMustBeWithinZeroToThree() {
         for (int optionType = 0; optionType <= 3; optionType++) {
             assertEquals(
-                Optional.of(optionType),
-                new HostDialogMatcher(Optional.empty(), Optional.of(optionType)).optionType()
-            );
+                    Optional.of(optionType),
+                    new HostDialogMatcher(Optional.empty(), Optional.of(optionType)).optionType());
         }
-        assertThrows(IllegalArgumentException.class,
-            () -> new HostDialogMatcher(Optional.empty(), Optional.of(-1)));
-        assertThrows(IllegalArgumentException.class,
-            () -> new HostDialogMatcher(Optional.empty(), Optional.of(4)));
+        assertThrows(IllegalArgumentException.class, () -> new HostDialogMatcher(Optional.empty(), Optional.of(-1)));
+        assertThrows(IllegalArgumentException.class, () -> new HostDialogMatcher(Optional.empty(), Optional.of(4)));
     }
 
     @Test
@@ -55,22 +46,22 @@ class HostDialogMatcherContractTest {
 
     @Test
     void actionsAndOutcomesMatchTheSpecifiedVocabulary() {
-        assertEquals(List.of("OK", "YES", "NO", "CANCEL", "CLOSE"),
-            List.of(
-                HostDialogAction.OK.name(),
-                HostDialogAction.YES.name(),
-                HostDialogAction.NO.name(),
-                HostDialogAction.CANCEL.name(),
-                HostDialogAction.CLOSE.name()
-            ));
-        assertEquals(List.of("ACTED", "NOT_FOUND", "TIMEOUT", "AMBIGUOUS", "UNSUPPORTED"),
-            List.of(
-                HostDialogOutcome.ACTED.name(),
-                HostDialogOutcome.NOT_FOUND.name(),
-                HostDialogOutcome.TIMEOUT.name(),
-                HostDialogOutcome.AMBIGUOUS.name(),
-                HostDialogOutcome.UNSUPPORTED.name()
-            ));
+        assertEquals(
+                List.of("OK", "YES", "NO", "CANCEL", "CLOSE"),
+                List.of(
+                        HostDialogAction.OK.name(),
+                        HostDialogAction.YES.name(),
+                        HostDialogAction.NO.name(),
+                        HostDialogAction.CANCEL.name(),
+                        HostDialogAction.CLOSE.name()));
+        assertEquals(
+                List.of("ACTED", "NOT_FOUND", "TIMEOUT", "AMBIGUOUS", "UNSUPPORTED"),
+                List.of(
+                        HostDialogOutcome.ACTED.name(),
+                        HostDialogOutcome.NOT_FOUND.name(),
+                        HostDialogOutcome.TIMEOUT.name(),
+                        HostDialogOutcome.AMBIGUOUS.name(),
+                        HostDialogOutcome.UNSUPPORTED.name()));
     }
 
     @Test

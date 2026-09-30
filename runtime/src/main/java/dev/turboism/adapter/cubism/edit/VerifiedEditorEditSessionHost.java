@@ -3,15 +3,13 @@ package dev.turboism.adapter.cubism.edit;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
-import javax.swing.SwingUtilities;
-import java.lang.reflect.InvocationTargetException;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -21,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import javax.swing.SwingUtilities;
 
 /**
  * Verified Editor-model implementation of the edit-session host boundary (spec 046, T2).
@@ -40,10 +39,8 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
 
     private static final String COMPONENT = "edit-session";
     private static final int DIAGNOSTIC_MESSAGE_LIMIT = 160;
-    private static final String UNDO_MANAGER_ALIAS =
-        "cubism.editor-history.document.undo-manager";
-    private static final String UNDO_REVERT_ALIAS =
-        "cubism.editor-history.manager.revert";
+    private static final String UNDO_MANAGER_ALIAS = "cubism.editor-history.document.undo-manager";
+    private static final String UNDO_REVERT_ALIAS = "cubism.editor-history.manager.revert";
 
     private final VerifiedMemberResolver resolver;
     private final Supplier<VerifiedEditorAuthoringTransactionHost.NativeBinding> current;
@@ -60,25 +57,21 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
      * @param generation current model binding generation supplier
      */
     public VerifiedEditorEditSessionHost(
-        final VerifiedMemberResolver resolver,
-        final Supplier<VerifiedEditorAuthoringTransactionHost.NativeBinding> current,
-        final LongSupplier generation
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Supplier<VerifiedEditorAuthoringTransactionHost.NativeBinding> current,
+            final LongSupplier generation) {
         this(resolver, current, generation, DEFAULT_DISPATCH_TIMEOUT_MS);
     }
 
     public VerifiedEditorEditSessionHost(
-        final VerifiedMemberResolver resolver,
-        final Supplier<VerifiedEditorAuthoringTransactionHost.NativeBinding> current,
-        final LongSupplier generation,
-        final long dispatchTimeoutMs
-    ) {
+            final VerifiedMemberResolver resolver,
+            final Supplier<VerifiedEditorAuthoringTransactionHost.NativeBinding> current,
+            final LongSupplier generation,
+            final long dispatchTimeoutMs) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.current = Objects.requireNonNull(current, "current");
         this.history = new EditorHistorySnapshotProvider(
-            () -> Optional.of(this.resolver),
-            Objects.requireNonNull(generation, "generation")
-        );
+                () -> Optional.of(this.resolver), Objects.requireNonNull(generation, "generation"));
         if (dispatchTimeoutMs <= 0) {
             throw new IllegalArgumentException("dispatchTimeoutMs must be positive");
         }
@@ -86,24 +79,21 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     }
 
     @Override
-    public Optional<EditorAuthoringTransactionCoordinator.Binding> currentBinding(
-        final String pluginId
-    ) {
+    public Optional<EditorAuthoringTransactionCoordinator.Binding> currentBinding(final String pluginId) {
         final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
         if (owner.isEmpty()) {
             throw new IllegalArgumentException("pluginId must not be blank");
         }
         try {
             final VerifiedEditorAuthoringTransactionHost.NativeBinding binding =
-                Objects.requireNonNull(current.get(), "current binding");
+                    Objects.requireNonNull(current.get(), "current binding");
             return Optional.of(new EditorAuthoringTransactionCoordinator.Binding(
-                owner,
-                binding.identity(),
-                binding.generation(),
-                binding.identity(),
-                binding.generation(),
-                Thread.currentThread()
-            ));
+                    owner,
+                    binding.identity(),
+                    binding.generation(),
+                    binding.identity(),
+                    binding.generation(),
+                    Thread.currentThread()));
         } catch (RuntimeException unavailable) {
             return Optional.empty();
         }
@@ -114,11 +104,11 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         Objects.requireNonNull(expected, "expected");
         try {
             final VerifiedEditorAuthoringTransactionHost.NativeBinding active =
-                Objects.requireNonNull(current.get(), "current binding");
+                    Objects.requireNonNull(current.get(), "current binding");
             return expected.documentGeneration() == active.generation()
-                && expected.modelGeneration() == active.generation()
-                && expected.documentIdentity().equals(active.identity())
-                && expected.modelIdentity().equals(active.identity());
+                    && expected.modelGeneration() == active.generation()
+                    && expected.documentIdentity().equals(active.identity())
+                    && expected.modelIdentity().equals(active.identity());
         } catch (RuntimeException unavailable) {
             return false;
         }
@@ -129,11 +119,10 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         Objects.requireNonNull(binding, "binding");
         try {
             return isCurrent(binding)
-                && resolver.authorizesFeature(
-                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
-                    EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
-                    EditorEditSessionSelectorContract.SESSION_ADMISSION_REQUIRED_ALIASES
-                );
+                    && resolver.authorizesFeature(
+                            EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                            EditorEditSessionSelectorContract.EDIT_BEGIN_CAPABILITY_ID,
+                            EditorEditSessionSelectorContract.SESSION_ADMISSION_REQUIRED_ALIASES);
         } catch (RuntimeException failure) {
             return false;
         }
@@ -146,26 +135,16 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         }
         final HistorySnapshot snapshot = history.snapshot();
         return snapshot.availability() == HistorySnapshot.Availability.AVAILABLE
-            && snapshot.generation() == binding.documentGeneration()
-            ? snapshot
-            : HistorySnapshot.unavailable();
+                        && snapshot.generation() == binding.documentGeneration()
+                ? snapshot
+                : HistorySnapshot.unavailable();
     }
 
     @Override
-    public Object beginEdit(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final String label
-    ) {
+    public Object beginEdit(final EditorAuthoringTransactionCoordinator.Binding binding, final String label) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode",
-            active.document()
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin",
-            editMode,
-            label
-        );
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", active.document());
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, label);
         if (edit == null) {
             throw new IllegalStateException("Editor edit session did not begin");
         }
@@ -179,10 +158,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
 
     @Override
     public void endEdit(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object edit,
-        final boolean cancel
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit, final boolean cancel) {
         final Object editMode;
         synchronized (editLock) {
             editMode = sessionEdits.get(Objects.requireNonNull(edit, "edit"));
@@ -190,12 +166,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         if (editMode == null) {
             throw new IllegalArgumentException("Editor edit session token is invalid or closed");
         }
-        resolver.invoke(
-            "cubism.editor-model.edit-mode.end",
-            editMode,
-            cancel,
-            null
-        );
+        resolver.invoke("cubism.editor-model.edit-mode.end", editMode, cancel, null);
         // The token is evicted only after the native close succeeded — a failed endEdit keeps
         // it valid so the recovery path can retry the bracket close.
         synchronized (editLock) {
@@ -204,58 +175,33 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     }
 
     @Override
-    public void undoEditGroup(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object edit
-    ) {
+    public void undoEditGroup(final EditorAuthoringTransactionCoordinator.Binding binding, final Object edit) {
         synchronized (editLock) {
             if (!sessionEdits.containsKey(Objects.requireNonNull(edit, "edit"))) {
-                throw new IllegalArgumentException(
-                    "Editor edit session token is invalid or closed");
+                throw new IllegalArgumentException("Editor edit session token is invalid or closed");
             }
         }
         resolver.invoke("cubism.editor-model.undo.group-undo", edit);
     }
 
     @Override
-    public Object currentEditGroup(
-        final EditorAuthoringTransactionCoordinator.Binding binding
-    ) {
+    public Object currentEditGroup(final EditorAuthoringTransactionCoordinator.Binding binding) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode",
-            active.document()
-        );
-        return resolver.invoke(
-            "cubism.editor-model.edit-mode.current-undo",
-            editMode
-        );
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", active.document());
+        return resolver.invoke("cubism.editor-model.edit-mode.current-undo", editMode);
     }
 
     @Override
-    public void undoGroup(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final Object group
-    ) {
+    public void undoGroup(final EditorAuthoringTransactionCoordinator.Binding binding, final Object group) {
         currentFor(binding);
-        resolver.invoke(
-            "cubism.editor-model.undo.group-undo",
-            Objects.requireNonNull(group, "group")
-        );
+        resolver.invoke("cubism.editor-model.undo.group-undo", Objects.requireNonNull(group, "group"));
     }
 
     @Override
-    public void undoRedoTo(
-        final EditorAuthoringTransactionCoordinator.Binding binding,
-        final int position
-    ) {
+    public void undoRedoTo(final EditorAuthoringTransactionCoordinator.Binding binding, final int position) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
         final Object manager = resolver.invoke(UNDO_MANAGER_ALIAS, active.document());
-        resolver.invoke(
-            "cubism.editor-history.manager.move-to",
-            manager,
-            Integer.valueOf(position)
-        );
+        resolver.invoke("cubism.editor-history.manager.move-to", manager, Integer.valueOf(position));
     }
 
     @Override
@@ -263,10 +209,9 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         Objects.requireNonNull(binding, "binding");
         try {
             return resolver.authorizesFeature(
-                EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
-                EditorEditSessionSelectorContract.UNDO_REVERT_CAPABILITY_ID,
-                EditorEditSessionSelectorContract.UNDO_REVERT_REQUIRED_ALIASES
-            );
+                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
+                    EditorEditSessionSelectorContract.UNDO_REVERT_CAPABILITY_ID,
+                    EditorEditSessionSelectorContract.UNDO_REVERT_REQUIRED_ALIASES);
         } catch (RuntimeException failure) {
             return false;
         }
@@ -283,21 +228,10 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     public Optional<Object> mainWindow(final EditorAuthoringTransactionCoordinator.Binding binding) {
         Objects.requireNonNull(binding, "binding");
         try {
-            final Object app = resolver.invokeStatic(
-                "cubism.editor-model.app-controller.instance"
-            );
-            final Object mainFrame = resolver.invoke(
-                "cubism.editor-model.app-controller.main-frame",
-                app
-            );
-            final Object window = resolver.invoke(
-                "cubism.editor-model.main-frame.main-window",
-                mainFrame
-            );
-            final Object jframe = resolver.invoke(
-                "cubism.editor-model.main-frame.jframe",
-                window
-            );
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+            final Object window = resolver.invoke("cubism.editor-model.main-frame.main-window", mainFrame);
+            final Object jframe = resolver.invoke("cubism.editor-model.main-frame.jframe", window);
             return Optional.ofNullable(jframe);
         } catch (RuntimeException unverified) {
             return Optional.empty();
@@ -307,46 +241,20 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     @Override
     public void refreshAfterSession(final EditorAuthoringTransactionCoordinator.Binding binding) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
-        resolver.invoke(
-            "cubism.editor-model.model-source.update-instances",
-            active.source()
-        );
-        final Object app = resolver.invokeStatic(
-            "cubism.editor-model.app-controller.instance"
-        );
-        final Object completePack = resolver.invoke(
-            "cubism.editor-model.app-controller.complete-pack",
-            app
-        );
+        resolver.invoke("cubism.editor-model.model-source.update-instances", active.source());
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object completePack = resolver.invoke("cubism.editor-model.app-controller.complete-pack", app);
         // The official session refresh runs once at session end — palette updates post
         // deferred UI callbacks, so they must run after the native edit bracket closed;
         // mid-session they could open a host edit that displaces the session's group.
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.update-parameter",
-            completePack,
-            Boolean.TRUE
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.update-part-palette",
-            completePack,
-            Boolean.TRUE
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            completePack,
-            Boolean.TRUE
-        );
-        resolver.invoke(
-            "cubism.editor-model.complete-pack.repaint-canvas",
-            completePack,
-            Boolean.TRUE
-        );
+        resolver.invoke("cubism.editor-model.complete-pack.update-parameter", completePack, Boolean.TRUE);
+        resolver.invoke("cubism.editor-model.complete-pack.update-part-palette", completePack, Boolean.TRUE);
+        resolver.invoke("cubism.editor-model.complete-pack.update-deformer-palette", completePack, Boolean.TRUE);
+        resolver.invoke("cubism.editor-model.complete-pack.repaint-canvas", completePack, Boolean.TRUE);
     }
 
     @Override
-    public EditSessionOpsAccess opsAccess(
-        final EditorAuthoringTransactionCoordinator.Binding binding
-    ) {
+    public EditSessionOpsAccess opsAccess(final EditorAuthoringTransactionCoordinator.Binding binding) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active = currentFor(binding);
         return new VerifiedOpsAccess(active);
     }
@@ -365,6 +273,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             try {
                 result.set(task.run());
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 failure.set(throwable);
             } finally {
                 done.countDown();
@@ -373,16 +282,12 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         try {
             if (!done.await(dispatchTimeoutMs, TimeUnit.MILLISECONDS)) {
                 throw new EditUnavailableException(
-                    "cubism.edit.dispatch-timeout",
-                    label + " timed out waiting for the Cubism host thread"
-                );
+                        "cubism.edit.dispatch-timeout", label + " timed out waiting for the Cubism host thread");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new EditUnavailableException(
-                "cubism.edit.dispatch-interrupted",
-                label + " was interrupted waiting for the Cubism host thread"
-            );
+                    "cubism.edit.dispatch-interrupted", label + " was interrupted waiting for the Cubism host thread");
         }
         if (failure.get() instanceof EditSessionException exception) throw exception;
         if (failure.get() instanceof RuntimeException exception) throw exception;
@@ -390,7 +295,8 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         if (failure.get() != null) {
             throw new IllegalStateException(label + " host operation failed", failure.get());
         }
-        @SuppressWarnings("unchecked") final T value = (T) result.get();
+        @SuppressWarnings("unchecked")
+        final T value = (T) result.get();
         return value;
     }
 
@@ -401,12 +307,11 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             // Keep the root cause in the runtime log without widening the SDK-facing
             // identifier: exception class plus a bounded message, no host internals.
             RuntimeDiagnostics.warn(
-                COMPONENT,
-                checked
-                    + " failure=" + failure.getClass().getName()
-                    + " message=" + abbreviate(failure.getMessage())
-                    + " suppressed=" + failure.getSuppressed().length
-            );
+                    COMPONENT,
+                    checked
+                            + " failure=" + failure.getClass().getName()
+                            + " message=" + abbreviate(failure.getMessage())
+                            + " suppressed=" + failure.getSuppressed().length);
         }
         return checked;
     }
@@ -416,19 +321,18 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
             return "none";
         }
         return message.length() <= DIAGNOSTIC_MESSAGE_LIMIT
-            ? message
-            : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
+                ? message
+                : message.substring(0, DIAGNOSTIC_MESSAGE_LIMIT) + "…";
     }
 
     private VerifiedEditorAuthoringTransactionHost.NativeBinding currentFor(
-        final EditorAuthoringTransactionCoordinator.Binding expected
-    ) {
+            final EditorAuthoringTransactionCoordinator.Binding expected) {
         final VerifiedEditorAuthoringTransactionHost.NativeBinding active =
-            Objects.requireNonNull(current.get(), "current binding");
+                Objects.requireNonNull(current.get(), "current binding");
         if (expected.documentGeneration() != active.generation()
-            || expected.modelGeneration() != active.generation()
-            || !expected.documentIdentity().equals(active.identity())
-            || !expected.modelIdentity().equals(active.identity())) {
+                || expected.modelGeneration() != active.generation()
+                || !expected.documentIdentity().equals(active.identity())
+                || !expected.modelIdentity().equals(active.identity())) {
             throw new IllegalStateException("Editor edit session binding is stale");
         }
         return active;
@@ -443,9 +347,7 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
 
         private final VerifiedEditorAuthoringTransactionHost.NativeBinding binding;
 
-        private VerifiedOpsAccess(
-            final VerifiedEditorAuthoringTransactionHost.NativeBinding binding
-        ) {
+        private VerifiedOpsAccess(final VerifiedEditorAuthoringTransactionHost.NativeBinding binding) {
             this.binding = binding;
         }
 
@@ -465,16 +367,10 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
         }
 
         @Override
-        public boolean authorizesFeature(
-            final String capabilityId,
-            final java.util.Set<String> aliases
-        ) {
+        public boolean authorizesFeature(final String capabilityId, final java.util.Set<String> aliases) {
             try {
                 return resolver.authorizesFeature(
-                    EditorEditSessionSelectorContract.ADAPTER_SLICE_ID,
-                    capabilityId,
-                    aliases
-                );
+                        EditorEditSessionSelectorContract.ADAPTER_SLICE_ID, capabilityId, aliases);
             } catch (RuntimeException failure) {
                 return false;
             }

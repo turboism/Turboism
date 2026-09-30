@@ -21,8 +21,7 @@ public final class ExportSettingsVetoDialog {
     /** Stable window identity for host-validation probes and tests. */
     public static final String DIALOG_NAME = "turboism.export-settings.veto";
 
-    private ExportSettingsVetoDialog() {
-    }
+    private ExportSettingsVetoDialog() {}
 
     /** Shows the diagnostic on the EDT and returns immediately. No-op when headless. */
     public static void present(final ExportSettingsVetoDiagnostic diagnostic) {
@@ -40,15 +39,12 @@ public final class ExportSettingsVetoDialog {
 
     private static void show(final ExportSettingsVetoDiagnostic diagnostic) {
         final String detail = diagnostic.detail();
-        final StringBuilder body = new StringBuilder(
-            "The export was stopped by a Turboism export option.\n\n"
-        ).append(diagnostic.key());
+        final StringBuilder body =
+                new StringBuilder("The export was stopped by a Turboism export option.\n\n").append(diagnostic.key());
         if (detail != null && !detail.isBlank() && !detail.equals(diagnostic.key())) {
             body.append('\n').append(detail);
         }
-        final JOptionPane pane = new JOptionPane(
-            body.toString(), JOptionPane.WARNING_MESSAGE
-        );
+        final JOptionPane pane = new JOptionPane(body.toString(), JOptionPane.WARNING_MESSAGE);
         final JDialog dialog = pane.createDialog(null, "Protected Export");
         dialog.setName(DIALOG_NAME);
         dialog.setModalityType(Dialog.ModalityType.MODELESS);

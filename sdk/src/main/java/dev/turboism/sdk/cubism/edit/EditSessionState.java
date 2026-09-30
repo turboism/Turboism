@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+
 /** Lifecycle state of an {@link EditSession}. */
 @CubismEditor(from = "5.1.02", to = "5.3.99")
 public enum EditSessionState {

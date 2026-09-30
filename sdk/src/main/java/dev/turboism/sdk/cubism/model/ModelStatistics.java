@@ -1,23 +1,21 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.OptionalInt;
 
 /** Immutable statistics for one active Cubism model generation. */
 public record ModelStatistics(
-    int parameterCount,
-    int partCount,
-    int drawableCount,
-    int artMeshCount,
-    int deformerCount,
-    int vertexCount,
-    int triangleCount,
-    int textureCount,
-    int maskedDrawableCount,
-    int maskGroupCount,
-    OptionalInt offscreenRenderingCount,
-    OptionalInt maxOffscreenDepth
-) {
+        int parameterCount,
+        int partCount,
+        int drawableCount,
+        int artMeshCount,
+        int deformerCount,
+        int vertexCount,
+        int triangleCount,
+        int textureCount,
+        int maskedDrawableCount,
+        int maskGroupCount,
+        OptionalInt offscreenRenderingCount,
+        OptionalInt maxOffscreenDepth) {
     public ModelStatistics {
         requireNonNegative(parameterCount, "parameterCount");
         requireNonNegative(partCount, "partCount");

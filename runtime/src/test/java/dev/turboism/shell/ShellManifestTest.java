@@ -1,17 +1,15 @@
 package dev.turboism.shell;
 
-import dev.turboism.internal.core.CorePluginManagement;
-import dev.turboism.preview.ShellManifest;
-import dev.turboism.sdk.plugin.PluginDescriptor;
-
-import org.junit.jupiter.api.Test;
-
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.internal.core.CorePluginManagement;
+import dev.turboism.preview.ShellManifest;
+import dev.turboism.sdk.plugin.PluginDescriptor;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class ShellManifestTest {
 
@@ -39,12 +37,11 @@ class ShellManifestTest {
         catalogIds.add("base");
         for (String catalogId : catalogIds) {
             final String path = "base".equals(catalogId)
-                ? i18n.baseName() + ".properties"
-                : i18n.baseName() + "_" + catalogId.replace('-', '_') + ".properties";
+                    ? i18n.baseName() + ".properties"
+                    : i18n.baseName() + "_" + catalogId.replace('-', '_') + ".properties";
             assertNotNull(
-                ShellManifestTest.class.getClassLoader().getResource(path),
-                "declared catalog is not a runtime resource: " + path
-            );
+                    ShellManifestTest.class.getClassLoader().getResource(path),
+                    "declared catalog is not a runtime resource: " + path);
         }
     }
 

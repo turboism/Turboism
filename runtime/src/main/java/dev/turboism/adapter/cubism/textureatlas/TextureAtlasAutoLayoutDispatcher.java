@@ -6,7 +6,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -31,10 +30,9 @@ public final class TextureAtlasAutoLayoutDispatcher {
     private final TextureAtlasLayoutService layouts;
 
     public TextureAtlasAutoLayoutDispatcher(
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithms,
-        final TextureAtlasAutoLayoutSelection selection,
-        final TextureAtlasLayoutService layouts
-    ) {
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry algorithms,
+            final TextureAtlasAutoLayoutSelection selection,
+            final TextureAtlasLayoutService layouts) {
         this.algorithms = Objects.requireNonNull(algorithms, "algorithms");
         this.selection = Objects.requireNonNull(selection, "selection");
         this.layouts = Objects.requireNonNull(layouts, "layouts");
@@ -56,12 +54,10 @@ public final class TextureAtlasAutoLayoutDispatcher {
         final TextureAtlasLayoutSelection selected = selection.selection();
         final String algorithmId = selected.algorithmId();
         // Unset and the reserved explicit-native id both defer to the host.
-        if (algorithmId == null
-            || TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID.equals(algorithmId)) {
+        if (algorithmId == null || TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID.equals(algorithmId)) {
             return false;
         }
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease =
-            algorithms.acquire(algorithmId);
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease = algorithms.acquire(algorithmId);
         if (lease == null) {
             return false;
         }
@@ -69,10 +65,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
             return invoke(lease, selected.parallel());
         } catch (RuntimeException | Error failure) {
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "texture-atlas",
-                "Texture-atlas automatic-layout dispatch failed safely",
-                failure
-            );
+                    "texture-atlas", "Texture-atlas automatic-layout dispatch failed safely", failure);
             return false;
         } finally {
             algorithms.release(lease);
@@ -80,9 +73,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
     }
 
     private boolean invoke(
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease,
-        final boolean parallel
-    ) {
+            final RuntimeTextureAtlasLayoutAlgorithmRegistry.RegisteredAlgorithm lease, final boolean parallel) {
         final TextureAtlasLayoutPlanner planner = lease.algorithm().planner();
         if (planner == null) {
             return false;
@@ -107,17 +98,12 @@ public final class TextureAtlasAutoLayoutDispatcher {
             }
         } catch (RuntimeException | Error failure) {
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "texture-atlas",
-                "Texture-atlas layout planner failed safely",
-                failure
-            );
+                    "texture-atlas", "Texture-atlas layout planner failed safely", failure);
             return false;
         }
         if (plan == null) {
             dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                "texture-atlas",
-                "Texture-atlas layout planner returned no plan; using native packing"
-            );
+                    "texture-atlas", "Texture-atlas layout planner returned no plan; using native packing");
             return false;
         }
         // The commit gate serializes the current-check with revocation: a registration
@@ -132,10 +118,7 @@ public final class TextureAtlasAutoLayoutDispatcher {
                 result = layouts.apply(snapshot.target(), plan);
             } catch (RuntimeException | Error failure) {
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "texture-atlas",
-                    "Texture-atlas layout apply failed safely",
-                    failure
-                );
+                        "texture-atlas", "Texture-atlas layout apply failed safely", failure);
                 return false;
             }
             return result != null && result.status().isPresent();

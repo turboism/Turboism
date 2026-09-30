@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.adapter.cubism.optimization.ClassPinTable;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,14 +20,12 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class MeshTriangulationHashTransformer implements ClassFileTransformer {
 
     /** Internal name of the reviewed host class; nothing else is eligible. */
-    static final String TARGET_INTERNAL_NAME =
-        "com/live2d/graphics3d/editableMesh/triangulation/l";
+    static final String TARGET_INTERNAL_NAME = "com/live2d/graphics3d/editableMesh/triangulation/l";
     /** Descriptor of the corner point type referenced by the target's three fields. */
-    static final String POINT_DESCRIPTOR =
-        "Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;";
+    static final String POINT_DESCRIPTOR = "Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;";
     /** SHA-256 of the reviewed 5.3.03 class bytes. */
-    static final String REVIEWED_CLASS_SHA256 =
-        "6f06427c59d3907fe0d4ec80c72a318410d2e5169e18a8263ddfaa526813bd90";
+    static final String REVIEWED_CLASS_SHA256 = ClassPinTable.singleSha256(
+            "mesh-triangulation-hash", ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, TARGET_INTERNAL_NAME);
 
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {
@@ -41,7 +41,7 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
 
     private final String expectedSha256;
     private final MeshTriangulationHashPatcher patcher =
-        new MeshTriangulationHashPatcher(TARGET_INTERNAL_NAME, POINT_DESCRIPTOR);
+            new MeshTriangulationHashPatcher(TARGET_INTERNAL_NAME, POINT_DESCRIPTOR);
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
 
@@ -64,9 +64,12 @@ public final class MeshTriangulationHashTransformer implements ClassFileTransfor
     }
 
     @Override
-    public byte[] transform(final ClassLoader loader, final String className,
-                            final Class<?> classBeingRedefined, final ProtectionDomain domain,
-                            final byte[] classfileBuffer) {
+    public byte[] transform(
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer) {
         if (classfileBuffer == null || !TARGET_INTERNAL_NAME.equals(className)) return null;
         final String observed = sha256(classfileBuffer);
         if (!expectedSha256.equals(observed)) {

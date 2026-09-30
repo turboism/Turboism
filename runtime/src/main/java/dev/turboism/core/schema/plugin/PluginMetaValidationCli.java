@@ -3,7 +3,6 @@ package dev.turboism.core.schema.plugin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.core.schema.SchemaValidationError;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -15,8 +14,7 @@ import java.util.List;
  */
 public final class PluginMetaValidationCli {
 
-    private PluginMetaValidationCli() {
-    }
+    private PluginMetaValidationCli() {}
 
     /**
      * Validates every supplied {@code plugin.json} and reports the verdict through the process exit
@@ -47,16 +45,15 @@ public final class PluginMetaValidationCli {
         for (String arg : args) {
             Path path = Path.of(arg);
             JsonNode root = mapper.readTree(path.toFile());
-            PluginMetaValidator validator =
-                PluginMetaValidator.forSchemaVersion(root.path("schemaVersion").asInt(2));
+            PluginMetaValidator validator = PluginMetaValidator.forSchemaVersion(
+                    root.path("schemaVersion").asInt(2));
             List<SchemaValidationError> errors = validator.validate(root, path.toString());
             allErrors.addAll(errors);
         }
 
         if (!allErrors.isEmpty()) {
             allErrors.forEach(error -> System.err.println(
-                error.source() + ":" + error.path() + ": " + error.code() + " " + error.message()
-            ));
+                    error.source() + ":" + error.path() + ": " + error.code() + " " + error.message()));
             System.exit(1);
             return;
         }

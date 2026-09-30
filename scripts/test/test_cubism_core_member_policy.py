@@ -21,8 +21,13 @@ from cubism_core_policy import (  # noqa: E402
     validate_policy,
 )
 
-API_52 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
-API_53 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
+INVENTORY_DIR = ROOT / "compatibility/cubism/core-api/observed"
+VERSIONS = (
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+)
 POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
 
 
@@ -64,31 +69,27 @@ def member(
 
 
 def main() -> int:
-    api_52 = load_inventory(API_52)
-    api_53 = load_inventory(API_53)
-    inventories = [api_52, api_53]
+    expected_paths = {INVENTORY_DIR / f"cubism-core-{version}.json" for version in VERSIONS}
+    require(set(INVENTORY_DIR.glob("*.json")) == expected_paths, "Core inventory version set drifted")
+    inventories = [load_inventory(path) for path in sorted(expected_paths)]
     policy = load_policy(POLICY)
     validated, classified = validate_policy(policy, inventories)
 
     require(len(classified) == 240, "unique classified member count drifted")
     require(
         validated["summary"]["classifiedRosterSha256"]
-        == "622ecdbf2d2776beb1130c02d0d3394385394928cfa3fd3d5a33c03e74a91a1c",
+        == "7bbd32a166075706edd11b606082063157544ec1308202ce2bf7633b5759b4d6",
         "classified roster digest drifted",
     )
     require(
         validated["summary"]["versions"]
         == {
-            "5.2.03": {
-                "classCount": 22,
-                "publicCallableCount": 158,
-                "publicFieldCount": 19,
-            },
-            "5.3.02": {
-                "classCount": 27,
-                "publicCallableCount": 194,
-                "publicFieldCount": 43,
-            },
+            version: {
+                "classCount": 17 if version.startswith(("5.0.", "5.1.")) else 22 if version.startswith("5.2.") else 27,
+                "publicCallableCount": 111 if version.startswith(("5.0.", "5.1.")) else 158 if version.startswith("5.2.") else 194,
+                "publicFieldCount": 43 if version.startswith("5.3.") else 19,
+            }
+            for version in VERSIONS
         },
         "per-version member policy summary drifted",
     )
@@ -134,7 +135,7 @@ def main() -> int:
         "()Lcom/live2d/sdk/cubism/core/CubismOffscreenRendering;",
     )
     require(
-        offscreen["versions"] == ["5.3.02"],
+        offscreen["versions"] == ["5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"],
         "offscreen version coverage drifted",
     )
 
@@ -228,7 +229,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core member policy "
-        "(240 unique members, 15 rules, roster 74c87aa7)"
+        "(20 inventories, 240 unique members, 15 rules, roster 7bbd32a1)"
     )
     return 0
 

@@ -1,10 +1,9 @@
 package dev.turboism.exportsettings;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
-import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.awt.Container;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Shared runtime authority for the inert native embedded-model Export Settings bridge.
@@ -26,11 +25,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * host owner identity and epoch, and never performs export or model mutation. It may
  * attach the default-off option panel, but a checked option is rejected in this slice.</p>
  */
-public final class RuntimeExportSettingsAuthority
-    implements NativeExportSettingsDialogBridge.Handler, AutoCloseable {
+public final class RuntimeExportSettingsAuthority implements NativeExportSettingsDialogBridge.Handler, AutoCloseable {
 
     /** Bounded rejection identities reported to the native gate. */
     public static final String ATTACH_FAILED_KEY = "export-settings.attach-failed";
+
     public static final String OPTION_AMBIGUOUS_KEY = "export-settings.option-ambiguous";
     public static final String STALE_PLUGIN_KEY = "export-settings.stale-plugin";
     public static final String STALE_HOST_KEY = "export-settings.stale-host";
@@ -50,6 +49,7 @@ public final class RuntimeExportSettingsAuthority
     private final IdentityHashMap<Object, DialogState> dialogs = new IdentityHashMap<>();
     /** Tombstones keyed by dialog owner, holding the invalidation reason for diagnostics. */
     private final IdentityHashMap<Object, String> invalidDialogs = new IdentityHashMap<>();
+
     private final ThreadLocal<Boolean> inFlight = ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final Supplier<Optional<ExportSettingsIdentity>> identitySource;
     private final Supplier<ExportSettingsAttachBackend> backendFactory;
@@ -68,46 +68,37 @@ public final class RuntimeExportSettingsAuthority
      * bounded reason here; the default sink is a no-op so the authority stays inert
      * without a product surface.
      */
-    private volatile Consumer<ExportSettingsVetoDiagnostic> vetoReporter =
-        diagnostic -> { };
+    private volatile Consumer<ExportSettingsVetoDiagnostic> vetoReporter = diagnostic -> {};
 
-    public RuntimeExportSettingsAuthority(
-        final Supplier<Optional<ExportSettingsIdentity>> identitySource
-    ) {
+    public RuntimeExportSettingsAuthority(final Supplier<Optional<ExportSettingsIdentity>> identitySource) {
         this(identitySource, ExportSettingsAttachBackend::new);
     }
 
     RuntimeExportSettingsAuthority(
-        final Supplier<Optional<ExportSettingsIdentity>> identitySource,
-        final Supplier<ExportSettingsAttachBackend> backendFactory
-    ) {
+            final Supplier<Optional<ExportSettingsIdentity>> identitySource,
+            final Supplier<ExportSettingsAttachBackend> backendFactory) {
         this.identitySource = Objects.requireNonNull(identitySource, "identitySource");
         this.backendFactory = Objects.requireNonNull(backendFactory, "backendFactory");
     }
 
     /** Registers one plugin-scoped registry and its label resolver. */
     public Registration register(
-        final String pluginId,
-        final long pluginGeneration,
-        final RuntimeExportSettingsContributionRegistry registry,
-        final Function<String, String> labelResolver
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final RuntimeExportSettingsContributionRegistry registry,
+            final Function<String, String> labelResolver) {
         requireText(pluginId, "pluginId");
         if (pluginGeneration < 0L) {
             throw new IllegalArgumentException("pluginGeneration must not be negative");
         }
         final RuntimeExportSettingsContributionRegistry requestedRegistry =
-            Objects.requireNonNull(registry, "registry");
-        final Function<String, String> requestedLabelResolver =
-            Objects.requireNonNull(labelResolver, "labelResolver");
-        if (!pluginId.equals(requestedRegistry.pluginId())
-            || pluginGeneration != requestedRegistry.generation()) {
+                Objects.requireNonNull(registry, "registry");
+        final Function<String, String> requestedLabelResolver = Objects.requireNonNull(labelResolver, "labelResolver");
+        if (!pluginId.equals(requestedRegistry.pluginId()) || pluginGeneration != requestedRegistry.generation()) {
             throw new IllegalArgumentException("export settings registry ownership does not match binding");
         }
 
-        final Binding binding = new Binding(
-            pluginId, pluginGeneration, requestedRegistry, requestedLabelResolver
-        );
+        final Binding binding = new Binding(pluginId, pluginGeneration, requestedRegistry, requestedLabelResolver);
         synchronized (bindingsLock) {
             if (closed) {
                 throw new IllegalStateException("export settings authority is closed");
@@ -174,6 +165,7 @@ public final class RuntimeExportSettingsAuthority
         try {
             vetoReporter.accept(new ExportSettingsVetoDiagnostic(key, detail));
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // A diagnostic surface must never flip the fixed fail-closed decision.
         }
     }
@@ -229,21 +221,17 @@ public final class RuntimeExportSettingsAuthority
         final Map<OptionIdentity, ResolvedOption> optionOwners = new LinkedHashMap<>();
         for (Binding binding : bindingSnapshot) {
             for (ExportSettingsContribution contribution : binding.registry().snapshotContributions()) {
-                final OptionIdentity identity = new OptionIdentity(
-                    binding.pluginId(), binding.pluginGeneration(), contribution.optionId()
-                );
+                final OptionIdentity identity =
+                        new OptionIdentity(binding.pluginId(), binding.pluginGeneration(), contribution.optionId());
                 final String label = Objects.requireNonNull(
-                    binding.labelResolver().apply(contribution.labelKey()),
-                    "resolved export settings label"
-                );
+                        binding.labelResolver().apply(contribution.labelKey()), "resolved export settings label");
                 final ResolvedOption option = new ResolvedOption(
-                    identity,
-                    contribution.optionId(),
-                    label,
-                    binding.pluginId(),
-                    binding.pluginGeneration(),
-                    binding.registry()
-                );
+                        identity,
+                        contribution.optionId(),
+                        label,
+                        binding.pluginId(),
+                        binding.pluginGeneration(),
+                        binding.registry());
                 if (optionOwners.putIfAbsent(identity, option) != null) {
                     return new DialogSnapshot(List.of(), OPTION_AMBIGUOUS_KEY);
                 }
@@ -271,17 +259,24 @@ public final class RuntimeExportSettingsAuthority
         try {
             snapshot = snapshot();
         } catch (Throwable failure) {
-            publishFailure(owner, new DialogState(
-                List.of(), ATTACH_FAILED_KEY, capturedHostGeneration,
-                capturedIdentity.identity().orElse(null)
-            ));
+            FatalErrors.rethrowIfFatal(failure);
+            publishFailure(
+                    owner,
+                    new DialogState(
+                            List.of(),
+                            ATTACH_FAILED_KEY,
+                            capturedHostGeneration,
+                            capturedIdentity.identity().orElse(null)));
             return null;
         }
         if (snapshot.failureKey() != null) {
-            publishFailure(owner, new DialogState(
-                snapshot.options(), snapshot.failureKey(), capturedHostGeneration,
-                capturedIdentity.identity().orElse(null)
-            ));
+            publishFailure(
+                    owner,
+                    new DialogState(
+                            snapshot.options(),
+                            snapshot.failureKey(),
+                            capturedHostGeneration,
+                            capturedIdentity.identity().orElse(null)));
             return null;
         }
         if (snapshot.options().isEmpty()) {
@@ -289,17 +284,21 @@ public final class RuntimeExportSettingsAuthority
             return null;
         }
         if (!(container instanceof Container target)) {
-            publishFailure(owner, new DialogState(
-                snapshot.options(), ATTACH_FAILED_KEY, capturedHostGeneration,
-                capturedIdentity.identity().orElse(null)
-            ));
+            publishFailure(
+                    owner,
+                    new DialogState(
+                            snapshot.options(),
+                            ATTACH_FAILED_KEY,
+                            capturedHostGeneration,
+                            capturedIdentity.identity().orElse(null)));
             return null;
         }
 
         final DialogState state = new DialogState(
-            snapshot.options(), null, capturedHostGeneration,
-            capturedIdentity.identity().orElse(null)
-        );
+                snapshot.options(),
+                null,
+                capturedHostGeneration,
+                capturedIdentity.identity().orElse(null));
         synchronized (dialogsLock) {
             if (closed || dialogs.containsKey(owner)) {
                 return null;
@@ -313,18 +312,17 @@ public final class RuntimeExportSettingsAuthority
         try {
             backend = Objects.requireNonNull(backendFactory.get(), "backendFactory result");
             final List<ExportSettingsOptionSnapshot> options = snapshot.options().stream()
-                .map(option -> new ExportSettingsOptionSnapshot(
-                    option.identity().selectionKey(), option.label(),
-                    option.pluginId(), option.pluginGeneration()
-                ))
-                .toList();
+                    .map(option -> new ExportSettingsOptionSnapshot(
+                            option.identity().selectionKey(), option.label(),
+                            option.pluginId(), option.pluginGeneration()))
+                    .toList();
             attachment = backend.attachResolved(target, options);
             final boolean accepted;
             synchronized (dialogsLock) {
                 accepted = !closed
-                    && hostGeneration == capturedHostGeneration
-                    && dialogs.get(owner) == state
-                    && state.acceptsAttachment();
+                        && hostGeneration == capturedHostGeneration
+                        && dialogs.get(owner) == state
+                        && state.acceptsAttachment();
                 if (accepted) {
                     state.attach(backend, attachment);
                 } else {
@@ -337,9 +335,11 @@ public final class RuntimeExportSettingsAuthority
                 closeAttachment(attachment);
             }
         } catch (Throwable failure) {
-            final String failureKey = failure instanceof ExportSettingsAttachException typed
-                && typed.getMessage() != null
-                ? typed.getMessage() : ATTACH_FAILED_KEY;
+            FatalErrors.rethrowIfFatal(failure);
+            final String failureKey =
+                    failure instanceof ExportSettingsAttachException typed && typed.getMessage() != null
+                            ? typed.getMessage()
+                            : ATTACH_FAILED_KEY;
             synchronized (dialogsLock) {
                 if (dialogs.get(owner) == state) {
                     state.invalidate(failureKey);
@@ -409,12 +409,14 @@ public final class RuntimeExportSettingsAuthority
             try {
                 decision = decideState(owner, state);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 decision = Decision.vetoed(ATTACH_FAILED_KEY);
                 state.invalidate(ATTACH_FAILED_KEY);
             }
             try {
                 closeAttachment(state.takeAttachment());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 state.invalidate(CLEANUP_FAILED_KEY);
                 if (decision.allowed() || decision.vetoKey() == null) {
                     decision = Decision.vetoed(CLEANUP_FAILED_KEY);
@@ -422,10 +424,7 @@ public final class RuntimeExportSettingsAuthority
             }
             if (state.invalidated()) {
                 synchronized (dialogsLock) {
-                    invalidDialogs.put(
-                        owner,
-                        state.failureKey() != null ? state.failureKey() : ATTACH_FAILED_KEY
-                    );
+                    invalidDialogs.put(owner, state.failureKey() != null ? state.failureKey() : ATTACH_FAILED_KEY);
                 }
             } else if (!decision.allowed()) {
                 // A consumed veto tombstones the owner: this dialog instance can
@@ -434,11 +433,7 @@ public final class RuntimeExportSettingsAuthority
                 // plain native export of the original document — bypassing a
                 // vetoed or session-armed decision entirely.
                 synchronized (dialogsLock) {
-                    invalidDialogs.put(
-                        owner,
-                        decision.vetoKey() != null
-                            ? decision.vetoKey() : DIALOG_CONSUMED_KEY
-                    );
+                    invalidDialogs.put(owner, decision.vetoKey() != null ? decision.vetoKey() : DIALOG_CONSUMED_KEY);
                 }
             }
             if (!decision.allowed() && decision.vetoKey() != null) {
@@ -469,7 +464,8 @@ public final class RuntimeExportSettingsAuthority
         }
         boolean selected = false;
         for (ResolvedOption option : state.options()) {
-            final Boolean value = selectionRead.selection().get(option.identity().selectionKey());
+            final Boolean value =
+                    selectionRead.selection().get(option.identity().selectionKey());
             if (value == null) {
                 return Decision.vetoed(SELECTION_UNREADABLE_KEY);
             }
@@ -484,8 +480,8 @@ public final class RuntimeExportSettingsAuthority
 
         final IdentityRead current = identity();
         if (state.capturedIdentity() == null
-            || current.failed()
-            || current.identity().isEmpty()) {
+                || current.failed()
+                || current.identity().isEmpty()) {
             return Decision.vetoed(IDENTITY_UNAVAILABLE_KEY);
         }
         if (!state.capturedIdentity().equals(current.identity().orElseThrow())) {
@@ -493,41 +489,40 @@ public final class RuntimeExportSettingsAuthority
         }
         final ExportSettingsIdentity identity = current.identity().orElseThrow();
         for (ResolvedOption option : state.options()) {
-            if (!Boolean.TRUE.equals(selectionRead.selection().get(option.identity().selectionKey()))) {
+            if (!Boolean.TRUE.equals(
+                    selectionRead.selection().get(option.identity().selectionKey()))) {
                 continue;
             }
             if (!isCurrentBinding(option)) {
                 state.invalidate(STALE_PLUGIN_KEY);
                 return Decision.vetoed(STALE_PLUGIN_KEY);
             }
-            final ExportSettingsDecision decision = option.registry().invoke(
-                option.optionId(), true, identity.documentId(), identity.modelId(),
-                option.pluginGeneration()
-            );
+            final ExportSettingsDecision decision = option.registry()
+                    .invoke(
+                            option.optionId(),
+                            true,
+                            identity.documentId(),
+                            identity.modelId(),
+                            option.pluginGeneration());
             // A checked option always vetoes the outer native export. When the plugin's
             // own rejection (not a registry-generated failure) belongs to the orchestrated
             // option, the orchestrator may arm a protected session; any failure to arm
             // still leaves the outer export vetoed.
             if (decision.outcome() != ExportSettingsDecision.Outcome.REJECT) {
                 state.invalidate(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY);
-                return Decision.vetoed(
-                    RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY
-                );
+                return Decision.vetoed(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY);
             }
             if (decision.messageKey().startsWith("export-settings.")) {
                 return Decision.vetoed(decision.messageKey());
             }
             final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
-            if (orchestrator != null
-                && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
+            if (orchestrator != null && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
                 // Armed: the session reports its own terminal outcome. Refused: the
                 // orchestrator already named the refusal through its own reporter.
                 orchestrator.requestExport(owner);
                 return Decision.silentVeto();
             }
-            return Decision.vetoed(
-                decision.messageKey(), resolveMessage(option, decision.messageKey())
-            );
+            return Decision.vetoed(decision.messageKey(), resolveMessage(option, decision.messageKey()));
         }
         return Decision.vetoed(SELECTION_UNREADABLE_KEY);
     }
@@ -547,6 +542,7 @@ public final class RuntimeExportSettingsAuthority
                 final String text = binding.labelResolver().apply(key);
                 return text == null || text.isBlank() || text.equals(key) ? null : text;
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 return null;
             }
         }
@@ -559,10 +555,9 @@ public final class RuntimeExportSettingsAuthority
         }
         try {
             final Map<String, Boolean> selection = backend.selectedSnapshot();
-            return selection == null
-                ? SelectionRead.unavailable()
-                : new SelectionRead(selection, true);
+            return selection == null ? SelectionRead.unavailable() : new SelectionRead(selection, true);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return SelectionRead.unavailable();
         }
     }
@@ -571,26 +566,22 @@ public final class RuntimeExportSettingsAuthority
         synchronized (bindingsLock) {
             final Binding binding = bindings.get(option.pluginId());
             return binding != null
-                && binding.pluginGeneration() == option.pluginGeneration()
-                && binding.registry() == option.registry();
+                    && binding.pluginGeneration() == option.pluginGeneration()
+                    && binding.registry() == option.registry();
         }
     }
 
     private IdentityRead identity() {
         try {
             final Optional<ExportSettingsIdentity> current = identitySource.get();
-            return current == null
-                ? IdentityRead.unavailable()
-                : new IdentityRead(current, false);
+            return current == null ? IdentityRead.unavailable() : new IdentityRead(current, false);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return IdentityRead.unavailable();
         }
     }
 
-    private boolean removeBinding(
-        final String pluginId,
-        final Binding binding
-    ) {
+    private boolean removeBinding(final String pluginId, final Binding binding) {
         synchronized (bindingsLock) {
             return bindings.remove(pluginId, binding);
         }
@@ -607,17 +598,16 @@ public final class RuntimeExportSettingsAuthority
     }
 
     private void markDialogsWithPluginStale(
-        final String pluginId,
-        final long pluginGeneration,
-        final RuntimeExportSettingsContributionRegistry registry
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final RuntimeExportSettingsContributionRegistry registry) {
         synchronized (dialogsLock) {
             for (Map.Entry<Object, DialogState> entry : dialogs.entrySet()) {
                 final DialogState state = entry.getValue();
-                if (state.options().stream().anyMatch(option ->
-                    pluginId.equals(option.pluginId())
-                        && pluginGeneration == option.pluginGeneration()
-                        && registry == option.registry())) {
+                if (state.options().stream()
+                        .anyMatch(option -> pluginId.equals(option.pluginId())
+                                && pluginGeneration == option.pluginGeneration()
+                                && registry == option.registry())) {
                     state.invalidate(STALE_PLUGIN_KEY);
                     invalidDialogs.put(entry.getKey(), STALE_PLUGIN_KEY);
                 }
@@ -692,11 +682,10 @@ public final class RuntimeExportSettingsAuthority
     }
 
     private record Binding(
-        String pluginId,
-        long pluginGeneration,
-        RuntimeExportSettingsContributionRegistry registry,
-        Function<String, String> labelResolver
-    ) {
+            String pluginId,
+            long pluginGeneration,
+            RuntimeExportSettingsContributionRegistry registry,
+            Function<String, String> labelResolver) {
         private Binding {
             Objects.requireNonNull(pluginId, "pluginId");
             Objects.requireNonNull(registry, "registry");
@@ -706,13 +695,12 @@ public final class RuntimeExportSettingsAuthority
 
     /** One immutable option with its owning registry route. */
     record ResolvedOption(
-        OptionIdentity identity,
-        String optionId,
-        String label,
-        String pluginId,
-        long pluginGeneration,
-        RuntimeExportSettingsContributionRegistry registry
-    ) {
+            OptionIdentity identity,
+            String optionId,
+            String label,
+            String pluginId,
+            long pluginGeneration,
+            RuntimeExportSettingsContributionRegistry registry) {
         ResolvedOption {
             Objects.requireNonNull(identity, "identity");
             Objects.requireNonNull(optionId, "optionId");
@@ -730,8 +718,8 @@ public final class RuntimeExportSettingsAuthority
         }
 
         private String selectionKey() {
-            return pluginId.length() + ":" + pluginId + ":" + pluginGeneration + ":"
-                + optionId.length() + ":" + optionId;
+            return pluginId.length() + ":" + pluginId + ":" + pluginGeneration + ":" + optionId.length() + ":"
+                    + optionId;
         }
     }
 
@@ -797,11 +785,10 @@ public final class RuntimeExportSettingsAuthority
         private Registration attachment;
 
         private DialogState(
-            final List<ResolvedOption> options,
-            final String failureKey,
-            final long hostGeneration,
-            final ExportSettingsIdentity capturedIdentity
-        ) {
+                final List<ResolvedOption> options,
+                final String failureKey,
+                final long hostGeneration,
+                final ExportSettingsIdentity capturedIdentity) {
             this.options = List.copyOf(options);
             this.failureKey = failureKey;
             this.hostGeneration = hostGeneration;
@@ -834,9 +821,7 @@ public final class RuntimeExportSettingsAuthority
         }
 
         synchronized void attach(
-            final ExportSettingsAttachBackend requestedBackend,
-            final Registration requestedAttachment
-        ) {
+                final ExportSettingsAttachBackend requestedBackend, final Registration requestedAttachment) {
             backend = Objects.requireNonNull(requestedBackend, "backend");
             attachment = Objects.requireNonNull(requestedAttachment, "attachment");
         }

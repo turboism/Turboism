@@ -14,15 +14,10 @@ import java.util.Map;
  * @param schemaVersion the version the stored document was written under, used to select migrations
  * @param encodedValues encoded value per key name, unmodifiable and insertion-ordered when non-null
  */
-public record ConfigDocument(
-    int schemaVersion,
-    Map<String, String> encodedValues
-) {
+public record ConfigDocument(int schemaVersion, Map<String, String> encodedValues) {
     public ConfigDocument {
         if (encodedValues != null) {
-            encodedValues = java.util.Collections.unmodifiableMap(
-                new LinkedHashMap<>(encodedValues)
-            );
+            encodedValues = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(encodedValues));
         }
     }
 }

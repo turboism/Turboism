@@ -3,7 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 /** Pure geometry ported from the legacy mesh mirror-axis implementation. */
 public final class MeshMirrorGeometry {
 
-    private MeshMirrorGeometry() { }
+    private MeshMirrorGeometry() {}
 
     /**
      * Rotates the mirror axis around the pivot, matching the legacy semantics:
@@ -13,18 +13,17 @@ public final class MeshMirrorGeometry {
      * lineFromEndpoints(rotateAround(start, pivot, angle), rotateAround(end, pivot, angle)).
      */
     public static Line rotatedAxis(
-        final float axisValue,
-        final float pivotX,
-        final float pivotY,
-        final boolean vertical,
-        final float angleDegrees
-    ) {
+            final float axisValue,
+            final float pivotX,
+            final float pivotY,
+            final boolean vertical,
+            final float angleDegrees) {
         final double radians = Math.toRadians(angleDegrees);
         final float cos = (float) Math.cos(radians);
         final float sin = (float) Math.sin(radians);
         final Point anchor = vertical
-            ? new Point(pivotX + (axisValue - pivotX) * cos, pivotY + (axisValue - pivotX) * sin)
-            : new Point(pivotX - (axisValue - pivotY) * sin, pivotY + (axisValue - pivotY) * cos);
+                ? new Point(pivotX + (axisValue - pivotX) * cos, pivotY + (axisValue - pivotX) * sin)
+                : new Point(pivotX - (axisValue - pivotY) * sin, pivotY + (axisValue - pivotY) * cos);
         return new Line(anchor, vertical ? new Point(-sin, cos) : new Point(cos, sin));
     }
 
@@ -81,12 +80,7 @@ public final class MeshMirrorGeometry {
      * @return {@code true} when the perpendicular distance is strictly less than {@code threshold};
      *         a zero or negative threshold therefore never hits
      */
-    public static boolean hit(
-        final Line line,
-        final float x,
-        final float y,
-        final float threshold
-    ) {
+    public static boolean hit(final Line line, final float x, final float y, final float threshold) {
         return distance(line, x, y) < threshold;
     }
 
@@ -102,7 +96,7 @@ public final class MeshMirrorGeometry {
      * @param x the horizontal component
      * @param y the vertical component
      */
-    public record Point(float x, float y) { }
+    public record Point(float x, float y) {}
 
     /**
      * An infinite line given by a point on it and a direction.
@@ -113,5 +107,5 @@ public final class MeshMirrorGeometry {
      * @param anchor    a point lying on the line
      * @param direction the line's direction, expected to be normalised
      */
-    public record Line(Point anchor, Point direction) { }
+    public record Line(Point anchor, Point direction) {}
 }

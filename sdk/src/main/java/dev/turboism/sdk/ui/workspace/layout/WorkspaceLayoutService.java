@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -34,7 +33,6 @@ public interface WorkspaceLayoutService {
         return true;
     }
 
-
     /** Returns a fail-closed service that always resolves a {@code UNAVAILABLE} snapshot. */
     static WorkspaceLayoutService unavailable() {
         return Unavailable.INSTANCE;
@@ -45,16 +43,17 @@ public interface WorkspaceLayoutService {
         INSTANCE;
 
         private static final WorkspaceLayoutSnapshot SNAPSHOT = new WorkspaceLayoutSnapshot(
-            WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
-            Optional.empty(),
-            Optional.of("workspace.layout.unavailable")
-        );
+                WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
+                Optional.empty(),
+                Optional.of("workspace.layout.unavailable"));
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public CompletionStage<WorkspaceLayoutSnapshot> current() {
+        @Override
+        public CompletionStage<WorkspaceLayoutSnapshot> current() {
             return CompletableFuture.completedFuture(SNAPSHOT);
         }
     }

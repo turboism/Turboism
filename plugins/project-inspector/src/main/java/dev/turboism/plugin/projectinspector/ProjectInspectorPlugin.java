@@ -9,17 +9,9 @@ import dev.turboism.sdk.hostread.AsyncHostReadSubmission;
 import dev.turboism.sdk.hostread.AsyncHostReadSubmissionStatus;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import java.awt.BorderLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
@@ -28,6 +20,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
 
 /** First localization + runtime-owned async host-read reference consumer. */
 public final class ProjectInspectorPlugin implements TurboismPlugin {
@@ -143,15 +142,13 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             requestGeneration = ++generation;
         }
         view.showReading();
-        final AsyncHostReadSubmission submission = context.hostReads().submit(
-            new AsyncHostReadRequest(
-                AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT,
-                READ_TIMEOUT
-            )
-        );
+        final AsyncHostReadSubmission submission = context.hostReads()
+                .submit(new AsyncHostReadRequest(AsyncHostReadIntent.PROJECT_WORKSPACE_SNAPSHOT, READ_TIMEOUT));
         if (submission.status() == AsyncHostReadSubmissionStatus.REJECTED) {
             final AsyncHostReadError error = submission.error().orElseThrow();
-            context.logger().warn("Project Inspector refresh rejected safely: " + error.code().name());
+            context.logger()
+                    .warn("Project Inspector refresh rejected safely: "
+                            + error.code().name());
             ui.invokeLater(() -> applyFailure(requestGeneration, error));
             return;
         }
@@ -163,44 +160,39 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             }
             currentRead.set(handle);
         }
-        handle.completion().thenAccept(result -> ui.invokeLater(
-            () -> applyResult(requestGeneration, view, handle, result)
-        ));
+        handle.completion()
+                .thenAccept(result -> ui.invokeLater(() -> applyResult(requestGeneration, view, handle, result)));
     }
 
     private void applyResult(
-        final long requestGeneration,
-        final InspectorView expectedView,
-        final AsyncHostReadHandle handle,
-        final AsyncHostReadResult result
-    ) {
+            final long requestGeneration,
+            final InspectorView expectedView,
+            final AsyncHostReadHandle handle,
+            final AsyncHostReadResult result) {
         if (!isCurrent(requestGeneration, expectedView)) {
             return;
         }
         currentRead.compareAndSet(handle, null);
         if (result.value().isPresent()) {
-            applySnapshot(expectedView, (ProjectWorkspaceSnapshot) result.value().orElseThrow());
+            applySnapshot(
+                    expectedView, (ProjectWorkspaceSnapshot) result.value().orElseThrow());
         } else {
             applyFailure(requestGeneration, expectedView, result.error().orElseThrow());
         }
     }
 
-    private void applySnapshot(
-        final InspectorView view,
-        final ProjectWorkspaceSnapshot snapshot
-    ) {
+    private void applySnapshot(final InspectorView view, final ProjectWorkspaceSnapshot snapshot) {
         view.showSnapshot(snapshot, Instant.now());
-        context.logger().info(
-            "Inspector refresh: projectPresent=" + snapshot.project().isPresent()
-                + ", workspacePresent=" + snapshot.workspace().isPresent()
-                + ", documents=" + snapshot.project().map(value -> value.documents().size()).orElse(0)
-        );
+        context.logger()
+                .info("Inspector refresh: projectPresent=" + snapshot.project().isPresent()
+                        + ", workspacePresent=" + snapshot.workspace().isPresent()
+                        + ", documents="
+                        + snapshot.project()
+                                .map(value -> value.documents().size())
+                                .orElse(0));
     }
 
-    private void applyFailure(
-        final long requestGeneration,
-        final AsyncHostReadError error
-    ) {
+    private void applyFailure(final long requestGeneration, final AsyncHostReadError error) {
         final InspectorView view = window.get();
         if (view != null) {
             applyFailure(requestGeneration, view, error);
@@ -208,21 +200,16 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
     }
 
     private void applyFailure(
-        final long requestGeneration,
-        final InspectorView expectedView,
-        final AsyncHostReadError error
-    ) {
+            final long requestGeneration, final InspectorView expectedView, final AsyncHostReadError error) {
         if (!isCurrent(requestGeneration, expectedView)) {
             return;
         }
         expectedView.showUnavailable(Instant.now());
-        context.logger().warn("Project Inspector refresh failed safely: " + error.code().name());
+        context.logger()
+                .warn("Project Inspector refresh failed safely: " + error.code().name());
     }
 
-    private boolean isCurrent(
-        final long expectedGeneration,
-        final InspectorView expectedView
-    ) {
+    private boolean isCurrent(final long expectedGeneration, final InspectorView expectedView) {
         synchronized (lifecycleLock) {
             return enabled && generation == expectedGeneration && window.get() == expectedView;
         }
@@ -265,16 +252,23 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
 
     interface UiAccess {
         boolean isHeadless();
+
         void invokeLater(Runnable action);
+
         void invokeAndWait(Runnable action) throws InterruptedException, InvocationTargetException;
+
         InspectorView create(PluginLocalization localization, Runnable refreshAction);
     }
 
     interface InspectorView {
         void showAndFront();
+
         void showReading();
+
         void showSnapshot(ProjectWorkspaceSnapshot snapshot, Instant refreshedAt);
+
         void showUnavailable(Instant refreshedAt);
+
         void dispose();
     }
 
@@ -290,8 +284,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void invokeAndWait(final Runnable action)
-            throws InterruptedException, InvocationTargetException {
+        public void invokeAndWait(final Runnable action) throws InterruptedException, InvocationTargetException {
             if (SwingUtilities.isEventDispatchThread()) {
                 action.run();
             } else {
@@ -300,10 +293,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         }
 
         @Override
-        public InspectorView create(
-            final PluginLocalization localization,
-            final Runnable refreshAction
-        ) {
+        public InspectorView create(final PluginLocalization localization, final Runnable refreshAction) {
             return new SwingInspectorView(localization, refreshAction);
         }
     }
@@ -317,10 +307,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         private final JLabel workspaceValue;
         private final JLabel refreshedValue;
 
-        private SwingInspectorView(
-            final PluginLocalization localization,
-            final Runnable refreshAction
-        ) {
+        private SwingInspectorView(final PluginLocalization localization, final Runnable refreshAction) {
             this.localization = localization;
             frame = TurboismWindowFactory.frame(localization.text("window.title"));
             frame.setDefaultCloseOperation(windowCloseOperation());
@@ -359,20 +346,16 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
         }
 
         @Override
-        public void showSnapshot(
-            final ProjectWorkspaceSnapshot snapshot,
-            final Instant refreshedAt
-        ) {
+        public void showSnapshot(final ProjectWorkspaceSnapshot snapshot, final Instant refreshedAt) {
             statusValue.setText(localization.text("status.available"));
-            projectValue.setText(snapshot.project()
-                .map(value -> value.name())
-                .orElse(localization.text("status.no_project_open")));
+            projectValue.setText(
+                    snapshot.project().map(value -> value.name()).orElse(localization.text("status.no_project_open")));
             documentsValue.setText(snapshot.project()
-                .map(value -> Integer.toString(value.documents().size()))
-                .orElse("0"));
+                    .map(value -> Integer.toString(value.documents().size()))
+                    .orElse("0"));
             workspaceValue.setText(snapshot.workspace()
-                .map(value -> value.displayName())
-                .orElse(localization.text("status.unavailable")));
+                    .map(value -> value.displayName())
+                    .orElse(localization.text("status.unavailable")));
             refreshedValue.setText(refreshedAt.toString());
         }
 
@@ -391,11 +374,7 @@ public final class ProjectInspectorPlugin implements TurboismPlugin {
             frame.dispose();
         }
 
-        private JLabel addRow(
-            final JPanel panel,
-            final String labelKey,
-            final String initialValueKey
-        ) {
+        private JLabel addRow(final JPanel panel, final String labelKey, final String initialValueKey) {
             panel.add(new JLabel(localization.text(labelKey) + ":"));
             final JLabel value = new JLabel(localization.text(initialValueKey));
             panel.add(value);

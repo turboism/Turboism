@@ -12,7 +12,6 @@ import sys
 import tempfile
 import unittest
 import json
-import signal
 import time
 from unittest import mock
 
@@ -170,6 +169,7 @@ class VersionedSlotClaimTest(SlotFixture, unittest.TestCase):
         second = self.submit("edit", "5302", "b")
         claimed_a = self.store.claim()
         claimed_b = self.store.claim()
+        self.assertEqual(second["job_id"], claimed_b["job_id"])
         for claimed in (claimed_a, claimed_b):
             self.store.acknowledge(claimed["job_id"], claimed["attempt_id"],
                                    queue.process_identity(os.getpid()))

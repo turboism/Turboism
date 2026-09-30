@@ -1,7 +1,8 @@
 package dev.turboism.graal;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -14,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.PushPromiseHandler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -21,28 +23,23 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
-import java.security.cert.Certificate;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.Executor;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
-import java.net.http.HttpResponse.PushPromiseHandler;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSession;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class ManagedGraalRuntimeServiceTest {
 
@@ -83,22 +80,20 @@ final class ManagedGraalRuntimeServiceTest {
     @Test
     void installsPinnedArchiveIntoManagedRuntimeAndPreservesLegalFiles() throws Exception {
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1, 2, 3},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8),
-            "graalvm-test/legal/graalvm/LICENSE", "GPLv2+CPE".getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe", new byte[] {1, 2, 3},
+                "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8),
+                "graalvm-test/legal/graalvm/LICENSE", "GPLv2+CPE".getBytes(StandardCharsets.UTF_8)));
         final ManagedGraalRuntimeService.Platform platform = testPlatform(archive);
         final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
         final List<Path> probed = new java.util.ArrayList<>();
         try (ManagedGraalRuntimeService service = service(client, platform, probed::add)) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.READY, result.state());
             assertEquals(
-                home.resolve("graal/runtime/bin/java.exe").toAbsolutePath().normalize(),
-                result.javaExecutable().orElseThrow()
-            );
+                    home.resolve("graal/runtime/bin/java.exe").toAbsolutePath().normalize(),
+                    result.javaExecutable().orElseThrow());
             assertTrue(Files.isRegularFile(home.resolve("graal/runtime/legal/graalvm/LICENSE")));
             assertEquals(1, probed.size());
             assertTrue(probed.get(0).endsWith(Path.of("graalvm-test/bin/java.exe")));
@@ -112,18 +107,16 @@ final class ManagedGraalRuntimeServiceTest {
         Files.createDirectories(existing);
         Files.writeString(existing.resolve("marker.txt"), "existing");
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         final ManagedGraalRuntimeService.Platform platform = new ManagedGraalRuntimeService.Platform(
-            "test-windows-x64", "bin/java.exe", "test.zip", archive.length,
-            "0".repeat(64)
-        );
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)), platform, ignored -> { }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                "test-windows-x64", "bin/java.exe", "test.zip", archive.length, "0".repeat(64));
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(new ResponseSpec(200, Map.of(), archive)), platform, ignored -> {})) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_HASH_MISMATCH", result.code());
@@ -133,21 +126,17 @@ final class ManagedGraalRuntimeServiceTest {
 
     @Test
     void rejectsReleaseMetadataThatOnlyMatchesPinnedPrefixes() throws Exception {
-        final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", """
+        final byte[] archive =
+                archive(Map.of("graalvm-test/bin/java.exe", new byte[] {1}, "graalvm-test/release", """
                 IMPLEMENTOR="GraalVM Community Modified"
                 GRAALVM_VERSION="25.2.4"
                 JAVA_VERSION="25.0.40"
-                """.getBytes(StandardCharsets.UTF_8)
-        ));
+                """.getBytes(
+                                StandardCharsets.UTF_8)));
         try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)),
-            testPlatform(archive),
-            ignored -> { }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                new RecordingClient(new ResponseSpec(200, Map.of(), archive)), testPlatform(archive), ignored -> {})) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_INVALID", result.code());
@@ -158,19 +147,15 @@ final class ManagedGraalRuntimeServiceTest {
     @Test
     void rejectsRedirectOutsideApprovedOfficialHosts() throws Exception {
         final byte[] archive = new byte[] {1};
-        final RecordingClient client = new RecordingClient(new ResponseSpec(
-            302, Map.of("Location", List.of("https://example.invalid/runtime.zip")), archive
-        ));
+        final RecordingClient client = new RecordingClient(
+                new ResponseSpec(302, Map.of("Location", List.of("https://example.invalid/runtime.zip")), archive));
         try (ManagedGraalRuntimeService service = service(
-            client,
-            new ManagedGraalRuntimeService.Platform(
-                "test-windows-x64", "bin/java.exe", "test.zip", 1L,
-                sha256(archive)
-            ),
-            ignored -> { }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                client,
+                new ManagedGraalRuntimeService.Platform(
+                        "test-windows-x64", "bin/java.exe", "test.zip", 1L, sha256(archive)),
+                ignored -> {})) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_DOWNLOAD_URI_REJECTED", result.code());
@@ -180,16 +165,12 @@ final class ManagedGraalRuntimeServiceTest {
 
     @Test
     void rejectsZipSlipBeforeActivation() throws Exception {
-        final byte[] archive = archive(Map.of(
-            "graalvm-test/../escaped.txt", "escaped".getBytes(StandardCharsets.UTF_8)
-        ));
+        final byte[] archive =
+                archive(Map.of("graalvm-test/../escaped.txt", "escaped".getBytes(StandardCharsets.UTF_8)));
         try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)),
-            testPlatform(archive),
-            ignored -> { }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                new RecordingClient(new ResponseSpec(200, Map.of(), archive)), testPlatform(archive), ignored -> {})) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_ARCHIVE_REJECTED", result.code());
@@ -201,17 +182,13 @@ final class ManagedGraalRuntimeServiceTest {
     @Test
     void rejectsWin32AmbiguousArchiveSegments() throws Exception {
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8),
-            "graalvm-test/release.", "alias".getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe", new byte[] {1},
+                "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8),
+                "graalvm-test/release.", "alias".getBytes(StandardCharsets.UTF_8)));
         try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)),
-            testPlatform(archive),
-            ignored -> { }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                new RecordingClient(new ResponseSpec(200, Map.of(), archive)), testPlatform(archive), ignored -> {})) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_ARCHIVE_REJECTED", result.code());
@@ -223,22 +200,19 @@ final class ManagedGraalRuntimeServiceTest {
     void wholeDownloadDeadlineFailsAStalledBody() throws Exception {
         final DeadlineInputStream body = new DeadlineInputStream();
         final ManagedGraalRuntimeService.Platform platform = new ManagedGraalRuntimeService.Platform(
-            "test-windows-x64", "bin/java.exe", "test.zip", 1L,
-            sha256(new byte[] {1})
-        );
+                "test-windows-x64", "bin/java.exe", "test.zip", 1L, sha256(new byte[] {1}));
         try (ManagedGraalRuntimeService service = new ManagedGraalRuntimeService(
-            home,
-            new RecordingClient(new ResponseSpec(200, Map.of(), body)),
-            platform,
-            ignored -> { },
-            ignored -> { },
-            Duration.ofMillis(100)
-        )) {
+                home,
+                new RecordingClient(new ResponseSpec(200, Map.of(), body)),
+                platform,
+                ignored -> {},
+                ignored -> {},
+                Duration.ofMillis(100))) {
             final ManagedGraalRuntimeService.Operation operation = service.install();
             assertTrue(body.awaitStarted());
 
-            final ManagedGraalRuntimeService.Status result = operation.completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    operation.completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_DOWNLOAD_TIMEOUT", result.code());
@@ -249,20 +223,17 @@ final class ManagedGraalRuntimeServiceTest {
     void closeCompletesAnActiveOperationAsCancelled() throws Exception {
         final BlockingInputStream body = new BlockingInputStream();
         final ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), body)),
-            new ManagedGraalRuntimeService.Platform(
-                "test-windows-x64", "bin/java.exe", "test.zip", 1L,
-                sha256(new byte[] {1})
-            ),
-            ignored -> { }
-        );
+                new RecordingClient(new ResponseSpec(200, Map.of(), body)),
+                new ManagedGraalRuntimeService.Platform(
+                        "test-windows-x64", "bin/java.exe", "test.zip", 1L, sha256(new byte[] {1})),
+                ignored -> {});
         final ManagedGraalRuntimeService.Operation operation = service.install();
         assertTrue(body.awaitStarted());
 
         service.close();
         body.release();
-        final ManagedGraalRuntimeService.Status result = operation.completion()
-            .toCompletableFuture().get(5, TimeUnit.SECONDS);
+        final ManagedGraalRuntimeService.Status result =
+                operation.completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
         assertEquals(ManagedGraalRuntimeService.State.CANCELLED, result.state());
     }
@@ -274,20 +245,17 @@ final class ManagedGraalRuntimeServiceTest {
         Files.writeString(existing.resolve("marker.txt"), "existing");
         final BlockingInputStream body = new BlockingInputStream();
         final ManagedGraalRuntimeService.Platform platform = new ManagedGraalRuntimeService.Platform(
-            "test-windows-x64", "bin/java.exe", "test.zip", 1L,
-            sha256(new byte[] {1})
-        );
+                "test-windows-x64", "bin/java.exe", "test.zip", 1L, sha256(new byte[] {1}));
         final List<Path> probed = new java.util.ArrayList<>();
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), body)), platform, probed::add
-        )) {
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(new ResponseSpec(200, Map.of(), body)), platform, probed::add)) {
             final ManagedGraalRuntimeService.Operation operation = service.install();
             assertTrue(body.awaitStarted());
 
             assertTrue(operation.cancel());
             body.release();
-            final ManagedGraalRuntimeService.Status result = operation.completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    operation.completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.CANCELLED, result.state());
             assertEquals("existing", Files.readString(existing.resolve("marker.txt")));
@@ -301,16 +269,16 @@ final class ManagedGraalRuntimeServiceTest {
         Files.createDirectories(existing);
         Files.writeString(existing.resolve("marker.txt"), "existing");
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)),
-            testPlatform(archive),
-            ignored -> { throw new IOException("probe failed"); }
-        )) {
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+                new RecordingClient(new ResponseSpec(200, Map.of(), archive)), testPlatform(archive), ignored -> {
+                    throw new IOException("probe failed");
+                })) {
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_HOST_PROBE_FAILED", result.code());
@@ -321,13 +289,9 @@ final class ManagedGraalRuntimeServiceTest {
     @Test
     void hostReadyMessageRequiresThePinnedJavaVersion() {
         assertFalse(ManagedGraalRuntimeService.isCompatibleReadyMessage(
-            "{\"type\":\"READY\",\"protocolVersion\":1,"
-                + "\"graalAvailable\":true,\"javaVersion\":\"25.0.40\"}"
-        ));
+                "{\"type\":\"READY\",\"protocolVersion\":1," + "\"graalAvailable\":true,\"javaVersion\":\"25.0.40\"}"));
         assertTrue(ManagedGraalRuntimeService.isCompatibleReadyMessage(
-            "{\"type\":\"READY\",\"protocolVersion\":1,"
-                + "\"graalAvailable\":true,\"javaVersion\":\"25.0.4\"}"
-        ));
+                "{\"type\":\"READY\",\"protocolVersion\":1," + "\"graalAvailable\":true,\"javaVersion\":\"25.0.4\"}"));
     }
 
     @Test
@@ -336,24 +300,22 @@ final class ManagedGraalRuntimeServiceTest {
         Files.createDirectories(existing);
         Files.writeString(existing.resolve("marker.txt"), "existing");
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         final CountDownLatch probeStarted = new CountDownLatch(1);
         try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(new ResponseSpec(200, Map.of(), archive)),
-            testPlatform(archive),
-            ignored -> {
-                probeStarted.countDown();
-                new CountDownLatch(1).await();
-            }
-        )) {
+                new RecordingClient(new ResponseSpec(200, Map.of(), archive)), testPlatform(archive), ignored -> {
+                    probeStarted.countDown();
+                    new CountDownLatch(1).await();
+                })) {
             final ManagedGraalRuntimeService.Operation operation = service.install();
             assertTrue(probeStarted.await(5, TimeUnit.SECONDS));
 
             assertTrue(operation.cancel());
-            final ManagedGraalRuntimeService.Status result = operation.completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    operation.completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.CANCELLED, result.state());
             assertEquals("existing", Files.readString(existing.resolve("marker.txt")));
@@ -368,19 +330,14 @@ final class ManagedGraalRuntimeServiceTest {
         Files.writeString(previous.resolve("release"), release());
         Files.writeString(home.resolve("graal/.runtime-activation"), "25.2.4\n");
 
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(),
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(), ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
             final ManagedGraalRuntimeService.Status status = service.status();
 
             assertEquals(ManagedGraalRuntimeService.State.READY, status.state());
             assertTrue(Files.isRegularFile(home.resolve("graal/runtime/bin/java.exe")));
             assertFalse(Files.exists(previous, LinkOption.NOFOLLOW_LINKS));
-            assertFalse(Files.exists(
-                home.resolve("graal/.runtime-activation"), LinkOption.NOFOLLOW_LINKS
-            ));
+            assertFalse(Files.exists(home.resolve("graal/.runtime-activation"), LinkOption.NOFOLLOW_LINKS));
         }
     }
 
@@ -390,17 +347,19 @@ final class ManagedGraalRuntimeServiceTest {
         Files.createDirectories(marker.getParent());
         Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1, 2, 3},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1, 2, 3},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
         final List<Path> probed = new java.util.ArrayList<>();
         try (ManagedGraalRuntimeService service = service(client, testPlatform(archive), probed::add)) {
             assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
-            assertEquals(ManagedGraalRuntimeService.State.ABSENT, service.status().state());
+            assertEquals(
+                    ManagedGraalRuntimeService.State.ABSENT, service.status().state());
 
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.READY, result.state());
             assertEquals(1, client.requests.size());
@@ -418,12 +377,10 @@ final class ManagedGraalRuntimeServiceTest {
         final Path marker = home.resolve("graal/.runtime-activation");
         Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
         final RecordingClient client = new RecordingClient();
-        try (ManagedGraalRuntimeService service = service(
-            client,
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
-            assertEquals(ManagedGraalRuntimeService.State.READY, service.status().state());
+        try (ManagedGraalRuntimeService service =
+                service(client, ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
+            assertEquals(
+                    ManagedGraalRuntimeService.State.READY, service.status().state());
             assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
             assertTrue(Files.isRegularFile(runtime.resolve("bin/java.exe")));
             assertTrue(client.requests.isEmpty());
@@ -443,12 +400,10 @@ final class ManagedGraalRuntimeServiceTest {
         final Path marker = home.resolve("graal/.runtime-activation");
         Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
         final RecordingClient client = new RecordingClient();
-        try (ManagedGraalRuntimeService service = service(
-            client,
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
-            assertEquals(ManagedGraalRuntimeService.State.READY, service.status().state());
+        try (ManagedGraalRuntimeService service =
+                service(client, ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
+            assertEquals(
+                    ManagedGraalRuntimeService.State.READY, service.status().state());
             assertFalse(Files.exists(previous, LinkOption.NOFOLLOW_LINKS));
             assertFalse(Files.exists(marker, LinkOption.NOFOLLOW_LINKS));
             assertTrue(Files.isRegularFile(runtime.resolve("bin/java.exe")));
@@ -464,19 +419,13 @@ final class ManagedGraalRuntimeServiceTest {
         final Path marker = home.resolve("graal/.runtime-activation");
         Files.writeString(marker, ManagedGraalRuntimeService.GRAAL_VERSION + "\n");
 
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(),
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(), ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
             final ManagedGraalRuntimeService.Status status = service.status();
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, status.state());
             assertEquals("GRAAL_RUNTIME_INVALID", status.code());
-            assertEquals(
-                ManagedGraalRuntimeService.GRAAL_VERSION + "\n",
-                Files.readString(marker)
-            );
+            assertEquals(ManagedGraalRuntimeService.GRAAL_VERSION + "\n", Files.readString(marker));
         }
     }
 
@@ -486,17 +435,16 @@ final class ManagedGraalRuntimeServiceTest {
         Files.createDirectories(marker.getParent());
         Files.writeString(marker, "0.0.0-unknown\n");
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
-        try (ManagedGraalRuntimeService service = service(
-            client, testPlatform(archive), ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service = service(client, testPlatform(archive), ignored -> {})) {
             assertEquals("0.0.0-unknown\n", Files.readString(marker));
 
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_RECOVERY_REQUIRED", result.code());
@@ -517,25 +465,21 @@ final class ManagedGraalRuntimeServiceTest {
             org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
         }
         final byte[] archive = archive(Map.of(
-            "graalvm-test/bin/java.exe", new byte[] {1},
-            "graalvm-test/release", release().getBytes(StandardCharsets.UTF_8)
-        ));
+                "graalvm-test/bin/java.exe",
+                new byte[] {1},
+                "graalvm-test/release",
+                release().getBytes(StandardCharsets.UTF_8)));
         final RecordingClient client = new RecordingClient(new ResponseSpec(200, Map.of(), archive));
-        try (ManagedGraalRuntimeService service = service(
-            client, testPlatform(archive), ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service = service(client, testPlatform(archive), ignored -> {})) {
             assertTrue(Files.isSymbolicLink(marker));
 
-            final ManagedGraalRuntimeService.Status result = service.install().completion()
-                .toCompletableFuture().get(5, TimeUnit.SECONDS);
+            final ManagedGraalRuntimeService.Status result =
+                    service.install().completion().toCompletableFuture().get(5, TimeUnit.SECONDS);
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
             assertEquals("GRAAL_RUNTIME_RECOVERY_REQUIRED", result.code());
             assertTrue(Files.isSymbolicLink(marker));
-            assertEquals(
-                ManagedGraalRuntimeService.GRAAL_VERSION + "\n",
-                Files.readString(target)
-            );
+            assertEquals(ManagedGraalRuntimeService.GRAAL_VERSION + "\n", Files.readString(target));
         }
     }
 
@@ -550,11 +494,8 @@ final class ManagedGraalRuntimeServiceTest {
         } catch (UnsupportedOperationException | IOException unavailable) {
             org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
         }
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(),
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(), ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
             final ManagedGraalRuntimeService.Status result = service.remove();
 
             assertEquals(ManagedGraalRuntimeService.State.FAILED, result.state());
@@ -570,11 +511,8 @@ final class ManagedGraalRuntimeServiceTest {
         Files.writeString(home.resolve("graal/runtime/release"), release());
         Files.createDirectories(home.resolve("graal/lib"));
         Files.write(home.resolve("graal/lib/polyglot.jar"), new byte[] {2});
-        try (ManagedGraalRuntimeService service = service(
-            new RecordingClient(),
-            ManagedGraalRuntimeService.Platform.WINDOWS_X64,
-            ignored -> { }
-        )) {
+        try (ManagedGraalRuntimeService service =
+                service(new RecordingClient(), ManagedGraalRuntimeService.Platform.WINDOWS_X64, ignored -> {})) {
             final ManagedGraalRuntimeService.Status result = service.remove();
 
             assertEquals(ManagedGraalRuntimeService.State.ABSENT, result.state());
@@ -584,39 +522,70 @@ final class ManagedGraalRuntimeServiceTest {
     }
 
     private static BasicFileAttributes attributes(
-        final Object fileKey,
-        final boolean regularFile,
-        final boolean directory,
-        final long size,
-        final long creationMillis,
-        final long modifiedMillis
-    ) {
+            final Object fileKey,
+            final boolean regularFile,
+            final boolean directory,
+            final long size,
+            final long creationMillis,
+            final long modifiedMillis) {
         return new BasicFileAttributes() {
-            @Override public FileTime lastModifiedTime() { return FileTime.fromMillis(modifiedMillis); }
-            @Override public FileTime lastAccessTime() { return FileTime.fromMillis(0L); }
-            @Override public FileTime creationTime() { return FileTime.fromMillis(creationMillis); }
-            @Override public boolean isRegularFile() { return regularFile; }
-            @Override public boolean isDirectory() { return directory; }
-            @Override public boolean isSymbolicLink() { return false; }
-            @Override public boolean isOther() { return false; }
-            @Override public long size() { return size; }
-            @Override public Object fileKey() { return fileKey; }
+            @Override
+            public FileTime lastModifiedTime() {
+                return FileTime.fromMillis(modifiedMillis);
+            }
+
+            @Override
+            public FileTime lastAccessTime() {
+                return FileTime.fromMillis(0L);
+            }
+
+            @Override
+            public FileTime creationTime() {
+                return FileTime.fromMillis(creationMillis);
+            }
+
+            @Override
+            public boolean isRegularFile() {
+                return regularFile;
+            }
+
+            @Override
+            public boolean isDirectory() {
+                return directory;
+            }
+
+            @Override
+            public boolean isSymbolicLink() {
+                return false;
+            }
+
+            @Override
+            public boolean isOther() {
+                return false;
+            }
+
+            @Override
+            public long size() {
+                return size;
+            }
+
+            @Override
+            public Object fileKey() {
+                return fileKey;
+            }
         };
     }
 
     private ManagedGraalRuntimeService service(
-        final HttpClient client,
-        final ManagedGraalRuntimeService.Platform platform,
-        final ManagedGraalRuntimeService.Probe probe
-    ) {
-        return new ManagedGraalRuntimeService(home, client, platform, ignored -> { }, probe);
+            final HttpClient client,
+            final ManagedGraalRuntimeService.Platform platform,
+            final ManagedGraalRuntimeService.Probe probe) {
+        return new ManagedGraalRuntimeService(home, client, platform, ignored -> {}, probe);
     }
 
     private static ManagedGraalRuntimeService.Platform testPlatform(final byte[] archive) {
         return new ManagedGraalRuntimeService.Platform(
-            "test-windows-x64", "bin/java.exe", "test.zip", archive.length,
-            sha256(archive)
-        );
+                "test-windows-x64", "bin/java.exe", "test.zip", archive.length, sha256(archive));
     }
 
     private static String release() {
@@ -648,23 +617,13 @@ final class ManagedGraalRuntimeServiceTest {
     }
 
     private record ResponseSpec(
-        int status,
-        Map<String, List<String>> headers,
-        java.util.function.Supplier<java.io.InputStream> body
-    ) {
-        private ResponseSpec(
-            final int status,
-            final Map<String, List<String>> headers,
-            final byte[] body
-        ) {
+            int status, Map<String, List<String>> headers, java.util.function.Supplier<java.io.InputStream> body) {
+        private ResponseSpec(final int status, final Map<String, List<String>> headers, final byte[] body) {
             this(status, headers, () -> new ByteArrayInputStream(body));
         }
 
         private ResponseSpec(
-            final int status,
-            final Map<String, List<String>> headers,
-            final java.io.InputStream body
-        ) {
+                final int status, final Map<String, List<String>> headers, final java.io.InputStream body) {
             this(status, headers, () -> body);
         }
     }
@@ -727,21 +686,53 @@ final class ManagedGraalRuntimeServiceTest {
             this.responses.addAll(List.of(responses));
         }
 
-        @Override public Optional<CookieHandler> cookieHandler() { return Optional.empty(); }
-        @Override public Optional<Duration> connectTimeout() { return Optional.of(Duration.ofSeconds(1)); }
-        @Override public Redirect followRedirects() { return Redirect.NEVER; }
-        @Override public Optional<ProxySelector> proxy() { return Optional.empty(); }
-        @Override public SSLContext sslContext() { return defaultSslContext(); }
-        @Override public SSLParameters sslParameters() { return new SSLParameters(); }
-        @Override public Optional<Authenticator> authenticator() { return Optional.empty(); }
-        @Override public Version version() { return Version.HTTP_1_1; }
-        @Override public Optional<Executor> executor() { return Optional.empty(); }
+        @Override
+        public Optional<CookieHandler> cookieHandler() {
+            return Optional.empty();
+        }
 
         @Override
-        public <T> HttpResponse<T> send(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> handler
-        ) {
+        public Optional<Duration> connectTimeout() {
+            return Optional.of(Duration.ofSeconds(1));
+        }
+
+        @Override
+        public Redirect followRedirects() {
+            return Redirect.NEVER;
+        }
+
+        @Override
+        public Optional<ProxySelector> proxy() {
+            return Optional.empty();
+        }
+
+        @Override
+        public SSLContext sslContext() {
+            return defaultSslContext();
+        }
+
+        @Override
+        public SSLParameters sslParameters() {
+            return new SSLParameters();
+        }
+
+        @Override
+        public Optional<Authenticator> authenticator() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Version version() {
+            return Version.HTTP_1_1;
+        }
+
+        @Override
+        public Optional<Executor> executor() {
+            return Optional.empty();
+        }
+
+        @Override
+        public <T> HttpResponse<T> send(final HttpRequest request, final HttpResponse.BodyHandler<T> handler) {
             requests.add(request);
             final ResponseSpec spec = responses.removeFirst();
             @SuppressWarnings("unchecked")
@@ -751,9 +742,7 @@ final class ManagedGraalRuntimeServiceTest {
 
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> handler
-        ) {
+                final HttpRequest request, final HttpResponse.BodyHandler<T> handler) {
             try {
                 return CompletableFuture.completedFuture(send(request, handler));
             } catch (RuntimeException failure) {
@@ -763,10 +752,9 @@ final class ManagedGraalRuntimeServiceTest {
 
         @Override
         public <T> CompletableFuture<HttpResponse<T>> sendAsync(
-            final HttpRequest request,
-            final HttpResponse.BodyHandler<T> handler,
-            final PushPromiseHandler<T> pushPromiseHandler
-        ) {
+                final HttpRequest request,
+                final HttpResponse.BodyHandler<T> handler,
+                final PushPromiseHandler<T> pushPromiseHandler) {
             return sendAsync(request, handler);
         }
 
@@ -779,19 +767,32 @@ final class ManagedGraalRuntimeServiceTest {
         }
     }
 
-    private record FakeResponse<T>(
-        HttpRequest request,
-        int statusCode,
-        Map<String, List<String>> rawHeaders,
-        T body
-    ) implements HttpResponse<T> {
-        @Override public Optional<HttpResponse<T>> previousResponse() { return Optional.empty(); }
-        @Override public HttpHeaders headers() {
+    private record FakeResponse<T>(HttpRequest request, int statusCode, Map<String, List<String>> rawHeaders, T body)
+            implements HttpResponse<T> {
+        @Override
+        public Optional<HttpResponse<T>> previousResponse() {
+            return Optional.empty();
+        }
+
+        @Override
+        public HttpHeaders headers() {
             final BiPredicate<String, String> acceptAll = (name, value) -> true;
             return HttpHeaders.of(rawHeaders, acceptAll);
         }
-        @Override public Optional<SSLSession> sslSession() { return Optional.empty(); }
-        @Override public URI uri() { return request.uri(); }
-        @Override public HttpClient.Version version() { return HttpClient.Version.HTTP_1_1; }
+
+        @Override
+        public Optional<SSLSession> sslSession() {
+            return Optional.empty();
+        }
+
+        @Override
+        public URI uri() {
+            return request.uri();
+        }
+
+        @Override
+        public HttpClient.Version version() {
+            return HttpClient.Version.HTTP_1_1;
+        }
     }
 }

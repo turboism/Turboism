@@ -1,7 +1,6 @@
 package dev.turboism.plugin.mcp;
 
 import dev.turboism.sdk.permission.CubismPermissionException;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,10 +18,7 @@ final class McpResourceCatalog {
     private final Reader reader;
 
     McpResourceCatalog(
-        final List<Map<String, Object>> resources,
-        final List<Map<String, Object>> templates,
-        final Reader reader
-    ) {
+            final List<Map<String, Object>> resources, final List<Map<String, Object>> templates, final Reader reader) {
         this.resources = List.copyOf(Objects.requireNonNull(resources, "resources"));
         this.templates = List.copyOf(Objects.requireNonNull(templates, "templates"));
         this.reader = Objects.requireNonNull(reader, "reader");
@@ -90,8 +86,8 @@ final class McpResourceCatalog {
         if (!(output.get("error") instanceof Map<?, ?> error)) return;
         final Object codeValue = error.get("code");
         final Object messageValue = error.get("message");
-        final String message = messageValue instanceof String value && !value.isBlank()
-            ? value : "resource read failed";
+        final String message =
+                messageValue instanceof String value && !value.isBlank() ? value : "resource read failed";
         if ("PERMISSION_DENIED".equals(codeValue)) {
             throw new ResourceFailure(ResourceFailure.Kind.PERMISSION_DENIED, message, null);
         }
@@ -104,23 +100,15 @@ final class McpResourceCatalog {
     static RuntimeException classify(final RuntimeException failure) {
         Objects.requireNonNull(failure, "failure");
         if (failure instanceof ResourceFailure
-            || failure instanceof ResourceNotFound
-            || failure instanceof java.util.concurrent.CancellationException) {
+                || failure instanceof ResourceNotFound
+                || failure instanceof java.util.concurrent.CancellationException) {
             return failure;
         }
         if (failure instanceof CubismPermissionException || failure instanceof SecurityException) {
-            return new ResourceFailure(
-                ResourceFailure.Kind.PERMISSION_DENIED,
-                safeMessage(failure),
-                failure
-            );
+            return new ResourceFailure(ResourceFailure.Kind.PERMISSION_DENIED, safeMessage(failure), failure);
         }
         if (failure instanceof UnsupportedOperationException) {
-            return new ResourceFailure(
-                ResourceFailure.Kind.UNAVAILABLE,
-                safeMessage(failure),
-                failure
-            );
+            return new ResourceFailure(ResourceFailure.Kind.UNAVAILABLE, safeMessage(failure), failure);
         }
         if (failure instanceof McpExecutionBridge.ExecutionFailure) {
             final String message = safeMessage(failure);
@@ -128,11 +116,7 @@ final class McpResourceCatalog {
                 return new ResourceFailure(ResourceFailure.Kind.TIMEOUT, message, failure);
             }
         }
-        return new ResourceFailure(
-            ResourceFailure.Kind.FAILED,
-            "resource read failed",
-            failure
-        );
+        return new ResourceFailure(ResourceFailure.Kind.FAILED, "resource read failed", failure);
     }
 
     private static String safeMessage(final RuntimeException failure) {

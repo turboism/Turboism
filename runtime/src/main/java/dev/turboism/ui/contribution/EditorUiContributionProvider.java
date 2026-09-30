@@ -2,7 +2,6 @@ package dev.turboism.ui.contribution;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.List;
 
 /** Native-provider seam for one declarative Editor UI contribution family. */
@@ -43,10 +42,7 @@ public interface EditorUiContributionProvider {
      * Called only when {@link #supportsIncrementalReconcile()} returns true.
      */
     default Registration reconcile(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions,
-        final Registration existing
-    ) {
+            final long hostGeneration, final List<EditorUiContribution<?>> contributions, final Registration existing) {
         throw new UnsupportedOperationException("provider does not support incremental reconcile");
     }
 }

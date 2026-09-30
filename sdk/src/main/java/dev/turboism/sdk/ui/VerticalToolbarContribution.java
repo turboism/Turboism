@@ -10,11 +10,7 @@ import java.util.Objects;
  * {@code ActionRegistry}; the plugin decides the toggle semantics (e.g. show
  * or hide a floating history pane).</p>
  */
-public record VerticalToolbarContribution(
-    String contributionId,
-    List<ToolButton> buttons,
-    VerticalSide side
-) {
+public record VerticalToolbarContribution(String contributionId, List<ToolButton> buttons, VerticalSide side) {
 
     public VerticalToolbarContribution {
         if (contributionId == null || contributionId.isBlank()) {
@@ -27,10 +23,7 @@ public record VerticalToolbarContribution(
         side = Objects.requireNonNull(side, "side");
     }
 
-    public VerticalToolbarContribution(
-        final String contributionId,
-        final List<ToolButton> buttons
-    ) {
+    public VerticalToolbarContribution(final String contributionId, final List<ToolButton> buttons) {
         this(contributionId, buttons, VerticalSide.RIGHT);
     }
 
@@ -50,12 +43,7 @@ public record VerticalToolbarContribution(
      * @param tooltipKey        localization key or literal tooltip text
      * @param actionId          action routed through the plugin ActionRegistry
      */
-    public record ToolButton(
-        String id,
-        String iconResourcePath,
-        String tooltipKey,
-        String actionId
-    ) {
+    public record ToolButton(String id, String iconResourcePath, String tooltipKey, String actionId) {
 
         public ToolButton {
             if (id == null || id.isBlank()) {

@@ -1,7 +1,6 @@
 package dev.turboism.ui.host;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,12 +44,7 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      * @return the published {@code CONNECTING} snapshot, carrying a freshly incremented generation
      */
     public EditorUiHostSnapshot connecting() {
-        return transition(
-            EditorUiHostSnapshot.State.CONNECTING,
-            nextGeneration(),
-            Set.of(),
-            Optional.empty()
-        );
+        return transition(EditorUiHostSnapshot.State.CONNECTING, nextGeneration(), Set.of(), Optional.empty());
     }
 
     /**
@@ -61,12 +55,7 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      * @return the published {@code CONNECTED_NOT_READY} snapshot
      */
     public EditorUiHostSnapshot connected(final long generation) {
-        return transition(
-            EditorUiHostSnapshot.State.CONNECTED_NOT_READY,
-            generation,
-            Set.of(),
-            Optional.empty()
-        );
+        return transition(EditorUiHostSnapshot.State.CONNECTED_NOT_READY, generation, Set.of(), Optional.empty());
     }
 
     /**
@@ -79,21 +68,14 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      * @return the published snapshot
      * @throws NullPointerException if {@code readyFamilies} is null
      */
-    public EditorUiHostSnapshot ready(
-        final long generation,
-        final Set<EditorUiFamily> readyFamilies
-    ) {
-        final Set<EditorUiFamily> families = EditorUiHostSnapshot.immutableFamilies(
-            Objects.requireNonNull(readyFamilies, "readyFamilies")
-        );
+    public EditorUiHostSnapshot ready(final long generation, final Set<EditorUiFamily> readyFamilies) {
+        final Set<EditorUiFamily> families =
+                EditorUiHostSnapshot.immutableFamilies(Objects.requireNonNull(readyFamilies, "readyFamilies"));
         return transition(
-            families.isEmpty()
-                ? EditorUiHostSnapshot.State.CONNECTED_NOT_READY
-                : EditorUiHostSnapshot.State.READY,
-            generation,
-            families,
-            Optional.empty()
-        );
+                families.isEmpty() ? EditorUiHostSnapshot.State.CONNECTED_NOT_READY : EditorUiHostSnapshot.State.READY,
+                generation,
+                families,
+                Optional.empty());
     }
 
     /**
@@ -104,12 +86,7 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      */
     public EditorUiHostSnapshot replacing() {
         final EditorUiHostSnapshot current = snapshot();
-        return transition(
-            EditorUiHostSnapshot.State.REPLACING,
-            current.generation(),
-            Set.of(),
-            Optional.empty()
-        );
+        return transition(EditorUiHostSnapshot.State.REPLACING, current.generation(), Set.of(), Optional.empty());
     }
 
     /**
@@ -120,14 +97,11 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      */
     public EditorUiHostSnapshot absent() {
         return transition(
-            EditorUiHostSnapshot.State.ABSENT,
-            nextGeneration(),
-            Set.of(),
-            Optional.of(EditorUiHostFailure.host(
-                EditorUiHostFailure.Code.HOST_UNAVAILABLE,
-                "Editor UI host is unavailable."
-            ))
-        );
+                EditorUiHostSnapshot.State.ABSENT,
+                nextGeneration(),
+                Set.of(),
+                Optional.of(EditorUiHostFailure.host(
+                        EditorUiHostFailure.Code.HOST_UNAVAILABLE, "Editor UI host is unavailable.")));
     }
 
     /**
@@ -139,11 +113,10 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      */
     public EditorUiHostSnapshot failed(final EditorUiHostFailure failure) {
         return transition(
-            EditorUiHostSnapshot.State.FAILED,
-            nextGeneration(),
-            Set.of(),
-            Optional.of(Objects.requireNonNull(failure, "failure"))
-        );
+                EditorUiHostSnapshot.State.FAILED,
+                nextGeneration(),
+                Set.of(),
+                Optional.of(Objects.requireNonNull(failure, "failure")));
     }
 
     /**
@@ -156,28 +129,18 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
      * @return the published snapshot
      * @throws NullPointerException if {@code family} is null
      */
-    public EditorUiHostSnapshot markFamilyUnavailable(
-        final EditorUiFamily family,
-        final String message
-    ) {
+    public EditorUiHostSnapshot markFamilyUnavailable(final EditorUiFamily family, final String message) {
         Objects.requireNonNull(family, "family");
         final EditorUiHostSnapshot current = snapshot();
         final EnumSet<EditorUiFamily> remaining = current.readyFamilies().isEmpty()
-            ? EnumSet.noneOf(EditorUiFamily.class)
-            : EnumSet.copyOf(current.readyFamilies());
+                ? EnumSet.noneOf(EditorUiFamily.class)
+                : EnumSet.copyOf(current.readyFamilies());
         remaining.remove(family);
         return transition(
-            remaining.isEmpty()
-                ? EditorUiHostSnapshot.State.CONNECTED_NOT_READY
-                : EditorUiHostSnapshot.State.READY,
-            current.generation(),
-            remaining,
-            Optional.of(EditorUiHostFailure.family(
-                EditorUiHostFailure.Code.FAMILY_UNAVAILABLE,
-                message,
-                family
-            ))
-        );
+                remaining.isEmpty() ? EditorUiHostSnapshot.State.CONNECTED_NOT_READY : EditorUiHostSnapshot.State.READY,
+                current.generation(),
+                remaining,
+                Optional.of(EditorUiHostFailure.family(EditorUiHostFailure.Code.FAMILY_UNAVAILABLE, message, family)));
     }
 
     @Override
@@ -190,14 +153,11 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
             }
             closed = true;
             closedSnapshot = new EditorUiHostSnapshot(
-                EditorUiHostSnapshot.State.CLOSED,
-                snapshot.generation() + 1,
-                Set.of(),
-                Optional.of(EditorUiHostFailure.host(
-                    EditorUiHostFailure.Code.CLOSED,
-                    "Editor UI host lifecycle is closed."
-                ))
-            );
+                    EditorUiHostSnapshot.State.CLOSED,
+                    snapshot.generation() + 1,
+                    Set.of(),
+                    Optional.of(EditorUiHostFailure.host(
+                            EditorUiHostFailure.Code.CLOSED, "Editor UI host lifecycle is closed.")));
             snapshot = closedSnapshot;
             notificationTargets = List.copyOf(listeners.values());
             listeners.clear();
@@ -206,11 +166,10 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
     }
 
     private EditorUiHostSnapshot transition(
-        final EditorUiHostSnapshot.State state,
-        final long generation,
-        final Set<EditorUiFamily> readyFamilies,
-        final Optional<EditorUiHostFailure> failure
-    ) {
+            final EditorUiHostSnapshot.State state,
+            final long generation,
+            final Set<EditorUiFamily> readyFamilies,
+            final Optional<EditorUiHostFailure> failure) {
         final List<Consumer<EditorUiHostSnapshot>> notificationTargets;
         final EditorUiHostSnapshot next;
         synchronized (this) {
@@ -245,9 +204,7 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
     }
 
     private static void notifyListeners(
-        final List<Consumer<EditorUiHostSnapshot>> listeners,
-        final EditorUiHostSnapshot snapshot
-    ) {
+            final List<Consumer<EditorUiHostSnapshot>> listeners, final EditorUiHostSnapshot snapshot) {
         RuntimeException first = null;
         for (Consumer<EditorUiHostSnapshot> listener : listeners) {
             try {

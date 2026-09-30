@@ -65,18 +65,14 @@ public final class NativeEditBeginBridge {
 
     private static volatile boolean closed;
 
-    private NativeEditBeginBridge() {
-    }
+    private NativeEditBeginBridge() {}
 
-    private record Binding(BeforeSink sink, Runnable drainRequest) {
-    }
+    private record Binding(BeforeSink sink, Runnable drainRequest) {}
 
     /** Binds one session's observer; a later bind replaces it. */
     public static void bind(final BeforeSink sink, final Runnable drainRequest) {
         BINDING.set(new Binding(
-            Objects.requireNonNull(sink, "sink"),
-            Objects.requireNonNull(drainRequest, "drainRequest")
-        ));
+                Objects.requireNonNull(sink, "sink"), Objects.requireNonNull(drainRequest, "drainRequest")));
         INSIDE_EDIT.remove();
     }
 
@@ -230,10 +226,6 @@ public final class NativeEditBeginBridge {
         if (stripped.isEmpty()) {
             return Optional.empty();
         }
-        return Optional.of(
-            stripped.length() <= MAX_LABEL_LENGTH
-                ? stripped
-                : stripped.substring(0, MAX_LABEL_LENGTH)
-        );
+        return Optional.of(stripped.length() <= MAX_LABEL_LENGTH ? stripped : stripped.substring(0, MAX_LABEL_LENGTH));
     }
 }

@@ -1,10 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.List;
 
 /** One Cubism parameter. */
 public interface Parameter {
@@ -13,7 +13,9 @@ public interface Parameter {
     ParameterId id();
 
     /** Returns this Parameter's Cubism parameter-palette UI projection. */
-    default ParameterAppearance ui() { return ParameterAppearance.unavailable(); }
+    default ParameterAppearance ui() {
+        return ParameterAppearance.unavailable();
+    }
 
     /** Returns this parameter's position within the model's parameter list. */
     default int index() {
@@ -65,9 +67,7 @@ public interface Parameter {
 
     /** Returns this parameter's generation-bound Editor authoring bindings. */
     default List<ParameterBinding> getParameterBindings() {
-        throw new UnsupportedOperationException(
-            "Parameter binding projection is unavailable for this backend."
-        );
+        throw new UnsupportedOperationException("Parameter binding projection is unavailable for this backend.");
     }
 
     /**
@@ -78,16 +78,12 @@ public interface Parameter {
      */
     default void combineWith(final ParameterId partnerId) {
         Objects.requireNonNull(partnerId, "partnerId");
-        throw new UnsupportedOperationException(
-            "Parameter Combined editing is unavailable for this backend."
-        );
+        throw new UnsupportedOperationException("Parameter Combined editing is unavailable for this backend.");
     }
 
     /** Removes this parameter's current Editor four-corner pairing. */
     default void uncombine() {
-        throw new UnsupportedOperationException(
-            "Parameter Combined editing is unavailable for this backend."
-        );
+        throw new UnsupportedOperationException("Parameter Combined editing is unavailable for this backend.");
     }
 
     /** Returns whether this parameter is a Blend Shape (morph) parameter. */
@@ -125,8 +121,6 @@ public interface Parameter {
      * explicitly rather than mutating detached runtime metadata.</p>
      */
     default void updateDefinition(final ParameterDefinition definition) {
-        throw new UnsupportedOperationException(
-            "Parameter definition editing is unavailable for this backend."
-        );
+        throw new UnsupportedOperationException("Parameter definition editing is unavailable for this backend.");
     }
 }

@@ -34,12 +34,21 @@ class VerifiedElisionInstallerRollbackTest {
         STATE(RedundantStateElisionTransformer.class, "turboism.state-elision.");
         final Class<?> transformer;
         final String prefix;
-        Hook(Class<?> transformer, String prefix) { this.transformer = transformer; this.prefix = prefix; }
-    }
-    interface Install { void run() throws Exception; }
-    record Installer(Install install, AutoCloseable handle, BooleanSupplier restored) { }
 
-    @Test void successfulInstallRestoresEveryChangedClass() throws Exception {
+        Hook(Class<?> transformer, String prefix) {
+            this.transformer = transformer;
+            this.prefix = prefix;
+        }
+    }
+
+    interface Install {
+        void run() throws Exception;
+    }
+
+    record Installer(Install install, AutoCloseable handle, BooleanSupplier restored) {}
+
+    @Test
+    void successfulInstallRestoresEveryChangedClass() throws Exception {
         for (Hook hook : Hook.values()) {
             try (Fixture f = fixture(hook)) {
                 Installer installer = f.installer();
@@ -53,7 +62,8 @@ class VerifiedElisionInstallerRollbackTest {
         }
     }
 
-    @Test void secondClassAdmissionRejectionRestoresFirstClass() throws Exception {
+    @Test
+    void secondClassAdmissionRejectionRestoresFirstClass() throws Exception {
         for (Hook hook : List.of(Hook.UPLOAD, Hook.COMPOSITE)) {
             try (Fixture f = fixture(hook)) {
                 Installer installer = f.installer();
@@ -67,7 +77,8 @@ class VerifiedElisionInstallerRollbackTest {
         }
     }
 
-    @Test void failureAfterRewriteRollsBackSingleClassInstallers() throws Exception {
+    @Test
+    void failureAfterRewriteRollsBackSingleClassInstallers() throws Exception {
         for (Hook hook : List.of(Hook.INPUT, Hook.STATE)) {
             try (Fixture f = fixture(hook)) {
                 Installer installer = f.installer();
@@ -80,7 +91,8 @@ class VerifiedElisionInstallerRollbackTest {
         }
     }
 
-    @Test void restorationFailureDoesNotAbandonOtherClassesAndCanBeRetried() throws Exception {
+    @Test
+    void restorationFailureDoesNotAbandonOtherClassesAndCanBeRetried() throws Exception {
         for (Hook hook : List.of(Hook.UPLOAD, Hook.COMPOSITE)) {
             try (Fixture f = fixture(hook)) {
                 Installer installer = f.installer();
@@ -90,8 +102,10 @@ class VerifiedElisionInstallerRollbackTest {
                 assertEquals(1, failure.getSuppressed().length, "cleanup failure preserves install failure");
                 assertFalse(installer.restored.getAsBoolean());
                 assertEquals(2, f.rewritten.size());
-                assertEquals(1, f.rewritten.stream().filter(f::isRestored).count(),
-                    "the other class must still be restored after the first restoration fails");
+                assertEquals(
+                        1,
+                        f.rewritten.stream().filter(f::isRestored).count(),
+                        "the other class must still be restored after the first restoration fails");
                 assertTrue(f.active.isEmpty());
                 installer.handle.close();
                 assertTrue(installer.restored.getAsBoolean());
@@ -122,22 +136,28 @@ class VerifiedElisionInstallerRollbackTest {
             this.hook = hook;
             List<URL> urls = new ArrayList<>();
             try (var files = Files.walk(artifact.getParent(), 3)) {
-                for (Path path : files.filter(p -> p.toString().endsWith(".jar")).toList()) {
+                for (Path path :
+                        files.filter(p -> p.toString().endsWith(".jar")).toList()) {
                     urls.add(path.toUri().toURL());
                 }
             }
             loader = new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader());
-            instrumentation = (Instrumentation) Proxy.newProxyInstance(getClass().getClassLoader(),
-                new Class<?>[]{Instrumentation.class}, (proxy, method, args) -> switch (method.getName()) {
-                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
-                    case "addTransformer" -> { active.add((ClassFileTransformer) args[0]); yield null; }
-                    case "removeTransformer" -> active.remove(args[0]);
-                    case "retransformClasses" -> {
-                        for (Class<?> type : (Class<?>[]) args[0]) retransform(type);
-                        yield null;
-                    }
-                    default -> throw new UnsupportedOperationException(method.getName());
-                });
+            instrumentation = (Instrumentation) Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] {Instrumentation.class},
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                        case "addTransformer" -> {
+                            active.add((ClassFileTransformer) args[0]);
+                            yield null;
+                        }
+                        case "removeTransformer" -> active.remove(args[0]);
+                        case "retransformClasses" -> {
+                            for (Class<?> type : (Class<?>[]) args[0]) retransform(type);
+                            yield null;
+                        }
+                        default -> throw new UnsupportedOperationException(method.getName());
+                    });
         }
 
         Installer installer() throws Exception {
@@ -174,9 +194,13 @@ class VerifiedElisionInstallerRollbackTest {
             }
             original.putIfAbsent(type, bytes.clone());
             for (ClassFileTransformer transformer : List.copyOf(active)) {
-                byte[] next = transformer.transform(type.getModule(), type.getClassLoader(),
-                    type.getName().replace('.', '/'), type,
-                    hooking && hookClasses == rejectAt ? null : type.getProtectionDomain(), bytes);
+                byte[] next = transformer.transform(
+                        type.getModule(),
+                        type.getClassLoader(),
+                        type.getName().replace('.', '/'),
+                        type,
+                        hooking && hookClasses == rejectAt ? null : type.getProtectionDomain(),
+                        bytes);
                 if (next != null) {
                     bytes = next;
                     if (hook.transformer.isInstance(transformer)) rewritten.add(type);
@@ -188,13 +212,22 @@ class VerifiedElisionInstallerRollbackTest {
             }
         }
 
-        boolean isRestored(Class<?> type) { return Arrays.equals(original.get(type), installed.get(type)); }
+        boolean isRestored(Class<?> type) {
+            return Arrays.equals(original.get(type), installed.get(type));
+        }
+
         void assertRestored() {
             assertTrue(active.isEmpty(), "all owned registrations removed");
             for (Class<?> type : rewritten) assertTrue(isRestored(type), type.getName());
-            assertFalse(System.getProperties().keySet().stream()
-                .anyMatch(key -> key.toString().startsWith(hook.prefix)), "bridge slots unpublished");
+            assertFalse(
+                    System.getProperties().keySet().stream()
+                            .anyMatch(key -> key.toString().startsWith(hook.prefix)),
+                    "bridge slots unpublished");
         }
-        @Override public void close() throws Exception { loader.close(); }
+
+        @Override
+        public void close() throws Exception {
+            loader.close();
+        }
     }
 }

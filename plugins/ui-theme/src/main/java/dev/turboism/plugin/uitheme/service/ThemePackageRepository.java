@@ -1,18 +1,17 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageArchive;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageCatalog;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageArchive;
+import dev.turboism.plugin.uitheme.domain.ThemePackageCatalog;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.storage.StorageEntryType;
 import dev.turboism.sdk.storage.StorageErrorCode;
+import dev.turboism.sdk.storage.StorageListResult;
+import dev.turboism.sdk.storage.StorageMutationResult;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageReadResult;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.storage.StorageWriteResult;
-import dev.turboism.sdk.storage.StorageEntryType;
-import dev.turboism.sdk.storage.StorageListResult;
-import dev.turboism.sdk.storage.StorageMutationResult;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -46,14 +45,13 @@ public final class ThemePackageRepository {
         if (!replaceExisting && find(id).isPresent()) {
             return new SaveResult(SaveOutcome.CONFLICT, Optional.empty());
         }
-        final StorageWriteResult written = storage.writeBytesAtomic(
-            path(id), ThemePackageArchive.encode(theme)
-        ).toCompletableFuture().join();
+        final StorageWriteResult written = storage.writeBytesAtomic(path(id), ThemePackageArchive.encode(theme))
+                .toCompletableFuture()
+                .join();
         if (!written.written()) {
             return new SaveResult(
-                SaveOutcome.FAILED,
-                written.error().map(error -> error.code().name())
-            );
+                    SaveOutcome.FAILED,
+                    written.error().map(error -> error.code().name()));
         }
         return new SaveResult(SaveOutcome.SAVED, Optional.empty());
     }
@@ -67,9 +65,12 @@ public final class ThemePackageRepository {
      */
     public Optional<ThemePackageData> find(final String themeId) {
         final StorageReadResult<byte[]> read = storage.readBytes(
-            path(validatedId(themeId)), ThemePackageArchive.MAX_ARCHIVE_BYTES
-        ).toCompletableFuture().join();
-        if (read.error().map(error -> error.code() == StorageErrorCode.NOT_FOUND).orElse(false)) {
+                        path(validatedId(themeId)), ThemePackageArchive.MAX_ARCHIVE_BYTES)
+                .toCompletableFuture()
+                .join();
+        if (read.error()
+                .map(error -> error.code() == StorageErrorCode.NOT_FOUND)
+                .orElse(false)) {
             return Optional.empty();
         }
         if (read.error().isPresent() || read.truncated()) {
@@ -85,20 +86,21 @@ public final class ThemePackageRepository {
      */
     public java.util.List<ThemePackageData> list() {
         final StoragePath root = new StoragePath(StorageRoot.DATA, ROOT);
-        final StorageListResult listed = storage.list(root, 128).toCompletableFuture().join();
+        final StorageListResult listed =
+                storage.list(root, 128).toCompletableFuture().join();
         if (listed.error().isPresent() || listed.truncated()) {
             return java.util.List.of();
         }
         return listed.entries().stream()
-            .filter(entry -> entry.type() == StorageEntryType.FILE)
-            .map(entry -> entry.path().relativePath())
-            .filter(relative -> relative.startsWith(ROOT + "/") && relative.endsWith(".zip"))
-            .map(relative -> relative.substring((ROOT + "/").length(), relative.length() - 4))
-            .filter(ThemePackageCatalog::isValidId)
-            .sorted()
-            .map(this::find)
-            .flatMap(Optional::stream)
-            .toList();
+                .filter(entry -> entry.type() == StorageEntryType.FILE)
+                .map(entry -> entry.path().relativePath())
+                .filter(relative -> relative.startsWith(ROOT + "/") && relative.endsWith(".zip"))
+                .map(relative -> relative.substring((ROOT + "/").length(), relative.length() - 4))
+                .filter(ThemePackageCatalog::isValidId)
+                .sorted()
+                .map(this::find)
+                .flatMap(Optional::stream)
+                .toList();
     }
 
     /**
@@ -113,17 +115,18 @@ public final class ThemePackageRepository {
      */
     public DeleteResult delete(final String themeId) {
         final StorageMutationResult deleted = storage.delete(path(validatedId(themeId)), false)
-            .toCompletableFuture().join();
+                .toCompletableFuture()
+                .join();
         if (deleted.changed()) {
             return new DeleteResult(DeleteOutcome.DELETED, Optional.empty());
         }
-        if (deleted.error().map(error -> error.code() == StorageErrorCode.NOT_FOUND).orElse(false)) {
+        if (deleted.error()
+                .map(error -> error.code() == StorageErrorCode.NOT_FOUND)
+                .orElse(false)) {
             return new DeleteResult(DeleteOutcome.NOT_FOUND, Optional.empty());
         }
         return new DeleteResult(
-            DeleteOutcome.FAILED,
-            deleted.error().map(error -> error.code().name())
-        );
+                DeleteOutcome.FAILED, deleted.error().map(error -> error.code().name()));
     }
 
     private static StoragePath path(final String themeId) {

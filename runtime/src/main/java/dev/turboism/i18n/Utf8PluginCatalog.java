@@ -15,30 +15,25 @@ import java.util.Properties;
 
 final class Utf8PluginCatalog {
 
-    private static final byte[] UTF8_BOM = {
-        (byte) 0xEF, (byte) 0xBB, (byte) 0xBF
-    };
+    private static final byte[] UTF8_BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
 
-    private Utf8PluginCatalog() {
-    }
+    private Utf8PluginCatalog() {}
 
     static Optional<Map<String, String>> load(
-        final String pluginId,
-        final ClassLoader pluginClassLoader,
-        final String resourcePath,
-        final LocalizationDiagnosticSink diagnostics
-    ) {
+            final String pluginId,
+            final ClassLoader pluginClassLoader,
+            final String resourcePath,
+            final LocalizationDiagnosticSink diagnostics) {
         final List<byte[]> resources;
         try {
             resources = PluginCatalogResources.readLocal(pluginClassLoader, resourcePath);
         } catch (IOException exception) {
             record(
-                diagnostics,
-                "I18N_CATALOG_LOAD_FAILED",
-                pluginId,
-                "",
-                "Catalog could not be read from the isolated plugin classloader."
-            );
+                    diagnostics,
+                    "I18N_CATALOG_LOAD_FAILED",
+                    pluginId,
+                    "",
+                    "Catalog could not be read from the isolated plugin classloader.");
             return Optional.empty();
         }
         if (resources.isEmpty()) {
@@ -46,35 +41,24 @@ final class Utf8PluginCatalog {
         }
         if (resources.size() != 1) {
             record(
-                diagnostics,
-                "I18N_CATALOG_DUPLICATE_RESOURCE",
-                pluginId,
-                "",
-                "Multiple plugin-local resources exist for one catalog path."
-            );
+                    diagnostics,
+                    "I18N_CATALOG_DUPLICATE_RESOURCE",
+                    pluginId,
+                    "",
+                    "Multiple plugin-local resources exist for one catalog path.");
             return Optional.empty();
         }
         try {
             return Optional.of(parse(resources.get(0)));
         } catch (CatalogException exception) {
-            record(
-                diagnostics,
-                exception.code,
-                pluginId,
-                exception.key,
-                exception.getMessage()
-            );
+            record(diagnostics, exception.code, pluginId, exception.key, exception.getMessage());
             return Optional.empty();
         }
     }
 
     private static Map<String, String> parse(final byte[] bytes) throws CatalogException {
         if (startsWithBom(bytes)) {
-            throw new CatalogException(
-                "I18N_CATALOG_BOM",
-                "",
-                "Catalog must be UTF-8 without BOM."
-            );
+            throw new CatalogException("I18N_CATALOG_BOM", "", "Catalog must be UTF-8 without BOM.");
         }
         final String text = decode(bytes);
         final Map<String, String> values = new LinkedHashMap<>();
@@ -88,28 +72,19 @@ final class Utf8PluginCatalog {
                 property.load(new StringReader(line + "\n"));
             } catch (IOException | IllegalArgumentException exception) {
                 throw new CatalogException(
-                    "I18N_CATALOG_LOAD_FAILED",
-                    "",
-                    "Catalog contains an invalid properties entry."
-                );
+                        "I18N_CATALOG_LOAD_FAILED", "", "Catalog contains an invalid properties entry.");
             }
             if (property.isEmpty()) {
                 continue;
             }
             if (property.size() != 1) {
                 throw new CatalogException(
-                    "I18N_CATALOG_LOAD_FAILED",
-                    "",
-                    "Catalog logical entry produced an invalid property count."
-                );
+                        "I18N_CATALOG_LOAD_FAILED", "", "Catalog logical entry produced an invalid property count.");
             }
             final String key = property.stringPropertyNames().iterator().next();
             if (values.containsKey(key)) {
                 throw new CatalogException(
-                    "I18N_CATALOG_DUPLICATE_KEY",
-                    key,
-                    "Catalog contains a duplicate localization key."
-                );
+                        "I18N_CATALOG_DUPLICATE_KEY", key, "Catalog contains a duplicate localization key.");
             }
             values.put(key, property.getProperty(key));
         }
@@ -118,17 +93,14 @@ final class Utf8PluginCatalog {
 
     private static String decode(final byte[] bytes) throws CatalogException {
         try {
-            return StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
         } catch (CharacterCodingException exception) {
-            throw new CatalogException(
-                "I18N_CATALOG_INVALID_UTF8",
-                "",
-                "Catalog contains malformed UTF-8."
-            );
+            throw new CatalogException("I18N_CATALOG_INVALID_UTF8", "", "Catalog contains malformed UTF-8.");
         }
     }
 
@@ -150,11 +122,7 @@ final class Utf8PluginCatalog {
             }
         }
         if (continuing) {
-            throw new CatalogException(
-                "I18N_CATALOG_LOAD_FAILED",
-                "",
-                "Catalog ends with an incomplete continuation."
-            );
+            throw new CatalogException("I18N_CATALOG_LOAD_FAILED", "", "Catalog ends with an incomplete continuation.");
         }
         return lines;
     }
@@ -180,12 +148,11 @@ final class Utf8PluginCatalog {
     }
 
     private static void record(
-        final LocalizationDiagnosticSink diagnostics,
-        final String code,
-        final String pluginId,
-        final String key,
-        final String message
-    ) {
+            final LocalizationDiagnosticSink diagnostics,
+            final String code,
+            final String pluginId,
+            final String key,
+            final String message) {
         diagnostics.record(new LocalizationDiagnostic(code, pluginId, key, "", message));
     }
 
@@ -193,11 +160,7 @@ final class Utf8PluginCatalog {
         private final String code;
         private final String key;
 
-        private CatalogException(
-            final String code,
-            final String key,
-            final String message
-        ) {
+        private CatalogException(final String code, final String key, final String message) {
             super(message);
             this.code = code;
             this.key = key;

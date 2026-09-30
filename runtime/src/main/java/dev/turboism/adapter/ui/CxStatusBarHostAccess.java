@@ -2,8 +2,8 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
-
 import java.util.List;
+
 /**
  * Narrow runtime-internal seam isolating the exact CX widget mapping for the
  * platform-owned bottom status region.

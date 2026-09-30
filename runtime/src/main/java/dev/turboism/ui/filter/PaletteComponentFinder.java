@@ -1,72 +1,26 @@
 package dev.turboism.ui.filter;
 
-import dev.turboism.core.reflect.MethodHandleCache;
-import dev.turboism.mapping.verification.VerifiedAccessException;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
-import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
-import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
-import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
-
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Window;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.AbstractButton;
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.JViewport;
 import javax.swing.SwingUtilities;
-import javax.swing.Timer;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.TreeModelEvent;
-import javax.swing.event.TreeModelListener;
 import javax.swing.table.AbstractTableModel;
-import javax.swing.tree.TreeModel;
-import javax.swing.tree.TreePath;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FlowLayout;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.LayoutManager;
-import java.awt.RenderingHints;
-import java.awt.Window;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 /** Swing component and host-object finders for palette attach logic. */
-
 final class PaletteComponentFinder {
 
-    private PaletteComponentFinder() {
-    }
+    private PaletteComponentFinder() {}
 
     static final String PALETTE_PROPERTY = "dev.turboism.paletteFilter";
 
@@ -75,19 +29,17 @@ final class PaletteComponentFinder {
     static boolean isInVisibleCubismWindow(final Component component) {
         final Window window = SwingUtilities.getWindowAncestor(component);
         return window != null
-            && window.isVisible()
-            && window.getClass().getName().startsWith("com.live2d.ui.window.CFrame");
+                && window.isVisible()
+                && window.getClass().getName().startsWith("com.live2d.ui.window.CFrame");
     }
 
     static Object findPaletteRoot(
-        final Component component,
-        final PaletteFilterHostOperations.PaletteKind kind,
-        final ClassLoader hostClassLoader
-    ) {
+            final Component component,
+            final PaletteFilterHostOperations.PaletteKind kind,
+            final ClassLoader hostClassLoader) {
         final String cacheKey = PALETTE_PROPERTY + "." + kind.name();
-        final Object remembered = component instanceof JComponent
-            ? ((JComponent) component).getClientProperty(cacheKey)
-            : null;
+        final Object remembered =
+                component instanceof JComponent ? ((JComponent) component).getClientProperty(cacheKey) : null;
         if (remembered instanceof java.lang.ref.WeakReference<?> reference && reference.get() != null) {
             return reference.get();
         }
@@ -136,8 +88,8 @@ final class PaletteComponentFinder {
             }
             // Native scene row listener (exact 5.3.02 class) carrying the palette in field "a".
             for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
-                if (listener != null && listener.getClass().getName().equals(
-                    "com.live2d.cubism.view.palette.scene.m")) {
+                if (listener != null
+                        && listener.getClass().getName().equals("com.live2d.cubism.view.palette.scene.m")) {
                     return table;
                 }
             }
@@ -167,9 +119,9 @@ final class PaletteComponentFinder {
 
     static JTable findTreeTable(final Component component, final String classNamePrefix) {
         if (component instanceof JTable table
-            && table.getClass().getName().startsWith(classNamePrefix)
-            && table.isDisplayable()
-            && isInVisibleCubismWindow(table)) {
+                && table.getClass().getName().startsWith(classNamePrefix)
+                && table.isDisplayable()
+                && isInVisibleCubismWindow(table)) {
             return table;
         }
         if (component instanceof Container container && container.isVisible()) {
@@ -183,18 +135,17 @@ final class PaletteComponentFinder {
         return null;
     }
 
-    static JComponent parameterRowsRoot(
-        final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source
-    ) {
-        for (dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator.ParameterControlBinding binding
-            : source.parameterControlBindings()) {
+    static JComponent parameterRowsRoot(final dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator source) {
+        for (dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator.ParameterControlBinding binding :
+                source.parameterControlBindings()) {
             final Component label = binding.label();
             if (!label.isDisplayable() || !isInVisibleCubismWindow(label)) {
                 continue;
             }
             final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(label);
-            if (viewport != null && viewport.getView() instanceof JComponent root
-                && findParameterToolbar(root) != null) {
+            if (viewport != null
+                    && viewport.getView() instanceof JComponent root
+                    && findParameterToolbar(root) != null) {
                 return root;
             }
         }
@@ -224,17 +175,28 @@ final class PaletteComponentFinder {
             final String text = PaletteFilterHostOperations.normalize(button.getText());
             // Exact legacy command first; fall back to multi-language labels.
             hasAdd |= action.equals(PaletteFilterHostOperations.normalize(PARAM_ADD_COMMAND))
-                || action.contains("add_new_parameter") || action.contains("newparameter") || action.contains("createparameter")
-                || tooltip.contains("创建新参数") || tooltip.contains("create parameter") || tooltip.contains("パラメータ作成")
-                || text.contains("创建新参数");
+                    || action.contains("add_new_parameter")
+                    || action.contains("newparameter")
+                    || action.contains("createparameter")
+                    || tooltip.contains("创建新参数")
+                    || tooltip.contains("create parameter")
+                    || tooltip.contains("パラメータ作成")
+                    || text.contains("创建新参数");
             hasFolder |= action.equals(PaletteFilterHostOperations.normalize(PARAM_FOLDER_COMMAND))
-                || action.contains("new_folder") || action.contains("newfolder") || action.contains("createfolder")
-                || tooltip.contains("创建新文件夹") || tooltip.contains("create folder") || tooltip.contains("フォルダ作成")
-                || text.contains("创建新文件夹");
+                    || action.contains("new_folder")
+                    || action.contains("newfolder")
+                    || action.contains("createfolder")
+                    || tooltip.contains("创建新文件夹")
+                    || tooltip.contains("create folder")
+                    || tooltip.contains("フォルダ作成")
+                    || text.contains("创建新文件夹");
             hasDelete |= action.equals(PaletteFilterHostOperations.normalize(PARAM_DELETE_COMMAND))
-                || action.contains("delete") || action.contains("remove")
-                || tooltip.contains("删除选定的元素") || tooltip.contains("delete selected") || tooltip.contains("削除")
-                || text.contains("删除");
+                    || action.contains("delete")
+                    || action.contains("remove")
+                    || tooltip.contains("删除选定的元素")
+                    || tooltip.contains("delete selected")
+                    || tooltip.contains("削除")
+                    || text.contains("删除");
         }
         return hasAdd && hasFolder && hasDelete;
     }

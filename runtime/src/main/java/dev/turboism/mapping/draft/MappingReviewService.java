@@ -1,14 +1,11 @@
 package dev.turboism.mapping.draft;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.core.schema.diagnostic.DiagnosticReportValidator;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -16,7 +13,6 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -40,60 +36,62 @@ public final class MappingReviewService {
     private final MappingReviewValidator reviewValidator = new MappingReviewValidator();
     private final MappingUpdateDiffValidator diffValidator = new MappingUpdateDiffValidator();
     private final DiagnosticReportValidator diagnosticValidator = new DiagnosticReportValidator();
-    private final StaticVerificationRecordValidator staticVerificationRecordValidator = new StaticVerificationRecordValidator();
+    private final StaticVerificationRecordValidator staticVerificationRecordValidator =
+            new StaticVerificationRecordValidator();
 
     public MappingReviewService(final Path root, final JarScanPolicy policy, final AtomicMover atomicMover) {
         this(root, policy, atomicMover, ArtifactSnapshotter.system(), LockAcquirer.system(), Clock.systemUTC());
     }
 
     MappingReviewService(
-        final Path root,
-        final JarScanPolicy policy,
-        final AtomicMover atomicMover,
-        final ArtifactSnapshotter snapshotter
-    ) {
+            final Path root,
+            final JarScanPolicy policy,
+            final AtomicMover atomicMover,
+            final ArtifactSnapshotter snapshotter) {
         this(root, policy, atomicMover, snapshotter, LockAcquirer.system(), Clock.systemUTC());
     }
 
     MappingReviewService(
-        final Path root,
-        final JarScanPolicy policy,
-        final AtomicMover atomicMover,
-        final ArtifactSnapshotter snapshotter,
-        final LockAcquirer lockAcquirer
-    ) {
+            final Path root,
+            final JarScanPolicy policy,
+            final AtomicMover atomicMover,
+            final ArtifactSnapshotter snapshotter,
+            final LockAcquirer lockAcquirer) {
         this(root, policy, atomicMover, snapshotter, lockAcquirer, Clock.systemUTC());
     }
 
     MappingReviewService(
-        final Path root,
-        final JarScanPolicy policy,
-        final AtomicMover atomicMover,
-        final ArtifactSnapshotter snapshotter,
-        final LockAcquirer lockAcquirer,
-        final Clock clock
-    ) {
-        this(root, policy, AtomicReplacement.system(root.toAbsolutePath().normalize(), atomicMover), snapshotter, lockAcquirer, clock);
+            final Path root,
+            final JarScanPolicy policy,
+            final AtomicMover atomicMover,
+            final ArtifactSnapshotter snapshotter,
+            final LockAcquirer lockAcquirer,
+            final Clock clock) {
+        this(
+                root,
+                policy,
+                AtomicReplacement.system(root.toAbsolutePath().normalize(), atomicMover),
+                snapshotter,
+                lockAcquirer,
+                clock);
     }
 
     MappingReviewService(
-        final Path root,
-        final JarScanPolicy policy,
-        final AtomicReplacement atomicReplacement,
-        final ArtifactSnapshotter snapshotter,
-        final LockAcquirer lockAcquirer
-    ) {
+            final Path root,
+            final JarScanPolicy policy,
+            final AtomicReplacement atomicReplacement,
+            final ArtifactSnapshotter snapshotter,
+            final LockAcquirer lockAcquirer) {
         this(root, policy, atomicReplacement, snapshotter, lockAcquirer, Clock.systemUTC());
     }
 
     MappingReviewService(
-        final Path root,
-        final JarScanPolicy policy,
-        final AtomicReplacement atomicReplacement,
-        final ArtifactSnapshotter snapshotter,
-        final LockAcquirer lockAcquirer,
-        final Clock clock
-    ) {
+            final Path root,
+            final JarScanPolicy policy,
+            final AtomicReplacement atomicReplacement,
+            final ArtifactSnapshotter snapshotter,
+            final LockAcquirer lockAcquirer,
+            final Clock clock) {
         this.root = Objects.requireNonNull(root, "root").toAbsolutePath().normalize();
         this.policy = Objects.requireNonNull(policy, "policy");
         this.atomicReplacement = Objects.requireNonNull(atomicReplacement, "atomicReplacement");
@@ -120,9 +118,13 @@ public final class MappingReviewService {
      */
     public GeneratedBundle generate(final GenerateRequest request) {
         ForbiddenSelectorTerms.requireAllowed(
-            request.semanticName(), request.expectedOldRuntime(), request.callerOwner(), request.callerName(),
-            request.callerDescriptor(), request.targetMethodName(), request.targetMethodDescriptor()
-        );
+                request.semanticName(),
+                request.expectedOldRuntime(),
+                request.callerOwner(),
+                request.callerName(),
+                request.callerDescriptor(),
+                request.targetMethodName(),
+                request.targetMethodDescriptor());
         final Path artifact = checkedArtifact(request.artifact());
         final Path packPath = resolveTracked(request.targetPack());
         final byte[] packBytes = readBytes(packPath, "PACK_READ_FAILED");
@@ -143,7 +145,7 @@ public final class MappingReviewService {
         final BoundedJarScanner.Edge edge = scan.targets().get(0);
         ForbiddenSelectorTerms.requireAllowed(edge.owner(), edge.name(), edge.descriptor());
         final ExactJsonRuntimeReplacement.Replacement replacement = ExactJsonRuntimeReplacement.replace(
-            packBytes, pack, request.semanticName(), request.expectedOldRuntime(), edge.owner());
+                packBytes, pack, request.semanticName(), request.expectedOldRuntime(), edge.owner());
         final byte[] resultBytes = replacement.bytes();
         final JsonNode resultPack = parse(resultBytes, "RESULT_PACK_JSON_INVALID");
         requireValidPack(resultPack);
@@ -154,16 +156,21 @@ public final class MappingReviewService {
         candidate.put("operation", "UPDATE_CLASS_RUNTIME");
         candidate.putObject("target").put("pack", request.targetPack()).put("semanticName", request.semanticName());
         candidate.put("basePackSha256", sha256(packBytes));
-        candidate.putObject("artifact")
-            .put("name", artifact.getFileName().toString())
-            .put("size", scan.size())
-            .put("sha256", scan.sha256());
+        candidate
+                .putObject("artifact")
+                .put("name", artifact.getFileName().toString())
+                .put("size", scan.size())
+                .put("sha256", scan.sha256());
         candidate.set("scannerPolicy", policyJson());
         final ObjectNode evidence = candidate.putObject("evidence");
         evidence.putObject("caller")
-            .put("owner", request.callerOwner()).put("name", request.callerName()).put("descriptor", request.callerDescriptor());
+                .put("owner", request.callerOwner())
+                .put("name", request.callerName())
+                .put("descriptor", request.callerDescriptor());
         evidence.putObject("selectedTarget")
-            .put("owner", edge.owner()).put("name", edge.name()).put("descriptor", edge.descriptor());
+                .put("owner", edge.owner())
+                .put("name", edge.name())
+                .put("descriptor", edge.descriptor());
         evidence.put("invocation", edge.invocation());
         candidate.putObject("before").put("kind", "class").put("runtime", request.expectedOldRuntime());
         candidate.putObject("after").put("kind", "class").put("runtime", edge.owner());
@@ -180,8 +187,9 @@ public final class MappingReviewService {
         review.putNull("reviewedAt");
         requireValidReview(review);
         final byte[] reviewBytes = CandidateJson.write(review);
-        final ExactJsonRuntimeReplacement.Replacement verifiedDiff = ExactJsonRuntimeReplacement.verifyOnlyRuntimeChanged(
-            packBytes, resultBytes, request.semanticName(), request.expectedOldRuntime(), edge.owner());
+        final ExactJsonRuntimeReplacement.Replacement verifiedDiff =
+                ExactJsonRuntimeReplacement.verifyOnlyRuntimeChanged(
+                        packBytes, resultBytes, request.semanticName(), request.expectedOldRuntime(), edge.owner());
         final ObjectNode diff = diff(request.targetPack(), request.semanticName(), verifiedDiff, candidateBytes);
         final var diffErrors = diffValidator.validate(diff);
         if (!diffErrors.isEmpty()) fail("DIFF_VALIDATION_FAILED", diffErrors.toString());
@@ -197,14 +205,22 @@ public final class MappingReviewService {
         final Path reviewPath = output.resolve(stem + ".review.json");
         final Path diffPath = output.resolve(stem + ".diff.json");
         final Path diagnosticPath = output.resolve(stem + ".diagnostic.json");
-        publishBundle(output, List.of(
-            new GeneratedFile(candidatePath, candidateBytes),
-            new GeneratedFile(reviewPath, reviewBytes),
-            new GeneratedFile(diffPath, diffBytes),
-            new GeneratedFile(diagnosticPath, diagnosticBytes)
-        ));
-        return new GeneratedBundle(candidatePath, candidateBytes, reviewPath, reviewBytes, diffPath, diffBytes,
-            diagnosticPath, diagnosticBytes);
+        publishBundle(
+                output,
+                List.of(
+                        new GeneratedFile(candidatePath, candidateBytes),
+                        new GeneratedFile(reviewPath, reviewBytes),
+                        new GeneratedFile(diffPath, diffBytes),
+                        new GeneratedFile(diagnosticPath, diagnosticBytes)));
+        return new GeneratedBundle(
+                candidatePath,
+                candidateBytes,
+                reviewPath,
+                reviewBytes,
+                diffPath,
+                diffBytes,
+                diagnosticPath,
+                diagnosticBytes);
     }
 
     /**
@@ -239,7 +255,9 @@ public final class MappingReviewService {
         }
 
         final Path artifact = checkedArtifact(request.artifact());
-        if (!artifact.getFileName().toString().equals(candidate.at("/artifact/name").asText())) {
+        if (!artifact.getFileName()
+                .toString()
+                .equals(candidate.at("/artifact/name").asText())) {
             fail("ARTIFACT_MISMATCH", "artifact file name does not match the generated candidate");
         }
         final Path packPath = resolveTracked(candidate.at("/target/pack").asText());
@@ -276,19 +294,22 @@ public final class MappingReviewService {
             if (Files.isSymbolicLink(resolved) || !Files.isRegularFile(resolved, LinkOption.NOFOLLOW_LINKS)) {
                 fail("PACK_PATH_INVALID", "pack must be a regular non-symlink file");
             }
-            if (!resolved.toRealPath(LinkOption.NOFOLLOW_LINKS).startsWith(root.toRealPath(LinkOption.NOFOLLOW_LINKS))) {
+            if (!resolved.toRealPath(LinkOption.NOFOLLOW_LINKS)
+                    .startsWith(root.toRealPath(LinkOption.NOFOLLOW_LINKS))) {
                 fail("PACK_PATH_INVALID", "pack real path escaped the worktree");
             }
             final Process process = new ProcessBuilder(
-                "git", "-C", root.toString(), "ls-files", "--error-unmatch", "--", relative
-            ).redirectErrorStream(true).start();
+                            "git", "-C", root.toString(), "ls-files", "--error-unmatch", "--", relative)
+                    .redirectErrorStream(true)
+                    .start();
             process.getInputStream().readAllBytes();
             if (process.waitFor() != 0) fail("PACK_NOT_TRACKED", "mapping pack must be tracked by git");
             return resolved;
         } catch (DraftMappingException exception) {
             throw exception;
         } catch (IOException | InterruptedException | SecurityException exception) {
-            if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+            if (exception instanceof InterruptedException)
+                Thread.currentThread().interrupt();
             throw new DraftMappingException("PACK_PATH_INVALID", "mapping pack path could not be verified", exception);
         }
     }
@@ -302,7 +323,9 @@ public final class MappingReviewService {
                 boolean referenced = false;
                 for (Path path : files.toList()) {
                     if (Files.isSymbolicLink(path)) {
-                        fail("STATIC_VERIFICATION_RECORD_INVALID", "verification directory tree must not contain symlinks");
+                        fail(
+                                "STATIC_VERIFICATION_RECORD_INVALID",
+                                "verification directory tree must not contain symlinks");
                     }
                     if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) continue;
                     if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
@@ -310,34 +333,41 @@ public final class MappingReviewService {
                     }
                     if (!path.toString().endsWith(".json")) continue;
                     final JsonNode record = parse(
-                        FileSafety.readAllBytesNoFollow(path, "STATIC_VERIFICATION_RECORD_INVALID"),
-                        "STATIC_VERIFICATION_RECORD_INVALID");
-                    if (!staticVerificationRecordValidator.validate(record, root.relativize(path).toString()).isEmpty()) {
+                            FileSafety.readAllBytesNoFollow(path, "STATIC_VERIFICATION_RECORD_INVALID"),
+                            "STATIC_VERIFICATION_RECORD_INVALID");
+                    if (!staticVerificationRecordValidator
+                            .validate(record, root.relativize(path).toString())
+                            .isEmpty()) {
                         fail("STATIC_VERIFICATION_RECORD_INVALID", "verification record failed schema validation");
                     }
                     for (JsonNode selector : record.path("selectors")) {
                         if (semanticName.equals(selector.path("mappingId").asText())) referenced = true;
                     }
                 }
-                if (referenced) fail("PACK_REFERENCED_BY_VERIFIED_STATIC", "mapping is referenced by VERIFIED_STATIC evidence");
+                if (referenced)
+                    fail("PACK_REFERENCED_BY_VERIFIED_STATIC", "mapping is referenced by VERIFIED_STATIC evidence");
             }
         } catch (DraftMappingException exception) {
             throw exception;
         } catch (IOException | SecurityException exception) {
-            throw new DraftMappingException("STATIC_VERIFICATION_RECORD_INVALID", "could not safely scan verification records", exception);
+            throw new DraftMappingException(
+                    "STATIC_VERIFICATION_RECORD_INVALID", "could not safely scan verification records", exception);
         }
     }
 
     private ApplyPreparation prepareApply(final JsonNode candidate, final Path artifact, final Path packPath) {
         final long expectedArtifactSize = candidate.at("/artifact/size").asLong();
-        final long candidateLimit = candidate.at("/scannerPolicy/maxArtifactBytes").asLong();
+        final long candidateLimit =
+                candidate.at("/scannerPolicy/maxArtifactBytes").asLong();
         if (expectedArtifactSize > policy.maxArtifactBytes() || expectedArtifactSize > candidateLimit) {
             fail("ARTIFACT_MISMATCH", "artifact size exceeds the active or recorded scan policy");
         }
-        final FileSafety.Digest artifactDigest = FileSafety.digest(
-            artifact, "ARTIFACT_READ_FAILED", expectedArtifactSize, "ARTIFACT_MISMATCH");
+        final FileSafety.Digest artifactDigest =
+                FileSafety.digest(artifact, "ARTIFACT_READ_FAILED", expectedArtifactSize, "ARTIFACT_MISMATCH");
         if (artifactDigest.size() != expectedArtifactSize
-            || !artifactDigest.sha256().equals(candidate.at("/artifact/sha256").asText())) {
+                || !artifactDigest
+                        .sha256()
+                        .equals(candidate.at("/artifact/sha256").asText())) {
             fail("ARTIFACT_MISMATCH", "artifact does not match the generated candidate");
         }
         final byte[] packBytes = readBytes(packPath, "PACK_READ_FAILED");
@@ -348,19 +378,29 @@ public final class MappingReviewService {
         requireValidPack(pack);
         final String semanticName = candidate.at("/target/semanticName").asText();
         final JsonNode currentEntry = uniqueEntry(pack, semanticName);
-        if (!candidate.at("/before/kind").asText().equals(currentEntry.path("kind").asText())
-            || !candidate.at("/before/runtime").asText().equals(currentEntry.path("runtime").asText())) {
+        if (!candidate
+                        .at("/before/kind")
+                        .asText()
+                        .equals(currentEntry.path("kind").asText())
+                || !candidate
+                        .at("/before/runtime")
+                        .asText()
+                        .equals(currentEntry.path("runtime").asText())) {
             fail("PACK_BEFORE_MISMATCH", "current target no longer matches candidate before state");
         }
         rejectStaticVerificationReference(semanticName);
 
         final ExactJsonRuntimeReplacement.Replacement replacement = ExactJsonRuntimeReplacement.replace(
-            packBytes, pack, semanticName, candidate.at("/before/runtime").asText(), candidate.at("/after/runtime").asText());
+                packBytes,
+                pack,
+                semanticName,
+                candidate.at("/before/runtime").asText(),
+                candidate.at("/after/runtime").asText());
         final byte[] resultBytes = replacement.bytes();
         final JsonNode resultPack = parse(resultBytes, "RESULT_PACK_JSON_INVALID");
         requireValidPack(resultPack);
         ExactJsonRuntimeReplacement.verifyOnlyRuntimeChanged(
-            packBytes, resultBytes, semanticName, replacement.before(), replacement.after());
+                packBytes, resultBytes, semanticName, replacement.before(), replacement.after());
         final String resultHash = sha256(resultBytes);
         if (!resultHash.equals(candidate.path("resultPackSha256").asText())) {
             fail("RESULT_PACK_HASH_MISMATCH", "candidate result hash does not match the exact replacement bytes");
@@ -371,26 +411,32 @@ public final class MappingReviewService {
     private ApplyResult writeUnderLock(final JsonNode candidate, final Path artifact, final Path target) {
         final Path lockPath = target.resolveSibling("." + target.getFileName() + ".mapping-review.lock");
         try (LockAcquirer.AcquiredLock ignored = lockAcquirer.acquire(lockPath)) {
-            final Path lockedTarget = resolveTracked(candidate.at("/target/pack").asText());
+            final Path lockedTarget =
+                    resolveTracked(candidate.at("/target/pack").asText());
             final ApplyPreparation locked = prepareApply(candidate, artifact, lockedTarget);
-            atomicWrite(target, artifact, candidate.at("/artifact/sha256").asText(),
-                candidate.path("basePackSha256").asText(), locked.resultBytes(), locked.resultHash());
+            atomicWrite(
+                    target,
+                    artifact,
+                    candidate.at("/artifact/sha256").asText(),
+                    candidate.path("basePackSha256").asText(),
+                    locked.resultBytes(),
+                    locked.resultHash());
             return new ApplyResult(true, locked.resultHash());
         } catch (DraftMappingException exception) {
             throw exception;
         } catch (IOException exception) {
-            throw new DraftMappingException("APPLY_LOCK_FAILED", "could not lock mapping pack for replacement", exception);
+            throw new DraftMappingException(
+                    "APPLY_LOCK_FAILED", "could not lock mapping pack for replacement", exception);
         }
     }
 
     private void atomicWrite(
-        final Path target,
-        final Path artifact,
-        final String expectedArtifactHash,
-        final String expectedBaseHash,
-        final byte[] bytes,
-        final String expectedResultHash
-    ) {
+            final Path target,
+            final Path artifact,
+            final String expectedArtifactHash,
+            final String expectedBaseHash,
+            final byte[] bytes,
+            final String expectedResultHash) {
         final Path parent = target.getParent();
         final String prefix = "." + target.getFileName() + ".mapping-review-";
         Path temporary = null;
@@ -404,18 +450,20 @@ public final class MappingReviewService {
             try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
                 channel.force(true);
             }
-            atomicReplacement.replace(
-                temporary, target, artifact, expectedArtifactHash, expectedBaseHash);
+            atomicReplacement.replace(temporary, target, artifact, expectedArtifactHash, expectedBaseHash);
             moved = true;
             final FileSafety.Digest written = FileSafety.digest(target, "PACK_READ_FAILED");
             if (!written.sha256().equals(expectedResultHash)) {
-                fail("RESULT_PACK_POST_WRITE_MISMATCH", "written mapping pack does not match the reviewed result bytes");
+                fail(
+                        "RESULT_PACK_POST_WRITE_MISMATCH",
+                        "written mapping pack does not match the reviewed result bytes");
             }
         } catch (DraftMappingException exception) {
             failure = exception;
             throw exception;
         } catch (IOException exception) {
-            failure = new DraftMappingException("ATOMIC_WRITE_FAILED", "could not atomically replace mapping pack", exception);
+            failure = new DraftMappingException(
+                    "ATOMIC_WRITE_FAILED", "could not atomically replace mapping pack", exception);
             throw failure;
         } finally {
             if (!moved && temporary != null) {
@@ -434,7 +482,8 @@ public final class MappingReviewService {
         } catch (UnsupportedOperationException exception) {
             return null;
         } catch (IOException exception) {
-            throw new DraftMappingException("ATOMIC_WRITE_FAILED", "could not read mapping pack permissions", exception);
+            throw new DraftMappingException(
+                    "ATOMIC_WRITE_FAILED", "could not read mapping pack permissions", exception);
         }
     }
 
@@ -458,21 +507,20 @@ public final class MappingReviewService {
      * Derived, deterministic reviewer presentation only. apply() does not read or trust this file.
      */
     private static ObjectNode diff(
-        final String targetPack,
-        final String semanticName,
-        final ExactJsonRuntimeReplacement.Replacement replacement,
-        final byte[] candidateBytes
-    ) {
+            final String targetPack,
+            final String semanticName,
+            final ExactJsonRuntimeReplacement.Replacement replacement,
+            final byte[] candidateBytes) {
         final ObjectNode node = CandidateJson.MAPPER.createObjectNode();
         node.put("format", "turboism.mapping.update.diff");
         node.put("schemaVersion", 1);
         node.put("candidateSha256", sha256(candidateBytes));
         node.putObject("target").put("pack", targetPack).put("semanticName", semanticName);
         node.putArray("changes")
-            .addObject()
-            .put("path", "entries[semanticName=" + semanticName + "].runtime")
-            .put("before", replacement.before())
-            .put("after", replacement.after());
+                .addObject()
+                .put("path", "entries[semanticName=" + semanticName + "].runtime")
+                .put("before", replacement.before())
+                .put("after", replacement.after());
         return node;
     }
 
@@ -481,8 +529,10 @@ public final class MappingReviewService {
             fail(worktreeId == null ? "WORKTREE_ID_MISSING" : "WORKTREE_ID_INVALID", "a valid worktree ID is required");
         }
         final Path output = supplied == null
-            ? root.resolve("build/worktree").resolve(worktreeId).resolve("mapping-review")
-            : (supplied.isAbsolute() ? supplied : root.resolve(supplied)).toAbsolutePath().normalize();
+                ? root.resolve("build/worktree").resolve(worktreeId).resolve("mapping-review")
+                : (supplied.isAbsolute() ? supplied : root.resolve(supplied))
+                        .toAbsolutePath()
+                        .normalize();
         if (!output.startsWith(root) || output.equals(root)) {
             fail("OUTPUT_PATH_INVALID", "output directory must remain below the worktree root");
         }
@@ -490,7 +540,7 @@ public final class MappingReviewService {
             FileSafety.requireSafeRoot(root);
             FileSafety.requireExistingParentChain(root, output.resolve("bundle.marker"), "OUTPUT_PATH_INVALID");
             if (Files.exists(output, LinkOption.NOFOLLOW_LINKS)
-                && (Files.isSymbolicLink(output) || !Files.isDirectory(output, LinkOption.NOFOLLOW_LINKS))) {
+                    && (Files.isSymbolicLink(output) || !Files.isDirectory(output, LinkOption.NOFOLLOW_LINKS))) {
                 fail("OUTPUT_PATH_INVALID", "output path must be a real directory");
             }
             return output;
@@ -500,20 +550,19 @@ public final class MappingReviewService {
     }
 
     private static ObjectNode successDiagnostic(
-        final String worktreeId,
-        final String semanticName,
-        final Instant createdAt
-    ) {
+            final String worktreeId, final String semanticName, final Instant createdAt) {
         final ObjectNode diagnostic = CandidateJson.MAPPER.createObjectNode();
         diagnostic.put("format", "turboism.diagnostic.report");
         diagnostic.put("schemaVersion", 1);
         diagnostic.put("createdAt", createdAt.toString());
         diagnostic.put("worktreeId", worktreeId);
-        diagnostic.putArray("problems").addObject()
-            .put("code", "MAPPING_UPDATE_CANDIDATE_GENERATED")
-            .put("severity", "INFO")
-            .put("message", "Generated one DRAFT mapping update candidate for human review")
-            .put("path", "mapping:" + semanticName);
+        diagnostic
+                .putArray("problems")
+                .addObject()
+                .put("code", "MAPPING_UPDATE_CANDIDATE_GENERATED")
+                .put("severity", "INFO")
+                .put("message", "Generated one DRAFT mapping update candidate for human review")
+                .put("path", "mapping:" + semanticName);
         return diagnostic;
     }
 
@@ -525,10 +574,14 @@ public final class MappingReviewService {
             FileSafety.requireDirectoryNoLinks(output, "OUTPUT_PATH_INVALID");
             for (GeneratedFile file : files) {
                 if (Files.exists(file.path(), LinkOption.NOFOLLOW_LINKS)) {
-                    fail("GENERATED_FILE_EXISTS", "generated review file already exists: " + file.path().getFileName());
+                    fail(
+                            "GENERATED_FILE_EXISTS",
+                            "generated review file already exists: "
+                                    + file.path().getFileName());
                 }
             }
-            temporary = Files.createTempDirectory(output.getParent(), ".mapping-review-bundle-", privateDirectoryAttributes());
+            temporary = Files.createTempDirectory(
+                    output.getParent(), ".mapping-review-bundle-", privateDirectoryAttributes());
             final List<Path> staged = new ArrayList<>();
             for (GeneratedFile file : files) {
                 final Path stagedFile = temporary.resolve(file.path().getFileName());
@@ -537,15 +590,18 @@ public final class MappingReviewService {
             }
             for (int index = 0; index < files.size(); index++) {
                 FileSafety.copyCreateNewNoFollow(
-                    staged.get(index), files.get(index).path(), published, "GENERATED_FILE_WRITE_FAILED");
+                        staged.get(index), files.get(index).path(), published, "GENERATED_FILE_WRITE_FAILED");
             }
         } catch (DraftMappingException exception) {
             cleanupPublished(published, exception);
             throw exception;
         } catch (IOException | SecurityException exception) {
             final DraftMappingException failure = new DraftMappingException(
-                Files.exists(output, LinkOption.NOFOLLOW_LINKS) ? "GENERATED_FILE_WRITE_FAILED" : "OUTPUT_PATH_INVALID",
-                "could not safely publish generated review bundle", exception);
+                    Files.exists(output, LinkOption.NOFOLLOW_LINKS)
+                            ? "GENERATED_FILE_WRITE_FAILED"
+                            : "OUTPUT_PATH_INVALID",
+                    "could not safely publish generated review bundle",
+                    exception);
             cleanupPublished(published, failure);
             throw failure;
         } finally {
@@ -554,23 +610,21 @@ public final class MappingReviewService {
     }
 
     static void cleanupPublished(
-        final List<FileSafety.PublicationOwnership> published,
-        final DraftMappingException failure
-    ) {
+            final List<FileSafety.PublicationOwnership> published, final DraftMappingException failure) {
         for (FileSafety.PublicationOwnership ownership : published) {
             try {
-                final BasicFileAttributes current = Files.readAttributes(
-                    ownership.path(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+                final BasicFileAttributes current =
+                        Files.readAttributes(ownership.path(), BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
                 if (ownership.fileKey() == null || current.fileKey() == null) {
-                    failure.addSuppressed(new IOException(
-                        "cleanup retained publication because filesystem identity is unavailable: "
-                            + ownership.path().getFileName()));
+                    failure.addSuppressed(
+                            new IOException("cleanup retained publication because filesystem identity is unavailable: "
+                                    + ownership.path().getFileName()));
                     continue;
                 }
                 if (FileSafety.identityChanged(ownership.attributes(), current)) {
-                    failure.addSuppressed(new IOException(
-                        "cleanup retained publication because pathname ownership changed: "
-                            + ownership.path().getFileName()));
+                    failure.addSuppressed(
+                            new IOException("cleanup retained publication because pathname ownership changed: "
+                                    + ownership.path().getFileName()));
                     continue;
                 }
                 Files.delete(ownership.path());
@@ -616,11 +670,12 @@ public final class MappingReviewService {
 
     private static FileAttribute<?>[] privateDirectoryAttributes() {
         try {
-            return new FileAttribute<?>[]{java.nio.file.attribute.PosixFilePermissions.asFileAttribute(Set.of(
-                PosixFilePermission.OWNER_READ,
-                PosixFilePermission.OWNER_WRITE,
-                PosixFilePermission.OWNER_EXECUTE
-            ))};
+            return new FileAttribute<?>[] {
+                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.OWNER_EXECUTE))
+            };
         } catch (UnsupportedOperationException exception) {
             return new FileAttribute<?>[0];
         }
@@ -656,12 +711,26 @@ public final class MappingReviewService {
             baseBytes = baseBytes.clone();
             resultBytes = resultBytes.clone();
         }
-        @Override public byte[] baseBytes() { return baseBytes.clone(); }
-        @Override public byte[] resultBytes() { return resultBytes.clone(); }
+
+        @Override
+        public byte[] baseBytes() {
+            return baseBytes.clone();
+        }
+
+        @Override
+        public byte[] resultBytes() {
+            return resultBytes.clone();
+        }
     }
 
     private record GeneratedFile(Path path, byte[] bytes) {
-        GeneratedFile { bytes = bytes.clone(); }
-        @Override public byte[] bytes() { return bytes.clone(); }
+        GeneratedFile {
+            bytes = bytes.clone();
+        }
+
+        @Override
+        public byte[] bytes() {
+            return bytes.clone();
+        }
     }
 }

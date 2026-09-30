@@ -1,10 +1,16 @@
 package dev.turboism.userfile;
 
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import dev.turboism.core.runtime.RuntimeScheduler;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -16,29 +22,22 @@ import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.ui.UserFileRequestStatus;
 import dev.turboism.task.RuntimePluginTaskScheduler;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.lang.reflect.Field;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class RuntimeUserFileAccessServiceTest {
 
@@ -62,18 +61,16 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
-    void oneOperationReadIsBoundedConsumedAndLateContinuationUsesPluginExecutor()
-        throws Exception {
+    void oneOperationReadIsBoundedConsumedAndLateContinuationUsesPluginExecutor() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "hello");
-        final RuntimeUserFileAccessService service = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.fixedSelection(selected)
-        );
-        final UserFileHandle handle = service.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
 
         final var stage = service.readUtf8(handle, 3);
         final var result = stage.toCompletableFuture().get(2, TimeUnit.SECONDS);
@@ -90,23 +87,22 @@ class RuntimeUserFileAccessServiceTest {
         assertTrue(continuationRan.await(1, TimeUnit.SECONDS));
         assertTrue(continuationThread.get().contains("plugin.user-file-test"));
 
-        final var expired = service.readUtf8(handle, 16).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
-        assertEquals(UserFileErrorCode.GRANT_EXPIRED, expired.error().orElseThrow().code());
+        final var expired = service.readUtf8(handle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.GRANT_EXPIRED, expired.error().orElseThrow().code());
     }
 
     @Test
     void untilDisableWriteUsesAtomicSameTargetAndDefensiveByteSnapshot() throws Exception {
         final Path selected = temporary.resolve("output.csv");
         Files.writeString(selected, "old");
-        final RuntimeUserFileAccessService service = service(
-            allFilePermissions(),
-            UserFileGrantSource.fixedSelection(selected)
-        );
-        final UserFileHandle handle = service.request(request(
-            UserFileMode.WRITE,
-            UserFileLifetime.UNTIL_DISABLE
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final RuntimeUserFileAccessService service =
+                service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.WRITE, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
 
         final byte[] bytes = {1, 2, 3};
         final var write = service.writeBytesAtomic(handle, bytes);
@@ -115,70 +111,63 @@ class RuntimeUserFileAccessServiceTest {
         assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(selected));
         assertEquals(UserFileHandleState.ACTIVE, handle.state());
 
-        assertTrue(service.writeUtf8Atomic(handle, "second").toCompletableFuture()
-            .get(2, TimeUnit.SECONDS).written());
+        assertTrue(service.writeUtf8Atomic(handle, "second")
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .written());
         assertEquals("second", Files.readString(selected));
 
-        final var mismatch = service.readUtf8(handle, 16).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
-        assertEquals(UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
+        final var mismatch = service.readUtf8(handle, 16).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(
+                UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
         assertEquals(UserFileHandleState.ACTIVE, handle.state());
     }
 
     @Test
     void permissionCanceledAndUnavailableRequestsUseExactResultAlgebra() throws Exception {
         RuntimeUserFileAccessService denied = service(
-            Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),
-            UserFileGrantSource.fixedSelection(temporary.resolve("denied.csv"))
-        );
-        var deniedResult = denied.request(request(
-            UserFileMode.WRITE,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS);
+                Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),
+                UserFileGrantSource.fixedSelection(temporary.resolve("denied.csv")));
+        var deniedResult = denied.request(request(UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertEquals(UserFileRequestStatus.DENIED, deniedResult.status());
         assertEquals(
-            UserFileErrorCode.PERMISSION_DENIED,
-            deniedResult.error().orElseThrow().code()
-        );
+                UserFileErrorCode.PERMISSION_DENIED,
+                deniedResult.error().orElseThrow().code());
 
-        final RuntimeUserFileAccessService canceled = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.canceled()
-        );
+        final RuntimeUserFileAccessService canceled =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.canceled());
         assertEquals(
-            UserFileRequestStatus.CANCELED,
-            canceled.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
-                .toCompletableFuture().get(2, TimeUnit.SECONDS).status()
-        );
+                UserFileRequestStatus.CANCELED,
+                canceled.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .status());
 
-        final RuntimeUserFileAccessService unavailable = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.unavailable()
-        );
-        final var unavailableResult = unavailable.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final RuntimeUserFileAccessService unavailable =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.unavailable());
+        final var unavailableResult = unavailable
+                .request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertEquals(UserFileRequestStatus.UNAVAILABLE, unavailableResult.status());
         assertEquals(
-            UserFileErrorCode.RUNTIME_UNAVAILABLE,
-            unavailableResult.error().orElseThrow().code()
-        );
+                UserFileErrorCode.RUNTIME_UNAVAILABLE,
+                unavailableResult.error().orElseThrow().code());
     }
 
     @Test
     void userFileFailuresAreCollectedOnceWithoutExposingGrantPaths() throws Exception {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final RuntimeUserFileAccessService denied = service(
-            Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),
-            UserFileGrantSource.fixedSelection(temporary.resolve("C:/Users/private/denied.csv")),
-            failures
-        );
+                Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST),
+                UserFileGrantSource.fixedSelection(temporary.resolve("C:/Users/private/denied.csv")),
+                failures);
 
-        final var result = denied.request(request(
-            UserFileMode.WRITE,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        final var result = denied.request(request(UserFileMode.WRITE, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
 
         assertEquals(UserFileRequestStatus.DENIED, result.status());
         final var collected = failures.snapshot().storageFailures();
@@ -194,59 +183,71 @@ class RuntimeUserFileAccessServiceTest {
     void forgedForeignRevokedAndModeMismatchGrantsRemainDistinct() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "value");
-        final RuntimeUserFileAccessService first = service(
-            allFilePermissions(),
-            UserFileGrantSource.fixedSelection(selected)
-        );
+        final RuntimeUserFileAccessService first =
+                service(allFilePermissions(), UserFileGrantSource.fixedSelection(selected));
         final RuntimeUserFileAccessService second = new RuntimeUserFileAccessService(
-            "dev.turboism.plugin.other",
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.fixedSelection(selected),
-            tasks,
-            scope
-        );
-        final UserFileHandle firstHandle = first.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.UNTIL_DISABLE
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+                "dev.turboism.plugin.other",
+                permissions(UserFileMode.READ),
+                UserFileGrantSource.fixedSelection(selected),
+                tasks,
+                scope);
+        final UserFileHandle firstHandle = first.request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
 
         assertEquals(
-            UserFileErrorCode.FOREIGN_GRANT,
-            second.readUtf8(firstHandle, 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).error().orElseThrow().code()
-        );
+                UserFileErrorCode.FOREIGN_GRANT,
+                second.readUtf8(firstHandle, 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code());
         assertEquals(
-            UserFileErrorCode.INVALID_GRANT,
-            first.readUtf8(new ForgedHandle(), 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).error().orElseThrow().code()
-        );
+                UserFileErrorCode.INVALID_GRANT,
+                first.readUtf8(new ForgedHandle(), 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code());
 
         firstHandle.revoke();
         assertEquals(UserFileHandleState.REVOKED, firstHandle.state());
         assertEquals(
-            UserFileErrorCode.GRANT_REVOKED,
-            first.readUtf8(firstHandle, 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).error().orElseThrow().code()
-        );
+                UserFileErrorCode.GRANT_REVOKED,
+                first.readUtf8(firstHandle, 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code());
 
-        final UserFileHandle oneOperationRead = first.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final UserFileHandle oneOperationRead = first.request(
+                        request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
         final var mismatch = first.writeUtf8Atomic(oneOperationRead, "bad")
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertEquals(UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertEquals(
-            UserFileHandleState.ACTIVE,
-            oneOperationRead.state(),
-            "a rejected call must not consume a one-operation grant"
-        );
+                UserFileErrorCode.MODE_MISMATCH, mismatch.error().orElseThrow().code());
         assertEquals(
-            "value",
-            first.readUtf8(oneOperationRead, 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).value().orElseThrow(),
-            "the grant must still serve a matching call after a mode-mismatched one"
-        );
+                UserFileHandleState.ACTIVE,
+                oneOperationRead.state(),
+                "a rejected call must not consume a one-operation grant");
+        assertEquals(
+                "value",
+                first.readUtf8(oneOperationRead, 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .value()
+                        .orElseThrow(),
+                "the grant must still serve a matching call after a mode-mismatched one");
         assertEquals(UserFileHandleState.CLOSED, oneOperationRead.state());
     }
 
@@ -254,72 +255,71 @@ class RuntimeUserFileAccessServiceTest {
     void closeRevokesGrantsAndSettlesPendingRequestBeforeSchedulerShutdown() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "value");
-        final RuntimeUserFileAccessService grantService = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.fixedSelection(selected)
-        );
-        final UserFileHandle handle = grantService.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.UNTIL_DISABLE
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final RuntimeUserFileAccessService grantService =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = grantService
+                .request(request(UserFileMode.READ, UserFileLifetime.UNTIL_DISABLE))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
 
         final CompletableFuture<UserFileGrantSource.Decision> pending = new CompletableFuture<>();
-        final RuntimeUserFileAccessService pendingService = service(
-            permissions(UserFileMode.READ),
-            request -> pending
-        );
-        final var pendingResult = pendingService.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        ));
+        final RuntimeUserFileAccessService pendingService = service(permissions(UserFileMode.READ), request -> pending);
+        final var pendingResult = pendingService.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION));
 
         grantService.close();
         assertEquals(UserFileHandleState.REVOKED, handle.state());
         assertEquals(
-            UserFileErrorCode.GRANT_REVOKED,
-            grantService.readUtf8(handle, 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).error().orElseThrow().code()
-        );
+                UserFileErrorCode.GRANT_REVOKED,
+                grantService
+                        .readUtf8(handle, 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .error()
+                        .orElseThrow()
+                        .code());
 
         pendingService.close();
         assertEquals(
-            UserFileRequestStatus.UNAVAILABLE,
-            pendingResult.toCompletableFuture().get(2, TimeUnit.SECONDS).status()
-        );
+                UserFileRequestStatus.UNAVAILABLE,
+                pendingResult.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         pending.complete(UserFileGrantSource.Decision.selected(selected));
         assertFalse(runtimeScheduler.isClosed());
     }
 
     @Test
-    void oneOperationGrantSurvivesPermissionDeniedCallsAndStillServesAMatchingOne()
-        throws Exception {
+    void oneOperationGrantSurvivesPermissionDeniedCallsAndStillServesAMatchingOne() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "value");
-        final RuntimeUserFileAccessService service = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.fixedSelection(selected)
-        );
-        final UserFileHandle handle = service.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
 
         final var denied = service.writeUtf8Atomic(handle, "not-written")
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
-        assertEquals(UserFileErrorCode.PERMISSION_DENIED, denied.error().orElseThrow().code());
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertEquals(
-            UserFileHandleState.ACTIVE,
-            handle.state(),
-            "a permission-denied call must not consume a one-operation grant"
-        );
+                UserFileErrorCode.PERMISSION_DENIED,
+                denied.error().orElseThrow().code());
+        assertEquals(
+                UserFileHandleState.ACTIVE,
+                handle.state(),
+                "a permission-denied call must not consume a one-operation grant");
         assertEquals("value", Files.readString(selected));
 
         assertEquals(
-            "value",
-            service.readUtf8(handle, 16).toCompletableFuture()
-                .get(2, TimeUnit.SECONDS).value().orElseThrow(),
-            "the grant must still serve an authorized call after a denied one"
-        );
+                "value",
+                service.readUtf8(handle, 16)
+                        .toCompletableFuture()
+                        .get(2, TimeUnit.SECONDS)
+                        .value()
+                        .orElseThrow(),
+                "the grant must still serve an authorized call after a denied one");
         assertEquals(UserFileHandleState.CLOSED, handle.state());
     }
 
@@ -327,29 +327,28 @@ class RuntimeUserFileAccessServiceTest {
     void oversizedAndZeroByteReadsAreStructured() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "x");
-        final RuntimeUserFileAccessService service = service(
-            permissions(UserFileMode.READ),
-            UserFileGrantSource.fixedSelection(selected)
-        );
-        final UserFileHandle zero = service.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
-        final var zeroResult = service.readBytes(zero, 0).toCompletableFuture()
-            .get(2, TimeUnit.SECONDS);
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle zero = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
+        final var zeroResult = service.readBytes(zero, 0).toCompletableFuture().get(2, TimeUnit.SECONDS);
         assertEquals(0, zeroResult.value().orElseThrow().length);
         assertTrue(zeroResult.truncated());
 
-        final UserFileHandle oversized = service.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        )).toCompletableFuture().get(2, TimeUnit.SECONDS).handle().orElseThrow();
+        final UserFileHandle oversized = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS)
+                .handle()
+                .orElseThrow();
         final var oversizedResult = service.readBytes(oversized, 9 * 1024 * 1024)
-            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+                .toCompletableFuture()
+                .get(2, TimeUnit.SECONDS);
         assertEquals(
-            UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
-            oversizedResult.error().orElseThrow().code()
-        );
+                UserFileErrorCode.SIZE_LIMIT_EXCEEDED,
+                oversizedResult.error().orElseThrow().code());
         assertEquals(UserFileHandleState.CLOSED, oversized.state());
     }
 
@@ -358,14 +357,11 @@ class RuntimeUserFileAccessServiceTest {
         final Path selected = temporary.resolve("late.csv");
         Files.writeString(selected, "value");
         final class CloseTrackingSource implements UserFileGrantSource, AutoCloseable {
-            private final CompletableFuture<UserFileGrantSource.Decision> pending =
-                new CompletableFuture<>();
+            private final CompletableFuture<UserFileGrantSource.Decision> pending = new CompletableFuture<>();
             private final AtomicInteger closeCalls = new AtomicInteger();
 
             @Override
-            public CompletionStage<UserFileGrantSource.Decision> request(
-                final UserFileRequest request
-            ) {
+            public CompletionStage<UserFileGrantSource.Decision> request(final UserFileRequest request) {
                 return pending;
             }
 
@@ -376,27 +372,19 @@ class RuntimeUserFileAccessServiceTest {
         }
 
         final CloseTrackingSource source = new CloseTrackingSource();
-        final RuntimeUserFileAccessService service = service(
-            permissions(UserFileMode.READ),
-            source
-        );
-        final var result = service.request(request(
-            UserFileMode.READ,
-            UserFileLifetime.ONE_OPERATION
-        ));
+        final RuntimeUserFileAccessService service = service(permissions(UserFileMode.READ), source);
+        final var result = service.request(request(UserFileMode.READ, UserFileLifetime.ONE_OPERATION));
 
         service.close();
 
         assertEquals(1, source.closeCalls.get());
         assertEquals(
-            UserFileRequestStatus.UNAVAILABLE,
-            result.toCompletableFuture().get(2, TimeUnit.SECONDS).status()
-        );
+                UserFileRequestStatus.UNAVAILABLE,
+                result.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
         source.pending.complete(UserFileGrantSource.Decision.selected(selected));
         assertEquals(
-            UserFileRequestStatus.UNAVAILABLE,
-            result.toCompletableFuture().get(2, TimeUnit.SECONDS).status()
-        );
+                UserFileRequestStatus.UNAVAILABLE,
+                result.toCompletableFuture().get(2, TimeUnit.SECONDS).status());
     }
 
     @Test
@@ -405,9 +393,7 @@ class RuntimeUserFileAccessServiceTest {
             private final AtomicInteger closeCalls = new AtomicInteger();
 
             @Override
-            public CompletionStage<UserFileGrantSource.Decision> request(
-                final UserFileRequest request
-            ) {
+            public CompletionStage<UserFileGrantSource.Decision> request(final UserFileRequest request) {
                 return CompletableFuture.completedFuture(UserFileGrantSource.Decision.unavailable());
             }
 
@@ -421,12 +407,8 @@ class RuntimeUserFileAccessServiceTest {
         final FailingSource source = new FailingSource();
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
-        final RuntimeUserFileAccessService service = service(
-            permissions(UserFileMode.READ),
-            source,
-            failures,
-            evidence
-        );
+        final RuntimeUserFileAccessService service =
+                service(permissions(UserFileMode.READ), source, failures, evidence);
 
         service.close();
 
@@ -444,11 +426,10 @@ class RuntimeUserFileAccessServiceTest {
     void registrationFailureTearsDownOwnedSourceWithoutMaskingOriginalException() throws Exception {
         scope = new DisposableScope();
         runtimeScheduler = new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 32, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
         tasks = new RuntimePluginTaskScheduler(PLUGIN_ID, runtimeScheduler, scope);
         scope.close();
 
@@ -456,9 +437,7 @@ class RuntimeUserFileAccessServiceTest {
             private final AtomicInteger closeCalls = new AtomicInteger();
 
             @Override
-            public CompletionStage<UserFileGrantSource.Decision> request(
-                final UserFileRequest request
-            ) {
+            public CompletionStage<UserFileGrantSource.Decision> request(final UserFileRequest request) {
                 return CompletableFuture.completedFuture(UserFileGrantSource.Decision.unavailable());
             }
 
@@ -473,17 +452,9 @@ class RuntimeUserFileAccessServiceTest {
         final RuntimeFailureCollector failures = new RuntimeFailureCollector();
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final IllegalStateException original = assertThrows(
-            IllegalStateException.class,
-            () -> new RuntimeUserFileAccessService(
-                PLUGIN_ID,
-                permissions(UserFileMode.READ),
-                source,
-                tasks,
-                scope,
-                evidence,
-                failures
-            )
-        );
+                IllegalStateException.class,
+                () -> new RuntimeUserFileAccessService(
+                        PLUGIN_ID, permissions(UserFileMode.READ), source, tasks, scope, evidence, failures));
 
         assertEquals("DisposableScope is already closed", original.getMessage());
         assertEquals(1, source.closeCalls.get());
@@ -491,61 +462,38 @@ class RuntimeUserFileAccessServiceTest {
         assertEquals("source close failed", original.getSuppressed()[0].getMessage());
         assertEquals(1, evidence.snapshot().failures());
         assertEquals(
-            "USER_FILE_SOURCE_CLOSE_FAILED",
-            failures.snapshot().storageFailures().get(0).code()
-        );
+                "USER_FILE_SOURCE_CLOSE_FAILED",
+                failures.snapshot().storageFailures().get(0).code());
+    }
+
+    private RuntimeUserFileAccessService service(final Set<String> permissions, final UserFileGrantSource source) {
+        return service(permissions, source, new RuntimeFailureCollector(), new CleanupEvidenceCollector());
     }
 
     private RuntimeUserFileAccessService service(
-        final Set<String> permissions,
-        final UserFileGrantSource source
-    ) {
-        return service(
-            permissions,
-            source,
-            new RuntimeFailureCollector(),
-            new CleanupEvidenceCollector()
-        );
-    }
-
-    private RuntimeUserFileAccessService service(
-        final Set<String> permissions,
-        final UserFileGrantSource source,
-        final RuntimeFailureCollector failures
-    ) {
+            final Set<String> permissions, final UserFileGrantSource source, final RuntimeFailureCollector failures) {
         return service(permissions, source, failures, new CleanupEvidenceCollector());
     }
 
     private RuntimeUserFileAccessService service(
-        final Set<String> permissions,
-        final UserFileGrantSource source,
-        final RuntimeFailureCollector failures,
-        final CleanupEvidenceCollector evidence
-    ) {
+            final Set<String> permissions,
+            final UserFileGrantSource source,
+            final RuntimeFailureCollector failures,
+            final CleanupEvidenceCollector evidence) {
         if (scope == null) {
             scope = new DisposableScope();
             runtimeScheduler = new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 32, ignored -> { }, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                ignored -> { }
-            );
+                    new DefaultWorkBudgetPolicy(),
+                    new PluginWorkExecutorRegistry(1, 32, ignored -> {}, Clock.systemUTC()),
+                    SidecarDispatcher.noop(),
+                    ignored -> {});
             tasks = new RuntimePluginTaskScheduler(PLUGIN_ID, runtimeScheduler, scope);
         }
-        return new RuntimeUserFileAccessService(
-            PLUGIN_ID,
-            permissions,
-            source,
-            tasks,
-            scope,
-            evidence,
-            failures
-        );
+        return new RuntimeUserFileAccessService(PLUGIN_ID, permissions, source, tasks, scope, evidence, failures);
     }
 
-    private static ThreadPoolExecutor ioExecutor(
-        final RuntimeUserFileAccessService service
-    ) throws ReflectiveOperationException {
+    private static ThreadPoolExecutor ioExecutor(final RuntimeUserFileAccessService service)
+            throws ReflectiveOperationException {
         final Field ioField = RuntimeUserFileAccessService.class.getDeclaredField("io");
         ioField.setAccessible(true);
         final Object io = ioField.get(service);
@@ -556,44 +504,52 @@ class RuntimeUserFileAccessServiceTest {
 
     private static Set<String> permissions(final UserFileMode mode) {
         return mode == UserFileMode.READ
-            ? Set.of(
-                PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST,
-                PermissionIds.TURBOISM_FILE_READ
-            )
-            : Set.of(
-                PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST,
-                PermissionIds.TURBOISM_FILE_WRITE
-            );
+                ? Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST, PermissionIds.TURBOISM_FILE_READ)
+                : Set.of(PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST, PermissionIds.TURBOISM_FILE_WRITE);
     }
 
     private static Set<String> allFilePermissions() {
         return Set.of(
-            PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST,
-            PermissionIds.TURBOISM_FILE_READ,
-            PermissionIds.TURBOISM_FILE_WRITE
-        );
+                PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST,
+                PermissionIds.TURBOISM_FILE_READ,
+                PermissionIds.TURBOISM_FILE_WRITE);
     }
 
-    private static UserFileRequest request(
-        final UserFileMode mode,
-        final UserFileLifetime lifetime
-    ) {
+    private static UserFileRequest request(final UserFileMode mode, final UserFileLifetime lifetime) {
         return new UserFileRequest(
-            "request-" + mode.name().toLowerCase(),
-            "Choose CSV",
-            List.of("csv"),
-            mode,
-            lifetime
-        );
+                "request-" + mode.name().toLowerCase(), "Choose CSV", List.of("csv"), mode, lifetime);
     }
 
     private static final class ForgedHandle implements UserFileHandle {
-        @Override public String id() { return "forged"; }
-        @Override public String displayName() { return "forged.csv"; }
-        @Override public UserFileMode mode() { return UserFileMode.READ; }
-        @Override public UserFileLifetime lifetime() { return UserFileLifetime.UNTIL_DISABLE; }
-        @Override public UserFileHandleState state() { return UserFileHandleState.ACTIVE; }
-        @Override public void revoke() { }
-        @Override public void close() { }
+        @Override
+        public String id() {
+            return "forged";
+        }
+
+        @Override
+        public String displayName() {
+            return "forged.csv";
+        }
+
+        @Override
+        public UserFileMode mode() {
+            return UserFileMode.READ;
+        }
+
+        @Override
+        public UserFileLifetime lifetime() {
+            return UserFileLifetime.UNTIL_DISABLE;
+        }
+
+        @Override
+        public UserFileHandleState state() {
+            return UserFileHandleState.ACTIVE;
+        }
+
+        @Override
+        public void revoke() {}
+
+        @Override
+        public void close() {}
     }
 }

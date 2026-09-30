@@ -1,13 +1,12 @@
 package dev.turboism.ui.appearance.control;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JLabel;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import java.util.List;
+import javax.swing.JLabel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 class NativeParameterAppearanceBridgeTest {
     @AfterEach
@@ -22,12 +21,9 @@ class NativeParameterAppearanceBridgeTest {
         final SingleRow parameter = new SingleRow("ParamAngleX", "Angle X");
         final FolderRow folder = new FolderRow("GroupA", "Group A");
 
-        NativeParameterAppearanceBridge.install(
-            selectors(),
-            new ParameterControlAppearanceProvider(7, coordinator)
-        );
+        NativeParameterAppearanceBridge.install(selectors(), new ParameterControlAppearanceProvider(7, coordinator));
         NativeParameterAppearanceBridge.replayExistingRows(List.of(parameter, folder));
-        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
 
         final var bindings = coordinator.parameterControlBindings();
         assertEquals(2, bindings.size());
@@ -42,13 +38,10 @@ class NativeParameterAppearanceBridgeTest {
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
         coordinator.replaceHostGeneration(7);
         final SingleRow parameter = new SingleRow("ParamAngleX", "Angle X");
-        NativeParameterAppearanceBridge.install(
-            selectors(),
-            new ParameterControlAppearanceProvider(7, coordinator)
-        );
+        NativeParameterAppearanceBridge.install(selectors(), new ParameterControlAppearanceProvider(7, coordinator));
 
         NativeParameterAppearanceBridge.afterParameterRow(parameter);
-        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
 
         final var bindings = coordinator.parameterControlBindings();
         assertEquals(1, bindings.size());
@@ -58,13 +51,23 @@ class NativeParameterAppearanceBridgeTest {
 
     private static NativeParameterAppearanceBridge.Selectors selectors() {
         return new NativeParameterAppearanceBridge.Selectors(
-            owner(SingleRow.class), owner(DoubleRow.class), owner(FolderRow.class),
-            "source", "secondarySource", "source",
-            "label", "secondaryLabel", "label",
-            owner(ParameterSource.class), owner(FolderSource.class),
-            "getId", "getId", "getIdString",
-            owner(CLabel.class), "component", SingleRow.class.getClassLoader()
-        );
+                owner(SingleRow.class),
+                owner(DoubleRow.class),
+                owner(FolderRow.class),
+                "source",
+                "secondarySource",
+                "source",
+                "label",
+                "secondaryLabel",
+                "label",
+                owner(ParameterSource.class),
+                owner(FolderSource.class),
+                "getId",
+                "getId",
+                "getIdString",
+                owner(CLabel.class),
+                "component",
+                SingleRow.class.getClassLoader());
     }
 
     private static String owner(final Class<?> type) {

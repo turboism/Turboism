@@ -48,7 +48,8 @@ public record ConfigSchemaEditor(List<Field> fields) {
             key = requireKey(key);
             label = requireText(label, "label", 256);
             index = requireIndex(index);
-        }    }
+        }
+    }
 
     /** String or bounded-integer key rendered as a text field. */
     public record Text(String key, String label, int columns, OptionalInt index) implements Field {
@@ -59,15 +60,11 @@ public record ConfigSchemaEditor(List<Field> fields) {
                 throw new IllegalArgumentException("columns must be between 1 and 128");
             }
             index = requireIndex(index);
-        }    }
+        }
+    }
 
     /** String or enum key rendered as an explicitly-labelled choice. */
-    public record Choice(
-        String key,
-        String label,
-        List<Option> options,
-        OptionalInt index
-    ) implements Field {
+    public record Choice(String key, String label, List<Option> options, OptionalInt index) implements Field {
         public Choice {
             key = requireKey(key);
             label = requireText(label, "label", 256);
@@ -83,7 +80,8 @@ public record ConfigSchemaEditor(List<Field> fields) {
                 }
             }
             index = requireIndex(index);
-        }    }
+        }
+    }
 
     /** One stored choice value and its localized display label. */
     public record Option(String value, String label) {
@@ -104,9 +102,7 @@ public record ConfigSchemaEditor(List<Field> fields) {
     private static String requireText(final String value, final String name, final int maximum) {
         Objects.requireNonNull(value, name);
         if (value.isBlank() || value.length() > maximum) {
-            throw new IllegalArgumentException(
-                name + " must contain 1-" + maximum + " characters"
-            );
+            throw new IllegalArgumentException(name + " must contain 1-" + maximum + " characters");
         }
         return value;
     }

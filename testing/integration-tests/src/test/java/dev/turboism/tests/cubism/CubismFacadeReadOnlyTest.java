@@ -1,5 +1,10 @@
 package dev.turboism.tests.cubism;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
@@ -12,19 +17,12 @@ import dev.turboism.test.fake.FakeCubismHost;
 import dev.turboism.test.fake.FakeCubismModel;
 import dev.turboism.test.fake.FakeCubismParameter;
 import dev.turboism.test.fake.FakeCubismProject;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class CubismFacadeReadOnlyTest {
 
@@ -68,21 +66,17 @@ class CubismFacadeReadOnlyTest {
         final ParameterSnapshot parameter = runtime.parameters().get(0);
 
         final UnsupportedOperationException runtimeError = assertThrows(
-            UnsupportedOperationException.class,
-            () -> runtime.parameters().add(parameter)
-        );
+                UnsupportedOperationException.class, () -> runtime.parameters().add(parameter));
         assertNull(runtimeError.getMessage());
 
         final UnsupportedOperationException modelError = assertThrows(
-            UnsupportedOperationException.class,
-            () -> runtime.model().orElseThrow().parameters().add(parameter)
-        );
+                UnsupportedOperationException.class,
+                () -> runtime.model().orElseThrow().parameters().add(parameter));
         assertNull(modelError.getMessage());
 
         final UnsupportedOperationException selectionError = assertThrows(
-            UnsupportedOperationException.class,
-            () -> runtime.selection().selectedObjectIds().add("parameter-2")
-        );
+                UnsupportedOperationException.class,
+                () -> runtime.selection().selectedObjectIds().add("parameter-2"));
         assertNull(selectionError.getMessage());
     }
 
@@ -106,12 +100,15 @@ class CubismFacadeReadOnlyTest {
 
     private static CubismFacade facadeFor(final FakeCubismHost host) {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
-        return new CubismFacadeImpl(new FakeHostSnapshotSource(host), new CubismPermissionGate(
-            "plugin.demo",
-            List.of(permission(CubismFacadeImpl.PROJECT_READ_PERMISSION), permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
-            auditEvents::add,
-            FIXED_CLOCK
-        ));
+        return new CubismFacadeImpl(
+                new FakeHostSnapshotSource(host),
+                new CubismPermissionGate(
+                        "plugin.demo",
+                        List.of(
+                                permission(CubismFacadeImpl.PROJECT_READ_PERMISSION),
+                                permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+                        auditEvents::add,
+                        FIXED_CLOCK));
     }
 
     private static FakeCubismHost sampleHost() {

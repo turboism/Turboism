@@ -40,8 +40,7 @@ import java.util.Set;
  */
 final class PublicEventContractClosure {
 
-    private PublicEventContractClosure() {
-    }
+    private PublicEventContractClosure() {}
 
     /**
      * Verifies that the whole API surface of {@code contractType} resolves inside the
@@ -61,29 +60,25 @@ final class PublicEventContractClosure {
                 continue;
             }
             if (type.getClassLoader() != contractLoader) {
-                throw new IllegalArgumentException(
-                    "public event contract type " + type.getName()
-                        + " is not defined by the bound contract class loader"
-                );
+                throw new IllegalArgumentException("public event contract type " + type.getName()
+                        + " is not defined by the bound contract class loader");
             }
             try {
                 verifyReferences(type, contractLoader, pending, new HashSet<>());
             } catch (StackOverflowError overflow) {
                 throw new IllegalArgumentException(
-                    "public event contract type " + type.getName()
-                        + " has a generic signature too deep to verify safely",
-                    overflow
-                );
+                        "public event contract type " + type.getName()
+                                + " has a generic signature too deep to verify safely",
+                        overflow);
             }
         }
     }
 
     private static void verifyReferences(
-        final Class<?> type,
-        final ClassLoader contractLoader,
-        final Deque<Class<?>> pending,
-        final Set<Type> visitedTypes
-    ) {
+            final Class<?> type,
+            final ClassLoader contractLoader,
+            final Deque<Class<?>> pending,
+            final Set<Type> visitedTypes) {
         final Set<Type> referenced = new HashSet<>();
         try {
             final Type superclass = type.getGenericSuperclass();
@@ -131,21 +126,19 @@ final class PublicEventContractClosure {
             }
         } catch (TypeNotPresentException | NoClassDefFoundError failure) {
             throw new IllegalArgumentException(
-                "public event contract type " + type.getName()
-                    + " has a payload type that cannot be resolved within the contract"
-                    + " closure: " + failure.getMessage(),
-                failure
-            );
+                    "public event contract type " + type.getName()
+                            + " has a payload type that cannot be resolved within the contract"
+                            + " closure: " + failure.getMessage(),
+                    failure);
         }
     }
 
     private static void classify(
-        final Type reference,
-        final Class<?> owner,
-        final ClassLoader contractLoader,
-        final Deque<Class<?>> pending,
-        final Set<Type> visitedTypes
-    ) {
+            final Type reference,
+            final Class<?> owner,
+            final ClassLoader contractLoader,
+            final Deque<Class<?>> pending,
+            final Set<Type> visitedTypes) {
         if (!visitedTypes.add(reference)) {
             return;
         }
@@ -187,11 +180,10 @@ final class PublicEventContractClosure {
     }
 
     private static void classifyClass(
-        final Class<?> clazz,
-        final Class<?> owner,
-        final ClassLoader contractLoader,
-        final Deque<Class<?>> pending
-    ) {
+            final Class<?> clazz,
+            final Class<?> owner,
+            final ClassLoader contractLoader,
+            final Deque<Class<?>> pending) {
         Class<?> subject = clazz;
         while (subject.isArray()) {
             subject = subject.getComponentType();
@@ -208,15 +200,12 @@ final class PublicEventContractClosure {
             pending.add(subject);
             return;
         }
-        final boolean platform = loader == null
-            || loader == ClassLoader.getPlatformClassLoader();
+        final boolean platform = loader == null || loader == ClassLoader.getPlatformClassLoader();
         if (platform && !name.startsWith("dev.turboism.") && !name.startsWith("com.live2d.")) {
             return;
         }
-        throw new IllegalArgumentException(
-            "public event contract type " + owner.getName() + " references " + name
+        throw new IllegalArgumentException("public event contract type " + owner.getName() + " references " + name
                 + ", which is not part of the contract payload closure (the contract"
-                + " artifact, dev.turboism.sdk.*, or JDK platform classes)"
-        );
+                + " artifact, dev.turboism.sdk.*, or JDK platform classes)");
     }
 }

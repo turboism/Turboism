@@ -1,18 +1,17 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
-import org.junit.jupiter.api.Test;
-
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Exact-record contract verification for the Editor read-only document families
@@ -31,80 +30,71 @@ class EditorDocumentReadSelectorContractTest {
     @Test
     void exact5302RecordVerifiesAllDocumentReadContracts() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
-            artifact,
-            loader(artifact)
-        );
+        final var resolver = new VerifiedEditorModelResolverFactory()
+                .create(
+                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
+                        artifact,
+                        loader(artifact));
         assertTrue(resolver.authorizesFeature(
-            EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorPhysicsReadSelectorContract.CAPABILITY_ID,
-            EditorPhysicsReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorPhysicsReadSelectorContract.CAPABILITY_ID,
+                EditorPhysicsReadSelectorContract.REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorAutoYureReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorAutoYureReadSelectorContract.CAPABILITY_ID,
-            EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorAutoYureReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorAutoYureReadSelectorContract.CAPABILITY_ID,
+                EditorAutoYureReadSelectorContract.REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationReadSelectorContract.CAPABILITY_ID,
-            EditorAnimationReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationReadSelectorContract.CAPABILITY_ID,
+                EditorAnimationReadSelectorContract.REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
-            EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
+                EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES));
     }
 
     @Test
     void exact5203RecordVerifiesAllDocumentReadContracts() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
-        final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
-            artifact,
-            loader(artifact)
-        );
+        final var resolver = new VerifiedEditorModelResolverFactory()
+                .create(
+                        PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
+                        artifact,
+                        loader(artifact));
         assertTrue(resolver.authorizesFeature(
-            EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorPhysicsReadSelectorContract.CAPABILITY_ID,
-            EditorPhysicsReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorPhysicsReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorPhysicsReadSelectorContract.CAPABILITY_ID,
+                EditorPhysicsReadSelectorContract.REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorAutoYureReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorAutoYureReadSelectorContract.CAPABILITY_ID,
-            EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
-        ));
+                EditorAutoYureReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorAutoYureReadSelectorContract.CAPABILITY_ID,
+                EditorAutoYureReadSelectorContract.REQUIRED_ALIASES));
         assertTrue(resolver.authorizesFeature(
-            EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorAnimationReadSelectorContract.CAPABILITY_ID,
-            EditorAnimationReadSelectorContract.REQUIRED_ALIASES
-        ));
-        final java.util.HashSet<String> aliases52 = new java.util.HashSet<>(
-            EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
-        );
+                EditorAnimationReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorAnimationReadSelectorContract.CAPABILITY_ID,
+                EditorAnimationReadSelectorContract.REQUIRED_ALIASES));
+        final java.util.HashSet<String> aliases52 =
+                new java.util.HashSet<>(EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES);
         aliases52.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         assertTrue(resolver.authorizesFeature(
-            EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
-            java.util.Set.copyOf(aliases52)
-        ));
+                EditorModelInstanceReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
+                java.util.Set.copyOf(aliases52)));
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
         try (Stream<Path> files = Files.list(artifact.getParent())) {
-            final URL[] classpath = files
-                .filter(path -> path.getFileName().toString().endsWith(".jar"))
-                .sorted()
-                .map(path -> {
-                    try {
-                        return path.toUri().toURL();
-                    } catch (java.net.MalformedURLException exception) {
-                        throw new IllegalArgumentException(exception);
-                    }
-                })
-                .toArray(URL[]::new);
+            final URL[] classpath = files.filter(
+                            path -> path.getFileName().toString().endsWith(".jar"))
+                    .sorted()
+                    .map(path -> {
+                        try {
+                            return path.toUri().toURL();
+                        } catch (java.net.MalformedURLException exception) {
+                            throw new IllegalArgumentException(exception);
+                        }
+                    })
+                    .toArray(URL[]::new);
             return new URLClassLoader(classpath, ClassLoader.getPlatformClassLoader());
         }
     }

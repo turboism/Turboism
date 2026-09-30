@@ -11,7 +11,7 @@ final class SemanticHistoryValueCodec {
     private static final Pattern RGB = Pattern.compile("#[0-9a-fA-F]{6}");
     private static final Pattern RGBA = Pattern.compile("#[0-9a-fA-F]{8}");
 
-    private SemanticHistoryValueCodec() { }
+    private SemanticHistoryValueCodec() {}
 
     static Optional<String> color(final String value) {
         final String normalized = Objects.requireNonNull(value, "value").strip();
@@ -22,13 +22,7 @@ final class SemanticHistoryValueCodec {
     }
 
     static String rgb(final int red, final int green, final int blue) {
-        return String.format(
-            Locale.ROOT,
-            "#%02x%02x%02x",
-            channel(red),
-            channel(green),
-            channel(blue)
-        );
+        return String.format(Locale.ROOT, "#%02x%02x%02x", channel(red), channel(green), channel(blue));
     }
 
     private static int channel(final int value) {

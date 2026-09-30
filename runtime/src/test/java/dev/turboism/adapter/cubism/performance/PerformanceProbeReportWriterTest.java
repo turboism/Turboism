@@ -1,20 +1,18 @@
 package dev.turboism.adapter.cubism.performance;
 
-import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PerformanceProbeReportWriterTest {
 
@@ -22,14 +20,13 @@ class PerformanceProbeReportWriterTest {
     private static final String AGENT_SHA = "a".repeat(64);
     private static final String FIXTURE_SHA = "b".repeat(64);
     private static final Set<String> METRIC_NAMES = Set.of(
-        "renderScene",
-        "modelingPreRenderUpdate",
-        "renderSystem",
-        "sceneTraversal",
-        "rendererDispatch",
-        "updateModelInstances",
-        "reinitModelInstanceExe"
-    );
+            "renderScene",
+            "modelingPreRenderUpdate",
+            "renderSystem",
+            "sceneTraversal",
+            "rendererDispatch",
+            "updateModelInstances",
+            "reinitModelInstanceExe");
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -51,17 +48,17 @@ class PerformanceProbeReportWriterTest {
         final long startedEpochMillis = 1_700_000_000_000L;
         final long endedEpochMillis = startedEpochMillis + 30_000L;
         final Path output = temporary.resolve("logs/performance-probe.json");
-        new PerformanceProbeReportWriter().write(
-            output,
-            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-            ARTIFACT_SHA,
-            AGENT_SHA,
-            FIXTURE_SHA,
-            "edit",
-            startedEpochMillis,
-            endedEpochMillis,
-            snapshot
-        );
+        new PerformanceProbeReportWriter()
+                .write(
+                        output,
+                        ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+                        ARTIFACT_SHA,
+                        AGENT_SHA,
+                        FIXTURE_SHA,
+                        "edit",
+                        startedEpochMillis,
+                        endedEpochMillis,
+                        snapshot);
 
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals("turboism.cubism.performance-probe", root.path("format").asText());
@@ -98,7 +95,7 @@ class PerformanceProbeReportWriterTest {
         // rejectable: failures is explicit, and no metric is silently dropped.
         assertTrue(root.path("capture").path("failures").asLong() > 0);
         assertTrue(root.path("capture").path("endEpochMs").asLong()
-            > root.path("capture").path("startEpochMs").asLong());
+                > root.path("capture").path("startEpochMs").asLong());
         assertFalse(root.path("writtenAt").asText().isBlank());
     }
 
@@ -110,17 +107,30 @@ class PerformanceProbeReportWriterTest {
         recorder.exit(PerformanceProbeMetric.IMAGE_DECODE, token);
         recorder.stopCapture();
         final Path output = temporary.resolve("images.json");
-        new PerformanceProbeReportWriter().write(output, "5.3.02", ARTIFACT_SHA,
-            AGENT_SHA, FIXTURE_SHA, "images", 1000, 2000, recorder.snapshot());
+        new PerformanceProbeReportWriter()
+                .write(
+                        output,
+                        "5.3.02",
+                        ARTIFACT_SHA,
+                        AGENT_SHA,
+                        FIXTURE_SHA,
+                        "images",
+                        1000,
+                        2000,
+                        recorder.snapshot());
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals(2, root.path("schemaVersion").asInt());
         assertEquals(12, root.path("metrics").size());
-        assertEquals("sampled-inclusive-method-wall-time", root.path("measurement").path("timing").asText());
-        assertEquals("not-measured", root.path("measurement").path("uploadBytes").asText());
+        assertEquals(
+                "sampled-inclusive-method-wall-time",
+                root.path("measurement").path("timing").asText());
+        assertEquals(
+                "not-measured", root.path("measurement").path("uploadBytes").asText());
         final JsonNode decode = root.path("metrics").path("imageDecode");
         assertEquals(1, decode.path("sampled").asLong());
         assertEquals(1, decode.path("latency").path("samples").asLong());
-        assertTrue(decode.path("latency").path("p95UpperBoundNanos").asLong() >= decode.path("maxNanos").asLong());
+        assertTrue(decode.path("latency").path("p95UpperBoundNanos").asLong()
+                >= decode.path("maxNanos").asLong());
     }
 
     @Test
@@ -129,17 +139,34 @@ class PerformanceProbeReportWriterTest {
         final Path output = temporary.resolve("images-repacked.json");
         final String repackedSha = "c".repeat(64);
         final PerformanceProbeReportWriter writer = new PerformanceProbeReportWriter();
-        writer.write(output, "5.3.02", repackedSha, AGENT_SHA, FIXTURE_SHA,
-            "images", 1000, 2000, recorder.snapshot());
+        writer.write(output, "5.3.02", repackedSha, AGENT_SHA, FIXTURE_SHA, "images", 1000, 2000, recorder.snapshot());
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals("5.3.02", root.path("cubismVersion").asText());
         assertEquals(repackedSha, root.path("artifactSha256").asText());
-        assertThrows(IllegalArgumentException.class, () -> writer.write(output,
-            "5.3.99", repackedSha, AGENT_SHA, FIXTURE_SHA,
-            "images", 1000, 2000, recorder.snapshot()));
-        assertThrows(IllegalArgumentException.class, () -> writer.write(output,
-            "5.3.02", "missing", AGENT_SHA, FIXTURE_SHA,
-            "images", 1000, 2000, recorder.snapshot()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> writer.write(
+                        output,
+                        "5.3.99",
+                        repackedSha,
+                        AGENT_SHA,
+                        FIXTURE_SHA,
+                        "images",
+                        1000,
+                        2000,
+                        recorder.snapshot()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> writer.write(
+                        output,
+                        "5.3.02",
+                        "missing",
+                        AGENT_SHA,
+                        FIXTURE_SHA,
+                        "images",
+                        1000,
+                        2000,
+                        recorder.snapshot()));
     }
 
     @Test
@@ -147,23 +174,22 @@ class PerformanceProbeReportWriterTest {
         final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
         final Path output = temporary.resolve("logs/performance-probe-5303.json");
 
-        new PerformanceProbeReportWriter().write(
-            output,
-            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
-            AGENT_SHA,
-            FIXTURE_SHA,
-            "camera",
-            1_700_000_000_000L,
-            1_700_000_030_000L,
-            recorder.snapshot()
-        );
+        new PerformanceProbeReportWriter()
+                .write(
+                        output,
+                        ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+                        ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+                        AGENT_SHA,
+                        FIXTURE_SHA,
+                        "camera",
+                        1_700_000_000_000L,
+                        1_700_000_030_000L,
+                        recorder.snapshot());
 
         final JsonNode root = JSON.readTree(Files.readAllBytes(output));
         assertEquals("5.3.03", root.path("cubismVersion").asText());
         assertEquals(
-            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
-            root.path("artifactSha256").asText()
-        );
+                ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+                root.path("artifactSha256").asText());
     }
 }

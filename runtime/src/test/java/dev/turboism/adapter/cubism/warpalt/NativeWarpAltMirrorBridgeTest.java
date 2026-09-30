@@ -1,14 +1,13 @@
 package dev.turboism.adapter.cubism.warpalt;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Behaviour contract of the drag-tick bridge against stub host-shape classes. The
@@ -20,8 +19,7 @@ final class NativeWarpAltMirrorBridgeTest {
 
     @BeforeEach
     void pointRecognitionAtTheStub() {
-        NativeWarpAltMirrorBridge.setBinderClassNameForTesting(
-            StubWarpBinder.class.getName());
+        NativeWarpAltMirrorBridge.setBinderClassNameForTesting(StubWarpBinder.class.getName());
         NativeWarpAltMirrorBridge.install();
     }
 
@@ -40,7 +38,7 @@ final class NativeWarpAltMirrorBridgeTest {
         // vertical partner of (0,0) in a 3-wide grid is (0,2) at (2,0):
         // x: 2 - 1.5 = 0.5, y: 0 + 0.6 = 0.6
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
 
         assertEquals(0.5f, binder.grid.get(0).get(2).x, 1.0e-4f);
         assertEquals(0.6f, binder.grid.get(0).get(2).y, 1.0e-4f);
@@ -58,7 +56,7 @@ final class NativeWarpAltMirrorBridgeTest {
         // horizontal partner of (0,2) in a 3-tall grid is (2,2) at (2,2):
         // x: 2 + 0.4 = 2.4, y: 2 - 0.8 = 1.2
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(2.4f, 0.8f), new StubEvent(true, true));
+                new StubHandler(binder), new StubVector(2.4f, 0.8f), new StubEvent(true, true));
 
         assertEquals(2.4f, binder.grid.get(2).get(2).x, 1.0e-4f);
         assertEquals(1.2f, binder.grid.get(2).get(2).y, 1.0e-4f);
@@ -72,7 +70,7 @@ final class NativeWarpAltMirrorBridgeTest {
         final var registration = participate();
 
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.9f, 1.9f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(1.9f, 1.9f), new StubEvent(true, false));
 
         assertEquals(0.0f, binder.grid.get(1).get(0).x, 1.0e-4f);
         assertEquals(2.0f, binder.grid.get(1).get(2).x, 1.0e-4f);
@@ -86,19 +84,19 @@ final class NativeWarpAltMirrorBridgeTest {
 
         // No participant yet: nothing moves even with Alt held.
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
 
         final var registration = participate();
         // Alt not held: nothing moves.
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(false, false));
+                new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(false, false));
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
 
         // No selected point: nothing moves.
         binder.selectedPointIndex = null;
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
 
         registration.close();
@@ -111,7 +109,7 @@ final class NativeWarpAltMirrorBridgeTest {
         final var registration = participate();
 
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(5.0e-4f, 5.0e-4f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(5.0e-4f, 5.0e-4f), new StubEvent(true, false));
 
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
         registration.close();
@@ -127,7 +125,7 @@ final class NativeWarpAltMirrorBridgeTest {
         final var registration = participate();
 
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
+                new StubHandler(binder), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
 
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
         registration.close();
@@ -140,7 +138,7 @@ final class NativeWarpAltMirrorBridgeTest {
         final var registration = participate();
 
         NativeWarpAltMirrorBridge.mirrorWarpDragMove(
-            new StubHandler(new Object()), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
+                new StubHandler(new Object()), new StubVector(1.5f, 0.6f), new StubEvent(true, false));
 
         assertEquals(2.0f, binder.grid.get(0).get(2).x, 1.0e-4f);
         registration.close();
@@ -148,8 +146,7 @@ final class NativeWarpAltMirrorBridgeTest {
 
     @Test
     void participationRegistryTracksRegistrations() {
-        final RuntimeWarpAltMirrorParticipation participation =
-            NativeWarpAltMirrorBridge.moveParticipation();
+        final RuntimeWarpAltMirrorParticipation participation = NativeWarpAltMirrorBridge.moveParticipation();
         assertFalse(participation.hasParticipants());
         final var first = participation.participate();
         final var second = participation.participate();
@@ -174,13 +171,21 @@ final class NativeWarpAltMirrorBridgeTest {
             this.y = y;
         }
 
-        public float getX() { return x; }
+        public float getX() {
+            return x;
+        }
 
-        public void setX(final float value) { this.x = value; }
+        public void setX(final float value) {
+            this.x = value;
+        }
 
-        public float getY() { return y; }
+        public float getY() {
+            return y;
+        }
 
-        public void setY(final float value) { this.y = value; }
+        public void setY(final float value) {
+            this.y = value;
+        }
     }
 
     /** Minimal actionManager.aG shape: aA() = Alt, aB() = Shift. */
@@ -193,9 +198,13 @@ final class NativeWarpAltMirrorBridgeTest {
             this.shift = shift;
         }
 
-        public boolean aA() { return alt; }
+        public boolean aA() {
+            return alt;
+        }
 
-        public boolean aB() { return shift; }
+        public boolean aB() {
+            return shift;
+        }
     }
 
     /** Minimal WarpBinder shape with the reviewed Kotlin accessors. */
@@ -219,13 +228,21 @@ final class NativeWarpAltMirrorBridgeTest {
             selectedPointIndex = row * 3 + column;
         }
 
-        public ArrayList<ArrayList<StubVector>> getGridPoints() { return grid; }
+        public ArrayList<ArrayList<StubVector>> getGridPoints() {
+            return grid;
+        }
 
-        public Integer getSelectedPointIndex() { return selectedPointIndex; }
+        public Integer getSelectedPointIndex() {
+            return selectedPointIndex;
+        }
 
-        public int rowPointSize() { return grid.get(0).size(); }
+        public int rowPointSize() {
+            return grid.get(0).size();
+        }
 
-        public int columnPointSize() { return grid.size(); }
+        public int columnPointSize() {
+            return grid.size();
+        }
 
         public IndexPair toGridIndex(final int index) {
             return new IndexPair(index / 3, index % 3);
@@ -241,9 +258,13 @@ final class NativeWarpAltMirrorBridgeTest {
             this.second = second;
         }
 
-        public int getFirst() { return first; }
+        public int getFirst() {
+            return first;
+        }
 
-        public int getSecond() { return second; }
+        public int getSecond() {
+            return second;
+        }
     }
 
     /** Minimal temporaryHandler shape: a() returns the binder. */
@@ -254,6 +275,8 @@ final class NativeWarpAltMirrorBridgeTest {
             this.binder = binder;
         }
 
-        public Object a() { return binder; }
+        public Object a() {
+            return binder;
+        }
     }
 }

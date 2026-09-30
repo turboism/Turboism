@@ -97,6 +97,9 @@ public final class DisposableScope implements AutoCloseable {
             try {
                 entry.closeable.close();
             } catch (Throwable failure) {
+                // @containment-exempt: close merges concurrent cleanup failures by
+                // priority and rethrows the winner; a fatal failure outranks and
+                // still propagates rather than being swallowed.
                 if (first == null) {
                     first = failure;
                 } else if (first != failure) {

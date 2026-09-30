@@ -1,6 +1,4 @@
 import importlib.util
-import io
-import json
 import tempfile
 import unittest
 import zipfile

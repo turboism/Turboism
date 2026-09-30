@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.optimization.uniform;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
@@ -7,8 +9,6 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.*;
 
 final class FrameUniformLocationCacheStorageTest {
     @Test
@@ -87,7 +87,7 @@ final class FrameUniformLocationCacheStorageTest {
 
     @Test
     void mixedFramesMatchThePreviousMapConfirmationAndCapacitySemantics() {
-        record Key(int program, String name) { }
+        record Key(int program, String name) {}
         var random = new java.util.Random(0x341L);
         var ready = new java.util.HashMap<Key, Integer>();
         var pending = new java.util.HashMap<Key, Integer>();
@@ -111,8 +111,10 @@ final class FrameUniformLocationCacheStorageTest {
                             pending.put(key, location);
                         }
                     }
-                    assertEquals(ready.getOrDefault(key, FrameUniformLocationCache.MISS).intValue(),
-                        cache.lookup(context, key.program(), key.name()));
+                    assertEquals(
+                            ready.getOrDefault(key, FrameUniformLocationCache.MISS)
+                                    .intValue(),
+                            cache.lookup(context, key.program(), key.name()));
                     assertEquals(ready.size() + pending.size(), cache.retained());
                 }
                 cache.end(token);
@@ -133,7 +135,8 @@ final class FrameUniformLocationCacheStorageTest {
             for (var entry : map.entrySet()) {
                 if (references(entry.getKey(), target, seen) || references(entry.getValue(), target, seen)) return true;
             }
-        } else if (root.getClass().isArray() && !root.getClass().getComponentType().isPrimitive()) {
+        } else if (root.getClass().isArray()
+                && !root.getClass().getComponentType().isPrimitive()) {
             for (int index = 0; index < Array.getLength(root); index++) {
                 if (references(Array.get(root, index), target, seen)) return true;
             }

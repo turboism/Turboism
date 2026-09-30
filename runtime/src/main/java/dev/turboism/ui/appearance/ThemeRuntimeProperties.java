@@ -21,8 +21,7 @@ public final class ThemeRuntimeProperties {
 
     private static final String FILE_NAME = "turboism-theme-runtime.properties";
 
-    private ThemeRuntimeProperties() {
-    }
+    private ThemeRuntimeProperties() {}
 
     /**
      * @return the fixed location of the shared FlatLaf custom-defaults file in the JVM
