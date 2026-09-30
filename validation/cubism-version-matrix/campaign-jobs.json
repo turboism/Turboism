@@ -635,10 +635,22 @@
       "preparedDigest": "fe52569d8fa3527314fdcd9c4584ac9d980e14012fa80ac3a4af758c3a371667",
       "evidenceDirectory": "jobs/3fbbe66f-1e62-41fc-a9e0-636b25878aaf/evidence",
       "scope": "Standalone production SDK owned-MOC checks; Mesa glthread explicitly OFF, not Editor acquisition or all capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "expectedNativeCoreVersion": "6.0.513",
       "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+      "reason": "No owned-MOC result before Runner timeout; startup read had five-second EDT timeout while observed document loading took8.5s; no native support verdict",
+      "result": {
+        "runId": "queue-f00387c7e8b543e99cf3143f10bf49c0",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-owned-r4"
     },
     {
       "version": "5.2.02",
@@ -648,10 +660,21 @@
       "preparedDigest": "01a08e47c51a3789323f2ff6340c8b2baa52bbce8d367b4e9643994287f48ea3",
       "evidenceDirectory": "jobs/6964bd54-a1f1-45ea-8d90-e10035021dfa/evidence",
       "scope": "Standalone production SDK owned MOC structure/update/ownership closure; not Editor acquisition or all capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "expectedNativeCoreVersion": "5.0.256",
       "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+      "reason": "Cancelled through official queue after starting during replacement race; no Core native assertion verdict",
+      "result": {
+        "runId": "queue-2f037d2db449455fbff3f5453705dbba",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "cancelled",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      }
     },
     {
       "version": "5.1.03",
@@ -661,8 +684,22 @@
       "preparedDigest": "ad00fdb8cd252c36877bfbce5e48b39192dfbc83fe9693491f2b35b3e8ff98ca",
       "evidenceDirectory": "jobs/74c74558-a712-46fe-b691-91b68b962f9d/evidence",
       "scope": "Standalone production SDK owned MOC structure/update/ownership closure; not Editor acquisition or all capabilities",
-      "status": "SUBMITTED",
+      "status": "CANCELLED_BEFORE_RUN",
       "expectedNativeCoreVersion": "5.0.0",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+      "reason": "Superseded by probe with overall readiness deadline and explicit startup failure evidence"
+    },
+    {
+      "version": "5.3.04",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r5",
+      "jobId": "6b80a640-8264-44bf-91f0-d10590071d50",
+      "preparedDigest": "3264ebb68c191f2336cb77dee80e9be8d559ad065b700983e3b5c753eb7f4384",
+      "evidenceDirectory": "jobs/6b80a640-8264-44bf-91f0-d10590071d50/evidence",
+      "scope": "Production SDK owned MOC; native timeout unchanged; readiness uses overall deadline and startup failures publish NOT_STARTED",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "6.0.513",
       "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
     }

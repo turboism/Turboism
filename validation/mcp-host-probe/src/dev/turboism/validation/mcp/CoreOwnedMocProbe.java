@@ -19,6 +19,18 @@ public final class CoreOwnedMocProbe {
     static final String MOC_SHA256 = "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543";
     private CoreOwnedMocProbe() {}
 
+    /** Records startup failure separately from any native Core assertion. */
+    public static void notStarted(final PluginContext context, final Path stateRoot, final String reason) {
+        final Properties result = new Properties();
+        result.setProperty("schemaVersion", "1");
+        result.setProperty("runId", System.getProperty("turboism.validation.runId", ""));
+        result.setProperty("hostVersion", System.getProperty("turboism.validation.hostVersion", ""));
+        result.setProperty("status", "FAIL");
+        result.setProperty("nativeAssertions", "NOT_STARTED");
+        result.setProperty("error", reason);
+        publish(context, stateRoot, result);
+    }
+
     public static boolean run(final PluginContext context, final Path stateRoot) {
         boolean nativeStateKnown = true;
         final Properties result = new Properties();
@@ -55,6 +67,11 @@ public final class CoreOwnedMocProbe {
                     .replace('\n', ' ').replace('\r', ' '));
             context.logger().error("SDK owned MOC probe failed", failure);
         }
+        publish(context, stateRoot, result);
+        return nativeStateKnown;
+    }
+
+    private static void publish(final PluginContext context, final Path stateRoot, final Properties result) {
         try {
             final Path pending = stateRoot.resolve("core-owned-moc-result.properties.pending");
             try (var output = Files.newOutputStream(pending)) { result.store(output, "Production SDK owned MOC evidence"); }
@@ -64,7 +81,6 @@ public final class CoreOwnedMocProbe {
         } catch (Exception failure) {
             context.logger().error("SDK owned MOC evidence publication failed", failure);
         }
-        return nativeStateKnown;
     }
 
     static void verify(final CoreRuntimeInfo runtime, final MocData data, final String expected, final Properties result)

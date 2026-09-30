@@ -1,0 +1,14 @@
+{
+  "jobId": "3fbbe66f-1e62-41fc-a9e0-636b25878aaf",
+  "preparedDigest": "fe52569d8fa3527314fdcd9c4584ac9d980e14012fa80ac3a4af758c3a371667",
+  "runId": "queue-f00387c7e8b543e99cf3143f10bf49c0",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "failed",
+  "validationStatus": "FAIL",
+  "identityVerified": false,
+  "fixtureUnchanged": false,
+  "normalExit": false,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "0e5b2a285d5d7c9fcbb5ac313fbb5719a256f445618e7642252526eee8f01350",
+  "reason": "No owned-MOC result before Runner timeout; startup read had five-second EDT timeout while observed document loading took8.5s; no native support verdict"
+}

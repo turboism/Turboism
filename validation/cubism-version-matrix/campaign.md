@@ -75,3 +75,5 @@
 后续已提交 5.2.02（观察 tuple 5.0.256）和 5.1.03（5.0.0）的独立 owned-MOC 任务，未猜测 native tuple；job 明细见 campaign-jobs.json。调度回归 28 / 队列隔离回归 114 PASS，20 个 Editor-model mapping pack 的 inventoryRef 记录摘要一致。
 
 5.3.04 独立 owned-r3 的探针已成功加载，但 Runner 在 native Core 断言前拒绝执行：mesaGlThread effective on / deferred GL error check inactive（T22 安全门禁）。supervisor failed/FAIL、cleanup safe；没有 native MOC result，不推导 Core unsupported。修复独立 Core wrapper 显式使用 mesaGlThread=false 与 mesa_glthread=false，关闭此非 Core 优化；保留原 Runner 防护和所有 Core 断言。同批 5.2.02 / 5.1.03 的旧输入在运行前取消替换。Core 任务不能证明 Mesa 优化支持，后者仍需专门验收。
+
+5.3.04 owned-r4 越过渲染门禁，任务模型加载完成并确认 FREE 参数提示，但未生成 native MOC result，最终 supervisor failed/FAIL、cleanup safe。检查 standalone readiness 发现局部 EDT FutureTask 只等5秒，实际加载文档在 EDT 用了8.5秒，启动期间即可提前退出；修复为已定义的120秒整体 startup deadline（Core native 调用120秒超时不变），并让 startup failure 发布 status=FAIL/nativeAssertions=NOT_STARTED，而不是静默没有结果。自检验证此 failure publication 不调用 cubism/Core 服务；探针编译与自检 PASS。owned-r5 已以新 probe 摘要冻结/提交，终态尚待。5.2.02旧包启动与取消发生竞态，已由官方 supervisor 收尾；5.1.03旧包在运行前取消，均不能作为 native 能力验收。
