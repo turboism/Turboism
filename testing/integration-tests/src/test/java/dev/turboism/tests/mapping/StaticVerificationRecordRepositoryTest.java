@@ -55,7 +55,7 @@ class StaticVerificationRecordRepositoryTest {
                     "db94c1cc5e004da1638664b234916c1c54f6ec9b320198d20c35a0f23bb46d6b"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.00-editor-model.json",
-                    "2b3ae2a0ba12f88f7f7d019f389938af4d119934df3a7bdd431e453c692be622"),
+                    "4f5b5cfb74f69c2a6711497e6e03f1d99c8149ca546cec67116022c980123624"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.00-performance-render-scene.json",
                     "0ef2716ec740d566259f03ea77e6013b0cb725ffc23a2bb56585c6bd267f93bb"),
@@ -76,7 +76,7 @@ class StaticVerificationRecordRepositoryTest {
                     "5a2dfdd5556bfd9c0091eb6e33b6d747fa9b17d933388df0b44be5d181858439"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.01-editor-model.json",
-                    "527d667922b23ed6e32f02b05e23e8af88f1281c43f465ea9cc6472ee83d44b0"),
+                    "0e67d3e539228296275c235d81950490e7a363b9e40a9802506a65cca3c6dd5d"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.01-performance-render-scene.json",
                     "8b55a74cd13109a948a2e818ae0047770cc266c891b4151ecdd7aa58a7ffe162"),
@@ -97,7 +97,7 @@ class StaticVerificationRecordRepositoryTest {
                     "1ecfda0a85e9da753d7505fe4e2824b9319c5acd4b2f5a872af7f7a5b9632f51"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.02-editor-model.json",
-                    "64d5aca43c8e058595eb87c1c637c30ddfc2b5a4f8673e0d30c11207011cdafd"),
+                    "6b3a498e267e71053bdd1dd673f82694501b52d974dae37ae0f8ef34d0fa8a38"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.02-performance-render-scene.json",
                     "4779cc90ff8b74ec64f37479df6c355daa89afd1ac453d1debd5b00294b0186f"),
@@ -118,7 +118,7 @@ class StaticVerificationRecordRepositoryTest {
                     "27e152c2cf5c9773e590713f4b7c89ed4f636ff9f30401c50ca3f381338f60ab"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.03-editor-model.json",
-                    "e2ea94b7c7fac316a92d347e79962e859574c000162c28a04f9dd38492ae2328"),
+                    "d08f0ce40028352c6b7de6f6646c756325fc8c0b5b27a1eb648606bafe1e3c3e"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.03-performance-render-scene.json",
                     "f829cc571a235bb9f7e1dfa80f9346f4b2fc8896bcdeca167dfeb010f064dc49"),
@@ -139,7 +139,7 @@ class StaticVerificationRecordRepositoryTest {
                     "24fff5f0b50d213c0bc24e174cd93c09567855be94984defdcb0da9f551d566e"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.04-editor-model.json",
-                    "b8d5b893b512d8dfb828ec41d705d5b7735c8f05cc0c0e2471216425aa2f138a"),
+                    "9de62c091450e428cdd1d4707b96321ab7ecad0d5ac5f9ea19bec58990a14228"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.04-performance-render-scene.json",
                     "1905a10d8cb42aba92ef78aa3878662bd9209920f724c77332f664fe6eb94271"),
@@ -160,7 +160,7 @@ class StaticVerificationRecordRepositoryTest {
                     "4a007c8187e27be949a411b3808269031d9f5a980ee379e16186f5d836e3adb6"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.05-editor-model.json",
-                    "b8d2dad13eae63d1f4520fc2eae10a9cd813e824042657cdaf1ddc0efbfee78e"),
+                    "1f8a32a0a518cf058c31358874fb8ad9445ea516908516b469f773f6ca1342cb"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.05-performance-render-scene.json",
                     "df2383d55575ce483835f3c7f62baa1dd6687c2aabbc6814fd20b7d934c818e4"),
@@ -181,7 +181,7 @@ class StaticVerificationRecordRepositoryTest {
                     "1a56bb42773340d9980dea77c33ec799999b0741fe74bb8c30f49e4895f1f46b"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.06-editor-model.json",
-                    "ad45b405da3ae0c5b4412d3c235a7ede239bac5f8ad7ef80ddcd556b9f73ad70"),
+                    "6d0031ca5d3aa0e181cd1947fa4074c14708e3b0512f4bfc361f359865135f4f"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.06-performance-render-scene.json",
                     "9ba628990fe065bc2f7f5b2ff0e3a8ad1d27a6f2d3d4f8b6187eaddd879dde4a"),
@@ -205,7 +205,7 @@ class StaticVerificationRecordRepositoryTest {
                     "9533b5ed917c11c1c48f015fd082031f9d0485d0442634fcb7afe0c414e6c2fd"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.00-editor-model.json",
-                    "f86a2c5c27a6b65857b92d00e7f967f8592bd8de0cb5259b0012b7f4c6712efa"),
+                    "6282b6283a7343b3b558fb83d55f474d5486b1cca217ad4d69d306f8fe757960"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.00-performance-render-scene.json",
                     "034656e2120618edc341f2b7c24ce8b7f5a8c37d14c48eaabb96ae4798ff5df7"),
@@ -238,7 +238,7 @@ class StaticVerificationRecordRepositoryTest {
                     "e38e59076a664e918b512eebb29986130426a988e9e694dc9234e1d5004f1d0f"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.01-editor-model.json",
-                    "0099d993ae1707007562d8b8bf845e51e0b7aabbd9587ef59f515fba1466f950"),
+                    "a71e8e7b0a70d0689efe463dfdb0cd9fa05a81c54f425026dfb8d07bedd39a94"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.01-performance-render-scene.json",
                     "f6eaf74a52741579285c25f9fd9ce48bf8545cf49e84eab00807076e4e49895e"),
@@ -271,7 +271,7 @@ class StaticVerificationRecordRepositoryTest {
                     "2eeefa12bd70c4c722aec61ebd79de959b43022d45e368a8cbf46084612523a3"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.02-editor-model.json",
-                    "25fce083d8cc5bc273288978c7740e79ce46fe1d6be8edf8d7601c5afab23cc7"),
+                    "606486ef8ab8268564917ef3b078251dba36e4289269ba65bfcf68e022e375e3"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.02-performance-render-scene.json",
                     "9a6138f11ab62605ae301f4b50f98a7a99bb0dd8323177b5f3b66fe7300d9b2e"),
@@ -304,7 +304,7 @@ class StaticVerificationRecordRepositoryTest {
                     "7fe95e7872f95adb7f264a80f036cef2510fddbd614f1fa85763364b9ccadc68"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.03-editor-model.json",
-                    "407289248097d3d90bde3ecb8d83c7959fee155cfa230b3d4b4440e92ba51626"),
+                    "a31e5ef66365be94147e3cadc2e06d0ddbaaf9c883b3a516fee270df0e95d98e"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.1.03-performance-render-scene.json",
                     "a14a1c6fdc05daf3f41d38e591f9b763f2525754ab44ebaead888d13b6211b2c"),
@@ -337,7 +337,7 @@ class StaticVerificationRecordRepositoryTest {
                     "ea059c3e8c43ad9003652760ccf09f3873fdf777c70128c6b375958daa68b1a9"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.00-editor-model.json",
-                    "0cbdffae7bda857d67a5c42276debc94e7fbb1e18c4bb298a03f869e62b8ffd9"),
+                    "3f7c3712c03dfca1785992f951fef44148a57e9b1370a436cbc0c87091681499"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.00-performance-render-scene.json",
                     "6e61708f9133ec386180fd528318404bee04f864c8c4b19dc0bd1126801d2858"),
@@ -376,7 +376,7 @@ class StaticVerificationRecordRepositoryTest {
                     "6ec7f47455df3a63ad155509f5d1a0fe8c18c649f74b1946f5d056076464ec09"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.01-editor-model.json",
-                    "53147c348473d4bb6ac4d0211aa0c042f8e807f90d1dbbeebbcbc80143687d0c"),
+                    "44cce7acbd0ac8a0e0eaa954b594da5d8606bf4033141846122f9717825a18f0"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.01-performance-render-scene.json",
                     "bc485385bde213fa52bac393e3bee1da6d162126b47fce085202f3ad19e57607"),
@@ -415,7 +415,7 @@ class StaticVerificationRecordRepositoryTest {
                     "49ad9cd2b7e30470889112b563c62e3a0220935e18ad44eb341cbd0a00a82e7b"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.02-editor-model.json",
-                    "349118785febb3014f8776e3ed9119dfaf8bb12bf666c9068eb0c629faae7499"),
+                    "927f6fbb9aec4a638f1c57f3b0912a183185183b1a60d344ead8bccf008b3594"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.02-performance-render-scene.json",
                     "212950acdc9da5163bc9409d1cdc0732227500f74eb8497a13832bdae266ae04"),
@@ -457,7 +457,7 @@ class StaticVerificationRecordRepositoryTest {
                     "b4ae3e4691f513e2399032bcace2c9ed3a3a3de5968e8d97647d3adc57c5ca0b"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-                    "c7aae7a7a98691fc1e40dbc170e64ef05696c48444d43e9280beabdbbec46fb3"),
+                    "dabaa7b4b474d7ac9b10111b615533ba1cf2e73bab159d8967a712a3af3609b3"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.2.03-performance-render-scene.json",
                     "14150a41fab8676f60def999820fc56e09cb83ddd5e29ef61852f3209e8b5c60"),
@@ -496,7 +496,7 @@ class StaticVerificationRecordRepositoryTest {
                     "25a1be2b2f80889f3771d2cc2a18c5d180d3817584d8fd6fac72de6ea5aa9f7d"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.00-editor-model.json",
-                    "e2594cc30a6fff0a9b85e50a76e7eafe9f4caea42d5199bb6c180fe8cbe05f90"),
+                    "ca8c4a5e9bc41ab77d99a190067433045be0868430296ac672477d76069c906a"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.00-performance-render-scene.json",
                     "018283db4056e2d32ab8aadcef6924e21534c31ec4d14d054c5ffcf9bc95a6a1"),
@@ -535,7 +535,7 @@ class StaticVerificationRecordRepositoryTest {
                     "de81ab6d48e34bbdac1e4e70dfc40a245e0fd96babf7bd8b076fa6f325e5d6df"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.01-editor-model.json",
-                    "8ad599c91a4165c4c40f8df65029d9a3dbc464fbfe97ad3fa03aa066a49f4efa"),
+                    "aef5951b4ebd45e925e03ca5ccef4ce06236197b9f47a8a40c4f0c1a7f30a089"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.01-performance-render-scene.json",
                     "a8c0701e86cc783f9c380ab1b50895d2293b3d11e06a04c96ddde6583b544678"),
@@ -616,7 +616,7 @@ class StaticVerificationRecordRepositoryTest {
                     "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-editor-model.json",
-                    "1a777583425d8b651ce2c0b67de99e38a443594107cadd4e81baf0ca2cefa99e"),
+                    "d3b858e8253864f181d9c613af0d21f8da8d9fd50a7a343785b3a5415f5160ac"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.03-performance-render-scene.json",
                     "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5"),
@@ -655,7 +655,7 @@ class StaticVerificationRecordRepositoryTest {
                     "f86602256cc5660232ccb1ca1528ff8f1f4d71eec05f1f10756828a919e7e552"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.04-editor-model.json",
-                    "1db3f8c88e2779aa9f52ed3577b32c743dcd654e2880145bafa3abf169a3dd68"),
+                    "c53982730ce25dbfbcab13d6ad64842a674b3065e34397a9ae2ea2c85e59d183"),
             Map.entry(
                     "compatibility/cubism/verification/cubism-5.3.04-performance-render-scene.json",
                     "2e0ff4eace38df67a740e0aec94b1de01a6c379a53d97265018b9ad79d88c234"),
@@ -847,8 +847,8 @@ class StaticVerificationRecordRepositoryTest {
                                     "Live2D_Cubism.jar",
                                     ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                                     ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                                    "c7aae7a7a98691fc1e40dbc170e64ef05696c48444d43e9280beabdbbec46fb3",
-                                    824,
+                                    "dabaa7b4b474d7ac9b10111b615533ba1cf2e73bab159d8967a712a3af3609b3",
+                                    844,
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     EditorModelVerificationManifest.cubism52Aliases(),
                                     recordMethodAliases(
@@ -1114,7 +1114,7 @@ class StaticVerificationRecordRepositoryTest {
         return switch (fileName) {
             case "cubism-5.3.03-autobackup" -> "639036d9d0bc35a480ef18521efc43eec29f26a95c4eea7b136f52e40cf0d74d";
             case "cubism-5.3.03-clipmask" -> "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459";
-            case "cubism-5.3.03-editor-model" -> "1a777583425d8b651ce2c0b67de99e38a443594107cadd4e81baf0ca2cefa99e";
+            case "cubism-5.3.03-editor-model" -> "d3b858e8253864f181d9c613af0d21f8da8d9fd50a7a343785b3a5415f5160ac";
             case "cubism-5.3.03-performance-render-scene" ->
                 "1f46c24551b7b5ccc63bb379a4498d5b3166fa20916499ca9b5c8c52da307ba5";
             case "cubism-5.3.03-protected-export" -> "de6066d86686cd3445b921086e7747167cf30b2fa89eb8efe49da064242d99b7";

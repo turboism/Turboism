@@ -3,7 +3,7 @@ package dev.turboism.mapping.verification.selector;
 import java.util.Set;
 
 /**
- * Exact Cubism 5.3.02 selector contract for the native PSD raw-image replace seam.
+ * Exact reviewed Cubism selector contract for the native PSD raw-image replace seam.
  *
  * <p>The native process owns the Import PSD transaction. The adapter only reads the current edit
  * state and invokes the explicit five-argument entry; the begin/end and GroupUndo selectors below
@@ -13,7 +13,10 @@ import java.util.Set;
 public final class EditorRawImagePsdReplaceSelectorContract {
     public static final String CAPABILITY_ID = "cubism.editor-model.psd.raw-image.replace";
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
-    public static final String SUPPORTED_CUBISM_VERSION = "5.3.02";
+    /** Reviewed generations carrying both native replacement and issued-PSD export dependencies. */
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    );
 
     /** Existing exact selectors reused for the current document/edit-state checks. */
     public static final String APP_CONTROLLER_CLASS_ALIAS =
