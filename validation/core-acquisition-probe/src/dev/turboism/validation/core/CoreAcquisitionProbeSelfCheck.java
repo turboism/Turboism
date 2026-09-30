@@ -21,6 +21,14 @@ public final class CoreAcquisitionProbeSelfCheck {
         if (!"UPDATE_PAGE_CANCELLED".equals(
                 dev.turboism.validation.NativeFreeStartup.promptAction("Note!", update, "Cancel")))
             throw new AssertionError("update cancellation rejected");
+        final String freeLimit = "FREE version - The max number of Parameters allowed per object: 2"
+                + " This operation is cancelled as 3 parameters are set.";
+        if (!"FREE_PARAMETER_LIMIT_ACKNOWLEDGED".equals(
+                dev.turboism.validation.NativeFreeStartup.promptAction("Information Dialog Box", freeLimit, "OK")))
+            throw new AssertionError("known FREE limit information rejected");
+        if (dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", freeLimit, "OK") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Information Dialog Box", "Save changes?", "OK") != null)
+            throw new AssertionError("unrelated information accepted");
         for (String text : new String[] {"Would you like to start the Trial?", "Save changes?", "Delete model?"}) {
             if (dev.turboism.validation.NativeFreeStartup.promptAction("Warning", text, "Yes(Y)") != null)
                 throw new AssertionError("unrelated confirmation accepted");

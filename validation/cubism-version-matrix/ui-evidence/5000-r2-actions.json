@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "version": "5.0.00",
+  "jobId": "8958e1b9-8d41-4ad1-b399-a9ef1fdbf2b3",
+  "runId": "queue-eb5b5d38e1ee4ec095aa539238730aeb",
+  "automaticActions": [
+    "NEWER_MODEL_OPEN_CONFIRMED: Load",
+    "UPDATE_PAGE_CANCELLED: Cancel"
+  ],
+  "manualAction": {
+    "title": "Information Dialog Box",
+    "windowId": "50331663",
+    "pid": 488836,
+    "cgroupPath": "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-3229d0783209f99d16bb67c9ca02774f.scope",
+    "ownershipVerifiedBeforeAction": true,
+    "activeWindowVerifiedBeforeReturn": true,
+    "action": "OK via Return",
+    "meaning": "Acknowledges FREE parameter-limit information; does not change license or prove successful model load",
+    "screenshot": "5000-r2-free-parameter-limit.png",
+    "screenshotSha256": "37205d280937c709064aecd2e686e6570222fafe63bfa88d9b7633d65673cf99"
+  },
+  "scope": "UI assistance only; no runtime capability verdict"
+}

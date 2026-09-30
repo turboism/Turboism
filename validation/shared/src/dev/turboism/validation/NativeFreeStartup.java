@@ -42,6 +42,11 @@ public final class NativeFreeStartup {
     }
 
     public static String promptAction(final String title, final String text, final String button) {
+        if ("Information Dialog Box".equals(title) && text != null && "OK".equals(button)
+                && text.contains("FREE version - The max number of Parameters allowed per object: 2")
+                && text.contains("This operation is cancelled as 3 parameters are set.")) {
+            return "FREE_PARAMETER_LIMIT_ACKNOWLEDGED";
+        }
         if (isNewerModel(title, text)
                 && ("Load".equals(button) || "Yes".equals(button) || "Yes(Y)".equals(button))) {
             return "NEWER_MODEL_OPEN_CONFIRMED";
