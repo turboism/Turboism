@@ -23,7 +23,7 @@ dependencies {
 
 tasks.named<ProcessResources>("processTestResources") {
     from(rootProject.file("compatibility/cubism/verification")) {
-        include("cubism-5.2.03-editor-model.json", "cubism-5.3.02-editor-model.json", "cubism-5.3.03-editor-model.json")
+        include("cubism-*-editor-model.json")
         into("META-INF/turboism/verification")
     }
 }

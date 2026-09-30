@@ -362,17 +362,36 @@ final class WindowsHistoryNativeUiHostClose {
         return title.endsWith(fixture) && validTitlePrefix(title.substring(0, title.length() - fixture.length()));
     }
 
-    /** Preserves established routes and the synthetic 5303 route proven by MCP validation. */
+    /** Preserves the 5302 Robot route and uses task-bound window closing for other exact hosts. */
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
         if (hostVersion == null) {
-            throw new IllegalArgumentException("turboism.validation.hostVersion must be 5203, 5302, or 5303");
+            throw new IllegalArgumentException(
+                    "turboism.validation.hostVersion must be an exact installed version code");
         }
         return switch (hostVersion) {
-            case "5203", "5303" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
+            case "5000",
+                    "5001",
+                    "5002",
+                    "5003",
+                    "5004",
+                    "5005",
+                    "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203",
+                    "5300",
+                    "5301",
+                    "5303",
+                    "5304" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
             case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
             default ->
                 throw new IllegalArgumentException(
-                        "turboism.validation.hostVersion must be 5203, 5302, or 5303: " + hostVersion);
+                        "turboism.validation.hostVersion must be an exact installed version code: " + hostVersion);
         };
     }
 

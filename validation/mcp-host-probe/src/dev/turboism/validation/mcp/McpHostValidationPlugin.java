@@ -4,6 +4,8 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
+import dev.turboism.validation.NativeFreeStartup;
+import javax.swing.SwingUtilities;
 import dev.turboism.tests.plugin.McpValidationHostClose;
 import dev.turboism.tests.plugin.McpTexturePersistenceProbe;
 import java.nio.file.Files;
@@ -58,6 +60,20 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
         final long deadline = System.currentTimeMillis() + RESULT_TIMEOUT_MILLIS;
         boolean textureRoundTripHandled = false;
         while (enabled && System.currentTimeMillis() < deadline) {
+            if (Boolean.getBoolean("turboism.validation.startFree")) {
+                try {
+                    SwingUtilities.invokeAndWait(() -> {
+                        final String action = NativeFreeStartup.select();
+                        if (action != null) logger.info("MCP_VALIDATION_" + action);
+                    });
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return;
+                } catch (java.lang.reflect.InvocationTargetException failure) {
+                    logger.error("MCP FREE startup helper failed", failure.getCause());
+                    return;
+                }
+            }
             if (!textureRoundTripHandled) {
                 textureRoundTripHandled = McpTexturePersistenceProbe.runIfRequested(context, validationStateRoot());
             }

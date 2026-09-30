@@ -7,7 +7,7 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 classes="$out/classes"
 mkdir -p "$classes"
-sources=("$base/src/dev/turboism/validation/core/CoreAcquisitionProbeAgent.java" "$base/src/dev/turboism/validation/core/CoreAcquisitionProbeSelfCheck.java")
+sources=("validation/shared/src/dev/turboism/validation/NativeFreeStartup.java" "$base/src/dev/turboism/validation/core/CoreAcquisitionProbeAgent.java" "$base/src/dev/turboism/validation/core/CoreAcquisitionProbeSelfCheck.java")
 for source in "${sources[@]}"; do [ -f "$source" ] || { echo "error: missing source $source" >&2; exit 1; }; done
 javac --release 17 -d "$classes" "${sources[@]}"
 java -cp "$classes" dev.turboism.validation.core.CoreAcquisitionProbeSelfCheck

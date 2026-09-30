@@ -3,15 +3,15 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mcp-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
+  echo "usage: run-mcp-host-validation.sh <installed-version-code> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
 case "$version" in
-  5203|5302) ;;
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *)
-    echo "error: mcp host validation supports only 5203 or 5302" >&2
+    echo "error: unsupported installed MCP validation version: $version" >&2
     exit 2
     ;;
 esac

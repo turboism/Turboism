@@ -18,7 +18,9 @@ python3 scripts/preview/host_validation.py submit --prepared PREPARED_ID --reque
 python3 scripts/preview/host_validation.py wait JOB_ID
 ```
 
-Substitute returned IDs. Versions `5203`, `5302`, and `5303` share the same single host slot.
+Substitute returned IDs. All 20 exact installed versions (`5000`–`5006`, `5100`–`5103`,
+`5200`–`5203`, `5300`–`5304`) share the same single host slot. Wrapper admission is
+not evidence that the client assertions have passed on each version.
 The queue freezes the canonical stdlib client and pins the preparing Python executable;
 Runner executes the copied client with `-I`, without inherited proxies or redirects.
 Arbitrary custom client scripts and extra hooks remain rejected. Preparation and wrapper
@@ -133,7 +135,8 @@ or this validation package.
 
 The lifecycle probe consumes only a terminal result whose `runId` matches the current task.
 After the client finishes, it reuses the tested native UI close helper: the exact 5302 route
-uses focused Alt+F4; 5203 and 5303 use their verified synthetic close event. MCP reserves
+uses focused Alt+F4; other exact installed versions use a task-bound synthetic close event.
+Each version still requires supervisor evidence of a normal exit. MCP reserves
 `display-input`. The in-process helper verifies that the selected task window is active before
 sending the native gesture; failure to acquire focus stops the close. No external desktop-focus
 poller is admitted by the MCP client's dependency inventory.
@@ -142,6 +145,11 @@ The helper selects exactly one window matching the copied fixture, never an arbi
 window. It handles only an unambiguous save-confirmation dialog owned by that window and naming
 that fixture. Unknown/foreign dialogs fail closed. There is no `System.exit` or process-kill
 fallback in the probe. It is packaged only in the validation bundle, not in production plugins.
+
+With `-Dturboism.validation.startFree=true`, the task JVM also handles the exact English
+FREE startup/welcome dialogs, the newer-model warning (Load or Yes), and the update download
+prompt (Cancel). Actions and observed prompt text are logged. Unrelated confirmations are
+left untouched; this assistance does not grant a PRO or trial license.
 
 A client `status=PASS` is still insufficient: the normal-exit and outside-supervisor containment
 proofs must also pass. `wrapper.cleanup` records whether native exit evidence was observed or the

@@ -68,7 +68,14 @@ class WindowsHistoryNativeUiHostCloseTest {
         assertEquals(
                 WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
                 WindowsHistoryNativeUiHostClose.hostCloseRoute("5303"));
-        assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5304"));
+        for (String version : java.util.List.of(
+                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
+                "5202", "5203", "5300", "5301", "5303", "5304")) {
+            assertEquals(
+                    WindowsHistoryNativeUiHostClose.HostCloseRoute.SYNTHETIC_WINDOW_CLOSING,
+                    WindowsHistoryNativeUiHostClose.hostCloseRoute(version));
+        }
+        assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute("5400"));
         assertThrows(IllegalArgumentException.class, () -> WindowsHistoryNativeUiHostClose.hostCloseRoute(null));
     }
 
