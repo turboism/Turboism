@@ -26,6 +26,9 @@ public final class CoreAcquisitionProbeSelfCheck {
         if (!"FREE_PARAMETER_LIMIT_ACKNOWLEDGED".equals(
                 dev.turboism.validation.NativeFreeStartup.promptAction("Information Dialog Box", freeLimit, "OK")))
             throw new AssertionError("known FREE limit information rejected");
+        if (!"FREE_PARAMETER_LIMIT_ACKNOWLEDGED".equals(
+                dev.turboism.validation.NativeFreeStartup.promptAction("Information", freeLimit, "OK")))
+            throw new AssertionError("Swing FREE information title rejected");
         if (dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", freeLimit, "OK") != null
                 || dev.turboism.validation.NativeFreeStartup.promptAction("Information Dialog Box", "Save changes?", "OK") != null)
             throw new AssertionError("unrelated information accepted");

@@ -216,8 +216,20 @@
       "preparedDigest": "0a0b52ac2c2a4f71bc6a050a14d790f95b97ba738d3e6f0134caa594bcc8e8f4",
       "evidenceDirectory": "jobs/d1e6d725-b6d4-4f80-95f5-a2f6be45f070/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-b3525fa0ea5f49d8acc8e0f089f12f54",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-r1",
+      "limitation": "Native texture Undo/Redo pixels passed; persistence timed out on FREE parameter-limit modal; overall FAIL, not an unsupported verdict"
     },
     {
       "version": "5.0.01",
@@ -239,8 +251,9 @@
       "preparedDigest": "22dd157b02d5a4fdae12092f5ca328a992d20a925f0638fa21b80be6f897298d",
       "evidenceDirectory": "jobs/af509e2c-514f-49f5-a896-7aafcf545243/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "CANCELLED_BEFORE_RUN",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "reason": "Superseded by r2 independent native prompt helper; no capability verdict"
     },
     {
       "version": "5.3.01",
@@ -250,8 +263,9 @@
       "preparedDigest": "776ca439ef40e2847ab75c7604f3d9e00d50546993dc402de33bd3a7b66560c9",
       "evidenceDirectory": "jobs/334d4209-de0f-49f4-8b3f-2571f7e18fbc/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "CANCELLED_BEFORE_RUN",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "reason": "Superseded by r2 independent native prompt helper; no capability verdict"
     },
     {
       "version": "5.1.00",
@@ -285,6 +299,39 @@
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
       "status": "SUBMITTED",
       "assistance": "FREE startup; newer-model Load/Yes; update Cancel; exact FREE parameter-limit OK information; missing-class diagnostics"
+    },
+    {
+      "version": "5.3.04",
+      "task": "mcp",
+      "round": "allversions-r2",
+      "jobId": "ac4425f0-4e5b-4474-85e2-834b6285bd52",
+      "preparedDigest": "33f9d7dbc1c3836fb3165965943e1e01684ee4480fbbdbee7ff82142b34ad474",
+      "evidenceDirectory": "jobs/ac4425f0-4e5b-4474-85e2-834b6285bd52/evidence",
+      "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
+      "status": "SUBMITTED",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
+    },
+    {
+      "version": "5.2.02",
+      "task": "mcp",
+      "round": "allversions-r2",
+      "jobId": "ae6e0888-2091-49c4-b00a-185c2f226d43",
+      "preparedDigest": "f3a75956810417f6dcee31ac8881fe7e638b26cad285b4f3312beddfa8b1914c",
+      "evidenceDirectory": "jobs/ae6e0888-2091-49c4-b00a-185c2f226d43/evidence",
+      "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
+      "status": "SUBMITTED",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
+    },
+    {
+      "version": "5.3.01",
+      "task": "mcp",
+      "round": "allversions-r2",
+      "jobId": "65882585-3ae8-4b1e-997e-26b4b79daea8",
+      "preparedDigest": "9e8b4474421ece0b805ea7bbc090c280d1f2df6dac6f8c6c03731b78c01b2477",
+      "evidenceDirectory": "jobs/65882585-3ae8-4b1e-997e-26b4b79daea8/evidence",
+      "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
+      "status": "SUBMITTED",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
     }
   ]
 }
