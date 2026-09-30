@@ -73,3 +73,5 @@
 新增独立 core-owned-moc 队列任务，复用官方 contained Runner、原始夹具副本/摘要门禁、精确 prompt helper 与 normal-close 安全路径；在任务文档可见且没有 modal 后执行生产 SDK MOC 结构读取、evaluation、独立 model、显式释放、父级联释放断言。该任务不使用 MCP client，也不触发 Editor texture persistence，完整 MCP 验证仍保留为另一项必需覆盖。仅接受有实机观察 tuple 的版本，不按系列猜测 native tuple。5.3.04 owned-r3 输入已冻结，具体 job 与 prepared digest 见 campaign-jobs.json；尚不宣称 Core 通过。
 
 后续已提交 5.2.02（观察 tuple 5.0.256）和 5.1.03（5.0.0）的独立 owned-MOC 任务，未猜测 native tuple；job 明细见 campaign-jobs.json。调度回归 28 / 队列隔离回归 114 PASS，20 个 Editor-model mapping pack 的 inventoryRef 记录摘要一致。
+
+5.3.04 独立 owned-r3 的探针已成功加载，但 Runner 在 native Core 断言前拒绝执行：mesaGlThread effective on / deferred GL error check inactive（T22 安全门禁）。supervisor failed/FAIL、cleanup safe；没有 native MOC result，不推导 Core unsupported。修复独立 Core wrapper 显式使用 mesaGlThread=false 与 mesa_glthread=false，关闭此非 Core 优化；保留原 Runner 防护和所有 Core 断言。同批 5.2.02 / 5.1.03 的旧输入在运行前取消替换。Core 任务不能证明 Mesa 优化支持，后者仍需专门验收。

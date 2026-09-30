@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "jobId": "ba9eef36-9a0d-4c50-bcad-fffd118738f9",
+  "preparedDigest": "9645a25e36e4fbdf082c886c4b947a0bfaa1aa5f9933e6cee16db78e7a57b94a",
+  "attemptId": "a8314901-c6b7-4423-8504-423f59afcf96",
+  "runId": "queue-bfdd6c463e2b4f7483b700e09554d31e",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "failed",
+  "validationStatus": "FAIL",
+  "identityVerified": false,
+  "fixtureUnchanged": false,
+  "normalExit": false,
+  "cleanup": "safe",
+  "runnerExitCode": 1,
+  "sourceLifecycleSha256": "eddf00a43b21c6e04a8a5b3858ae622b26f400c5e316e8842faf07d6ce3265e6",
+  "reason": "Runner refused mesaGlThread effective on while deferred GL error check inactive, before Core assertions"
+}
