@@ -3,6 +3,7 @@
 
 import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -214,6 +215,49 @@ TURBOISM_HOST_VALIDATION_FIXTURE_5203={self.fixture}
             env_file=self.env_file,
         )
         self.assertEqual(res2["totalItems"], 0)
+
+    def test_active_task_is_not_selected_at_new_discovery_depth(self):
+        task = self.host_root / "wt-active-feature"
+        (task / "prefix").mkdir(parents=True)
+        (task / "evidence").mkdir()
+        (task / "evidence" / "wrapper.pid").write_text(str(os.getpid()))
+        context = cleanup.SafetyContext.create(self.repo, cleanup.parse_local_env(self.env_file))
+
+        self.assertEqual([], cleanup.scan_worktree_artifacts("active-feature", context))
+        self.assertEqual([], cleanup.scan_terminal_host_artifacts(context))
+        self.assertTrue((task / "prefix").is_dir())
+
+    def test_teardown_does_not_unlock_codegraph(self):
+        # Every command and path the hook can reach is a task-local stub.
+        index = self.repo / ".codegraph"
+        index.mkdir()
+        lock = index / "lock"
+        lock.write_text("live indexer ownership")
+        commands = self.test_root / "commands"
+        commands.mkdir()
+        invocations = self.test_root / "codegraph-invocations"
+        graph = commands / "codegraph"
+        graph.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{invocations}"\n')
+        graph.chmod(0o755)
+        cleanup_script = self.repo / "scripts" / "dev" / "cleanup-host-artifacts.sh"
+        cleanup_script.parent.mkdir(parents=True)
+        cleanup_calls = self.test_root / "cleanup-invocations"
+        cleanup_script.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{cleanup_calls}"\n')
+        cleanup_script.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(REPO_ROOT / "scripts/dev/paseo-worktree-teardown.sh")],
+            cwd=self.repo,
+            env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}",
+                 "PASEO_WORKTREE_PATH": str(self.repo),
+                 "PASEO_SOURCE_CHECKOUT_PATH": str(self.repo),
+                 "PASEO_BRANCH_NAME": "refs/heads/worktree/feature"},
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertFalse(invocations.exists(), "teardown must not call codegraph unlock")
+        self.assertEqual("live indexer ownership", lock.read_text())
+        self.assertEqual(["--worktree repo", "--worktree feature"], cleanup_calls.read_text().splitlines())
 
     def test_multi_depth_task_discovery(self):
         context = cleanup.SafetyContext.create(self.repo, cleanup.parse_local_env(self.env_file))
