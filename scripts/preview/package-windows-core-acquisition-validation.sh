@@ -31,7 +31,7 @@ fi
 [ "$missing" = 0 ] || exit 1
 
 if [ -f "$probe_jar" ] && [ -d "$probe_source_dir" ]; then
-  stale_probe_source="$(find "$probe_source_dir" -type f -newer "$probe_jar" -print -quit)"
+  stale_probe_source="$(find "$probe_source_dir" "$repo_root/validation/shared/src" -type f -newer "$probe_jar" -print -quit)"
   if [ -n "$stale_probe_source" ]; then
     printf 'error: Core acquisition probe agent is older than source: %s\n' "$stale_probe_source" >&2
     printf 'artifact: %s\n' "$probe_jar" >&2

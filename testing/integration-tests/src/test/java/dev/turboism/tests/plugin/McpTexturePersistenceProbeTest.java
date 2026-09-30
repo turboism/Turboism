@@ -49,10 +49,12 @@ class McpTexturePersistenceProbeTest {
 
     @Test
     void unknownAndLooseVersionsAreRejected() {
-        for (String version : List.of("5203", "5302", "5303")) {
+        for (String version : List.of(
+                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201",
+                "5202", "5203", "5300", "5301", "5302", "5303", "5304")) {
             assertTrue(McpTexturePersistenceProbe.expectedJarHash(version).matches("[a-f0-9]{64}"));
         }
-        for (String version : List.of("5.3", "5304", "5400", "")) {
+        for (String version : List.of("5.3", "5305", "5400", "")) {
             assertThrows(IllegalArgumentException.class, () -> McpTexturePersistenceProbe.expectedJarHash(version));
         }
     }
