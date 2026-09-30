@@ -150,6 +150,9 @@ With `-Dturboism.validation.startFree=true`, the task JVM also handles the exact
 FREE startup/welcome dialogs, the newer-model warning (Load or Yes), and the update download
 prompt (Cancel). Actions and observed prompt text are logged. Unrelated confirmations are
 left untouched; this assistance does not grant a PRO or trial license.
+The exact FREE parameter-limit information is acknowledged with OK and logged; its cancelled
+operation is not relabeled as successful. The helper has a separate lifecycle-bound thread so
+texture save/reopen waits do not prevent it from handling these known modal prompts on the EDT.
 
 A client `status=PASS` is still insufficient: the normal-exit and outside-supervisor containment
 proofs must also pass. `wrapper.cleanup` records whether native exit evidence was observed or the
