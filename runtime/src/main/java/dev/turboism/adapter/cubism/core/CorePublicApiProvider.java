@@ -33,13 +33,14 @@ public interface CorePublicApiProvider {
     /**
      * The capability flags for this provider's artifact profile.
      *
-     * <p>The default derives them from {@link #artifactProfile()}: owned-Moc support only
-     * for the {@code "5.3.02"} profile and MOC metadata always assumed readable.</p>
+     * <p>The default derives them from {@link #artifactProfile()}: parameter-repeat support only
+     * for the reviewed {@code "5.3.02"} and {@code "5.3.04"} profiles and MOC metadata always assumed readable.</p>
      *
      * @return the capability flags; never null
      */
     default dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-        return new dev.turboism.sdk.cubism.core.CoreCapabilities("5.3.02".equals(artifactProfile()), true, false);
+        return new dev.turboism.sdk.cubism.core.CoreCapabilities(
+                ("5.3.02".equals(artifactProfile()) || "5.3.04".equals(artifactProfile())), true, false);
     }
 
     /**

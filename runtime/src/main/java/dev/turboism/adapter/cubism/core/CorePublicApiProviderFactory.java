@@ -195,7 +195,8 @@ public final class CorePublicApiProviderFactory {
 
         @Override
         public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-            return new dev.turboism.sdk.cubism.core.CoreCapabilities("5.3.02".equals(artifactProfile), true, true);
+            return new dev.turboism.sdk.cubism.core.CoreCapabilities(
+                    ("5.3.02".equals(artifactProfile) || "5.3.04".equals(artifactProfile)), true, true);
         }
 
         @Override

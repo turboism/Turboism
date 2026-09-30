@@ -50,15 +50,18 @@ def selector(roster: list[dict[str, Any]], constant: str) -> dict[str, Any]:
     return matches[0]
 
 
+PACK_534 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json"
+
+
 def main() -> int:
     policy = load_json(POLICY)
-    packs = load_packs([PACK_52, PACK_53])
+    packs = load_packs([PACK_52, PACK_53, PACK_534])
     validated, roster = validate_policy(policy, packs)
 
     require(len(roster) == 83, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "86b5ac4fb9c3b41a2159eb4747a50213fbcd6446c2ed39299247c03059eb9d6c",
+        == "e3449dce32c127b73d525f8b5f4782faade43b8aa236fd1f862805e7310809ff",
         "selector roster digest drifted",
     )
     require(
@@ -66,6 +69,7 @@ def main() -> int:
         == {
             "5.2.03": {"entryCount": 80},
             "5.3.02": {"entryCount": 82},
+            "5.3.04": {"entryCount": 82},
         },
         "selector profile counts drifted",
     )
@@ -73,21 +77,21 @@ def main() -> int:
     repeat = selector(roster, "PARAMETERS_GET_REPEATS")
     require(
         repeat["alias"] == "cubism.core.parameters.repeats"
-        and repeat["profiles"] == ["5.3.02"]
+        and repeat["profiles"] == ["5.3.02", "5.3.04"]
         and repeat["descriptor"] == "()[Z",
         "5.3-only repeat selector drifted",
     )
     render_orders = selector(roster, "MODEL_GET_RENDER_ORDERS")
     require(
         render_orders["alias"] == "cubism.core.model.get-render-orders"
-        and render_orders["profiles"] == ["5.3.02"]
+        and render_orders["profiles"] == ["5.3.02", "5.3.04"]
         and render_orders["descriptor"] == "()[I",
         "5.3-only model render-order selector drifted",
     )
     version = selector(roster, "GET_VERSION")
     require(
         version["role"] == "VERSION_PROBE"
-        and version["profiles"] == ["5.2.03", "5.3.02"],
+        and version["profiles"] == ["5.2.03", "5.3.02", "5.3.04"],
         "version probe selector drifted",
     )
     require(
@@ -101,7 +105,7 @@ def main() -> int:
         "tracked selector policy has drifted from deterministic normalization",
     )
 
-    reversed_packs = load_packs([PACK_53, PACK_52])
+    reversed_packs = load_packs([PACK_534, PACK_53, PACK_52])
     reversed_policy, reversed_roster = validate_policy(policy, reversed_packs)
     generated = render_java(validated, roster)
     require(
@@ -171,6 +175,7 @@ def main() -> int:
     mutated_packs = {
         "5.2.03": classify_pack(pack_mutation),
         "5.3.02": packs["5.3.02"],
+        "5.3.04": packs["5.3.04"],
     }
     expect_invalid(
         "profile coverage mismatch",
@@ -179,7 +184,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core selector policy "
-        "(83 selectors, 80/82 profile entries, roster 86b5ac4f)"
+        "(83 selectors, 80/82/82 profile entries, roster e3449dce)"
     )
     return 0
 

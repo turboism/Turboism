@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-core-acquisition-host-validation.sh <5303|5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-core-acquisition-host-validation.sh <5304|5303|5302|5203> [run-label] [runner-options...]" >&2
   exit 2
 fi
 
@@ -22,6 +22,11 @@ fi
 turboism_select_fixture "$version" || exit 2
 
 case "$version" in
+  5304)
+    profile='cubism-5.3.04'
+    editor_jar_sha256='c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d'
+    core_jar_sha256='5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186'
+    ;;
   5303)
     profile='cubism-5.3.03-distribution'
     editor_jar_sha256='bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166'
@@ -38,7 +43,7 @@ case "$version" in
     core_jar_sha256='85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e'
     ;;
   *)
-    echo "error: version must be 5303, 5302, or 5203" >&2
+    echo "error: version must be 5304, 5303, 5302, or 5203" >&2
     exit 2
     ;;
 esac

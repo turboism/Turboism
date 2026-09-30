@@ -16,7 +16,7 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      * exact reviewed digest.</p>
      *
      * @param verifiedArtifact exact Cubism Core artifact
-     * @return {@code "5.2.03"} or {@code "5.3.02"}
+     * @return {@code "5.2.03"}, {@code "5.3.02"}, or {@code "5.3.04"}
      * @throws IOException when the artifact cannot be read
      * @throws IllegalArgumentException when the digest is not reviewed
      */
@@ -49,7 +49,7 @@ public final class VerifiedCorePublicApiResolverFactory implements SliceResolver
      * any check, so naming the wrong profile for an artifact fails rather than
      * admitting it.
      *
-     * @param profile Cubism Core profile, {@code "5.2.03"} or {@code "5.3.02"}
+     * @param profile Cubism Core profile, {@code "5.2.03"}, {@code "5.3.02"}, or {@code "5.3.04"}
      * @param reviewedRecord path to the reviewed verification record JSON
      * @param verifiedArtifact path to the host jar being admitted
      * @param hostClassLoader loader the verified members will be resolved

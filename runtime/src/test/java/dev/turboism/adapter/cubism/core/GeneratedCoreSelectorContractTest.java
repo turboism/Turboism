@@ -16,7 +16,7 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-                "86b5ac4fb9c3b41a2159eb4747a50213fbcd6446c2ed39299247c03059eb9d6c",
+                "e3449dce32c127b73d525f8b5f4782faade43b8aa236fd1f862805e7310809ff",
                 CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256);
         assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
         assertEquals(62, CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size());
@@ -63,6 +63,16 @@ class GeneratedCoreSelectorContractTest {
         assertFalse(CorePublicApiSelectorContract.structuralMethodAliasesFor("5.3.02")
                 .orElseThrow()
                 .contains(CorePublicApiSelectorContract.MODEL_UPDATE));
+    }
+
+    @Test
+    void newCoreReusesTheCompleteReviewed53SelectorShape() {
+        assertEquals(
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.02"),
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.04"));
+        assertEquals(
+                "cubism-core-public-5.3.04",
+                CorePublicApiSelectorContract.providerIdFor("5.3.04").orElseThrow());
     }
 
     @Test

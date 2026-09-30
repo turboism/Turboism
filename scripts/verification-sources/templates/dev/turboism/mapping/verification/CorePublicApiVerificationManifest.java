@@ -26,6 +26,15 @@ final class CorePublicApiVerificationManifest {
             "${record:cubism-5.3.02-core-model-read.json:cubismVersion}",
             42_471L,
             "${record:cubism-5.3.02-core-model-read.json:artifact.sha256}"
+        ),
+        "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
+        manifest(
+            CorePublicApiTrustRoots.verificationId("${record:cubism-5.3.04-core-model-read.json:cubismVersion}"),
+            "${record:cubism-5.3.04-core-model-read.json:sha256}",
+            "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
+            "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
+            43_708L,
+            "${record:cubism-5.3.04-core-model-read.json:artifact.sha256}"
         )
     );
 
