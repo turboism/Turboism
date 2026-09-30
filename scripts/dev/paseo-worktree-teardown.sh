@@ -9,11 +9,11 @@ CLEANUP_SCRIPT="${REPO_ROOT}/scripts/dev/cleanup-host-artifacts.sh"
 
 echo "[paseo-worktree-teardown] Teardown triggered for worktree: ${WORKTREE_DIR}"
 
-# 1. Release any CodeGraph lock if .codegraph exists
+# 1. Never clear CodeGraph locks from teardown. A lock may belong to a live
+# indexer or daemon; proving it stale requires a separate ownership inspection.
+# Workspace deletion, not an unconditional unlock, owns disposable index files.
 if [ -d "${WORKTREE_DIR}/.codegraph" ]; then
-  if command -v codegraph >/dev/null 2>&1; then
-    codegraph unlock "${WORKTREE_DIR}" 2>/dev/null || true
-  fi
+  echo "[paseo-worktree-teardown] Leaving CodeGraph lock ownership unchanged."
 fi
 
 # 2. Derive worktree identifier(s) for external host artifact cleanup
