@@ -266,6 +266,73 @@ class OwnedMocRuntimeTest {
     }
 
     @Test
+    void parentCloseReleasesLiveChildrenAndRejectsTheirFurtherReads() {
+        for (String profile : java.util.List.of("5.2.03", "5.3.02")) {
+            final TestCoreApiFixture.Model model = modelWithCanvas();
+            TestCoreApiFixture.Moc.prepare(model, 42L);
+            final OwnedMoc moc = loader(profile).load(MocData.copyOf(new byte[] {5, 1}));
+            final OwnedModel child = moc.instantiateModel();
+            final TestCoreApiFixture.Moc nativeMoc = TestCoreApiFixture.Moc.lastInstantiated();
+            moc.close();
+            assertEquals(1, model.closeCount(), "The live child must be released with its parent");
+            assertEquals(1, nativeMoc.closeCount());
+            assertThrows(IllegalStateException.class, child::nativeHandle);
+            assertThrows(IllegalStateException.class, child::parameters);
+            assertThrows(IllegalStateException.class, child::update);
+            child.close();
+            moc.close();
+            assertEquals(1, model.closeCount());
+            assertEquals(1, nativeMoc.closeCount());
+        }
+    }
+
+    @Test
+    void parentCloseWaitsForAnInFlightNativeRead() throws Exception {
+        final var reading = new java.util.concurrent.CountDownLatch(1);
+        final var release = new java.util.concurrent.CountDownLatch(1);
+        final var closing = new java.util.concurrent.CountDownLatch(1);
+        final TestCoreApiFixture.Model template = modelWithCanvas();
+        final TestCoreApiFixture.Model model =
+                new TestCoreApiFixture.Model(template.getCanvasInfo(), template.getParameters(), () -> {
+                    reading.countDown();
+                    try {
+                        if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                            throw new IllegalStateException("Timed out waiting for simulated native read");
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(interrupted);
+                    }
+                });
+        TestCoreApiFixture.Moc.prepare(model, 42L);
+        final OwnedMoc moc = loader("5.3.02").load(MocData.copyOf(new byte[] {6, 1}));
+        final OwnedModel child = moc.instantiateModel();
+        final var threads = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            final var read = threads.submit(child::parameters);
+            assertTrue(reading.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            final var close = threads.submit(() -> {
+                closing.countDown();
+                moc.close();
+            });
+            assertTrue(closing.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            assertThrows(
+                    java.util.concurrent.TimeoutException.class,
+                    () -> close.get(100, java.util.concurrent.TimeUnit.MILLISECONDS));
+            assertEquals(0, model.closeCount(), "Native memory must remain live during the read");
+            release.countDown();
+            assertFalse(read.get(5, java.util.concurrent.TimeUnit.SECONDS).isEmpty());
+            close.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals(1, model.closeCount());
+            assertThrows(IllegalStateException.class, child::parameters);
+        } finally {
+            release.countDown();
+            threads.shutdownNow();
+            child.close();
+            moc.close();
+        }
+    }
+
+    @Test
     void loadFailsClosedWithoutResolver() {
         final CoreRuntimeMetadata metadata = new CoreRuntimeMetadata(CorePublicApiProvider.safeMode());
         assertThrows(UnsupportedOperationException.class, metadata::mocLoader);
