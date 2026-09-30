@@ -83,6 +83,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertIn("state/core-owned-moc-result.properties", wrapper)
         self.assertIn("--require-fixture-unchanged", wrapper)
         self.assertNotIn("--client-script", wrapper)
+        self.assertIn("-Dturboism.optimization.mesaGlThread=false", wrapper)
+        self.assertIn("--linux-env 'mesa_glthread=false'", wrapper)
 
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
