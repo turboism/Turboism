@@ -559,9 +559,58 @@
       "preparedDigest": "6427cd35803f722e0e604bfbcfc889d906c75169d461dc1f17004d483d0aff89",
       "evidenceDirectory": "jobs/1cb28d42-5731-4249-a080-d9edd44e4a54/evidence",
       "scope": "Full MCP client plus production SDK owned-MOC read/update/explicit and parent cascade release; not all framework capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "Independent exact native prompt helper",
       "expectedNativeCoreVersion": "6.0.513",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "reason": "Probe rejected with PLUGIN_RESOURCE_UNDECLARED before owned-MOC assertions; cancelled through queue, no Core support verdict",
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-owned-r2",
+      "result": {
+        "runId": "queue-6b10b3571857480c9eca26e166561b32",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "cancelled",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      }
+    },
+    {
+      "version": "5.3.04",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r3",
+      "jobId": "ba9eef36-9a0d-4c50-bcad-fffd118738f9",
+      "preparedDigest": "9645a25e36e4fbdf082c886c4b947a0bfaa1aa5f9933e6cee16db78e7a57b94a",
+      "evidenceDirectory": "jobs/ba9eef36-9a0d-4c50-bcad-fffd118738f9/evidence",
+      "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, texture persistence or all framework capabilities",
+      "status": "SUBMITTED",
+      "assistance": "Exact task-owned native prompt helper; loaded copied fixture required before assertions and normal close",
+      "expectedNativeCoreVersion": "6.0.513",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
+    },
+    {
+      "version": "5.2.02",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "0338d230-9c33-4c1c-928b-e5617650dab6",
+      "preparedDigest": "721c838bd921792d19a323c5f0ca97a377023f6140d35d1c76ece394083086b9",
+      "evidenceDirectory": "jobs/0338d230-9c33-4c1c-928b-e5617650dab6/evidence",
+      "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, persistence or all capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "5.0.256",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
+    },
+    {
+      "version": "5.1.03",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "d032f280-aa99-4f08-ae31-cb14c8a39e29",
+      "preparedDigest": "cc0e1530d3d23f322a56199c0943626cb20cc96c42811b3cb48a83855307ccaf",
+      "evidenceDirectory": "jobs/d032f280-aa99-4f08-ae31-cb14c8a39e29/evidence",
+      "scope": "Standalone production SDK owned MOC structure/update/explicit and parent cascade release; not Editor acquisition, persistence or all capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "5.0.0",
       "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543"
     }
   ]

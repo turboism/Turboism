@@ -492,7 +492,7 @@ def required_aliases(
     if capability == tex["WRITE_CAPABILITY_ID"]:
         aliases.update(
             tex["REMOVE_RAW_IMAGE_5203_ALIASES"]
-            if cubism_version == "5.2.03"
+            if cubism_version in tex["LEGACY_RAW_IMAGE_REMOVAL_VERSIONS"]
             else tex["REMOVE_RAW_IMAGE_ALIASES"]
         )
     inst = constants["EditorModelInstanceReadSelectorContract"]
@@ -969,6 +969,7 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
     sources = families["editor-model"]
     family_packs = load_family_packs("editor-model")
     relation_contract = constants["EditorTextureRelationsSelectorContract"]
+    texture_contract = constants["EditorTextureSelectorContract"]
     psd_contracts = {
         constants[name]["CAPABILITY_ID"]: constants[name]
         for name in (
@@ -1000,6 +1001,14 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
             raise ValueError(f"relation generation is not reviewed: {version}")
         scoped_aliases = set(relation_contract["REQUIRED_ALIASES"])
         scoped_capabilities = []
+        texture_write = texture_contract["WRITE_CAPABILITY_ID"]
+        if texture_write not in derived["capabilityIds"]:
+            raise ValueError(f"texture write lacks a complete capability contract: {version}")
+        scoped_capabilities.append(texture_write)
+        scoped_aliases.update(required_aliases(
+            constants, editor, derived["selectors"], version, texture_write,
+            derived["capabilityConditions"][texture_write],
+        ))
         for capability, contract in psd_contracts.items():
             if version in contract["SUPPORTED_CUBISM_VERSIONS"]:
                 if capability not in derived["capabilityIds"]:

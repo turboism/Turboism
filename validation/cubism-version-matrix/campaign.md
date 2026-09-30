@@ -64,3 +64,12 @@
 5.3.04 MCP r2 最终仍 FAIL，但失败从未响应 modal 超时变为原生 `Native save rejected`。FREE 参数信息已可响应，当前夹具仍受许可限制，后续需要适配可保存夹具。完整断言未放宽，也没有把保存失败改标 unsupported 或把客户端 `modelMutation=NONE` 当作整个验证探针无变更。原始结果与逐项 PASS 断言见 `mcp-evidence/5.3.04-allversions-r2/` 和 campaign-jobs.json。
 
 5.2.02 / 5.3.01 MCP r2 也已收取 FAIL。5.3.01 同样为 `Native save rejected`；5.2.02 则在公开 SDK `ModelTextures.removeRawImage` 被版本门禁拒绝，目前仅声明 5.2.03 / 5.3.00–.04。检查精确 5.2.02 Editor-model 记录确实只有 texture.read，没有 texture.write，因此不是仅删除 SDK 注解即可解决。后续需要审查该版本的写入/Undo ABI 并补精确证据或适配；尚未证明没有可用适配路径，不能直接记为最终不支持。两版各自协议/读取等部分断言与最终门禁均按原始结果保留。
+
+
+纹理写入兼容审计完成一项修复：5.0.00–5.2.02 均具有旧版 non-dialog native Undo 工厂所需完整 63-alias 依赖闭包；LayerInput、RawImage、ACSimpleUndoable、GroupUndo、Undo_AddOrRemove 五个 class 在全 20 个版本中字节一致，原生工厂仅构造编辑对象，adapter 仍先注册再 forceRedo。精确 legacy 版本集合同步用于 Java/Python 依赖规则，14 个旧版记录只新增 texture.write，SDK 五个写入方法扩为 20 个精确版本。全 20 记录通过 Java 静态 verifier；286 texture tests、55 dependency tests、32 SDK gate tests、7 SDK annotation tests 全 PASS，devCheck/Core 三门禁 PASS。缺任一 legacy factory 时保留读取、拒绝写入。仍未把新增静态准入标为实机支持，逐版实机 Undo/Redo/保存验收待执行。摘要与限制见 texture-write-static-audit.json / texture-write-regression.json。
+
+5.3.04 owned-r2 已运行，但探针因 Haru MOC 未声明资源根以 PLUGIN_RESOURCE_UNDECLARED 安全拒载，没有执行 native Core 断言。已通过官方队列取消，supervisor 终态 cancelled/FAIL、cleanup safe；identity/fixture/normalExit 最终门禁为 false，不能当作支持证据。复制终态和拒载报告见 mcp-evidence/5.3.04-allversions-owned-r2。修复只在打包 MOC 时将 validation/moc/ 声明到打包 descriptor；实际 JAR 通过生产 PluginDescriptorParser + PluginJarContract 校验。
+
+新增独立 core-owned-moc 队列任务，复用官方 contained Runner、原始夹具副本/摘要门禁、精确 prompt helper 与 normal-close 安全路径；在任务文档可见且没有 modal 后执行生产 SDK MOC 结构读取、evaluation、独立 model、显式释放、父级联释放断言。该任务不使用 MCP client，也不触发 Editor texture persistence，完整 MCP 验证仍保留为另一项必需覆盖。仅接受有实机观察 tuple 的版本，不按系列猜测 native tuple。5.3.04 owned-r3 输入已冻结，具体 job 与 prepared digest 见 campaign-jobs.json；尚不宣称 Core 通过。
+
+后续已提交 5.2.02（观察 tuple 5.0.256）和 5.1.03（5.0.0）的独立 owned-MOC 任务，未猜测 native tuple；job 明细见 campaign-jobs.json。调度回归 28 / 队列隔离回归 114 PASS，20 个 Editor-model mapping pack 的 inventoryRef 记录摘要一致。

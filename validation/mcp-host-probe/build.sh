@@ -40,6 +40,16 @@ if [ -n "${TURBOISM_VALIDATION_MOC_FIXTURE:-}" ]; then
   mkdir -p "$out/validation/moc"
   cp "$TURBOISM_VALIDATION_MOC_FIXTURE" "$out/validation/moc/Haru.moc3"
   cp "$base/moc-fixture-source.json" "$out/validation/moc/source.json"
+  python3 - "$out/META-INF/turboism/plugin.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+descriptor = json.loads(path.read_text())
+descriptor["resources"].append("validation/moc/")
+path.write_text(json.dumps(descriptor, indent=2) + "\n")
+PY
 fi
 
 output="$repo_root/build/mcp-host-validation-probe.jar"

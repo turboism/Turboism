@@ -18,7 +18,10 @@ class CubismEditorModelAvailabilityContractTest {
         "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
     };
     private static final String[] EXACT_5_3_ALL = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"};
-    private static final String[] TEXTURE_WRITE_SET = {"5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"};
+    private static final String[] TEXTURE_WRITE_SET = {
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    };
 
     @Test
     void exact5303CoreReadsAndPartAppearanceDeclareNarrowAvailability() throws Exception {
@@ -97,7 +100,7 @@ class CubismEditorModelAvailabilityContractTest {
     }
 
     @Test
-    void textureAuthoringAllowsCompatibleVersionsAboveItsDeclaredFloor() throws Exception {
+    void textureAuthoringDeclaresEveryReviewedExactInstallation() throws Exception {
         for (Method method : List.of(
                 ModelTextures.class.getMethod("addModelImageGroup", String.class),
                 ModelTextures.class.getMethod("removeModelImage", ModelImageId.class),
