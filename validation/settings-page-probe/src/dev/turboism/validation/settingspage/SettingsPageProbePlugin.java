@@ -321,6 +321,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
 
     private void awaitModelAndRenderer() throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
+        RuntimeException lastFailure = null;
         while (System.nanoTime() < deadline) {
             try {
                 final String model = context.cubism().model().active().id().value();
@@ -336,10 +337,13 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                 }
             } catch (RuntimeException notReady) {
                 // A visible menu can precede completion of the initial model and first paint.
+                lastFailure = notReady;
             }
             Thread.sleep(POLL_MILLIS);
         }
-        throw new IllegalStateException("model and native renderer did not become ready");
+        throw new IllegalStateException("model and native renderer did not become ready"
+            + (lastFailure == null ? "" : ": " + lastFailure.getClass().getSimpleName()
+                + " " + Objects.toString(lastFailure.getMessage(), "")), lastFailure);
     }
 
     private void verifyPerformanceViewport(final JDialog dialog, final TargetControl target) throws Exception {
