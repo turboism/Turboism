@@ -82,6 +82,7 @@ public final class T040ShadowSceneDriverAgent {
         final boolean exportProbe;
         final boolean exportAfterEditor;
         final boolean editorReopen;
+        final boolean higherVersionLoadAllowed;
 
         private DriverConfig(final Path home, final String taskId, final Path fixture,
                              final String fixtureName, final String fixtureSha256,
@@ -113,6 +114,11 @@ public final class T040ShadowSceneDriverAgent {
             this.exportProbe = exportProbe;
             this.exportAfterEditor = exportAfterEditor;
             this.editorReopen = editorReopen;
+            this.higherVersionLoadAllowed = ShadowSceneContract.VERSION_5203.equals(version)
+                && ShadowSceneContract.TLPROD_OPT_IN.equals(System.getProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn"))
+                && (taskId + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME).equals(fixtureName)
+                && ShadowSceneContract.FIXTURE_HEAVY_SHA256.equals(fixtureSha256);
         }
 
         static DriverConfig fromSystemProperties() throws Exception {
@@ -534,6 +540,7 @@ public final class T040ShadowSceneDriverAgent {
         private Window awaitHostReady() throws Exception {
             final long startupDeadline = Math.min(runDeadlineNanos,
                 System.nanoTime() + TimeUnit.SECONDS.toNanos(config.startupSeconds));
+            final Dialog[] loadWarningAnswered = new Dialog[1];
             int readyRounds = 0;
             int slowRounds = 0;
             while (System.nanoTime() < startupDeadline) {
@@ -541,7 +548,15 @@ public final class T040ShadowSceneDriverAgent {
                 final long roundStartedNanos = System.nanoTime();
                 try {
                     found = FixedEdt.call(
-                        () -> findMainWindow(config.fixtureName), FixedEdt.Operation.MAIN_LOOKUP, evidence);
+                        () -> {
+                            final boolean previouslyAnswered = loadWarningAnswered[0] != null;
+                            final boolean warning = answerHigherVersionLoadWarning(config,
+                                Window.getWindows(), loadWarningAnswered);
+                            if (!previouslyAnswered && loadWarningAnswered[0] != null) {
+                                evidence.higherVersionLoadAcknowledged();
+                            }
+                            return warning ? null : findMainWindow(config.fixtureName);
+                        }, FixedEdt.Operation.MAIN_LOOKUP, evidence);
                 } catch (FixedEdt.Timeout timeout) {
                     if (timeout.operation != FixedEdt.Operation.MAIN_LOOKUP
                             || timeout.state != FixedEdt.State.TIMED_OUT) throw timeout;
@@ -1450,6 +1465,93 @@ public final class T040ShadowSceneDriverAgent {
             if (oks.size() != 1) throw new IllegalStateException("expected exactly one layout OK");
             oks.get(0).doClick(50);
             return null;
+        }
+    }
+
+    // Exact 5.2.03 zh resource text (COR3-0327..0333), reviewed against the real popup.
+    static final String HIGHER_VERSION_LOAD_TEXT = "<html><body>您试图加载的文件由更高版本的编辑器所创建。<br><br>使用新版本的编辑器创建或保存的模板文件/动画文件<br>无法通过旧版本的编辑器正确打开<span class='caution'>并且可能会</span>导致文件损坏。<br>尝试使用旧版本的编辑器编辑由新版本编辑器创建的数据时，<br><span class='caution'>请您</span>自担风险。<br><br>正在启动的编辑器版本：Cubism 5.2.3 <br>试图加载的文件的保存版本：Cubism 5.3.0</body></html>";
+
+    /** Only the explicitly admitted, hashed heavy task copy may answer this load-only prompt. */
+    static boolean answerHigherVersionLoadWarning(final DriverConfig config,
+            final Window[] windows, final Dialog[] answered) {
+        if (!config.higherVersionLoadAllowed) return false;
+        final List<Dialog> warnings = new ArrayList<>();
+        final List<Frame> mains = new ArrayList<>();
+        for (Window window : windows) {
+            if (!window.isShowing()) continue;
+            if (window instanceof Frame frame
+                    && frame.getTitle().startsWith("Live2D Cubism Editor 5.2.03 ")) mains.add(frame);
+            if (window instanceof Dialog dialog && "警告".equals(dialog.getTitle())) warnings.add(dialog);
+        }
+        if (warnings.isEmpty()) return false;
+        if (warnings.size() != 1 || mains.size() != 1) {
+            throw new IllegalStateException("ambiguous higher-version load warning/main");
+        }
+        final Dialog dialog = warnings.get(0);
+        Window owner = dialog.getOwner();
+        while (owner != null && owner != mains.get(0)) owner = owner.getOwner();
+        // UUSerialize passes O.e(), which can be null during startup. JOptionPane then
+        // uses its hidden shared owner frame (observed in real host seq2052). This is
+        // still bound to the unique 5.2.03 main in this JVM and the exact task fixture.
+        final Window directOwner = dialog.getOwner();
+        final boolean sharedOwner = directOwner instanceof Frame frame
+            && "javax.swing.SwingUtilities$SharedOwnerFrame".equals(frame.getClass().getName())
+            && !frame.isShowing() && "".equals(frame.getTitle()) && frame.getOwner() == null;
+        if ((owner == null && !sharedOwner)
+                || dialog.getModalityType() != Dialog.ModalityType.APPLICATION_MODAL) {
+            throw new IllegalStateException("higher-version warning has unexpected owner/modality"
+                + " modal=" + dialog.isModal() + " owner="
+                + (dialog.getOwner() == null ? "null" : dialog.getOwner().getClass().getName())
+                + " ownerTitle=" + (dialog.getOwner() instanceof Frame frame
+                    ? boundedTitle(frame.getTitle()) : "not-frame")
+                + " mainClass=" + mains.get(0).getClass().getName());
+        }
+        if (answered[0] != null) {
+            if (answered[0] != dialog) throw new IllegalStateException("repeated higher-version warning");
+            return true;
+        }
+        final List<JLabel> messages = new ArrayList<>();
+        final List<AbstractButton> buttons = new ArrayList<>();
+        if (!(dialog instanceof javax.swing.JDialog swingDialog)) {
+            throw new IllegalStateException("higher-version warning is not a Swing option dialog");
+        }
+        // The host decorates the root pane with a title label and blank close button.
+        // Review the option content, never title-bar/default/close controls (seq2054).
+        collectLoadWarningControls(swingDialog.getContentPane(), messages, buttons,
+            new IdentityHashMap<>());
+        final List<AbstractButton> loads = buttons.stream()
+            .filter(button -> "加载".equals(button.getText()) && button.isEnabled()).toList();
+        final List<AbstractButton> cancels = buttons.stream()
+            .filter(button -> "取消".equals(button.getText()) && button.isEnabled()).toList();
+        if (messages.size() != 1 || !HIGHER_VERSION_LOAD_TEXT.equals(messages.get(0).getText())
+                || buttons.size() != 2 || loads.size() != 1 || cancels.size() != 1) {
+            final String actual = messages.isEmpty() ? "NONE" : messages.get(0).getText();
+            int mismatch = 0;
+            while (mismatch < actual.length() && mismatch < HIGHER_VERSION_LOAD_TEXT.length()
+                    && actual.charAt(mismatch) == HIGHER_VERSION_LOAD_TEXT.charAt(mismatch)) mismatch++;
+            throw new IllegalStateException("load form labels=" + messages.size() + " buttons="
+                + buttons.stream().map(button -> button.getText() + ":" + button.isEnabled()).toList()
+                + " textDiff=" + mismatch + " actual="
+                + actual.substring(mismatch, Math.min(actual.length(), mismatch + 70)));
+        }
+        answered[0] = dialog;
+        SwingUtilities.invokeLater(loads.get(0)::doClick);
+        return true;
+    }
+
+    private static void collectLoadWarningControls(final Component component,
+            final List<JLabel> messages, final List<AbstractButton> buttons,
+            final Map<Component, Boolean> seen) {
+        if (seen.size() >= 256) throw new IllegalStateException("load warning component limit");
+        if (seen.put(component, Boolean.TRUE) != null || !component.isShowing()) return;
+        if (component instanceof JLabel label && label.getText() != null && !label.getText().isBlank()) {
+            messages.add(label);
+        }
+        if (component instanceof AbstractButton button) buttons.add(button);
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                collectLoadWarningControls(child, messages, buttons, seen);
+            }
         }
     }
 
