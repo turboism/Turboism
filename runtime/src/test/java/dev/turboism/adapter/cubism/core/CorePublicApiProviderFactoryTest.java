@@ -55,6 +55,27 @@ class CorePublicApiProviderFactoryTest {
     }
 
     @Test
+    void compatibleEditorUsesAdmittedCoreProfileAndStillChecksNativeTuple() {
+        final var source = TestCoreApiFixture.resolver("5.3.02");
+        final var compatible = dev.turboism.mapping.verification.TestVerifiedResolvers.createCompatible(
+                "5.3.02",
+                "5.3.04",
+                CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
+                CorePublicApiSelectorContract.CAPABILITY_IDS,
+                CorePublicApiSelectorContract.requiredAliasesFor("5.3.02").orElseThrow().stream()
+                        .map(source::verifiedSelector)
+                        .toList(),
+                source.hostClassLoader());
+        final var admitted = RuntimeCoreModelBackend.admit(compatible, CoreVersionExpectation.exact(11, 12, 13));
+        assertTrue(admitted.isSuccess(), () -> admitted.failure().toString());
+        admitted.value().orElseThrow().close();
+        final var mismatch = RuntimeCoreModelBackend.admit(compatible, CoreVersionExpectation.exact(11, 12, 14));
+        assertEquals(
+                CoreProviderFailure.Code.VERSION_MISMATCH,
+                mismatch.failure().orElseThrow().code());
+    }
+
+    @Test
     void mapsReviewedRecordVersionsToExactCoreRuntimeTuples() {
         assertEquals(
                 new CoreRuntimeVersion(5, 0, 256),

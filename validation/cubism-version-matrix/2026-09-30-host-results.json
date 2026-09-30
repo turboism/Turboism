@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "scope": "Disposable Workspace validation harness, not production readiness or PSD behavior acceptance",
+  "runs": [
+    {
+      "version": "5.3.04",
+      "round": "r1",
+      "jobId": "6df02995-8b2c-484c-87ae-0b0d6183262a",
+      "evidenceDirectory": "jobs/6df02995-8b2c-484c-87ae-0b0d6183262a/evidence",
+      "runId": "queue-7aa8d34356974c849bb7d90788f63e5e",
+      "preparedDigest": "8d42d946e73173e39c27921ef40f76773ddb592cb8b7bc90b85ce726072e664a",
+      "terminalState": "failed",
+      "validationStatus": "UNKNOWN",
+      "cleanup": "safe",
+      "normalExit": false,
+      "note": "Formal recovery after safe kernel cleanup; original lifecycle is preliminary and no supervisor final verdict exists. Recovery records failed/UNKNOWN, never acceptance.",
+      "source": {
+        "dirtyDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.3.04",
+      "round": "r2",
+      "jobId": "e1c107f5-9b0f-4c54-8782-5f3b4678289a",
+      "evidenceDirectory": "jobs/e1c107f5-9b0f-4c54-8782-5f3b4678289a/evidence",
+      "runId": "queue-e1dec813ccbd49f4a0e4175271213cd8",
+      "preparedDigest": "302c241ca1e150201ff58e43d9dc447b23968d50eca007b30425fa7f509fecfc",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "source": {
+        "dirtyDigest": "f345594ba98aa8963da88c4e5cbd080965990296fa00b114be93d612f2258580",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.2.03",
+      "round": "r2",
+      "jobId": "8a1b7f67-c43e-413a-9624-10bd3d39c9cd",
+      "evidenceDirectory": "jobs/8a1b7f67-c43e-413a-9624-10bd3d39c9cd/evidence",
+      "runId": "queue-789f9f6660b04903b68aa6239554aec2",
+      "preparedDigest": "6490f7153696b759cc537cb4dc7c0e7160a67562869dd9107a693e4c311f17cc",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "normalExit": true,
+      "source": {
+        "dirtyDigest": "f345594ba98aa8963da88c4e5cbd080965990296fa00b114be93d612f2258580",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.3.04",
+      "round": "r3",
+      "jobId": "f7fae564-7585-4a03-9a16-50be6c20ff33",
+      "evidenceDirectory": "jobs/f7fae564-7585-4a03-9a16-50be6c20ff33/evidence",
+      "runId": "queue-f1a836ef83404f9c83573eaea6e54d41",
+      "preparedDigest": "7239f981b1a5d85029695a8fce75c8050461e94efe23592267da05bd638efd30",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "source": {
+        "dirtyDigest": "aa01ffa70631745e964757ddc7bb9f69bf92801dd468da90f331e7c6cb95fc22",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.0.00",
+      "round": "r3",
+      "jobId": "b1e568a9-885a-4d35-b5e8-8d74849a38b9",
+      "evidenceDirectory": "jobs/b1e568a9-885a-4d35-b5e8-8d74849a38b9/evidence",
+      "runId": "queue-1a64722bc9c643cf88c14765ac569686",
+      "preparedDigest": "3a613cf56af59606f035644e3639621a6edb718ea85581ce4751a3e01fece530",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "source": {
+        "dirtyDigest": "aa01ffa70631745e964757ddc7bb9f69bf92801dd468da90f331e7c6cb95fc22",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.3.00",
+      "round": "r3",
+      "jobId": "06d511ab-0d2d-405b-878a-d51a0843f145",
+      "evidenceDirectory": "jobs/06d511ab-0d2d-405b-878a-d51a0843f145/evidence",
+      "runId": "queue-75a8b0e5c6c94a178b97f5cfa1c02360",
+      "preparedDigest": "e028f3feca610a860d1826cfb281a7b9ec5266d3790ff619d10000c47e3a693c",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "source": {
+        "dirtyDigest": "aa01ffa70631745e964757ddc7bb9f69bf92801dd468da90f331e7c6cb95fc22",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    },
+    {
+      "version": "5.3.00",
+      "round": "r4",
+      "jobId": "81b304f7-ff93-465f-b67e-a71d9280655a",
+      "evidenceDirectory": "jobs/81b304f7-ff93-465f-b67e-a71d9280655a/evidence",
+      "mesaGlThread": false,
+      "error": "Cubism project did not become ready before timeout (180 seconds)",
+      "runId": "queue-2a35c309b97a42cdb5edd6931e00c90b",
+      "preparedDigest": "55c092f41b163efe1c3b06a09263aacca245b06ce1c752429081ed96aae81439",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "source": {
+        "dirtyDigest": "aa01ffa70631745e964757ddc7bb9f69bf92801dd468da90f331e7c6cb95fc22",
+        "head": "11341f412441cf0f8e78c7260ae18e2422d6e1fe",
+        "worktreeName": "mundane-stingray"
+      }
+    }
+  ],
+  "core5304Observation": {
+    "runtimeTuple": "6.0.513",
+    "reviewedExpectation": "6.0.257",
+    "admission": "VERSION_MISMATCH",
+    "coreJarSha256": "5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186",
+    "coreJniDllSha256": "71d5757025cd31c61be0d52ad79d4cd0de0465e1df6c4508c4fde70207613985"
+  },
+  "pathBase": "Evidence directories are relative to the account shared host-validation state root."
+}

@@ -22,7 +22,7 @@ final class CoreStructuralTracerFactory {
         }
 
         final String artifactProfile = provider.artifactProfile();
-        final String resolverProfile = CorePublicApiProviderFactory.artifactProfile(resolver.cubismVersion());
+        final String resolverProfile = CorePublicApiProviderFactory.artifactProfile(resolver.admittedCubismVersion());
         final Optional<String> expectedProviderId = CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<Set<String>> requiredAliases = CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);
         final boolean exactPlan = resolver.authorizes(

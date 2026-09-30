@@ -601,7 +601,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final var admission = RuntimeCoreModelBackend.admit(
                 resolver, CoreVersionExpectation.reviewedProfile(resolver.admittedCubismVersion()));
         if (!admission.isSuccess()) {
-            throw new IllegalArgumentException("Verified Cubism Core runtime admission failed safely.");
+            final var failure = admission.failure().orElseThrow();
+            throw new IllegalArgumentException("Verified Cubism Core runtime admission failed safely: " + failure.code()
+                    + ": " + failure.message());
         }
         return admission.value().orElseThrow();
     }
