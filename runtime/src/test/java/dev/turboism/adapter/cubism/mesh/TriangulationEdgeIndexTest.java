@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -193,6 +194,100 @@ final class TriangulationEdgeIndexTest {
                 "the index stays dead once inconsistency is proven");
         // The set itself is unharmed: the official scan still answers.
         assertEquals(List.of(t1, tri(2, 1, 2, 7)), scan(set, 1, 2));
+        final var deadState = TriangulationEdgeIndex.st(set);
+        TriangulationEdgeIndex.clear(set);
+        assertTrue(deadState.keys.isEmpty(), "clear releases recorded triangles even on a dead set");
+        assertTrue(deadState.byKey.isEmpty());
+        TriangulationEdgeIndex.add(set, t1, t1.ia, t1.ib, t1.ic);
+        assertNull(TriangulationEdgeIndex.tryQuery(set, 1, 2),
+                "clear must not reactivate an index permanently declined for this set");
+        assertTrue(deadState.keys.isEmpty(), "dead states do not retain newly added triangles");
+    }
+
+    @Test
+    void registryUsesObjectIdentityWithoutHashingOrComparingSets() {
+        final class IdentityOnlySet extends LinkedHashSet<Tri> {
+            @Override
+            public int hashCode() { throw new AssertionError("Set.hashCode must not be called"); }
+            @Override
+            public boolean equals(final Object other) {
+                throw new AssertionError("Set.equals must not be called");
+            }
+        }
+        final var first = new IdentityOnlySet();
+        final var second = new IdentityOnlySet();
+        final Tri a = tri(1, 1, 2, 3);
+        final Tri b = tri(1, 40, 41, 42); // equal coordinates, different index identity
+        TriangulationEdgeIndex.add(first, a, 1, 2, 3);
+        TriangulationEdgeIndex.add(second, b, 40, 41, 42);
+        assertSame(a, TriangulationEdgeIndex.tryQuery(first, 1, 2).get(0));
+        assertSame(b, TriangulationEdgeIndex.tryQuery(second, 40, 41).get(0));
+        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(second, 1, 2));
+        TriangulationEdgeIndex.clear(first);
+        TriangulationEdgeIndex.clear(second);
+    }
+
+    @Test
+    void queuedWeakIdentityKeysReleaseStateOnTheNextRegistryAccess() {
+        // Deterministically exercise the ReferenceQueue path without timing a GC.
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        TriangulationEdgeIndex.add(set, tri(1, 1, 2, 3), 1, 2, 3);
+        final var state = TriangulationEdgeIndex.st(set);
+        synchronized (TriangulationEdgeIndex.class) {
+            final var key = TriangulationEdgeIndex.STATES.keySet().stream()
+                    .filter(candidate -> candidate.get() == set).findFirst().orElseThrow();
+            assertTrue(key.enqueue());
+            assertNull(key.get());
+            final LinkedHashSet<Tri> other = new LinkedHashSet<>();
+            TriangulationEdgeIndex.st(other); // drains the queue
+            assertFalse(TriangulationEdgeIndex.STATES.containsKey(key));
+            assertFalse(TriangulationEdgeIndex.STATES.containsValue(state));
+            TriangulationEdgeIndex.clear(other);
+        }
+        // The simulated collection removed all recorded keys: a still-live nonempty set
+        // must fall back safely, never synthesize an incomplete indexed answer.
+        assertNull(TriangulationEdgeIndex.tryQuery(set, 1, 2));
+        TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
+    void independentSetsCanRegisterQueryAndClearConcurrently() throws Exception {
+        final var executor = Executors.newFixedThreadPool(8);
+        final List<java.util.concurrent.Future<?>> work = new ArrayList<>();
+        try {
+            for (int worker = 0; worker < 8; worker++) {
+                final int seed = worker;
+                work.add(executor.submit(() -> {
+                    for (int trial = 0; trial < 250; trial++) {
+                        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+                        final Tri t = tri(seed + trial, seed, trial, trial + 1);
+                        assertTrue(TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic));
+                        assertEquals(scan(set, t.ia, t.ib),
+                                TriangulationEdgeIndex.tryQuery(set, t.ia, t.ib));
+                        assertTrue(TriangulationEdgeIndex.remove(set, t));
+                        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, t.ia, t.ib));
+                        TriangulationEdgeIndex.clear(set);
+                    }
+                }));
+            }
+            for (final var result : work) result.get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(20, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void clearingASetReleasesItsRegisteredState() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri t = tri(1, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, t, 1, 2, 3);
+        final var oldState = TriangulationEdgeIndex.st(set);
+        TriangulationEdgeIndex.clear(set);
+        org.junit.jupiter.api.Assertions.assertNotSame(oldState, TriangulationEdgeIndex.st(set),
+                "clear must unregister the old state instead of retaining it for process lifetime");
+        assertTrue(oldState.keys.isEmpty());
+        assertTrue(oldState.byKey.isEmpty());
     }
 
     @Test
@@ -217,8 +312,8 @@ final class TriangulationEdgeIndexTest {
 
     @Test
     void bookkeepingFailuresNeverPropagate() {
-        // A null set still reaches the bookkeeping guards: st(null) is legal for
-        // IdentityHashMap, then size() throws inside the guard and the index declines.
+        // A null set is rejected inside the bookkeeping guard; it must still decline
+        // without leaking that failure into the original scan's control flow.
         assertNull(TriangulationEdgeIndex.tryQuery(null, 1, 2));
     }
 
