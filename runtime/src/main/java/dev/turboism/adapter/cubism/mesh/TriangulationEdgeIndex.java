@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -40,9 +43,10 @@ import java.util.Map;
  *       keys. O(T), the same class as the official remove.</li>
  *   <li>Bookkeeping never throws into the host: everything after the real set operation is
  *       guarded; failures only mark the index dirty or dead.</li>
- *   <li>{@code STATES} is an {@link IdentityHashMap}, never a hash- or weak-keyed map:
+ *   <li>{@code STATES} uses weak identity keys, not {@code WeakHashMap} or set value equality:
  *       {@code LinkedHashSet.hashCode()} is AbstractSet's O(T) element sum and set equality is
- *       O(T²), so keying by value would reintroduce the scan being removed.</li>
+ *       O(T²), so keying by value would reintroduce the scan being removed. The pinned official
+ *       triangles/points held in the state have no back-reference to the owning set.</li>
  * </ul>
  */
 @SuppressWarnings({"rawtypes", "unchecked"}) // the woven descriptors ARE raw
@@ -63,16 +67,71 @@ public final class TriangulationEdgeIndex {
         boolean dead;
     }
 
-    /** Per-set index state, identity-keyed on the target's final {@code b} field instance. */
-    static final IdentityHashMap<LinkedHashSet, St> STATES = new IdentityHashMap<>();
+    /** Weak identity registration on the target's final {@code b} field instance. */
+    private static final ReferenceQueue<LinkedHashSet> COLLECTED = new ReferenceQueue<>();
+    static final Map<SetKey, St> STATES = new HashMap<>();
 
-    static St st(final LinkedHashSet s) {
-        St t = STATES.get(s);
+    static final class SetKey extends WeakReference<LinkedHashSet> {
+        private final int hash;
+
+        SetKey(final LinkedHashSet set, final ReferenceQueue<LinkedHashSet> queue) {
+            super(java.util.Objects.requireNonNull(set), queue);
+            hash = System.identityHashCode(set);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        @SuppressWarnings("ReferenceEquality") // identity is the registry's explicit key contract
+        public boolean equals(final Object other) {
+            if (this == other) return true; // allows removal after the reference is cleared
+            if (!(other instanceof SetKey key)) return false;
+            final LinkedHashSet set = get();
+            return set != null && set == key.get();
+        }
+    }
+
+    private static void expungeCollected() {
+        Reference<? extends LinkedHashSet> key;
+        while ((key = COLLECTED.poll()) != null) STATES.remove(key);
+    }
+
+    // Synchronize only the process-wide registry, not the original set's operations.
+    // Independent TriangleList instances may be used concurrently; a single original
+    // LinkedHashSet retains its original thread-safety contract.
+    static synchronized St st(final LinkedHashSet s) {
+        expungeCollected();
+        final SetKey key = new SetKey(s, COLLECTED);
+        St t = STATES.get(key);
         if (t == null) {
             t = new St();
-            STATES.put(s, t);
+            STATES.put(key, t);
         }
+        Reference.reachabilityFence(s);
         return t;
+    }
+
+    private static synchronized void discard(final LinkedHashSet s) {
+        expungeCollected();
+        final St t = STATES.remove(new SetKey(s, null));
+        if (t != null) {
+            t.byKey.clear();
+            t.keys.clear();
+            // Once inconsistency was proven, keep only a weak-keyed tombstone:
+            // clear may release triangles, but must not reactivate a dead index.
+            if (t.dead) STATES.put(new SetKey(s, COLLECTED), t);
+        }
+        Reference.reachabilityFence(s);
+    }
+
+    private static synchronized void invalidate(final LinkedHashSet s) {
+        expungeCollected();
+        final St t = STATES.get(new SetKey(s, null));
+        if (t != null) t.dead = true;
+        Reference.reachabilityFence(s);
     }
 
     /**
@@ -84,7 +143,7 @@ public final class TriangulationEdgeIndex {
         final boolean changed = s.add(tri);
         try {
             final St t = st(s);
-            if (changed) {
+            if (changed && !t.dead) {
                 final long k1 = key(ia, ib), k2 = key(ib, ic), k3 = key(ic, ia);
                 t.keys.put(tri, new long[] {k1, k2, k3});
                 if (!t.dead && !t.dirty && t.sz == s.size() - 1) {
@@ -98,7 +157,7 @@ public final class TriangulationEdgeIndex {
             }
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
-            st(s).dirty = true;
+            invalidate(s);
         }
         return changed;
     }
@@ -153,7 +212,7 @@ public final class TriangulationEdgeIndex {
             t.sz = s.size();
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
-            st(s).dirty = true;
+            invalidate(s);
         }
         return true;
     }
@@ -162,11 +221,7 @@ public final class TriangulationEdgeIndex {
     public static void clear(final LinkedHashSet s) {
         s.clear();
         try {
-            final St t = st(s);
-            t.byKey.clear();
-            t.keys.clear();
-            t.sz = 0;
-            t.dirty = false;
+            discard(s);
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             // An empty set needs no index; a later add rebuilds state from scratch.
