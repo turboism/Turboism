@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "scope": "New Core admission and representative host exploration; terminal failures are not behavior acceptance",
+  "runs": [
+    {
+      "jobId": "1618c6f9-e10e-4403-8a6b-d7ae7cef8890",
+      "runId": "queue-2e4e0de467d44e27827eb2c9f5d86d27",
+      "preparedDigest": "860b17be88a82b0234a38d9e830473fa093a28a6423610630b9bdcfe15c0941b",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "finalizedBy": "contained-supervisor",
+      "task": "core-acquisition",
+      "version": "5.3.04",
+      "round": "t17-r1",
+      "evidenceDirectory": "jobs/1618c6f9-e10e-4403-8a6b-d7ae7cef8890/evidence",
+      "source": {
+        "head": "c3319c645ed0c198a8a377ffaaac111b077ff871",
+        "dirtyDigest": "39ce40df61a7379cc892fb7a3b83b010d15c560a3db571996cf37e8b56466d4e",
+        "worktreeName": "mundane-stingray"
+      },
+      "observations": [
+        "Exact Editor identity matched at runtime; adapter READY and runtime RUNNING",
+        "No usable modeling document before timeout",
+        "Native Start license-selection dialog observed",
+        "Post-containment source/copy fixture digests match; final success flags remain false",
+        "Actual Core JAR SHA-256 matches new 5.3.04 exact profile; old VERSION_MISMATCH no longer blocks startup",
+        "Core model acquisition timed out after 360 seconds; stableSnapshots=0"
+      ]
+    },
+    {
+      "jobId": "d81274f7-ef5f-4fe1-926e-f3e588762f81",
+      "runId": "queue-833b4542c34c49798d1625c4108a4c84",
+      "preparedDigest": "60560252c4b735e0b5941f39b59e1f9ddd0db260335d369e97951796bef3e885",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "cleanup": "safe",
+      "identityVerified": false,
+      "fixtureUnchanged": false,
+      "normalExit": false,
+      "finalizedBy": "contained-supervisor",
+      "task": "workspace",
+      "version": "5.3.01",
+      "round": "t17-r1",
+      "evidenceDirectory": "jobs/d81274f7-ef5f-4fe1-926e-f3e588762f81/evidence",
+      "source": {
+        "head": "c3319c645ed0c198a8a377ffaaac111b077ff871",
+        "dirtyDigest": "f5905cb5d589617a59ebff77b2a3369d6328eef93d2a31b984a75323b7349b93",
+        "worktreeName": "mundane-stingray"
+      },
+      "observations": [
+        "Exact Editor identity matched at runtime; adapter READY and runtime RUNNING",
+        "No usable modeling document before timeout",
+        "Native Start license-selection dialog observed",
+        "Post-containment source/copy fixture digests match; final success flags remain false",
+        "Native custom Workspace created; project-readiness assertion timed out after 180 seconds",
+        "Manual coordinate attempts intended to choose FREE; native evidence subsequently shows trial confirmation. No confirmation was submitted; run ended safely."
+      ]
+    },
+    {
+      "jobId": "858154be-f110-456d-94ce-d9485af0de0e",
+      "runId": "queue-fe4bdc9ddac04265be643a82135c0acd",
+      "preparedDigest": "ecb15d10b8428830f5f155114cd86f662c1f254c956cf7167695512d073157fa",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "normalExit": true,
+      "finalizedBy": "contained-supervisor",
+      "task": "workspace",
+      "version": "5.3.04",
+      "round": "t17-r1",
+      "evidenceDirectory": "jobs/858154be-f110-456d-94ce-d9485af0de0e/evidence",
+      "source": {
+        "head": "c3319c645ed0c198a8a377ffaaac111b077ff871",
+        "dirtyDigest": "271177cd7eb7bea08f7728c74a25e8c99cdf1357bc90be9247f528f24ae2ef0b",
+        "worktreeName": "mundane-stingray"
+      },
+      "observations": [
+        "New Core profile admitted; runtime ACTIVE and fixture reached usable document state",
+        "FREE-mode parameter-limit information dialog observed; this does not establish unrestricted model-editing support",
+        "Disposable Workspace validation harness finished PASS, including model/Workspace assertions",
+        "Manual assistance: confirmed the task-owned initial-layout dialog after checking its exact workspace name and cgroup ownership; automated matcher lacked the English initial layout wording",
+        "Validation-only Workspace provider; not production composition or PSD behavior acceptance"
+      ]
+    },
+    {
+      "jobId": "c4713c29-8169-483b-aadd-94a103ece753",
+      "runId": "queue-23322f6898fe47c3b00f074d13be5636",
+      "preparedDigest": "803593cdac79d69d08a127def69284af4fdc1fd388f87c7a41f1ab76ba155640",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "normalExit": true,
+      "finalizedBy": "contained-supervisor",
+      "task": "core-acquisition",
+      "version": "5.3.04",
+      "round": "t17-r3",
+      "evidenceDirectory": "jobs/c4713c29-8169-483b-aadd-94a103ece753/evidence",
+      "source": {
+        "head": "c4a9dc91349c5ba513e51c46d46968dfa80752a8",
+        "dirtyDigest": "47c209f4a59eba1aa6dc4ace3c518fc2f5fc7291b4b53843995b8d2b8ae74041",
+        "worktreeName": "mundane-stingray"
+      },
+      "observations": [
+        "Exact FREE startup and FREE welcome actions recorded by probe; no manual GUI assistance",
+        "New Core and Editor artifact digests match, with same defining classloader",
+        "Three stable EDT snapshots; one active model; document/source/pack/view/current-model identity checks all pass",
+        "NO_PUBLIC_BRIDGE: no public getter exposing a native Core model was found; no native Core structural read or owned-MOC execution is claimed"
+      ],
+      "bridgeStatus": "NO_PUBLIC_BRIDGE",
+      "stableSnapshots": 3,
+      "modelInstancesCount": 1
+    }
+  ],
+  "notRun": [
+    {
+      "jobId": "221e1a9b-5172-49fb-a8ef-f677b0b9d3df",
+      "task": "core-acquisition",
+      "version": "5.3.04",
+      "round": "t17-r2",
+      "state": "cancelled",
+      "reason": "Replaced while queued to include exact FREE welcome confirmation; no host session launched"
+    }
+  ]
+}

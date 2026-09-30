@@ -1,6 +1,8 @@
 package dev.turboism.validation.core;
 
 import java.awt.Window;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,6 +29,9 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.SwingUtilities;
+import javax.swing.AbstractButton;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
 
 /** Standalone validation-only, public-reflection-only Core acquisition probe. */
 public final class CoreAcquisitionProbeAgent {
@@ -72,6 +77,9 @@ public final class CoreAcquisitionProbeAgent {
         boolean timedOut = false;
         try {
             while (System.currentTimeMillis() < deadline) {
+                if (Boolean.getBoolean("turboism.coreAcquisition.startFree")) {
+                    onEdt(() -> { selectFreeStartup(); return null; });
+                }
                 final Loaded loaded = Loaded.find(instrumentation.getAllLoadedClasses());
                 if (loaded.ready()) {
                     final StableCapture capture = onEdt(() -> captureStable(loaded));
@@ -130,6 +138,45 @@ public final class CoreAcquisitionProbeAgent {
             }
         } catch (Throwable failure) {
             System.err.println("CORE_ACQUISITION_RESULT status=FAIL bridgeStatus=ERROR");
+        }
+    }
+
+    static boolean isFreeStartupButton(final String title, final String text) {
+        return "Start".equals(title) && "Start as FREE version".equals(text);
+    }
+
+    static boolean isFreeWelcome(final String title, final String text) {
+        return "Confirm".equals(title) && text.contains("Welcome!")
+                && text.contains("Start as FREE version with limited functions");
+    }
+
+    private static void selectFreeStartup() {
+        for (Window window : Window.getWindows()) {
+            if (!(window instanceof JDialog dialog) || !dialog.isShowing()) continue;
+            final List<Component> pending = new ArrayList<>();
+            pending.add(dialog);
+            final StringBuilder labels = new StringBuilder();
+            AbstractButton ok = null;
+            for (int index = 0; index < pending.size(); index++) {
+                final Component component = pending.get(index);
+                if (component instanceof JLabel label) labels.append(label.getText()).append("\n");
+                if (component instanceof AbstractButton button && button.isShowing() && button.isEnabled()
+                        && "OK".equals(button.getText())) ok = button;
+                if (component instanceof AbstractButton button && button.isShowing() && button.isEnabled()
+                        && isFreeStartupButton(dialog.getTitle(), button.getText())) {
+                    System.out.println("CORE_ACQUISITION_START_FREE_SELECTED");
+                    button.doClick(0);
+                    return;
+                }
+                if (component instanceof Container container) {
+                    pending.addAll(java.util.Arrays.asList(container.getComponents()));
+                }
+            }
+            if (ok != null && isFreeWelcome(dialog.getTitle(), labels.toString())) {
+                System.out.println("CORE_ACQUISITION_FREE_WELCOME_CONFIRMED");
+                ok.doClick(0);
+                return;
+            }
         }
     }
 

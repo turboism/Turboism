@@ -92,3 +92,42 @@ Queued host probes and authoritative results are tracked separately from these
 static findings. Core acquisition examines stable Editor document/model identity
 and public getters for a Core model bridge. A `NO_PUBLIC_BRIDGE` result would
 not demonstrate structural reads or owned-MOC execution.
+
+## Host follow-up
+
+The [2026-10-01 results](2026-10-01-host-results.json) preserve separate outcomes:
+
+- 5.3.04 Core acquisition first run: new Core and Editor hashes match, adapter
+  READY and runtime RUNNING; model acquisition timed out while startup was blocked
+  by the native license-selection dialog. Final FAIL, safe cleanup.
+- 5.3.01 Workspace: runtime ACTIVE and custom Workspace created, but the project
+  readiness check timed out. Native Start/confirmation dialogs were observed;
+  this is not a Core selector failure or a completed behavior pass.
+- 5.3.04 Workspace: final supervisor **PASS**, identity verified, unchanged fixture,
+  normal exit and safe cleanup. This run needed manual confirmation of its exact
+  task-owned initial-layout dialog. The harness recognized “default layout”
+  but the native English prompt said “initial layout”; the matcher now handles
+  both while still requiring the unique task workspace name. A FREE-mode
+  parameter-limit information dialog was also observed. The validation-only
+  Workspace provider and this fixture do not establish production composition,
+  unrestricted model editing, PSD export or texture replacement.
+
+The Core acquisition probe now offers the explicit task-local JVM property
+`turboism.coreAcquisition.startFree=true`. It uses Swing public UI components
+on the EDT to select only the exact native FREE startup button and confirm only
+the FREE welcome message. It never chooses purchase, activation or trial options.
+The self-check rejects unrelated dialogs and trial/activation labels. This helper
+does not relax the stable-model, exact-hash or final lifecycle assertions.
+
+The final 5.3.04 Core acquisition repeat (`t17-r3`) received supervisor **PASS**
+without manual GUI assistance: exact Editor/Core hashes and defining classloader
+match, three consecutive EDT snapshots have stable document/source/pack/view/model
+identity, the fixture is unchanged, and exit/cleanup are normal/safe. Both FREE
+startup actions appear in the probe log. Its bridge outcome is **NO_PUBLIC_BRIDGE**:
+the tested Editor objects expose no public getter returning a native Core model.
+Consequently native Core structural reads and owned-MOC execution remain unproved
+by this workload. This is a successful identity/acquisition reconnaissance result,
+not a blanket pass for every Core API.
+
+The follow-up Workspace probe regression passed all 21 tests. All jobs created
+for this round are terminal; the superseded `t17-r2` never launched.
