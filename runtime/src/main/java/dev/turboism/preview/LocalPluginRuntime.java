@@ -46,6 +46,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final dev.turboism.internal.core.MeshTriangulationSettingsService meshTriangulationSettings;
     private final dev.turboism.internal.core.AtlasTileBboxSettingsService atlasTileBboxSettings;
     private final dev.turboism.internal.core.AtlasCacheReuseSettingsService atlasCacheReuseSettings;
+    private final dev.turboism.internal.core.TriangulationEdgeIndexSettingsService triangulationEdgeIndexSettings;
     private final dev.turboism.internal.core.CoreUpdateService updateService;
     private final PreviewLog log;
     private final PluginLifecyclePolicy lifecyclePolicy;
@@ -341,6 +342,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.meshTriangulationSettings = resources.meshTriangulationSettings();
         this.atlasTileBboxSettings = resources.atlasTileBboxSettings();
         this.atlasCacheReuseSettings = resources.atlasCacheReuseSettings();
+        this.triangulationEdgeIndexSettings = resources.triangulationEdgeIndexSettings();
         this.updateService = resources.updateService();
         this.lifecyclePolicy = resources.lifecyclePolicy();
         this.lifecycleLane = resources.lifecycleLane();
@@ -402,6 +404,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
                                 meshTriangulationSettings,
                                 atlasTileBboxSettings,
                                 atlasCacheReuseSettings,
+                                triangulationEdgeIndexSettings,
                                 dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
                                         contextFactory.hostAccessIdentity()),
                                 pluginManagement,

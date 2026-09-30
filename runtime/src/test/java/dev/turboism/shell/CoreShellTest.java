@@ -14,6 +14,7 @@ import dev.turboism.internal.core.CoreUpdateService;
 import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
 import dev.turboism.internal.core.ShellServices;
+import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -96,7 +97,7 @@ class CoreShellTest {
                         MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                         10)),
                 context.mainToolbar().buttonContributions());
-        assertEquals(16, context.uiHost().settingsContributions().size());
+        assertEquals(17, context.uiHost().settingsContributions().size());
         assertEquals(
                 List.of(
                         "cubism-graalvm-path",
@@ -113,6 +114,7 @@ class CoreShellTest {
                         "mesa-gl-thread",
                         "performance-restart-note",
                         "mesh-triangulation-hash",
+                        "triangulation-edge-index",
                         "atlas-tile-bbox",
                         "atlas-cache-reuse"),
                 context.uiHost().settingsContributions().stream()
@@ -676,6 +678,7 @@ class CoreShellTest {
                 MeshTriangulationSettingsService.unavailable(),
                 AtlasTileBboxSettingsService.unavailable(),
                 AtlasCacheReuseSettingsService.unavailable(),
+                TriangulationEdgeIndexSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
