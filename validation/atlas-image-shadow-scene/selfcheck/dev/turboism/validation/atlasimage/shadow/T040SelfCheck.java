@@ -45,9 +45,89 @@ public final class T040SelfCheck {
         checkRunClaimState(checks);
         checkPayloadStore(checks);
         checkEdtStateMachine(checks);
+        checkHigherVersionLoadWarning(checks);
         checkUiStateMachine(checks);
         System.out.println("T040_SHADOW_SCENE_SELFCHECK PASS checks=" + checks.get()
             + " hostExecuted=false");
+    }
+
+    private static void checkHigherVersionLoadWarning(final AtomicInteger checks) throws Exception {
+        final String key = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        final String previous = System.getProperty(key);
+        final Path home = Files.createTempDirectory("t040-load-warning-");
+        final String task = "t029-tlprod-selfcheck";
+        final AtomicInteger clicks = new AtomicInteger();
+        final JFrame[] main = new JFrame[1];
+        final JDialog[] warning = new JDialog[1];
+        final JFrame[] unrelated = new JFrame[1];
+        try {
+            for (String variant : new String[] {"no-token", "wrong-hash", "wrong-name", "wrong-version",
+                    "wrong-text", "wrong-owner", "duplicate-load", "shared-owner", "decorated-shared-owner", "valid"}) {
+                clicks.set(0);
+                System.setProperty(key, ShadowSceneContract.TLPROD_OPT_IN);
+                if (variant.equals("no-token")) System.clearProperty(key);
+                final T040ShadowSceneDriverAgent.DriverConfig config =
+                    T040ShadowSceneDriverAgent.DriverConfig.forSelfCheck(home, task, home.resolve("copy.cmo3"),
+                        task + "-" + (variant.equals("wrong-name") ? "other.cmo3" : "heavy.cmo3"),
+                        variant.equals("wrong-hash") ? "0".repeat(64) : ShadowSceneContract.FIXTURE_HEAVY_SHA256,
+                        20L, variant.equals("wrong-version") ? "5302" : "5203",
+                        ShadowSceneContract.LAYOUT_SCALE_KERNEL_PERCENT, ShadowSceneContract.LAYOUT_MODE_PRESERVE);
+                SwingUtilities.invokeAndWait(() -> {
+                    main[0] = new JFrame("Live2D Cubism Editor 5.2.03 PRO - ");
+                    main[0].setSize(500, 300);
+                    main[0].setVisible(true);
+                    unrelated[0] = new JFrame("unrelated");
+                    warning[0] = new JDialog(variant.equals("wrong-owner") ? unrelated[0]
+                        : variant.endsWith("shared-owner") ? (JFrame) null : main[0], "警告", true);
+                    final JPanel panel = new JPanel();
+                    panel.add(new javax.swing.JLabel(variant.equals("wrong-text")
+                        ? T040ShadowSceneDriverAgent.HIGHER_VERSION_LOAD_TEXT.replace("5.3.0", "5.4.0")
+                        : T040ShadowSceneDriverAgent.HIGHER_VERSION_LOAD_TEXT));
+                    final JButton load = new JButton("加载");
+                    load.addActionListener(event -> { clicks.incrementAndGet(); warning[0].dispose(); });
+                    panel.add(load);
+                    panel.add(new JButton("取消"));
+                    if (variant.equals("duplicate-load")) panel.add(new JButton("加载"));
+                    warning[0].add(panel);
+                    warning[0].pack();
+                    if (variant.equals("decorated-shared-owner")) {
+                        final JPanel decoration = new JPanel();
+                        decoration.add(new javax.swing.JLabel("警告"));
+                        decoration.add(new JButton(""));
+                        warning[0].setGlassPane(decoration);
+                        decoration.setVisible(true);
+                    }
+                    SwingUtilities.invokeLater(() -> warning[0].setVisible(true));
+                });
+                final AtomicBoolean accepted = new AtomicBoolean();
+                final AtomicBoolean refused = new AtomicBoolean();
+                SwingUtilities.invokeAndWait(() -> {
+                    final Dialog[] answered = new Dialog[1];
+                    final java.awt.Window[] windows = {main[0], warning[0]};
+                    try {
+                        accepted.set(T040ShadowSceneDriverAgent.answerHigherVersionLoadWarning(config, windows, answered));
+                        if (accepted.get()) {
+                            // A second polling pass must not enqueue a second click.
+                            T040ShadowSceneDriverAgent.answerHigherVersionLoadWarning(config, windows, answered);
+                        }
+                    } catch (IllegalStateException expected) { refused.set(true); }
+                });
+                SwingUtilities.invokeAndWait(() -> { warning[0].dispose(); main[0].dispose(); unrelated[0].dispose(); });
+                final boolean expectedLoad = variant.equals("valid") || variant.endsWith("shared-owner");
+                check(checks, accepted.get() == expectedLoad, "load warning gate: " + variant);
+                if (variant.equals("wrong-text") || variant.equals("wrong-owner") || variant.equals("duplicate-load")) {
+                    check(checks, refused.get(), "malformed load prompt refuses: " + variant);
+                }
+                check(checks, clicks.get() == (expectedLoad ? 1 : 0), "no unintended/repeated click: " + variant);
+            }
+        } finally {
+            SwingUtilities.invokeAndWait(() -> {
+                if (warning[0] != null) warning[0].dispose();
+                if (main[0] != null) main[0].dispose();
+                if (unrelated[0] != null) unrelated[0].dispose();
+            });
+            if (previous == null) System.clearProperty(key); else System.setProperty(key, previous);
+        }
     }
 
     private static void checkContract(final AtomicInteger checks) throws Exception {
