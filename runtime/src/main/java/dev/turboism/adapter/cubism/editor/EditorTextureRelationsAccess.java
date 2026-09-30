@@ -278,7 +278,8 @@ final class EditorTextureRelationsAccess {
     }
 
     private boolean isAvailable() {
-        return resolver.isExactCubismVersion(EditorTextureRelationsSelectorContract.SUPPORTED_CUBISM_VERSION)
+        return EditorTextureRelationsSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                        .anyMatch(resolver::isExactCubismVersion)
                 && resolver.authorizesFeature(
                         EditorTextureRelationsSelectorContract.ADAPTER_SLICE_ID,
                         EditorTextureRelationsSelectorContract.CAPABILITY_ID,

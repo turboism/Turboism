@@ -63,7 +63,7 @@ class PsdModelTexturesContractTest {
     }
 
     @Test
-    void psdEntryPointsAreOnlyDeclaredForCubism5302() throws Exception {
+    void psdEntryPointsAreDeclaredForReviewed53Versions() throws Exception {
         final var export = ModelTextures.class.getMethod("exportRawImagePsd", RawImageId.class);
         final var replace = ModelTextures.class.getMethod(
                 "replaceRawImagePsd", RawImageId.class, PsdEditFile.class, PsdFileRevision.class);
@@ -71,10 +71,10 @@ class PsdModelTexturesContractTest {
         assertEquals(CompletionStage.class, export.getReturnType());
         assertEquals(CompletionStage.class, replace.getReturnType());
         assertArrayEquals(
-                new String[] {"5.3.02"},
+                new String[] {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"},
                 export.getAnnotation(CubismEditor.class).value());
         assertArrayEquals(
-                new String[] {"5.3.02"},
+                new String[] {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"},
                 replace.getAnnotation(CubismEditor.class).value());
     }
 

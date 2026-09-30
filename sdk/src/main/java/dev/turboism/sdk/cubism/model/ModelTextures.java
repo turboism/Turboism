@@ -43,7 +43,10 @@ public interface ModelTextures {
      * Editor relationship selectors are available. Unsupported implementations return a typed
      * unavailable value rather than an available empty graph.
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     default TextureRelationsSnapshot relations() {
         return TextureRelationsSnapshot.unavailable();
     }
@@ -54,7 +57,10 @@ public interface ModelTextures {
      * identity indexes; this is not a constant-time guarantee. Unsupported providers never fall
      * back to {@link #relations()}.
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     default TextureSourcesSnapshot sources(final TextureSourceQuery query) {
         Objects.requireNonNull(query, "query");
         return TextureSourcesSnapshot.unavailable();
@@ -72,7 +78,7 @@ public interface ModelTextures {
      * {@link PsdExportResult.Status#UNAVAILABLE} result. The default never invokes a file
      * handle or accepts a caller-supplied path.</p>
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
         Objects.requireNonNull(source, "source");
         return CompletableFuture.completedFuture(new PsdExportResult(
@@ -94,7 +100,7 @@ public interface ModelTextures {
      * {@link PsdReplaceResult.Status#UNAVAILABLE} result. The default does not inspect or
      * invoke either opaque argument.</p>
      */
-    @CubismEditor({"5.3.02"})
+    @CubismEditor({"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     default CompletionStage<PsdReplaceResult> replaceRawImagePsd(
             final RawImageId target, final PsdEditFile file, final PsdFileRevision revision) {
         Objects.requireNonNull(target, "target");

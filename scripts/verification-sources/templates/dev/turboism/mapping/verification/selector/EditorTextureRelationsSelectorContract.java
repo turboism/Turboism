@@ -4,11 +4,12 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Exact read-only selector contract for the Cubism 5.3.02 texture relation graph.
+ * Exact read-only selector contract for reviewed Cubism texture relation graphs.
  *
  * <p>This is separate from the legacy texture-library contract because the
- * relation graph consumes additional selectors and is not verified for 5.2.03
- * or 5.3.03. The capability remains the existing model texture read
+ * relation graph consumes additional selectors. Every listed generation must
+ * carry the complete relation contract; static admission does not establish
+ * real-host readiness. The capability remains the existing model texture read
  * capability; no write selector is admitted here.</p>
  *
  * <p>The relation projection uses the typed {@code CLayeredImage.getPsdDoc()} result for the
@@ -19,7 +20,12 @@ import java.util.Set;
 public final class EditorTextureRelationsSelectorContract {
     public static final String ADAPTER_SLICE_ID = EditorTextureSelectorContract.ADAPTER_SLICE_ID;
     public static final String CAPABILITY_ID = EditorTextureSelectorContract.READ_CAPABILITY_ID;
-    public static final String SUPPORTED_CUBISM_VERSION = "5.3.02";
+    /** Reviewed generations carrying the complete relation selector contract. */
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    );
 
     /** Exact aliases consumed by {@code EditorTextureRelationsAccess}. */
     public static final Set<String> REQUIRED_ALIASES = relationAliases();

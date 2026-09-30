@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Synthetic, host-free coverage for T011 native-shaped save/parse invocation. */
 class EditorRawImagePsdNativeInvocationTest {
@@ -33,15 +35,17 @@ class EditorRawImagePsdNativeInvocationTest {
         EditorRawImagePsdNativeFixture.reset();
     }
 
-    @Test
-    void savesOffHostThreadWithoutParsingOrReconstructingExport(@TempDir final Path temp) throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    void savesOffHostThreadWithoutParsingOrReconstructingExport(final String version, @TempDir final Path temp)
+            throws Exception {
         final Path target = temp.resolve("export.psd");
         Files.createFile(target);
         final Object model = new Object();
         final java.util.List<Boolean> guardOnHostThread = java.util.Collections.synchronizedList(new ArrayList<>());
         final EditorRawImagePsdNativeFixture.SyntheticLayeredImage source =
                 new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source");
-        final EditorRawImagePsdAccess access = access(resolver("5.3.02", true), (identity, current) -> {
+        final EditorRawImagePsdAccess access = access(resolver(version, true), (identity, current) -> {
             guardOnHostThread.add(EditorHostThread.isCurrent());
             assertEquals("session-a", identity);
             assertSame(model, current);
@@ -350,7 +354,7 @@ class EditorRawImagePsdNativeInvocationTest {
 
         EditorRawImagePsdNativeFixture.reset();
         final EditorRawImagePsdAccess.ExportResult unsupported = access(
-                        resolver("5.3.03", true), (identity, model) -> {})
+                        resolver("5.4.00", true), (identity, model) -> {})
                 .exportBoundPsd(
                         "session-a",
                         new Object(),

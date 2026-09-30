@@ -10,21 +10,22 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Static exact-JAR evidence for the internal T015 native replace seam. */
 class EditorRawImagePsdReplaceSelectorContractTest {
-    private static final Path ARTIFACT =
-            Path.of("/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar");
-    private static final HostArtifactFingerprint FINGERPRINT = new HostArtifactFingerprint(
-            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-            ReviewedHostArtifacts.CUBISM_5_3_02.size(),
-            ReviewedHostArtifacts.CUBISM_5_3_02.sha256());
-
-    @Test
-    void exact5302JarVerifiesReplaceReceiverStateAndFiveArgumentEntry() throws Exception {
-        assertTrue(Files.isRegularFile(ARTIFACT), "exact Cubism 5.3.02 JAR is required");
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    void exactJarsVerifyReplaceReceiverStateAndFiveArgumentEntry(final String version) throws Exception {
+        final Path artifact = EditorSelectorContractTestPaths.artifact(version);
+        final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
+                .resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+        final var record = new StaticVerificationRecordLoader().load(recordPath).record();
+        assertTrue(Files.isRegularFile(artifact), "exact Cubism JAR is required: " + version);
         final List<StaticSelector> selectors = exactSelectors();
-        final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
+        final StaticVerificationReport report =
+                new StaticSelectorVerifier().verify(artifact, record.artifact(), selectors);
 
         assertTrue(
                 report.allSelectorsVerified(),
@@ -38,10 +39,16 @@ class EditorRawImagePsdReplaceSelectorContractTest {
                 selectors.stream().map(StaticSelector::alias).collect(java.util.stream.Collectors.toSet()));
     }
 
-    @Test
-    void verifiesNativeTransactionEvidenceSeparatelyWithoutAdmittingUnusedAliases() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    void verifiesNativeTransactionSignaturesWithoutAdmittingUnusedAliases(final String version) throws Exception {
+        final Path artifact = EditorSelectorContractTestPaths.artifact(version);
+        final Path recordPath = EditorSelectorContractTestPaths.projectRoot()
+                .resolve("compatibility/cubism/verification/cubism-" + version + "-editor-model.json");
+        final var record = new StaticVerificationRecordLoader().load(recordPath).record();
         final List<StaticSelector> selectors = transactionEvidenceSelectors();
-        final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
+        final StaticVerificationReport report =
+                new StaticSelectorVerifier().verify(artifact, record.artifact(), selectors);
 
         assertTrue(
                 report.allSelectorsVerified(),
@@ -58,8 +65,11 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     }
 
     @Test
-    void contractRequiresExact5302AndDoesNotAuthorizeOtherVersionsByItself() {
-        assertEquals("5.3.02", EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSION);
+    void contractListsOnlyReviewed53GenerationsAndRequiresCompleteAliases() {
+        assertEquals(
+                java.util.Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"),
+                EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSIONS);
+        assertFalse(EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains("5.3.05"));
         assertEquals(
                 "cubism.editor-model.psd.raw-image.replace", EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID);
         assertEquals(
@@ -68,13 +78,15 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     }
 
     @Test
-    void replaceAdmissionIsScopedToThe5302ModelRecord() {
+    void replaceAdmissionRequiresReviewed53ModelRecords() {
         assertTrue(EditorModelVerificationManifest.cubism5302Capabilities()
                 .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
         assertFalse(EditorModelVerificationManifest.CAPABILITY_IDS.contains(
                 EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
-        assertFalse(EditorModelVerificationManifest.cubism5303StaticAliases()
-                .contains(EditorRawImagePsdReplaceSelectorContract.PSD_IMPORT_REPLACE_ALIAS));
+        assertTrue(EditorModelVerificationManifest.cubism5303Capabilities()
+                .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID));
+        assertTrue(EditorModelVerificationManifest.cubism5303StaticAliases()
+                .containsAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES));
     }
 
     private static List<StaticSelector> exactSelectors() {
