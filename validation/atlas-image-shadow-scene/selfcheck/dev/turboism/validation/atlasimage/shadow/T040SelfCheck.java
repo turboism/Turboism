@@ -106,6 +106,55 @@ public final class T040SelfCheck {
             TASK_ID + "-" + ShadowSceneContract.FIXTURE_OPACITY52_NAME,
             ShadowSceneContract.FIXTURE_OPACITY52_SHA256));
 
+        // The 5302 profile shares the 5.3 fixture allowlist but records its own scene
+        // identity and official JAR; the 5203 fixture is never admissible on it.
+        check(checks, ShadowSceneContract.VERSION_5302.equals(
+                ShadowSceneContract.requireVersion(ShadowSceneContract.VERSION_5302))
+            && ShadowSceneContract.SCENE_5302.equals(
+                ShadowSceneContract.sceneFor(ShadowSceneContract.VERSION_5302))
+            && ShadowSceneContract.OFFICIAL_JAR_SHA256_5302.equals(
+                ShadowSceneContract.jarSha256For(ShadowSceneContract.VERSION_5302))
+            && !ShadowSceneContract.allowsNewAtlasDialog(ShadowSceneContract.VERSION_5302),
+            "the 5302 profile is admitted with its own scene identity and jar pin");
+        final String heavy5302 = ShadowSceneContract.requireAllowlistedFixture(
+            ShadowSceneContract.VERSION_5302, TASK_ID,
+            TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+            ShadowSceneContract.FIXTURE_HEAVY_SHA256);
+        check(checks, ShadowSceneContract.FIXTURE_HEAVY_NAME.equals(heavy5302),
+            "the 5302 profile admits the shared heavy fixture pair");
+        rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+            ShadowSceneContract.VERSION_5302, TASK_ID,
+            TASK_ID + "-" + ShadowSceneContract.FIXTURE_OPACITY52_NAME,
+            ShadowSceneContract.FIXTURE_OPACITY52_SHA256));
+        rejects(checks, () -> ShadowSceneContract.requireVersion("5400"));
+
+        // Replay the production wrapper's 5203 heavy launch identity at the same admission
+        // seam the real DriverConfig uses; ordinary 5203 fixtures above stay unchanged.
+        final String productionFixtureProperty = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        try {
+            System.setProperty(productionFixtureProperty, "TLPROD_EXPLICIT_OPT_IN");
+            check(checks, ShadowSceneContract.FIXTURE_HEAVY_NAME.equals(
+                ShadowSceneContract.requireAllowlistedFixture(
+                    ShadowSceneContract.VERSION_5203, TASK_ID,
+                    TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                    ShadowSceneContract.FIXTURE_HEAVY_SHA256)),
+                "the explicit production scene admits the pinned heavy pair on 5203");
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                ShadowSceneContract.VERSION_5203, TASK_ID,
+                TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_CIRCLE100_SHA256));
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                "5400", TASK_ID, TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_HEAVY_SHA256));
+            System.setProperty(productionFixtureProperty, "wrong-token");
+            rejects(checks, () -> ShadowSceneContract.requireAllowlistedFixture(
+                ShadowSceneContract.VERSION_5203, TASK_ID,
+                TASK_ID + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME,
+                ShadowSceneContract.FIXTURE_HEAVY_SHA256));
+        } finally {
+            System.clearProperty(productionFixtureProperty);
+        }
+
         // Budget overrides stay fail-closed and default to the values the scene always used.
         check(checks, ShadowSceneContract.STARTUP_TIMEOUT_SECONDS
                 == ShadowSceneContract.secondsProperty("turboism.validation.test.absent",
