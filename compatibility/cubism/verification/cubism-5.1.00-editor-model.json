@@ -85,7 +85,8 @@
     "cubism.texture-atlas.data-model-hook",
     "cubism.texture-atlas.dialog-injection",
     "cubism.texture-atlas.layout.write",
-    "ui.object-context-menu.contribute"
+    "ui.object-context-menu.contribute",
+    "cubism.editor-model.texture.write"
   ],
   "cubismVersion": "5.1.00",
   "profileId": "cubism-5.1.00",
@@ -9468,6 +9469,9 @@
     ],
     "ui.object-context-menu.contribute": [
       "hook:object-context-menu"
+    ],
+    "cubism.editor-model.texture.write": [
+      "structure"
     ]
   }
 }

@@ -1,0 +1,48 @@
+{
+  "scope": "Local regression and static verification; not real-host capability support",
+  "tests": {
+    "dev.turboism.adapter.cubism.editor.EditorTextureAccessTest": {
+      "tests": 286,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dev.turboism.mapping.verification.CapabilitySelectorDependenciesTest": {
+      "tests": 55,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dev.turboism.core.plugin.context.CubismEditorApiAvailabilityInterceptorTest": {
+      "tests": 32,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dev.turboism.sdk.cubism.model.CubismEditorModelAvailabilityContractTest": {
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dev.turboism.sdk.CubismEditorAvailabilityContractTest": {
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "javaStaticVersions": 20,
+  "devCheck": "PASS",
+  "coreInventoryMemberSelectorGates": "PASS",
+  "schedulerTests": 28,
+  "probePackagedResourceContract": "PASS production PluginJarContract, validation/moc/",
+  "logs": [
+    "/tmp/mundane-texture-write-gates.log",
+    "/tmp/mundane-texture-write-final-gates.log",
+    "/tmp/mundane-texture-write-java-static.log",
+    "/tmp/mundane-owned-scheduler-tests.log"
+  ],
+  "inventoryTests": "PASS",
+  "queueTests": 114
+}

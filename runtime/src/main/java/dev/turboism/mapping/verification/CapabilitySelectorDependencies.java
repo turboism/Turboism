@@ -553,7 +553,7 @@ final class CapabilitySelectorDependencies {
         aliases.addAll(MODEL_BINDING);
         if (capability.equals(EditorTextureSelectorContract.WRITE_CAPABILITY_ID)) {
             aliases.addAll(
-                    record.cubismVersion().equals("5.2.03")
+                    EditorTextureSelectorContract.LEGACY_RAW_IMAGE_REMOVAL_VERSIONS.contains(record.cubismVersion())
                             ? EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES
                             : EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         }

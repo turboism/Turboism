@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "jobId": "1cb28d42-5731-4249-a080-d9edd44e4a54",
+  "preparedDigest": "6427cd35803f722e0e604bfbcfc889d906c75169d461dc1f17004d483d0aff89",
+  "attemptId": "1f6ad7e0-c89c-4364-9fc6-27449e184e95",
+  "runId": "queue-6b10b3571857480c9eca26e166561b32",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "cancelled",
+  "validationStatus": "FAIL",
+  "identityVerified": false,
+  "fixtureUnchanged": false,
+  "normalExit": false,
+  "cleanup": "safe",
+  "runnerExitCode": -15,
+  "sourceLifecycleSha256": "1b7ae3a9cdaddb2aaf740770a55dc272370650820b4749580fc3beec26e32220",
+  "scope": "Extract of authoritative supervisor result; local machine paths omitted. Raw evidence remains in the shared job evidence directory.",
+  "containment": {
+    "cleanup": "safe",
+    "jobId": "1cb28d42-5731-4249-a080-d9edd44e4a54",
+    "attemptId": "1f6ad7e0-c89c-4364-9fc6-27449e184e95",
+    "preparedDigest": "6427cd35803f722e0e604bfbcfc889d906c75169d461dc1f17004d483d0aff89",
+    "runId": "queue-6b10b3571857480c9eca26e166561b32"
+  },
+  "kernelProof": {
+    "originalCgroupBound": true,
+    "cgroupKillWritten": true,
+    "cleanupMethod": "cgroup.kill+cgroup-destroyed",
+    "processReturncode": -15,
+    "processTimedOut": false,
+    "errors": [],
+    "finalReading": {
+      "error": "[Errno 19] No such device",
+      "kind": "destroyed",
+      "populated": null
+    }
+  }
+}

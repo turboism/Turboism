@@ -13,7 +13,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class CapabilitySelectorDependenciesTest {
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void optionalTextureWriteFailureKeepsReadsAndExcludesTheUnverifiedAlias(final String version) throws Exception {
         final var record = record(version);
         final String missing = "cubism.editor-model.texture-handler.add-texture-atlas";
@@ -47,7 +51,11 @@ class CapabilitySelectorDependenciesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.03", "5.3.02", "5.3.03"})
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void missingModelBindingOrUndoRelationshipDisablesItsDependencyClosure(final String version) throws Exception {
         final var record = record(version);
         final Set<String> verified = new HashSet<>(CapabilitySelectorDependencies.allAliases(record));
@@ -58,6 +66,22 @@ class CapabilitySelectorDependenciesTest {
         assertFalse(withoutUndo.contains("cubism.editor-model.texture.write"));
         verified.remove("cubism.editor-model.model-source.current-instance");
         assertTrue(CapabilitySelectorDependencies.capabilities(record, verified).isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+            })
+    void missingLegacyRemovalFactoryDisablesWritesButKeepsReads(final String version) throws Exception {
+        final var record = record(version);
+        final Set<String> verified = new HashSet<>(CapabilitySelectorDependencies.allAliases(record));
+        assertTrue(record.capabilityIds().contains("cubism.editor-model.texture.write"));
+        assertTrue(verified.remove("cubism.editor-model.texture-undo.layer-input.create"));
+        final var capabilities = CapabilitySelectorDependencies.capabilities(record, verified);
+        assertTrue(capabilities.contains("cubism.editor-model.texture.read"));
+        assertFalse(capabilities.contains("cubism.editor-model.texture.write"));
     }
 
     private static StaticVerificationRecord record(final String version) throws Exception {

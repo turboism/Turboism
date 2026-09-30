@@ -85,6 +85,12 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     }
 
     private void awaitResult() {
+        if (Boolean.getBoolean("turboism.validation.ownedMocOnly")) {
+            if (!awaitTaskDocument()) return;
+            if (!CoreOwnedMocProbe.run(context, validationStateRoot())) return;
+            requestAutomatedHostClose("core-owned-moc-result.properties");
+            return;
+        }
         if (Boolean.getBoolean("turboism.validation.ownedMoc")) {
             if (!CoreOwnedMocProbe.run(context, validationStateRoot())) return;
         }
@@ -130,11 +136,46 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     }
 
     private void requestAutomatedHostClose() {
+        requestAutomatedHostClose(RESULT_FILE);
+    }
+
+    /** Keeps standalone Core validation bound to the Runner's loaded fixture before normal close. */
+    private boolean awaitTaskDocument() {
+        final String fixture = System.getProperty("turboism.validation.fixtureName", "");
+        if (fixture.isBlank()) return false;
+        final long deadline = System.currentTimeMillis() + 120_000L;
+        while (enabled && System.currentTimeMillis() < deadline) {
+            try {
+                final java.util.concurrent.FutureTask<Boolean> ready = new java.util.concurrent.FutureTask<>(() -> {
+                    int matched = 0;
+                    for (final var window : java.awt.Window.getWindows()) {
+                        if (window instanceof java.awt.Dialog dialog && dialog.isVisible() && dialog.isModal()) return false;
+                        if (window instanceof java.awt.Frame frame && frame.isVisible() && frame.isDisplayable()
+                                && frame.getTitle().contains(fixture)) matched++;
+                    }
+                    return matched == 1;
+                });
+                SwingUtilities.invokeLater(ready);
+                if (ready.get(5, java.util.concurrent.TimeUnit.SECONDS)) return true;
+                Thread.sleep(500L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            } catch (Exception failure) {
+                logger.error("Standalone Core fixture readiness failed", failure);
+                return false;
+            }
+        }
+        logger.warn("Standalone Core fixture readiness timed out; no native assertions executed");
+        return false;
+    }
+
+    private void requestAutomatedHostClose(final String resultFile) {
         try {
             final String outcome = McpValidationHostClose.request(
                 Boolean.getBoolean("turboism.validation.exitOnComplete"),
                 enabled,
-                terminalResult(validationStateRoot().resolve(RESULT_FILE)),
+                terminalResult(validationStateRoot().resolve(resultFile)),
                 System.getProperty("turboism.validation.runId"),
                 System.getProperty("turboism.validation.hostVersion")
             );
