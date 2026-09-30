@@ -184,8 +184,29 @@
       "preparedDigest": "aaccf8a6e242074a11ffb54fefb56f8beac47241e35f299f4a74062c67f2c3ed",
       "evidenceDirectory": "jobs/8958e1b9-8d41-4ad1-b399-a9ef1fdbf2b3/evidence",
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-eb5b5d38e1ee4ec095aa539238730aeb",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "FAIL",
+        "error": "TIMEOUT_NO_USABLE_DOCUMENT_OR_CLASSES",
+        "nativeCoreVersion": "",
+        "stableSnapshots": 0,
+        "modelInstancesCount": 0,
+        "bridgeStatus": "ERROR",
+        "editorHashMatch": false,
+        "coreHashMatch": false,
+        "sameDefiningClassLoader": false
+      }
     },
     {
       "version": "5.3.04",
@@ -206,8 +227,9 @@
       "preparedDigest": "902cb73ce7c8180a7d72c9425af9209332078b6d7d2b405e574c6cafb809ba28",
       "evidenceDirectory": "jobs/87cd42d5-52ec-41f5-b893-15e4b37c4c6a/evidence",
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "CANCELLED_BEFORE_RUN",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "reason": "Superseded by r2 helper with exact FREE parameter information and missing-class diagnostics; no capability verdict"
     },
     {
       "version": "5.2.02",
@@ -252,6 +274,17 @@
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
       "status": "SUBMITTED",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+    },
+    {
+      "version": "5.0.01",
+      "task": "core-acquisition",
+      "round": "allversions-r2",
+      "jobId": "b6399ce8-f001-49be-b72c-73fe336ed297",
+      "preparedDigest": "faf74d47b96512a9e5c391706559fed1f2953ba46b1ec95c38b8b9ef4ec4b829",
+      "evidenceDirectory": "jobs/b6399ce8-f001-49be-b72c-73fe336ed297/evidence",
+      "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; newer-model Load/Yes; update Cancel; exact FREE parameter-limit OK information; missing-class diagnostics"
     }
   ]
 }

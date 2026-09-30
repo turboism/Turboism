@@ -41,6 +41,7 @@ public final class CoreAcquisitionProbeAgent {
     private static final long POLL_MILLIS = 250L;
     private static final AtomicBoolean STARTED = new AtomicBoolean();
     private static volatile String observedCoreVersion = "";
+    private static volatile String loadedClassState = "NOT_OBSERVED";
 
     private CoreAcquisitionProbeAgent() {}
 
@@ -78,6 +79,11 @@ public final class CoreAcquisitionProbeAgent {
                     onEdt(() -> { selectFreeStartup(); return null; });
                 }
                 final Loaded loaded = Loaded.find(instrumentation.getAllLoadedClasses());
+                final String diagnostic = loaded.diagnostic();
+                if (!diagnostic.equals(loadedClassState)) {
+                    loadedClassState = diagnostic;
+                    System.out.println("CORE_ACQUISITION_LOADED_CLASSES " + diagnostic);
+                }
                 if (loaded.ready()) {
                     final StableCapture capture = onEdt(() -> {
                         if (observedCoreVersion.isEmpty()
@@ -431,6 +437,7 @@ public final class CoreAcquisitionProbeAgent {
         field(json, "runId", runId, true, true);
         field(json, "profile", profile, true, true);
         field(json, "nativeCoreVersion", observedCoreVersion, true, true);
+        field(json, "loadedClassState", loadedClassState, true, true);
         field(json, "status", status, true, true);
         field(json, "bridgeStatus", bridgeStatus, true, true);
         field(json, "thread", observation == null ? Thread.currentThread().getName() : observation.thread, true, true);
@@ -624,6 +631,11 @@ public final class CoreAcquisitionProbeAgent {
             this.coreModel = coreModel; this.loader = loader;
         }
         boolean ready() { return app != null && document != null && source != null && model != null && view != null && coreModel != null; }
+        String diagnostic() {
+            return "app=" + (app != null) + ",document=" + (document != null)
+                + ",source=" + (source != null) + ",model=" + (model != null)
+                + ",view=" + (view != null) + ",coreModel=" + (coreModel != null);
+        }
         static Loaded find(final Class<?>[] loaded) {
             Class<?> app = null;
             for (Class<?> type : loaded) if (APP.equals(type.getName())) { app = type; break; }
