@@ -7,7 +7,6 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,13 +33,10 @@ import java.util.Map;
  *   <li>Buckets are only touched when the precheck {@code sz == size-1} holds; any unwoven
  *       mutation (an {@code iterator().remove()} shrinking the set) breaks the precheck and the
  *       index falls back: dirty triggers a rebuild, an unweaved element makes the index dead.</li>
- *   <li>{@link #remove} does NOT deindex by the argument's keys: {@code set.remove(x)} may remove
- *       a different stored object that {@code equals(x)} yet carries different vertex indices
- *       (triangle equality is a cyclic TriPoint permutation and TriPoint equality ignores the
- *       index). It iterates the set, removes the first element {@code e} with
- *       {@code tri.equals(e)} — the same element {@code HashMap.removeNode} picks under the
- *       constant-zero triangle hash — then deindexes {@code e} by {@code e}'s own recorded
- *       keys. O(T), the same class as the official remove.</li>
+ *   <li>{@link #remove} runs the native set operation first. It deindexes the argument
+ *       only when cardinality and a scan of surviving identities prove it is the single
+ *       missing recorded object. Equal-but-distinct arguments, stale state or unexpected
+ *       survivors mark the index dirty; the next query rebuilds from the live set.</li>
  *   <li>Bookkeeping never throws into the host: everything after the real set operation is
  *       guarded; failures only mark the index dirty or dead.</li>
  *   <li>{@code STATES} uses weak identity keys, not {@code WeakHashMap} or set value equality:
@@ -163,27 +159,29 @@ public final class TriangulationEdgeIndex {
     }
 
     /**
-     * Replaces {@code LinkedHashSet.remove}. Removes the first stored element {@code e}
-     * satisfying {@code tri.equals(e)} — identical to what {@code HashMap.removeNode} picks
-     * under the constant-zero triangle hash — via {@code iterator.remove()}, then deindexes
-     * {@code e} by {@code e}'s recorded keys. O(T).
+     * Preserves the exact native removal (including its victim in a treeified hash bucket).
+     * Bookkeeping scans only identities, never invokes element equality a second time.
      */
     public static boolean remove(final LinkedHashSet s, final Object tri) {
-        Object victim = null;
-        boolean removed = false;
-        for (final Iterator<?> it = s.iterator(); it.hasNext(); ) {
-            final Object e = it.next();
-            if (tri == e || tri.equals(e)) {
-                victim = e;
-                it.remove();
-                removed = true;
-                break;
-            }
-        }
+        final boolean removed = s.remove(tri);
         if (!removed) return false;
         try {
             final St t = st(s);
-            final long[] ks = t.keys.remove(victim);
+            final Object victim = tri;
+            boolean exactVictim = !t.dead && !t.dirty && t.sz == s.size() + 1
+                    && t.keys.size() == s.size() + 1 && t.keys.containsKey(tri);
+            if (exactVictim) {
+                for (final Object survivor : s) {
+                    if (survivor == tri || !t.keys.containsKey(survivor)) {
+                        exactVictim = false;
+                        break;
+                    }
+                }
+            }
+            // All n-1 surviving identities belong to the n recorded identities, and tri
+            // is absent: tri is exactly the missing entry. Otherwise do not guess from
+            // equals or the argument's vertex indices; rebuild prunes the actual victim.
+            final long[] ks = exactVictim ? t.keys.remove(victim) : null;
             if (ks == null || t.dead || t.dirty) {
                 t.dirty = true; // unknown keys or stale index -> resync on next query
             } else {
