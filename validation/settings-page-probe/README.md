@@ -32,6 +32,27 @@ worker is offline and recovery is `safe=false`; the user chose offline convergen
 No new real settings run or restart acceptance is claimed; no queue row was forced,
 no supervisor verdict was fabricated and no official host/model was modified.
 
+2026-09-30 real-host follow-up: seq2013 ran after queue recovery and failed before
+opening settings (`model and native renderer did not become ready`); its bound
+supervisor recorded safe cleanup. The readiness call reads the active model, but
+the probe descriptor had no `turboism.cubism.model.read` permission. The descriptor
+now declares that read-only application permission, and readiness timeout reports
+the last exception instead of hiding it. Production agent `4c326728…` is unchanged.
+Replacement probe `5d79212f…` was built and 185 prepared input file hashes verified;
+retry seq2025/job `355fecc7-a031-4562-93f2-64cdc375c500`, prepared `3433984a…`, is queued.
+It has not executed: preceding unrelated seq2021 is quarantined after supervisor
+error `invalid canonical task identity`. No UI PASS or restart evidence is claimed.
+
+Subsequent recovery resolved that blocker. Seq2025 completed with `status=PASS`,
+identity/fixture checks, normal exit and supervisor cleanup all passing. It observed
+an active model and 13 completed native frames, default-on and the exact Chinese
+label, Apply-to-off, unsaved-change Cancel, reopening off, OK restoration and
+reopening on. The two actual UI configuration SHA-256 values are
+`8945ee224b724641a5b468cf087be0287cb3908bca908c7abdc0c582bec9b846` (off) and
+`190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02` (on).
+The final production A/B inputs bind those exact bytes; restart and resource
+acceptance are recorded separately from this settings UI result.
+
 ## Performance settings mode
 
 Pass `-Dturboism.validation.settingsPerformance=true` through the common Runner.
