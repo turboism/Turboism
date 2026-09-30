@@ -3,7 +3,7 @@ package dev.turboism.mapping.verification.selector;
 import java.util.Set;
 
 /**
- * Exact Cubism 5.3.02 selector contract for raw-image PSD export and parse.
+ * Exact reviewed Cubism selector contract for raw-image PSD export and parse.
  *
  * <p>The contract deliberately includes the identity and layer-tree reads needed to prove that
  * the selected raw image and the parsed export are the intended resources. It does not authorize
@@ -12,7 +12,10 @@ import java.util.Set;
 public final class EditorRawImagePsdSelectorContract {
     public static final String CAPABILITY_ID = "cubism.editor-model.psd.raw-image.export";
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
-    public static final String SUPPORTED_CUBISM_VERSION = "5.3.02";
+    /** Reviewed generations carrying every identity, native export and integrity selector. */
+    public static final Set<String> SUPPORTED_CUBISM_VERSIONS = Set.of(
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    );
 
     public static final String MODEL_SOURCE_TEXTURE_MANAGER_ALIAS =
         "cubism.editor-model.model-source.texture-manager";

@@ -21,6 +21,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Synthetic host-free coverage for the internal T015 replace invocation boundary. */
 class EditorRawImagePsdReplaceAccessTest {
@@ -29,9 +31,10 @@ class EditorRawImagePsdReplaceAccessTest {
         EditorRawImagePsdReplaceNativeFixture.reset();
     }
 
-    @Test
-    void invokesTheExplicitFiveArgumentEntryOnceOnTheHostThreadAndLeavesUndoToNative(@TempDir final Path temp)
-            throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
+    void invokesTheExplicitFiveArgumentEntryOnceOnTheHostThreadAndLeavesUndoToNative(
+            final String version, @TempDir final Path temp) throws Exception {
         final Path stage = readyStage(temp);
         final Object model = new Object();
         final var app = new EditorRawImagePsdReplaceNativeFixture.SyntheticAppController();
@@ -42,7 +45,7 @@ class EditorRawImagePsdReplaceAccessTest {
         final AtomicInteger guardCalls = new AtomicInteger();
 
         final EditorRawImagePsdReplaceAccess.ReplaceResult result = access(
-                        resolver("5.3.02", true), (identity, current) -> {
+                        resolver(version, true), (identity, current) -> {
                             assertEquals("session-a", identity);
                             assertSame(model, current);
                             assertTrue(EditorHostThread.isCurrent());
@@ -301,7 +304,7 @@ class EditorRawImagePsdReplaceAccessTest {
         assertTrue(EditorRawImagePsdReplaceNativeFixture.events().isEmpty());
 
         EditorRawImagePsdReplaceNativeFixture.reset();
-        final EditorRawImagePsdReplaceAccess.ReplaceResult unsupported = access(resolver("5.3.03", true), guard)
+        final EditorRawImagePsdReplaceAccess.ReplaceResult unsupported = access(resolver("5.4.00", true), guard)
                 .replacePsd(
                         "session-a",
                         new Object(),

@@ -33,8 +33,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
-/** Synthetic, host-free coverage for the verified 5.3.02 texture relation projection. */
+/** Synthetic, host-free coverage for reviewed exact texture relation projections. */
 class EditorTextureRelationsAccessTest {
 
     @Test
@@ -480,6 +482,26 @@ class EditorTextureRelationsAccessTest {
         assertEquals(1L, recovered.revision(), "a stale read is not an observation revision");
     }
 
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
+    void completeExactContractsProjectRelationsAcrossReviewedVersions(final String version) {
+        final Fixture fixture = new Fixture();
+        final AtomicInteger guardCalls = new AtomicInteger();
+        final EditorTextureRelationsAccess access = new EditorTextureRelationsAccess(
+                resolver(version, true), (identity, model) -> guardCalls.incrementAndGet(), () -> 9L);
+        final TextureRelationsSnapshot snapshot = access.relations("session-a", fixture.source, fixture.model);
+        assertTrue(snapshot.isAvailable());
+        assertEquals("session-a", snapshot.binding());
+        assertEquals(9L, snapshot.generation());
+        assertEquals(4, snapshot.rawImages().size());
+        assertTrue(guardCalls.get() > 0);
+        assertTrue(fixture.source.textureManagerCalls.get() > 0);
+    }
+
     @Test
     void failsClosedBeforeHostReadsForStaleSessionsAndUnavailableEvidence() {
         final Fixture fixture = new Fixture();
@@ -506,7 +528,7 @@ class EditorTextureRelationsAccessTest {
         assertEquals(0, fixture.source.textureManagerCalls.get());
 
         final EditorTextureRelationsAccess unsupportedVersion = new EditorTextureRelationsAccess(
-                resolver("5.2.03", true), (identity, model) -> unavailableGuardCalls.incrementAndGet(), () -> 9L);
+                resolver("5.4.00", true), (identity, model) -> unavailableGuardCalls.incrementAndGet(), () -> 9L);
         assertEquals(
                 TextureRelationsSnapshot.unavailable(),
                 unsupportedVersion.relations("session-a", fixture.source, fixture.model));

@@ -46,7 +46,7 @@ final class EditorRawImagePsdReplaceAccess {
     }
 
     /**
-     * Attempts the exact 5.3.02 native replace call without exposing host values outside runtime.
+     * Attempts an admitted exact-version native replace call without exposing host values outside runtime.
      *
      * @param identity current runtime/session identity used by the guard
      * @param model model object captured by the caller's current-model guard
@@ -68,7 +68,8 @@ final class EditorRawImagePsdReplaceAccess {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(model, "model");
 
-        if (!resolver.isExactCubismVersion(EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSION)) {
+        if (EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                .noneMatch(resolver::isExactCubismVersion)) {
             return ReplaceResult.unavailable(
                     ReplaceFailurePhase.AVAILABILITY, "unsupported Cubism version: " + resolver.cubismVersion());
         }

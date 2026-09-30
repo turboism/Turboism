@@ -26,12 +26,14 @@ Usage:
     cubism_version_matrix.py matrix   # print the derived capability matrix
     cubism_version_matrix.py emit     # write records + packs + profiles
     cubism_version_matrix.py facts    # dump measured artifact facts as JSON
+    cubism_version_matrix.py refresh-editor-model  # additive refresh, all 20 versions
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import struct
 import subprocess
@@ -45,19 +47,26 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def cubism_ref_dir() -> Path:
     """Locate ``cubism-ref/`` — it lives in the primary checkout, not worktrees."""
+    configured = os.environ.get("TURBOISM_CUBISM_REF")
+    if configured:
+        candidate = Path(configured).expanduser().resolve()
+        if not candidate.is_dir():
+            raise SystemExit("configured TURBOISM_CUBISM_REF is not a directory")
+        return candidate
     local = ROOT / "cubism-ref"
     if local.is_dir():
         return local
     common = subprocess.run(
         ["git", "-C", str(ROOT), "rev-parse", "--git-common-dir"],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
     candidate = Path(common).resolve().parent / "cubism-ref"
     if candidate.is_dir():
         return candidate
     raise SystemExit(
-        "cubism-ref not found in worktree or primary checkout; set "
-        "TURBOISM_CUBISM_REF"
+        "cubism-ref not found in worktree or primary checkout; set TURBOISM_CUBISM_REF"
     )
 
 
@@ -73,10 +82,23 @@ DEPS_SOURCE = (
 
 REVIEWED = ("5.2.03", "5.3.02", "5.3.03")
 TARGET_VERSIONS = (
-    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
-    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
-    "5.2.00", "5.2.01", "5.2.02",
-    "5.3.00", "5.3.01", "5.3.04",
+    "5.0.00",
+    "5.0.01",
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02",
+    "5.1.03",
+    "5.2.00",
+    "5.2.01",
+    "5.2.02",
+    "5.3.00",
+    "5.3.01",
+    "5.3.04",
 )
 VERIFIED_AT = "2026-09-27T00:00:00Z"
 EDITOR_MODEL_SLICE = "adapter.editor-model.readwrite"
@@ -85,25 +107,40 @@ EDITOR_MODEL_SLICE = "adapter.editor-model.readwrite"
 # (``com/live2d/cubism/h.class``; ``g.class`` on 5.0.x) via the same ldc/putstatic
 # ``<clinit>`` scan CubismEditorReleaseDetector performs.
 DECLARED_BUILDS = {
-    "5.0.00": 500000005, "5.0.01": 500010000, "5.0.02": 500020000,
-    "5.0.03": 500030001, "5.0.04": 500040000, "5.0.05": 500050001,
-    "5.0.06": 500060001, "5.1.00": 501000004, "5.1.01": 501010000,
-    "5.1.02": 501020001, "5.1.03": 501030000, "5.2.00": 502000003,
-    "5.2.01": 502010000, "5.2.02": 502020000, "5.2.03": 502030002,
-    "5.3.00": 503000005, "5.3.01": 503010000, "5.3.02": 503020001,
-    "5.3.03": 503030001, "5.3.04": 503040001,
+    "5.0.00": 500000005,
+    "5.0.01": 500010000,
+    "5.0.02": 500020000,
+    "5.0.03": 500030001,
+    "5.0.04": 500040000,
+    "5.0.05": 500050001,
+    "5.0.06": 500060001,
+    "5.1.00": 501000004,
+    "5.1.01": 501010000,
+    "5.1.02": 501020001,
+    "5.1.03": 501030000,
+    "5.2.00": 502000003,
+    "5.2.01": 502010000,
+    "5.2.02": 502020000,
+    "5.2.03": 502030002,
+    "5.3.00": 503000005,
+    "5.3.01": 503010000,
+    "5.3.02": 503020001,
+    "5.3.03": 503030001,
+    "5.3.04": 503040001,
 }
 
-MODEL_BINDING = frozenset({
-    "cubism.editor-model.app-controller.instance",
-    "cubism.editor-model.app-controller.current-document",
-    "cubism.editor-model.modeling-document.class",
-    "cubism.editor-model.modeling-document.model-source",
-    "cubism.editor-model.model-source.current-instance",
-    "cubism.editor-model.model.class",
-    "cubism.editor-model.model-source.guid",
-    "cubism.editor-model.guid.value",
-})
+MODEL_BINDING = frozenset(
+    {
+        "cubism.editor-model.app-controller.instance",
+        "cubism.editor-model.app-controller.current-document",
+        "cubism.editor-model.modeling-document.class",
+        "cubism.editor-model.modeling-document.model-source",
+        "cubism.editor-model.model-source.current-instance",
+        "cubism.editor-model.model.class",
+        "cubism.editor-model.model-source.guid",
+        "cubism.editor-model.guid.value",
+    }
+)
 
 # (alias, target version) -> selector field overrides. Some members keep their
 # semantic contract but get a different obfuscated name on one exact version;
@@ -112,8 +149,7 @@ MODEL_BINDING = frozenset({
 MEMBER_VARIANTS = {
     ("object-context-menu.workspace.selector", "5.3.04"): {
         "memberName": "ap",
-        "mappingId":
-            "cubism.mapping.v5_3_04.object_context_menu.method.workspace_selector",
+        "mappingId": "cubism.mapping.v5_3_04.object_context_menu.method.workspace_selector",
     },
 }
 
@@ -152,11 +188,7 @@ def decode_mutf8(data: bytes) -> str:
             and 0xDC00 <= ord(text[i + 1]) <= 0xDFFF
         ):
             out.append(
-                chr(
-                    0x10000
-                    + ((ord(c) - 0xD800) << 10)
-                    + (ord(text[i + 1]) - 0xDC00)
-                )
+                chr(0x10000 + ((ord(c) - 0xD800) << 10) + (ord(text[i + 1]) - 0xDC00))
             )
             i += 2
         else:
@@ -181,7 +213,7 @@ def parse_class(data: bytes):
         if tag == 1:
             (ln,) = struct.unpack_from(">H", data, pos)
             pos += 2
-            utf8[i] = decode_mutf8(data[pos:pos + ln])
+            utf8[i] = decode_mutf8(data[pos : pos + ln])
             pos += ln
         elif tag in (3, 4):
             pos += 4
@@ -314,7 +346,7 @@ def verified_aliases(jar: JarIndex, record: dict) -> set[str]:
 # CapabilitySelectorDependencies mirror
 # ---------------------------------------------------------------------------
 
-ALIAS_TABLE_JAVA = r'''
+ALIAS_TABLE_JAVA = r"""
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Set;
@@ -364,7 +396,7 @@ public final class AliasTable {
         return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 }
-'''
+"""
 
 
 def contract_constants() -> dict[str, dict[str, object]]:
@@ -372,9 +404,16 @@ def contract_constants() -> dict[str, dict[str, object]]:
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
         subprocess.run(
-            [sys.executable, str(GENERATE), str(ROOT), "render",
-             "--out", str(tmp_path / "src")],
-            check=True, capture_output=True,
+            [
+                sys.executable,
+                str(GENERATE),
+                str(ROOT),
+                "render",
+                "--out",
+                str(tmp_path / "src"),
+            ],
+            check=True,
+            capture_output=True,
         )
         sel_dir = tmp_path / "src/dev/turboism/mapping/verification/selector"
         (tmp_path / "AliasTable.java").write_text(ALIAS_TABLE_JAVA)
@@ -386,18 +425,20 @@ def contract_constants() -> dict[str, dict[str, object]]:
             "ObjectContextMenuVerificationManifest.java"
         )
         subprocess.run(
-            ["javac", "-d", str(classes),
-             str(tmp_path / "AliasTable.java")] + [str(s) for s in sources],
-            check=True, capture_output=True,
+            ["javac", "-d", str(classes), str(tmp_path / "AliasTable.java")]
+            + [str(s) for s in sources],
+            check=True,
+            capture_output=True,
         )
         src_root = tmp_path / "src"
         names = [
-            ".".join(s.relative_to(src_root).with_suffix("").parts)
-            for s in sources
+            ".".join(s.relative_to(src_root).with_suffix("").parts) for s in sources
         ]
         out = subprocess.run(
             ["java", "-cp", str(classes), "AliasTable"] + names,
-            check=True, capture_output=True, text=True,
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout
     table: dict[str, dict[str, object]] = {}
     for cls, fields in json.loads(out).items():
@@ -424,9 +465,7 @@ def editor_requirements(constants: dict) -> dict[str, frozenset]:
         cls, field = ref.split(".", 1)
         return constants[cls][field]
 
-    for match in re.finditer(
-        r"add\(\s*result,\s*([^,]+),\s*([^)]+)\)", source
-    ):
+    for match in re.finditer(r"add\(\s*result,\s*([^,]+),\s*([^)]+)\)", source):
         cap = resolve(match.group(1))
         aliases = resolve(match.group(2))
         table.setdefault(cap, set()).update(aliases)
@@ -549,10 +588,7 @@ def derive_version(
     for family, sources in sorted(families.items()):
         if family == "core-model-read":
             continue  # core jars are handled by the core pipeline, if at all
-        if (
-            sources
-            and sources[0][1]["adapterSliceId"] == EDITOR_MODEL_SLICE
-        ):
+        if sources and sources[0][1]["adapterSliceId"] == EDITOR_MODEL_SLICE:
             record = derive_editor_model_record(
                 jar, sources, version, family, editor, constants
             )
@@ -633,9 +669,7 @@ def derive_editor_model_record(
         for capability in source["capabilityIds"]:
             if capability in conditions_by_cap:
                 continue
-            conditions_by_cap[capability] = record_conditions.get(
-                capability, []
-            )
+            conditions_by_cap[capability] = record_conditions.get(capability, [])
             cap_order.append(capability)
     capabilities = []
     for capability in cap_order:
@@ -644,8 +678,12 @@ def derive_editor_model_record(
                 continue
         else:
             required = required_aliases(
-                constants, editor, merged, version,
-                capability, conditions_by_cap[capability],
+                constants,
+                editor,
+                merged,
+                version,
+                capability,
+                conditions_by_cap[capability],
             )
             if not required <= merged_surviving:
                 continue
@@ -664,8 +702,7 @@ def derive_editor_model_record(
     record["verifiedAt"] = VERIFIED_AT
     record["selectors"] = merged
     record["capabilityConditions"] = {
-        cap: conditions_by_cap[cap] or ["declaredGeneration"]
-        for cap in capabilities
+        cap: conditions_by_cap[cap] or ["declaredGeneration"] for cap in capabilities
     }
     return record
 
@@ -692,9 +729,7 @@ def derive_record(
             cap: ["declaredGeneration"] for cap in capabilities
         }
     else:
-        selectors = [
-            s for s in source["selectors"] if s["alias"] in surviving
-        ]
+        selectors = [s for s in source["selectors"] if s["alias"] in surviving]
         record_conditions = source.get("capabilityConditions") or {}
         capabilities = []
         for capability in source["capabilityIds"]:
@@ -704,8 +739,12 @@ def derive_record(
                 # source record; partial evidence can never keep them.
                 continue
             required = required_aliases(
-                constants, editor, source["selectors"], version,
-                capability, record_conditions.get(capability, []),
+                constants,
+                editor,
+                source["selectors"],
+                version,
+                capability,
+                record_conditions.get(capability, []),
             )
             if required <= surviving:
                 capabilities.append(capability)
@@ -764,8 +803,13 @@ def load_family_packs(family: str) -> dict[str, dict]:
 
 
 def synthesize_entry(
-    selector: dict, family: str, profile: str, artifact_sha: str,
-    uses_intermediary: bool, uses_owner: str | None, uses_review: bool,
+    selector: dict,
+    family: str,
+    profile: str,
+    artifact_sha: str,
+    uses_intermediary: bool,
+    uses_owner: str | None,
+    uses_review: bool,
 ) -> dict:
     """Build a pack entry faithful to the strict record↔entry join contract."""
     entry = {
@@ -812,7 +856,10 @@ def synthesize_entry(
 
 
 def derive_pack(
-    source_pack: dict, record: dict, version: str, family: str,
+    source_pack: dict,
+    record: dict,
+    version: str,
+    family: str,
     family_packs: dict[str, dict] | None = None,
     rewrite_provenance: bool = False,
 ) -> dict:
@@ -830,23 +877,22 @@ def derive_pack(
         for e in pack["entries"]:
             by_id.setdefault(e["semanticName"], e)
             by_alias.setdefault(e.get("name"), e)
-    uses_intermediary = any(
-        "intermediary" in e for e in source_pack["entries"]
-    )
-    owners = {
-        e["owner"] for e in source_pack["entries"] if "owner" in e
-    }
+    uses_intermediary = any("intermediary" in e for e in source_pack["entries"])
+    owners = {e["owner"] for e in source_pack["entries"] if "owner" in e}
     uses_owner = sorted(owners)[0] if owners else None
     uses_review = any("x.review" in e for e in source_pack["entries"])
     entries = []
     for selector in record["selectors"]:
-        template = by_id.get(selector["mappingId"]) or by_alias.get(
-            selector["alias"]
-        )
+        template = by_id.get(selector["mappingId"]) or by_alias.get(selector["alias"])
         if template is None:
             entry = synthesize_entry(
-                selector, family, profile, sha,
-                uses_intermediary, uses_owner, uses_review,
+                selector,
+                family,
+                profile,
+                sha,
+                uses_intermediary,
+                uses_owner,
+                uses_review,
             )
         else:
             entry = dict(template)
@@ -905,11 +951,150 @@ def derive_pack(
         )
         if "validationNotes" in metadata:
             metadata["validationNotes"] = re.sub(
-                r"\d+\.\d+\.\d+", version,
+                r"\d+\.\d+\.\d+",
+                version,
                 str(metadata["validationNotes"]),
             )
         pack["metadata"] = metadata
     return pack
+
+
+def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
+    """Add newly verified Editor selectors/capabilities without replacing old contracts.
+
+    Plan every version before writing anything. Preserve existing selector definitions,
+    record identities and capability conditions; never use refresh to shrink admission.
+    Other families, host tasks, profiles and native Core admission are untouched.
+    """
+    sources = families["editor-model"]
+    family_packs = load_family_packs("editor-model")
+    relation_contract = constants["EditorTextureRelationsSelectorContract"]
+    psd_contracts = {
+        constants[name]["CAPABILITY_ID"]: constants[name]
+        for name in (
+            "EditorRawImagePsdSelectorContract",
+            "EditorRawImagePsdReplaceSelectorContract",
+        )
+    }
+    updates = []
+    for version in ALL_VERSIONS:
+        record_path = VERIFICATION_DIR / f"cubism-{version}-editor-model.json"
+        pack_path = PACK_DIR / f"cubism-{version}-editor-model-read.json"
+        current = json.loads(record_path.read_text())
+        jar = JarIndex(REF_DIR / version / "Live2D_Cubism.jar")
+        if current["artifact"] != artifact_facts(version):
+            raise ValueError(f"reviewed artifact identity drifted: {version}")
+        for selector in current["selectors"]:
+            if verify_selector(jar, selector) != "VERIFIED_STATIC":
+                raise ValueError(
+                    f"existing selector no longer verifies: {version} {selector['alias']}"
+                )
+        derived = derive_editor_model_record(
+            jar, sources, version, "editor-model", editor, constants
+        )
+        if derived is None:
+            raise ValueError(f"no derived Editor-model contract for {version}")
+        aliases = {selector["alias"] for selector in current["selectors"]}
+        original_aliases = set(aliases)
+        if version not in relation_contract["SUPPORTED_CUBISM_VERSIONS"]:
+            raise ValueError(f"relation generation is not reviewed: {version}")
+        scoped_aliases = set(relation_contract["REQUIRED_ALIASES"])
+        scoped_capabilities = []
+        for capability, contract in psd_contracts.items():
+            if version in contract["SUPPORTED_CUBISM_VERSIONS"]:
+                if capability not in derived["capabilityIds"]:
+                    raise ValueError(
+                        f"PSD generation lacks a complete capability contract: {version} {capability}"
+                    )
+                scoped_capabilities.append(capability)
+                # PSD capabilities currently use the runtime's whole-record
+                # fallback. That admission rule must not import unrelated
+                # selectors from the derived inventory into an additive refresh.
+                # Both PSD contracts and the source relation contract are
+                # included together, preserving replacement's export dependency.
+                scoped_aliases.update(contract["REQUIRED_ALIASES"])
+        derived_aliases = {selector["alias"] for selector in derived["selectors"]}
+        if not scoped_aliases <= derived_aliases:
+            raise ValueError(f"incomplete refreshed feature selectors: {version}")
+        added = [
+            selector
+            for selector in derived["selectors"]
+            if selector["alias"] in scoped_aliases and selector["alias"] not in aliases
+        ]
+        record = dict(current)
+        record["selectors"] = current["selectors"] + added
+        record["capabilityIds"] = list(current["capabilityIds"])
+        record["capabilityConditions"] = dict(current["capabilityConditions"])
+        for capability in scoped_capabilities:
+            if capability not in record["capabilityIds"]:
+                record["capabilityIds"].append(capability)
+                record["capabilityConditions"][capability] = derived[
+                    "capabilityConditions"
+                ][capability]
+        aliases.update(selector["alias"] for selector in added)
+        for capability in record["capabilityIds"]:
+            required = required_aliases(
+                constants,
+                editor,
+                record["selectors"],
+                version,
+                capability,
+                record["capabilityConditions"][capability],
+            )
+            missing = required - aliases
+            if capability in current["capabilityIds"]:
+                previous_required = required_aliases(
+                    constants,
+                    editor,
+                    current["selectors"],
+                    version,
+                    capability,
+                    current["capabilityConditions"][capability],
+                )
+                previous_missing = previous_required - original_aliases
+                if not missing <= previous_missing:
+                    raise ValueError(
+                        f"existing capability lost dependencies: {version} {capability}"
+                    )
+                if missing:
+                    print(
+                        f"BASELINE_DEPENDENCY_GAP {version} {capability}: {sorted(missing)}"
+                    )
+            elif missing:
+                raise ValueError(
+                    f"incomplete new capability contract: {version} {capability}"
+                )
+        source_pack = json.loads(pack_path.read_text())
+        derived_pack = derive_pack(
+            source_pack, record, version, "editor-model", family_packs=family_packs
+        )
+        pack = dict(source_pack)
+        pack["metadata"] = derived_pack["metadata"]
+        existing_pack_aliases = {entry["name"] for entry in source_pack["entries"]}
+        pack["entries"] = source_pack["entries"] + [
+            entry
+            for entry in derived_pack["entries"]
+            if entry["name"] not in existing_pack_aliases
+        ]
+        updates.append(
+            (
+                record_path,
+                pack_path,
+                record,
+                pack,
+                len(added),
+                len(record["capabilityIds"]) - len(current["capabilityIds"]),
+            )
+        )
+    for record_path, pack_path, record, pack, added, capabilities in updates:
+        for path, document in ((record_path, record), (pack_path, pack)):
+            rendered = json.dumps(document, indent=2) + "\n"
+            if path.read_text() != rendered:
+                path.write_text(rendered)
+        print(
+            f"{record['cubismVersion']}: added selectors={added} capabilities={capabilities}"
+        )
+    wire_editor_model(list(TARGET_VERSIONS))
 
 
 def repair_committed_records() -> list[str]:
@@ -943,9 +1128,7 @@ def repair_committed_packs() -> list[str]:
             continue
         family = match.group(2)
         record_path = None
-        for candidate in sorted(
-            VERIFICATION_DIR.glob(f"cubism-{version}-*.json")
-        ):
+        for candidate in sorted(VERIFICATION_DIR.glob(f"cubism-{version}-*.json")):
             record_family = re.match(
                 r"cubism-\d+\.\d+\.\d+-(.+)\.json", candidate.name
             ).group(1)
@@ -957,9 +1140,9 @@ def repair_committed_packs() -> list[str]:
         record = json.loads(record_path.read_text())
         pack = json.loads(path.read_text())
         fixed = derive_pack(pack, record, version, family)
-        if fixed["entries"] != pack["entries"] or fixed.get(
+        if fixed["entries"] != pack["entries"] or fixed.get("metadata") != pack.get(
             "metadata"
-        ) != pack.get("metadata"):
+        ):
             path.write_text(json.dumps(fixed, indent=2) + "\n")
             repaired.append(path.name)
     return repaired
@@ -970,7 +1153,9 @@ def repair_committed_packs() -> list[str]:
 # ---------------------------------------------------------------------------
 
 ALL_VERSIONS = tuple(
-    sorted(TARGET_VERSIONS + REVIEWED, key=lambda v: tuple(int(p) for p in v.split(".")))
+    sorted(
+        TARGET_VERSIONS + REVIEWED, key=lambda v: tuple(int(p) for p in v.split("."))
+    )
 )
 CATALOG_SLICES = (
     "autobackup",
@@ -1050,7 +1235,7 @@ def wire_family_manifests(records: dict[str, dict[str, str]]) -> None:
         family["records"] = sorted(bound)
         if name == "protected-export":
             packs = set(family.get("packs") or [])
-            for version in (records.get(name) or {}):
+            for version in records.get(name) or {}:
                 packs.add(f"cubism-{version}-protected-export.json")
             family["packs"] = sorted(packs)
         family_path.write_text(json.dumps(family, indent=1) + "\n")
@@ -1060,7 +1245,7 @@ def candidate_constant(slice_id: str, version: str, record_name: str) -> str:
     tag = vtag(version).upper()
     const = slice_id.replace("-", "_").upper()
     return (
-        f'    private static final Candidate C_{const}_{tag} = new Candidate(\n'
+        f"    private static final Candidate C_{const}_{tag} = new Candidate(\n"
         f'        "{slice_id}",\n'
         f'        "${{record:{record_name}:cubismVersion}}",\n'
         f'        "{record_name}",\n'
@@ -1068,7 +1253,7 @@ def candidate_constant(slice_id: str, version: str, record_name: str) -> str:
         f'        "${{record:{record_name}:verificationId}}",\n'
         f'        "${{record:{record_name}:adapterSliceId}}",\n'
         f'        "${{record:{record_name}:profileId}}"\n'
-        f'    );\n'
+        f"    );\n"
     )
 
 
@@ -1093,7 +1278,9 @@ def wire_slice_catalog(records: dict[str, dict[str, str]]) -> None:
         arrays.append(
             "    private static final Candidate[] CANDIDATES_"
             + slice_id.replace("-", "_").upper()
-            + " = {\n        " + ",\n        ".join(names) + "\n    };\n"
+            + " = {\n        "
+            + ",\n        ".join(names)
+            + "\n    };\n"
         )
     text = text[:start] + "".join(blocks) + "\n" + "\n".join(arrays) + "\n" + text[end:]
     path.write_text(text)
@@ -1101,21 +1288,21 @@ def wire_slice_catalog(records: dict[str, dict[str, str]]) -> None:
 
 def _version_const(version: str, record_name: str) -> str:
     return (
-        f'    public static final String CUBISM_VERSION_{vtag(version)} = '
+        f"    public static final String CUBISM_VERSION_{vtag(version)} = "
         f'"${{record:{record_name}:cubismVersion}}";'
     )
 
 
 def _record_const(version: str, record_name: str) -> str:
     return (
-        f'    public static final ReviewedSliceRecord RECORD_{vtag(version)} = '
-        'new ReviewedSliceRecord(\n'
-        f'        ReviewedHostArtifacts.CUBISM_{vtag(version)},\n'
+        f"    public static final ReviewedSliceRecord RECORD_{vtag(version)} = "
+        "new ReviewedSliceRecord(\n"
+        f"        ReviewedHostArtifacts.CUBISM_{vtag(version)},\n"
         f'        "${{record:{record_name}:verificationId}}",\n'
         f'        "${{record:{record_name}:sha256}}",\n'
-        f'        CUBISM_VERSION_{vtag(version)},\n'
+        f"        CUBISM_VERSION_{vtag(version)},\n"
         f'        "${{record:{record_name}:profileId}}"\n'
-        '    );'
+        "    );"
     )
 
 
@@ -1129,11 +1316,14 @@ def wire_record_style_manifest(
     text = path.read_text()
     # Rebuild the constant region: it spans the first CUBISM_VERSION const
     # through the RECORDS list terminator.
-    first = re.search(r'    /\*\* Cubism version[^/]*\*/\n    public static final String CUBISM_VERSION_', text)
+    first = re.search(
+        r"    /\*\* Cubism version[^/]*\*/\n    public static final String CUBISM_VERSION_",
+        text,
+    )
     if first is None:
-        first = re.search(r'    public static final String CUBISM_VERSION_', text)
+        first = re.search(r"    public static final String CUBISM_VERSION_", text)
     records_end = re.search(
-        r'    private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);',
+        r"    private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);",
         text,
     )
     assert first and records_end, template
@@ -1141,14 +1331,14 @@ def wire_record_style_manifest(
     for version in versions:
         record_name = f"cubism-{version}-{family}.json"
         chunk.append(
-            f'    /** Cubism version reported for the reviewed {version} artifact. */\n'
+            f"    /** Cubism version reported for the reviewed {version} artifact. */\n"
             + _version_const(version, record_name)
         )
     chunk.append("")
     for version in versions:
         record_name = f"cubism-{version}-{family}.json"
         chunk.append(
-            f'    /** Reviewed record admitted for exact Cubism {version}. */\n'
+            f"    /** Reviewed record admitted for exact Cubism {version}. */\n"
             + _record_const(version, record_name)
         )
     list_entries = ",\n        ".join(f"RECORD_{vtag(v)}" for v in versions)
@@ -1156,28 +1346,35 @@ def wire_record_style_manifest(
         "    private static final List<ReviewedSliceRecord> RECORDS = List.of(\n"
         f"        {list_entries}\n    );"
     )
-    text = text[: first.start()] + "\n".join(chunk) + "\n" + text[records_end.end():]
+    text = text[: first.start()] + "\n".join(chunk) + "\n" + text[records_end.end() :]
     # reviewedCubismVersions() if present
     match = re.search(
-        r'return Set\.of\(\n?(\s*CUBISM_VERSION_\d_\d+_\d+,?)+\n?\s*\);', text
+        r"return Set\.of\(\n?(\s*CUBISM_VERSION_\d_\d+_\d+,?)+\n?\s*\);", text
     )
     if match:
-        repl = "return Set.of(\n            " + ",\n            ".join(
-            f"CUBISM_VERSION_{vtag(v)}" for v in versions
-        ) + "\n        );"
-        text = text[: match.start()] + repl + text[match.end():]
+        repl = (
+            "return Set.of(\n            "
+            + ",\n            ".join(f"CUBISM_VERSION_{vtag(v)}" for v in versions)
+            + "\n        );"
+        )
+        text = text[: match.start()] + repl + text[match.end() :]
     path.write_text(text)
 
 
 def wire_arm_style_manifest(
-    template: str, family: str, versions: list[str], fail_label: str,
+    template: str,
+    family: str,
+    versions: list[str],
+    fail_label: str,
     with_slice: bool = True,
 ) -> None:
     """Workspace-control / control-appearance style: per-version
     ``manifest(...)`` arms inside ``forArtifact``."""
     path = TEMPLATE_DIR / template
     text = path.read_text()
-    start = text.index("    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(")
+    start = text.index(
+        "    static PinnedVerifiedResolverWorkflow.Manifest forArtifact("
+    )
     brace = text.index("{", start)
     depth = 0
     index = brace
@@ -1195,30 +1392,35 @@ def wire_arm_style_manifest(
         record_name = f"cubism-{version}-{family}.json"
         if with_slice:
             tail = (
-                f'                ReviewedHostArtifacts.CUBISM_{vtag(version)}.size(), artifact.sha256(),\n'
+                f"                ReviewedHostArtifacts.CUBISM_{vtag(version)}.size(), artifact.sha256(),\n"
                 f'                "${{record:{record_name}:adapterSliceId}}"\n'
             )
         else:
             tail = (
-                f'                ReviewedHostArtifacts.CUBISM_{vtag(version)}.size(),\n'
-                f'                ReviewedHostArtifacts.CUBISM_{vtag(version)}.sha256()\n'
+                f"                ReviewedHostArtifacts.CUBISM_{vtag(version)}.size(),\n"
+                f"                ReviewedHostArtifacts.CUBISM_{vtag(version)}.sha256()\n"
             )
         arms.append(
-            f'        if (ReviewedHostArtifacts.CUBISM_{vtag(version)}.equals(artifact)) {{\n'
-            '            return manifest(\n'
+            f"        if (ReviewedHostArtifacts.CUBISM_{vtag(version)}.equals(artifact)) {{\n"
+            "            return manifest(\n"
             f'                "${{record:{record_name}:verificationId}}",\n'
             f'                "${{record:{record_name}:sha256}}",\n'
             f'                ReviewedHostArtifacts.CUBISM_{vtag(version)}_VERSION, "${{record:{record_name}:profileId}}",\n'
-            + tail +
-            '            );\n'
-            '        }'
+            + tail
+            + "            );\n"
+            "        }"
         )
     body = (
         "forArtifact(final HostArtifactDigest artifact) {\n"
         + "\n".join(arms)
         + f'\n        throw new IllegalArgumentException("host artifact is not a reviewed Cubism {fail_label} artifact");\n    }}'
     )
-    text = text[:start] + "    static PinnedVerifiedResolverWorkflow.Manifest " + body + text[index + 1:]
+    text = (
+        text[:start]
+        + "    static PinnedVerifiedResolverWorkflow.Manifest "
+        + body
+        + text[index + 1 :]
+    )
     path.write_text(text)
 
 
@@ -1227,7 +1429,9 @@ def wire_autobackup(versions: list[str]) -> None:
     text = path.read_text()
     # constants region: from first VERIFICATION_ID const to the last ARTIFACT_SHA256 line before the javadoc
     start = text.index("    public static final String VERIFICATION_ID_")
-    end_marker = text.index("    /**\n     * Returns whether this JVM is the exact task-scoped")
+    end_marker = text.index(
+        "    /**\n     * Returns whether this JVM is the exact task-scoped"
+    )
     consts = []
     methods = []
     arms = []
@@ -1239,33 +1443,35 @@ def wire_autobackup(versions: list[str]) -> None:
             f'    public static final String RECORD_SHA256_{tag} =\n        "${{record:{record_name}:sha256}}";\n'
             f'    public static final String CUBISM_VERSION_{tag} = "${{record:{record_name}:cubismVersion}}";\n'
             f'    public static final String PROFILE_ID_{tag} = "${{record:{record_name}:profileId}}";\n'
-            f'    public static final long ARTIFACT_SIZE_{tag} = ReviewedHostArtifacts.CUBISM_{vtag(version)}.size();\n'
-            f'    public static final String ARTIFACT_SHA256_{tag} = ReviewedHostArtifacts.CUBISM_{vtag(version)}.sha256();\n'
+            f"    public static final long ARTIFACT_SIZE_{tag} = ReviewedHostArtifacts.CUBISM_{vtag(version)}.size();\n"
+            f"    public static final String ARTIFACT_SHA256_{tag} = ReviewedHostArtifacts.CUBISM_{vtag(version)}.sha256();\n"
         )
         methods.append(
-            f'    private static PinnedVerifiedResolverWorkflow.Manifest manifest{tag}() {{\n'
-            '        return new PinnedVerifiedResolverWorkflow.Manifest(\n'
-            f'            VERIFICATION_ID_{tag},\n'
-            f'            RECORD_SHA256_{tag},\n'
-            f'            CUBISM_VERSION_{tag},\n'
-            f'            PROFILE_ID_{tag},\n'
-            f'            ARTIFACT_SIZE_{tag},\n'
-            f'            ARTIFACT_SHA256_{tag},\n'
-            '            ADAPTER_SLICE_ID,\n'
-            '            CAPABILITY_IDS,\n'
-            '            REQUIRED_ALIASES\n'
-            '        );\n'
-            '    }\n'
+            f"    private static PinnedVerifiedResolverWorkflow.Manifest manifest{tag}() {{\n"
+            "        return new PinnedVerifiedResolverWorkflow.Manifest(\n"
+            f"            VERIFICATION_ID_{tag},\n"
+            f"            RECORD_SHA256_{tag},\n"
+            f"            CUBISM_VERSION_{tag},\n"
+            f"            PROFILE_ID_{tag},\n"
+            f"            ARTIFACT_SIZE_{tag},\n"
+            f"            ARTIFACT_SHA256_{tag},\n"
+            "            ADAPTER_SLICE_ID,\n"
+            "            CAPABILITY_IDS,\n"
+            "            REQUIRED_ALIASES\n"
+            "        );\n"
+            "    }\n"
         )
         arms.append(
-            f'        if (artifact.size() == ARTIFACT_SIZE_{tag}\n'
-            f'            && artifact.sha256().equals(ARTIFACT_SHA256_{tag})) {{\n'
-            f'            return manifest{tag}();\n'
-            '        }'
+            f"        if (artifact.size() == ARTIFACT_SIZE_{tag}\n"
+            f"            && artifact.sha256().equals(ARTIFACT_SHA256_{tag})) {{\n"
+            f"            return manifest{tag}();\n"
+            "        }"
         )
     text = text[:start] + "\n".join(consts) + text[end_marker:]
     # forArtifact body
-    start = text.index("    static PinnedVerifiedResolverWorkflow.Manifest forArtifact(")
+    start = text.index(
+        "    static PinnedVerifiedResolverWorkflow.Manifest forArtifact("
+    )
     brace = text.index("{", start)
     depth, index = 0, brace
     while True:
@@ -1279,11 +1485,16 @@ def wire_autobackup(versions: list[str]) -> None:
     body = (
         "forArtifact(final HostArtifactDigest artifact) {\n"
         + "\n".join(arms)
-        + '\n        throw new IllegalArgumentException(\n'
+        + "\n        throw new IllegalArgumentException(\n"
         '            "host artifact is not the reviewed Cubism auto-backup artifact"\n'
-        '        );\n    }'
+        "        );\n    }"
     )
-    text = text[:start] + "    static PinnedVerifiedResolverWorkflow.Manifest " + body + text[index + 1:]
+    text = (
+        text[:start]
+        + "    static PinnedVerifiedResolverWorkflow.Manifest "
+        + body
+        + text[index + 1 :]
+    )
     # manifest methods: strip existing ones, then insert the full rebuilt set
     # before the private ctor.
     text = re.sub(
@@ -1301,8 +1512,8 @@ def _strip_marked(text: str, key: str) -> str:
     """Remove a previously generated ``// <version-matrix:key>`` block so the
     insert-style wire functions stay idempotent across repeated ``wire`` runs."""
     return re.sub(
-        rf'[ ]*// <version-matrix:{key}>\n.*?[ ]*// </version-matrix:{key}>\n?',
-        '',
+        rf"[ ]*// <version-matrix:{key}>\n.*?[ ]*// </version-matrix:{key}>\n*",
+        "",
         text,
         flags=re.S,
     )
@@ -1325,18 +1536,20 @@ def wire_editor_model(versions: list[str]) -> None:
     for key in ("em-consts", "em-sets", "em-arms"):
         text = _strip_marked(text, key)
     # RECORD_<V> consts: insert after RECORD_5_3_03 block
-    anchor_end = text.index("    private static final List<ReviewedSliceRecord> RECORDS")
+    anchor_end = text.index(
+        "    private static final List<ReviewedSliceRecord> RECORDS"
+    )
     const_blocks = []
     blocks = []
     for version in versions:
         record_name = f"cubism-{version}-editor-model.json"
         const_blocks.append(
-            f'    /** Cubism version reported for the reviewed {version} artifact. */\n'
+            f"    /** Cubism version reported for the reviewed {version} artifact. */\n"
             + _version_const(version, record_name)
             + "\n"
         )
         blocks.append(
-            f'    /** Reviewed Editor-model record admitted for exact Cubism {version}. */\n'
+            f"    /** Reviewed Editor-model record admitted for exact Cubism {version}. */\n"
             + _record_const(version, record_name)
             + "\n"
         )
@@ -1350,7 +1563,7 @@ def wire_editor_model(versions: list[str]) -> None:
     )
     # RECORDS list
     match = re.search(
-        r'private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);',
+        r"private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);",
         text,
     )
     all_records = sorted(
@@ -1362,7 +1575,7 @@ def wire_editor_model(versions: list[str]) -> None:
         + ",\n        ".join(f"RECORD_{vtag(v)}" for v in all_records)
         + "\n    );"
     )
-    text = text[: match.start()] + repl + text[match.end():]
+    text = text[: match.start()] + repl + text[match.end() :]
     # per-version literal sets + forArtifact arms
     sets = []
     for version in versions:
@@ -1382,27 +1595,27 @@ def wire_editor_model(versions: list[str]) -> None:
     )
     # forArtifact arms: insert before the fallthrough `return record.toManifest(`
     arm_anchor = re.search(
-        r'(        return record\.toManifest\(\n            ADAPTER_SLICE_ID,\n            ObjectContextMenuVerificationManifest\.capabilities\(CAPABILITY_IDS\),)',
+        r"(        return record\.toManifest\(\n            ADAPTER_SLICE_ID,\n            ObjectContextMenuVerificationManifest\.capabilities\((?:CAPABILITY_IDS|cubism5302Capabilities\(\))\),)",
         text,
     )
     assert arm_anchor
     arms = []
     for version in versions:
         arms.append(
-            f'        if (RECORD_{vtag(version)}.equals(record)) {{\n'
-            '            return record.toManifest(\n'
-            '                ADAPTER_SLICE_ID,\n'
-            f'                cubism{vtag(version)}Capabilities(),\n'
-            f'                cubism{vtag(version)}Aliases()\n'
-            '            );\n'
-            '        }'
+            f"        if (RECORD_{vtag(version)}.equals(record)) {{\n"
+            "            return record.toManifest(\n"
+            "                ADAPTER_SLICE_ID,\n"
+            f"                cubism{vtag(version)}Capabilities(),\n"
+            f"                cubism{vtag(version)}Aliases()\n"
+            "            );\n"
+            "        }"
         )
     text = (
         text[: arm_anchor.start()]
         + "        // <version-matrix:em-arms>\n"
         + "\n".join(arms)
         + "\n        // </version-matrix:em-arms>\n"
-        + text[arm_anchor.start():]
+        + text[arm_anchor.start() :]
     )
     path.write_text(text)
 
@@ -1412,19 +1625,21 @@ def wire_protected_export(versions: list[str]) -> None:
     text = path.read_text()
     for key in ("pe-consts", "pe-arms"):
         text = _strip_marked(text, key)
-    anchor_end = text.index("    private static final List<ReviewedSliceRecord> RECORDS")
+    anchor_end = text.index(
+        "    private static final List<ReviewedSliceRecord> RECORDS"
+    )
     # keep CUBISM_VERSION consts grouped first: place them before RECORD blocks
     const_blocks = []
     rec_blocks = []
     for version in versions:
         record_name = f"cubism-{version}-protected-export.json"
         const_blocks.append(
-            f'    /** Cubism version reported for the reviewed {version} artifact. */\n'
+            f"    /** Cubism version reported for the reviewed {version} artifact. */\n"
             + _version_const(version, record_name)
             + "\n"
         )
         rec_blocks.append(
-            f'    /** Reviewed protected-export record admitted for exact Cubism {version}. */\n'
+            f"    /** Reviewed protected-export record admitted for exact Cubism {version}. */\n"
             + _record_const(version, record_name)
             + "\n"
         )
@@ -1437,7 +1652,7 @@ def wire_protected_export(versions: list[str]) -> None:
         + text[anchor_end:]
     )
     match = re.search(
-        r'private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);',
+        r"private static final List<ReviewedSliceRecord> RECORDS = List\.of\([^;]*\);",
         text,
     )
     all_records = sorted(
@@ -1449,10 +1664,10 @@ def wire_protected_export(versions: list[str]) -> None:
         + ",\n        ".join(f"RECORD_{vtag(v)}" for v in all_records)
         + "\n    );"
     )
-    text = text[: match.start()] + repl + text[match.end():]
+    text = text[: match.start()] + repl + text[match.end() :]
     # forArtifact: legacy-surface records (no alias-source family) take
     # cubism52Aliases(); full-surface records take REQUIRED_ALIASES.
-    anchor = re.search(r'        if \(RECORD_5_2_03\.equals\(record\)\) \{\n', text)
+    anchor = re.search(r"        if \(RECORD_5_2_03\.equals\(record\)\) \{\n", text)
     assert anchor
     arms = []
     for version in versions:
@@ -1461,16 +1676,16 @@ def wire_protected_export(versions: list[str]) -> None:
         legacy = "cubism.protected-export.alias-source.class" not in aliases
         alias_expr = "cubism52Aliases()" if legacy else "REQUIRED_ALIASES"
         arms.append(
-            f'        if (RECORD_{vtag(version)}.equals(record)) {{\n'
-            f'            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, {alias_expr});\n'
-            '        }'
+            f"        if (RECORD_{vtag(version)}.equals(record)) {{\n"
+            f"            return record.toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, {alias_expr});\n"
+            "        }"
         )
     text = (
         text[: anchor.start()]
         + "        // <version-matrix:pe-arms>\n"
         + "\n".join(arms)
         + "\n        // </version-matrix:pe-arms>\n"
-        + text[anchor.start():]
+        + text[anchor.start() :]
     )
     path.write_text(text)
 
@@ -1482,11 +1697,14 @@ def wire_bounding_box(versions: list[str]) -> None:
         text = _strip_marked(text, key)
     # RECORD_SHA_<T> consts
     last_sha = None
-    for m in re.finditer(r'    private static final String RECORD_SHA_\w+ = "\$\{record:[^}]+:sha256\}";\n', text):
+    for m in re.finditer(
+        r'    private static final String RECORD_SHA_\w+ = "\$\{record:[^}]+:sha256\}";\n',
+        text,
+    ):
         last_sha = m.end()
     assert last_sha
     sha_consts = "".join(
-        f'    private static final String RECORD_SHA_{vcompact(v)} = '
+        f"    private static final String RECORD_SHA_{vcompact(v)} = "
         f'"${{record:cubism-{v}-ui-bounding-box-overlay.json:sha256}}";\n'
         for v in versions
     )
@@ -1498,7 +1716,7 @@ def wire_bounding_box(versions: list[str]) -> None:
         + text[last_sha:]
     )
     # recordSha256ForVersion switch arms
-    sw_anchor = '        return switch (cubismVersion) {'
+    sw_anchor = "        return switch (cubismVersion) {"
     idx = text.index(sw_anchor) + len(sw_anchor)
     arms = "".join(
         f'            case "${{record:cubism-{v}-ui-bounding-box-overlay.json:cubismVersion}}" -> RECORD_SHA_{vcompact(v)};\n'
@@ -1512,16 +1730,19 @@ def wire_bounding_box(versions: list[str]) -> None:
         + text[idx:]
     )
     # admissionForArtifact arms
-    anchor = '        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {'
+    anchor = "        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {"
     idx = text.index(anchor)
     # find end of that if-block
-    end = text.index("        throw new IllegalArgumentException(\"Unsupported Cubism artifact for overlay buttons\");", idx)
+    end = text.index(
+        '        throw new IllegalArgumentException("Unsupported Cubism artifact for overlay buttons");',
+        idx,
+    )
     arms = "".join(
-        f'        if (ReviewedHostArtifacts.CUBISM_{vtag(v)}.equals(artifact)) {{\n'
-        '            return new AdmissionEvidence(\n'
-        f'                ReviewedHostArtifacts.CUBISM_{vtag(v)}_VERSION, artifact.size(), artifact.sha256()\n'
-        '            );\n'
-        '        }\n'
+        f"        if (ReviewedHostArtifacts.CUBISM_{vtag(v)}.equals(artifact)) {{\n"
+        "            return new AdmissionEvidence(\n"
+        f"                ReviewedHostArtifacts.CUBISM_{vtag(v)}_VERSION, artifact.size(), artifact.sha256()\n"
+        "            );\n"
+        "        }\n"
         for v in versions
     )
     text = (
@@ -1532,7 +1753,7 @@ def wire_bounding_box(versions: list[str]) -> None:
         + text[end:]
     )
     # forArtifact verificationId switch
-    sw = re.search(r'final String verificationId = switch \(cubismVersion\) \{\n', text)
+    sw = re.search(r"final String verificationId = switch \(cubismVersion\) \{\n", text)
     assert sw
     arms = "".join(
         f'            case "${{record:cubism-{v}-ui-bounding-box-overlay.json:cubismVersion}}" -> "${{record:cubism-{v}-ui-bounding-box-overlay.json:verificationId}}";\n'
@@ -1543,7 +1764,7 @@ def wire_bounding_box(versions: list[str]) -> None:
         + "            // <version-matrix:bb-vid>\n"
         + arms
         + "            // </version-matrix:bb-vid>\n"
-        + text[sw.end():]
+        + text[sw.end() :]
     )
     path.write_text(text)
 
@@ -1554,12 +1775,12 @@ def wire_bootstrap(records: dict[str, dict[str, str]]) -> None:
     start = re.search(r'listOf\(\n(\s+"cubism-5\.[^"]+",?\n?)+\s*\)', text)
     assert start
     names = sorted(
-        name
-        for family_map in records.values()
-        for name in family_map.values()
+        name for family_map in records.values() for name in family_map.values()
     )
-    block = "listOf(\n        " + ",\n        ".join(f'"{n}"' for n in names) + "\n    )"
-    text = text[: start.start()] + block + text[start.end():]
+    block = (
+        "listOf(\n        " + ",\n        ".join(f'"{n}"' for n in names) + "\n    )"
+    )
+    text = text[: start.start()] + block + text[start.end() :]
     path.write_text(text)
 
 
@@ -1568,9 +1789,7 @@ def wire_host_validation() -> None:
     path = ROOT / "scripts/preview/host_validation.py"
     text = path.read_text()
     whitelist = "{" + ", ".join(f'"{vcompact(v)}"' for v in ALL_VERSIONS) + "}"
-    text = re.sub(
-        r'version not in \{[^}]*\}', f'version not in {whitelist}', text
-    )
+    text = re.sub(r"version not in \{[^}]*\}", f"version not in {whitelist}", text)
     path.write_text(text)
     # tasks.json: every task admits the full set except protected-export-scoped
     path = ROOT / "scripts/preview/host-validation-tasks.json"
@@ -1623,32 +1842,53 @@ def wire() -> None:
         )
         wire_record_style_manifest(template, family, versions, family)
     for template, family, label, with_slice in (
-        ("WorkspaceControlVerificationManifest.java", "workspace-control", "workspace-control", True),
-        ("ControlAppearanceVerificationManifest.java", "ui-control-appearance", "control-appearance", False),
+        (
+            "WorkspaceControlVerificationManifest.java",
+            "workspace-control",
+            "workspace-control",
+            True,
+        ),
+        (
+            "ControlAppearanceVerificationManifest.java",
+            "ui-control-appearance",
+            "control-appearance",
+            False,
+        ),
     ):
         versions = sorted(
             records.get(family, {}), key=lambda v: tuple(int(p) for p in v.split("."))
         )
-        wire_arm_style_manifest(template, family, versions, label, with_slice=with_slice)
-    wire_autobackup(sorted(
-        records.get("autobackup", {}), key=lambda v: tuple(int(p) for p in v.split("."))
-    ))
-    wire_bounding_box(sorted(
-        (
-            v
-            for v in records.get("ui-bounding-box-overlay", {})
-            if v not in REVIEWED
-        ),
-        key=lambda v: tuple(int(p) for p in v.split(".")),
-    ))
-    wire_editor_model(sorted(
-        (v for v in records.get("editor-model", {}) if v not in REVIEWED),
-        key=lambda v: tuple(int(p) for p in v.split(".")),
-    ))
-    wire_protected_export(sorted(
-        (v for v in records.get("protected-export", {}) if v not in REVIEWED),
-        key=lambda v: tuple(int(p) for p in v.split(".")),
-    ))
+        wire_arm_style_manifest(
+            template, family, versions, label, with_slice=with_slice
+        )
+    wire_autobackup(
+        sorted(
+            records.get("autobackup", {}),
+            key=lambda v: tuple(int(p) for p in v.split(".")),
+        )
+    )
+    wire_bounding_box(
+        sorted(
+            (
+                v
+                for v in records.get("ui-bounding-box-overlay", {})
+                if v not in REVIEWED
+            ),
+            key=lambda v: tuple(int(p) for p in v.split(".")),
+        )
+    )
+    wire_editor_model(
+        sorted(
+            (v for v in records.get("editor-model", {}) if v not in REVIEWED),
+            key=lambda v: tuple(int(p) for p in v.split(".")),
+        )
+    )
+    wire_protected_export(
+        sorted(
+            (v for v in records.get("protected-export", {}) if v not in REVIEWED),
+            key=lambda v: tuple(int(p) for p in v.split(".")),
+        )
+    )
     wire_bootstrap(records)
     wire_host_validation()
     wire_index_md()
@@ -1687,7 +1927,13 @@ def source_version_of(source: dict) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) < 2 or sys.argv[1] not in {"matrix", "emit", "facts", "wire"}:
+    if len(sys.argv) < 2 or sys.argv[1] not in {
+        "matrix",
+        "emit",
+        "facts",
+        "wire",
+        "refresh-editor-model",
+    }:
         print(__doc__)
         return 2
     command = sys.argv[1]
@@ -1721,6 +1967,10 @@ def main() -> int:
     editor = editor_requirements(constants)
     families = load_source_records()
 
+    if command == "refresh-editor-model":
+        refresh_editor_model(constants, editor, families)
+        return 0
+
     if command == "matrix":
         for version in TARGET_VERSIONS:
             derived = derive_version(version, families, editor, constants)
@@ -1732,8 +1982,7 @@ def main() -> int:
                     f"(from {src})"
                 )
             missing = sorted(
-                f for f in families if f != "core-model-read"
-                and f not in derived
+                f for f in families if f != "core-model-read" and f not in derived
             )
             if missing:
                 print(f"  SKIPPED: {', '.join(missing)}")
@@ -1746,27 +1995,19 @@ def main() -> int:
     repaired_packs = repair_committed_packs()
     if repaired_packs:
         print("repaired stale pack entries:", ", ".join(repaired_packs))
-    family_packs = {
-        family: load_family_packs(family) for family in families
-    }
+    family_packs = {family: load_family_packs(family) for family in families}
     pack_order = {
         re.sub(r"^cubism-\d+\.\d+\.\d+-", "", name): i
         for i, name in enumerate(
-            json.loads(
-                (PROFILE_DIR / "cubism-5.3.03.json").read_text()
-            )["mappingPacks"]
+            json.loads((PROFILE_DIR / "cubism-5.3.03.json").read_text())["mappingPacks"]
         )
     }
     for version in TARGET_VERSIONS:
         derived = derive_version(version, families, editor, constants)
         packs = {}
         for family, (record, source_version) in sorted(derived.items()):
-            record_path = (
-                VERIFICATION_DIR / f"cubism-{version}-{family}.json"
-            )
-            record_path.write_text(
-                json.dumps(record, indent=2) + "\n"
-            )
+            record_path = VERIFICATION_DIR / f"cubism-{version}-{family}.json"
+            record_path.write_text(json.dumps(record, indent=2) + "\n")
             candidates = family_packs.get(family) or {}
             source_pack = (
                 candidates.get(source_version)
@@ -1776,19 +2017,21 @@ def main() -> int:
             if source_pack is None:
                 continue
             pack = derive_pack(
-                source_pack, record, version, family,
+                source_pack,
+                record,
+                version,
+                family,
                 family_packs=candidates,
                 rewrite_provenance=True,
             )
             name = f"cubism-{version}-{pack_name_for(family)}"
-            (PACK_DIR / f"{name}.json").write_text(
-                json.dumps(pack, indent=2) + "\n"
-            )
+            (PACK_DIR / f"{name}.json").write_text(json.dumps(pack, indent=2) + "\n")
             packs[name] = pack
         core_pack = shared_core_profile(version)
-        pack_names = sorted(packs, key=lambda n: pack_order.get(
-            re.sub(r"^cubism-\d+\.\d+\.\d+-", "", n), 99
-        ))
+        pack_names = sorted(
+            packs,
+            key=lambda n: pack_order.get(re.sub(r"^cubism-\d+\.\d+\.\d+-", "", n), 99),
+        )
         if core_pack is not None:
             pack_names.append(core_pack)
         profile = derive_profile(version, pack_names)

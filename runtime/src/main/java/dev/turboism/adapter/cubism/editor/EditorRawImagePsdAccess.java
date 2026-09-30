@@ -58,7 +58,8 @@ final class EditorRawImagePsdAccess {
         Objects.requireNonNull(boundNativeSource, "boundNativeSource");
         Objects.requireNonNull(target, "target");
 
-        if (!resolver.isExactCubismVersion(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSION)) {
+        if (EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                .noneMatch(resolver::isExactCubismVersion)) {
             return ExportResult.unavailable(target, "unsupported Cubism version: " + resolver.cubismVersion());
         }
         if (!resolver.authorizesFeature(
@@ -103,7 +104,8 @@ final class EditorRawImagePsdAccess {
         Objects.requireNonNull(sourceId, "sourceId");
         Objects.requireNonNull(target, "target");
 
-        if (!resolver.isExactCubismVersion(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSION)) {
+        if (EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSIONS.stream()
+                .noneMatch(resolver::isExactCubismVersion)) {
             return ExportResult.unavailable(target, "unsupported Cubism version: " + resolver.cubismVersion());
         }
         if (!resolver.authorizesFeature(
