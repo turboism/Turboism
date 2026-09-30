@@ -77,3 +77,7 @@
 5.3.04 独立 owned-r3 的探针已成功加载，但 Runner 在 native Core 断言前拒绝执行：mesaGlThread effective on / deferred GL error check inactive（T22 安全门禁）。supervisor failed/FAIL、cleanup safe；没有 native MOC result，不推导 Core unsupported。修复独立 Core wrapper 显式使用 mesaGlThread=false 与 mesa_glthread=false，关闭此非 Core 优化；保留原 Runner 防护和所有 Core 断言。同批 5.2.02 / 5.1.03 的旧输入在运行前取消替换。Core 任务不能证明 Mesa 优化支持，后者仍需专门验收。
 
 5.3.04 owned-r4 越过渲染门禁，任务模型加载完成并确认 FREE 参数提示，但未生成 native MOC result，最终 supervisor failed/FAIL、cleanup safe。检查 standalone readiness 发现局部 EDT FutureTask 只等5秒，实际加载文档在 EDT 用了8.5秒，启动期间即可提前退出；修复为已定义的120秒整体 startup deadline（Core native 调用120秒超时不变），并让 startup failure 发布 status=FAIL/nativeAssertions=NOT_STARTED，而不是静默没有结果。自检验证此 failure publication 不调用 cubism/Core 服务；探针编译与自检 PASS。owned-r5 已以新 probe 摘要冻结/提交，终态尚待。5.2.02旧包启动与取消发生竞态，已由官方 supervisor 收尾；5.1.03旧包在运行前取消，均不能作为 native 能力验收。
+
+5.3.04 owned-r5 **supervisor PASS**：finalizedBy=contained-supervisor、succeeded/PASS、identityVerified/fixtureUnchanged/normalExit=true、cleanup=safe。生产 SDK 上原生 Core **6.0.513** 使用 pinned Haru MOC（V3_0；Core latest V5_3）完成读取、update、独立实例、不可变投影、显式 child→parent 释放、两个 live children 的父级联关闭、关闭后拒绝操作。实际读到42 parameters、19 parts、84 drawables、97 deformers、0 glues。明确不证明非空 Glue 语义、Editor→Core bridge、完整 MCP/保存或 Mesa 优化支持；render configuration 显式 mesaGlThread=false。终态与原生结果已复制到 mcp-evidence/5.3.04-allversions-owned-r5。
+
+已以 owned-r5 同一成功探针接续提交 5.2.02 / 5.1.03 / 5.3.01，分别验证已实测 Core 5.0.256 / 5.0.0 / 6.0.257；仅提交，不等于通过。
