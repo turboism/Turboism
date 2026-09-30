@@ -98,6 +98,24 @@ turboism_select_fixture() {
       fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5303"
       fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256"
       ;;
+    5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5300|5301|5304)
+      # Newly provisioned versions default to the shared fixture; a
+      # version-specific override may be set via
+      # TURBOISM_HOST_VALIDATION_FIXTURE_<ver>[_SHA256] in .env.
+      local semver="${version:0:1}.${version:1:1}.${version:2:2}"
+      local vkey="${version}"
+      local pspec="TURBOISM_HOST_VALIDATION_FIXTURE_${vkey}"
+      local sspec="TURBOISM_HOST_VALIDATION_FIXTURE_${vkey}_SHA256"
+      if [ -n "${!pspec:-}" ]; then
+        fixture_src="${!pspec}"
+        fixture_sha256="${!sspec:-}"
+        [ -n "$fixture_sha256" ] || { printf 'host validation: %s set but %s missing\n' "$pspec" "$sspec" >&2; return 2; }
+      else
+        turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5303 "default Cubism fixture path for $semver" || return
+        fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5303"
+        fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256"
+      fi
+      ;;
     *)
       printf 'host validation: unsupported fixture version: %s\n' "$version" >&2
       return 2

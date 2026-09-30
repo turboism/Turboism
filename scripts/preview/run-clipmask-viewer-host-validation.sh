@@ -7,11 +7,18 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-clipmask-viewer-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-clipmask-viewer-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
+case "$version" in
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
+  *)
+    echo "error: unsupported version: $version" >&2
+    exit 2
+    ;;
+esac
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Thin wrapper for the host dialog automation validation (Lane C, exact-host only).
-# Usage: bash scripts/preview/run-dialog-automation-host-validation.sh <5302|5203> [run-label] [runner-options...]
+# Usage: bash scripts/preview/run-dialog-automation-host-validation.sh <5302|5303|5203> [run-label] [runner-options...]
 #
 # Required runner options (passed through): --fixture-remote <host path> --fixture-sha256 <64-hex>
 # Optional: --keep-prefix, --dry-run, --jvm-option, ...
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-dialog-automation-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-dialog-automation-host-validation.sh <5302|5303|5203> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -18,9 +18,9 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$version" in
-  5302|5203) ;;
+  5302|5303|5203) ;;
   *)
-    echo "error: version must be 5302 or 5203" >&2
+    echo "error: version must be 5302, 5303, or 5203" >&2
     exit 2
     ;;
 esac

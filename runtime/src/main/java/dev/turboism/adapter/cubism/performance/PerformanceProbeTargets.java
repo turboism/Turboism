@@ -33,25 +33,26 @@ public final class PerformanceProbeTargets {
     }
 
     /**
-     * @return the full 5.3.02 target set - render scene, modeling pre-render update,
+     * @return the full 5.3.x target set - render scene, modeling pre-render update,
      *     render system, scene traversal, renderer dispatch, model-instance update, and
-     *     model-instance reinit. Valid only against the reviewed 5.3.02 artifact; on any
+     *     model-instance reinit. Verified on every reviewed 5.3.00–5.3.04 artifact; on any
      *     other build the obfuscated names will simply not match and nothing is instrumented.
      */
     public static List<PerformanceProbeMethodTransformer.Target> cubism5302() {
         return full53Targets();
     }
 
-    /** Exact 5.3.03 target set, independently admitted despite matching 5.3.02 tuples. */
+    /** Exact 5.3.03 target set; the 5.3.x tuples verify identically on 5.3.00–5.3.04. */
     public static List<PerformanceProbeMethodTransformer.Target> cubism5303() {
         return full53Targets();
     }
 
     /**
-     * Opt-in image-pipeline diagnostics checked against the exact 5.3.02 artifact.
+     * Opt-in image-pipeline diagnostics checked against every reviewed 5.3.x artifact.
      * Decode/encode count work at codec entry points; archive and redraw count attempts,
-     * not disk reads, transferred bytes or completed GPU operations. No 5.3.03 admission
-     * is inferred from matching names. Includes the ordinary render/edit timings.
+     * not disk reads, transferred bytes or completed GPU operations. Pre-5.3 builds lack
+     * the reviewed 5.3.x member surface and are not admitted. Includes the ordinary
+     * render/edit timings.
      *
      * @return the twelve exact render, edit and image diagnostic selectors
      */

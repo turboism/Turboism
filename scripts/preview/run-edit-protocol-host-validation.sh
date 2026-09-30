@@ -18,11 +18,18 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-edit-protocol-host-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
+  echo "usage: run-edit-protocol-host-validation.sh <5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
+case "$version" in
+  5203|5300|5301|5302|5303|5304) ;;
+  *)
+    echo "error: version must be one of 5203, 5300, 5301, 5302, 5303, 5304" >&2
+    exit 2
+    ;;
+esac
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"

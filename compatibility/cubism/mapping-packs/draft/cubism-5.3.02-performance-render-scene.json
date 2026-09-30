@@ -5,7 +5,19 @@
   "source": "jar-metadata-probe",
   "cubismVersion": "5.3.02",
   "metadata": {
-    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC."
+    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.3.02-performance-render-scene.json",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 41922739,
+    "artifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "profileId": "cubism-5.3.02",
+    "verificationId": "cubism-5.3.02.performance.render-scene.static",
+    "selectorCount": 7,
+    "capabilityCount": 1,
+    "capabilityIds": [
+      "turboism.performance.stats.read"
+    ],
+    "verificationRecordSha256": "cf401975fa0e033d7e093a54117a4f78ff5ff218bb9b7c4f7eae5bb7e8f57a92"
   },
   "entries": [
     {

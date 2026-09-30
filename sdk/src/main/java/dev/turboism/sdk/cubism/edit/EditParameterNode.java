@@ -8,7 +8,7 @@ import java.util.Objects;
  * A parameter leaf in the parameter-structure tree, matching the official {@code Parameter} entry
  * of {@code GetParameterStructure}.
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditParameterNode(
         ParameterId id,
         String name,

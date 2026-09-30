@@ -51,7 +51,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
         capabilities.set(java.util.Set.of("cubism.editor-model.edit.session.edit-begin"));
         version.set(Optional.of("5.4.00"));
         assertThrows(CubismEditorApiUnavailableException.class, () -> api.isEditApproved(null));
-        version.set(Optional.of("5.2.02"));
+        version.set(Optional.of("5.1.01"));
         assertThrows(CubismEditorApiUnavailableException.class, () -> api.isEditApproved(null));
         assertEquals(1, calls.get());
     }
@@ -79,7 +79,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
         capabilities.set(java.util.Set.of("cubism.autobackup.settings"));
         assertThrows(CubismEditorApiUnavailableException.class, () -> service.updateSettings(target));
         capabilities.set(java.util.Set.of("cubism.autobackup.settings", "cubism.autobackup.backup"));
-        version.set(Optional.of("5.1.00"));
+        version.set(Optional.of("5.0.06"));
         assertThrows(CubismEditorApiUnavailableException.class, () -> service.updateSettings(target));
         assertEquals(1, mutations.get());
     }
@@ -118,7 +118,12 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void reviewed5303IdentityEntersTheSdkAvailabilitySet() {
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
+            List.of(
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+                "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+                "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            ),
             CubismEditorAvailabilityPolicy.reviewedVersions()
         );
     }
@@ -528,7 +533,10 @@ class CubismEditorApiAvailabilityInterceptorTest {
             CubismEditorApiUnavailableException.class,
             aboveBound::ranged
         );
-        assertEquals(List.of("5.2.03", "5.3.02"), failure.supportedVersions());
+        assertEquals(
+            List.of("5.2.03", "5.3.00", "5.3.01", "5.3.02"),
+            failure.supportedVersions()
+        );
         final RangeExample belowFloor = proxy(
             new RangeExampleImpl(), RangeExample.class, Optional.of("5.1.00")
         );
@@ -545,7 +553,15 @@ class CubismEditorApiAvailabilityInterceptorTest {
             CubismEditorApiUnavailableException.class,
             proxy::call
         );
-        assertEquals(List.of("5.2.03", "5.3.03"), failure.supportedVersions());
+        assertEquals(
+            List.of(
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+                "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+                "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+                "5.3.00", "5.3.01", "5.3.03", "5.3.04"
+            ),
+            failure.supportedVersions()
+        );
     }
 
     @Test
@@ -688,7 +704,12 @@ class CubismEditorApiAvailabilityInterceptorTest {
         @Override public void narrow() { }
     }
 
-    @CubismEditor(exclude = {"5.2.03", "5.3.02", "5.3.03"})
+    @CubismEditor(exclude = {
+        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+        "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    })
     interface ProhibitedExample {
         void call();
     }
@@ -771,7 +792,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
         // And the version itself is still evaluated against the annotation:
         // a declared version not on the reviewed list is denied.
         capabilities.set(java.util.Set.of("cubism.editor-model.read"));
-        version.set(Optional.of("5.1.00"));
+        version.set(Optional.of("5.4.00"));
         assertThrows(CubismEditorApiUnavailableException.class, proxy::history);
     }
 

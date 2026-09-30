@@ -4,11 +4,11 @@
   "resources": {
     "host-slot": {
       "capacity": 1,
-      "description": "One local Cubism session, including preparation on host and task-owned cleanup; all versions serialize."
+      "description": "One local Cubism session per version, including preparation on host and task-owned cleanup; different versions may run concurrently."
     },
     "display-input": {
       "capacity": 1,
-      "description": "Exclusive X11 keyboard, mouse, window activation, or resize automation on DISPLAY :0."
+      "description": "Private Xvfb display per job for X11 keyboard, mouse, window activation, or resize automation; no cross-job contention."
     },
     "performance-host": {
       "capacity": 1,
@@ -24,9 +24,26 @@
       "description": "Production MCP HTTP discovery, guarded writes, restoration and task-owned normal close with a pinned stdlib client.",
       "command": "scripts/preview/run-mcp-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -41,9 +58,26 @@
       "description": "Fixed single-invocation current-page layout timing+memory validation; circle/geometry 100/500/1000 across native/new/polygon on 5203/5302/5303.",
       "command": "scripts/preview/run-atlas-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "geometry-100-new",
       "variants": {
@@ -228,9 +262,26 @@
       "description": "Automated backup host validation.",
       "command": "scripts/preview/run-backup-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "resources": {
         "host-slot": 1
@@ -253,8 +304,26 @@
       "description": "Human-operated WebDAV backup session.",
       "command": "scripts/preview/run-backup-interactive-session.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -272,8 +341,26 @@
       "description": "Clip-mask viewer SDK and host validation.",
       "command": "scripts/preview/run-clipmask-viewer-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -287,8 +374,26 @@
       "description": "Cubism Core acquisition validation.",
       "command": "scripts/preview/run-core-acquisition-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -302,8 +407,26 @@
       "description": "Host-dialog automation validation requiring an explicit fixture identity.",
       "command": "scripts/preview/run-dialog-automation-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -319,9 +442,26 @@
       "description": "FPS counting and render-driving validation; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-fps-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "resources": {
         "host-slot": 1,
@@ -382,8 +522,26 @@
       "description": "Host locale projection validation.",
       "command": "scripts/preview/run-host-locale-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "defaultVariant": "system",
       "variants": {
@@ -448,9 +606,26 @@
       "description": "Model-update unchanged-frame skip; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-model-update-skip-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "resources": {
         "host-slot": 1,
@@ -480,9 +655,26 @@
       "description": "Per-object incremental model update; repaint resize driver exercises off/probe/on legs; machine-exclusive performance evidence.",
       "command": "scripts/preview/run-incremental-update-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "resources": {
         "host-slot": 1,
@@ -512,9 +704,26 @@
       "description": "Parameter and Editor-object validation.",
       "command": "scripts/preview/run-parameter-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "matrix",
       "variants": {
@@ -662,8 +871,26 @@
       "description": "Parameter batch-transfer SDK validation.",
       "command": "scripts/preview/run-parameter-batch-transfer-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -677,8 +904,26 @@
       "description": "PSD clip-mask read/write/Undo/Redo validation.",
       "command": "scripts/preview/run-psd-clip-mask-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "defaultVariant": "matrix",
       "variants": {
@@ -700,30 +945,112 @@
     "protected-export": {
       "description": "Protected-export export-settings hook validation for the reviewed 5.2.03, 5.3.02 and 5.3.03 editors: the contributed option must be visible in the native Embedded-Model Export Settings dialog and default-off, an unchecked confirmation must continue the native export path unchanged, a checked candidate must be rejected by the decision gate without a continuation window, and a cancel must reach the bridge cleanup without a continuation window. The copy-binding variant additionally proves the disposable-copy open/restore path before any mutation is admitted. The staged candidate plugin is not part of any release.",
       "command": "scripts/preview/run-protected-export-host-validation.sh",
-      "versions": ["5203", "5302", "5303"],
+      "versions": [
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
       "variants": {
-        "dialog": ["{version}", "{runLabel}", "dialog"],
-        "copy-binding": ["{version}", "{runLabel}", "copy-binding"],
-        "flatten": ["{version}", "{runLabel}", "flatten"],
-        "export": ["{version}", "{runLabel}", "export"],
-        "dirty-export": ["{version}", "{runLabel}", "dirty-export"],
-        "glue-export": ["{version}", "{runLabel}", "glue-export"],
-        "physics-export": ["{version}", "{runLabel}", "physics-export"],
-        "broad-structure": ["{version}", "{runLabel}", "broad-structure"],
-        "atlas-fixture": ["{version}", "{runLabel}", "atlas-fixture"],
-        "expect-reject": ["{version}", "{runLabel}", "expect-reject"],
-        "expect-reject-structure": ["{version}", "{runLabel}", "expect-reject-structure"],
-        "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
+        "dialog": [
+          "{version}",
+          "{runLabel}",
+          "dialog"
+        ],
+        "copy-binding": [
+          "{version}",
+          "{runLabel}",
+          "copy-binding"
+        ],
+        "flatten": [
+          "{version}",
+          "{runLabel}",
+          "flatten"
+        ],
+        "export": [
+          "{version}",
+          "{runLabel}",
+          "export"
+        ],
+        "dirty-export": [
+          "{version}",
+          "{runLabel}",
+          "dirty-export"
+        ],
+        "glue-export": [
+          "{version}",
+          "{runLabel}",
+          "glue-export"
+        ],
+        "physics-export": [
+          "{version}",
+          "{runLabel}",
+          "physics-export"
+        ],
+        "broad-structure": [
+          "{version}",
+          "{runLabel}",
+          "broad-structure"
+        ],
+        "atlas-fixture": [
+          "{version}",
+          "{runLabel}",
+          "atlas-fixture"
+        ],
+        "expect-reject": [
+          "{version}",
+          "{runLabel}",
+          "expect-reject"
+        ],
+        "expect-reject-structure": [
+          "{version}",
+          "{runLabel}",
+          "expect-reject-structure"
+        ],
+        "full": [
+          "{version}",
+          "{runLabel}",
+          "dialog,copy-binding,flatten"
+        ]
       },
       "defaultVariant": "dialog",
-      "resources": {"host-slot": 1}
+      "resources": {
+        "host-slot": 1
+      }
     },
     "recent-preview": {
       "description": "Recent-file preview and popup validation.",
       "command": "scripts/preview/run-recent-preview-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -737,9 +1064,26 @@
       "description": "Selection latency evidence; machine-exclusive to keep thresholds meaningful.",
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "resources": {
         "host-slot": 1,
@@ -764,8 +1108,26 @@
       "description": "Separate project/export save-path validation.",
       "command": "scripts/preview/run-separate-save-path-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -779,8 +1141,26 @@
       "description": "Splash, update-check, and information-dialog suppression validation.",
       "command": "scripts/preview/run-startup-suppression-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -794,8 +1174,26 @@
       "description": "Native status-bar contribution validation.",
       "command": "scripts/preview/run-status-bar-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -809,8 +1207,26 @@
       "description": "Theme and host appearance validation.",
       "command": "scripts/preview/run-theme-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -824,9 +1240,26 @@
       "description": "Stable update-check request, comparison and rendered UI on an exact host.",
       "command": "scripts/preview/run-update-check-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "current",
       "variants": {
@@ -859,8 +1292,26 @@
       "description": "Workspace switching and reconnect validation.",
       "command": "scripts/preview/run-workspace-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
-        "5302"
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -874,9 +1325,26 @@
       "description": "External-application edit session validation (session lock, cancel restore, commit, semantic edge cases, GetObject reads, fail-closed).",
       "command": "scripts/preview/run-edit-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -891,9 +1359,26 @@
       "description": "Cubism 5.4-compat external edit API protocol bridge validation: a task-local stdlib WebSocket client replays the official 1.1.0 wire sequence (RegisterPlugin, token persistence, approval polling, EditBegin/End, S1-S6 matrix) against the host's own loopback service on port 22033, then a native 1.0.x regression stage; the probe plugin enables the external-app service, pre-seeds native token authorization and auto-answers the Turboism edit-approval dialog under a kill-switch file.",
       "command": "scripts/preview/run-edit-protocol-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -908,9 +1393,26 @@
       "description": "Animation workspace SDK validation (enumeration, timeline, playback, scene ops, keyframe/easing writes, evaluated bake, native undo).",
       "command": "scripts/preview/run-animation-timeline-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "arguments": [
         "{version}",
@@ -924,9 +1426,26 @@
       "description": "Warp deformer Alt-symmetry reconnaissance: SDK Warp grid baseline, grid write/hook/native-Undo round-trip, optional calibrated Robot Alt-drag observation, and a human-in-the-loop native-ingress observation window on the reviewed 5.2.03/5.3.02/5.3.03 hosts.",
       "command": "scripts/preview/run-warp-deformer-alt-symmetry-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
         "5203",
+        "5300",
+        "5301",
         "5302",
-        "5303"
+        "5303",
+        "5304"
       ],
       "defaultVariant": "analyse",
       "variants": {
@@ -952,26 +1471,30 @@
         "display-input": 1
       }
     },
-    "workspace": {
-      "description": "Workspace switching and reconnect validation.",
-      "command": "scripts/preview/run-workspace-host-validation.sh",
-      "versions": [
-        "5203",
-        "5302"
-      ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
-      "resources": {
-        "host-slot": 1
-      }
-    },
     "boundingbox-warp-mirror": {
       "description": "BoundingBox overlay whole-object Warp mirror: four-direction SDK applies with label/result verification, descendant canvas preservation, atomic Undo/Redo, NO_CHANGE, and fail-closed rejection on 5.3.03.",
       "command": "scripts/preview/run-boundingbox-warp-mirror-host-validation.sh",
       "versions": [
-        "5303"
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
       ],
       "defaultVariant": "analyse",
       "variants": {

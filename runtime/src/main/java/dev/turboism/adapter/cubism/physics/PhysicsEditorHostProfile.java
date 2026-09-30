@@ -20,10 +20,6 @@ public record PhysicsEditorHostProfile(
     String commitMethod,
     String rollbackMethod
 ) {
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
-
     public PhysicsEditorHostProfile {
         panelOwnerInternalName = text(panelOwnerInternalName, "panelOwnerInternalName");
         tableGetter = text(tableGetter, "tableGetter");
@@ -41,9 +37,10 @@ public record PhysicsEditorHostProfile(
     /**
      * Resolves the reviewed selector tuple for a host artifact.
      *
-     * <p>Only the three admitted Cubism builds are recognised, 5.2.03, 5.3.02 and 5.3.03, and all
-     * map to the identical selector tuple. Any other artifact yields empty, which is the fail-closed signal that
-     * the physics editor hook must not be installed against an unreviewed host.
+     * <p>Every admitted Cubism build (5.0.00–5.3.04) maps to the identical selector tuple — the
+     * whole member chain verifies on each reviewed artifact. Any other artifact yields empty, which
+     * is the fail-closed signal that the physics editor hook must not be installed against an
+     * unreviewed host.
      *
      * @param artifact digest of the host jar actually loaded
      * @return the matching profile, or empty when the artifact is not a reviewed build
@@ -51,9 +48,7 @@ public record PhysicsEditorHostProfile(
      */
     public static Optional<PhysicsEditorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (!artifact.equals(CUBISM_52)
-            && !artifact.equals(CUBISM_53)
-            && !artifact.equals(CUBISM_5303)) {
+        if (ReviewedHostArtifacts.cubismVersionOf(artifact).isEmpty()) {
             return Optional.empty();
         }
         return reviewed();

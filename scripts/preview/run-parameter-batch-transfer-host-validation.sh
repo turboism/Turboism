@@ -16,7 +16,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-parameter-batch-transfer-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-parameter-batch-transfer-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -34,11 +34,11 @@ case "$version" in
     fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302"
     fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302_SHA256"
     ;;
-  5203)
-    turboism_select_fixture 5203 || exit 2
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5303|5304)
+    turboism_select_fixture "$version" || exit 2
     ;;
   *)
-    echo "error: version must be 5302 or 5203" >&2
+    echo "error: unsupported version: $version" >&2
     exit 2
     ;;
 esac

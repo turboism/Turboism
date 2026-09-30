@@ -83,17 +83,21 @@ class VerifiedExportSettingsHookInstallerTest {
     @Test
     void acceptsOnlyTheReviewedExactCubismVersions() {
         assertEquals(true, VerifiedExportSettingsHookInstaller
+            .supportsExactCubismVersion("5.1.00"));
+        assertEquals(true, VerifiedExportSettingsHookInstaller
             .supportsExactCubismVersion("5.2.03"));
         assertEquals(true, VerifiedExportSettingsHookInstaller
             .supportsExactCubismVersion("5.3.02"));
         assertEquals(true, VerifiedExportSettingsHookInstaller
             .supportsExactCubismVersion("5.3.03"));
+        assertEquals(true, VerifiedExportSettingsHookInstaller
+            .supportsExactCubismVersion("5.3.04"));
         assertEquals(false, VerifiedExportSettingsHookInstaller
             .supportsExactCubismVersion("5.3.02-preview"));
         assertEquals(false, VerifiedExportSettingsHookInstaller
-            .supportsExactCubismVersion("5.2.02"));
+            .supportsExactCubismVersion("5.0.06"));
         assertEquals(false, VerifiedExportSettingsHookInstaller
-            .supportsExactCubismVersion("5.3.04"));
+            .supportsExactCubismVersion("5.4.00"));
         assertEquals(false, VerifiedExportSettingsHookInstaller
             .supportsExactCubismVersion(null));
     }

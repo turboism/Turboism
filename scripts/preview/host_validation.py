@@ -191,7 +191,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
         if not command_path.is_relative_to(scripts_root) or not command_path.is_file():
             raise SchedulerError(f"task {name} command must be an existing scripts/preview file")
         versions = require_string_list(fields.get("versions"), f"task {name} versions")
-        if any(version not in {"5203", "5302", "5303"} for version in versions):
+        if any(version not in {"5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"} for version in versions):
             raise SchedulerError(f"task {name} contains an unsupported exact host version")
 
         request_values = require_dict(fields.get("resources"), f"task {name} resources")
@@ -327,7 +327,8 @@ def prepare_request(request: Request, manifest: Manifest, store: queue.Store,
         path = Path(directory) / "runner-request.json"
         if not path.is_file():
             raise SchedulerError("wrapper does not support preparation; update this checkout before submitting")
-        return queue.PreparedStore(store).capture(json.loads(path.read_text()), manifest.root, request.spec)
+        return queue.PreparedStore(store).capture(json.loads(path.read_text()), manifest.root,
+            request.spec, resources=sorted(request.task.resources))
 
 
 def emit(value: Any) -> None:
@@ -449,7 +450,12 @@ def main(argv: list[str] | None = None) -> int:
             emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store)})
             return 0
         if args.command == "status":
+            try:
+                worker = json.loads((store.root / "worker.json").read_text())
+            except (OSError, ValueError):
+                worker = None
             emit({"schemaVersion": 1, "host": store.host(), "jobs": store.jobs(args.job),
+                  "slots": worker.get("slots") if isinstance(worker, dict) else None,
                   "workerOnline": queue.worker_online(store)})
             return 0
         if args.command == "wait":

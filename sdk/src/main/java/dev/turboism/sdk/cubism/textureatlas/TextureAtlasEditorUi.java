@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * content and refresh policy (for example, a statistics panel fed by
  * {@link TextureAtlasEditorSession}).
  */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
 public interface TextureAtlasEditorUi {
 
     /**

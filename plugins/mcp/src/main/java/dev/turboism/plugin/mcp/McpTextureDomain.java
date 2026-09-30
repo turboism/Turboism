@@ -42,8 +42,14 @@ final class McpTextureDomain {
     static final String TEXTURES_WRITE = "turboism.textures.write";
 
     private static final String PROVIDER_CAPABILITY_ID = "cubism.editor-model.texture.write";
+    private static final List<String> READ_SUPPORTED_VERSIONS =
+        List.of(
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+            "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+            "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+            "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
     private static final List<String> SUPPORTED_VERSIONS =
-        List.of("5.2.03", "5.3.02", "5.3.03");
+        List.of("5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
 
     private static final int MAX_ITEMS = 1024;
     private static final int MAX_NAME_LENGTH = 256;
@@ -70,7 +76,7 @@ final class McpTextureDomain {
                 McpOperationEffect.READ,
                 McpExecutionAffinity.UI_THREAD,
                 false,
-                McpVersionSupport.exact("cubism.editor-model.texture.read", SUPPORTED_VERSIONS),
+                McpVersionSupport.exact("cubism.editor-model.texture.read", READ_SUPPORTED_VERSIONS),
                 execution,
                 arguments -> call(TEXTURES_READ, arguments)
             ),

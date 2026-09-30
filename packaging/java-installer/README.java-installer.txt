@@ -30,8 +30,7 @@ before payload mutation. Rerun the installer to apply a different plugin
 selection.
 
 On Windows, configure_turboism.ps1 opens after installation and can be run
-again later. It lists only exact supported Cubism Editor 5.2.03, 5.3.02, and
-5.3.03 installations and exposes separate controls for Turboism-owned
+again later. It lists only exact supported Cubism Editor 5.0.00 through 5.3.04 installations and exposes separate controls for Turboism-owned
 shortcuts and official Cubism BAT integration. BAT integration runs only for
 selected installations, preserves a hash-guarded backup, and writes actionable
 diagnostics under logs/installer/. Canceling setup leaves a valid

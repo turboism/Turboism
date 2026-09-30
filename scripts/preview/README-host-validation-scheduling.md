@@ -7,8 +7,9 @@ localhost-SSH fallback is required.**
 
 ## Safety and ownership
 
-- One managed Cubism session at a time, across all worktrees and exact versions.
-  Admission covers host setup, official BAT launch, verification, exit and cleanup.
+- One managed Cubism session per exact version, across all worktrees; different
+  versions may run concurrently (see Version-scoped slots). Admission covers
+  host setup, official BAT launch, verification, exit and cleanup.
 - Continue building/preparing in separate worktrees; only prepared jobs enter the
   FIFO queue. Do not run builds during performance measurements requiring a quiet host.
 - Only the reviewed official `CubismEditor5.bat` may launch Cubism. Preserve the
@@ -129,7 +130,23 @@ and non-host backends through Python, never via a production fake-mode flag.
 A second worker is rejected. Completion directly triggers the next dispatch;
 clients do not need to wake up or poll for the queue to advance. The worker also
 checks durable state periodically to recover missed wakeups. SIGTERM requests a
-graceful drain: the running job finishes before the worker exits.
+graceful drain: running jobs finish before the worker exits.
+
+## Version-scoped slots
+
+The worker runs up to `TURBOISM_QUEUE_MAX_SLOTS` (default 8, clamped 1–8) jobs
+concurrently. A queued job is claimable only when no running/starting job shares
+its exact `--version`, no running job holds `performance-host` or
+`interactive-desktop`, and the job itself does not declare those global resources
+while anything else runs. `host-slot` is scoped per version; `display-input` no
+longer serializes the host — the worker starts a private Xvfb (`:10`–`:29`) per
+non-interactive job and injects `--display` at dispatch when the frozen argv does
+not pin one. `interactive-desktop` jobs keep the real session on `:0`. Foreign
+Cubism sessions still block all claims; task-owned processes are excluded by
+their run_id markers. Jobs prepared before this protocol (or with an
+unresolvable version/resources) remain serial-only and use the shared
+`admission.lock`; parallel jobs prove admission with per-job
+`admission-<job_id>.lock` files.
 
 `turboism-host-validation.service.example` is an opt-in user-service example,
 **not** automatically installed by a build or CLI command. Set

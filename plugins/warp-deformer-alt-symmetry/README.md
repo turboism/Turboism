@@ -42,7 +42,7 @@ control points, with a canvas-strip mirror-axis button and a drawing-area hint.
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
 - **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor
-  artifacts `5.2.03`, `5.3.02`, and `5.3.03`; this plugin exposes each host-facing
+  artifacts `5.0.00` through `5.3.04`; this plugin exposes each host-facing
   feature only when its declared services and capabilities are available.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.

@@ -37,7 +37,7 @@ interface: swing
 ## 要件と互換性
 
 - **Turboism API:** `[0.1.0,0.2.0)`。
-- **Cubism:** Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.2.03`、`5.3.02`、`5.3.03` を受け入れます。ホスト向けリソースは、その公開 SDK 機能を利用できないとき、クローズドに失敗します。空の成功結果を捏造することはありません。
+- **Cubism:** Turboism は現在、レビュー済みの正確な Editor アーティファクト `5.0.00` から `5.3.04` を受け入れます。ホスト向けリソースは、その公開 SDK 機能を利用できないとき、クローズドに失敗します。空の成功結果を捏造することはありません。
 - **トランスポート:** プロトコル `2025-11-25` を使用する MCP Streamable HTTP。サポート対象の以前のプロトコルバージョンについては互換性ネゴシエーションを行います。
 - **インターフェースモード:** `swing`。ローカル MCP 接続情報ウィンドウを提供します。
 - **プラグイン依存関係:** 宣言されていません。
@@ -147,7 +147,7 @@ url = "http://127.0.0.1:43123/mcp"
 
 `turboism.textures.read` を `{"operation":"list"}` で呼び出し、返された **`state` オブジェクト** をそのまま書き込みの `expectedState` に渡します。別の `stateToken` 文字列は読み取りの関連付け用であり、書き込みの前提条件や認可トークンではありません。書き込みや Undo／Redo の後は状態を再取得してください。ネイティブ履歴が利用できない場合、書き込みを拒否します。
 
-正確な対象バージョンは `5.2.03 / 5.3.02 / 5.3.03` です。操作は `add_model_image_group`（`name`）、`remove_model_image`（`id`）、`add_texture_atlas`（`name`、`widthPixels`、`heightPixels`）、`remove_texture_atlas`（`id`）、`remove_raw_image`（`id`）です。すべての削除には明示的な `confirmDelete: true` が必要です。モデル画像グループは名前で識別し、架空の GUID は作成しません。同名グループの作成は変更前に拒否します。
+正確な対象バージョンは `5.2.03 / 5.3.00–5.3.04` です。操作は `add_model_image_group`（`name`）、`remove_model_image`（`id`）、`add_texture_atlas`（`name`、`widthPixels`、`heightPixels`）、`remove_texture_atlas`（`id`）、`remove_raw_image`（`id`）です。すべての削除には明示的な `confirmDelete: true` が必要です。モデル画像グループは名前で識別し、架空の GUID は作成しません。同名グループの作成は変更前に拒否します。
 
 名前と ID は 256 Unicode コードポイント以内、アトラスの各辺は 1–16384 ピクセルです。読み取りは各トップレベル集合を 1024 件、入れ子のモデル画像の合計を 1024 件に制限し、超過時には黙って省略せずエラーを返します。確定した書き込み後の読み戻し失敗では識別子を保持し、`APPLIED_WITH_READBACK_WARNING` と `postState: null` を返します。結果を証明できないネイティブ例外は `OUTCOME_UNKNOWN` であり、`NOT_APPLIED` と誤って報告せず、自動再試行も促しません。ホスト例外中のパスは公開しません。
 

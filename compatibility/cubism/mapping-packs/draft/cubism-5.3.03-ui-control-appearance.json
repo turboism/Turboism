@@ -44,7 +44,6 @@
       "name": "cubism.ui-control-appearance.deformer-source.class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/deformer/ACDeformerSource",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -112,7 +111,6 @@
       "name": "cubism.ui-control-appearance.deformer-control.outer-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/deformer/CDeformerTreeTable/e",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -146,7 +144,6 @@
       "name": "cubism.ui-control-appearance.deformer-control.tree-class",
       "kind": "class",
       "runtime": "com/live2d/ui/treeTable/g",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -163,7 +160,6 @@
       "name": "cubism.ui-control-appearance.parameter.single-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/SingleParameterRowWidget",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -180,7 +176,6 @@
       "name": "cubism.ui-control-appearance.parameter.double-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/DoubleParameterRowWidget",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -197,7 +192,6 @@
       "name": "cubism.ui-control-appearance.parameter.folder-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/view/palette/parameter/ui/ParameterGroupRowWidget",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -435,7 +429,6 @@
       "name": "cubism.ui-control-appearance.parameter.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/param/CParameterSource",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -452,7 +445,6 @@
       "name": "cubism.ui-control-appearance.parameter.folder-source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/param/group/CParameterGroup",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -503,7 +495,6 @@
       "name": "cubism.ui-control-appearance.parameter.label-class",
       "kind": "class",
       "runtime": "com/live2d/ui/control/CLabel",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -554,7 +545,6 @@
       "name": "cubism.ui-control-appearance.part.node-class",
       "kind": "class",
       "runtime": "com/live2d/ui/treeTable/c",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -588,7 +578,6 @@
       "name": "cubism.ui-control-appearance.part.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/parts/CPartSource",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {
@@ -656,7 +645,6 @@
       "name": "cubism.ui-control-appearance.art-mesh.source-class",
       "kind": "class",
       "runtime": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
-      "descriptor": null,
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
       "x.verification": {

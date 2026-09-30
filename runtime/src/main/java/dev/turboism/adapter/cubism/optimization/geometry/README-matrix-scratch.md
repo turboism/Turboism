@@ -12,7 +12,7 @@ whole-Editor performance acceptance. Do not reuse the uniform cache's speedup.
 
 The bootstrap installs it only after full runtime admission, a reviewed exact
 Editor digest, JVM 17+ and hook-policy approval. The known profiles are Cubism
-5.2.03, 5.3.02 and 5.3.03; their mathematical dependencies are verified against
+5.2.00–5.3.04; their mathematical dependencies are verified against
 each version's own original archive. Unknown binaries and safe mode remain native.
 The policy identifier is `cubism.render.matrix-scratch`.
 

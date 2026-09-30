@@ -23,19 +23,20 @@ public record FileChooserHistoryHostProfile(
     List<String> exportContextClassNames
 ) {
 
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
-
     private static final String FILE_CHOOSER_CLASS = "com/live2d/ui/window/n";
     private static final String EXPORTER_CONTEXT_CLASS = "com.live2d.cubism.doc.model.exporter.b";
     private static final String APP_CTRL_EXPORT_CONTEXT_CLASS_52 = "com.live2d.cubism.appCtrlImpl.a";
     private static final String APP_CTRL_EXPORT_CONTEXT_CLASS_53 = "com.live2d.cubism.appCtrlImpl.al";
 
-    private static final List<SaveDialogMethod> SAVE_DIALOG_METHODS = List.of(
-        new SaveDialogMethod("c", "(Lcom/live2d/ui/window/V;)Ljava/io/File;"),
-        new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;")
-    );
+    private static final SaveDialogMethod GENERIC_DIALOG_METHOD =
+        new SaveDialogMethod("a", "(Ljava/awt/Component;Z)Ljava/io/File;");
+
+    private static List<SaveDialogMethod> saveDialogMethods(final String dialogClass) {
+        return List.of(
+            new SaveDialogMethod("c", "(Lcom/live2d/ui/window/" + dialogClass + ";)Ljava/io/File;"),
+            GENERIC_DIALOG_METHOD
+        );
+    }
 
     public FileChooserHistoryHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
@@ -59,8 +60,8 @@ public record FileChooserHistoryHostProfile(
     /**
      * Resolves the reviewed selector set for a host artifact.
      *
-     * <p>Only the exact reviewed Cubism builds are recognised: 5.2.03, 5.3.02, and 5.3.03.
-     * They share the save-dialog method bindings and differ only in the app-controller
+     * <p>Only the exact reviewed Cubism builds are recognised. They share the save-dialog
+     * method bindings and differ in the chooser dialog class and the app-controller
      * export-context class name.
      * Any other artifact yields empty, which is the fail-closed signal that the file-chooser hook
      * must not be installed against an unreviewed host.
@@ -71,17 +72,8 @@ public record FileChooserHistoryHostProfile(
      */
     public static Optional<FileChooserHistoryHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        final String version;
-        if (artifact.equals(CUBISM_52)) {
-            version = "5.2.03";
-        } else if (artifact.equals(CUBISM_53)) {
-            version = "5.3.02";
-        } else if (artifact.equals(CUBISM_5303)) {
-            version = "5.3.03";
-        } else {
-            return Optional.empty();
-        }
-        return forReviewedVersion(version);
+        return ReviewedHostArtifacts.cubismVersionOf(artifact)
+            .flatMap(FileChooserHistoryHostProfile::forReviewedVersion);
     }
 
     /**
@@ -93,16 +85,28 @@ public record FileChooserHistoryHostProfile(
      */
     public static Optional<FileChooserHistoryHostProfile> forReviewedVersion(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
-        final List<String> contextClasses;
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
-            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
-        } else if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)
-            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
-        } else {
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
             return Optional.empty();
         }
-        return Optional.of(new FileChooserHistoryHostProfile(cubismVersion, SAVE_DIALOG_METHODS, contextClasses));
+        final String dialogClass;
+        final String contextClass;
+        if (cubismVersion.startsWith("5.0.")) {
+            dialogClass = "Y";
+            contextClass = APP_CTRL_EXPORT_CONTEXT_CLASS_53;
+        } else if (cubismVersion.startsWith("5.3.")) {
+            dialogClass = "V";
+            contextClass = APP_CTRL_EXPORT_CONTEXT_CLASS_53;
+        } else {
+            dialogClass = "X";
+            contextClass = ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)
+                ? APP_CTRL_EXPORT_CONTEXT_CLASS_52
+                : APP_CTRL_EXPORT_CONTEXT_CLASS_53;
+        }
+        return Optional.of(new FileChooserHistoryHostProfile(
+            cubismVersion,
+            saveDialogMethods(dialogClass),
+            List.of(EXPORTER_CONTEXT_CLASS, contextClass)
+        ));
     }
 
     /** One save-dialog method binding: name + descriptor (identical across versions). */

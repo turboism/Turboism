@@ -64,9 +64,54 @@ public record ExportSettingsHostProfile(
     private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
     private static final String WINDOW_BASE = "com/live2d/ui/window/y";
 
+    /** The exact reviewed 5.1.00 tuple: the {@code X} window panel on its own reviewed build. */
+    public static final ExportSettingsHostProfile CUBISM_5_1_00 = reviewedProfile(
+        "5.1.00", WINDOW_PANEL_5_2, "cubism.mapping.v5_1_00.export_settings."
+    );
+
+    /** The exact reviewed 5.1.01 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_1_01 = reviewedProfile(
+        "5.1.01", WINDOW_PANEL_5_2, "cubism.mapping.v5_1_01.export_settings."
+    );
+
+    /** The exact reviewed 5.1.02 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_1_02 = reviewedProfile(
+        "5.1.02", WINDOW_PANEL_5_2, "cubism.mapping.v5_1_02.export_settings."
+    );
+
+    /** The exact reviewed 5.1.03 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_1_03 = reviewedProfile(
+        "5.1.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_1_03.export_settings."
+    );
+
+    /** The exact reviewed 5.2.00 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_2_00 = reviewedProfile(
+        "5.2.00", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_00.export_settings."
+    );
+
+    /** The exact reviewed 5.2.01 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_2_01 = reviewedProfile(
+        "5.2.01", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_01.export_settings."
+    );
+
+    /** The exact reviewed 5.2.02 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_2_02 = reviewedProfile(
+        "5.2.02", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_02.export_settings."
+    );
+
     /** The exact reviewed 5.2.03 tuple: identical shape with the {@code X} window panel. */
     public static final ExportSettingsHostProfile CUBISM_5_2_03 = reviewedProfile(
         "5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_03.export_settings."
+    );
+
+    /** The exact reviewed 5.3.00 tuple: the {@code V} window panel on its own reviewed build. */
+    public static final ExportSettingsHostProfile CUBISM_5_3_00 = reviewedProfile(
+        "5.3.00", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_00.export_settings."
+    );
+
+    /** The exact reviewed 5.3.01 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_3_01 = reviewedProfile(
+        "5.3.01", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_01.export_settings."
     );
 
     /** The exact reviewed 5.3.02 tuple. */
@@ -77,6 +122,11 @@ public record ExportSettingsHostProfile(
     /** The exact reviewed 5.3.03 tuple: identical shape to 5.3.02 on its own reviewed build. */
     public static final ExportSettingsHostProfile CUBISM_5_3_03 = reviewedProfile(
         "5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_03.export_settings."
+    );
+
+    /** The exact reviewed 5.3.04 tuple. */
+    public static final ExportSettingsHostProfile CUBISM_5_3_04 = reviewedProfile(
+        "5.3.04", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_04.export_settings."
     );
 
     private static ExportSettingsHostProfile reviewedProfile(
@@ -148,9 +198,19 @@ public record ExportSettingsHostProfile(
     /** @return the host versions whose reviewed artifacts carry an export-settings profile */
     public static List<String> supportedHostVersions() {
         return List.of(
+            CUBISM_5_1_00.hostVersion(),
+            CUBISM_5_1_01.hostVersion(),
+            CUBISM_5_1_02.hostVersion(),
+            CUBISM_5_1_03.hostVersion(),
+            CUBISM_5_2_00.hostVersion(),
+            CUBISM_5_2_01.hostVersion(),
+            CUBISM_5_2_02.hostVersion(),
             CUBISM_5_2_03.hostVersion(),
+            CUBISM_5_3_00.hostVersion(),
+            CUBISM_5_3_01.hostVersion(),
             CUBISM_5_3_02.hostVersion(),
-            CUBISM_5_3_03.hostVersion()
+            CUBISM_5_3_03.hostVersion(),
+            CUBISM_5_3_04.hostVersion()
         );
     }
 
@@ -167,14 +227,44 @@ public record ExportSettingsHostProfile(
      */
     public static Optional<ExportSettingsHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
+        if (ReviewedHostArtifacts.CUBISM_5_1_00.equals(artifact)) {
+            return Optional.of(CUBISM_5_1_00);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_01.equals(artifact)) {
+            return Optional.of(CUBISM_5_1_01);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_02.equals(artifact)) {
+            return Optional.of(CUBISM_5_1_02);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_03.equals(artifact)) {
+            return Optional.of(CUBISM_5_1_03);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_00.equals(artifact)) {
+            return Optional.of(CUBISM_5_2_00);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_01.equals(artifact)) {
+            return Optional.of(CUBISM_5_2_01);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_02.equals(artifact)) {
+            return Optional.of(CUBISM_5_2_02);
+        }
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return Optional.of(CUBISM_5_2_03);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_00.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_00);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_01.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_01);
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return Optional.of(CUBISM_5_3_02);
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
             return Optional.of(CUBISM_5_3_03);
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(artifact)) {
+            return Optional.of(CUBISM_5_3_04);
         }
         return Optional.empty();
     }

@@ -1,0 +1,45 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "jar-metadata-probe",
+  "cubismVersion": "5.0.04",
+  "metadata": {
+    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector verified VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.0.04-performance-render-scene.json",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 36098501,
+    "artifactSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758",
+    "profileId": "cubism-5.0.04",
+    "verificationId": "cubism-5.0.04.performance-render-scene.static",
+    "selectorCount": 1,
+    "capabilityCount": 1,
+    "capabilityIds": [
+      "turboism.performance.stats.read"
+    ],
+    "verificationRecordSha256": "1905a10d8cb42aba92ef78aa3878662bd9209920f724c77332f664fe6eb94271"
+  },
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_2_03.performance.render_scene",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.render-scene",
+      "runtime": "renderScene_exe",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+      "profile": "cubism-5.0.04",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 20,
+        "forbiddenAccessFlags": 0
+      }
+    }
+  ]
+}

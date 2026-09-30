@@ -19,7 +19,7 @@ import java.util.Objects;
  * listener and transaction dependencies are ready. The 5.4 line is excluded:
  * it supplies the native editing protocol and requires a separately reviewed integration.
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public interface EditSessionService {
 
     /**

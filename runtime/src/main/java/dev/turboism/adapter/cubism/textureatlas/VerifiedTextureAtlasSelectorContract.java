@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
+
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -7,125 +9,35 @@ import java.util.Set;
 /**
  * Exact-version selector contract for the texture-atlas authoring provider.
  *
- * <p>The alias catalog is shared by every admitted host; what differs per exact Cubism version
- * is declared as data in {@link Profile} rows looked up through {@link #profileFor(String)}, so
- * no type name encodes a version.</p>
+ * <p>The alias catalog is shared by every admitted host and delegated to
+ * {@link TextureAtlasSelectorContract} so capability admission and runtime
+ * authorization resolve the same sets; what differs per exact Cubism version
+ * is declared as data in {@link Profile} rows looked up through
+ * {@link #profileFor(String)}, so no type name encodes a version.</p>
  */
 public final class VerifiedTextureAtlasSelectorContract {
 
-    public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
-    public static final String CAPABILITY_ID = "cubism.texture-atlas.layout.write";
+    public static final String ADAPTER_SLICE_ID = TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
+    public static final String CAPABILITY_ID = TextureAtlasSelectorContract.LAYOUT_WRITE_CAPABILITY_ID;
 
-    public static final Set<String> REQUIRED_ALIASES = Set.of(
-        "cubism.editor-model.modeling-document.class",
-        "cubism.editor-model.modeling-document.model-source",
-        "cubism.editor-model.model-source.guid",
-        "cubism.editor-model.guid.value",
-        "cubism.texture-atlas.data-model.class",
-        "cubism.texture-atlas.data-model.document",
-        "cubism.texture-atlas.data-model.model-source",
-        "cubism.texture-atlas.texture-manager.atlases",
-        "cubism.texture-atlas.model-source.texture-manager",
-        "cubism.texture-atlas.texture-manager.images",
-        "cubism.editor-model.texture-manager.handler",
-        "cubism.texture-atlas.texture-manager-handler.drawable-uses",
-        "cubism.texture-atlas.texture-input-relink.helper-instance",
-        "cubism.texture-atlas.texture-input-relink.rebuild",
-        "cubism.editor-model.model-source.verify",
-        "cubism.texture-atlas.texture-manager.change-input-to-atlas",
-        "cubism.texture-atlas.atlas.class",
-        "cubism.texture-atlas.atlas.create",
-        "cubism.texture-atlas.atlas.name",
-        "cubism.texture-atlas.atlas.width",
-        "cubism.texture-atlas.atlas.height",
-        "cubism.texture-atlas.atlas.entries",
-        "cubism.texture-atlas.entry.class",
-        "cubism.texture-atlas.entry.create",
-        "cubism.texture-atlas.entry.image",
-        "cubism.texture-atlas.entry.transform",
-        "cubism.texture-atlas.image.class",
-        "cubism.texture-atlas.image.guid",
-        "cubism.texture-atlas.image.width",
-        "cubism.texture-atlas.image.height",
-        "cubism.texture-atlas.affine.class",
-        "cubism.texture-atlas.affine.create",
-        "cubism.texture-atlas.affine.translate",
-        "cubism.editor-model.modeling-document.edit-mode",
-        "cubism.editor-model.edit-mode.begin",
-        "cubism.editor-model.edit-mode.end",
-        "cubism.texture-atlas.undo.create",
-        "cubism.texture-atlas.undo.force-redo",
-        "cubism.texture-atlas.group-undo.add",
-        "cubism.editor-model.app-controller.instance",
-        "cubism.editor-model.app-controller.current-document",
-        "cubism.editor-model.app-controller.complete-pack",
-        "cubism.editor-model.undo-listener.class",
-        "cubism.editor-model.undo.add-listener",
-        "cubism.editor-model.model-source.update-instances",
-        "cubism.editor-model.complete-pack.repaint-canvas",
-        "cubism.editor-model.modeling-document.mark-dirty"
-    );
+    public static final Set<String> REQUIRED_ALIASES = TextureAtlasSelectorContract.REQUIRED_ALIASES;
 
-    public static final Set<String> HOOK_ALIASES = Set.of(
-        "cubism.texture-atlas.model-image-list.class",
-        "cubism.texture-atlas.model-image-list.init",
-        "cubism.texture-atlas.model-image-list.data-model"
-    );
+    public static final Set<String> HOOK_ALIASES = TextureAtlasSelectorContract.HOOK_ALIASES;
 
-    public static final Set<String> AUTO_LAYOUT_HOOK_ALIASES = Set.of(
-        "cubism.texture-atlas.auto-layout.invoke"
-    );
+    public static final Set<String> AUTO_LAYOUT_HOOK_ALIASES =
+        TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES;
 
-    public static final Set<String> NATIVE_INVOCATION_ALIASES = Set.of(
-        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_CLASS,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_SETTINGS,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_DATA,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECEIVER_OVERFLOW,
-        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_MARGIN,
-        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_ROTATE,
-        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_MODEL_IMAGE,
-        VerifiedTextureAtlasNativeInvocationAdapter.SETTINGS_SCALE,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_ITEMS,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_WIDTH,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_HEIGHT,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_SCALE,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_CURRENT_SCALE,
-        VerifiedTextureAtlasNativeInvocationAdapter.DATA_IMPL,
-        VerifiedTextureAtlasNativeInvocationAdapter.IMPL_CONTAINER,
-        VerifiedTextureAtlasNativeInvocationAdapter.CONTAINER_CHILDREN,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_RECT,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_SCALE,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_MODEL_RECT,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_WIDTH,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_HEIGHT,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_TRANSFORM,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_EDIT_LAYER,
-        VerifiedTextureAtlasNativeInvocationAdapter.EDIT_LAYER_DRAW_DATA_SHAPES,
-        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_CURRENT_TRANSFORM,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECT_X,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECT_Y,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECT_WIDTH,
-        VerifiedTextureAtlasNativeInvocationAdapter.RECT_HEIGHT,
-        VerifiedTextureAtlasNativeInvocationAdapter.AFFINE_CREATE,
-        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_LAYER,
-        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_TRANSFORM,
-        VerifiedTextureAtlasNativeInvocationAdapter.LAYER_REF_SET_TRANSFORM,
-        VerifiedTextureAtlasNativeInvocationAdapter.EDITOR_AFFINE_CREATE
-    );
+    public static final Set<String> NATIVE_INVOCATION_ALIASES =
+        TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES;
 
-    public static final Set<String> DIALOG_INJECTION_ALIASES = Set.of(
-        VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_CLASS,
-        VerifiedTextureAtlasNativeInvocationAdapter.DIALOG_INIT
-    );
+    public static final Set<String> DIALOG_INJECTION_ALIASES =
+        TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES;
 
-    // Statistics view contribution exists only on the 5.3 profiles: the 5.2.03 artifact uses a
-    // differently structured editor view, so that profile carries an empty statistics set.
-    public static final Set<String> STATISTICS_ALIASES = Set.of(
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_INIT,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_DATA_MODEL_CURRENT_PAGE,
-        VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS
-    );
+    // The statistics view contribution is verified on 5.2.00-5.2.02 and every 5.3 profile:
+    // the 5.2.03 artifact (and every profile below 5.2) uses a differently structured editor
+    // view, so those profiles carry an empty statistics set.
+    public static final Set<String> STATISTICS_ALIASES =
+        TextureAtlasSelectorContract.STATISTICS_ALIASES;
 
     /**
      * The complete reviewed selector scope bound to one exact Cubism version. All members are
@@ -143,8 +55,58 @@ public final class VerifiedTextureAtlasSelectorContract {
     ) {
     }
 
-    private static final Map<String, Profile> PROFILES = Map.of(
-        "5.2.03", new Profile(
+    private static Profile profile520AndBelow(final String cubismVersion) {
+        return new Profile(
+            cubismVersion,
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            Set.of(),
+            DIALOG_INJECTION_ALIASES,
+            Set.of()
+        );
+    }
+
+    private static final Map<String, Profile> PROFILES = Map.ofEntries(
+        Map.entry("5.0.00", profile520AndBelow("5.0.00")),
+        Map.entry("5.0.01", profile520AndBelow("5.0.01")),
+        Map.entry("5.0.02", profile520AndBelow("5.0.02")),
+        Map.entry("5.0.03", profile520AndBelow("5.0.03")),
+        Map.entry("5.0.04", profile520AndBelow("5.0.04")),
+        Map.entry("5.0.05", profile520AndBelow("5.0.05")),
+        Map.entry("5.0.06", profile520AndBelow("5.0.06")),
+        Map.entry("5.1.00", profile520AndBelow("5.1.00")),
+        Map.entry("5.1.01", profile520AndBelow("5.1.01")),
+        Map.entry("5.1.02", profile520AndBelow("5.1.02")),
+        Map.entry("5.1.03", profile520AndBelow("5.1.03")),
+        Map.entry("5.2.00", new Profile(
+            "5.2.00",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )),
+        Map.entry("5.2.01", new Profile(
+            "5.2.01",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )),
+        Map.entry("5.2.02", new Profile(
+            "5.2.02",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )),
+        Map.entry("5.2.03", new Profile(
             "5.2.03",
             REQUIRED_ALIASES,
             HOOK_ALIASES,
@@ -152,8 +114,26 @@ public final class VerifiedTextureAtlasSelectorContract {
             NATIVE_INVOCATION_ALIASES,
             DIALOG_INJECTION_ALIASES,
             Set.of()
-        ),
-        "5.3.02", new Profile(
+        )),
+        Map.entry("5.3.00", new Profile(
+            "5.3.00",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )),
+        Map.entry("5.3.01", new Profile(
+            "5.3.01",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        )),
+        Map.entry("5.3.02", new Profile(
             "5.3.02",
             REQUIRED_ALIASES,
             HOOK_ALIASES,
@@ -161,8 +141,8 @@ public final class VerifiedTextureAtlasSelectorContract {
             NATIVE_INVOCATION_ALIASES,
             DIALOG_INJECTION_ALIASES,
             STATISTICS_ALIASES
-        ),
-        "5.3.03", new Profile(
+        )),
+        Map.entry("5.3.03", new Profile(
             "5.3.03",
             REQUIRED_ALIASES,
             HOOK_ALIASES,
@@ -170,7 +150,16 @@ public final class VerifiedTextureAtlasSelectorContract {
             NATIVE_INVOCATION_ALIASES,
             DIALOG_INJECTION_ALIASES,
             STATISTICS_ALIASES
-        )
+        )),
+        Map.entry("5.3.04", new Profile(
+            "5.3.04",
+            REQUIRED_ALIASES,
+            HOOK_ALIASES,
+            AUTO_LAYOUT_HOOK_ALIASES,
+            NATIVE_INVOCATION_ALIASES,
+            DIALOG_INJECTION_ALIASES,
+            STATISTICS_ALIASES
+        ))
     );
 
     /**

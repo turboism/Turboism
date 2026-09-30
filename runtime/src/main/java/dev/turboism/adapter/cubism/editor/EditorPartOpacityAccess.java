@@ -105,7 +105,7 @@ final class EditorPartOpacityAccess {
     }
 
     private boolean isCubism52() {
-        return resolver.isAdmittedCubismVersion(EditorPartOpacityReadSelectorContract.CUBISM_VERSION);
+        return !resolver.admittedCubismVersion().startsWith("5.3.");
     }
 
     private boolean nameAuthorized() {
@@ -920,7 +920,7 @@ final class EditorPartOpacityAccess {
     }
 
     private void requirePartInspectorAuthorization() {
-        final boolean authorized = resolver.isAdmittedCubismVersion(EditorPartInspectorIdWriteSelectorContract.CUBISM_VERSION)
+        final boolean authorized = !resolver.admittedCubismVersion().startsWith("5.3.")
             ? resolver.authorizesFeature(
                 EditorPartInspectorIdWriteSelectorContract.ADAPTER_SLICE_ID,
                 EditorPartInspectorIdWriteSelectorContract.CAPABILITY_ID,

@@ -92,7 +92,7 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         int index = 0;
         for (Object item : nativeItems) {
             // Native wrapper.c() is per-item packing scale q, not the old atlas/LayerRef scale.
-            // In reviewed Cubism 5.2.03, 5.3.02 and 5.3.03, the normal native auto-layout
+            // In reviewed Cubism 5.2.03 and 5.3.00–5.3.03, the normal native auto-layout
             // entry creates fresh wrappers whose constructor fixes q to exactly 1; that
             // path does not change q. Automatic/fixed output scale s (e.g. 0.5 or 0.97)
             // and pre-existing LayerRef scaling do NOT make q non-unit.

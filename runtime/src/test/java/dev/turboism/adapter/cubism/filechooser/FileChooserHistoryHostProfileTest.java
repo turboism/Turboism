@@ -27,7 +27,7 @@ class FileChooserHistoryHostProfileTest {
         assertEquals(
             List.of(
                 new FileChooserHistoryHostProfile.SaveDialogMethod(
-                    "c", "(Lcom/live2d/ui/window/V;)Ljava/io/File;"
+                    "c", "(Lcom/live2d/ui/window/X;)Ljava/io/File;"
                 ),
                 new FileChooserHistoryHostProfile.SaveDialogMethod(
                     "a", "(Ljava/awt/Component;Z)Ljava/io/File;"

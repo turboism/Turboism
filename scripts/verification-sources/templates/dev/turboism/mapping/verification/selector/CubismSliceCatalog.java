@@ -54,6 +54,69 @@ public final class CubismSliceCatalog {
         }
     }
 
+    private static final Candidate C_AUTOBACKUP_5_1_00 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.1.00-autobackup.json:cubismVersion}",
+        "cubism-5.1.00-autobackup.json",
+        "${record:cubism-5.1.00-autobackup.json:sha256}",
+        "${record:cubism-5.1.00-autobackup.json:verificationId}",
+        "${record:cubism-5.1.00-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.1.00-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_1_01 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.1.01-autobackup.json:cubismVersion}",
+        "cubism-5.1.01-autobackup.json",
+        "${record:cubism-5.1.01-autobackup.json:sha256}",
+        "${record:cubism-5.1.01-autobackup.json:verificationId}",
+        "${record:cubism-5.1.01-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.1.01-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_1_02 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.1.02-autobackup.json:cubismVersion}",
+        "cubism-5.1.02-autobackup.json",
+        "${record:cubism-5.1.02-autobackup.json:sha256}",
+        "${record:cubism-5.1.02-autobackup.json:verificationId}",
+        "${record:cubism-5.1.02-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.1.02-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_1_03 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.1.03-autobackup.json:cubismVersion}",
+        "cubism-5.1.03-autobackup.json",
+        "${record:cubism-5.1.03-autobackup.json:sha256}",
+        "${record:cubism-5.1.03-autobackup.json:verificationId}",
+        "${record:cubism-5.1.03-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.1.03-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_2_00 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.2.00-autobackup.json:cubismVersion}",
+        "cubism-5.2.00-autobackup.json",
+        "${record:cubism-5.2.00-autobackup.json:sha256}",
+        "${record:cubism-5.2.00-autobackup.json:verificationId}",
+        "${record:cubism-5.2.00-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.2.00-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_2_01 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.2.01-autobackup.json:cubismVersion}",
+        "cubism-5.2.01-autobackup.json",
+        "${record:cubism-5.2.01-autobackup.json:sha256}",
+        "${record:cubism-5.2.01-autobackup.json:verificationId}",
+        "${record:cubism-5.2.01-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.2.01-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_2_02 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.2.02-autobackup.json:cubismVersion}",
+        "cubism-5.2.02-autobackup.json",
+        "${record:cubism-5.2.02-autobackup.json:sha256}",
+        "${record:cubism-5.2.02-autobackup.json:verificationId}",
+        "${record:cubism-5.2.02-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.2.02-autobackup.json:profileId}"
+    );
     private static final Candidate C_AUTOBACKUP_5_2_03 = new Candidate(
         "autobackup",
         "${record:cubism-5.2.03-autobackup.json:cubismVersion}",
@@ -62,6 +125,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-autobackup.json:verificationId}",
         "${record:cubism-5.2.03-autobackup.json:adapterSliceId}",
         "${record:cubism-5.2.03-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_3_00 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.3.00-autobackup.json:cubismVersion}",
+        "cubism-5.3.00-autobackup.json",
+        "${record:cubism-5.3.00-autobackup.json:sha256}",
+        "${record:cubism-5.3.00-autobackup.json:verificationId}",
+        "${record:cubism-5.3.00-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.3.00-autobackup.json:profileId}"
+    );
+    private static final Candidate C_AUTOBACKUP_5_3_01 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.3.01-autobackup.json:cubismVersion}",
+        "cubism-5.3.01-autobackup.json",
+        "${record:cubism-5.3.01-autobackup.json:sha256}",
+        "${record:cubism-5.3.01-autobackup.json:verificationId}",
+        "${record:cubism-5.3.01-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.3.01-autobackup.json:profileId}"
     );
     private static final Candidate C_AUTOBACKUP_5_3_02 = new Candidate(
         "autobackup",
@@ -81,6 +162,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-autobackup.json:adapterSliceId}",
         "${record:cubism-5.3.03-autobackup.json:profileId}"
     );
+    private static final Candidate C_AUTOBACKUP_5_3_04 = new Candidate(
+        "autobackup",
+        "${record:cubism-5.3.04-autobackup.json:cubismVersion}",
+        "cubism-5.3.04-autobackup.json",
+        "${record:cubism-5.3.04-autobackup.json:sha256}",
+        "${record:cubism-5.3.04-autobackup.json:verificationId}",
+        "${record:cubism-5.3.04-autobackup.json:adapterSliceId}",
+        "${record:cubism-5.3.04-autobackup.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_00 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.00-clipmask.json:cubismVersion}",
+        "cubism-5.0.00-clipmask.json",
+        "${record:cubism-5.0.00-clipmask.json:sha256}",
+        "${record:cubism-5.0.00-clipmask.json:verificationId}",
+        "${record:cubism-5.0.00-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.00-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_01 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.01-clipmask.json:cubismVersion}",
+        "cubism-5.0.01-clipmask.json",
+        "${record:cubism-5.0.01-clipmask.json:sha256}",
+        "${record:cubism-5.0.01-clipmask.json:verificationId}",
+        "${record:cubism-5.0.01-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.01-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_02 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.02-clipmask.json:cubismVersion}",
+        "cubism-5.0.02-clipmask.json",
+        "${record:cubism-5.0.02-clipmask.json:sha256}",
+        "${record:cubism-5.0.02-clipmask.json:verificationId}",
+        "${record:cubism-5.0.02-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.02-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_03 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.03-clipmask.json:cubismVersion}",
+        "cubism-5.0.03-clipmask.json",
+        "${record:cubism-5.0.03-clipmask.json:sha256}",
+        "${record:cubism-5.0.03-clipmask.json:verificationId}",
+        "${record:cubism-5.0.03-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.03-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_04 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.04-clipmask.json:cubismVersion}",
+        "cubism-5.0.04-clipmask.json",
+        "${record:cubism-5.0.04-clipmask.json:sha256}",
+        "${record:cubism-5.0.04-clipmask.json:verificationId}",
+        "${record:cubism-5.0.04-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.04-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_05 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.05-clipmask.json:cubismVersion}",
+        "cubism-5.0.05-clipmask.json",
+        "${record:cubism-5.0.05-clipmask.json:sha256}",
+        "${record:cubism-5.0.05-clipmask.json:verificationId}",
+        "${record:cubism-5.0.05-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.05-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_0_06 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.0.06-clipmask.json:cubismVersion}",
+        "cubism-5.0.06-clipmask.json",
+        "${record:cubism-5.0.06-clipmask.json:sha256}",
+        "${record:cubism-5.0.06-clipmask.json:verificationId}",
+        "${record:cubism-5.0.06-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.0.06-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_1_00 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.1.00-clipmask.json:cubismVersion}",
+        "cubism-5.1.00-clipmask.json",
+        "${record:cubism-5.1.00-clipmask.json:sha256}",
+        "${record:cubism-5.1.00-clipmask.json:verificationId}",
+        "${record:cubism-5.1.00-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.1.00-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_1_01 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.1.01-clipmask.json:cubismVersion}",
+        "cubism-5.1.01-clipmask.json",
+        "${record:cubism-5.1.01-clipmask.json:sha256}",
+        "${record:cubism-5.1.01-clipmask.json:verificationId}",
+        "${record:cubism-5.1.01-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.1.01-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_1_02 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.1.02-clipmask.json:cubismVersion}",
+        "cubism-5.1.02-clipmask.json",
+        "${record:cubism-5.1.02-clipmask.json:sha256}",
+        "${record:cubism-5.1.02-clipmask.json:verificationId}",
+        "${record:cubism-5.1.02-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.1.02-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_1_03 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.1.03-clipmask.json:cubismVersion}",
+        "cubism-5.1.03-clipmask.json",
+        "${record:cubism-5.1.03-clipmask.json:sha256}",
+        "${record:cubism-5.1.03-clipmask.json:verificationId}",
+        "${record:cubism-5.1.03-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.1.03-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_2_00 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.2.00-clipmask.json:cubismVersion}",
+        "cubism-5.2.00-clipmask.json",
+        "${record:cubism-5.2.00-clipmask.json:sha256}",
+        "${record:cubism-5.2.00-clipmask.json:verificationId}",
+        "${record:cubism-5.2.00-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.2.00-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_2_01 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.2.01-clipmask.json:cubismVersion}",
+        "cubism-5.2.01-clipmask.json",
+        "${record:cubism-5.2.01-clipmask.json:sha256}",
+        "${record:cubism-5.2.01-clipmask.json:verificationId}",
+        "${record:cubism-5.2.01-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.2.01-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_2_02 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.2.02-clipmask.json:cubismVersion}",
+        "cubism-5.2.02-clipmask.json",
+        "${record:cubism-5.2.02-clipmask.json:sha256}",
+        "${record:cubism-5.2.02-clipmask.json:verificationId}",
+        "${record:cubism-5.2.02-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.2.02-clipmask.json:profileId}"
+    );
     private static final Candidate C_CLIPMASK_5_2_03 = new Candidate(
         "clipmask",
         "${record:cubism-5.2.03-clipmask.json:cubismVersion}",
@@ -89,6 +305,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-clipmask.json:verificationId}",
         "${record:cubism-5.2.03-clipmask.json:adapterSliceId}",
         "${record:cubism-5.2.03-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_3_00 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.3.00-clipmask.json:cubismVersion}",
+        "cubism-5.3.00-clipmask.json",
+        "${record:cubism-5.3.00-clipmask.json:sha256}",
+        "${record:cubism-5.3.00-clipmask.json:verificationId}",
+        "${record:cubism-5.3.00-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.3.00-clipmask.json:profileId}"
+    );
+    private static final Candidate C_CLIPMASK_5_3_01 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.3.01-clipmask.json:cubismVersion}",
+        "cubism-5.3.01-clipmask.json",
+        "${record:cubism-5.3.01-clipmask.json:sha256}",
+        "${record:cubism-5.3.01-clipmask.json:verificationId}",
+        "${record:cubism-5.3.01-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.3.01-clipmask.json:profileId}"
     );
     private static final Candidate C_CLIPMASK_5_3_02 = new Candidate(
         "clipmask",
@@ -108,6 +342,15 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-clipmask.json:adapterSliceId}",
         "${record:cubism-5.3.03-clipmask.json:profileId}"
     );
+    private static final Candidate C_CLIPMASK_5_3_04 = new Candidate(
+        "clipmask",
+        "${record:cubism-5.3.04-clipmask.json:cubismVersion}",
+        "cubism-5.3.04-clipmask.json",
+        "${record:cubism-5.3.04-clipmask.json:sha256}",
+        "${record:cubism-5.3.04-clipmask.json:verificationId}",
+        "${record:cubism-5.3.04-clipmask.json:adapterSliceId}",
+        "${record:cubism-5.3.04-clipmask.json:profileId}"
+    );
     private static final Candidate C_CORE_MODEL_READ_5_2_03 = new Candidate(
         "core-model-read",
         "${record:cubism-5.2.03-core-model-read.json:cubismVersion}",
@@ -126,6 +369,132 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.02-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.3.02-core-model-read.json:profileId}"
     );
+    private static final Candidate C_EDITOR_MODEL_5_0_00 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.00-editor-model.json:cubismVersion}",
+        "cubism-5.0.00-editor-model.json",
+        "${record:cubism-5.0.00-editor-model.json:sha256}",
+        "${record:cubism-5.0.00-editor-model.json:verificationId}",
+        "${record:cubism-5.0.00-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.00-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_01 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.01-editor-model.json:cubismVersion}",
+        "cubism-5.0.01-editor-model.json",
+        "${record:cubism-5.0.01-editor-model.json:sha256}",
+        "${record:cubism-5.0.01-editor-model.json:verificationId}",
+        "${record:cubism-5.0.01-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.01-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_02 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.02-editor-model.json:cubismVersion}",
+        "cubism-5.0.02-editor-model.json",
+        "${record:cubism-5.0.02-editor-model.json:sha256}",
+        "${record:cubism-5.0.02-editor-model.json:verificationId}",
+        "${record:cubism-5.0.02-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.02-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_03 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.03-editor-model.json:cubismVersion}",
+        "cubism-5.0.03-editor-model.json",
+        "${record:cubism-5.0.03-editor-model.json:sha256}",
+        "${record:cubism-5.0.03-editor-model.json:verificationId}",
+        "${record:cubism-5.0.03-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.03-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_04 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.04-editor-model.json:cubismVersion}",
+        "cubism-5.0.04-editor-model.json",
+        "${record:cubism-5.0.04-editor-model.json:sha256}",
+        "${record:cubism-5.0.04-editor-model.json:verificationId}",
+        "${record:cubism-5.0.04-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.04-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_05 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.05-editor-model.json:cubismVersion}",
+        "cubism-5.0.05-editor-model.json",
+        "${record:cubism-5.0.05-editor-model.json:sha256}",
+        "${record:cubism-5.0.05-editor-model.json:verificationId}",
+        "${record:cubism-5.0.05-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.05-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_0_06 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.0.06-editor-model.json:cubismVersion}",
+        "cubism-5.0.06-editor-model.json",
+        "${record:cubism-5.0.06-editor-model.json:sha256}",
+        "${record:cubism-5.0.06-editor-model.json:verificationId}",
+        "${record:cubism-5.0.06-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.0.06-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_1_00 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.1.00-editor-model.json:cubismVersion}",
+        "cubism-5.1.00-editor-model.json",
+        "${record:cubism-5.1.00-editor-model.json:sha256}",
+        "${record:cubism-5.1.00-editor-model.json:verificationId}",
+        "${record:cubism-5.1.00-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.1.00-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_1_01 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.1.01-editor-model.json:cubismVersion}",
+        "cubism-5.1.01-editor-model.json",
+        "${record:cubism-5.1.01-editor-model.json:sha256}",
+        "${record:cubism-5.1.01-editor-model.json:verificationId}",
+        "${record:cubism-5.1.01-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.1.01-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_1_02 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.1.02-editor-model.json:cubismVersion}",
+        "cubism-5.1.02-editor-model.json",
+        "${record:cubism-5.1.02-editor-model.json:sha256}",
+        "${record:cubism-5.1.02-editor-model.json:verificationId}",
+        "${record:cubism-5.1.02-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.1.02-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_1_03 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.1.03-editor-model.json:cubismVersion}",
+        "cubism-5.1.03-editor-model.json",
+        "${record:cubism-5.1.03-editor-model.json:sha256}",
+        "${record:cubism-5.1.03-editor-model.json:verificationId}",
+        "${record:cubism-5.1.03-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.1.03-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_2_00 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.2.00-editor-model.json:cubismVersion}",
+        "cubism-5.2.00-editor-model.json",
+        "${record:cubism-5.2.00-editor-model.json:sha256}",
+        "${record:cubism-5.2.00-editor-model.json:verificationId}",
+        "${record:cubism-5.2.00-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.2.00-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_2_01 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.2.01-editor-model.json:cubismVersion}",
+        "cubism-5.2.01-editor-model.json",
+        "${record:cubism-5.2.01-editor-model.json:sha256}",
+        "${record:cubism-5.2.01-editor-model.json:verificationId}",
+        "${record:cubism-5.2.01-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.2.01-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_2_02 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.2.02-editor-model.json:cubismVersion}",
+        "cubism-5.2.02-editor-model.json",
+        "${record:cubism-5.2.02-editor-model.json:sha256}",
+        "${record:cubism-5.2.02-editor-model.json:verificationId}",
+        "${record:cubism-5.2.02-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.2.02-editor-model.json:profileId}"
+    );
     private static final Candidate C_EDITOR_MODEL_5_2_03 = new Candidate(
         "editor-model",
         "${record:cubism-5.2.03-editor-model.json:cubismVersion}",
@@ -134,6 +503,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-editor-model.json:verificationId}",
         "${record:cubism-5.2.03-editor-model.json:adapterSliceId}",
         "${record:cubism-5.2.03-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_3_00 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.3.00-editor-model.json:cubismVersion}",
+        "cubism-5.3.00-editor-model.json",
+        "${record:cubism-5.3.00-editor-model.json:sha256}",
+        "${record:cubism-5.3.00-editor-model.json:verificationId}",
+        "${record:cubism-5.3.00-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.3.00-editor-model.json:profileId}"
+    );
+    private static final Candidate C_EDITOR_MODEL_5_3_01 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.3.01-editor-model.json:cubismVersion}",
+        "cubism-5.3.01-editor-model.json",
+        "${record:cubism-5.3.01-editor-model.json:sha256}",
+        "${record:cubism-5.3.01-editor-model.json:verificationId}",
+        "${record:cubism-5.3.01-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.3.01-editor-model.json:profileId}"
     );
     private static final Candidate C_EDITOR_MODEL_5_3_02 = new Candidate(
         "editor-model",
@@ -153,6 +540,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-editor-model.json:adapterSliceId}",
         "${record:cubism-5.3.03-editor-model.json:profileId}"
     );
+    private static final Candidate C_EDITOR_MODEL_5_3_04 = new Candidate(
+        "editor-model",
+        "${record:cubism-5.3.04-editor-model.json:cubismVersion}",
+        "cubism-5.3.04-editor-model.json",
+        "${record:cubism-5.3.04-editor-model.json:sha256}",
+        "${record:cubism-5.3.04-editor-model.json:verificationId}",
+        "${record:cubism-5.3.04-editor-model.json:adapterSliceId}",
+        "${record:cubism-5.3.04-editor-model.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_00 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.00-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.00-performance-render-scene.json",
+        "${record:cubism-5.0.00-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.00-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.00-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.00-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_01 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.01-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.01-performance-render-scene.json",
+        "${record:cubism-5.0.01-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.01-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.01-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.01-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_02 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.02-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.02-performance-render-scene.json",
+        "${record:cubism-5.0.02-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.02-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.02-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.02-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_03 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.03-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.03-performance-render-scene.json",
+        "${record:cubism-5.0.03-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.03-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.03-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.03-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_04 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.04-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.04-performance-render-scene.json",
+        "${record:cubism-5.0.04-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.04-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.04-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.04-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_05 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.05-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.05-performance-render-scene.json",
+        "${record:cubism-5.0.05-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.05-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.05-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.05-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_0_06 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.0.06-performance-render-scene.json:cubismVersion}",
+        "cubism-5.0.06-performance-render-scene.json",
+        "${record:cubism-5.0.06-performance-render-scene.json:sha256}",
+        "${record:cubism-5.0.06-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.0.06-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.0.06-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_1_00 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.1.00-performance-render-scene.json:cubismVersion}",
+        "cubism-5.1.00-performance-render-scene.json",
+        "${record:cubism-5.1.00-performance-render-scene.json:sha256}",
+        "${record:cubism-5.1.00-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.1.00-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.1.00-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_1_01 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.1.01-performance-render-scene.json:cubismVersion}",
+        "cubism-5.1.01-performance-render-scene.json",
+        "${record:cubism-5.1.01-performance-render-scene.json:sha256}",
+        "${record:cubism-5.1.01-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.1.01-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.1.01-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_1_02 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.1.02-performance-render-scene.json:cubismVersion}",
+        "cubism-5.1.02-performance-render-scene.json",
+        "${record:cubism-5.1.02-performance-render-scene.json:sha256}",
+        "${record:cubism-5.1.02-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.1.02-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.1.02-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_1_03 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.1.03-performance-render-scene.json:cubismVersion}",
+        "cubism-5.1.03-performance-render-scene.json",
+        "${record:cubism-5.1.03-performance-render-scene.json:sha256}",
+        "${record:cubism-5.1.03-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.1.03-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.1.03-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_2_00 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.2.00-performance-render-scene.json:cubismVersion}",
+        "cubism-5.2.00-performance-render-scene.json",
+        "${record:cubism-5.2.00-performance-render-scene.json:sha256}",
+        "${record:cubism-5.2.00-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.2.00-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.2.00-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_2_01 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.2.01-performance-render-scene.json:cubismVersion}",
+        "cubism-5.2.01-performance-render-scene.json",
+        "${record:cubism-5.2.01-performance-render-scene.json:sha256}",
+        "${record:cubism-5.2.01-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.2.01-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.2.01-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_2_02 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.2.02-performance-render-scene.json:cubismVersion}",
+        "cubism-5.2.02-performance-render-scene.json",
+        "${record:cubism-5.2.02-performance-render-scene.json:sha256}",
+        "${record:cubism-5.2.02-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.2.02-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.2.02-performance-render-scene.json:profileId}"
+    );
     private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_2_03 = new Candidate(
         "performance-render-scene",
         "${record:cubism-5.2.03-performance-render-scene.json:cubismVersion}",
@@ -161,6 +683,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-performance-render-scene.json:verificationId}",
         "${record:cubism-5.2.03-performance-render-scene.json:adapterSliceId}",
         "${record:cubism-5.2.03-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_3_00 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.3.00-performance-render-scene.json:cubismVersion}",
+        "cubism-5.3.00-performance-render-scene.json",
+        "${record:cubism-5.3.00-performance-render-scene.json:sha256}",
+        "${record:cubism-5.3.00-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.3.00-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.3.00-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_3_01 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.3.01-performance-render-scene.json:cubismVersion}",
+        "cubism-5.3.01-performance-render-scene.json",
+        "${record:cubism-5.3.01-performance-render-scene.json:sha256}",
+        "${record:cubism-5.3.01-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.3.01-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.3.01-performance-render-scene.json:profileId}"
     );
     private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_3_02 = new Candidate(
         "performance-render-scene",
@@ -180,6 +720,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-performance-render-scene.json:adapterSliceId}",
         "${record:cubism-5.3.03-performance-render-scene.json:profileId}"
     );
+    private static final Candidate C_PERFORMANCE_RENDER_SCENE_5_3_04 = new Candidate(
+        "performance-render-scene",
+        "${record:cubism-5.3.04-performance-render-scene.json:cubismVersion}",
+        "cubism-5.3.04-performance-render-scene.json",
+        "${record:cubism-5.3.04-performance-render-scene.json:sha256}",
+        "${record:cubism-5.3.04-performance-render-scene.json:verificationId}",
+        "${record:cubism-5.3.04-performance-render-scene.json:adapterSliceId}",
+        "${record:cubism-5.3.04-performance-render-scene.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_00 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.00-project-workspace.json:cubismVersion}",
+        "cubism-5.0.00-project-workspace.json",
+        "${record:cubism-5.0.00-project-workspace.json:sha256}",
+        "${record:cubism-5.0.00-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.00-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.00-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_01 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.01-project-workspace.json:cubismVersion}",
+        "cubism-5.0.01-project-workspace.json",
+        "${record:cubism-5.0.01-project-workspace.json:sha256}",
+        "${record:cubism-5.0.01-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.01-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.01-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_02 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.02-project-workspace.json:cubismVersion}",
+        "cubism-5.0.02-project-workspace.json",
+        "${record:cubism-5.0.02-project-workspace.json:sha256}",
+        "${record:cubism-5.0.02-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.02-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.02-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_03 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.03-project-workspace.json:cubismVersion}",
+        "cubism-5.0.03-project-workspace.json",
+        "${record:cubism-5.0.03-project-workspace.json:sha256}",
+        "${record:cubism-5.0.03-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.03-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.03-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_04 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.04-project-workspace.json:cubismVersion}",
+        "cubism-5.0.04-project-workspace.json",
+        "${record:cubism-5.0.04-project-workspace.json:sha256}",
+        "${record:cubism-5.0.04-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.04-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.04-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_05 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.05-project-workspace.json:cubismVersion}",
+        "cubism-5.0.05-project-workspace.json",
+        "${record:cubism-5.0.05-project-workspace.json:sha256}",
+        "${record:cubism-5.0.05-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.05-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.05-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_0_06 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.0.06-project-workspace.json:cubismVersion}",
+        "cubism-5.0.06-project-workspace.json",
+        "${record:cubism-5.0.06-project-workspace.json:sha256}",
+        "${record:cubism-5.0.06-project-workspace.json:verificationId}",
+        "${record:cubism-5.0.06-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.0.06-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_1_00 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.1.00-project-workspace.json:cubismVersion}",
+        "cubism-5.1.00-project-workspace.json",
+        "${record:cubism-5.1.00-project-workspace.json:sha256}",
+        "${record:cubism-5.1.00-project-workspace.json:verificationId}",
+        "${record:cubism-5.1.00-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.1.00-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_1_01 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.1.01-project-workspace.json:cubismVersion}",
+        "cubism-5.1.01-project-workspace.json",
+        "${record:cubism-5.1.01-project-workspace.json:sha256}",
+        "${record:cubism-5.1.01-project-workspace.json:verificationId}",
+        "${record:cubism-5.1.01-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.1.01-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_1_02 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.1.02-project-workspace.json:cubismVersion}",
+        "cubism-5.1.02-project-workspace.json",
+        "${record:cubism-5.1.02-project-workspace.json:sha256}",
+        "${record:cubism-5.1.02-project-workspace.json:verificationId}",
+        "${record:cubism-5.1.02-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.1.02-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_1_03 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.1.03-project-workspace.json:cubismVersion}",
+        "cubism-5.1.03-project-workspace.json",
+        "${record:cubism-5.1.03-project-workspace.json:sha256}",
+        "${record:cubism-5.1.03-project-workspace.json:verificationId}",
+        "${record:cubism-5.1.03-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.1.03-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_2_00 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.2.00-project-workspace.json:cubismVersion}",
+        "cubism-5.2.00-project-workspace.json",
+        "${record:cubism-5.2.00-project-workspace.json:sha256}",
+        "${record:cubism-5.2.00-project-workspace.json:verificationId}",
+        "${record:cubism-5.2.00-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.2.00-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_2_01 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.2.01-project-workspace.json:cubismVersion}",
+        "cubism-5.2.01-project-workspace.json",
+        "${record:cubism-5.2.01-project-workspace.json:sha256}",
+        "${record:cubism-5.2.01-project-workspace.json:verificationId}",
+        "${record:cubism-5.2.01-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.2.01-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_2_02 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.2.02-project-workspace.json:cubismVersion}",
+        "cubism-5.2.02-project-workspace.json",
+        "${record:cubism-5.2.02-project-workspace.json:sha256}",
+        "${record:cubism-5.2.02-project-workspace.json:verificationId}",
+        "${record:cubism-5.2.02-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.2.02-project-workspace.json:profileId}"
+    );
     private static final Candidate C_PROJECT_WORKSPACE_5_2_03 = new Candidate(
         "project-workspace",
         "${record:cubism-5.2.03-project-workspace.json:cubismVersion}",
@@ -188,6 +863,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-project-workspace.json:verificationId}",
         "${record:cubism-5.2.03-project-workspace.json:adapterSliceId}",
         "${record:cubism-5.2.03-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_3_00 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.3.00-project-workspace.json:cubismVersion}",
+        "cubism-5.3.00-project-workspace.json",
+        "${record:cubism-5.3.00-project-workspace.json:sha256}",
+        "${record:cubism-5.3.00-project-workspace.json:verificationId}",
+        "${record:cubism-5.3.00-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.3.00-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_PROJECT_WORKSPACE_5_3_01 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.3.01-project-workspace.json:cubismVersion}",
+        "cubism-5.3.01-project-workspace.json",
+        "${record:cubism-5.3.01-project-workspace.json:sha256}",
+        "${record:cubism-5.3.01-project-workspace.json:verificationId}",
+        "${record:cubism-5.3.01-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.3.01-project-workspace.json:profileId}"
     );
     private static final Candidate C_PROJECT_WORKSPACE_5_3_02 = new Candidate(
         "project-workspace",
@@ -207,6 +900,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-project-workspace.json:adapterSliceId}",
         "${record:cubism-5.3.03-project-workspace.json:profileId}"
     );
+    private static final Candidate C_PROJECT_WORKSPACE_5_3_04 = new Candidate(
+        "project-workspace",
+        "${record:cubism-5.3.04-project-workspace.json:cubismVersion}",
+        "cubism-5.3.04-project-workspace.json",
+        "${record:cubism-5.3.04-project-workspace.json:sha256}",
+        "${record:cubism-5.3.04-project-workspace.json:verificationId}",
+        "${record:cubism-5.3.04-project-workspace.json:adapterSliceId}",
+        "${record:cubism-5.3.04-project-workspace.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_00 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.00-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.00-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.00-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.00-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.00-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.00-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_01 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.01-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.01-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.01-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.01-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.01-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.01-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_02 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.02-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.02-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.02-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.02-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.02-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.02-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_03 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.03-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.03-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.03-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.03-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.03-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.03-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_04 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.04-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.04-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.04-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.04-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.04-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.04-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_05 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.05-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.05-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.05-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.05-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.05-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.05-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_0_06 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.0.06-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.0.06-ui-bounding-box-overlay.json",
+        "${record:cubism-5.0.06-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.0.06-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.0.06-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.0.06-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_1_00 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.1.00-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.1.00-ui-bounding-box-overlay.json",
+        "${record:cubism-5.1.00-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.1.00-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.1.00-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.1.00-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_1_01 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.1.01-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.1.01-ui-bounding-box-overlay.json",
+        "${record:cubism-5.1.01-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.1.01-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.1.01-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.1.01-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_1_02 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.1.02-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.1.02-ui-bounding-box-overlay.json",
+        "${record:cubism-5.1.02-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.1.02-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.1.02-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.1.02-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_1_03 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.1.03-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.1.03-ui-bounding-box-overlay.json",
+        "${record:cubism-5.1.03-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.1.03-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.1.03-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.1.03-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_2_00 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.2.00-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.2.00-ui-bounding-box-overlay.json",
+        "${record:cubism-5.2.00-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.2.00-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.2.00-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_2_01 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.2.01-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.2.01-ui-bounding-box-overlay.json",
+        "${record:cubism-5.2.01-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.2.01-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.2.01-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_2_02 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.2.02-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.2.02-ui-bounding-box-overlay.json",
+        "${record:cubism-5.2.02-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.2.02-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.2.02-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-bounding-box-overlay.json:profileId}"
+    );
     private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_2_03 = new Candidate(
         "ui-bounding-box-overlay",
         "${record:cubism-5.2.03-ui-bounding-box-overlay.json:cubismVersion}",
@@ -215,6 +1043,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-bounding-box-overlay.json:verificationId}",
         "${record:cubism-5.2.03-ui-bounding-box-overlay.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_3_00 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.3.00-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.3.00-ui-bounding-box-overlay.json",
+        "${record:cubism-5.3.00-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.3.00-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.3.00-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_3_01 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.3.01-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.3.01-ui-bounding-box-overlay.json",
+        "${record:cubism-5.3.01-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.3.01-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.3.01-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-bounding-box-overlay.json:profileId}"
     );
     private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_3_02 = new Candidate(
         "ui-bounding-box-overlay",
@@ -234,6 +1080,42 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-bounding-box-overlay.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-bounding-box-overlay.json:profileId}"
     );
+    private static final Candidate C_UI_BOUNDING_BOX_OVERLAY_5_3_04 = new Candidate(
+        "ui-bounding-box-overlay",
+        "${record:cubism-5.3.04-ui-bounding-box-overlay.json:cubismVersion}",
+        "cubism-5.3.04-ui-bounding-box-overlay.json",
+        "${record:cubism-5.3.04-ui-bounding-box-overlay.json:sha256}",
+        "${record:cubism-5.3.04-ui-bounding-box-overlay.json:verificationId}",
+        "${record:cubism-5.3.04-ui-bounding-box-overlay.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-bounding-box-overlay.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_2_00 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.2.00-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.2.00-ui-control-appearance.json",
+        "${record:cubism-5.2.00-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.2.00-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.2.00-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_2_01 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.2.01-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.2.01-ui-control-appearance.json",
+        "${record:cubism-5.2.01-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.2.01-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.2.01-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_2_02 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.2.02-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.2.02-ui-control-appearance.json",
+        "${record:cubism-5.2.02-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.2.02-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.2.02-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-control-appearance.json:profileId}"
+    );
     private static final Candidate C_UI_CONTROL_APPEARANCE_5_2_03 = new Candidate(
         "ui-control-appearance",
         "${record:cubism-5.2.03-ui-control-appearance.json:cubismVersion}",
@@ -242,6 +1124,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-control-appearance.json:verificationId}",
         "${record:cubism-5.2.03-ui-control-appearance.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_3_00 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.3.00-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.3.00-ui-control-appearance.json",
+        "${record:cubism-5.3.00-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.3.00-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.3.00-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_3_01 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.3.01-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.3.01-ui-control-appearance.json",
+        "${record:cubism-5.3.01-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.3.01-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.3.01-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-control-appearance.json:profileId}"
     );
     private static final Candidate C_UI_CONTROL_APPEARANCE_5_3_02 = new Candidate(
         "ui-control-appearance",
@@ -261,6 +1161,78 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-control-appearance.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-control-appearance.json:profileId}"
     );
+    private static final Candidate C_UI_CONTROL_APPEARANCE_5_3_04 = new Candidate(
+        "ui-control-appearance",
+        "${record:cubism-5.3.04-ui-control-appearance.json:cubismVersion}",
+        "cubism-5.3.04-ui-control-appearance.json",
+        "${record:cubism-5.3.04-ui-control-appearance.json:sha256}",
+        "${record:cubism-5.3.04-ui-control-appearance.json:verificationId}",
+        "${record:cubism-5.3.04-ui-control-appearance.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-control-appearance.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_1_00 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.1.00-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.1.00-ui-embedded-panel.json",
+        "${record:cubism-5.1.00-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.1.00-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.1.00-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.1.00-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_1_01 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.1.01-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.1.01-ui-embedded-panel.json",
+        "${record:cubism-5.1.01-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.1.01-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.1.01-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.1.01-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_1_02 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.1.02-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.1.02-ui-embedded-panel.json",
+        "${record:cubism-5.1.02-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.1.02-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.1.02-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.1.02-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_1_03 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.1.03-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.1.03-ui-embedded-panel.json",
+        "${record:cubism-5.1.03-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.1.03-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.1.03-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.1.03-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_2_00 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.2.00-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.2.00-ui-embedded-panel.json",
+        "${record:cubism-5.2.00-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.2.00-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.2.00-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_2_01 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.2.01-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.2.01-ui-embedded-panel.json",
+        "${record:cubism-5.2.01-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.2.01-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.2.01-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_2_02 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.2.02-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.2.02-ui-embedded-panel.json",
+        "${record:cubism-5.2.02-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.2.02-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.2.02-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-embedded-panel.json:profileId}"
+    );
     private static final Candidate C_UI_EMBEDDED_PANEL_5_2_03 = new Candidate(
         "ui-embedded-panel",
         "${record:cubism-5.2.03-ui-embedded-panel.json:cubismVersion}",
@@ -269,6 +1241,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-embedded-panel.json:verificationId}",
         "${record:cubism-5.2.03-ui-embedded-panel.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_3_00 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.3.00-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.3.00-ui-embedded-panel.json",
+        "${record:cubism-5.3.00-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.3.00-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.3.00-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_3_01 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.3.01-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.3.01-ui-embedded-panel.json",
+        "${record:cubism-5.3.01-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.3.01-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.3.01-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-embedded-panel.json:profileId}"
     );
     private static final Candidate C_UI_EMBEDDED_PANEL_5_3_02 = new Candidate(
         "ui-embedded-panel",
@@ -288,6 +1278,42 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-embedded-panel.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-embedded-panel.json:profileId}"
     );
+    private static final Candidate C_UI_EMBEDDED_PANEL_5_3_04 = new Candidate(
+        "ui-embedded-panel",
+        "${record:cubism-5.3.04-ui-embedded-panel.json:cubismVersion}",
+        "cubism-5.3.04-ui-embedded-panel.json",
+        "${record:cubism-5.3.04-ui-embedded-panel.json:sha256}",
+        "${record:cubism-5.3.04-ui-embedded-panel.json:verificationId}",
+        "${record:cubism-5.3.04-ui-embedded-panel.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-embedded-panel.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_2_00 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.2.00-ui-main-toolbar.json",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_2_01 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.2.01-ui-main-toolbar.json",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_2_02 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.2.02-ui-main-toolbar.json",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-main-toolbar.json:profileId}"
+    );
     private static final Candidate C_UI_MAIN_TOOLBAR_5_2_03 = new Candidate(
         "ui-main-toolbar",
         "${record:cubism-5.2.03-ui-main-toolbar.json:cubismVersion}",
@@ -296,6 +1322,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-main-toolbar.json:verificationId}",
         "${record:cubism-5.2.03-ui-main-toolbar.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_3_00 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.3.00-ui-main-toolbar.json",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_3_01 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.3.01-ui-main-toolbar.json",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-main-toolbar.json:profileId}"
     );
     private static final Candidate C_UI_MAIN_TOOLBAR_5_3_02 = new Candidate(
         "ui-main-toolbar",
@@ -315,6 +1359,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-main-toolbar.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-main-toolbar.json:profileId}"
     );
+    private static final Candidate C_UI_MAIN_TOOLBAR_5_3_04 = new Candidate(
+        "ui-main-toolbar",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:cubismVersion}",
+        "cubism-5.3.04-ui-main-toolbar.json",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:sha256}",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:verificationId}",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-main-toolbar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_00 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.00-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.00-ui-status-bar.json",
+        "${record:cubism-5.0.00-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.00-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.00-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.00-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_01 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.01-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.01-ui-status-bar.json",
+        "${record:cubism-5.0.01-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.01-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.01-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.01-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_02 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.02-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.02-ui-status-bar.json",
+        "${record:cubism-5.0.02-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.02-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.02-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.02-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_03 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.03-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.03-ui-status-bar.json",
+        "${record:cubism-5.0.03-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.03-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.03-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.03-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_04 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.04-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.04-ui-status-bar.json",
+        "${record:cubism-5.0.04-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.04-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.04-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.04-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_05 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.05-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.05-ui-status-bar.json",
+        "${record:cubism-5.0.05-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.05-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.05-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.05-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_0_06 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.0.06-ui-status-bar.json:cubismVersion}",
+        "cubism-5.0.06-ui-status-bar.json",
+        "${record:cubism-5.0.06-ui-status-bar.json:sha256}",
+        "${record:cubism-5.0.06-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.0.06-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.0.06-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_1_00 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.1.00-ui-status-bar.json:cubismVersion}",
+        "cubism-5.1.00-ui-status-bar.json",
+        "${record:cubism-5.1.00-ui-status-bar.json:sha256}",
+        "${record:cubism-5.1.00-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.1.00-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.1.00-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_1_01 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.1.01-ui-status-bar.json:cubismVersion}",
+        "cubism-5.1.01-ui-status-bar.json",
+        "${record:cubism-5.1.01-ui-status-bar.json:sha256}",
+        "${record:cubism-5.1.01-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.1.01-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.1.01-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_1_02 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.1.02-ui-status-bar.json:cubismVersion}",
+        "cubism-5.1.02-ui-status-bar.json",
+        "${record:cubism-5.1.02-ui-status-bar.json:sha256}",
+        "${record:cubism-5.1.02-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.1.02-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.1.02-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_1_03 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.1.03-ui-status-bar.json:cubismVersion}",
+        "cubism-5.1.03-ui-status-bar.json",
+        "${record:cubism-5.1.03-ui-status-bar.json:sha256}",
+        "${record:cubism-5.1.03-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.1.03-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.1.03-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_2_00 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.2.00-ui-status-bar.json:cubismVersion}",
+        "cubism-5.2.00-ui-status-bar.json",
+        "${record:cubism-5.2.00-ui-status-bar.json:sha256}",
+        "${record:cubism-5.2.00-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.2.00-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_2_01 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.2.01-ui-status-bar.json:cubismVersion}",
+        "cubism-5.2.01-ui-status-bar.json",
+        "${record:cubism-5.2.01-ui-status-bar.json:sha256}",
+        "${record:cubism-5.2.01-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.2.01-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_2_02 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.2.02-ui-status-bar.json:cubismVersion}",
+        "cubism-5.2.02-ui-status-bar.json",
+        "${record:cubism-5.2.02-ui-status-bar.json:sha256}",
+        "${record:cubism-5.2.02-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.2.02-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-status-bar.json:profileId}"
+    );
     private static final Candidate C_UI_STATUS_BAR_5_2_03 = new Candidate(
         "ui-status-bar",
         "${record:cubism-5.2.03-ui-status-bar.json:cubismVersion}",
@@ -323,6 +1502,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-status-bar.json:verificationId}",
         "${record:cubism-5.2.03-ui-status-bar.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_3_00 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.3.00-ui-status-bar.json:cubismVersion}",
+        "cubism-5.3.00-ui-status-bar.json",
+        "${record:cubism-5.3.00-ui-status-bar.json:sha256}",
+        "${record:cubism-5.3.00-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.3.00-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_STATUS_BAR_5_3_01 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.3.01-ui-status-bar.json:cubismVersion}",
+        "cubism-5.3.01-ui-status-bar.json",
+        "${record:cubism-5.3.01-ui-status-bar.json:sha256}",
+        "${record:cubism-5.3.01-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.3.01-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-status-bar.json:profileId}"
     );
     private static final Candidate C_UI_STATUS_BAR_5_3_02 = new Candidate(
         "ui-status-bar",
@@ -342,6 +1539,78 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-status-bar.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-status-bar.json:profileId}"
     );
+    private static final Candidate C_UI_STATUS_BAR_5_3_04 = new Candidate(
+        "ui-status-bar",
+        "${record:cubism-5.3.04-ui-status-bar.json:cubismVersion}",
+        "cubism-5.3.04-ui-status-bar.json",
+        "${record:cubism-5.3.04-ui-status-bar.json:sha256}",
+        "${record:cubism-5.3.04-ui-status-bar.json:verificationId}",
+        "${record:cubism-5.3.04-ui-status-bar.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-status-bar.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_1_00 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.1.00-ui-top-menu.json:cubismVersion}",
+        "cubism-5.1.00-ui-top-menu.json",
+        "${record:cubism-5.1.00-ui-top-menu.json:sha256}",
+        "${record:cubism-5.1.00-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.1.00-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.1.00-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_1_01 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.1.01-ui-top-menu.json:cubismVersion}",
+        "cubism-5.1.01-ui-top-menu.json",
+        "${record:cubism-5.1.01-ui-top-menu.json:sha256}",
+        "${record:cubism-5.1.01-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.1.01-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.1.01-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_1_02 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.1.02-ui-top-menu.json:cubismVersion}",
+        "cubism-5.1.02-ui-top-menu.json",
+        "${record:cubism-5.1.02-ui-top-menu.json:sha256}",
+        "${record:cubism-5.1.02-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.1.02-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.1.02-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_1_03 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.1.03-ui-top-menu.json:cubismVersion}",
+        "cubism-5.1.03-ui-top-menu.json",
+        "${record:cubism-5.1.03-ui-top-menu.json:sha256}",
+        "${record:cubism-5.1.03-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.1.03-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.1.03-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_2_00 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.2.00-ui-top-menu.json:cubismVersion}",
+        "cubism-5.2.00-ui-top-menu.json",
+        "${record:cubism-5.2.00-ui-top-menu.json:sha256}",
+        "${record:cubism-5.2.00-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.2.00-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.2.00-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_2_01 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.2.01-ui-top-menu.json:cubismVersion}",
+        "cubism-5.2.01-ui-top-menu.json",
+        "${record:cubism-5.2.01-ui-top-menu.json:sha256}",
+        "${record:cubism-5.2.01-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.2.01-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.2.01-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_2_02 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.2.02-ui-top-menu.json:cubismVersion}",
+        "cubism-5.2.02-ui-top-menu.json",
+        "${record:cubism-5.2.02-ui-top-menu.json:sha256}",
+        "${record:cubism-5.2.02-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.2.02-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.2.02-ui-top-menu.json:profileId}"
+    );
     private static final Candidate C_UI_TOP_MENU_5_2_03 = new Candidate(
         "ui-top-menu",
         "${record:cubism-5.2.03-ui-top-menu.json:cubismVersion}",
@@ -350,6 +1619,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-ui-top-menu.json:verificationId}",
         "${record:cubism-5.2.03-ui-top-menu.json:adapterSliceId}",
         "${record:cubism-5.2.03-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_3_00 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.3.00-ui-top-menu.json:cubismVersion}",
+        "cubism-5.3.00-ui-top-menu.json",
+        "${record:cubism-5.3.00-ui-top-menu.json:sha256}",
+        "${record:cubism-5.3.00-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.3.00-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.3.00-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_UI_TOP_MENU_5_3_01 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.3.01-ui-top-menu.json:cubismVersion}",
+        "cubism-5.3.01-ui-top-menu.json",
+        "${record:cubism-5.3.01-ui-top-menu.json:sha256}",
+        "${record:cubism-5.3.01-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.3.01-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.3.01-ui-top-menu.json:profileId}"
     );
     private static final Candidate C_UI_TOP_MENU_5_3_02 = new Candidate(
         "ui-top-menu",
@@ -369,6 +1656,141 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-ui-top-menu.json:adapterSliceId}",
         "${record:cubism-5.3.03-ui-top-menu.json:profileId}"
     );
+    private static final Candidate C_UI_TOP_MENU_5_3_04 = new Candidate(
+        "ui-top-menu",
+        "${record:cubism-5.3.04-ui-top-menu.json:cubismVersion}",
+        "cubism-5.3.04-ui-top-menu.json",
+        "${record:cubism-5.3.04-ui-top-menu.json:sha256}",
+        "${record:cubism-5.3.04-ui-top-menu.json:verificationId}",
+        "${record:cubism-5.3.04-ui-top-menu.json:adapterSliceId}",
+        "${record:cubism-5.3.04-ui-top-menu.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_00 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.00-workspace-control.json:cubismVersion}",
+        "cubism-5.0.00-workspace-control.json",
+        "${record:cubism-5.0.00-workspace-control.json:sha256}",
+        "${record:cubism-5.0.00-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.00-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.00-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_01 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.01-workspace-control.json:cubismVersion}",
+        "cubism-5.0.01-workspace-control.json",
+        "${record:cubism-5.0.01-workspace-control.json:sha256}",
+        "${record:cubism-5.0.01-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.01-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.01-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_02 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.02-workspace-control.json:cubismVersion}",
+        "cubism-5.0.02-workspace-control.json",
+        "${record:cubism-5.0.02-workspace-control.json:sha256}",
+        "${record:cubism-5.0.02-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.02-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.02-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_03 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.03-workspace-control.json:cubismVersion}",
+        "cubism-5.0.03-workspace-control.json",
+        "${record:cubism-5.0.03-workspace-control.json:sha256}",
+        "${record:cubism-5.0.03-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.03-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.03-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_04 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.04-workspace-control.json:cubismVersion}",
+        "cubism-5.0.04-workspace-control.json",
+        "${record:cubism-5.0.04-workspace-control.json:sha256}",
+        "${record:cubism-5.0.04-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.04-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.04-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_05 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.05-workspace-control.json:cubismVersion}",
+        "cubism-5.0.05-workspace-control.json",
+        "${record:cubism-5.0.05-workspace-control.json:sha256}",
+        "${record:cubism-5.0.05-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.05-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.05-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_0_06 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.0.06-workspace-control.json:cubismVersion}",
+        "cubism-5.0.06-workspace-control.json",
+        "${record:cubism-5.0.06-workspace-control.json:sha256}",
+        "${record:cubism-5.0.06-workspace-control.json:verificationId}",
+        "${record:cubism-5.0.06-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.0.06-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_1_00 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.1.00-workspace-control.json:cubismVersion}",
+        "cubism-5.1.00-workspace-control.json",
+        "${record:cubism-5.1.00-workspace-control.json:sha256}",
+        "${record:cubism-5.1.00-workspace-control.json:verificationId}",
+        "${record:cubism-5.1.00-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.1.00-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_1_01 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.1.01-workspace-control.json:cubismVersion}",
+        "cubism-5.1.01-workspace-control.json",
+        "${record:cubism-5.1.01-workspace-control.json:sha256}",
+        "${record:cubism-5.1.01-workspace-control.json:verificationId}",
+        "${record:cubism-5.1.01-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.1.01-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_1_02 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.1.02-workspace-control.json:cubismVersion}",
+        "cubism-5.1.02-workspace-control.json",
+        "${record:cubism-5.1.02-workspace-control.json:sha256}",
+        "${record:cubism-5.1.02-workspace-control.json:verificationId}",
+        "${record:cubism-5.1.02-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.1.02-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_1_03 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.1.03-workspace-control.json:cubismVersion}",
+        "cubism-5.1.03-workspace-control.json",
+        "${record:cubism-5.1.03-workspace-control.json:sha256}",
+        "${record:cubism-5.1.03-workspace-control.json:verificationId}",
+        "${record:cubism-5.1.03-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.1.03-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_2_00 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.2.00-workspace-control.json:cubismVersion}",
+        "cubism-5.2.00-workspace-control.json",
+        "${record:cubism-5.2.00-workspace-control.json:sha256}",
+        "${record:cubism-5.2.00-workspace-control.json:verificationId}",
+        "${record:cubism-5.2.00-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.2.00-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_2_01 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.2.01-workspace-control.json:cubismVersion}",
+        "cubism-5.2.01-workspace-control.json",
+        "${record:cubism-5.2.01-workspace-control.json:sha256}",
+        "${record:cubism-5.2.01-workspace-control.json:verificationId}",
+        "${record:cubism-5.2.01-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.2.01-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_2_02 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.2.02-workspace-control.json:cubismVersion}",
+        "cubism-5.2.02-workspace-control.json",
+        "${record:cubism-5.2.02-workspace-control.json:sha256}",
+        "${record:cubism-5.2.02-workspace-control.json:verificationId}",
+        "${record:cubism-5.2.02-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.2.02-workspace-control.json:profileId}"
+    );
     private static final Candidate C_WORKSPACE_CONTROL_5_2_03 = new Candidate(
         "workspace-control",
         "${record:cubism-5.2.03-workspace-control.json:cubismVersion}",
@@ -377,6 +1799,24 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.2.03-workspace-control.json:verificationId}",
         "${record:cubism-5.2.03-workspace-control.json:adapterSliceId}",
         "${record:cubism-5.2.03-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_3_00 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.3.00-workspace-control.json:cubismVersion}",
+        "cubism-5.3.00-workspace-control.json",
+        "${record:cubism-5.3.00-workspace-control.json:sha256}",
+        "${record:cubism-5.3.00-workspace-control.json:verificationId}",
+        "${record:cubism-5.3.00-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.3.00-workspace-control.json:profileId}"
+    );
+    private static final Candidate C_WORKSPACE_CONTROL_5_3_01 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.3.01-workspace-control.json:cubismVersion}",
+        "cubism-5.3.01-workspace-control.json",
+        "${record:cubism-5.3.01-workspace-control.json:sha256}",
+        "${record:cubism-5.3.01-workspace-control.json:verificationId}",
+        "${record:cubism-5.3.01-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.3.01-workspace-control.json:profileId}"
     );
     private static final Candidate C_WORKSPACE_CONTROL_5_3_02 = new Candidate(
         "workspace-control",
@@ -396,70 +1836,252 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.03-workspace-control.json:adapterSliceId}",
         "${record:cubism-5.3.03-workspace-control.json:profileId}"
     );
+    private static final Candidate C_WORKSPACE_CONTROL_5_3_04 = new Candidate(
+        "workspace-control",
+        "${record:cubism-5.3.04-workspace-control.json:cubismVersion}",
+        "cubism-5.3.04-workspace-control.json",
+        "${record:cubism-5.3.04-workspace-control.json:sha256}",
+        "${record:cubism-5.3.04-workspace-control.json:verificationId}",
+        "${record:cubism-5.3.04-workspace-control.json:adapterSliceId}",
+        "${record:cubism-5.3.04-workspace-control.json:profileId}"
+    );
 
     private static final Candidate[] CANDIDATES_AUTOBACKUP = {
+        C_AUTOBACKUP_5_1_00,
+        C_AUTOBACKUP_5_1_01,
+        C_AUTOBACKUP_5_1_02,
+        C_AUTOBACKUP_5_1_03,
+        C_AUTOBACKUP_5_2_00,
+        C_AUTOBACKUP_5_2_01,
+        C_AUTOBACKUP_5_2_02,
         C_AUTOBACKUP_5_2_03,
+        C_AUTOBACKUP_5_3_00,
+        C_AUTOBACKUP_5_3_01,
         C_AUTOBACKUP_5_3_02,
-        C_AUTOBACKUP_5_3_03
+        C_AUTOBACKUP_5_3_03,
+        C_AUTOBACKUP_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_CLIPMASK = {
+        C_CLIPMASK_5_0_00,
+        C_CLIPMASK_5_0_01,
+        C_CLIPMASK_5_0_02,
+        C_CLIPMASK_5_0_03,
+        C_CLIPMASK_5_0_04,
+        C_CLIPMASK_5_0_05,
+        C_CLIPMASK_5_0_06,
+        C_CLIPMASK_5_1_00,
+        C_CLIPMASK_5_1_01,
+        C_CLIPMASK_5_1_02,
+        C_CLIPMASK_5_1_03,
+        C_CLIPMASK_5_2_00,
+        C_CLIPMASK_5_2_01,
+        C_CLIPMASK_5_2_02,
         C_CLIPMASK_5_2_03,
+        C_CLIPMASK_5_3_00,
+        C_CLIPMASK_5_3_01,
         C_CLIPMASK_5_3_02,
-        C_CLIPMASK_5_3_03
+        C_CLIPMASK_5_3_03,
+        C_CLIPMASK_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_CORE_MODEL_READ = {
         C_CORE_MODEL_READ_5_2_03,
         C_CORE_MODEL_READ_5_3_02
     };
+
     private static final Candidate[] CANDIDATES_EDITOR_MODEL = {
+        C_EDITOR_MODEL_5_0_00,
+        C_EDITOR_MODEL_5_0_01,
+        C_EDITOR_MODEL_5_0_02,
+        C_EDITOR_MODEL_5_0_03,
+        C_EDITOR_MODEL_5_0_04,
+        C_EDITOR_MODEL_5_0_05,
+        C_EDITOR_MODEL_5_0_06,
+        C_EDITOR_MODEL_5_1_00,
+        C_EDITOR_MODEL_5_1_01,
+        C_EDITOR_MODEL_5_1_02,
+        C_EDITOR_MODEL_5_1_03,
+        C_EDITOR_MODEL_5_2_00,
+        C_EDITOR_MODEL_5_2_01,
+        C_EDITOR_MODEL_5_2_02,
         C_EDITOR_MODEL_5_2_03,
+        C_EDITOR_MODEL_5_3_00,
+        C_EDITOR_MODEL_5_3_01,
         C_EDITOR_MODEL_5_3_02,
-        C_EDITOR_MODEL_5_3_03
+        C_EDITOR_MODEL_5_3_03,
+        C_EDITOR_MODEL_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_PERFORMANCE_RENDER_SCENE = {
+        C_PERFORMANCE_RENDER_SCENE_5_0_00,
+        C_PERFORMANCE_RENDER_SCENE_5_0_01,
+        C_PERFORMANCE_RENDER_SCENE_5_0_02,
+        C_PERFORMANCE_RENDER_SCENE_5_0_03,
+        C_PERFORMANCE_RENDER_SCENE_5_0_04,
+        C_PERFORMANCE_RENDER_SCENE_5_0_05,
+        C_PERFORMANCE_RENDER_SCENE_5_0_06,
+        C_PERFORMANCE_RENDER_SCENE_5_1_00,
+        C_PERFORMANCE_RENDER_SCENE_5_1_01,
+        C_PERFORMANCE_RENDER_SCENE_5_1_02,
+        C_PERFORMANCE_RENDER_SCENE_5_1_03,
+        C_PERFORMANCE_RENDER_SCENE_5_2_00,
+        C_PERFORMANCE_RENDER_SCENE_5_2_01,
+        C_PERFORMANCE_RENDER_SCENE_5_2_02,
         C_PERFORMANCE_RENDER_SCENE_5_2_03,
+        C_PERFORMANCE_RENDER_SCENE_5_3_00,
+        C_PERFORMANCE_RENDER_SCENE_5_3_01,
         C_PERFORMANCE_RENDER_SCENE_5_3_02,
-        C_PERFORMANCE_RENDER_SCENE_5_3_03
+        C_PERFORMANCE_RENDER_SCENE_5_3_03,
+        C_PERFORMANCE_RENDER_SCENE_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_PROJECT_WORKSPACE = {
+        C_PROJECT_WORKSPACE_5_0_00,
+        C_PROJECT_WORKSPACE_5_0_01,
+        C_PROJECT_WORKSPACE_5_0_02,
+        C_PROJECT_WORKSPACE_5_0_03,
+        C_PROJECT_WORKSPACE_5_0_04,
+        C_PROJECT_WORKSPACE_5_0_05,
+        C_PROJECT_WORKSPACE_5_0_06,
+        C_PROJECT_WORKSPACE_5_1_00,
+        C_PROJECT_WORKSPACE_5_1_01,
+        C_PROJECT_WORKSPACE_5_1_02,
+        C_PROJECT_WORKSPACE_5_1_03,
+        C_PROJECT_WORKSPACE_5_2_00,
+        C_PROJECT_WORKSPACE_5_2_01,
+        C_PROJECT_WORKSPACE_5_2_02,
         C_PROJECT_WORKSPACE_5_2_03,
+        C_PROJECT_WORKSPACE_5_3_00,
+        C_PROJECT_WORKSPACE_5_3_01,
         C_PROJECT_WORKSPACE_5_3_02,
-        C_PROJECT_WORKSPACE_5_3_03
+        C_PROJECT_WORKSPACE_5_3_03,
+        C_PROJECT_WORKSPACE_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_BOUNDING_BOX_OVERLAY = {
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_00,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_01,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_02,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_03,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_04,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_05,
+        C_UI_BOUNDING_BOX_OVERLAY_5_0_06,
+        C_UI_BOUNDING_BOX_OVERLAY_5_1_00,
+        C_UI_BOUNDING_BOX_OVERLAY_5_1_01,
+        C_UI_BOUNDING_BOX_OVERLAY_5_1_02,
+        C_UI_BOUNDING_BOX_OVERLAY_5_1_03,
+        C_UI_BOUNDING_BOX_OVERLAY_5_2_00,
+        C_UI_BOUNDING_BOX_OVERLAY_5_2_01,
+        C_UI_BOUNDING_BOX_OVERLAY_5_2_02,
         C_UI_BOUNDING_BOX_OVERLAY_5_2_03,
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_00,
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_01,
         C_UI_BOUNDING_BOX_OVERLAY_5_3_02,
-        C_UI_BOUNDING_BOX_OVERLAY_5_3_03
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_03,
+        C_UI_BOUNDING_BOX_OVERLAY_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_CONTROL_APPEARANCE = {
+        C_UI_CONTROL_APPEARANCE_5_2_00,
+        C_UI_CONTROL_APPEARANCE_5_2_01,
+        C_UI_CONTROL_APPEARANCE_5_2_02,
         C_UI_CONTROL_APPEARANCE_5_2_03,
+        C_UI_CONTROL_APPEARANCE_5_3_00,
+        C_UI_CONTROL_APPEARANCE_5_3_01,
         C_UI_CONTROL_APPEARANCE_5_3_02,
-        C_UI_CONTROL_APPEARANCE_5_3_03
+        C_UI_CONTROL_APPEARANCE_5_3_03,
+        C_UI_CONTROL_APPEARANCE_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_EMBEDDED_PANEL = {
+        C_UI_EMBEDDED_PANEL_5_1_00,
+        C_UI_EMBEDDED_PANEL_5_1_01,
+        C_UI_EMBEDDED_PANEL_5_1_02,
+        C_UI_EMBEDDED_PANEL_5_1_03,
+        C_UI_EMBEDDED_PANEL_5_2_00,
+        C_UI_EMBEDDED_PANEL_5_2_01,
+        C_UI_EMBEDDED_PANEL_5_2_02,
         C_UI_EMBEDDED_PANEL_5_2_03,
+        C_UI_EMBEDDED_PANEL_5_3_00,
+        C_UI_EMBEDDED_PANEL_5_3_01,
         C_UI_EMBEDDED_PANEL_5_3_02,
-        C_UI_EMBEDDED_PANEL_5_3_03
+        C_UI_EMBEDDED_PANEL_5_3_03,
+        C_UI_EMBEDDED_PANEL_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_MAIN_TOOLBAR = {
+        C_UI_MAIN_TOOLBAR_5_2_00,
+        C_UI_MAIN_TOOLBAR_5_2_01,
+        C_UI_MAIN_TOOLBAR_5_2_02,
         C_UI_MAIN_TOOLBAR_5_2_03,
+        C_UI_MAIN_TOOLBAR_5_3_00,
+        C_UI_MAIN_TOOLBAR_5_3_01,
         C_UI_MAIN_TOOLBAR_5_3_02,
-        C_UI_MAIN_TOOLBAR_5_3_03
+        C_UI_MAIN_TOOLBAR_5_3_03,
+        C_UI_MAIN_TOOLBAR_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_STATUS_BAR = {
+        C_UI_STATUS_BAR_5_0_00,
+        C_UI_STATUS_BAR_5_0_01,
+        C_UI_STATUS_BAR_5_0_02,
+        C_UI_STATUS_BAR_5_0_03,
+        C_UI_STATUS_BAR_5_0_04,
+        C_UI_STATUS_BAR_5_0_05,
+        C_UI_STATUS_BAR_5_0_06,
+        C_UI_STATUS_BAR_5_1_00,
+        C_UI_STATUS_BAR_5_1_01,
+        C_UI_STATUS_BAR_5_1_02,
+        C_UI_STATUS_BAR_5_1_03,
+        C_UI_STATUS_BAR_5_2_00,
+        C_UI_STATUS_BAR_5_2_01,
+        C_UI_STATUS_BAR_5_2_02,
         C_UI_STATUS_BAR_5_2_03,
+        C_UI_STATUS_BAR_5_3_00,
+        C_UI_STATUS_BAR_5_3_01,
         C_UI_STATUS_BAR_5_3_02,
-        C_UI_STATUS_BAR_5_3_03
+        C_UI_STATUS_BAR_5_3_03,
+        C_UI_STATUS_BAR_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_UI_TOP_MENU = {
+        C_UI_TOP_MENU_5_1_00,
+        C_UI_TOP_MENU_5_1_01,
+        C_UI_TOP_MENU_5_1_02,
+        C_UI_TOP_MENU_5_1_03,
+        C_UI_TOP_MENU_5_2_00,
+        C_UI_TOP_MENU_5_2_01,
+        C_UI_TOP_MENU_5_2_02,
         C_UI_TOP_MENU_5_2_03,
+        C_UI_TOP_MENU_5_3_00,
+        C_UI_TOP_MENU_5_3_01,
         C_UI_TOP_MENU_5_3_02,
-        C_UI_TOP_MENU_5_3_03
+        C_UI_TOP_MENU_5_3_03,
+        C_UI_TOP_MENU_5_3_04
     };
+
     private static final Candidate[] CANDIDATES_WORKSPACE_CONTROL = {
+        C_WORKSPACE_CONTROL_5_0_00,
+        C_WORKSPACE_CONTROL_5_0_01,
+        C_WORKSPACE_CONTROL_5_0_02,
+        C_WORKSPACE_CONTROL_5_0_03,
+        C_WORKSPACE_CONTROL_5_0_04,
+        C_WORKSPACE_CONTROL_5_0_05,
+        C_WORKSPACE_CONTROL_5_0_06,
+        C_WORKSPACE_CONTROL_5_1_00,
+        C_WORKSPACE_CONTROL_5_1_01,
+        C_WORKSPACE_CONTROL_5_1_02,
+        C_WORKSPACE_CONTROL_5_1_03,
+        C_WORKSPACE_CONTROL_5_2_00,
+        C_WORKSPACE_CONTROL_5_2_01,
+        C_WORKSPACE_CONTROL_5_2_02,
         C_WORKSPACE_CONTROL_5_2_03,
+        C_WORKSPACE_CONTROL_5_3_00,
+        C_WORKSPACE_CONTROL_5_3_01,
         C_WORKSPACE_CONTROL_5_3_02,
-        C_WORKSPACE_CONTROL_5_3_03
+        C_WORKSPACE_CONTROL_5_3_03,
+        C_WORKSPACE_CONTROL_5_3_04
     };
 
     private static final Map<String, Candidate[]> BY_SLICE = buildIndex();

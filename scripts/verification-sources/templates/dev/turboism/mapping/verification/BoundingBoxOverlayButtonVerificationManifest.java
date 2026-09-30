@@ -12,6 +12,25 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     private static final String RECORD_SHA_52 = "${record:cubism-5.2.03-ui-bounding-box-overlay.json:sha256}";
     private static final String RECORD_SHA_5302 = "${record:cubism-5.3.02-ui-bounding-box-overlay.json:sha256}";
     private static final String RECORD_SHA_5303 = "${record:cubism-5.3.03-ui-bounding-box-overlay.json:sha256}";
+    // <version-matrix:bb-sha>
+    private static final String RECORD_SHA_5000 = "${record:cubism-5.0.00-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5001 = "${record:cubism-5.0.01-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5002 = "${record:cubism-5.0.02-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5003 = "${record:cubism-5.0.03-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5004 = "${record:cubism-5.0.04-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5005 = "${record:cubism-5.0.05-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5006 = "${record:cubism-5.0.06-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5100 = "${record:cubism-5.1.00-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5101 = "${record:cubism-5.1.01-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5102 = "${record:cubism-5.1.02-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5103 = "${record:cubism-5.1.03-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5200 = "${record:cubism-5.2.00-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5201 = "${record:cubism-5.2.01-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5202 = "${record:cubism-5.2.02-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5300 = "${record:cubism-5.3.00-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5301 = "${record:cubism-5.3.01-ui-bounding-box-overlay.json:sha256}";
+    private static final String RECORD_SHA_5304 = "${record:cubism-5.3.04-ui-bounding-box-overlay.json:sha256}";
+    // </version-matrix:bb-sha>
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-bounding-box-overlay.bounding-box.update",
         "cubism.ui-bounding-box-overlay.bounding-box.setup-button",
@@ -48,6 +67,27 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
      */
     public static String recordSha256ForVersion(final String cubismVersion) {
         return switch (cubismVersion) {
+            // <version-matrix:bb-cases>
+            case "${record:cubism-5.0.00-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5000;
+            case "${record:cubism-5.0.01-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5001;
+            case "${record:cubism-5.0.02-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5002;
+            case "${record:cubism-5.0.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5003;
+            case "${record:cubism-5.0.04-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5004;
+            case "${record:cubism-5.0.05-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5005;
+            case "${record:cubism-5.0.06-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5006;
+            case "${record:cubism-5.1.00-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5100;
+            case "${record:cubism-5.1.01-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5101;
+            case "${record:cubism-5.1.02-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5102;
+            case "${record:cubism-5.1.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5103;
+            case "${record:cubism-5.2.00-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5200;
+            case "${record:cubism-5.2.01-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5201;
+            case "${record:cubism-5.2.02-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5202;
+            case "${record:cubism-5.3.00-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5300;
+            case "${record:cubism-5.3.01-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5301;
+            case "${record:cubism-5.3.04-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5304;
+            // </version-matrix:bb-cases>
+
+
             case "${record:cubism-5.2.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_52;
             case "${record:cubism-5.3.02-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5302;
             case "${record:cubism-5.3.03-ui-bounding-box-overlay.json:cubismVersion}" -> RECORD_SHA_5303;
@@ -83,6 +123,93 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
                 ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, artifact.size(), artifact.sha256()
             );
         }
+        // <version-matrix:bb-admission>
+        if (ReviewedHostArtifacts.CUBISM_5_0_00.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_00_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_01.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_01_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_02.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_02_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_03.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_03_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_04.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_04_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_05.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_05_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_0_06.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_0_06_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_00.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_1_00_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_01.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_1_01_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_02.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_1_02_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_1_03.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_1_03_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_00.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_2_00_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_01.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_2_01_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_02.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_2_02_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_00.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_3_00_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_01.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_3_01_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(artifact)) {
+            return new AdmissionEvidence(
+                ReviewedHostArtifacts.CUBISM_5_3_04_VERSION, artifact.size(), artifact.sha256()
+            );
+        }
+        // </version-matrix:bb-admission>
         throw new IllegalArgumentException("Unsupported Cubism artifact for overlay buttons");
     }
 
@@ -90,6 +217,25 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
         final AdmissionEvidence admission = admissionForArtifact(artifact);
         final String cubismVersion = admission.cubismVersion();
         final String verificationId = switch (cubismVersion) {
+            // <version-matrix:bb-vid>
+            case "${record:cubism-5.0.00-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.00-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.01-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.01-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.02-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.02-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.03-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.03-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.04-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.04-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.05-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.05-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.0.06-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.0.06-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.1.00-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.1.00-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.1.01-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.1.01-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.1.02-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.1.02-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.1.03-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.1.03-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.2.00-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.2.00-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.2.01-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.2.01-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.2.02-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.2.02-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.3.00-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.00-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.3.01-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.01-ui-bounding-box-overlay.json:verificationId}";
+            case "${record:cubism-5.3.04-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.04-ui-bounding-box-overlay.json:verificationId}";
+            // </version-matrix:bb-vid>
             case "${record:cubism-5.2.03-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.2.03-ui-bounding-box-overlay.json:verificationId}";
             case "${record:cubism-5.3.02-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.02-ui-bounding-box-overlay.json:verificationId}";
             case "${record:cubism-5.3.03-ui-bounding-box-overlay.json:cubismVersion}" -> "${record:cubism-5.3.03-ui-bounding-box-overlay.json:verificationId}";

@@ -1,16 +1,26 @@
 {
-  "format": "turboism.verification-source-family/v1",
-  "family": "ui-top-menu",
-  "records": [
-    "cubism-5.2.03-ui-top-menu.json",
-    "cubism-5.3.02-ui-top-menu.json",
-    "cubism-5.3.03-ui-top-menu.json"
-  ],
-  "files": [
-    "dev/turboism/mapping/verification/TopMenuVerificationManifest.java"
-  ],
-  "coverage": true,
-  "packs": [],
-  "extraLiterals": [],
-  "coverageSources": []
+ "format": "turboism.verification-source-family/v1",
+ "family": "ui-top-menu",
+ "records": [
+  "cubism-5.1.00-ui-top-menu.json",
+  "cubism-5.1.01-ui-top-menu.json",
+  "cubism-5.1.02-ui-top-menu.json",
+  "cubism-5.1.03-ui-top-menu.json",
+  "cubism-5.2.00-ui-top-menu.json",
+  "cubism-5.2.01-ui-top-menu.json",
+  "cubism-5.2.02-ui-top-menu.json",
+  "cubism-5.2.03-ui-top-menu.json",
+  "cubism-5.3.00-ui-top-menu.json",
+  "cubism-5.3.01-ui-top-menu.json",
+  "cubism-5.3.02-ui-top-menu.json",
+  "cubism-5.3.03-ui-top-menu.json",
+  "cubism-5.3.04-ui-top-menu.json"
+ ],
+ "files": [
+  "dev/turboism/mapping/verification/TopMenuVerificationManifest.java"
+ ],
+ "coverage": true,
+ "packs": [],
+ "extraLiterals": [],
+ "coverageSources": []
 }

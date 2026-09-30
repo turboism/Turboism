@@ -1,0 +1,41 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "cubism-5.2.02.performance-render-scene.static",
+  "adapterSliceId": "adapter.cubism.performance.fps-hook",
+  "capabilityIds": [
+    "turboism.performance.stats.read"
+  ],
+  "cubismVersion": "5.2.02",
+  "profileId": "cubism-5.2.02",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 40626770,
+    "sha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff"
+  },
+  "evidenceType": "JAR_METADATA",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.2.02-performance-render-scene.json",
+  "owner": "bootstrap-performance-fps-hook",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-fps-5203-static-verifier",
+  "verifiedAt": "2026-09-27T00:00:00Z",
+  "safeMode": "FPS counting stays disabled with one bounded diagnostic when the exact 5.2.03 artifact, host classloader, or the renderScene_exe owner/member/descriptor does not match; partial instrumentation is not allowed.",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_2_03.performance.render_scene",
+      "alias": "cubism.performance.render-scene",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "renderScene_exe",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+      "requiredAccessFlags": 20,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    }
+  ],
+  "capabilityConditions": {
+    "turboism.performance.stats.read": [
+      "hook:performance-fps"
+    ]
+  }
+}

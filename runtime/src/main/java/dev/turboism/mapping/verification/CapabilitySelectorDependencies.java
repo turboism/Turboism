@@ -54,6 +54,7 @@ import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContr
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorWarpMirrorSelectorContract;
+import dev.turboism.mapping.verification.selector.TextureAtlasSelectorContract;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -185,6 +186,21 @@ final class CapabilitySelectorDependencies {
         add(result, EditorTextureSelectorContract.READ_CAPABILITY_ID, EditorTextureSelectorContract.READ_REQUIRED_ALIASES);
         add(result, EditorTextureSelectorContract.WRITE_CAPABILITY_ID, EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES);
         add(result, EditorWarpMirrorSelectorContract.CAPABILITY_ID, EditorWarpMirrorSelectorContract.REQUIRED_ALIASES);
+        // Texture-atlas features bind to their own alias groups instead of the whole record so an
+        // unrelated selector failure cannot collateral-drop them (5.3.04 lost all five to a single
+        // context-menu rename). Statistics stays profile-gated, never a capability requirement.
+        add(result, TextureAtlasSelectorContract.LAYOUT_WRITE_CAPABILITY_ID, TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        add(result, TextureAtlasSelectorContract.DATA_MODEL_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        add(result, TextureAtlasSelectorContract.DATA_MODEL_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.HOOK_ALIASES);
+        add(result, TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        add(result, TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES);
+        add(result, TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES);
+        add(result, TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_CAPABILITY_ID, TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES);
+        add(result, TextureAtlasSelectorContract.NATIVE_INVOCATION_CAPABILITY_ID, TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        add(result, TextureAtlasSelectorContract.NATIVE_INVOCATION_CAPABILITY_ID, TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES);
+        add(result, TextureAtlasSelectorContract.DIALOG_INJECTION_CAPABILITY_ID, TextureAtlasSelectorContract.REQUIRED_ALIASES);
+        add(result, TextureAtlasSelectorContract.DIALOG_INJECTION_CAPABILITY_ID, TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES);
+        add(result, ObjectContextMenuVerificationManifest.CAPABILITY_ID, ObjectContextMenuVerificationManifest.REQUIRED_ALIASES);
         return Map.copyOf(result);
     }
 

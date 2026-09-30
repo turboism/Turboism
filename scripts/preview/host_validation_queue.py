@@ -31,6 +31,20 @@ import socket
 SCHEMA = 1
 TERMINAL = frozenset({"succeeded", "failed", "cancelled", "timed_out", "blocked"})
 ACTIVE = frozenset({"starting", "running", "cleaning", "recovering", "quarantined"})
+RUNNING = frozenset({"starting", "running"})
+
+# Version-scoped slots: catalogued resource names and the ones that still
+# serialize the whole host. display-input is per-job (private Xvfb), host-slot
+# is per-version; performance-host/interactive-desktop remain global.
+KNOWN_RESOURCES = frozenset({"host-slot", "display-input", "performance-host", "interactive-desktop"})
+GLOBAL_RESOURCES = frozenset({"performance-host", "interactive-desktop"})
+# Descriptors prepared before per-job admission existed must run on the legacy
+# admission.lock protocol; queueProtocol 2 snapshots accept admission-<job>.lock.
+QUEUE_PROTOCOL = 2
+CLAIM_SCAN_LIMIT = 32
+MAX_SLOTS = 8
+XVFB_DISPLAYS = range(10, 30)
+X11_SOCKET_DIR = "/tmp/.X11-unix"
 
 
 class QueueError(RuntimeError):
@@ -167,6 +181,9 @@ class Store:
             raise QueueError("queue database must not be a symlink")
         fd = os.open(self.database, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         os.close(fd)
+        self._profiles: dict[str, tuple[str | None, list[str] | None, int]] = {}
+        self.xvfb_processes: dict[str, subprocess.Popen] = {}
+        self._claim_notes: set[tuple[str | None, str]] = set()
         with self.connection() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
@@ -194,6 +211,15 @@ class Store:
                     job_id TEXT, kind TEXT NOT NULL, payload TEXT NOT NULL,
                     created_at REAL NOT NULL);
             """)
+            # Additive slot columns are version-guarded so an older worker binary
+            # can keep reading/writing the same live database during rollout.
+            if db.execute("PRAGMA user_version").fetchone()[0] < 2:
+                columns = {row[1] for row in db.execute("PRAGMA table_info(jobs)")}
+                for name, ddl in (("version", "TEXT"), ("resources_json", "TEXT"),
+                                  ("display", "TEXT"), ("xvfb_pid", "INTEGER")):
+                    if name not in columns:
+                        db.execute(f"ALTER TABLE jobs ADD COLUMN {name} {ddl}")
+                db.execute("PRAGMA user_version=2")
             if db.execute("SELECT version FROM metadata").fetchone()[0] != SCHEMA:
                 raise QueueError("unsupported queue schema; migration required")
 
@@ -293,20 +319,156 @@ class Store:
                 db.execute("UPDATE host SET state=?,reason=? WHERE singleton=1", (state, reason))
                 self.event(db, None, state, reason=reason)
 
+    def active_run_ids(self) -> set[str]:
+        with self.connection() as db:
+            rows = db.execute("SELECT run_id FROM jobs WHERE state IN ('starting','running')").fetchall()
+            return {row[0] for row in rows if row[0]}
+
+    def _job_profile(self, prepared_id: str) -> tuple[str | None, list[str] | None, int]:
+        """(version, declared resources, queue protocol) from the immutable
+        prepared descriptor. Unverifiable input is fail-closed serial legacy."""
+        cached = self._profiles.get(prepared_id)
+        if cached is not None:
+            return cached
+        profile: tuple[str | None, list[str] | None, int] = (None, None, 1)
+        try:
+            descriptor = PreparedStore(self).load(prepared_id)
+        except (QueueError, OSError, ValueError, KeyError, TypeError):
+            pass
+        else:
+            protocol = descriptor.get("queueProtocol")
+            protocol = protocol if type(protocol) is int else 1
+            argv = descriptor.get("argv")
+            version = None
+            if isinstance(argv, list) and "--version" in argv:
+                index = argv.index("--version")
+                candidate = argv[index + 1] if index + 1 < len(argv) else None
+                if isinstance(candidate, str) and candidate:
+                    version = candidate
+            resources = descriptor.get("resources")
+            if isinstance(resources, list) and all(type(name) is str for name in resources):
+                resources = sorted(resources)
+            else:
+                resources = None
+            profile = (version, resources, protocol)
+        self._profiles[prepared_id] = profile
+        return profile
+
+    def _deferred(self, db: sqlite3.Connection, job_id: str | None, kind: str,
+                  **payload: Any) -> None:
+        """Log a claim obstruction once per job/reason; durable but not spammy."""
+        if (job_id, kind) in self._claim_notes:
+            return
+        self._claim_notes.add((job_id, kind))
+        self.event(db, job_id, kind, **payload)
+
     def claim(self) -> dict[str, Any] | None:
-        with self.transaction() as db:
-            host = db.execute("SELECT * FROM host WHERE singleton=1").fetchone()
-            if host["state"] != "idle":
+        spawned: list[str] = []
+        try:
+            with self.transaction() as db:
+                host = db.execute("SELECT * FROM host WHERE singleton=1").fetchone()
+                if host["state"] not in {"idle", "owned"}:
+                    return None
+                running = db.execute(
+                    "SELECT * FROM jobs WHERE state IN ('starting','running') ORDER BY sequence").fetchall()
+                # A running attempt with an unversioned/legacy slot has unknown
+                # resources and an old admission protocol: it blocks every claim.
+                if any(row["version"] is None for row in running):
+                    return None
+                running_versions = {row["version"] for row in running}
+                used_displays = {row["display"] for row in running if row["display"]}
+                global_running = any(
+                    GLOBAL_RESOURCES & set(json.loads(row["resources_json"] or "[]"))
+                    for row in running)
+                if global_running:
+                    return None
+                skipped = 0
+                for job in db.execute(
+                        "SELECT * FROM jobs WHERE state='queued' ORDER BY sequence").fetchall():
+                    if skipped >= CLAIM_SCAN_LIMIT:
+                        break
+                    version, resources, protocol = self._job_profile(job["prepared_id"])
+                    parallel = (protocol >= QUEUE_PROTOCOL and version is not None
+                                and resources is not None
+                                and not set(resources) - KNOWN_RESOURCES)
+                    if not parallel:
+                        if resources is not None and set(resources) - KNOWN_RESOURCES:
+                            # An undeclared resource name can never be scheduled
+                            # safely; fail closed and keep it queued.
+                            self._deferred(db, job["job_id"], "claim-deferred",
+                                           reason="unknown resource declaration; never claimable")
+                            skipped += 1
+                            continue
+                        if running:
+                            self._deferred(db, job["job_id"], "claim-deferred",
+                                           reason="missing version or declared resources; serial-only")
+                            skipped += 1
+                            continue
+                        return self._begin_claim(db, job)
+                    if version in running_versions or (running and GLOBAL_RESOURCES & set(resources)):
+                        skipped += 1
+                        continue
+                    # performance-host jobs measure real GPU/CPU — they must stay
+                    # on the physical display :0, not a software-rendered Xvfb.
+                    display = ":0" if {"interactive-desktop", "performance-host"} & set(resources) \
+                        else self._allocate_display(db, job["job_id"], used_displays, spawned)
+                    if display is None:
+                        skipped += 1
+                        continue
+                    return self._begin_claim(db, job, version=version, resources=resources,
+                                             display=display)
                 return None
-            job = db.execute("SELECT * FROM jobs WHERE state='queued' ORDER BY sequence LIMIT 1").fetchone()
-            if job is None:
-                return None
-            attempt, run = str(uuid.uuid4()), "queue-" + uuid.uuid4().hex
-            db.execute("UPDATE jobs SET state='starting',attempt_id=?,run_id=?,updated_at=? WHERE job_id=?",
-                       (attempt, run, time.time(), job["job_id"]))
-            db.execute("UPDATE host SET state='owned',job_id=?,reason='' WHERE singleton=1", (job["job_id"],))
-            self.event(db, job["job_id"], "starting", attemptId=attempt, runId=run)
-            return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job["job_id"],)).fetchone())
+        except BaseException:
+            # Rolled-back claims must not leak a worker-owned Xvfb process.
+            for job_id in spawned:
+                process = self.xvfb_processes.pop(job_id, None)
+                if process is not None:
+                    terminate_process(process)
+            raise
+
+    def _allocate_display(self, db: sqlite3.Connection, job_id: str,
+                          used: set[str], spawned: list[str]) -> str | None:
+        """Reserve a private Xvfb display inside the claim transaction."""
+        if not xvfb_available():
+            self._deferred(db, job_id, "display-pool-unavailable", reason="no Xvfb binary")
+            return None
+        display = None
+        for number in XVFB_DISPLAYS:
+            candidate = f":{number}"
+            if candidate in used or display_in_use(number):
+                continue
+            display = candidate
+            break
+        if display is None:
+            self._deferred(db, job_id, "display-pool-unavailable", reason="no free display slot")
+            return None
+        process = spawn_xvfb(display)
+        if process is None or process.poll() is not None:
+            self._deferred(db, job_id, "display-pool-unavailable",
+                           reason=f"Xvfb failed to start on {display}")
+            return None
+        self.xvfb_processes[job_id] = process
+        spawned.append(job_id)
+        used.add(display)
+        return display
+
+    def _begin_claim(self, db: sqlite3.Connection, job: Any, *,
+                     version: str | None = None, resources: list[str] | None = None,
+                     display: str | None = None) -> dict[str, Any]:
+        attempt, run = str(uuid.uuid4()), "queue-" + uuid.uuid4().hex
+        process = self.xvfb_processes.get(job["job_id"])
+        xvfb_pid = process.pid if process is not None else None
+        db.execute("""UPDATE jobs SET state='starting',attempt_id=?,run_id=?,version=?,
+                      resources_json=?,display=?,xvfb_pid=?,updated_at=? WHERE job_id=?""",
+                   (attempt, run, version,
+                    canonical_json(resources) if resources is not None else None,
+                    display, xvfb_pid, time.time(), job["job_id"]))
+        db.execute("UPDATE host SET state='owned',job_id=?,reason='' WHERE singleton=1", (job["job_id"],))
+        payload: dict[str, Any] = {"attemptId": attempt, "runId": run}
+        if version is not None:
+            payload.update(version=version, display=display, xvfbPid=xvfb_pid)
+        self.event(db, job["job_id"], "starting", **payload)
+        return dict(db.execute("SELECT * FROM jobs WHERE job_id=?", (job["job_id"],)).fetchone())
 
     def acknowledge(self, job_id: str, attempt_id: str, identity: dict[str, Any]) -> None:
         if not identity_alive(identity) or identity["uid"] != os.getuid():
@@ -318,6 +480,12 @@ class Store:
             if result.rowcount != 1:
                 raise QueueError("attempt handshake is no longer valid")
             self.event(db, job_id, "running", attemptId=attempt_id, identity=identity)
+
+    def release_display(self, job_id: str) -> None:
+        """Clear the slot display/xvfb fields after the attempt is terminal."""
+        with self.transaction() as db:
+            db.execute("UPDATE jobs SET display=NULL,xvfb_pid=NULL,updated_at=? WHERE job_id=?",
+                       (time.time(), job_id))
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         with self.transaction() as db:
@@ -377,7 +545,14 @@ class Store:
                 self.event(db, job_id, "operator-recovery", reason=recovery_reason, operatorUid=os.getuid())
             db.execute("UPDATE jobs SET state=?,evidence_json=?,updated_at=? WHERE job_id=?",
                        (state, canonical_json(evidence), time.time(), job_id))
-            db.execute("UPDATE host SET state='idle',job_id=NULL,reason='' WHERE singleton=1 AND job_id=?", (job_id,))
+            # Release the host only when no attempt still occupies a slot; hand
+            # the marker to a surviving parallel attempt otherwise.
+            other = db.execute("""SELECT job_id FROM jobs WHERE state IN ('starting','running')
+                               AND job_id<>? ORDER BY sequence LIMIT 1""", (job_id,)).fetchone()
+            db.execute("""UPDATE host SET state=?,job_id=?,reason='' WHERE singleton=1
+                          AND (state='owned' OR job_id=?)""",
+                       ("owned" if other else "idle",
+                        other["job_id"] if other else None, job_id))
             details = evidence.get("details")
             task_dir = details.get("taskDir") if isinstance(details, dict) else None
             if task_dir:
@@ -669,20 +844,35 @@ def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spe
             "sha256": runtime_digest(interpreter)}
 
 
+def task_resources(task_spec: str) -> list[str] | None:
+    """Declared resource names for a catalogue task spec; None when the spec is
+    not a catalogue task (fail-closed serial scheduling)."""
+    name = task_spec.split(":", 1)[0].split("@", 1)[0]
+    try:
+        data = json.loads((Path(__file__).resolve().with_name("host-validation-tasks.json"))
+                          .read_text(encoding="utf-8"))
+        resources = data["tasks"][name]["resources"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not isinstance(resources, dict) or not all(type(key) is str for key in resources):
+        return None
+    return sorted(resources)
+
+
 class PreparedStore:
     def __init__(self, store: Store):
         self.store = store
 
     def capture(self, request: dict[str, Any], source_root: Path,
-                task_spec: str) -> dict[str, Any]:
+                task_spec: str, *, resources: list[str] | None = None) -> dict[str, Any]:
         from host_validation_retention import check_space
         if self.store.production:
             check_space(self.store.root)
         with storage_lock(self.store.root):
-            return self._capture(request, source_root, task_spec)
+            return self._capture(request, source_root, task_spec, resources)
 
     def _capture(self, request: dict[str, Any], source_root: Path,
-                 task_spec: str) -> dict[str, Any]:
+                 task_spec: str, resources: list[str] | None = None) -> dict[str, Any]:
         argv = request.get("argv")
         if request.get("schemaVersion") != SCHEMA or not isinstance(argv, list) or not argv:
             raise QueueError("invalid normalized runner request")
@@ -797,7 +987,12 @@ class PreparedStore:
                 dirty_hash = source_state.hexdigest()
             except subprocess.CalledProcessError as failure:
                 raise QueueError("cannot record source revision") from failure
+            if resources is None:
+                resources = task_resources(task_spec)
+            if resources is not None:
+                resources = sorted(resources)
             descriptor = {"schemaVersion": SCHEMA, "taskSpec": task_spec, "argv": rendered,
+                "queueProtocol": QUEUE_PROTOCOL, "resources": resources,
                 "source": {"worktree": str(source_root), "head": head, "dirtyDigest": dirty_hash},
                 "sourceInputs": source_inputs, "hostDependencies": host_dependencies, "inventory": tree_inventory(stage)}
             digest = digest_json(descriptor)
@@ -867,25 +1062,121 @@ def wake(store: Store) -> None:
             pass  # Durable state, not a datagram, is authoritative.
 
 
-def external_sessions() -> list[int]:
+def xvfb_available() -> bool:
+    return shutil.which("Xvfb") is not None
+
+
+def display_in_use(number: int) -> bool:
+    return os.path.lexists(os.path.join(X11_SOCKET_DIR, f"X{number}"))
+
+
+def spawn_xvfb(display: str) -> subprocess.Popen | None:
+    """Start a private worker-owned X server; returns None when it is not ready."""
+    number = display.lstrip(":")
+    socket_path = os.path.join(X11_SOCKET_DIR, f"X{number}")
+    try:
+        process = subprocess.Popen(
+            ["Xvfb", display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL, start_new_session=True)
+    except OSError:
+        return None
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        if os.path.lexists(socket_path):
+            return process
+        if process.poll() is not None:
+            return None
+        time.sleep(0.05)
+    terminate_process(process)
+    return None
+
+
+def terminate_process(process: subprocess.Popen) -> None:
+    """SIGTERM then SIGKILL for a process this worker spawned itself."""
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+
+
+def terminate_xvfb(pid: int, display: str | None) -> None:
+    """Kill a recorded Xvfb pid only after verifying it is still an Xvfb for
+    that display; never signal a recycled/unrelated pid."""
+    try:
+        executable = (Path("/proc") / str(pid) / "comm").read_text().strip().lower()
+        command = (Path("/proc") / str(pid) / "cmdline").read_bytes()
+    except (FileNotFoundError, ProcessLookupError):
+        return
+    except PermissionError:
+        return
+    if "xvfb" not in executable:
+        return
+    if display is not None and display.encode() not in command:
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        try:
+            state = (Path("/proc") / str(pid) / "stat").read_text().rsplit(")", 1)[1].split()[0]
+        except (FileNotFoundError, ProcessLookupError):
+            return
+        if state == "Z":
+            return  # Dead; reaping belongs to its parent, never to the queue.
+        time.sleep(0.05)
+    try:
+        os.kill(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def cubism_candidate(command: bytes, executable: str) -> bool:
+    """Pure candidate check: java/cubism comm plus a Cubism cmdline marker."""
+    return ("java" in executable or "cubism" in executable) and any(
+        text in command for text in (b"CubismEditor", b"CECubismEditorApp", b"Live2D_Cubism")
+    )
+
+
+def task_owned_session(command: bytes, environ: bytes, owned_markers: set[str]) -> bool:
+    """A foreign-looking session is task-owned only when a live attempt's
+    run_id is embedded in its cmdline or environment (task dirs and WINEPREFIX
+    both embed the queue-<uuid> run_id)."""
+    return any(marker.encode() in command or marker.encode() in environ
+               for marker in owned_markers)
+
+
+def external_sessions(owned_markers: set[str] | frozenset[str] = frozenset(),
+                      proc_root: Path = Path("/proc")) -> list[int]:
     """Read-only conservative check; never kill or adopt an unknown session."""
     found = []
-    for path in Path("/proc").iterdir():
+    for path in proc_root.iterdir():
         if not path.name.isdigit():
             continue
         try:
             command = (path / "cmdline").read_bytes().replace(b"\0", b" ")
             # Do not match tools merely discussing Cubism in their prompts.
             executable = (path / "comm").read_text().strip().lower()
-            if ("java" in executable or "cubism" in executable) and any(
-                text in command for text in (b"CubismEditor", b"CECubismEditorApp", b"Live2D_Cubism")
-            ):
-                found.append(int(path.name))
+            if not cubism_candidate(command, executable):
+                continue
+            try:
+                environ = (path / "environ").read_bytes()
+            except (FileNotFoundError, ProcessLookupError, PermissionError):
+                environ = b""  # Unreadable environment cannot prove ownership.
+            if owned_markers and task_owned_session(command, environ, set(owned_markers)):
+                continue
+            found.append(int(path.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
         except PermissionError as failure:
             raise QueueError("cannot inspect host processes safely") from failure
-    return found
+    return sorted(found)
 
 
 def scope_identity(raw: dict[str, Any]) -> dict[str, Any]:
@@ -911,8 +1202,8 @@ def snapshot_module(prepared_root: Path, name: str) -> Any:
 
 class RunnerBackend:
     """Production backend: only a verified prepared Runner on the fixed host."""
-    def busy(self) -> list[int]:
-        return external_sessions()
+    def busy(self, owned_markers: set[str] | frozenset[str] = frozenset()) -> list[int]:
+        return external_sessions(owned_markers)
 
     def run(self, store: Store, job: dict[str, Any], admission_fd: int) -> dict[str, Any]:
         if store.root != account_root():
@@ -923,6 +1214,14 @@ class RunnerBackend:
             command = PreparedStore(store).command(job["prepared_id"], evidence_dir)
         except (QueueError, OSError, ValueError, KeyError, TypeError) as failure:
             raise NoHostSideEffects(str(failure)) from failure
+        # Slot displays are queue allocation state, not prepared input: the
+        # digest still covers the frozen descriptor, only resolved argv grows.
+        injected_display = None
+        if job.get("display") and job["display"] != ":0" and "--display" not in command:
+            command = [*command, "--display", job["display"]]
+            injected_display = job["display"]
+            with store.transaction() as db:
+                Store.event(db, job["job_id"], "display-injected", display=injected_display)
         injected_code = {"BASH_ENV", "ENV", "PYTHONPATH", "PYTHONHOME", "LD_PRELOAD", "LD_LIBRARY_PATH",
                          "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH", "SHELLOPTS", "BASHOPTS"}
         environment = {key: value for key, value in os.environ.items()
@@ -999,8 +1298,11 @@ class RunnerBackend:
                     raise QueueError("lifecycle evidence must be an object")
                 if requested is None and store.jobs_retry(job["job_id"])[0]["cancel_requested"]:
                     requested = "cancelled"
-                return finalizer.finalize(job, descriptor, prepared_root, directory, preliminary,
-                                          proof, process.returncode, requested)
+                evidence = finalizer.finalize(job, descriptor, prepared_root, directory, preliminary,
+                                              proof, process.returncode, requested)
+                if injected_display is not None and isinstance(evidence, dict):
+                    evidence["queueDisplay"] = injected_display
+                return evidence
             finally:
                 if contained is not None:
                     try:
@@ -1048,17 +1350,41 @@ class Worker:
         self.backend = RunnerBackend() if backend is None else backend
 
     def reconcile(self) -> None:
-        # Reattach observation to a live acknowledged supervisor, not execution.
-        # Keep its admission valid while it finishes, without ever rerunning it.
-        host = self.store.host()
-        if host["job_id"] is None:
-            return
-        job = self.store.jobs(host["job_id"])[0]
-        if job["identity_json"] and identity_alive(json.loads(job["identity_json"])):
-            return
-        directory = self.store.root / "jobs" / job["job_id"]
-        if job["state"] != "quarantined" or (directory / "outcome.json").is_file() or (directory / "evidence/lifecycle-result.json").is_file():
-            self.finish(job)
+        # Reattach observation to live acknowledged supervisors, not execution.
+        # Keep their admission valid while they finish, without ever rerunning.
+        # Attempt rows whose recorded identity is dead are finished/failed and
+        # their displays and Xvfb processes are released.
+        for job in self.store.jobs():
+            xvfb_pid = job["xvfb_pid"]
+            if job["state"] not in RUNNING:
+                # Per-attempt admission lock files left by a dead worker are
+                # stale proofs; remove them so they cannot outlive the attempt.
+                (self.store.root / f"admission-{job['job_id']}.lock").unlink(missing_ok=True)
+            if xvfb_pid is not None and job["state"] not in RUNNING:
+                process = self.store.xvfb_processes.pop(job["job_id"], None)
+                if process is not None:
+                    terminate_process(process)
+                else:
+                    terminate_xvfb(xvfb_pid, job["display"])
+                self.store.release_display(job["job_id"])
+            if job["state"] not in RUNNING | {"quarantined"}:
+                continue
+            if job["state"] in RUNNING and job["identity_json"] \
+                    and identity_alive(json.loads(job["identity_json"])):
+                continue  # Live attempt in this or another dead worker's slot.
+            if job["state"] in RUNNING and xvfb_pid is not None:
+                process = self.store.xvfb_processes.pop(job["job_id"], None)
+                if process is not None:
+                    terminate_process(process)
+                else:
+                    terminate_xvfb(xvfb_pid, job["display"])
+                self.store.release_display(job["job_id"])
+            directory = self.store.root / "jobs" / job["job_id"]
+            if job["state"] != "quarantined" or (directory / "outcome.json").is_file() or (directory / "evidence/lifecycle-result.json").is_file():
+                try:
+                    self.finish(job)
+                except (OSError, ValueError, KeyError, TypeError, QueueError):
+                    pass  # finish() already quarantined; keep scanning siblings.
 
     def finish(self, job: dict[str, Any]) -> None:
         directory = self.store.root / "jobs" / job["job_id"]
@@ -1076,8 +1402,22 @@ class Worker:
         except (OSError, ValueError, KeyError, TypeError, QueueError) as failure:
             self.store.quarantine(job["job_id"], str(failure))
 
+    def _worker_status(self, running: dict[int, dict[str, Any]], max_slots: int) -> None:
+        atomic_json(self.store.root / "worker.json", {**process_identity(os.getpid()),
+            "slots": [{"jobId": attempt["job"]["job_id"],
+                       "version": attempt["job"]["version"],
+                       "display": attempt["job"]["display"]}
+                      for attempt in running.values()]})
+
     def serve(self, *, stop: Any | None = None, max_jobs: int | None = None) -> None:
         count = 0
+        running: dict[int, dict[str, Any]] = {}
+        try:
+            max_slots = int(os.environ.get("TURBOISM_QUEUE_MAX_SLOTS") or MAX_SLOTS)
+        except ValueError:
+            max_slots = MAX_SLOTS
+        max_slots = min(MAX_SLOTS, max(1, max_slots))
+        stopped = lambda: stop is not None and stop.is_set()
         with FileLock(self.store.root / "worker.lock") as worker_lock:
             self.reconcile()
             socket_path = self.store.root / "wake.sock"
@@ -1088,48 +1428,90 @@ class Worker:
             with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as listener:
                 listener.bind(str(socket_path))
                 os.chmod(socket_path, 0o600)
-                atomic_json(self.store.root / "worker.json", process_identity(os.getpid()))
+                self._worker_status(running, max_slots)
                 try:
-                    while stop is None or not stop.is_set():
-                        if max_jobs is not None and count >= max_jobs:
+                    while True:
+                        if not running and (stopped() or (max_jobs is not None and count >= max_jobs)):
                             break
+                        # Reap exited children before claiming: their slots,
+                        # displays and per-job admission fds free immediately.
+                        for pid, attempt in list(running.items()):
+                            if not attempt["process"].is_alive():
+                                self.reap(attempt)
+                                del running[pid]
                         self.reconcile()
-                        if self.store.host()["state"] in {"idle", "external-busy"}:
-                            self.store.external_busy(self.backend.busy())
-                        if self.store.host()["state"] == "idle":
-                            admission = FileLock(self.store.root / "admission.lock")
+                        foreign = list(self.backend.busy(self.store.active_run_ids()))
+                        host = self.store.host()
+                        if host["state"] in {"idle", "external-busy"}:
+                            self.store.external_busy(foreign)
+                            host = self.store.host()
+                        if (host["state"] in {"idle", "owned"} and not foreign and not stopped()
+                                and len(running) < max_slots
+                                and (max_jobs is None or count < max_jobs)):
+                            # The shared admission lock keeps collector exclusion:
+                            # a collector holding it pauses this whole pass.
+                            gate = FileLock(self.store.root / "admission.lock")
                             try:
-                                admission.acquire()
+                                gate.acquire()
                             except QueueBusy:
                                 # An idle-window collector owns admission. Do not stop the worker.
                                 time.sleep(0.2)
-                                continue
-                            with contextlib.closing(admission):
-                                if self.store.production:
-                                    from host_validation_retention import check_space
-                                    try:
-                                        check_space(self.store.root)
-                                    except QueueError:
-                                        time.sleep(1)
-                                        continue
-                                job = self.store.claim()
-                                if job is not None:
-                                    self.execute(job, admission.fd, worker_lock.fd, listener)
-                                    count += 1
-                                    continue
-                        ready, _, _ = select.select([listener], [], [], 1)
-                        if ready:
-                            listener.recv(4096)
+                            else:
+                                try:
+                                    while (len(running) < max_slots and not stopped()
+                                           and (max_jobs is None or count < max_jobs)):
+                                        if self.store.production:
+                                            from host_validation_retention import check_space
+                                            try:
+                                                check_space(self.store.root)
+                                            except QueueError:
+                                                break
+                                        job = self.store.claim()
+                                        if job is None:
+                                            break
+                                        try:
+                                            attempt = self.spawn(job, gate, worker_lock.fd)
+                                        except BaseException as failure:
+                                            self.store.quarantine(
+                                                job["job_id"], f"attempt interrupted: {failure}")
+                                            break
+                                        running[attempt["process"].pid] = attempt
+                                        count += 1
+                                finally:
+                                    gate.close()
+                        watch = [listener]
+                        sentinels = {}
+                        for pid, attempt in running.items():
+                            sentinels[attempt["process"].sentinel] = pid
+                            watch.append(attempt["process"].sentinel)
+                        ready, _, _ = select.select(watch, [], [], 1)
+                        for source in ready:
+                            if source is listener:
+                                listener.recv(4096)
+                            else:
+                                attempt = running.pop(sentinels[source], None)
+                                if attempt is not None:
+                                    self.reap(attempt)
+                        self._worker_status(running, max_slots)
                 finally:
                     socket_path.unlink(missing_ok=True)
                     (self.store.root / "worker.json").unlink(missing_ok=True)
 
-    def execute(self, job: dict[str, Any], admission_fd: int, worker_fd: int,
-                listener: socket.socket) -> None:
+    def spawn(self, job: dict[str, Any], gate: FileLock, worker_fd: int) -> dict[str, Any]:
+        """Start the supervised attempt child without blocking on its run."""
+        _, _, protocol = self.store._job_profile(job["prepared_id"])
+        if protocol >= QUEUE_PROTOCOL:
+            # Per-execution admission proof; never share one fd across children.
+            admission = FileLock(self.store.root / f"admission-{job['job_id']}.lock")
+            admission.acquire()
+            admission_path: Path | None = admission.path
+        else:
+            admission = gate  # Legacy snapshots only prove admission.lock.
+            admission_path = None
         parent, child = socket.socketpair()
         parent.settimeout(10)
         process = multiprocessing.get_context("fork").Process(target=supervised_attempt,
-            args=(self.store.root, job, self.backend, admission_fd, worker_fd, child, parent))
+            args=(self.store.root, job, self.backend, admission.fd, worker_fd, child, parent))
         try:
             process.start()
             child.close()
@@ -1138,24 +1520,49 @@ class Worker:
                 raise QueueError("child handshake identity mismatch")
             self.store.acknowledge(job["job_id"], job["attempt_id"], identity)
             parent.sendall(b"A")
-            while process.is_alive():
-                ready, _, _ = select.select([listener, process.sentinel], [], [], 1)
-                if listener in ready:
-                    listener.recv(4096)
-            process.join()
-            self.finish(self.store.jobs(job["job_id"])[0])
-        except BaseException as failure:
-            self.store.quarantine(job["job_id"], f"attempt interrupted: {failure}")
-            raise
-        finally:
+        except BaseException:
             parent.close()
             child.close()
+            if process.pid is not None:
+                if process.is_alive():
+                    process.terminate()
+                process.join(5)
+            if admission_path is not None:
+                admission.close()
+                admission_path.unlink(missing_ok=True)
+            raise
+        return {"job": job, "process": process, "socket": parent,
+                "admission": admission, "admission_path": admission_path}
+
+    def reap(self, attempt: dict[str, Any]) -> None:
+        """Collect a finished child: outcome first, then release its slot."""
+        job = attempt["job"]
+        process = attempt["process"]
+        process.join()
+        attempt["socket"].close()
+        xvfb = self.store.xvfb_processes.pop(job["job_id"], None)
+        if xvfb is not None:
+            terminate_process(xvfb)
+        row = self.store.jobs(job["job_id"])[0]
+        if xvfb is None and row["xvfb_pid"] is not None:
+            terminate_xvfb(row["xvfb_pid"], row["display"])
+        try:
+            self.finish(row)
+        except (OSError, ValueError, KeyError, TypeError, QueueError):
+            pass  # finish() quarantines internally; reaping must continue.
+        self.store.release_display(job["job_id"])
+        attempt["admission"].close()
+        if attempt["admission_path"] is not None:
+            attempt["admission_path"].unlink(missing_ok=True)
 
 
 def worker_online(store: Store) -> bool:
     try:
-        identity = json.loads((store.root / "worker.json").read_text())
-        return isinstance(identity, dict) and identity_alive(identity)
+        record = json.loads((store.root / "worker.json").read_text())
+        if not isinstance(record, dict):
+            return False
+        identity = {key: value for key, value in record.items() if key != "slots"}
+        return identity_alive(identity)
     except (OSError, ValueError, KeyError):
         return False
 
@@ -1200,12 +1607,22 @@ def validate_admission() -> dict[str, Any]:
                 or identity is None or not identity_alive(identity)
                 or identity["pid"] != int(os.environ["TURBOISM_QUEUE_SUPERVISOR_PID"])):
             raise QueueError("attempt identity is not authorized")
-        expected = (root / "admission.lock").stat()
+        # Per-attempt lock for queueProtocol>=2 workers; the shared lock remains
+        # the proof for jobs dispatched by an older worker or legacy slot.
         actual = os.fstat(fd)
-        if (expected.st_dev, expected.st_ino) != (actual.st_dev, actual.st_ino):
+        matched = None
+        for candidate in (root / f"admission-{job['job_id']}.lock", root / "admission.lock"):
+            try:
+                expected = candidate.stat()
+            except FileNotFoundError:
+                continue
+            if (expected.st_dev, expected.st_ino) == (actual.st_dev, actual.st_ino):
+                matched = candidate
+                break
+        if matched is None:
             raise QueueError("inherited admission descriptor mismatch")
         # A separate open description must be busy; an unlocked matching file is insufficient.
-        probe = FileLock(root / "admission.lock")
+        probe = FileLock(matched)
         try:
             probe.acquire()
         except QueueError as failure:
@@ -1227,7 +1644,7 @@ def validate_admission() -> dict[str, Any]:
         if not ancestor_found:
             raise QueueError("runner is not a descendant of its recorded supervisor")
         host = store.host()
-        if host["state"] != "owned" or host["job_id"] != job["job_id"]:
+        if host["state"] != "owned":
             raise QueueError("host is quarantined or owned by another attempt")
         containment = verify_containment_membership(store, job)
         return {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
@@ -1369,7 +1786,7 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
         runner_identity_path = directory / "runner-identity.json"
         if runner_identity_path.exists() and identity_alive(json.loads(runner_identity_path.read_text())):
             raise QueueError("recorded runner is still active")
-        if external_sessions():
+        if external_sessions(store.active_run_ids()):
             raise QueueError("host contains active external/unknown Cubism sessions")
         evidence = durable_outcome(store, job, allow_containment_recovery=True)
         # Inspection and confirmation apply exactly the same evidence rules.
@@ -1381,7 +1798,10 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
                 fresh = store.jobs(job_id)[0]
                 if fresh["identity_json"] and identity_alive(json.loads(fresh["identity_json"])):
                     raise QueueError("supervisor became active during recovery")
+                if fresh["xvfb_pid"] is not None:
+                    terminate_xvfb(fresh["xvfb_pid"], fresh["display"])
                 store.complete(job_id, evidence["terminalState"], evidence, recovery_reason=reason)
+                store.release_display(job_id)
                 wake(store)
     except (OSError, ValueError, KeyError, TypeError, QueueError) as failure:
         report.update(safe=False, reason=str(failure))

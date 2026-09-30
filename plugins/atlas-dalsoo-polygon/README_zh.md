@@ -19,8 +19,7 @@ interface: none
 为 Cubism 纹理集工作流提供不规则多边形自动排版算法，风格对应 Cubism 5.4
 的轮廓打包。内核独立移植自 MIT 许可的 `whitegreen/Dalsoo-Bin-Packing`
 （提交 `bde2a3e`），见 `LICENSE` 与 `NOTICE`。本插件**不**内嵌、调用或
-宣称兼容 Cubism 5.4——它运行于当前支持的宿主（`5.2.03`、`5.3.02`、
-`5.3.03`）。
+宣称兼容 Cubism 5.4——它运行于当前支持的宿主（`5.2.00`–`5.3.04`）。
 
 | 项目 | 值 |
 |---|---|
@@ -49,7 +48,7 @@ interface: none
 ## 要求与兼容性
 
 - **Turboism API：** `[0.1.0,0.2.0)`。
-- **Cubism：** 仅精确审阅过的 Editor 构件 `5.2.03`、`5.3.02`、`5.3.03`。
+- **Cubism：** 仅精确审阅过的 Editor 构件 `5.2.00`–`5.3.04`。
   Cubism 5.4 未被准入；SDK 契约中保留 `HOST_NATIVE` 后端槽位供未来正式
   5.4 宿主 provider 使用。
 - **界面模式：** `none`。

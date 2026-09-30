@@ -23,7 +23,7 @@ class HostUiVersionCheckTest {
 
     @Test
     void rejectsUnreviewedPatchesInsidePreviouslyAcceptedRanges() {
-        for (String version : new String[]{"5.2.00", "5.2.04", "5.3.00", "5.3.01", "5.3.04"}) {
+        for (String version : new String[]{"5.0.07", "5.1.04", "5.2.04", "5.3.05", "5.4.00"}) {
             SafeModeDiagnostic diagnostic = HostUiVersionCheck
                 .diagnosticFor("test.capability", version)
                 .orElseThrow();

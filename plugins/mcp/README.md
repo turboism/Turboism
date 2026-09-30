@@ -37,7 +37,7 @@ Runs a credential-free MCP Streamable HTTP server on the local loopback interfac
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
+- **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.0.00` through `5.3.04`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
 - **Transport:** MCP Streamable HTTP using protocol `2025-11-25`, with compatibility negotiation for the supported earlier protocol versions.
 - **Interface mode:** `swing`, with a local connection-details window.
 - **Plugin dependencies:** None declared.
@@ -149,7 +149,7 @@ Call `turboism.textures.read` with `operation: "list"`, then pass its returned *
 unchanged as `expectedState` to `turboism.textures.write`. The separate `stateToken` string is a
 read-correlation ID, not the write precondition or authorization. Re-read `state` after any write or history movement.
 
-The five operations cover exact **5.2.03, 5.3.02 and 5.3.03**: `add_model_image_group` (`name`),
+The five operations cover exact **5.2.03 and 5.3.00–5.3.04**: `add_model_image_group` (`name`),
 `remove_model_image` (`id`), `add_texture_atlas` (`name`, `widthPixels`, `heightPixels`),
 `remove_texture_atlas` (`id`), and `remove_raw_image` (`id`). Every removal requires
 `confirmDelete: true`. Invalid arguments, duplicate group names and stale state are rejected before

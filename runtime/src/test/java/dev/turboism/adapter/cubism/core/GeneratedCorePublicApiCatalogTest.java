@@ -32,7 +32,7 @@ class GeneratedCorePublicApiCatalogTest {
             members.stream().filter(member -> member.supports("5.3.02")).count()
         );
         assertEquals(
-            "622ecdbf2d2776beb1130c02d0d3394385394928cfa3fd3d5a33c03e74a91a1c",
+            "7bbd32a166075706edd11b606082063157544ec1308202ce2bf7633b5759b4d6",
             GeneratedCorePublicApiCatalog.CLASSIFIED_ROSTER_SHA256
         );
 

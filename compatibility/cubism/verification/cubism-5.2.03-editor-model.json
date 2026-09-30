@@ -9143,6 +9143,50 @@
       "requiredAccessFlags": 0,
       "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.helper_instance",
+      "alias": "cubism.texture-atlas.texture-input-relink.helper-instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/r",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/cubism/doc/model/texture/r;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.rebuild",
+      "alias": "cubism.texture-atlas.texture-input-relink.rebuild",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/r",
+      "memberName": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModelSource;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.drawable_uses",
+      "alias": "cubism.texture-atlas.texture-manager-handler.drawable-uses",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/TextureManagerHandler",
+      "memberName": "d",
+      "descriptor": "()Ljava/util/HashMap;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_model.change_input_to_atlas",
+      "alias": "cubism.texture-atlas.texture-manager.change-input-to-atlas",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/texture/CTextureManager",
+      "memberName": "changeModelTextureInput_toAtlas",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {

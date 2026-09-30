@@ -472,6 +472,19 @@
     }
   ],
   "metadata": {
-    "validationNotes": "Probe-derived exact dependencies for adapter.project-workspace.readonly. DRAFT until hash-anchored static verification and later host smoke."
+    "validationNotes": "Probe-derived exact dependencies for adapter.project-workspace.readonly. DRAFT until hash-anchored static verification and later host smoke.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.3.03-project-workspace.json",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 42010633,
+    "artifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "profileId": "cubism-5.3.03",
+    "verificationId": "m15.cubism-5.3.03.project-workspace.static",
+    "selectorCount": 23,
+    "capabilityCount": 2,
+    "capabilityIds": [
+      "cubism.project.read",
+      "cubism.workspace.read"
+    ],
+    "verificationRecordSha256": "f52edde0c7d1a59d5bed7dd693f5a74e6946d0b14bbe9e13fedf2c49e6fa5613"
   }
 }

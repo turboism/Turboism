@@ -55,7 +55,7 @@ Linux/macOS assets for durable sessions, native tools, general networking,
 process ownership, or persistence. The plugin still verifies the exact
 executable identity before launch, and its normal ACP and authenticated
 Turboism MCP availability checks remain in force.
-Host-facing operations remain limited to exact Cubism 5.2.03/5.3.02/5.3.03
+Host-facing operations remain limited to exact Cubism 5.0.00–5.3.04
 admission and the typed services available in the active host.
 
 Vercel does not sponsor or endorse Turboism or this integration.

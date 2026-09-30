@@ -46,11 +46,17 @@ case "$language" in
 esac
 
 # The runner's context argument 7 is the lane's version token (the adapter's
-# --version): 5203/5302. The full Cubism version strings stay accepted so the
-# hook can also be exercised on its own.
+# --version): the four-digit form of the reviewed Cubism build. The full Cubism
+# version strings stay accepted so the hook can also be exercised on its own.
 case "$version" in
-  5203|5.2.03) edition="5.2" ;;
-  5302|5.3.02|5.3.03) edition="5.3" ;;
+  5000|5001|5002|5003|5004|5005|5006|5.0.00|5.0.01|5.0.02|5.0.03|5.0.04|5.0.05|5.0.06)
+    edition="5.0" ;;
+  5100|5101|5102|5103|5.1.00|5.1.01|5.1.02|5.1.03)
+    edition="5.1" ;;
+  5200|5201|5202|5203|5.2.00|5.2.01|5.2.02|5.2.03)
+    edition="5.2" ;;
+  5300|5301|5302|5303|5304|5.3.00|5.3.01|5.3.02|5.3.03|5.3.04)
+    edition="5.3" ;;
   *) fail "unsupported Cubism version '$version'" ;;
 esac
 

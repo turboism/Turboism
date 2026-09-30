@@ -18,7 +18,7 @@ import java.util.function.BiFunction;
  *
  * <p>The target is the exact private dispatcher entry
  * {@code com.live2d.cubism.doc.webSocket.l.a(String, org.java_websocket.WebSocket)}
- * (flags {@code 0x0012}), evidenced for 5.2.03/5.3.02/5.3.03 in
+ * (flags {@code 0x0012}), evidenced across the reviewed 5.1.02–5.3.04 builds in
  * {@code host-evidence/integration-54compat/dispatcher-internals.md}. Nothing else in the
  * host's webSocket package is touched: not {@code U.onMessage}, not the JSONIC decode sites,
  * not the version tables.</p>
@@ -84,7 +84,7 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
      * Builds an installer for the exact Cubism version the resolver admits.
      *
      * <p>The version must be one whose artifacts carry the reviewed dispatcher evidence
-     * (5.2.03/5.3.02/5.3.03 — 5.4 hosts serve the editing API natively and are deliberately
+     * (5.1.02–5.3.04 — 5.4 hosts serve the editing API natively and are deliberately
      * excluded), the bridge capability and the dispatch-entry alias must be authorized, and the
      * selector must resolve to the exact private {@code a(String, WebSocket)} member.</p>
      *
@@ -102,12 +102,9 @@ public final class VerifiedEditApiDispatchInstaller implements AutoCloseable {
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        if (!verified.cubismVersion().startsWith("5.2.") && !verified.cubismVersion().startsWith("5.3.")) {
-            throw new IllegalArgumentException("Edit-protocol backport excludes the native 5.4 protocol and other lines.");
-        }
-        if (!verified.isAdmittedCubismVersion("5.2.03")
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
+        if (!Set.of("5.1.02", "5.1.03",
+            "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+            "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04").contains(verified.admittedCubismVersion())) {
             throw new IllegalArgumentException(
                 "Edit-protocol dispatch hook version is unsupported.");
         }

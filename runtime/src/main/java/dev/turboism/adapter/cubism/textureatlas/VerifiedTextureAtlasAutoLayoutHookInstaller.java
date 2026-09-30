@@ -80,8 +80,9 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         this.dialogIngress = dialogContributor.ingress();
-        if (resolverForConstructor.isAdmittedCubismVersion("5.3.02")
-            || resolverForConstructor.isAdmittedCubismVersion("5.3.03")) {
+        if (VerifiedTextureAtlasSelectorContract.profileFor(resolverForConstructor.cubismVersion())
+            .map(profile -> !profile.statisticsAliases().isEmpty())
+            .orElse(false)) {
             final StaticSelector statisticsEntry =
                 resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
             this.statisticsIngress = editorUi.ingress();
@@ -105,10 +106,9 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param resolver the verified member resolver for the running Cubism version
      * @param hostClassLoader the loader that owns the host classes to transform
      * @return a configured, not-yet-installed hook installer
-     * @throws IllegalArgumentException if the host is not Cubism 5.3.03, 5.3.02 or 5.2.03, if the
-     *                                  capability is not authorized, or if the verified
-     *                                  automatic-layout selector is not a boolean-returning
-     *                                  instance method
+     * @throws IllegalArgumentException if the host has no reviewed profile or the capability is
+     *                                  not authorized, or if the verified automatic-layout
+     *                                  selector is not a boolean-returning instance method
      */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
         final Instrumentation instrumentation,
@@ -157,11 +157,13 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     /**
      * Builds an installer from explicit collaborators and an explicit dialog locale.
      *
-     * <p>This is the verification gate for the whole feature: it admits exact Cubism 5.3.03,
-     * 5.3.02 and 5.2.03, checks the alias set for that version against the authorization contract, and
-     * rejects a selector that is not a boolean-returning instance method. Nothing is instrumented
-     * until {@link #install()} is called. The statistics transformer exists on both 5.3 profiles; on
-     * 5.2.03 the editor UI ingress is still wired but no statistics class is transformed.
+     * <p>This is the verification gate for the whole feature: it admits an exact reviewed
+     * version whose record carries {@code cubism.texture-atlas.auto-layout-hook}, checks the
+     * profile's alias set against the authorization contract, and rejects a selector that is not
+     * a boolean-returning instance method. Nothing is instrumented until {@link #install()} is
+     * called. The statistics transformer is wired only where the profile carries statistics
+     * aliases; elsewhere the editor UI ingress still attaches but no statistics class is
+     * transformed.
      *
      * @param instrumentation the JVM instrumentation used to retransform the host class
      * @param resolver the verified member resolver for the running Cubism version; must not be null
@@ -173,7 +175,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
      * @param effectiveLocale the locale the injected dialog labels use; must not be null
      * @return a configured, not-yet-installed hook installer
-     * @throws IllegalArgumentException if the host is not one of exact Cubism 5.3.03, 5.3.02 and 5.2.03, if the
+     * @throws IllegalArgumentException if the host version has no reviewed profile, if the
      *                                  capability is not authorized for that adapter slice, or if
      *                                  the verified automatic-layout selector is not a
      *                                  boolean-returning instance method

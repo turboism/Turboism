@@ -10,9 +10,9 @@ class EditorModelStatisticsAccessProfileTest {
     @Test
     void admitsOffscreenStatisticsOnlyForIndependentExact53Profiles() {
         assertFalse(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.2.03"));
+        assertTrue(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3.00"));
         assertTrue(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3.02"));
-        assertTrue(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3.03"));
-        assertFalse(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3.04"));
+        assertTrue(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3.04"));
         assertFalse(EditorModelStatisticsAccess.supportsOffscreenStatistics("5.3"));
     }
 }

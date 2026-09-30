@@ -12,6 +12,13 @@ if [ "$#" -lt 1 ]; then
 fi
 version="$1"
 shift
+case "$version" in
+  5203|5302) ;;
+  *)
+    echo "error: recent-preview host validation supports only 5203 or 5302" >&2
+    exit 2
+    ;;
+esac
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"

@@ -57,22 +57,65 @@ public final class ControlAppearanceVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
+        if (ReviewedHostArtifacts.CUBISM_5_2_00.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.2.00-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.2.00-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_2_00_VERSION, "${record:cubism-5.2.00-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_2_00.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_00.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_01.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.2.01-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.2.01-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_2_01_VERSION, "${record:cubism-5.2.01-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_2_01.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_01.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_2_02.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.2.02-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.2.02-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_2_02_VERSION, "${record:cubism-5.2.02-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_2_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_02.sha256()
+            );
+        }
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "${record:cubism-5.2.03-ui-control-appearance.json:verificationId}",
                 "${record:cubism-5.2.03-ui-control-appearance.json:sha256}",
-                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
-                "${record:cubism-5.2.03-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_2_03_VERSION, "${record:cubism-5.2.03-ui-control-appearance.json:profileId}",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_00.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.3.00-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.3.00-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_3_00_VERSION, "${record:cubism-5.3.00-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_00.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_00.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_01.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.3.01-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.3.01-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_3_01_VERSION, "${record:cubism-5.3.01-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_01.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_01.sha256()
             );
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return manifest(
                 "${record:cubism-5.3.02-ui-control-appearance.json:verificationId}",
                 "${record:cubism-5.3.02-ui-control-appearance.json:sha256}",
-                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-                "${record:cubism-5.3.02-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, "${record:cubism-5.3.02-ui-control-appearance.json:profileId}",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256()
             );
@@ -81,10 +124,18 @@ public final class ControlAppearanceVerificationManifest {
             return manifest(
                 "${record:cubism-5.3.03-ui-control-appearance.json:verificationId}",
                 "${record:cubism-5.3.03-ui-control-appearance.json:sha256}",
-                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-                "${record:cubism-5.3.03-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, "${record:cubism-5.3.03-ui-control-appearance.json:profileId}",
                 ReviewedHostArtifacts.CUBISM_5_3_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_03.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_04.equals(artifact)) {
+            return manifest(
+                "${record:cubism-5.3.04-ui-control-appearance.json:verificationId}",
+                "${record:cubism-5.3.04-ui-control-appearance.json:sha256}",
+                ReviewedHostArtifacts.CUBISM_5_3_04_VERSION, "${record:cubism-5.3.04-ui-control-appearance.json:profileId}",
+                ReviewedHostArtifacts.CUBISM_5_3_04.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_04.sha256()
             );
         }
         throw new IllegalArgumentException("host artifact is not a reviewed Cubism control-appearance artifact");

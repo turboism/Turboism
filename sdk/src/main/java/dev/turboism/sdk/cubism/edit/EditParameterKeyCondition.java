@@ -16,7 +16,7 @@ import java.util.Optional;
  * @param parameter the parameter to condition on; empty entries widen the condition
  * @param value the key value to condition on; empty entries widen the condition
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditParameterKeyCondition(Optional<ParameterId> parameter, Optional<Double> value) {
 
     public EditParameterKeyCondition {

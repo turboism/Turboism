@@ -1,5 +1,6 @@
 package dev.turboism.ui.workspace;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Set;
@@ -71,7 +72,19 @@ final class WorkspaceControlAdmission {
      * @return {@code true} only when one exact reviewed version fully authorizes
      */
     static boolean authorizes(final VerifiedMemberResolver resolver) {
-        return authorizes5203(resolver) || authorizes5302(resolver) || authorizes5303(resolver);
+        if (resolver == null) {
+            return false;
+        }
+        final String cubismVersion = resolver.admittedCubismVersion();
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
+            return false;
+        }
+        final String adapterSliceId = CUBISM_VERSION_5_2_03.equals(cubismVersion)
+            ? ADAPTER_SLICE_ID_5_2_03
+            : ADAPTER_SLICE_ID_5_3_02;
+        return resolver.authorizes(
+            adapterSliceId, Set.of(CAPABILITY_ID), REQUIRED_ALIASES
+        );
     }
 
     private static boolean authorizes(

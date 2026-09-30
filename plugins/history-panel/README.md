@@ -97,7 +97,7 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 - **Status:** Preview release plugin.
 - `FULL` means targets and relevant values are complete; `PARTIAL` includes an explicit degradation code; `LABEL_ONLY` makes no semantic claim beyond the host label.
 - `TURBOISM` origin is emitted only from operation-time registry metadata. Unregistered native operations remain `HOST_UNATTRIBUTED` in SDK data, but the panel does not display that unattributed origin.
-- Native semantic decoding is authorized for the reviewed Cubism 5.2.03 and 5.3.02 selector records. Cubism 5.3.03 native-semantic readiness remains explicitly pending.
+- Native semantic decoding is authorized for the reviewed Cubism `5.2.03` and `5.3.00`–`5.3.03` selector records.
 - Operation-time capture currently covers controlled SDK writes; native UI capture ingress is not yet implemented. Uncaptured native entries use conservative decoder or label-only fallback, never the current mutable target as an old after-value.
 - Two-version SDK probes passed 19 assertions each, including retained color details after later writes and Undo/Redo. These runs required task-scoped forced cleanup, so graceful exit and complete native-semantic readiness remain unverified. The latest panel summary rendering has local test coverage but has not been redeployed for host visual validation.
 - Entries without stable IDs are displayed but receive no move action. Changed snapshot binding or entry sequence rejects navigation without index fallback.

@@ -1,16 +1,33 @@
 {
-  "format": "turboism.verification-source-family/v1",
-  "family": "clipmask",
-  "records": [
-    "cubism-5.2.03-clipmask.json",
-    "cubism-5.3.02-clipmask.json",
-    "cubism-5.3.03-clipmask.json"
-  ],
-  "files": [
-    "dev/turboism/mapping/verification/ClipMaskVerificationManifest.java"
-  ],
-  "coverage": true,
-  "packs": [],
-  "extraLiterals": [],
-  "coverageSources": []
+ "format": "turboism.verification-source-family/v1",
+ "family": "clipmask",
+ "records": [
+  "cubism-5.0.00-clipmask.json",
+  "cubism-5.0.01-clipmask.json",
+  "cubism-5.0.02-clipmask.json",
+  "cubism-5.0.03-clipmask.json",
+  "cubism-5.0.04-clipmask.json",
+  "cubism-5.0.05-clipmask.json",
+  "cubism-5.0.06-clipmask.json",
+  "cubism-5.1.00-clipmask.json",
+  "cubism-5.1.01-clipmask.json",
+  "cubism-5.1.02-clipmask.json",
+  "cubism-5.1.03-clipmask.json",
+  "cubism-5.2.00-clipmask.json",
+  "cubism-5.2.01-clipmask.json",
+  "cubism-5.2.02-clipmask.json",
+  "cubism-5.2.03-clipmask.json",
+  "cubism-5.3.00-clipmask.json",
+  "cubism-5.3.01-clipmask.json",
+  "cubism-5.3.02-clipmask.json",
+  "cubism-5.3.03-clipmask.json",
+  "cubism-5.3.04-clipmask.json"
+ ],
+ "files": [
+  "dev/turboism/mapping/verification/ClipMaskVerificationManifest.java"
+ ],
+ "coverage": true,
+ "packs": [],
+ "extraLiterals": [],
+ "coverageSources": []
 }

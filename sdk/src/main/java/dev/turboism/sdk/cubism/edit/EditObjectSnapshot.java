@@ -12,7 +12,7 @@ import java.util.Objects;
  * @param data the typed property payload; its {@link EditObjectData#kind()} is the official
  *     {@code Type} of the result
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditObjectSnapshot(ModelObjectId object, EditObjectData data) {
 
     public EditObjectSnapshot {

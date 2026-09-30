@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validation-only bounding-box overlay adapter for the generic exact-host runner.
 # Proves two public-SDK contributions are visible, stable, independently clickable,
-# and detached after their registrations close on exact Cubism 5.2.03/5.3.02/5.3.03.
+# and detached after their registrations close on exact Cubism 5.0.x-5.3.x hosts.
 set -euo pipefail
 
 # Machine-specific fixture and host paths come from the ignored repository `.env`.
@@ -9,15 +9,15 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-bounding-box-overlay-host-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
+  echo "usage: run-bounding-box-overlay-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
 case "$version" in
-  5203|5302|5303) ;;
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *)
-    echo "error: bounding-box overlay host validation supports only 5203, 5302, or 5303" >&2
+    echo "error: bounding-box overlay host validation: unsupported version: $version" >&2
     exit 2
     ;;
 esac

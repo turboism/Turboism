@@ -25,9 +25,9 @@ import java.util.Optional;
  *
  * <p>The reviewed instruction streams of both methods — and of the consulted
  * dependencies {@code CWidget.getJComponent()Ljavax/swing/JComponent;} and
- * {@code CCursor.getJCursor()Ljava/awt/Cursor;} — are bytecode-identical on the
- * reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts (javap comparison), so all three
- * digests admit the experiment; the per-artifact {@code ReviewedMethodShape}
+ * {@code CCursor.getJCursor()Ljava/awt/Cursor;} — are bytecode-identical across
+ * every reviewed 5.0.00–5.3.04 artifact (javap comparison), so every admitted
+ * digest admits the experiment; the per-artifact {@code ReviewedMethodShape}
  * gate still pins the exact body before any rewrite.</p>
  */
 public record InputPathElisionTarget(
@@ -60,24 +60,17 @@ public record InputPathElisionTarget(
         Objects.requireNonNull(version, "version");
     }
 
-    private static final InputPathElisionTarget CUBISM_5203 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_2_03, "5.2.03");
-    private static final InputPathElisionTarget CUBISM_5302 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_02, "5.3.02");
-    private static final InputPathElisionTarget CUBISM_5303 =
-        new InputPathElisionTarget(ReviewedHostArtifacts.CUBISM_5_3_03, "5.3.03");
-
     /** The reviewed target for a host artifact digest, or empty when unsupported. */
     public static Optional<InputPathElisionTarget> of(final HostArtifactDigest digest) {
         Objects.requireNonNull(digest, "digest");
-        if (CUBISM_5203.digest().equals(digest)) return Optional.of(CUBISM_5203);
-        if (CUBISM_5302.digest().equals(digest)) return Optional.of(CUBISM_5302);
-        if (CUBISM_5303.digest().equals(digest)) return Optional.of(CUBISM_5303);
-        return Optional.empty();
+        return ReviewedHostArtifacts.cubismVersionOf(digest)
+            .map(version -> new InputPathElisionTarget(digest, version));
     }
 
     /** Every reviewed target, oldest supported version first. */
     public static List<InputPathElisionTarget> all() {
-        return List.of(CUBISM_5203, CUBISM_5302, CUBISM_5303);
+        return ReviewedHostArtifacts.all().stream()
+            .flatMap(artifact -> of(artifact).stream())
+            .toList();
     }
 }

@@ -16,6 +16,15 @@ from pathlib import Path
 from typing import Any, Callable
 
 PROTOCOL_VERSION = "2025-11-25"
+# Exact reviewed Cubism version set admitted by the compatibility records. The
+# capability ledger reports this full set for operations whose backing
+# capabilities verify on every reviewed artifact.
+ALL_REVIEWED_VERSIONS = [
+    "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+    "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+    "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+    "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04",
+]
 EXPECTED_TOOLS = {
     "turboism.model_objects.apply",
     "turboism.parameters.apply",
@@ -319,9 +328,8 @@ def validate_capability_ledger(client: McpClient) -> tuple[int, int]:
         require(operation.get("affinity") == "UI_THREAD", f"{name} is not UI-thread bound")
         require(operation.get("transactionEligible") is False,
                 f"{name} must not be transaction eligible")
-        require(array_value(operation.get("supportedVersions"), "history versions") == [
-            "5.2.03", "5.3.02", "5.3.03",
-        ], f"{name} exact-version set mismatch")
+        require(array_value(operation.get("supportedVersions"), "history versions") ==
+            ALL_REVIEWED_VERSIONS, f"{name} exact-version set mismatch")
 
     glue_write = operations["turboism.glues.write"]
     require(glue_write.get("effect") == "UNDOABLE_WRITE", "Glue write effect is not undoable")
@@ -329,7 +337,7 @@ def validate_capability_ledger(client: McpClient) -> tuple[int, int]:
     require(glue_write.get("transactionEligible") is True,
             "Glue write is not transaction eligible")
     supported = array_value(glue_write.get("supportedVersions"), "Glue supported versions")
-    require(supported == ["5.2.03", "5.3.02", "5.3.03"],
+    require(supported == ALL_REVIEWED_VERSIONS,
             "Glue provider versions are not exact or complete")
     write_operations = {
         text_value(object_value(item, "Glue operation").get("operation"), "Glue operation name"):
@@ -499,7 +507,7 @@ def validate_reversible_glue_authoring(
     })
     provider = object_value(listed.get("provider"), "Glue provider")
     active_version = text_value(provider.get("activeVersion"), "Glue activeVersion")
-    require(active_version in {"5.2.03", "5.3.02", "5.3.03"},
+    require(active_version in ALL_REVIEWED_VERSIONS,
             "Glue provider is not bound to an exact reviewed version")
     page = object_value(listed.get("result"), "Glue page")
     glues = array_value(page.get("items"), "Glue items")

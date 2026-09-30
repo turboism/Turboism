@@ -27,35 +27,30 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
         rootProject.file(
             "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
         ),
-        rootProject.file(
-            "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
-        ),
-        rootProject.file(
-            "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
-        )
+        fileTree(
+            rootProject.file("compatibility/cubism/core-api/observed")
+        ) { include("*.json") }
     )
     outputs.file(generatedCoreCatalogFile)
     doFirst {
         val output = generatedCoreCatalogFile.get().asFile
         output.parentFile.mkdirs()
+        val inventories = rootProject.file("compatibility/cubism/core-api/observed")
+            .listFiles { f -> f.name.endsWith(".json") }
+            .sorted()
+            .flatMap { inventory -> listOf("--inventory", inventory.absolutePath) }
         commandLine(
-            "python3",
-            rootProject.file("scripts/cubism_core_policy.py"),
-            "render-java",
-            "--policy",
-            rootProject.file(
-                "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
-            ),
-            "--output",
-            output,
-            "--inventory",
-            rootProject.file(
-                "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
-            ),
-            "--inventory",
-            rootProject.file(
-                "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
-            )
+            listOf(
+                "python3",
+                rootProject.file("scripts/cubism_core_policy.py").absolutePath,
+                "render-java",
+                "--policy",
+                rootProject.file(
+                    "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
+                ).absolutePath,
+                "--output",
+                output.absolutePath
+            ) + inventories
         )
     }
 }

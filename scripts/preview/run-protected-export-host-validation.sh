@@ -18,7 +18,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-protected-export-host-validation.sh <5203|5302|5303> [run-label] [phase] [runner-options...]" >&2
+  echo "usage: run-protected-export-host-validation.sh <5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [phase] [runner-options...]" >&2
   echo "  phase: dialog (default) | copy-binding | flatten | export | dirty-export | glue-export | physics-export | broad-structure | export-native | census | atlas-fixture | expect-reject | expect-reject-structure | comma combinations" >&2
   exit 2
 fi
@@ -51,13 +51,13 @@ case "$phase" in
     ;;
 esac
 
-# Only the reviewed 5.2.03, 5.3.02 and 5.3.03 artifacts are admitted by the export-settings
-# host profile, so a run against any other build would produce a misleading failure rather
-# than evidence.
+# The export-settings host profile has static evidence on every artifact from 5.1.00
+# onward (adapter.cubism.protected-export); the 5.0.x builds have none, so a run
+# against them would produce a misleading failure rather than evidence.
 case "$version" in
-  5203 | 5302 | 5303) ;;
+  5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *)
-    echo "error: the export-settings hook is admitted for 5203/5302/5303 only; '$version' must not be probed" >&2
+    echo "error: the export-settings hook is admitted for 5100+ only; '$version' must not be probed" >&2
     exit 2
     ;;
 esac

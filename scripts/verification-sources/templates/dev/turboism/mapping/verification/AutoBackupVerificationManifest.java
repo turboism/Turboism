@@ -27,30 +27,109 @@ public final class AutoBackupVerificationManifest {
         "cubism.autobackup.backup"
     );
 
-    public static final String VERIFICATION_ID_5303 = "${record:cubism-5.3.03-autobackup.json:verificationId}";
-    public static final String RECORD_SHA256_5303 =
-        "${record:cubism-5.3.03-autobackup.json:sha256}";
-    public static final String CUBISM_VERSION_5303 = "${record:cubism-5.3.03-autobackup.json:cubismVersion}";
-    public static final String PROFILE_ID_5303 = "${record:cubism-5.3.03-autobackup.json:profileId}";
-    public static final long ARTIFACT_SIZE_5303 = ReviewedHostArtifacts.CUBISM_5_3_03.size();
-    public static final String ARTIFACT_SHA256_5303 = ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
+    public static final String VERIFICATION_ID_5_1_00 = "${record:cubism-5.1.00-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_1_00 =
+        "${record:cubism-5.1.00-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_1_00 = "${record:cubism-5.1.00-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_1_00 = "${record:cubism-5.1.00-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_1_00 = ReviewedHostArtifacts.CUBISM_5_1_00.size();
+    public static final String ARTIFACT_SHA256_5_1_00 = ReviewedHostArtifacts.CUBISM_5_1_00.sha256();
 
-    public static final String VERIFICATION_ID_53 = "${record:cubism-5.3.02-autobackup.json:verificationId}";
-    public static final String RECORD_SHA256_53 =
-        "${record:cubism-5.3.02-autobackup.json:sha256}";
-    public static final String CUBISM_VERSION_53 = "${record:cubism-5.3.02-autobackup.json:cubismVersion}";
-    public static final String PROFILE_ID_53 = "${record:cubism-5.3.02-autobackup.json:profileId}";
-    public static final long ARTIFACT_SIZE_53 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
-    public static final String ARTIFACT_SHA256_53 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    public static final String VERIFICATION_ID_5_1_01 = "${record:cubism-5.1.01-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_1_01 =
+        "${record:cubism-5.1.01-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_1_01 = "${record:cubism-5.1.01-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_1_01 = "${record:cubism-5.1.01-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_1_01 = ReviewedHostArtifacts.CUBISM_5_1_01.size();
+    public static final String ARTIFACT_SHA256_5_1_01 = ReviewedHostArtifacts.CUBISM_5_1_01.sha256();
 
-    public static final String VERIFICATION_ID_52 = "${record:cubism-5.2.03-autobackup.json:verificationId}";
-    public static final String RECORD_SHA256_52 =
+    public static final String VERIFICATION_ID_5_1_02 = "${record:cubism-5.1.02-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_1_02 =
+        "${record:cubism-5.1.02-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_1_02 = "${record:cubism-5.1.02-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_1_02 = "${record:cubism-5.1.02-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_1_02 = ReviewedHostArtifacts.CUBISM_5_1_02.size();
+    public static final String ARTIFACT_SHA256_5_1_02 = ReviewedHostArtifacts.CUBISM_5_1_02.sha256();
+
+    public static final String VERIFICATION_ID_5_1_03 = "${record:cubism-5.1.03-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_1_03 =
+        "${record:cubism-5.1.03-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_1_03 = "${record:cubism-5.1.03-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_1_03 = "${record:cubism-5.1.03-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_1_03 = ReviewedHostArtifacts.CUBISM_5_1_03.size();
+    public static final String ARTIFACT_SHA256_5_1_03 = ReviewedHostArtifacts.CUBISM_5_1_03.sha256();
+
+    public static final String VERIFICATION_ID_5_2_00 = "${record:cubism-5.2.00-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_2_00 =
+        "${record:cubism-5.2.00-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_2_00 = "${record:cubism-5.2.00-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_2_00 = "${record:cubism-5.2.00-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_2_00 = ReviewedHostArtifacts.CUBISM_5_2_00.size();
+    public static final String ARTIFACT_SHA256_5_2_00 = ReviewedHostArtifacts.CUBISM_5_2_00.sha256();
+
+    public static final String VERIFICATION_ID_5_2_01 = "${record:cubism-5.2.01-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_2_01 =
+        "${record:cubism-5.2.01-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_2_01 = "${record:cubism-5.2.01-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_2_01 = "${record:cubism-5.2.01-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_2_01 = ReviewedHostArtifacts.CUBISM_5_2_01.size();
+    public static final String ARTIFACT_SHA256_5_2_01 = ReviewedHostArtifacts.CUBISM_5_2_01.sha256();
+
+    public static final String VERIFICATION_ID_5_2_02 = "${record:cubism-5.2.02-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_2_02 =
+        "${record:cubism-5.2.02-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_2_02 = "${record:cubism-5.2.02-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_2_02 = "${record:cubism-5.2.02-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_2_02 = ReviewedHostArtifacts.CUBISM_5_2_02.size();
+    public static final String ARTIFACT_SHA256_5_2_02 = ReviewedHostArtifacts.CUBISM_5_2_02.sha256();
+
+    public static final String VERIFICATION_ID_5_2_03 = "${record:cubism-5.2.03-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_2_03 =
         "${record:cubism-5.2.03-autobackup.json:sha256}";
-    public static final String CUBISM_VERSION_52 = "${record:cubism-5.2.03-autobackup.json:cubismVersion}";
-    public static final String PROFILE_ID_52 = "${record:cubism-5.2.03-autobackup.json:profileId}";
-    public static final long ARTIFACT_SIZE_52 = ReviewedHostArtifacts.CUBISM_5_2_03.size();
-    public static final String ARTIFACT_SHA256_52 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
+    public static final String CUBISM_VERSION_5_2_03 = "${record:cubism-5.2.03-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_2_03 = "${record:cubism-5.2.03-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_2_03 = ReviewedHostArtifacts.CUBISM_5_2_03.size();
+    public static final String ARTIFACT_SHA256_5_2_03 = ReviewedHostArtifacts.CUBISM_5_2_03.sha256();
 
+    public static final String VERIFICATION_ID_5_3_00 = "${record:cubism-5.3.00-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_3_00 =
+        "${record:cubism-5.3.00-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_3_00 = "${record:cubism-5.3.00-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_3_00 = "${record:cubism-5.3.00-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_3_00 = ReviewedHostArtifacts.CUBISM_5_3_00.size();
+    public static final String ARTIFACT_SHA256_5_3_00 = ReviewedHostArtifacts.CUBISM_5_3_00.sha256();
+
+    public static final String VERIFICATION_ID_5_3_01 = "${record:cubism-5.3.01-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_3_01 =
+        "${record:cubism-5.3.01-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_3_01 = "${record:cubism-5.3.01-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_3_01 = "${record:cubism-5.3.01-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_3_01 = ReviewedHostArtifacts.CUBISM_5_3_01.size();
+    public static final String ARTIFACT_SHA256_5_3_01 = ReviewedHostArtifacts.CUBISM_5_3_01.sha256();
+
+    public static final String VERIFICATION_ID_5_3_02 = "${record:cubism-5.3.02-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_3_02 =
+        "${record:cubism-5.3.02-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_3_02 = "${record:cubism-5.3.02-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_3_02 = "${record:cubism-5.3.02-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_3_02 = ReviewedHostArtifacts.CUBISM_5_3_02.size();
+    public static final String ARTIFACT_SHA256_5_3_02 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+
+    public static final String VERIFICATION_ID_5_3_03 = "${record:cubism-5.3.03-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_3_03 =
+        "${record:cubism-5.3.03-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_3_03 = "${record:cubism-5.3.03-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_3_03 = "${record:cubism-5.3.03-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_3_03 = ReviewedHostArtifacts.CUBISM_5_3_03.size();
+    public static final String ARTIFACT_SHA256_5_3_03 = ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
+
+    public static final String VERIFICATION_ID_5_3_04 = "${record:cubism-5.3.04-autobackup.json:verificationId}";
+    public static final String RECORD_SHA256_5_3_04 =
+        "${record:cubism-5.3.04-autobackup.json:sha256}";
+    public static final String CUBISM_VERSION_5_3_04 = "${record:cubism-5.3.04-autobackup.json:cubismVersion}";
+    public static final String PROFILE_ID_5_3_04 = "${record:cubism-5.3.04-autobackup.json:profileId}";
+    public static final long ARTIFACT_SIZE_5_3_04 = ReviewedHostArtifacts.CUBISM_5_3_04.size();
+    public static final String ARTIFACT_SHA256_5_3_04 = ReviewedHostArtifacts.CUBISM_5_3_04.sha256();
     /**
      * Returns whether this JVM is the exact task-scoped 5.3.03 auto-backup matrix lane.
      *
@@ -109,57 +188,239 @@ public final class AutoBackupVerificationManifest {
     );
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == ARTIFACT_SIZE_5303
-            && artifact.sha256().equals(ARTIFACT_SHA256_5303)) {
-            return manifest5303();
+        if (artifact.size() == ARTIFACT_SIZE_5_1_00
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_1_00)) {
+            return manifest5_1_00();
         }
-        if (artifact.size() == ARTIFACT_SIZE_53 && artifact.sha256().equals(ARTIFACT_SHA256_53)) {
-            return manifest53();
+        if (artifact.size() == ARTIFACT_SIZE_5_1_01
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_1_01)) {
+            return manifest5_1_01();
         }
-        if (artifact.size() == ARTIFACT_SIZE_52 && artifact.sha256().equals(ARTIFACT_SHA256_52)) {
-            return manifest52();
+        if (artifact.size() == ARTIFACT_SIZE_5_1_02
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_1_02)) {
+            return manifest5_1_02();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_1_03
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_1_03)) {
+            return manifest5_1_03();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_2_00
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_2_00)) {
+            return manifest5_2_00();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_2_01
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_2_01)) {
+            return manifest5_2_01();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_2_02
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_2_02)) {
+            return manifest5_2_02();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_2_03
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_2_03)) {
+            return manifest5_2_03();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_00
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_00)) {
+            return manifest5_3_00();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_01
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_01)) {
+            return manifest5_3_01();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_02
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_02)) {
+            return manifest5_3_02();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_03
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_03)) {
+            return manifest5_3_03();
+        }
+        if (artifact.size() == ARTIFACT_SIZE_5_3_04
+            && artifact.sha256().equals(ARTIFACT_SHA256_5_3_04)) {
+            return manifest5_3_04();
         }
         throw new IllegalArgumentException(
             "host artifact is not the reviewed Cubism auto-backup artifact"
         );
     }
 
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest5303() {
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_1_00() {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-            VERIFICATION_ID_5303,
-            RECORD_SHA256_5303,
-            CUBISM_VERSION_5303,
-            PROFILE_ID_5303,
-            ARTIFACT_SIZE_5303,
-            ARTIFACT_SHA256_5303,
+            VERIFICATION_ID_5_1_00,
+            RECORD_SHA256_5_1_00,
+            CUBISM_VERSION_5_1_00,
+            PROFILE_ID_5_1_00,
+            ARTIFACT_SIZE_5_1_00,
+            ARTIFACT_SHA256_5_1_00,
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,
             REQUIRED_ALIASES
         );
     }
 
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest53() {
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_1_01() {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-            VERIFICATION_ID_53,
-            RECORD_SHA256_53,
-            CUBISM_VERSION_53,
-            PROFILE_ID_53,
-            ARTIFACT_SIZE_53,
-            ARTIFACT_SHA256_53,
+            VERIFICATION_ID_5_1_01,
+            RECORD_SHA256_5_1_01,
+            CUBISM_VERSION_5_1_01,
+            PROFILE_ID_5_1_01,
+            ARTIFACT_SIZE_5_1_01,
+            ARTIFACT_SHA256_5_1_01,
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,
             REQUIRED_ALIASES
         );
     }
 
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest52() {
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_1_02() {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-            VERIFICATION_ID_52,
-            RECORD_SHA256_52,
-            CUBISM_VERSION_52,
-            PROFILE_ID_52,
-            ARTIFACT_SIZE_52,
-            ARTIFACT_SHA256_52,
+            VERIFICATION_ID_5_1_02,
+            RECORD_SHA256_5_1_02,
+            CUBISM_VERSION_5_1_02,
+            PROFILE_ID_5_1_02,
+            ARTIFACT_SIZE_5_1_02,
+            ARTIFACT_SHA256_5_1_02,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_1_03() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_1_03,
+            RECORD_SHA256_5_1_03,
+            CUBISM_VERSION_5_1_03,
+            PROFILE_ID_5_1_03,
+            ARTIFACT_SIZE_5_1_03,
+            ARTIFACT_SHA256_5_1_03,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_2_00() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_2_00,
+            RECORD_SHA256_5_2_00,
+            CUBISM_VERSION_5_2_00,
+            PROFILE_ID_5_2_00,
+            ARTIFACT_SIZE_5_2_00,
+            ARTIFACT_SHA256_5_2_00,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_2_01() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_2_01,
+            RECORD_SHA256_5_2_01,
+            CUBISM_VERSION_5_2_01,
+            PROFILE_ID_5_2_01,
+            ARTIFACT_SIZE_5_2_01,
+            ARTIFACT_SHA256_5_2_01,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_2_02() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_2_02,
+            RECORD_SHA256_5_2_02,
+            CUBISM_VERSION_5_2_02,
+            PROFILE_ID_5_2_02,
+            ARTIFACT_SIZE_5_2_02,
+            ARTIFACT_SHA256_5_2_02,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_2_03() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_2_03,
+            RECORD_SHA256_5_2_03,
+            CUBISM_VERSION_5_2_03,
+            PROFILE_ID_5_2_03,
+            ARTIFACT_SIZE_5_2_03,
+            ARTIFACT_SHA256_5_2_03,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_00() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_00,
+            RECORD_SHA256_5_3_00,
+            CUBISM_VERSION_5_3_00,
+            PROFILE_ID_5_3_00,
+            ARTIFACT_SIZE_5_3_00,
+            ARTIFACT_SHA256_5_3_00,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_01() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_01,
+            RECORD_SHA256_5_3_01,
+            CUBISM_VERSION_5_3_01,
+            PROFILE_ID_5_3_01,
+            ARTIFACT_SIZE_5_3_01,
+            ARTIFACT_SHA256_5_3_01,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_02() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_02,
+            RECORD_SHA256_5_3_02,
+            CUBISM_VERSION_5_3_02,
+            PROFILE_ID_5_3_02,
+            ARTIFACT_SIZE_5_3_02,
+            ARTIFACT_SHA256_5_3_02,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_03() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_03,
+            RECORD_SHA256_5_3_03,
+            CUBISM_VERSION_5_3_03,
+            PROFILE_ID_5_3_03,
+            ARTIFACT_SIZE_5_3_03,
+            ARTIFACT_SHA256_5_3_03,
+            ADAPTER_SLICE_ID,
+            CAPABILITY_IDS,
+            REQUIRED_ALIASES
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.Manifest manifest5_3_04() {
+        return new PinnedVerifiedResolverWorkflow.Manifest(
+            VERIFICATION_ID_5_3_04,
+            RECORD_SHA256_5_3_04,
+            CUBISM_VERSION_5_3_04,
+            PROFILE_ID_5_3_04,
+            ARTIFACT_SIZE_5_3_04,
+            ARTIFACT_SHA256_5_3_04,
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,
             REQUIRED_ALIASES

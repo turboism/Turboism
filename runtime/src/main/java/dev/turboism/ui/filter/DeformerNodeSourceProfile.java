@@ -15,17 +15,15 @@ import java.util.Optional;
  * {@code cubism.ui-control-appearance.part.node-source}:</p>
  *
  * <ul>
- *   <li>Cubism 5.2.03 → {@code h()} — {@code compatibility/cubism/verification/cubism-5.2.03-ui-control-appearance.json},
- *       mappingId {@code cubism.mapping.5_2.ui_control_appearance.method.node_source};</li>
- *   <li>Cubism 5.3.02 → {@code i()} — {@code compatibility/cubism/verification/cubism-5.3.02-ui-control-appearance.json},
- *       mappingId {@code cubism.mapping.5_3_02.ui_control_appearance.method.node_source}.</li>
+ *   <li>Cubism 5.2.x → {@code h()} — ui-control-appearance records, alias
+ *       {@code cubism.ui-control-appearance.part.node-source};</li>
+ *   <li>Cubism 5.3.x → {@code i()} — same alias on the 5.3 records.</li>
  * </ul>
  *
  * <p>The version is taken from the bound {@link VerifiedMemberResolver#cubismVersion()}.
- * The production Editor-model resolver reports {@code 5.2.03} for the exact 5.2.03 patch
- * artifact ({@code EditorModelVerificationManifest.CUBISM_VERSION_5_2_03}) and {@code 5.3.02} for
- * the 5.3.02 artifact. Every other version fails
- * closed (no profile, deformer filtering disabled).</p>
+ * Versions without a record-pinned accessor (5.0.x and 5.1.x, where the node class
+ * exposes several zero-argument {@code Object} getters with no evidence identifying
+ * the node→source member) fail closed (no profile, deformer filtering disabled).</p>
  */
 record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
@@ -37,6 +35,13 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     private static final String ACCESSOR_52 = "h";
     private static final String ACCESSOR_53 = "i";
+
+    private static final java.util.Set<String> VERSIONS_52 = java.util.Set.of(
+        "5.2.00", "5.2.01", "5.2.02", "5.2.03"
+    );
+    private static final java.util.Set<String> VERSIONS_53 = java.util.Set.of(
+        "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+    );
 
     DeformerNodeSourceProfile {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
@@ -50,10 +55,13 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     /** Exact-version routing; unknown versions yield no profile (fail closed). */
     static Optional<DeformerNodeSourceProfile> forVersion(final String cubismVersion) {
-        if ("5.2.03".equals(cubismVersion)) {
+        if (cubismVersion == null) {
+            return Optional.empty();
+        }
+        if (VERSIONS_52.contains(cubismVersion)) {
             return Optional.of(new DeformerNodeSourceProfile(cubismVersion, ACCESSOR_52));
         }
-        if ("5.3.02".equals(cubismVersion)) {
+        if (VERSIONS_53.contains(cubismVersion)) {
             return Optional.of(new DeformerNodeSourceProfile(cubismVersion, ACCESSOR_53));
         }
         return Optional.empty();

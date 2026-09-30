@@ -1,16 +1,33 @@
 {
-  "format": "turboism.verification-source-family/v1",
-  "family": "performance-render-scene",
-  "records": [
-    "cubism-5.2.03-performance-render-scene.json",
-    "cubism-5.3.02-performance-render-scene.json",
-    "cubism-5.3.03-performance-render-scene.json"
-  ],
-  "files": [
-    "dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java"
-  ],
-  "packs": [],
-  "extraLiterals": [],
-  "coverageSources": [],
-  "coverage": false
+ "format": "turboism.verification-source-family/v1",
+ "family": "performance-render-scene",
+ "records": [
+  "cubism-5.0.00-performance-render-scene.json",
+  "cubism-5.0.01-performance-render-scene.json",
+  "cubism-5.0.02-performance-render-scene.json",
+  "cubism-5.0.03-performance-render-scene.json",
+  "cubism-5.0.04-performance-render-scene.json",
+  "cubism-5.0.05-performance-render-scene.json",
+  "cubism-5.0.06-performance-render-scene.json",
+  "cubism-5.1.00-performance-render-scene.json",
+  "cubism-5.1.01-performance-render-scene.json",
+  "cubism-5.1.02-performance-render-scene.json",
+  "cubism-5.1.03-performance-render-scene.json",
+  "cubism-5.2.00-performance-render-scene.json",
+  "cubism-5.2.01-performance-render-scene.json",
+  "cubism-5.2.02-performance-render-scene.json",
+  "cubism-5.2.03-performance-render-scene.json",
+  "cubism-5.3.00-performance-render-scene.json",
+  "cubism-5.3.01-performance-render-scene.json",
+  "cubism-5.3.02-performance-render-scene.json",
+  "cubism-5.3.03-performance-render-scene.json",
+  "cubism-5.3.04-performance-render-scene.json"
+ ],
+ "files": [
+  "dev/turboism/mapping/verification/PerformanceFpsVerificationManifest.java"
+ ],
+ "packs": [],
+ "extraLiterals": [],
+ "coverageSources": [],
+ "coverage": false
 }

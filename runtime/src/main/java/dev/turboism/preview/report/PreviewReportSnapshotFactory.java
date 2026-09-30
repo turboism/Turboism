@@ -3,6 +3,7 @@ package dev.turboism.preview.report;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.adapter.host.HostSession;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.failure.RuntimeFailure;
 import dev.turboism.failure.RuntimeFailureSnapshot;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -859,12 +860,7 @@ public final class PreviewReportSnapshotFactory {
         } catch (RuntimeException | IOException failure) {
             return "UNKNOWN";
         }
-        // The 5.2 project/workspace manifest identifies the host as "5.2.03";
-        // normalize it to the product version "5.2.03" used by reviewed evidence.
-        if (value.equals("5.2.03")) {
-            return "5.2.03";
-        }
-        if (!value.equals("5.3.02") && !value.equals("5.2.03")) {
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(value)) {
             return "UNKNOWN";
         }
         return value;

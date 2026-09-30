@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.performance;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,9 +60,11 @@ public final class PerformanceProbeReportWriter {
         if (!images && !"camera".equals(scenario) && !"edit".equals(scenario)) {
             throw new IllegalArgumentException("unsupported performance probe scenario");
         }
-        if (images && (!"5.3.02".equals(cubismVersion)
+        if (images && (!ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)
             || artifactSha256 == null || !artifactSha256.matches("[0-9a-f]{64}"))) {
-            throw new IllegalArgumentException("image diagnostics require the 5.3.02 contract and actual artifact digest");
+            throw new IllegalArgumentException(
+                "image diagnostics require a reviewed contract and actual artifact digest"
+            );
         }
         final Map<String, Object> report = new LinkedHashMap<>();
         report.put("format", "turboism.cubism.performance-probe");

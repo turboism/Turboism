@@ -24,19 +24,19 @@ import java.util.Optional;
 public interface FileChooserHistoryService {
 
     /** Returns the recent directory remembered for project saves, if any. */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     Optional<Path> projectRecentDirectory();
 
     /** Returns the recent directory remembered for export-output saves, if any. */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     Optional<Path> exportRecentDirectory();
 
     /** Persists the recent directory for project saves. */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void setProjectRecentDirectory(Path dir);
 
     /** Persists the recent directory for export-output saves. */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     void setExportRecentDirectory(Path dir);
 
     /**
@@ -44,7 +44,7 @@ public interface FileChooserHistoryService {
      * directories. Backed by {@code RuntimeSettings.separateExportSaveDirectory}
      * ({@code hooks.startup.separateExportSaveDirectory} in config.json).
      */
-    @CubismEditor({"5.3.02", "5.3.03"})
+    @CubismEditor({"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
     boolean exportSeparationEnabled();
 
     /**

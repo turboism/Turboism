@@ -11,7 +11,7 @@ import java.util.Optional;
  * (model-image count and size distribution). The host view is attached by the
  * runtime; this read-only session never mutates authoring state.</p>
  */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor({"5.2.00", "5.2.01", "5.2.02", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"})
 public interface TextureAtlasEditorSession {
 
     /** Summary of the whole active texture atlas (all pages). */

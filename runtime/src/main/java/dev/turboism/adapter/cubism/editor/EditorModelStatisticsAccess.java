@@ -159,7 +159,7 @@ final class EditorModelStatisticsAccess {
     }
 
     static boolean supportsOffscreenStatistics(final String cubismVersion) {
-        return Set.of("5.3.02", "5.3.03").contains(cubismVersion);
+        return Set.of("5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04").contains(cubismVersion);
     }
 
     private static List<?> list(final Object value, final String label) {

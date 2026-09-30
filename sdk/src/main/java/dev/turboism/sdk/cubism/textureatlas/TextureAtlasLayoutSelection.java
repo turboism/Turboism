@@ -25,7 +25,7 @@ import dev.turboism.sdk.CubismEditor;
  * {@link TextureAtlasLayoutPlanner#plan(java.util.List, TextureAtlasLayoutConstraints, boolean)};
  * algorithms that do not declare {@code supportsParallel} ignore it.</p>
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record TextureAtlasLayoutSelection(String algorithmId, boolean parallel) {
 
     /**

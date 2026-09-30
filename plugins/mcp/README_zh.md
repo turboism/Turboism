@@ -37,7 +37,7 @@ interface: swing
 ## 要求与兼容性
 
 - **Turboism API：** `[0.1.0,0.2.0)`。
-- **Cubism：** Turboism 当前仅接受经过审查的精确 Editor 构件 `5.2.03`、`5.3.02` 和 `5.3.03`。面向宿主的资源在其公开 SDK 能力不可用时会以关闭状态失败；它绝不会伪造空的成功结果。
+- **Cubism：** Turboism 当前仅接受经过审查的精确 Editor 构件 `5.0.00` 至 `5.3.04`。面向宿主的资源在其公开 SDK 能力不可用时会以关闭状态失败；它绝不会伪造空的成功结果。
 - **传输：** 使用协议 `2025-11-25` 的 MCP Streamable HTTP，并为受支持的较早协议版本进行兼容性协商。
 - **接口模式：** `swing`，提供本地 MCP 连接信息窗口。
 - **插件依赖项：** 未声明。
@@ -147,7 +147,7 @@ url = "http://127.0.0.1:43123/mcp"
 
 先调用 `turboism.textures.read`，参数为 `{"operation":"list"}`，再把返回的 **`state` 对象** 原样放入写入请求的 `expectedState`。另一个 `stateToken` 字符串仅用于关联本次读取，不是写入前置条件或授权令牌。写入或撤销／重做后应重新读取状态；原生历史不可用时拒绝写入。
 
-适配范围为精确版本 `5.2.03 / 5.3.02 / 5.3.03`，操作包括 `add_model_image_group`（`name`）、`remove_model_image`（`id`）、`add_texture_atlas`（`name`、`widthPixels`、`heightPixels`）、`remove_texture_atlas`（`id`）和 `remove_raw_image`（`id`）。所有删除都必须显式传入 `confirmDelete: true`。模型图像组使用名称，不伪造 GUID；重名创建会在修改前拒绝。
+适配范围为精确版本 `5.2.03 / 5.3.00–5.3.04`，操作包括 `add_model_image_group`（`name`）、`remove_model_image`（`id`）、`add_texture_atlas`（`name`、`widthPixels`、`heightPixels`）、`remove_texture_atlas`（`id`）和 `remove_raw_image`（`id`）。所有删除都必须显式传入 `confirmDelete: true`。模型图像组使用名称，不伪造 GUID；重名创建会在修改前拒绝。
 
 名称和 ID 上限为 256 个 Unicode 码点，图集每边尺寸为 1–16384 像素。读取时，每个顶层集合最多 1024 项，嵌套模型图像总数最多 1024；超限返回错误而非静默截断。成功写入后的回读失败保留结果标识，返回 `APPLIED_WITH_READBACK_WARNING` 和 `postState: null`。无法证明结果的原生异常返回 `OUTCOME_UNKNOWN`，不会误称 `NOT_APPLIED`，也不会建议自动重试或泄露宿主异常中的路径。
 

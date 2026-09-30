@@ -21,7 +21,7 @@ import java.util.Set;
  * @param scale positive finite absolute uniform scale from source coordinates to final pixels;
  *     one for complete-atlas authoring, not a multiplier of the previous atlas transform
  */
-@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+@CubismEditor(from = "5.0.00")
 public record TextureAtlasLayoutPlan(
     int pageWidth,
     int pageHeight,

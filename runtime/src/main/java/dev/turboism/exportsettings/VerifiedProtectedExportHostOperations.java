@@ -474,6 +474,22 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final Map<String, String> CUBISM_5_2_FEATURE_GATES =
         withoutGates(FEATURE_GATES, CUBISM_5_3_ONLY_ALIASES);
 
+    /**
+     * Exact versions whose reviewed record carries the legacy protected-export surface — the
+     * {@link #cubism52} selector roster without the 5.3-only alias family, matching
+     * {@code ProtectedExportVerificationManifest#cubism52Aliases()}.
+     */
+    private static final Set<String> CUBISM_LEGACY_SURFACE_VERSIONS = Set.of(
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_00,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_01,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_02,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_1_03,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_00,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_01,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_02,
+        ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
+    );
+
     private static Map<String, String> featureGates() {
         final Map<String, String> gates = new LinkedHashMap<>();
         gates.put(MS_CONTAIN_MULTIPLY, "multiply-color");
@@ -506,9 +522,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
 
     public VerifiedProtectedExportHostOperations(final VerifiedMemberResolver resolver) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.cubism52 = resolver.isExactCubismVersion(
-            ProtectedExportVerificationManifest.CUBISM_VERSION_5_2_03
-        );
+        this.cubism52 = CUBISM_LEGACY_SURFACE_VERSIONS.stream()
+            .anyMatch(resolver::isExactCubismVersion);
         this.admittedFeatureGates = cubism52 ? CUBISM_5_2_FEATURE_GATES : FEATURE_GATES;
         if (!resolver.authorizes(
             ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,

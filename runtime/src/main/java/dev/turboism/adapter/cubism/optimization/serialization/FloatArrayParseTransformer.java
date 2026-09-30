@@ -165,7 +165,41 @@ public final class FloatArrayParseTransformer implements ClassFileTransformer {
     }
 
     private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
-        Map.of(
-        "5.3.02", Map.ofEntries(
-            Map.entry("com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")));
+        Map.ofEntries(
+        Map.entry("5.0.00", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.01", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.02", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.03", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.04", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.05", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.0.06", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.1.00", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.1.01", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.1.02", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.1.03", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.2.00", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.2.01", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.2.02", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.3.00", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.3.01", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.3.02", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")),
+        Map.entry("5.3.04", Map.of(
+            "com/live2d/serialize/impl/G", "524390ece25fd08f2a85bfc928ba56fb048a2d5e11fbb6d21445ae0d3ae3cb41")));
 }
