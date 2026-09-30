@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>{@code @CubismEditor} treats an undeclared type or method as available on every reviewed
  * editor version. The whole {@code dev.turboism.sdk.cubism.edit} package is admitted only on the
- * reviewed 5.2/5.3 contract range, so every public top-level type must carry that bound;
- * the 5.4 native protocol must not silently inherit this integration.
+ * reviewed 5.1.02+/5.3.x contract range — the versions whose records carry the
+ * {@code cubism.integration.edit-api-bridge.dispatch} capability — so every public top-level
+ * type must carry that bound; the 5.4 native protocol must not silently inherit this
+ * integration.
  * Nested types are covered transitively: they must either carry the bound themselves or
  * be enclosed by — or implement — a pinned type.</p>
  */
@@ -75,7 +77,7 @@ final class EditSurfaceAvailabilityContractTest {
         assertNotNull(annotation);
         assertArrayEquals(new String[0], annotation.value());
         assertArrayEquals(new String[0], annotation.exclude());
-        assertEquals("5.2.03", annotation.from());
+        assertEquals("5.1.02", annotation.from());
         assertEquals("5.3.99", annotation.to());
     }
 

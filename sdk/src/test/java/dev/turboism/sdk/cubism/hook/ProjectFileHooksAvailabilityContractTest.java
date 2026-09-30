@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class ProjectFileHooksAvailabilityContractTest {
 
-    private static final String[] EXACT_5_3 = {"5.3.02", "5.3.03"};
+    private static final String[] REVIEWED_VERSIONS = {"5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"};
     private static final Set<String> UNPROVEN_MODEL_CREATE = Set.of(
         "beforeCreateModel",
         "onModelCreated",
@@ -45,7 +45,7 @@ class ProjectFileHooksAvailabilityContractTest {
 
     private static void assertExact53(final Method method) {
         assertArrayEquals(
-            EXACT_5_3,
+            REVIEWED_VERSIONS,
             method.getAnnotation(CubismEditor.class).value(),
             method.getName()
         );

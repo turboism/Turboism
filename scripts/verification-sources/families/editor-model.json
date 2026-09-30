@@ -2,9 +2,26 @@
  "format": "turboism.verification-source-family/v1",
  "family": "editor-model",
  "records": [
+  "cubism-5.0.00-editor-model.json",
+  "cubism-5.0.01-editor-model.json",
+  "cubism-5.0.02-editor-model.json",
+  "cubism-5.0.03-editor-model.json",
+  "cubism-5.0.04-editor-model.json",
+  "cubism-5.0.05-editor-model.json",
+  "cubism-5.0.06-editor-model.json",
+  "cubism-5.1.00-editor-model.json",
+  "cubism-5.1.01-editor-model.json",
+  "cubism-5.1.02-editor-model.json",
+  "cubism-5.1.03-editor-model.json",
+  "cubism-5.2.00-editor-model.json",
+  "cubism-5.2.01-editor-model.json",
+  "cubism-5.2.02-editor-model.json",
   "cubism-5.2.03-editor-model.json",
+  "cubism-5.3.00-editor-model.json",
+  "cubism-5.3.01-editor-model.json",
   "cubism-5.3.02-editor-model.json",
-  "cubism-5.3.03-editor-model.json"
+  "cubism-5.3.03-editor-model.json",
+  "cubism-5.3.04-editor-model.json"
  ],
  "files": [
   "dev/turboism/mapping/verification/EditorModelVerificationManifest.java",
@@ -64,7 +81,8 @@
   "dev/turboism/mapping/verification/selector/EditorPsdSnapshotSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorSelectionReadSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorTextureSelectorContract.java",
-  "dev/turboism/mapping/verification/selector/EditorWarpMirrorSelectorContract.java"
+  "dev/turboism/mapping/verification/selector/EditorWarpMirrorSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/TextureAtlasSelectorContract.java"
  ],
  "coverage": true,
  "coverageSources": [],

@@ -3,11 +3,18 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mcp-host-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
+  echo "usage: run-mcp-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
+case "$version" in
+  5203|5302) ;;
+  *)
+    echo "error: mcp host validation supports only 5203 or 5302" >&2
+    exit 2
+    ;;
+esac
 run_label='r1'
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"

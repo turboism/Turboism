@@ -10,7 +10,7 @@ hook. Enabling after startup denial requires restarting the Editor.
 -Dturboism.optimization.uniformLocationCache=false
 ```
 
-Scope: exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03, the separately pinned
+Scope: exact reviewed Cubism 5.2.03 and 5.3.00–5.3.04, the separately pinned
 bundled JOGL, JVM 17+, a current created GL4bcImpl context and enabled hook policy.
 The error-observer class is `shader.y` on 5.2.03 and `shader.A` on 5.3.x; each
 method body is verified against that Editor's own original archive. An unknown

@@ -18,7 +18,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/util/a",
         "requiredAccessFlags": 1,
@@ -238,7 +237,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
         "requiredAccessFlags": 1,
@@ -278,7 +276,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
         "requiredAccessFlags": 1,
@@ -318,7 +315,6 @@
       "verifiedBy": "none",
       "verifiedAt": null,
       "confidence": "high",
-      "descriptor": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
         "requiredAccessFlags": 1,

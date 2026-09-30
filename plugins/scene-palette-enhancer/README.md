@@ -38,7 +38,7 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Requires Cubism. The Scene palette bridge is admitted for the exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; any other artifact fails closed. Scene-specific private UI selectors were independently verified against the exact `5.3.03` artifact (Scene palette controller/listener classes byte-identical to `5.3.02`, every referenced member descriptor matching).
+- **Cubism:** Requires Cubism. The Scene palette bridge is admitted for the exact reviewed Editor artifacts `5.0.00` through `5.3.04`; any other artifact fails closed. All 23 Scene-specific private UI selectors were verified structurally against every exact reviewed artifact (member names, descriptors and access flags matching on each jar), and binding re-verifies them against the loaded host at attach time.
 
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.

@@ -72,7 +72,7 @@ files are never deleted.
 
 Rerun the installer to apply a different plugin selection.
 
-On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. After installation the configurator opens automatically, lists only exact supported Cubism Editor 5.2.03, 5.3.02, and 5.3.03 installations, and presents independent controls for Turboism-owned shortcuts and official Cubism BAT integration. BAT integration runs only for exact installations selected by the user, records a hash-guarded backup, and cleanup restores only hash-matching managed files; user edits or malformed state are conflicts and preserve state/backups for retry. The configurator writes actionable diagnostics under `logs/installer/`.
+On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. After installation the configurator opens automatically, lists only exact supported Cubism Editor 5.0.00 through 5.3.04 installations, and presents independent controls for Turboism-owned shortcuts and official Cubism BAT integration. BAT integration runs only for exact installations selected by the user, records a hash-guarded backup, and cleanup restores only hash-matching managed files; user edits or malformed state are conflicts and preserve state/backups for retry. The configurator writes actionable diagnostics under `logs/installer/`.
 
 ## Uninstall
 

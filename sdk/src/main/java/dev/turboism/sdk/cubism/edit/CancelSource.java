@@ -9,7 +9,7 @@ import dev.turboism.sdk.CubismEditor;
  * operating the Cubism Editor UI, or from the host forcibly terminating the session when the
  * plugin or document disappears.
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public enum CancelSource {
     /** The human cancelled the modal editing dialog or closed the project mid-session. */
     USER,

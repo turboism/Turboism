@@ -38,7 +38,7 @@ interface: none
 ## 要求与兼容性
 
 - **Turboism API：** `[0.1.0,0.2.0)`。
-- **Cubism：**需要 Cubism。Scene 调色板桥接允许精确审核过的 Editor 构件 `5.2.03`、`5.3.02` 与 `5.3.03`；其余构件一律失败关闭。Scene 私有 UI selector 已对照精确 `5.3.03` 构件完成独立验证（Scene 调色板 controller/listener 类与 `5.3.02` 逐字节一致，所引用成员 descriptor 全部一致）。
+- **Cubism：**需要 Cubism。Scene 调色板桥接允许全部精确审核过的 Editor 构件 `5.0.00` 至 `5.3.04`；其余构件一律失败关闭。全部 23 个 Scene 私有 UI selector 已在每个精确审核构件上完成结构化验证（成员名、descriptor 与访问标志逐 jar 一致），绑定时还会对已加载宿主再次复核。
 
 - **界面模式：**`none`。
 - **插件依赖：**未声明。

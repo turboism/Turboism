@@ -117,7 +117,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
             VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
                 instrumentation,
                 resolver(
-                    "5.3.01",
+                    "5.4.00",
                     VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                     Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
                 ),

@@ -27,7 +27,7 @@ public interface EditorAutoBackupService {
      *
      * @throws UnsupportedOperationException when the service is unavailable
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     EditorAutoBackupSettings settings();
 
     /**
@@ -41,14 +41,14 @@ public interface EditorAutoBackupService {
      * @throws UnsupportedOperationException when the service is unavailable
      * @throws IllegalStateException when the update failed and the rollback is unverified
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     EditorAutoBackupSettings updateSettings(EditorAutoBackupSettings settings);
 
     /**
      * Per-document auto-backup snapshot (lastAutoBackupTime / lastSavedTime /
      * modifiedAfterSaving / file) for every file content in the current pack.
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     List<EditorAutoBackupStatus> statuses();
 
     /**
@@ -63,7 +63,7 @@ public interface EditorAutoBackupService {
      * via {@link #registerSyncTarget} are invoked with the new files after
      * completion; target failures never fail the backup result.</p>
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     CompletionStage<BackupRunResult> backupNow();
 
     /**
@@ -94,14 +94,14 @@ public interface EditorAutoBackupService {
      *         no pack content matches the snapshot, the host call failed, the
      *         artifact polling timed out, or the service is unavailable
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     CompletionStage<BackupRunResult> backupAfterSave(ProjectContentSnapshot saved);
 
     /**
      * Registers a sync target invoked with the new backup files after each
      * successful {@link #backupNow()} completion.
      */
-    @CubismEditor(from = "5.2.03")
+    @CubismEditor(from = "5.1.00")
     Registration registerSyncTarget(BackupSyncTarget target);
 
     /**

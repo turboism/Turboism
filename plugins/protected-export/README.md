@@ -26,7 +26,7 @@ interface: none
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Requires Cubism. Admissions are recorded per exact reviewed Editor version (`5.2.03`, `5.3.03` at this time); unsupported or unreviewed hosts fail closed during preflight.
+- **Cubism:** Requires Cubism. Admissions are recorded per exact reviewed Editor version (`5.1.00`–`5.3.04` at this time); unsupported or unreviewed hosts fail closed during preflight.
 - **Models:** Only eligible models are admitted. Models with unsupported families, non-stored keyforms, degenerate geometry, or missing pairs are vetoed with a blocker reason instead of partially exported.
 - **Interface mode:** `none` — the plugin drives the export through framework actions and reports through notifications and logs.
 

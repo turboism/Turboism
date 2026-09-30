@@ -12,7 +12,7 @@ final class TurboismAgentAutoBackupAdmissionTest {
     void admitsExact5303OnlyAfterFullRuntimeAdmission() {
         assertTrue(environment("5.3.03", true).ordinaryReviewedRuntimeAdmitted());
         assertFalse(environment("5.3.03", false).ordinaryReviewedRuntimeAdmitted());
-        assertFalse(environment("5.3.04", true).ordinaryReviewedRuntimeAdmitted());
+        assertFalse(environment("5.4.00", true).ordinaryReviewedRuntimeAdmitted());
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 

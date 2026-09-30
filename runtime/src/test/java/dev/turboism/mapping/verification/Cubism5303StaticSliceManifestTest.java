@@ -81,8 +81,8 @@ class Cubism5303StaticSliceManifestTest {
         );
         assertManifest(
             AutoBackupVerificationManifest.forArtifact(REVIEWED),
-            AutoBackupVerificationManifest.VERIFICATION_ID_5303,
-            AutoBackupVerificationManifest.RECORD_SHA256_5303,
+            AutoBackupVerificationManifest.VERIFICATION_ID_5_3_03,
+            AutoBackupVerificationManifest.RECORD_SHA256_5_3_03,
             AutoBackupVerificationManifest.ADAPTER_SLICE_ID,
             AutoBackupVerificationManifest.CAPABILITY_IDS,
             AutoBackupVerificationManifest.REQUIRED_ALIASES
@@ -122,7 +122,7 @@ class Cubism5303StaticSliceManifestTest {
         );
         assertThrows(
             IllegalArgumentException.class,
-            () -> BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion("5.3.04")
+            () -> BoundingBoxOverlayButtonVerificationManifest.recordSha256ForVersion("5.3.05")
         );
     }
 

@@ -1,5 +1,7 @@
 package dev.turboism.adapter.ui;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -15,7 +17,8 @@ import java.util.Set;
 public final class HostUiVersionCheck {
 
     /** Exact Cubism versions whose host artifacts have been reviewed. */
-    public static final Set<String> REVIEWED_HOST_VERSIONS = Set.of("5.2.03", "5.3.02", "5.3.03");
+    public static final Set<String> REVIEWED_HOST_VERSIONS =
+        ReviewedHostArtifacts.reviewedCubismVersions();
 
     public static final String STATUS_NOTIFY_CAPABILITY_ID = "ui.status.notify";
     public static final String CANVAS_HINT_CAPABILITY_ID = "ui.canvas.hint";

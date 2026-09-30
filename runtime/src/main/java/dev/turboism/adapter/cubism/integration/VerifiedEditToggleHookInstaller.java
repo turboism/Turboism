@@ -16,8 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * host dialog's private build/reuse method
  * {@code com.live2d.cubism.doc.webSocket.y.b(owner)} (spec 051, Phase 2).
  *
- * <p>The target is the exact {@code private final void b(X|V)} evidenced for
- * 5.2.03/5.3.02/5.3.03 in {@code host-evidence/native-edit-toggle/
+ * <p>The target is the exact {@code private final void b(X|V)} evidenced across the
+ * reviewed 5.1.00–5.3.04 builds in {@code host-evidence/native-edit-toggle/
  * native-toggle-internals.md} §12.1: its return runs on the EDT after the row container is
  * (re)built and before the modal show call blocks, so the installed ingress —
  * {@link NativeEditToggleInjector#ensureInjectedOnEdt()} — can (re)install the checkbox in
@@ -91,13 +91,13 @@ public final class VerifiedEditToggleHookInstaller implements AutoCloseable {
         final ClassLoader hostClassLoader
     ) {
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
-        final boolean is5203 = verified.isAdmittedCubismVersion("5.2.03");
-        if (!is5203
-            && !verified.isAdmittedCubismVersion("5.3.02")
-            && !verified.isAdmittedCubismVersion("5.3.03")) {
+        if (!Set.of("5.1.00", "5.1.01", "5.1.02", "5.1.03",
+            "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+            "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04").contains(verified.admittedCubismVersion())) {
             throw new IllegalArgumentException(
                 "Edit-toggle dialog hook version is unsupported.");
         }
+        final boolean is5203 = !verified.admittedCubismVersion().startsWith("5.3.");
         if (!verified.authorizesFeature(
             ADAPTER_SLICE_ID, CAPABILITY_ID, Set.of(BUILD_HOOK_ALIAS))) {
             throw new IllegalArgumentException(

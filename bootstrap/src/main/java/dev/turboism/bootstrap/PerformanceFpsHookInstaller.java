@@ -101,7 +101,7 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
         }
         throw new IllegalArgumentException(
             "unsupported Cubism artifact for FPS counting"
-                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size=" + digest.size()
+                + " (expected a reviewed Cubism artifact; got size=" + digest.size()
                 + " sha256=" + digest.sha256() + ")"
         );
     }
@@ -115,14 +115,14 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     static List<PerformanceProbeMethodTransformer.Target> fpsTargetsForVersion(
         final String cubismVersion
     ) {
-        if (ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(cubismVersion)) {
-            return PerformanceProbeTargets.cubism5203();
-        }
         if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
             return renderSceneTargets(PerformanceProbeTargets.cubism5302());
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
             return renderSceneTargets(PerformanceProbeTargets.cubism5303());
+        }
+        if (ReviewedHostArtifacts.reviewedCubismVersions().contains(cubismVersion)) {
+            return PerformanceProbeTargets.cubism5203();
         }
         throw new IllegalArgumentException(
             "unsupported Cubism version for FPS counting: " + cubismVersion

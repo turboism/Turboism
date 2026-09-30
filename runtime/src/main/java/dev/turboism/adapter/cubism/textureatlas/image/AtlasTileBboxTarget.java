@@ -16,17 +16,20 @@ import java.util.Objects;
 public record AtlasTileBboxTarget(
         String internalName, String className, String reviewedSha256, String hostLabel) {
 
-    /** Cubism 5.3.x target: {@code com/live2d/util/f/g}, byte-identical across 5.3.02–5.3.03. */
+    /**
+     * Cubism 5.3.x target: {@code com/live2d/util/f/g}, byte-identical across 5.3.00–5.3.04;
+     * the same bytes also ship in 5.0.00–5.0.02, which never reach this hook.
+     */
     static final AtlasTileBboxTarget CUBISM_53X = new AtlasTileBboxTarget(
         "com/live2d/util/f/g",
         "ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6",
-        "5.3.02-5.3.03");
+        "5.3.00-5.3.04");
 
-    /** Cubism 5.2.03 target: {@code com/live2d/util/e/g}, same kernel, same helpers. */
+    /** Cubism 5.2.x target: {@code com/live2d/util/e/g}, byte-identical across 5.2.00–5.2.03. */
     static final AtlasTileBboxTarget CUBISM_5203 = new AtlasTileBboxTarget(
         "com/live2d/util/e/g",
         "9df616c60ade56657214465b2b18f18df0605faeeac28d99663ce959af11615b",
-        "5.2.03");
+        "5.2.00-5.2.03");
 
     /** Every reviewed target, in table order. */
     static final AtlasTileBboxTarget[] REVIEWED = {CUBISM_53X, CUBISM_5203};

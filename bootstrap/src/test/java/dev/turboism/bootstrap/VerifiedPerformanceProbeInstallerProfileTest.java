@@ -28,7 +28,7 @@ final class VerifiedPerformanceProbeInstallerProfileTest {
     }
 
     @Test
-    void imagePipelineIsOptInAndOnlyAdmittedOnIndependentlyChecked5302() {
+    void imagePipelineIsOptInAndOnlyAdmittedOnReviewed53x() {
         final var profile = VerifiedPerformanceProbeInstaller.profileForArtifact(
             ReviewedHostArtifacts.CUBISM_5_3_02, "images");
         assertEquals(12, profile.targets().size());
@@ -36,8 +36,10 @@ final class VerifiedPerformanceProbeInstallerProfileTest {
             target.descriptor().equals("(Ljava/io/InputStream;Lcom/live2d/graphics/n;)Lcom/live2d/graphics/CWritableImage;")));
         assertEquals(7, VerifiedPerformanceProbeInstaller.profileForArtifact(
             ReviewedHostArtifacts.CUBISM_5_3_02, "camera").targets().size());
-        assertThrows(IllegalArgumentException.class, () -> VerifiedPerformanceProbeInstaller.profileForArtifact(
-            ReviewedHostArtifacts.CUBISM_5_3_03, "images"));
+        assertEquals(profile.targets(), VerifiedPerformanceProbeInstaller.profileForArtifact(
+            ReviewedHostArtifacts.CUBISM_5_3_03, "images").targets());
+        assertEquals(profile.targets(), VerifiedPerformanceProbeInstaller.profileForArtifact(
+            ReviewedHostArtifacts.CUBISM_5_3_04, "images").targets());
         assertThrows(IllegalArgumentException.class, () -> VerifiedPerformanceProbeInstaller.profileForArtifact(
             ReviewedHostArtifacts.CUBISM_5_2_03, "images"));
         assertThrows(IllegalArgumentException.class, () -> VerifiedPerformanceProbeInstaller.profileForArtifact(

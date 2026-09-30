@@ -21,12 +21,12 @@ class TextureAtlasLayoutServiceContractTests {
         assertEquals(TextureAtlasLayoutService.class, accessor.getReturnType());
         assertTrue(java.lang.reflect.Modifier.isPublic(accessor.getModifiers()));
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
-            List.of(accessor.getAnnotation(CubismEditor.class).value())
+            "5.0.00",
+            accessor.getAnnotation(CubismEditor.class).from()
         );
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
-            List.of(TextureAtlasLayoutService.class.getAnnotation(CubismEditor.class).value())
+            "5.0.00",
+            TextureAtlasLayoutService.class.getAnnotation(CubismEditor.class).from()
         );
         assertThrows(UnsupportedOperationException.class, () -> new NoOpFacade().textureAtlasLayouts());
     }

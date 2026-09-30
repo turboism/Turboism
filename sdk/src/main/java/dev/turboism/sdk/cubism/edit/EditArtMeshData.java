@@ -14,7 +14,7 @@ import java.util.Optional;
  * block reports the mesh's {@code Vertices} as a vertex <em>count</em> — it does not
  * return UVs, triangles, or per-vertex coordinates.
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditArtMeshData(
         String name,
         Optional<PartId> parentId,

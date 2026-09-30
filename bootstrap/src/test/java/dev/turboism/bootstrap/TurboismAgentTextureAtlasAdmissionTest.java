@@ -13,7 +13,7 @@ final class TurboismAgentTextureAtlasAdmissionTest {
         final TextureAtlasDataModelHookContributor contributor = new TextureAtlasDataModelHookContributor();
         assertTrue(contributor.admitted(environment("5.3.03", true)));
         assertFalse(contributor.admitted(environment("5.3.03", false)));
-        assertFalse(contributor.admitted(environment("5.3.04", true)));
+        assertFalse(contributor.admitted(environment("5.4.00", true)));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 

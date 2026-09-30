@@ -24,7 +24,12 @@ final class McpGlueDomain {
     static final String GLUES_READ = "turboism.glues.read";
     static final String GLUES_WRITE = "turboism.glues.write";
     static final String GLUE_CAPABILITY_ID = "cubism.editor-model.glue-inspector.write";
-    static final List<String> SUPPORTED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
+    static final List<String> SUPPORTED_VERSIONS =
+        List.of(
+            "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06",
+            "5.1.00", "5.1.01", "5.1.02", "5.1.03",
+            "5.2.00", "5.2.01", "5.2.02", "5.2.03",
+            "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04");
 
     private static final int DEFAULT_LIMIT = 100;
     private static final int MAX_LIMIT = 200;
@@ -745,7 +750,7 @@ final class McpGlueDomain {
             entry("name", GLUES_READ),
             entry("title", "Read Cubism Glues"),
             entry("description", "Lists or reads Glue authoring state from the active Cubism model. "
-                + "The same closed contract is exact-routed for Cubism Editor 5.2.03, 5.3.02, and 5.3.03."),
+                + "The same closed contract is exact-routed for reviewed Cubism Editor 5.0.00 through 5.3.04."),
             entry("inputSchema", oneOf(
                 objectSchema(
                     linked(
@@ -777,7 +782,7 @@ final class McpGlueDomain {
             entry("name", GLUES_WRITE),
             entry("title", "Write Cubism Glue"),
             entry("description", "Applies one Undo-aware Glue authoring mutation to the active model. "
-                + "The exact provider is admitted independently for Cubism Editor 5.2.03, 5.3.02, and 5.3.03. "
+                + "The exact provider is admitted independently for reviewed Cubism Editor 5.0.00 through 5.3.04. "
                 + "Glue creation and deletion remain explicit unavailable operations."),
             entry("inputSchema", oneOf(
                 objectSchema(
@@ -1020,7 +1025,10 @@ final class McpGlueDomain {
                 entry("activeVersion", linked(
                     entry("type", List.of("string", "null")),
                     entry("enum", java.util.Arrays.asList(
-                        "5.2.03", "5.3.02", "5.3.03", null
+                        "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05",
+                        "5.0.06", "5.1.00", "5.1.01", "5.1.02", "5.1.03", "5.2.00",
+                        "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02",
+                        "5.3.03", "5.3.04", null
                     ))
                 ))
             ),

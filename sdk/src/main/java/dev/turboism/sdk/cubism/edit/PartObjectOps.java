@@ -25,7 +25,7 @@ import java.util.Optional;
  * the host's glue enumeration by id alone, so the declared kind is not consulted on that
  * route. {@link EditObjectKind#ART_PATH} has no official data payload and fails closed.
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public interface PartObjectOps {
 
     /**

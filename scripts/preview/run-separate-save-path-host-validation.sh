@@ -9,15 +9,15 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-separate-save-path-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
+  echo "usage: run-separate-save-path-host-validation.sh <5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
 case "$version" in
-  5203|5302) ;;
+  5000|5001|5002|5003|5004|5005|5006|5100|5101|5102|5103|5200|5201|5202|5203|5300|5301|5302|5303|5304) ;;
   *)
-    echo "error: separate-save-path host validation supports only 5203 or 5302" >&2
+    echo "error: unsupported version: $version" >&2
     exit 2
     ;;
 esac
@@ -27,7 +27,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-turboism_select_fixture 5302 || exit 2
+turboism_select_fixture "$version" || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"

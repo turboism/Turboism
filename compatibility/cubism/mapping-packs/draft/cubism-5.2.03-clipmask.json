@@ -15,9 +15,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -36,9 +36,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 9
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -57,9 +57,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -76,9 +76,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/doc/IDocument",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -95,9 +95,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -116,9 +116,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -135,9 +135,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -156,9 +156,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -175,9 +175,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -194,9 +194,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -215,9 +215,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -236,9 +236,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -257,9 +257,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     },
     {
@@ -276,9 +276,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/type/CDrawableGuid",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -295,9 +295,9 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 0,
         "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
       }
     },
     {
@@ -316,15 +316,27 @@
       "verifiedAt": null,
       "verifiedBy": "none",
       "x.verification": {
-        "forbiddenAccessFlags": 8,
         "ownerInternalName": "com/live2d/type/Guid",
-        "requiredAccessFlags": 1
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
       }
     }
   ],
   "format": "turboism.mapping.pack",
   "metadata": {
-    "validationNotes": "Exact Cubism 5.2.03 metadata inventory for adapter.clipmask.readonly, derived from the reviewed 5.3.02 slice after every selector verified VERIFIED_STATIC against the exact 5.2.03 artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC."
+    "validationNotes": "Exact Cubism 5.2.03 metadata inventory for adapter.clipmask.readonly, derived from the reviewed 5.2.03 slice after every selector verified VERIFIED_STATIC against the exact 5.2.03 artifact. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.2.03-clipmask.json",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 40805584,
+    "artifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "profileId": "cubism-5.2.03",
+    "verificationId": "cubism-5.2.03.clipmask.static",
+    "selectorCount": 16,
+    "capabilityCount": 1,
+    "capabilityIds": [
+      "cubism.clipmask.read"
+    ],
+    "verificationRecordSha256": "80e63e64c9a69e943d4c231818667f94bcbd56f32784c3d003b46a42e7dd08a3"
   },
   "schemaVersion": 1,
   "source": "jar-metadata-probe",

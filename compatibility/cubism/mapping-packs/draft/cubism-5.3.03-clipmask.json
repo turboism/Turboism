@@ -327,6 +327,18 @@
     }
   ],
   "metadata": {
-    "validationNotes": "Exact Cubism 5.3.02 metadata inventory for adapter.clipmask.readonly. The minimal source chain is CEAppCtrl.getCurrentDoc -> CModelingDocument.getModelSource -> CModelSource.getAllArtMeshes; clip fields are declared by ACDrawableSource. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC."
+    "validationNotes": "Exact Cubism 5.3.03 metadata inventory for adapter.clipmask.readonly. The minimal source chain is CEAppCtrl.getCurrentDoc -> CModelingDocument.getModelSource -> CModelSource.getAllArtMeshes; clip fields are declared by ACDrawableSource. Pack remains DRAFT; only its hash-anchored record is VERIFIED_STATIC.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.3.03-clipmask.json",
+    "artifactName": "Live2D_Cubism.jar",
+    "artifactSize": 42010633,
+    "artifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "profileId": "cubism-5.3.03",
+    "verificationId": "m15.cubism-5.3.03.clipmask.static",
+    "selectorCount": 16,
+    "capabilityCount": 1,
+    "capabilityIds": [
+      "cubism.clipmask.read"
+    ],
+    "verificationRecordSha256": "f4702a5914c8fa8f6e8b266c675bc0c9e21b2667364ddca05b313f10b1351459"
   }
 }

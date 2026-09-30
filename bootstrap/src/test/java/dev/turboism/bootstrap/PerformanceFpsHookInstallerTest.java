@@ -173,7 +173,7 @@ final class PerformanceFpsHookInstallerTest {
         final HostArtifactDigest fakeDigest = HostArtifactDigest.from(fakeArtifact);
         assertEquals(
             "unsupported Cubism artifact for FPS counting"
-                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size="
+                + " (expected a reviewed Cubism artifact; got size="
                 + fakeDigest.size() + " sha256=" + fakeDigest.sha256() + ")",
             failure.getMessage()
         );

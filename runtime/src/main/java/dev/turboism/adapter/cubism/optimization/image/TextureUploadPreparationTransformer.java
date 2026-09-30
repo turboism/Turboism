@@ -145,5 +145,11 @@ public final class TextureUploadPreparationTransformer implements ClassFileTrans
     private static final Map<String, Map<String, String>> REVIEWED_CLASS_SHA256 =
         Map.of(
         "5.3.02", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.00", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.01", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.04", Map.ofEntries(
             Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")));
 }

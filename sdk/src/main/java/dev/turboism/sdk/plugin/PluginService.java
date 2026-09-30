@@ -94,6 +94,9 @@ public enum PluginService {
     /** {@link PluginContext#backup()} */
     BACKUP,
 
+    /** {@link PluginContext#exportSettings()} */
+    EXPORT_SETTINGS,
+
     /** {@link PluginContext#mainToolbar()} */
     MAIN_TOOLBAR,
 

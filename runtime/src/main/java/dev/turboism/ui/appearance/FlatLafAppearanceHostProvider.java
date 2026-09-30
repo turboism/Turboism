@@ -1,5 +1,6 @@
 package dev.turboism.ui.appearance;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.appearance.AppearanceBase;
 import dev.turboism.sdk.appearance.AppearancePalette;
 import dev.turboism.sdk.appearance.AppearanceRequest;
@@ -146,12 +147,7 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
 
     private static String requireVersion(final String value) {
         Objects.requireNonNull(value, "hostVersion");
-        // The 5.2 project/workspace manifest identifies the host as "5.2.03";
-        // normalize it to the product version "5.2.03" used by reviewed evidence.
-        if (value.equals("5.2.03")) {
-            return "5.2.03";
-        }
-        if (!value.equals("5.3.03") && !value.equals("5.3.02") && !value.equals("5.2.03")) {
+        if (!ReviewedHostArtifacts.reviewedCubismVersions().contains(value)) {
             throw new IllegalArgumentException("unsupported appearance host version");
         }
         return value;

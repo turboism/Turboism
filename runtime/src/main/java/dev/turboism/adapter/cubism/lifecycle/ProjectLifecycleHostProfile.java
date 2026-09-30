@@ -14,10 +14,6 @@ public record ProjectLifecycleHostProfile(
     String hostVersion,
     List<ProjectLifecycleNativeMethodTransformer.Binding> bindings
 ) {
-    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
-    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
-    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
-
     public ProjectLifecycleHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
         bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
@@ -38,12 +34,8 @@ public record ProjectLifecycleHostProfile(
         final HostArtifactDigest artifact
     ) {
         Objects.requireNonNull(artifact, "artifact");
-        final String version;
-        if (artifact.equals(CUBISM_52)) version = "5.2.03";
-        else if (artifact.equals(CUBISM_53)) version = "5.3.02";
-        else if (artifact.equals(CUBISM_5303)) version = "5.3.03";
-        else return Optional.empty();
-        return forReviewedVersion(version);
+        return ReviewedHostArtifacts.cubismVersionOf(artifact)
+            .flatMap(ProjectLifecycleHostProfile::forReviewedVersion);
     }
 
     /**

@@ -21,7 +21,7 @@ workflow, in the style of Cubism 5.4's contour packing. The kernel is an
 independent port of the MIT-licensed `whitegreen/Dalsoo-Bin-Packing` project
 (commit `bde2a3e`); see `LICENSE` and `NOTICE`. This plugin does **not** embed,
 invoke, or claim compatibility with Cubism 5.4 - it runs on the currently
-supported hosts (`5.2.03`, `5.3.02`, `5.3.03`).
+supported hosts (`5.2.00`–`5.3.04`).
 
 | Detail | Value |
 |---|---|
@@ -53,7 +53,7 @@ supported hosts (`5.2.03`, `5.3.02`, `5.3.03`).
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** exact reviewed Editor artifacts `5.2.03`, `5.3.02`, `5.3.03`.
+- **Cubism:** exact reviewed Editor artifacts `5.2.00`–`5.3.04`.
   Cubism 5.4 is not admitted; a future official 5.4 host-native provider keeps
   a reserved `HOST_NATIVE` backend slot in the SDK contract.
 - **Interface mode:** `none`.

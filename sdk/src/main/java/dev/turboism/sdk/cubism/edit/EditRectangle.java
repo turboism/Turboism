@@ -15,7 +15,7 @@ import java.util.Objects;
  * @param topRight top-right corner position
  * @param bottomRight bottom-right corner position
  */
-@CubismEditor(from = "5.2.03", to = "5.3.99")
+@CubismEditor(from = "5.1.02", to = "5.3.99")
 public record EditRectangle(
         Point2 topLeft,
         Point2 bottomLeft,

@@ -126,8 +126,11 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
     /** Returns whether a declared Editor version has a reviewed lifecycle mapping. */
     public static boolean supportedEditorVersion(String editorVersion) {
         return ReviewedHostArtifacts.CUBISM_5_2_03_VERSION.equals(editorVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_00_VERSION.equals(editorVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_01_VERSION.equals(editorVersion)
             || ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(editorVersion)
-            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion);
+            || ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(editorVersion)
+            || ReviewedHostArtifacts.CUBISM_5_3_04_VERSION.equals(editorVersion);
     }
 
     /**
@@ -451,6 +454,21 @@ public final class UniformLocationLifecycleTransformer implements ClassFileTrans
             Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
             Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
         "5.3.03", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443"),
+            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.00", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9"),
+            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.01", Map.ofEntries(
+            Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
+            Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d95e1daf66299fde63580f0588a6b256bcd67ddd1dfd412acbd7ee71a78b3ba9"),
+            Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
+            Map.entry("com/live2d/graphics3d/shader/A", "8632419917f9c0e1b0bd499dedf2a0dd4971ce3ac55df91df959331b39c8d15a")),
+        "5.3.04", Map.ofEntries(
             Map.entry("com/live2d/graphics3d/shader/GShader", "efed635454ed364f26f7aa1673c602cba35b00b4396ba03dee631dfc6450b6e0"),
             Map.entry("com/live2d/cubism/view/gl/SGFramework/g", "d50f44d3ad15d2c4d1c7b42df3c7e5098819c9c54ddbfb6b543a1c256bd49443"),
             Map.entry("com/live2d/graphics3d/a", "e63f6206dd9246d8a2656bb33a5d15c3bde95223f375194466b1f1a0ce95856e"),
