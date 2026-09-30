@@ -46,3 +46,5 @@
 已提交 5.3.04、5.2.02、5.3.01 的完整 MCP client 场景，尚未收取结果。MCP 的 `assertion.cubismCore` 仅校验诊断结构；Workspace/layout 断言允许 UNAVAILABLE；命令也存在 UNAVAILABLE 分支。即使整体 PASS，这些分支也不能被改写为对应生产能力已支持。纹理持久化还包含验证专用的原生检查/保存重开，最终表必须保留辅助范围。
 
 本轮工具门禁：共享 Core helper 自检 PASS；MCP 持久化/关闭路由定向回归 40 tests PASS；队列隔离回归 114 tests PASS（需要本地 Unix socket 权限）；Python lint 与修改脚本语法检查 PASS。不能把这些测试计为实机行为覆盖。
+
+5.0.00 r2 已收取 supervisor FAIL，probe 原因 `TIMEOUT_NO_USABLE_DOCUMENT_OR_CLASSES`。实际自动选 Load / Cancel 的日志和 FREE 参数上限信息截图保存在 `ui-evidence/`。曾手动确认该任务的参数上限信息（窗口 PID/cgroup 和焦点均先核对），但仍未获得稳定模型/Core 身份，不宣称支持。后续 helper 增加这个精确信息的 OK 匹配并记录加载类状态，不强制加载或放宽模型断言；5.0.01 旧排队任务已在启动前取消，以 r2 不可变探针替代。5.3.04 MCP 已进入运行态，等待完整断言和 supervisor 收尾。
