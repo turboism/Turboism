@@ -54,3 +54,11 @@ three-version correctness A/B, and repaired-driver 5203 repeat completed. See
 [dated host evidence](host-evidence-20261001.md) for exact jobs, artifact hashes,
 resource observations and limitations. 5203 performance acceptance remains open;
 T044/T046 are not complete and nothing was merged to main.
+
+
+The follow-up production removal correction is documented in the final section of
+[DESIGN.md](DESIGN.md). Candidate `640e3b1e…` preserves the native removal before
+identity reconciliation; its first 5203 on leg (seq2063) passed standard gates.
+Its paired off leg (seq2069) also passed correctness, but the resource verdict was
+negative. Follow-up candidate `29f13cf8…` is queued at seq2080; see the dated report. The remaining measurement
+boundaries are described in [resource acceptance plan](resource-acceptance-plan.md).

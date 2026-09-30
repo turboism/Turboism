@@ -171,3 +171,64 @@ it is not a precise causal effect estimate. The on JFR leaf profile still includ
 1995 `l.equals` samples versus 21 off. Exact operation baselines, fixed post-operation
 retention windows and repeated same-JVM retention remain outstanding. No approved
 resource regression threshold or blanket production readiness is claimed.
+
+## Native-remove candidate 640e3b1e (not performance accepted)
+
+Production commit `0376a1a25` preserves native set removal before reconciling the
+index. Regression first reproduced two old-code failures: 212 versus native 85
+equality calls, and a different actual removed identity when existing equalities
+mutate in a treeified bucket. Helper 17 tests, affected mesh/transformer/bootstrap
+checks and devCheck passed; the packaged helper was inspected with javap.
+
+Candidate SHA `640e3b1e3e65e3a2c0df6b8e7b8a25a205ecc8543d76b14e2bfa137e443b4e4a`:
+
+- on seq2063 / `d3d78a38-7cb5-4ffc-8787-0b9c846464c7`
+- off seq2069 / `000fef29-e1d3-4a57-9f60-a085b5750195`
+
+Both standard gates, normal exit, unchanged fixtures and safe cleanup PASS.
+Canonical/payload binding, four ordered edge digests, expected class SHA and
+production execution samples PASS. Driver remains `cfc09977…` and acknowledged
+the reviewed warning on both legs. FIFO jobs separated the pair; do not treat
+small differences as a precise causal estimate.
+
+| Leg | Observed Java wall s | CPU s | RSS MiB | GC-observed heap MiB | Triangulation sample span s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| off | 183.5 | 305.6 | 4907 | 3796 | 92.2 |
+| on | 206.4 | 333.8 | 4350 | 3224 | 108.8 |
+
+The separate cgroup observer measured Java PSS peaks off/on 4919.70/4296.63 MiB,
+and auxiliary CPU off/on 20.42/22.38 seconds (sampled lower bounds). PSS reads all
+succeeded. All values and user/system CPU breakdowns are in
+`build/t029-real-host-acceptance/native-remove5203/{final-ab-analysis,resource-analysis}.json`.
+
+This candidate is **not performance accepted**: about +9.2% observed Java CPU and
++12.5% observed wall time, despite lower memory. The on triangulation leaf profile
+includes 806 `IdentityHashMap.containsKey` samples. A follow-up removes repeated
+identity lookups for each survivor, relying on the statically reviewed host mutation
+protocol and retaining an identity-only survival check plus dirty rebuild fallback.
+That follow-up requires its own frozen artifact and host comparison.
+
+## Follow-up identity-only survivor scan (pending host result)
+
+The per-survivor identity-map lookup has been removed. With all host add/clear
+sites woven and iterator removal the only unwoven write, a clean state with matching
+pre-removal cardinality already establishes recorded membership; only an identity
+survival check is needed after native removal. Equal-but-distinct native victims still
+force a rebuild. Arbitrary unwoven same-size add/replace sequences are outside this
+reviewed mutation protocol. See DESIGN.md for the scope of the proof.
+
+Affected mesh tests, devCheck and agent build PASS (101 tasks). New production SHA:
+`29f13cf8bd0cb563c384dedef095270b5e165b4f223f9a014213dc0fd1ba3813`.
+Driver remains `cfc09977…`. Prepared IDs:
+
+- on `5df28314271b163a1941ffcbb3487d64e0e19b7ae360699573b915ea0c89a4b7`
+- off `e5e30646e0cc6d3291a7eda8544b88feaee955454d3a2087f11359462962c9a4`
+
+On submitted as seq2080 / `e8ab1099-fc06-4b04-835b-2146701a16d2`.
+The task-local client submits off only after on succeeds. The post-pair watcher runs
+canonical/edge/class/JFR verification and resource analysis, then writes
+`build/t029-real-host-acceptance/identity-scan5203/completion.json` with explicit
+success/failure and observed ratios; it never declares performance acceptance or
+changes the queue/main. At this report update seq2080 is queued, so this candidate
+has **no completed host acceptance** yet. Remaining SC-04a measurement work is in
+[resource acceptance plan](resource-acceptance-plan.md).
