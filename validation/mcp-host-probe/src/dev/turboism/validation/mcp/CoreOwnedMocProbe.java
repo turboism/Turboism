@@ -155,7 +155,7 @@ public final class CoreOwnedMocProbe {
             requireClosed(moc::instantiateModel);
             result.setProperty("explicitChildThenParentClose", "PASS");
             result.setProperty("useAfterCloseRejected", "PASS");
-            result.setProperty("limitation", "Empty Glue/Deformer lists cover getters only");
+            result.setProperty("limitation", "Any empty structural family covers getters only; see family counts");
         }
         try (OwnedMoc parent = runtime.mocLoader().load(data);
                 OwnedModel first = parent.instantiateModel();

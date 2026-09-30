@@ -86,6 +86,19 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertIn("-Dturboism.optimization.mesaGlThread=false", wrapper)
         self.assertIn("--linux-env 'mesa_glthread=false'", wrapper)
 
+    def test_assisted_core_preflight_is_explicit_and_reserves_display(self) -> None:
+        task = self.manifest.tasks["core-acquisition"]
+        self.assertEqual(REVIEWED_VERSIONS, task.versions)
+        self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
+        standard = scheduler.render_command(self.request("core-acquisition:5302"), self.manifest)
+        self.assertEqual(["5302", "test-run"], standard[2:])
+        assisted = scheduler.render_command(self.request("core-acquisition:5302@assisted"), self.manifest)
+        self.assertEqual([
+            "5302", "test-run", "--jvm-option", "-Dturboism.coreAcquisition.startFree=true",
+            "--jvm-option", "-Dturboism.optimization.mesaGlThread=false",
+            "--linux-env", "mesa_glthread=false",
+        ], assisted[2:])
+
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
         self.assertEqual({"host-slot": 1, "display-input": 1, "performance-host": 1}, task.resources)
