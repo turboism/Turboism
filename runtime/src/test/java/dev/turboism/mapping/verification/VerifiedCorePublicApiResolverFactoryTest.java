@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test;
 class VerifiedCorePublicApiResolverFactoryTest {
 
     private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
     private final VerifiedCorePublicApiResolverFactory factory = new VerifiedCorePublicApiResolverFactory();
 
     @Test
-    void admitsPinnedCoreArtifactsForBothSupportedProfiles() throws Exception {
+    void admitsPinnedCoreArtifactsForAllSupportedProfiles() throws Exception {
         assertAdmitted("5.2.03", "5.2.03");
         assertAdmitted("5.3.02", "5.3.02");
+        assertAdmitted("5.3.04", "5.3.04");
     }
 
     @Test
@@ -42,6 +42,19 @@ class VerifiedCorePublicApiResolverFactoryTest {
     }
 
     @Test
+    void rejectsNewCoreUnderOldProfileAndOldRuntimeClassesUnderNewProfile() throws Exception {
+        Path artifact = coreArtifact("5.3.04");
+        try (URLClassLoader loader = loader(artifact);
+                URLClassLoader oldLoader = loader(coreArtifact("5.3.02"))) {
+            assertThrows(
+                    IllegalArgumentException.class, () -> factory.create("5.3.02", record("5.3.02"), artifact, loader));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> factory.create("5.3.04", record("5.3.04"), artifact, oldLoader));
+        }
+    }
+
+    @Test
     void rejectsUnknownProfileBeforeReadingEvidence() {
         assertThrows(
                 IllegalArgumentException.class,
@@ -55,6 +68,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
     private void assertAdmitted(final String profile, final String exactVersion) throws Exception {
         Path artifact = coreArtifact(profile);
         assertTrue(Files.isRegularFile(artifact), "missing local Core evidence artifact " + artifact);
+        assertEquals(profile, factory.profileForArtifact(artifact));
         try (URLClassLoader loader = loader(artifact)) {
             VerifiedMemberResolver resolver = factory.create(profile, record(profile), artifact, loader);
             assertEquals(exactVersion, resolver.cubismVersion());
@@ -69,12 +83,11 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     private static Path record(final String profile) {
         return PROJECT_ROOT.resolve(
-                Path.of("cubism-ref", "verification", "cubism-" + profile + "-core-model-read.json"));
+                Path.of("compatibility", "cubism", "verification", "cubism-" + profile + "-core-model-read.json"));
     }
 
     private static Path coreArtifact(final String profile) {
-        final String evidenceDirectory = "5.2.03".equals(profile) ? "5.2" : profile;
-        return LEGACY_EVIDENCE.resolve("Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar");
+        return EditorSelectorContractTestPaths.artifact(profile).resolveSibling("Live2DCubismCore.jar");
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

@@ -51,6 +51,9 @@ class StaticVerificationRecordRepositoryTest {
      */
     private static final Map<String, String> EXPECTED_VERSIONED_RECORD_SHA256 = Map.ofEntries(
             Map.entry(
+                    "compatibility/cubism/verification/cubism-5.3.04-core-model-read.json",
+                    "b03a59d4d03bb9e148732880670aa5510d7d11396fe5cfe6bb1e1b84e84725d4"),
+            Map.entry(
                     "compatibility/cubism/verification/cubism-5.0.00-clipmask.json",
                     "db94c1cc5e004da1638664b234916c1c54f6ec9b320198d20c35a0f23bb46d6b"),
             Map.entry(
