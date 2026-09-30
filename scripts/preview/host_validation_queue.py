@@ -890,7 +890,9 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
         return None
     versions = options.get("--version", [])
     if (options.get("--name") != ["mcp"] or len(versions) != 1
-            or versions[0] not in {"5203", "5302", "5303"}
+            or versions[0] not in {
+                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
+                "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
             or task_spec not in {"direct-runner", "mcp:" + versions[0]}):
         raise QueueError("custom client requires reviewed dependency inventory for the exact MCP task")
     client = source_root / "scripts/preview/mcp-host-validation-client.py"
@@ -931,7 +933,9 @@ def edit_protocol_client_dependency(argv: list[str], source_root: Path, task_spe
         return None
     versions = options.get("--version", [])
     if (options.get("--name") != ["edit-protocol"] or len(versions) != 1
-            or versions[0] not in {"5203", "5302", "5303"}
+            or versions[0] not in {
+                "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
+                "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
             or task_spec not in {"direct-runner", "edit-protocol:" + versions[0]}):
         raise QueueError("custom client requires reviewed dependency inventory for the exact edit-protocol task")
     client = (source_root / "validation/protocol-edit-compat-host-probe"

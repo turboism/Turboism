@@ -9,6 +9,26 @@ import java.nio.file.Path;
 /** Minimal framework-free safety and atomic-output check. */
 public final class CoreAcquisitionProbeSelfCheck {
     public static void main(String[] args) throws Exception {
+        final String newer = "The file you are trying to load was created using a newer version"
+                + " Current editor version: Cubism 5.0.0 Version of the file you are trying to load: Cubism 5.2.3";
+        final String update = "A new version has been released."
+                + " Do you want to exit the Editor and open the download page?";
+        for (String button : new String[] {"Load", "Yes", "Yes(Y)"}) {
+            if (!"NEWER_MODEL_OPEN_CONFIRMED".equals(
+                    dev.turboism.validation.NativeFreeStartup.promptAction("Warning", newer, button)))
+                throw new AssertionError("newer model confirmation rejected");
+        }
+        if (!"UPDATE_PAGE_CANCELLED".equals(
+                dev.turboism.validation.NativeFreeStartup.promptAction("Note!", update, "Cancel")))
+            throw new AssertionError("update cancellation rejected");
+        for (String text : new String[] {"Would you like to start the Trial?", "Save changes?", "Delete model?"}) {
+            if (dev.turboism.validation.NativeFreeStartup.promptAction("Warning", text, "Yes(Y)") != null)
+                throw new AssertionError("unrelated confirmation accepted");
+        }
+        if (dev.turboism.validation.NativeFreeStartup.promptAction("Other", newer, "Yes") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Note!", update, "Open") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Warning", newer, "Cancel") != null)
+            throw new AssertionError("unapproved action accepted");
         if (!CoreAcquisitionProbeAgent.isFreeStartupButton("Start", "Start as FREE version"))
             throw new AssertionError("FREE startup rejected");
         for (String text : new String[] {"Start PRO Version Free Trial", "Purchase PRO license",

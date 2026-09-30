@@ -113,9 +113,26 @@ public final class McpTexturePersistenceProbe {
     static String expectedJarHash(final String version) {
         final String exact =
                 switch (version) {
+                    case "5000" -> "5.0.00";
+                    case "5001" -> "5.0.01";
+                    case "5002" -> "5.0.02";
+                    case "5003" -> "5.0.03";
+                    case "5004" -> "5.0.04";
+                    case "5005" -> "5.0.05";
+                    case "5006" -> "5.0.06";
+                    case "5100" -> "5.1.00";
+                    case "5101" -> "5.1.01";
+                    case "5102" -> "5.1.02";
+                    case "5103" -> "5.1.03";
+                    case "5200" -> "5.2.00";
+                    case "5201" -> "5.2.01";
+                    case "5202" -> "5.2.02";
                     case "5203" -> "5.2.03";
+                    case "5300" -> "5.3.00";
+                    case "5301" -> "5.3.01";
                     case "5302" -> "5.3.02";
                     case "5303" -> "5.3.03";
+                    case "5304" -> "5.3.04";
                     default -> throw new IllegalArgumentException("Unreviewed texture host version");
                 };
         final String resource = "/META-INF/turboism/verification/cubism-" + exact + "-editor-model.json";

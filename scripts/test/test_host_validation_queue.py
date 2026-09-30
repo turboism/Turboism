@@ -544,6 +544,22 @@ class PreparedStoreTest(unittest.TestCase):
         self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
         self.assertEqual([], self.store.jobs())
 
+    def test_mcp_client_accepts_exact_catalogued_versions_only(self):
+        from host_validation_evidence import HOSTS
+
+        for version in HOSTS:
+            request = self.mcp_request()
+            argv = request["argv"]
+            argv[argv.index("--version") + 1] = version
+            with self.subTest(version=version):
+                self.prepared.capture(request, self.source, "mcp:" + version)
+        for version in ("5305", "5400", "5.3", ""):
+            request = self.mcp_request()
+            argv = request["argv"]
+            argv[argv.index("--version") + 1] = version
+            with self.subTest(version=version), self.assertRaises(queue.QueueError):
+                self.prepared.capture(request, self.source, "mcp:" + version)
+
     def test_mcp_missing_duplicate_substituted_or_cross_task_inputs_are_rejected(self):
         original = self.mcp_request()["argv"]
         cases = []
