@@ -223,6 +223,46 @@ def is_task_dir_active(task_dir: Path) -> bool:
     return False
 
 
+def find_task_directories(host_root: Path) -> list[Path]:
+    """Find all task run directories in host_root across varying directory depths (1 to 3).
+
+    A directory is treated as a task directory if it contains any task run signature:
+    - launch.sh or launch.bat
+    - evidence/ directory
+    - prefix/ directory
+    - turboism-home/ directory
+    - turboism-agent.jar file
+    """
+    task_dirs: list[Path] = []
+    if not host_root.is_dir():
+        return task_dirs
+
+    def scan(current_dir: Path, depth: int) -> None:
+        if depth > 3:
+            return
+        try:
+            entries = [p for p in current_dir.iterdir() if p.is_dir() and not p.name.startswith(".")]
+        except OSError:
+            return
+
+        for p in entries:
+            is_task = (
+                (p / "launch.sh").is_file()
+                or (p / "launch.bat").is_file()
+                or (p / "evidence").is_dir()
+                or (p / "prefix").is_dir()
+                or (p / "turboism-home").is_dir()
+                or (p / "turboism-agent.jar").is_file()
+            )
+            if is_task:
+                task_dirs.append(p)
+            else:
+                scan(p, depth + 1)
+
+    scan(host_root, 1)
+    return task_dirs
+
+
 def scan_worktree_artifacts(worktree_id: str, context: SafetyContext) -> list[ArtifactItem]:
     """Scan all artifacts associated with a specific worktree id."""
     items: list[ArtifactItem] = []
@@ -249,68 +289,74 @@ def scan_worktree_artifacts(worktree_id: str, context: SafetyContext) -> list[Ar
 
     # 3. Host validation task directories referencing worktree_id
     if context.host_root.is_dir():
-        try:
-            for task_name_dir in context.host_root.iterdir():
-                if not task_name_dir.is_dir() or task_name_dir.name.startswith("."):
-                    continue
-                for run_dir in task_name_dir.iterdir():
-                    if not run_dir.is_dir():
-                        continue
-                    for item in run_dir.iterdir():
-                        if not item.is_dir():
-                            continue
-                        # Check if this task references worktree_id
-                        launch_sh = item / "launch.sh"
-                        evidence_dir = item / "evidence"
-                        referenced = False
-                        if launch_sh.is_file():
-                            try:
-                                content = launch_sh.read_text(errors="replace")
-                                if worktree_id in content:
-                                    referenced = True
-                            except OSError:
-                                pass
-                        if not referenced and evidence_dir.is_dir():
-                            try:
-                                for ev_file in evidence_dir.glob("*.json"):
-                                    if worktree_id in ev_file.read_text(errors="replace"):
-                                        referenced = True
-                                        break
-                            except OSError:
-                                pass
+        for item in find_task_directories(context.host_root):
+            # Check if this task references worktree_id
+            launch_sh = item / "launch.sh"
+            launch_bat = item / "launch.bat"
+            evidence_dir = item / "evidence"
+            referenced = False
 
-                        if referenced:
-                            if is_task_dir_active(item):
-                                continue  # active, skip
-                            # Add prefix
-                            prefix = item / "prefix"
-                            if prefix.exists():
-                                items.append(ArtifactItem(
-                                    kind="prefix",
-                                    path=prefix,
-                                    apparent_bytes=compute_path_size(prefix),
-                                    reason=f"Worktree {worktree_id} task Proton prefix",
-                                ))
-                            # Add copied fixtures
-                            for f in item.iterdir():
-                                if f.is_file() and f.suffix in {".cmo3", ".psd"}:
-                                    items.append(ArtifactItem(
-                                        kind="fixture-copy",
-                                        path=f,
-                                        apparent_bytes=compute_path_size(f),
-                                        reason=f"Worktree {worktree_id} task fixture copy",
-                                    ))
-                            # Add logs
-                            logs_dir = item / "turboism-home" / "logs"
-                            if logs_dir.is_dir():
-                                items.append(ArtifactItem(
-                                    kind="logs",
-                                    path=logs_dir,
-                                    apparent_bytes=compute_path_size(logs_dir),
-                                    reason=f"Worktree {worktree_id} task logs",
-                                ))
-        except OSError:
-            pass
+            if worktree_id in item.name:
+                referenced = True
+
+            if not referenced and launch_sh.is_file():
+                try:
+                    content = launch_sh.read_text(errors="replace")
+                    if worktree_id in content:
+                        referenced = True
+                except OSError:
+                    pass
+
+            if not referenced and launch_bat.is_file():
+                try:
+                    content = launch_bat.read_text(errors="replace")
+                    if worktree_id in content:
+                        referenced = True
+                except OSError:
+                    pass
+
+            if not referenced and evidence_dir.is_dir():
+                try:
+                    for ev_file in evidence_dir.glob("*.json"):
+                        if worktree_id in ev_file.read_text(errors="replace"):
+                            referenced = True
+                            break
+                except OSError:
+                    pass
+
+            if referenced:
+                if is_task_dir_active(item):
+                    continue  # active, skip
+                # Add prefix
+                prefix = item / "prefix"
+                if prefix.exists():
+                    items.append(ArtifactItem(
+                        kind="prefix",
+                        path=prefix,
+                        apparent_bytes=compute_path_size(prefix),
+                        reason=f"Worktree {worktree_id} task Proton prefix",
+                    ))
+                # Add copied fixtures
+                try:
+                    for f in item.iterdir():
+                        if f.is_file() and f.suffix in {".cmo3", ".psd"}:
+                            items.append(ArtifactItem(
+                                kind="fixture-copy",
+                                path=f,
+                                apparent_bytes=compute_path_size(f),
+                                reason=f"Worktree {worktree_id} task fixture copy",
+                            ))
+                except OSError:
+                    pass
+                # Add logs
+                logs_dir = item / "turboism-home" / "logs"
+                if logs_dir.is_dir():
+                    items.append(ArtifactItem(
+                        kind="logs",
+                        path=logs_dir,
+                        apparent_bytes=compute_path_size(logs_dir),
+                        reason=f"Worktree {worktree_id} task logs",
+                    ))
 
     return items
 
@@ -321,63 +367,52 @@ def scan_terminal_host_artifacts(context: SafetyContext) -> list[ArtifactItem]:
     if not context.host_root.is_dir():
         return items
 
-    try:
-        for task_name_dir in context.host_root.iterdir():
-            if not task_name_dir.is_dir() or task_name_dir.name.startswith("."):
-                continue
-            for run_dir in task_name_dir.iterdir():
-                if not run_dir.is_dir():
-                    continue
-                for task_dir in run_dir.iterdir():
-                    if not task_dir.is_dir():
-                        continue
-                    if is_task_dir_active(task_dir):
-                        continue
+    for task_dir in find_task_directories(context.host_root):
+        if is_task_dir_active(task_dir):
+            continue
 
-                    # 1. Proton prefix (primary disk consumer, 1.8G+)
-                    prefix = task_dir / "prefix"
-                    if prefix.exists():
-                        items.append(ArtifactItem(
-                            kind="prefix",
-                            path=prefix,
-                            apparent_bytes=compute_path_size(prefix),
-                            reason=f"Terminal task {task_dir.name} Proton prefix",
-                        ))
+        # 1. Proton prefix (primary disk consumer, 1.8G+)
+        prefix = task_dir / "prefix"
+        if prefix.exists():
+            items.append(ArtifactItem(
+                kind="prefix",
+                path=prefix,
+                apparent_bytes=compute_path_size(prefix),
+                reason=f"Terminal task {task_dir.name} Proton prefix",
+            ))
 
-                    # 2. Copied fixtures (.cmo3, .psd)
-                    try:
-                        for entry in task_dir.iterdir():
-                            if entry.is_file() and entry.suffix in {".cmo3", ".psd"}:
-                                items.append(ArtifactItem(
-                                    kind="fixture-copy",
-                                    path=entry,
-                                    apparent_bytes=compute_path_size(entry),
-                                    reason=f"Terminal task {task_dir.name} fixture copy",
-                                ))
-                    except OSError:
-                        pass
+        # 2. Copied fixtures (.cmo3, .psd)
+        try:
+            for entry in task_dir.iterdir():
+                if entry.is_file() and entry.suffix in {".cmo3", ".psd"}:
+                    items.append(ArtifactItem(
+                        kind="fixture-copy",
+                        path=entry,
+                        apparent_bytes=compute_path_size(entry),
+                        reason=f"Terminal task {task_dir.name} fixture copy",
+                    ))
+        except OSError:
+            pass
 
-                    # 3. Turboism logs
-                    logs_dir = task_dir / "turboism-home" / "logs"
-                    if logs_dir.is_dir():
-                        items.append(ArtifactItem(
-                            kind="logs",
-                            path=logs_dir,
-                            apparent_bytes=compute_path_size(logs_dir),
-                            reason=f"Terminal task {task_dir.name} Proton/runtime logs",
-                        ))
+        # 3. Turboism logs
+        logs_dir = task_dir / "turboism-home" / "logs"
+        if logs_dir.is_dir():
+            items.append(ArtifactItem(
+                kind="logs",
+                path=logs_dir,
+                apparent_bytes=compute_path_size(logs_dir),
+                reason=f"Terminal task {task_dir.name} Proton/runtime logs",
+            ))
 
-                    # 4. If terminal and older than 1 day or completed, check staging agent jar
-                    agent_jar = task_dir / "turboism-agent.jar"
-                    if agent_jar.is_file():
-                        items.append(ArtifactItem(
-                            kind="build-bundle",
-                            path=agent_jar,
-                            apparent_bytes=compute_path_size(agent_jar),
-                            reason=f"Terminal task {task_dir.name} staged agent JAR",
-                        ))
-    except OSError:
-        pass
+        # 4. If terminal, check staging agent jar
+        agent_jar = task_dir / "turboism-agent.jar"
+        if agent_jar.is_file():
+            items.append(ArtifactItem(
+                kind="build-bundle",
+                path=agent_jar,
+                apparent_bytes=compute_path_size(agent_jar),
+                reason=f"Terminal task {task_dir.name} staged agent JAR",
+            ))
 
     return items
 
