@@ -165,9 +165,9 @@ Set `-Dturboism.validation.ownedMoc=true` and
 `-Dturboism.validation.expectedCoreVersion=<observed-native-tuple>` for the exact target.
 `state/core-owned-moc-result.properties` separately records production SDK version/capabilities,
 MOC diagnostics, two independent model instances, all structural getters, copied-list immutability,
-evaluation, explicit child-then-parent release and use-after-close rejection. This verifies
-plugin-owned MOC models, not an Editor-to-Core bridge. Empty collections and the untested parent
-cascade-close contract remain explicit limitations. Overall MCP PASS does not substitute for this
+evaluation, explicit child-then-parent release, parent cascade release and use-after-close rejection. This verifies
+plugin-owned MOC models, not an Editor-to-Core bridge. Empty collections remain explicit limitations.
+Overall MCP PASS does not substitute for this
 separate result, and this result does not substitute for the complete MCP or framework audit.
 
 A client `status=PASS` is still insufficient: the normal-exit and outside-supervisor containment

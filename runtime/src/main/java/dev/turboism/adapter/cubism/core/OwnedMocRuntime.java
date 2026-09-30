@@ -135,29 +135,32 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         if (!(model instanceof OwnedModelImpl impl) || impl.owner() != this) {
             throw new IllegalStateException("Model is not owned by this runtime.");
         }
-        impl.requireOpen();
-        final Object parameters = requireObject(
-                callSites.invokeRaw(CorePublicApiSelectorContract.MODEL_GET_PARAMETERS, impl.rawModel),
-                "Core parameters are unavailable.");
-        final Object idsValue = callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_IDS, parameters);
-        if (!(idsValue instanceof String[] ids)) {
-            throw new IllegalStateException("Core parameter identifiers have an invalid representation.");
-        }
-        final Object valuesValue = callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, parameters);
-        if (!(valuesValue instanceof float[] values) || values.length != ids.length) {
-            throw new IllegalStateException("Core parameter current values have an invalid representation.");
-        }
-        int index = -1;
-        for (int i = 0; i < ids.length; i++) {
-            if (parameterId.equals(ids[i])) {
-                index = i;
-                break;
+        synchronized (impl.parent) {
+            impl.requireOpen();
+            final Object parameters = requireObject(
+                    callSites.invokeRaw(CorePublicApiSelectorContract.MODEL_GET_PARAMETERS, impl.rawModel),
+                    "Core parameters are unavailable.");
+            final Object idsValue = callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_IDS, parameters);
+            if (!(idsValue instanceof String[] ids)) {
+                throw new IllegalStateException("Core parameter identifiers have an invalid representation.");
             }
+            final Object valuesValue =
+                    callSites.invokeRaw(CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, parameters);
+            if (!(valuesValue instanceof float[] values) || values.length != ids.length) {
+                throw new IllegalStateException("Core parameter current values have an invalid representation.");
+            }
+            int index = -1;
+            for (int i = 0; i < ids.length; i++) {
+                if (parameterId.equals(ids[i])) {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0) {
+                throw new IllegalStateException("Core parameter is absent: " + parameterId);
+            }
+            values[index] = value;
         }
-        if (index < 0) {
-            throw new IllegalStateException("Core parameter is absent: " + parameterId);
-        }
-        values[index] = value;
     }
 
     private static Object requireObject(final Object value, final String message) {
@@ -173,6 +176,7 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         private final MocVersion version;
         private final MocConsistency consistency;
         private boolean closed;
+        private final List<OwnedModelImpl> children = new ArrayList<>();
 
         private OwnedMocImpl(final Object rawMoc, final MocVersion version, final MocConsistency consistency) {
             this.rawMoc = Objects.requireNonNull(rawMoc, "rawMoc");
@@ -191,24 +195,27 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         }
 
         @Override
-        public long nativeHandle() {
+        public synchronized long nativeHandle() {
             requireOpen();
             return requireValue(provider.mocNativeHandle(rawMoc), "Core MOC native handle");
         }
 
         @Override
-        public OwnedModel instantiateModel() {
+        public synchronized OwnedModel instantiateModel() {
             requireOpen();
             final Object rawModel =
                     requireValue(provider.instantiateOwnedModel(rawMoc), "Core owned model instantiation");
-            return new OwnedModelImpl(rawModel);
+            final OwnedModelImpl child = new OwnedModelImpl(this, rawModel);
+            children.add(child);
+            return child;
         }
 
         @Override
-        public void close() {
+        public synchronized void close() {
             if (closed) {
                 return;
             }
+            for (OwnedModelImpl child : List.copyOf(children)) child.close();
             requireValue(provider.closeOwnedMoc(rawMoc), "Core owned MOC close");
             closed = true;
         }
@@ -223,9 +230,11 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
     private final class OwnedModelImpl implements OwnedModel {
 
         private final Object rawModel;
+        private final OwnedMocImpl parent;
         private boolean closed;
 
-        private OwnedModelImpl(final Object rawModel) {
+        private OwnedModelImpl(final OwnedMocImpl parent, final Object rawModel) {
+            this.parent = parent;
             this.rawModel = Objects.requireNonNull(rawModel, "rawModel");
         }
 
@@ -236,8 +245,10 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
         @Override
         public long nativeHandle() {
-            requireOpen();
-            return requireValue(provider.modelNativeHandle(rawModel), "Core model native handle");
+            synchronized (parent) {
+                requireOpen();
+                return requireValue(provider.modelNativeHandle(rawModel), "Core model native handle");
+            }
         }
 
         @Override
@@ -319,25 +330,31 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
         @Override
         public void update() {
-            requireOpen();
-            requireValue(provider.updateOwnedModel(rawModel), "Core owned model update");
+            synchronized (parent) {
+                requireOpen();
+                requireValue(provider.updateOwnedModel(rawModel), "Core owned model update");
+            }
         }
 
         @Override
         public void close() {
-            if (closed) {
-                return;
+            synchronized (parent) {
+                if (closed) return;
+                requireValue(provider.closeOwnedModel(rawModel), "Core owned model close");
+                closed = true;
+                parent.children.remove(this);
             }
-            requireValue(provider.closeOwnedModel(rawModel), "Core owned model close");
-            closed = true;
         }
 
         private CoreStructuralSnapshot snapshot() {
-            requireOpen();
-            try {
-                return callSites.project(rawModel, 0L, "owned-moc", provider.providerId(), provider.artifactProfile());
-            } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
-                throw new IllegalStateException("Core owned model read failed safely: " + exception);
+            synchronized (parent) {
+                requireOpen();
+                try {
+                    return callSites.project(
+                            rawModel, 0L, "owned-moc", provider.providerId(), provider.artifactProfile());
+                } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
+                    throw new IllegalStateException("Core owned model read failed safely: " + exception);
+                }
             }
         }
 

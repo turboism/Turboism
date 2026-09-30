@@ -139,7 +139,26 @@ public final class CoreOwnedMocProbe {
             requireClosed(moc::instantiateModel);
             result.setProperty("explicitChildThenParentClose", "PASS");
             result.setProperty("useAfterCloseRejected", "PASS");
-            result.setProperty("limitation", "Empty Glue/Deformer lists cover getters only; parent cascade close not exercised");
+            result.setProperty("limitation", "Empty Glue/Deformer lists cover getters only");
+        }
+        try (OwnedMoc parent = runtime.mocLoader().load(data);
+                OwnedModel first = parent.instantiateModel();
+                OwnedModel second = parent.instantiateModel()) {
+            require(first.nativeHandle() != 0 && second.nativeHandle() != 0
+                    && first.nativeHandle() != second.nativeHandle(), "Cascade requires two independent live children");
+            first.update();
+            second.update();
+            snapshot(first);
+            snapshot(second);
+            parent.close();
+            requireClosed(first::nativeHandle);
+            requireClosed(first::parameters);
+            requireClosed(first::update);
+            requireClosed(second::nativeHandle);
+            requireClosed(second::drawables);
+            requireClosed(second::update);
+            requireClosed(parent::instantiateModel);
+            result.setProperty("parentCascadeClose", "PASS");
         }
     }
 

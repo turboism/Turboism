@@ -58,3 +58,7 @@
 全能力覆盖审计发现 `OwnedMoc` 没有实际生产 SDK 场景。补探针时复现生产缺陷：`CubismFacadeAdapters` 的 Core 权限包装漏了 `mocLoader()`，插件调用默认不可用实现；旧测试只测后端，未覆盖公开路径。新增 facade 路径回归首先以 `Owned MOC loading is unavailable` 失败，修复后 54 项 Core/facade/OwnedMoc 定向回归 PASS；保留的 loader、MOC、模型句柄逐次检查作用域，停用后仍可释放自有分配。`devCheck` 与 Core 三项门禁 PASS。
 
 新增可选 production SDK owned-MOC 探针：固定官方 Haru MOC 的 Git 提交与 SHA256，通过公开 SDK 验证版本/一致性、独立实例、全部结构 getters、不可变副本、evaluation、显式先子后父释放和关闭后拒绝操作。空集合与未覆盖的父句柄级联关闭明确保留限制；没有强行绕过权限或直接使用 host Core 反射替代 SDK。5.3.04 的 `allversions-owned-r1` 已用修复后的 agent 入队，准确不可变输入见 campaign-jobs.json；实机仍待验收。MOC 二进制只进入本地验证产物，仓库记录官方来源/条款链接，不进入生产插件。
+
+进一步补齐 SDK 原有的父关闭契约：新增回归复现父 MOC 关闭时子模型没有被关闭；runtime 现在跟踪 live children，先关闭全部子模型再释放 MOC，显式关闭子模型会摘除跟踪。所有 owned native 读取、evaluation 与内部参数写入共用父句柄锁，父关闭等待在途读取完成，不在读取中释放 native memory。父关闭/幂等/关闭后拒绝读取与并发读取保护回归已通过；定向测试现为 **56 tests PASS**，`devCheck` 与 Core 三门禁 PASS。原生 MOC 探针增加两个 live children 的父级联关闭断言，旧 owned-r1 在运行前取消，新的 owned-r2 已入队；不能把尚未运行的 native 断言记为 PASS。
+
+5.3.04 MCP r2 最终仍 FAIL，但失败从未响应 modal 超时变为原生 `Native save rejected`。FREE 参数信息已可响应，当前夹具仍受许可限制，后续需要适配可保存夹具。完整断言未放宽，也没有把保存失败改标 unsupported 或把客户端 `modelMutation=NONE` 当作整个验证探针无变更。原始结果与逐项 PASS 断言见 `mcp-evidence/5.3.04-allversions-r2/` 和 campaign-jobs.json。

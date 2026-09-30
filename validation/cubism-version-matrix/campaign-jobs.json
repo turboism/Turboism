@@ -235,7 +235,31 @@
         "cleanup": "safe"
       },
       "clientEvidence": "mcp-evidence/5.3.04-allversions-r1",
-      "limitation": "Native texture Undo/Redo pixels passed; persistence timed out on FREE parameter-limit modal; overall FAIL, not an unsupported verdict"
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields",
+      "mcpObservations": {
+        "clientStatus": "FAIL",
+        "error": "ValidationFailure: native texture round-trip failed: TimeoutException\\: null",
+        "passedAssertions": [
+          "assertion.connectionFile.status",
+          "assertion.credentialFreeConnection.status",
+          "assertion.initialize.status",
+          "assertion.tools.status",
+          "assertion.capabilityLedger.status",
+          "assertion.resources.status",
+          "assertion.templates.status",
+          "assertion.prompts.status",
+          "assertion.document.status",
+          "assertion.noAbsolutePaths.status",
+          "assertion.cubismCore.status",
+          "assertion.workspace.status",
+          "assertion.workspaceLayout.status",
+          "assertion.diagnosticsSanitized.status",
+          "assertion.modelStatistics.status",
+          "assertion.modelTextures.status"
+        ],
+        "workspaceAvailability": "UNAVAILABLE",
+        "workspaceLayoutAvailability": "AVAILABLE"
+      }
     },
     {
       "version": "5.0.01",
@@ -380,8 +404,44 @@
       "preparedDigest": "33f9d7dbc1c3836fb3165965943e1e01684ee4480fbbdbee7ff82142b34ad474",
       "evidenceDirectory": "jobs/ac4425f0-4e5b-4474-85e2-834b6285bd52/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
+      "status": "FINAL",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions",
+      "result": {
+        "runId": "queue-6b59cb210d8d4cc0b461fa9d277b1d12",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-r2",
+      "mcpObservations": {
+        "clientStatus": "FAIL",
+        "error": "ValidationFailure: native texture round-trip failed: ExecutionException\\: java.lang.IllegalStateException\\: Native save rejected",
+        "passedAssertions": [
+          "assertion.connectionFile.status",
+          "assertion.credentialFreeConnection.status",
+          "assertion.initialize.status",
+          "assertion.tools.status",
+          "assertion.capabilityLedger.status",
+          "assertion.resources.status",
+          "assertion.templates.status",
+          "assertion.prompts.status",
+          "assertion.document.status",
+          "assertion.noAbsolutePaths.status",
+          "assertion.cubismCore.status",
+          "assertion.workspace.status",
+          "assertion.workspaceLayout.status",
+          "assertion.diagnosticsSanitized.status",
+          "assertion.modelStatistics.status",
+          "assertion.modelTextures.status"
+        ],
+        "workspaceAvailability": "UNAVAILABLE",
+        "workspaceLayoutAvailability": "AVAILABLE"
+      },
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
     },
     {
       "version": "5.2.02",
@@ -391,8 +451,44 @@
       "preparedDigest": "f3a75956810417f6dcee31ac8881fe7e638b26cad285b4f3312beddfa8b1914c",
       "evidenceDirectory": "jobs/ae6e0888-2091-49c4-b00a-185c2f226d43/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
+      "status": "FINAL",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions",
+      "result": {
+        "runId": "queue-ace66a4e4c4141efa542512ab604f320",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "mcp-evidence/5.2.02-allversions-r2",
+      "mcpObservations": {
+        "clientStatus": "FAIL",
+        "error": "ValidationFailure: native texture round-trip failed: ExecutionException\\: dev.turboism.sdk.cubism.CubismEditorApiUnavailableException\\: Cubism SDK API dev.turboism.sdk.cubism.model.ModelTextures\\#removeRawImage(dev.turboism.sdk.cubism.id.RawImageId) is unavailable on Editor 5.2.02; supported exact versions\\: 5.2.03, 5.3.00, 5.3.01, 5.3.02, 5.3.03, 5.3.04.",
+        "passedAssertions": [
+          "assertion.connectionFile.status",
+          "assertion.credentialFreeConnection.status",
+          "assertion.initialize.status",
+          "assertion.tools.status",
+          "assertion.capabilityLedger.status",
+          "assertion.resources.status",
+          "assertion.templates.status",
+          "assertion.prompts.status",
+          "assertion.document.status",
+          "assertion.noAbsolutePaths.status",
+          "assertion.cubismCore.status",
+          "assertion.workspace.status",
+          "assertion.workspaceLayout.status",
+          "assertion.diagnosticsSanitized.status",
+          "assertion.modelStatistics.status",
+          "assertion.modelTextures.status"
+        ],
+        "workspaceAvailability": "UNAVAILABLE",
+        "workspaceLayoutAvailability": "AVAILABLE"
+      },
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
     },
     {
       "version": "5.3.01",
@@ -402,8 +498,44 @@
       "preparedDigest": "9e8b4474421ece0b805ea7bbc090c280d1f2df6dac6f8c6c03731b78c01b2477",
       "evidenceDirectory": "jobs/65882585-3ae8-4b1e-997e-26b4b79daea8/evidence",
       "scope": "Full existing MCP client assertions; does not cover all SDK methods or all plugins",
-      "status": "SUBMITTED",
-      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions"
+      "status": "FINAL",
+      "assistance": "Independent native prompt helper; exact FREE/newer-model/update/parameter-limit actions",
+      "result": {
+        "runId": "queue-97bbd18455c84c1eb424af058ba6eb1c",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "mcp-evidence/5.3.01-allversions-r2",
+      "mcpObservations": {
+        "clientStatus": "FAIL",
+        "error": "ValidationFailure: native texture round-trip failed: ExecutionException\\: java.lang.IllegalStateException\\: Native save rejected",
+        "passedAssertions": [
+          "assertion.connectionFile.status",
+          "assertion.credentialFreeConnection.status",
+          "assertion.initialize.status",
+          "assertion.tools.status",
+          "assertion.capabilityLedger.status",
+          "assertion.resources.status",
+          "assertion.templates.status",
+          "assertion.prompts.status",
+          "assertion.document.status",
+          "assertion.noAbsolutePaths.status",
+          "assertion.cubismCore.status",
+          "assertion.workspace.status",
+          "assertion.workspaceLayout.status",
+          "assertion.diagnosticsSanitized.status",
+          "assertion.modelStatistics.status",
+          "assertion.modelTextures.status"
+        ],
+        "workspaceAvailability": "UNAVAILABLE",
+        "workspaceLayoutAvailability": "AVAILABLE"
+      },
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
     },
     {
       "version": "5.3.04",
@@ -413,6 +545,20 @@
       "preparedDigest": "18aa3bb969c645602522fd96d41cdad9fc9177a3058d285343727b9786bd7453",
       "evidenceDirectory": "jobs/0025b8fa-e346-4f3c-987f-aa01a8180328/evidence",
       "scope": "Full MCP client plus separate production SDK owned-MOC read/update/explicit release checks; not all framework capabilities",
+      "status": "CANCELLED_BEFORE_RUN",
+      "assistance": "Independent exact native prompt helper",
+      "expectedNativeCoreVersion": "6.0.513",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "reason": "Superseded by owned-r2 with parent cascade and in-flight native read protection; no capability verdict"
+    },
+    {
+      "version": "5.3.04",
+      "task": "mcp",
+      "round": "allversions-owned-r2",
+      "jobId": "1cb28d42-5731-4249-a080-d9edd44e4a54",
+      "preparedDigest": "6427cd35803f722e0e604bfbcfc889d906c75169d461dc1f17004d483d0aff89",
+      "evidenceDirectory": "jobs/1cb28d42-5731-4249-a080-d9edd44e4a54/evidence",
+      "scope": "Full MCP client plus production SDK owned-MOC read/update/explicit and parent cascade release; not all framework capabilities",
       "status": "SUBMITTED",
       "assistance": "Independent exact native prompt helper",
       "expectedNativeCoreVersion": "6.0.513",
