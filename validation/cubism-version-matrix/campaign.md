@@ -62,3 +62,5 @@
 进一步补齐 SDK 原有的父关闭契约：新增回归复现父 MOC 关闭时子模型没有被关闭；runtime 现在跟踪 live children，先关闭全部子模型再释放 MOC，显式关闭子模型会摘除跟踪。所有 owned native 读取、evaluation 与内部参数写入共用父句柄锁，父关闭等待在途读取完成，不在读取中释放 native memory。父关闭/幂等/关闭后拒绝读取与并发读取保护回归已通过；定向测试现为 **56 tests PASS**，`devCheck` 与 Core 三门禁 PASS。原生 MOC 探针增加两个 live children 的父级联关闭断言，旧 owned-r1 在运行前取消，新的 owned-r2 已入队；不能把尚未运行的 native 断言记为 PASS。
 
 5.3.04 MCP r2 最终仍 FAIL，但失败从未响应 modal 超时变为原生 `Native save rejected`。FREE 参数信息已可响应，当前夹具仍受许可限制，后续需要适配可保存夹具。完整断言未放宽，也没有把保存失败改标 unsupported 或把客户端 `modelMutation=NONE` 当作整个验证探针无变更。原始结果与逐项 PASS 断言见 `mcp-evidence/5.3.04-allversions-r2/` 和 campaign-jobs.json。
+
+5.2.02 / 5.3.01 MCP r2 也已收取 FAIL。5.3.01 同样为 `Native save rejected`；5.2.02 则在公开 SDK `ModelTextures.removeRawImage` 被版本门禁拒绝，目前仅声明 5.2.03 / 5.3.00–.04。检查精确 5.2.02 Editor-model 记录确实只有 texture.read，没有 texture.write，因此不是仅删除 SDK 注解即可解决。后续需要审查该版本的写入/Undo ABI 并补精确证据或适配；尚未证明没有可用适配路径，不能直接记为最终不支持。两版各自协议/读取等部分断言与最终门禁均按原始结果保留。
