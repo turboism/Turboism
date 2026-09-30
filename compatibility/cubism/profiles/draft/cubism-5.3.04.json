@@ -17,7 +17,8 @@
     "cubism-5.3.04-ui-status-bar",
     "cubism-5.3.04-autobackup",
     "cubism-5.3.04-performance-render-scene",
-    "cubism-5.3.04-protected-export"
+    "cubism-5.3.04-protected-export",
+    "cubism-5.3.04-core-model-read"
   ],
   "status": "DRAFT",
   "source": "legacy-inventory",

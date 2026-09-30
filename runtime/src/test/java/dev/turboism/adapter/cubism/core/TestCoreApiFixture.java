@@ -186,7 +186,8 @@ public final class TestCoreApiFixture {
                 objectDescriptor(Parameters.class)));
         selectors.add(instanceMethod(
                 CorePublicApiSelectorContract.MODEL_GET_PARTS, Model.class, "getParts", objectDescriptor(Parts.class)));
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
+        if ((CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)
+                || CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_04.equals(artifactProfile))) {
             selectors.add(instanceMethod(
                     CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS, Model.class, "getRenderOrders", "()[I"));
         }
@@ -243,7 +244,8 @@ public final class TestCoreApiFixture {
                 CorePublicApiSelectorContract.PARAMETERS_GET_VALUES, Parameters.class, "getValues", "()[F"));
         selectors.add(instanceMethod(
                 CorePublicApiSelectorContract.PARAMETER_TYPE_GET_NUMBER, ParameterType.class, "getNumber", "()I"));
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)) {
+        if ((CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_02.equals(artifactProfile)
+                || CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_3_04.equals(artifactProfile))) {
             selectors.add(instanceMethod(
                     CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS,
                     Parameters.class,

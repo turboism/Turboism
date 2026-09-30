@@ -46,6 +46,13 @@ class CorePublicApiProviderFactoryTest {
                 .orElseThrow();
 
         assertEquals("cubism-core-public-5.2.03", provider52.providerId());
+        final CorePublicApiProvider provider534 = CorePublicApiProviderFactory.admit(resolver("5.3.04"), expectation)
+                .value()
+                .orElseThrow();
+        assertEquals("5.3.04", provider534.artifactProfile());
+        assertTrue(provider534.capabilities().parameterRepeat());
+        assertTrue(CoreStructuralTracerFactory.admit(provider534, resolver("5.3.04"))
+                .isSuccess());
         assertEquals("5.2.03", provider52.artifactProfile());
         assertEquals("cubism-core-public-5.3.02", provider53.providerId());
         assertEquals("5.3.02", provider53.artifactProfile());
@@ -83,6 +90,12 @@ class CorePublicApiProviderFactoryTest {
         assertEquals(
                 new CoreRuntimeVersion(6, 0, 257),
                 CoreVersionExpectation.reviewedProfile("5.3.02").exactVersion());
+        assertEquals(
+                new CoreRuntimeVersion(6, 0, 513),
+                CoreVersionExpectation.reviewedProfile("5.3.04").exactVersion());
+        assertTrue(CoreVersionExpectation.reviewedProfile("5.3.04").matches(new CoreRuntimeVersion(6, 0, 513)));
+        assertFalse(CoreVersionExpectation.reviewedProfile("5.3.04").matches(new CoreRuntimeVersion(6, 0, 257)));
+        assertFalse(CoreVersionExpectation.reviewedProfile("5.3.02").matches(new CoreRuntimeVersion(6, 0, 513)));
     }
 
     @Test
@@ -97,6 +110,13 @@ class CorePublicApiProviderFactoryTest {
                 .value()
                 .orElseThrow();
 
+        final CorePublicApiProvider provider534 = CorePublicApiProviderFactory.admit(resolver("5.3.04"), expectation)
+                .value()
+                .orElseThrow();
+        assertEquals("5.3.04", provider534.artifactProfile());
+        assertTrue(provider534.capabilities().parameterRepeat());
+        assertTrue(CoreStructuralTracerFactory.admit(provider534, resolver("5.3.04"))
+                .isSuccess());
         assertEquals("5.2.03", provider52.artifactProfile());
         assertEquals("5.3.02", provider53.artifactProfile());
     }

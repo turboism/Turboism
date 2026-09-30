@@ -20,9 +20,9 @@ texture-relation semantics, PSD export fidelity, replacement Undo/Redo or persis
   The fix uses `admittedCubismVersion()` consistently with the connector's existing
   tuple expectation. A regression admits the synthetic matching tuple through a
   different declared Editor generation and rejects a mismatching tuple.
-- **5.3.04 after routing fix:** native Core reports `6.0.513`; the bound reviewed
-  profile expects `6.0.257`. Admission remains rejected. The observed tuple and
-  exact Core JAR/JNI hashes are evidence for future review, not new trust roots.
+- **5.3.04 after routing fix (before the new Core profile):** native Core reports `6.0.513`; the bound reviewed
+  profile expected `6.0.257`, so that run correctly rejected admission. The next
+  review is recorded below; this historical failed run remains a failure.
 - **5.0.00:** runtime reached ACTIVE but the host exited before the Workspace
   terminal result. Native UI evidence contains the warning that the fixture was
   saved in 5.2.03 and a subsequent update dialog. These are observations, not a
@@ -52,3 +52,43 @@ The read-only wait client twice exhausted its bounded SQLite lock retries. This
 was a client infrastructure failure, not cancellation or a host verdict. Results
 above were checked against each exact job's authoritative supervisor lifecycle;
 no duplicate job was submitted merely because a waiter failed.
+
+## New Core review, 2026-10-01
+
+Cubism 5.3.04 now has a separate exact Core profile. Its 43,708-byte JAR is
+pinned to `5458a64ebe33b38350de1437399343b0d502f2353a34a97da76d56d118c0d186`.
+The native tuple expectation is exactly `6.0.513`, observed in the retained
+5.3.04 run above; the 5.3.02 expectation remains exactly `6.0.257`.
+The observed paired JNI DLL is 137,984 bytes, SHA-256
+`71d5757025cd31c61be0d52ad79d4cd0de0465e1df6c4508c4fde70207613985`.
+The DLL hash is recorded evidence; resolver admission pins the JAR, classloader,
+selector contract and runtime tuple.
+
+All 82 selectors passed the production Java `StaticVerificationCli` against
+the exact 5.3.04 Core JAR. The observed public classes and member descriptors/access
+flags match 5.3.02. The new profile includes parameter-repeat capability, a
+separate record trust root, generated selector contract, compatibility candidate,
+bootstrap resource and DRAFT mapping/profile registration. Wrong-profile artifacts
+and classes loaded from the old Core are rejected by regression tests.
+
+Validation: 99 Core/runtime resolver tests passed without skips; the Core inventory,
+member and selector gates, generated-source consistency, Python lint and
+`devCheck` passed. Mapping integration passed after adding the independent
+new-record digest pin. Optional exact-host integration remains subject to its
+existing external-fixture skips.
+
+The [20-version Core scan](2026-10-01-core-selector-exploration.json) records exact
+artifact facts and each missing selector. It verifies classfile shape only:
+
+- 5.0.00–5.1.03 match 62/80 of the 5.2 contract. Deformers, glues and related
+  drawable/model getters are absent; the full structural-read profile cannot
+  simply be copied to these versions.
+- 5.2.00–5.2.02 match 80/80, but each has distinct Core bytes and still requires
+  its native tuple and host behavior to be observed.
+- 5.3.00–5.3.03 share the exact reviewed Core JAR and match 82/82.
+- 5.3.04 also matches 82/82, with distinct bytes and the new tuple.
+
+Queued host probes and authoritative results are tracked separately from these
+static findings. Core acquisition examines stable Editor document/model identity
+and public getters for a Core model bridge. A `NO_PUBLIC_BRIDGE` result would
+not demonstrate structural reads or owned-MOC execution.

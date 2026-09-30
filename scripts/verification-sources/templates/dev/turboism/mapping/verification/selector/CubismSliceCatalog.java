@@ -369,6 +369,15 @@ public final class CubismSliceCatalog {
         "${record:cubism-5.3.02-core-model-read.json:adapterSliceId}",
         "${record:cubism-5.3.02-core-model-read.json:profileId}"
     );
+    private static final Candidate C_CORE_MODEL_READ_5_3_04 = new Candidate(
+        "core-model-read",
+        "${record:cubism-5.3.04-core-model-read.json:cubismVersion}",
+        "cubism-5.3.04-core-model-read.json",
+        "${record:cubism-5.3.04-core-model-read.json:sha256}",
+        "${record:cubism-5.3.04-core-model-read.json:verificationId}",
+        "${record:cubism-5.3.04-core-model-read.json:adapterSliceId}",
+        "${record:cubism-5.3.04-core-model-read.json:profileId}"
+    );
     private static final Candidate C_EDITOR_MODEL_5_0_00 = new Candidate(
         "editor-model",
         "${record:cubism-5.0.00-editor-model.json:cubismVersion}",
@@ -1887,7 +1896,8 @@ public final class CubismSliceCatalog {
 
     private static final Candidate[] CANDIDATES_CORE_MODEL_READ = {
         C_CORE_MODEL_READ_5_2_03,
-        C_CORE_MODEL_READ_5_3_02
+        C_CORE_MODEL_READ_5_3_02,
+        C_CORE_MODEL_READ_5_3_04
     };
 
     private static final Candidate[] CANDIDATES_EDITOR_MODEL = {

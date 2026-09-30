@@ -30,6 +30,7 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
         return switch (profile) {
             case "5.2.03" -> exact(5, 0, 256);
             case "5.3.02" -> exact(6, 0, 257);
+            case "5.3.04" -> exact(6, 0, 513);
             default -> throw new IllegalArgumentException("unsupported Cubism Core profile: " + profile);
         };
     }

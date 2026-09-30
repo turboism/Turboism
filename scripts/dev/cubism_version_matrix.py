@@ -1901,7 +1901,7 @@ def shared_core_profile(version: str) -> str | None:
     by exact digest). The native runtime tuple stays unobserved for distinct
     jars, so they receive no core pack reference."""
     sha = artifact_facts(version, "Live2DCubismCore.jar")["sha256"]
-    for reviewed in REVIEWED:
+    for reviewed in ("5.2.03", "5.3.02", "5.3.04"):
         if artifact_facts(reviewed, "Live2DCubismCore.jar")["sha256"] == sha:
             return f"cubism-{reviewed}-core-model-read"
     return None
