@@ -2,6 +2,11 @@ package dev.turboism.tests.plugin;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
+import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import java.awt.image.BufferedImage;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,6 +19,29 @@ class McpTexturePersistenceProbeTest {
     Path temporary;
 
     private static final String RUN = "queue-1234567890abcdef";
+
+    @Test
+    void freeFixturePlanKeepsTwoParametersPerTargetAndPreservesOtherFamilies() {
+        final var first = new ParameterBindingTarget(ParameterBindingTargetType.ART_MESH, "mesh-a");
+        final var second = new ParameterBindingTarget(ParameterBindingTargetType.ART_MESH, "mesh-b");
+        final var a = new ParameterBinding(first, new ParameterId("a"), ParameterBindingFamily.KEYFORM_GRID, List.of());
+        final var b = new ParameterBinding(first, new ParameterId("b"), ParameterBindingFamily.KEYFORM_GRID, List.of());
+        final var c = new ParameterBinding(first, new ParameterId("c"), ParameterBindingFamily.KEYFORM_GRID, List.of());
+        final var other =
+                new ParameterBinding(second, new ParameterId("c"), ParameterBindingFamily.KEYFORM_GRID, List.of());
+        final var morph =
+                new ParameterBinding(first, new ParameterId("m"), ParameterBindingFamily.BLEND_SHAPE, List.of());
+        final List<ParameterBinding> original = List.of(a, b, c, other, morph);
+        assertEquals(List.of(c), McpTexturePersistenceProbe.freeBindingPrunePlan(original));
+        assertTrue(McpTexturePersistenceProbe.freeBindingPrunePlan(List.of(a, b, other))
+                .isEmpty());
+        assertEquals(4, McpTexturePersistenceProbe.maximumBoundParameters(original));
+        assertEquals(3, McpTexturePersistenceProbe.maximumBoundParameters(List.of(a, b, morph)));
+        assertEquals(2, McpTexturePersistenceProbe.maximumBoundParameters(List.of(a, b, other)));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> McpTexturePersistenceProbe.freeBindingPrunePlan(original).clear());
+    }
 
     @Test
     void outputIsNewAndInsideTheSameTaskHome() throws Exception {

@@ -7,6 +7,9 @@ import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.ModelTextures;
+import dev.turboism.sdk.cubism.model.ParameterBinding;
+import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
+import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.awt.Frame;
 import java.awt.image.BufferedImage;
@@ -22,6 +25,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,6 +49,30 @@ public final class McpTexturePersistenceProbe {
     private static final long MAX_PIXELS = 64L * 1024 * 1024;
 
     private McpTexturePersistenceProbe() {}
+
+    /** Deterministic, validation-only plan retaining two keyform parameters per object. */
+    static List<ParameterBinding> freeBindingPrunePlan(final List<ParameterBinding> bindings) {
+        final Map<ParameterBindingTarget, Set<String>> retained = new java.util.HashMap<>();
+        final List<ParameterBinding> removed = new ArrayList<>();
+        for (ParameterBinding binding : bindings) {
+            if (binding.family() != ParameterBindingFamily.KEYFORM_GRID) continue;
+            final Set<String> parameters = retained.computeIfAbsent(binding.target(), ignored -> new LinkedHashSet<>());
+            if (parameters.contains(binding.parameterId().value())) continue;
+            parameters.add(binding.parameterId().value());
+            if (parameters.size() > 2) removed.add(binding);
+        }
+        return List.copyOf(removed);
+    }
+
+    static int maximumBoundParameters(final List<ParameterBinding> bindings) {
+        final Map<ParameterBindingTarget, Set<String>> parameters = new java.util.HashMap<>();
+        for (ParameterBinding binding : bindings) {
+            parameters
+                    .computeIfAbsent(binding.target(), ignored -> new LinkedHashSet<>())
+                    .add(binding.parameterId().value());
+        }
+        return parameters.values().stream().mapToInt(Set::size).max().orElse(0);
+    }
 
     public static boolean runIfRequested(final PluginContext context, final Path stateRoot) {
         final String runId = System.getProperty("turboism.validation.runId", "");
@@ -246,6 +274,8 @@ public final class McpTexturePersistenceProbe {
         private Snapshot baseline;
         private Snapshot pristine;
         private String originalHash;
+        private List<ParameterBinding> pristineBindings;
+        private List<ParameterBinding> persistedBindings;
         private volatile boolean nativeTimedOut;
 
         Engine(final PluginContext context, final Path stateRoot, final String runId, final Properties result)
@@ -305,6 +335,7 @@ public final class McpTexturePersistenceProbe {
                 originalDocument.getClass().getMethod("closeFile", boolean.class, boolean.class);
                 appClass.getMethod("command_open", File.class, boolean.class);
                 pristine = snapshot();
+                if (Boolean.getBoolean("turboism.validation.freeFixture")) pristineBindings = bindings();
                 result.setProperty("pristineFingerprint", pristine.digest());
                 result.setProperty(
                         "pristineInputCount", Integer.toString(pristine.inputs().size()));
@@ -313,6 +344,7 @@ public final class McpTexturePersistenceProbe {
             });
             try {
                 edt(() -> {
+                    if (pristineBindings != null) prepareFreeFixture();
                     if (pristine.inputs().isEmpty()) seedNativeLayerInput();
                     baseline = snapshot();
                     result.setProperty(
@@ -345,6 +377,52 @@ public final class McpTexturePersistenceProbe {
 
         private ModelTextures textures() {
             return context.cubism().model().active().textures();
+        }
+
+        private List<ParameterBinding> bindings() {
+            return context.cubism().model().active().parameters().all().stream()
+                    .flatMap(parameter -> parameter.getParameterBindings().stream())
+                    .sorted(Comparator.comparing((ParameterBinding binding) ->
+                                    binding.target().type().name())
+                            .thenComparing(binding -> binding.target().id())
+                            .thenComparing(binding -> binding.parameterId().value())
+                            .thenComparing(binding -> binding.family().name()))
+                    .toList();
+        }
+
+        private void prepareFreeFixture() throws Exception {
+            final int before = position();
+            final List<ParameterBinding> plan = freeBindingPrunePlan(pristineBindings);
+            result.setProperty(
+                    "freeFixtureMaxParametersBefore", Integer.toString(maximumBoundParameters(pristineBindings)));
+            for (ParameterBinding binding : plan) {
+                final int previous = position();
+                context.cubism()
+                        .model()
+                        .active()
+                        .parameterBindings(binding.parameterId())
+                        .unbind(binding.target());
+                require(position() == previous + 1, "FREE fixture unbind must create exactly one Undo entry");
+            }
+            final List<ParameterBinding> prepared = bindings();
+            require(maximumBoundParameters(prepared) <= 2, "FREE fixture still exceeds two parameters per object");
+            require(snapshot().equals(pristine), "FREE fixture preparation changed native texture state");
+            final int after = position();
+            if (after != before) {
+                move(before);
+                require(bindings().equals(pristineBindings), "FREE fixture Undo did not restore original bindings");
+                move(after);
+                require(bindings().equals(prepared), "FREE fixture Redo differs from prepared bindings");
+                require(snapshot().equals(pristine), "FREE fixture Undo/Redo changed native texture state");
+            }
+            result.setProperty("freeFixtureRemovedBindings", Integer.toString(plan.size()));
+            result.setProperty("freeFixtureMaxParametersAfter", Integer.toString(maximumBoundParameters(prepared)));
+            result.setProperty("freeFixturePreparation", "SDK_UNBIND_UNDO_REDO_PASS");
+        }
+
+        private boolean originalStateRestored() throws Exception {
+            return snapshot().equals(pristine)
+                    && (pristineBindings == null || bindings().equals(pristineBindings));
         }
 
         private int position() {
@@ -492,6 +570,7 @@ public final class McpTexturePersistenceProbe {
                 library.removeModelImage(new ModelImageId(imageId));
                 library.removeRawImage(new RawImageId(rawId));
                 final Snapshot value = snapshot();
+                if (pristineBindings != null) persistedBindings = bindings();
                 result.setProperty("persistedAtlasId", retainedAtlas.value());
                 result.setProperty("persistenceOperationKinds", "5");
                 require(
@@ -515,6 +594,13 @@ public final class McpTexturePersistenceProbe {
                 savedDocument = currentDocument();
                 require(savedDocument != originalDocument, "Persistence must deserialize a fresh native document");
                 require(snapshot().equals(expected), "Reopened native texture state differs from the saved state");
+                if (persistedBindings != null) {
+                    require(
+                            bindings().equals(persistedBindings),
+                            "Reopened parameter bindings differ from saved state");
+                    require(maximumBoundParameters(bindings()) <= 2, "Reopened FREE fixture exceeds parameter limit");
+                    result.setProperty("freeFixtureBindingSaveReopen", "PASS");
+                }
                 result.setProperty("reopenedFingerprint", snapshot().digest());
                 result.setProperty("saveReopen", "PASS");
                 closeOwned(savedDocument);
@@ -522,7 +608,9 @@ public final class McpTexturePersistenceProbe {
             });
             openOwned(fixture);
             edt(() -> {
-                require(snapshot().equals(pristine), "Original fixture reopen did not restore full native state");
+                require(
+                        originalStateRestored(),
+                        "Original fixture reopen did not restore full native state and bindings");
                 return null;
             });
         }
@@ -585,7 +673,7 @@ public final class McpTexturePersistenceProbe {
                 final Object value = call(document, "getFile");
                 if (value instanceof File
                         && Files.isSameFile(((File) value).toPath(), fixture)
-                        && snapshot().equals(pristine)) return true;
+                        && originalStateRestored()) return true;
                 require(
                         document == originalDocument || document == savedDocument,
                         "Unknown active document prevents recovery");
@@ -594,7 +682,7 @@ public final class McpTexturePersistenceProbe {
             });
             if (!alreadyRestored) openOwned(fixture);
             edt(() -> {
-                require(snapshot().equals(pristine), "Recovery did not restore the original native state");
+                require(originalStateRestored(), "Recovery did not restore original native state and bindings");
                 return null;
             });
         }
