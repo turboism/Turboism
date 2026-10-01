@@ -9,6 +9,15 @@ import java.util.Objects;
 final class CorePublicApiVerificationManifest {
 
     private static final Map<String, PinnedVerifiedResolverWorkflow.Manifest> MANIFESTS = Map.of(
+        "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
+        manifest(
+            CorePublicApiTrustRoots.verificationId("${record:cubism-5.1.03-core-model-read.json:cubismVersion}"),
+            "${record:cubism-5.1.03-core-model-read.json:sha256}",
+            "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
+            "${record:cubism-5.1.03-core-model-read.json:cubismVersion}",
+            30_156L,
+            "${record:cubism-5.1.03-core-model-read.json:artifact.sha256}"
+        ),
         "${record:cubism-5.2.03-core-model-read.json:cubismVersion}",
         manifest(
             CorePublicApiTrustRoots.verificationId("${record:cubism-5.2.03-core-model-read.json:cubismVersion}"),
@@ -78,7 +87,7 @@ final class CorePublicApiVerificationManifest {
             artifactSize,
             artifactSha256,
             CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-            CorePublicApiSelectorContract.CAPABILITY_IDS,
+            CorePublicApiSelectorContract.capabilityIdsFor(profile).orElseThrow(),
             CorePublicApiSelectorContract.requiredAliasesFor(profile).orElseThrow()
         );
     }

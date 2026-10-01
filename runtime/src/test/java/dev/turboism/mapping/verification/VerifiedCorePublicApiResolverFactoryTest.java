@@ -17,6 +17,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void admitsPinnedCoreArtifactsForAllSupportedProfiles() throws Exception {
+        assertAdmitted("5.1.03", "5.1.03");
         assertAdmitted("5.2.03", "5.2.03");
         assertAdmitted("5.3.02", "5.3.02");
         assertAdmitted("5.3.04", "5.3.04");
@@ -75,9 +76,18 @@ class VerifiedCorePublicApiResolverFactoryTest {
             assertTrue(resolver.isExactCubismVersion(exactVersion));
             assertTrue(resolver.authorizes(
                     "adapter.core-model.readonly",
-                    java.util.Set.of("cubism.geometry.read"),
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.capabilityIdsFor(profile)
+                            .orElseThrow(),
                     dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(profile)
                             .orElseThrow()));
+            if ("5.1.03".equals(profile)) {
+                org.junit.jupiter.api.Assertions.assertFalse(resolver.authorizesFeature(
+                        "adapter.core-model.readonly",
+                        "cubism.geometry.read",
+                        dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
+                                        profile)
+                                .orElseThrow()));
+            }
         }
     }
 

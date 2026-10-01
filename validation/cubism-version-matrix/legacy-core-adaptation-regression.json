@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "scope": "Offline production admission, SDK owned-MOC behavior and lifecycle regressions only; live legacy adaptation still pending",
+  "result": "PASS",
+  "tests": 131,
+  "classes": [
+    {
+      "className": "dev.turboism.adapter.cubism.core.BorrowedCoreModelSourceTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CoreBackedCubismModelAccessTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CoreBackedSdkSurfacesTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CoreEvaluatedJoinTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CorePublicApiProviderFactoryTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CoreRuntimeMetadataTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.CoreStructuralTracerTest",
+      "tests": 11,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.EditorEvaluatedJoinAccessTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.GeneratedCorePublicApiCatalogTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.GeneratedCoreSelectorContractTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.OwnedMocRuntimeTest",
+      "tests": 19,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.cubism.core.RuntimeCoreModelBackendTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.adapter.host.VerifiedHostAdapterConnectorTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "className": "dev.turboism.mapping.verification.CubismHostCompatibilityResolverTest",
+      "tests": 22,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "gradleLogSha256": "5d83db6ef9387796dc408f5e0d4806a2f34cc44d246e402bd6e7c3eeea426289",
+  "gates": [
+    "devCheck",
+    "checkCubismCoreApiInventory",
+    "checkCubismCoreMemberPolicy",
+    "checkCubismCoreSelectorPolicy",
+    "generateVerificationSources"
+  ],
+  "legacyProfile": {
+    "version": "5.1.03",
+    "nativeTupleEvidence": "Core preflight c7a96026-77fe-49b8-9dc0-a2ff4288a65a observed5.0.0",
+    "selectorCount": 62,
+    "capabilityIds": [
+      "cubism.core.owned-moc.read"
+    ],
+    "supportedReadFamilies": [
+      "canvas",
+      "parameters",
+      "parts"
+    ],
+    "unavailableReadFamilies": [
+      "complete-drawables",
+      "glues",
+      "deformers"
+    ],
+    "geometryAdmitted": false
+  },
+  "invariants": [
+    "Original full profiles retain complete cross-reference validation",
+    "Legacy reads return immutable fresh copies under the parent lifetime lock",
+    "Unsupported native families throw UnsupportedOperationException, never fake empty data",
+    "Closed handles refuse all getters before availability checks",
+    "Parent close waits for an in-flight native Canvas read on full and legacy profiles"
+  ]
+}

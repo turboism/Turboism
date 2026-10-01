@@ -81,7 +81,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 new VerifiedRuntimeHostAdaptersFactory()::create,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
                 (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
-                        resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()),
+                        resolver,
+                        sessionId,
+                        coreBackend == null || !coreBackend.completeGeometryAvailable()
+                                ? null
+                                : coreBackend.evaluatedJoin()),
                 slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
                 slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
                 null,
@@ -100,7 +104,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 factory,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
                 (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
-                        resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin()),
+                        resolver,
+                        sessionId,
+                        coreBackend == null || !coreBackend.completeGeometryAvailable()
+                                ? null
+                                : coreBackend.evaluatedJoin()),
                 slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
                 slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
                 null,

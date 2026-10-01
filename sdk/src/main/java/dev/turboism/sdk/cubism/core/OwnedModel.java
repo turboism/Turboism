@@ -10,6 +10,10 @@ import java.util.List;
  * Core evaluation step; the projection never exposes Core writes
  * ({@code setValue}/{@code setOpacity} stay unavailable). Closing the model releases
  * the Core instance.</p>
+ *
+ * <p>Legacy Core profiles can provide canvas, parameters and parts while lacking
+ * complete drawable relations, glues and deformers. Unsupported read families throw
+ * {@link UnsupportedOperationException}; they never report missing native data as empty lists.</p>
  */
 public interface OwnedModel extends AutoCloseable {
 
@@ -25,13 +29,13 @@ public interface OwnedModel extends AutoCloseable {
     /** Evaluated part definitions and current opacities. */
     List<OwnedPart> parts();
 
-    /** Evaluated drawable definitions (blend, colors, vertices, flags). */
+    /** Evaluated drawable definitions, including relations; unavailable families throw {@link UnsupportedOperationException}. */
     List<OwnedDrawable> drawables();
 
-    /** Evaluated glue definitions. */
+    /** Evaluated glue definitions; unavailable families throw {@link UnsupportedOperationException}. */
     List<OwnedGlue> glues();
 
-    /** Evaluated deformer definitions. */
+    /** Evaluated deformer definitions; unavailable families throw {@link UnsupportedOperationException}. */
     List<OwnedDeformer> deformers();
 
     /**

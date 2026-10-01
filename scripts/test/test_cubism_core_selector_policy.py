@@ -23,6 +23,7 @@ from cubism_core_selector_policy import (  # noqa: E402
 )
 
 POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
+PACK_51 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json"
 PACK_52 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
 PACK_53 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
 
@@ -55,18 +56,19 @@ PACK_534 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-m
 
 def main() -> int:
     policy = load_json(POLICY)
-    packs = load_packs([PACK_52, PACK_53, PACK_534])
+    packs = load_packs([PACK_51, PACK_52, PACK_53, PACK_534])
     validated, roster = validate_policy(policy, packs)
 
     require(len(roster) == 83, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "e3449dce32c127b73d525f8b5f4782faade43b8aa236fd1f862805e7310809ff",
+        == "68eef67f5ecf825930878129b6880af124cafc2d7df7975c974dc153c55b9793",
         "selector roster digest drifted",
     )
     require(
         validated["summary"]["versions"]
         == {
+            "5.1.03": {"entryCount": 62},
             "5.2.03": {"entryCount": 80},
             "5.3.02": {"entryCount": 82},
             "5.3.04": {"entryCount": 82},
@@ -91,7 +93,7 @@ def main() -> int:
     version = selector(roster, "GET_VERSION")
     require(
         version["role"] == "VERSION_PROBE"
-        and version["profiles"] == ["5.2.03", "5.3.02", "5.3.04"],
+        and version["profiles"] == ["5.1.03", "5.2.03", "5.3.02", "5.3.04"],
         "version probe selector drifted",
     )
     require(
@@ -105,7 +107,7 @@ def main() -> int:
         "tracked selector policy has drifted from deterministic normalization",
     )
 
-    reversed_packs = load_packs([PACK_534, PACK_53, PACK_52])
+    reversed_packs = load_packs([PACK_534, PACK_53, PACK_52, PACK_51])
     reversed_policy, reversed_roster = validate_policy(policy, reversed_packs)
     generated = render_java(validated, roster)
     require(
@@ -173,6 +175,7 @@ def main() -> int:
     pack_mutation = copy.deepcopy(load_json(PACK_52))
     pack_mutation["entries"] = pack_mutation["entries"][:-1]
     mutated_packs = {
+        "5.1.03": packs["5.1.03"],
         "5.2.03": classify_pack(pack_mutation),
         "5.3.02": packs["5.3.02"],
         "5.3.04": packs["5.3.04"],
@@ -184,7 +187,7 @@ def main() -> int:
 
     print(
         "PASS: Cubism Core selector policy "
-        "(83 selectors, 80/82/82 profile entries, roster e3449dce)"
+        "(83 selectors, 62/80/82/82 profile entries, roster 68eef67f)"
     )
     return 0
 

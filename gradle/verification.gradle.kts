@@ -195,6 +195,7 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
         "scripts/test/test_cubism_core_api_inventory.py",
         "compatibility/cubism/index.md",
         fileTree("compatibility/cubism/core-api/observed") { include("*.json") },
+        "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
@@ -227,6 +228,7 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
         "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json",
+        "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.3.04-core-model-read.json",
         "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"

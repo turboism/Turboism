@@ -253,13 +253,16 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
 
         @Override
         public OwnedCanvasInfo canvasInfo() {
-            return toCanvas(snapshot().canvas());
+            return toCanvas(read(
+                    () -> fullStructureAvailable() ? projectSnapshot().canvas() : callSites.projectCanvas(rawModel)));
         }
 
         @Override
         public List<OwnedParameter> parameters() {
             final List<OwnedParameter> values = new ArrayList<>();
-            for (CoreParameterDefinition parameter : snapshot().parameters()) {
+            for (CoreParameterDefinition parameter : read(() -> fullStructureAvailable()
+                    ? projectSnapshot().parameters()
+                    : callSites.projectParameters(rawModel))) {
                 values.add(new OwnedParameter(
                         parameter.id(),
                         parameter.typeNumber(),
@@ -276,7 +279,8 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         @Override
         public List<OwnedPart> parts() {
             final List<OwnedPart> values = new ArrayList<>();
-            for (CorePartDefinition part : snapshot().parts()) {
+            for (CorePartDefinition part : read(
+                    () -> fullStructureAvailable() ? projectSnapshot().parts() : callSites.projectParts(rawModel))) {
                 values.add(new OwnedPart(part.id(), part.opacity(), part.parentIndex()));
             }
             return List.copyOf(values);
@@ -347,11 +351,30 @@ final class OwnedMocRuntime implements MocLoader, OwnedModelParameterWriter {
         }
 
         private CoreStructuralSnapshot snapshot() {
+            return read(() -> {
+                if (!fullStructureAvailable()) {
+                    throw new UnsupportedOperationException(
+                            "Complete Drawable relations, Glue and Deformer reads are unavailable on this Core profile.");
+                }
+                return projectSnapshot();
+            });
+        }
+
+        private boolean fullStructureAvailable() {
+            return CorePublicApiSelectorContract.capabilityIdsFor(provider.artifactProfile())
+                    .orElseThrow()
+                    .contains("cubism.geometry.read");
+        }
+
+        private CoreStructuralSnapshot projectSnapshot() {
+            return callSites.project(rawModel, 0L, "owned-moc", provider.providerId(), provider.artifactProfile());
+        }
+
+        private <T> T read(final java.util.function.Supplier<T> operation) {
             synchronized (parent) {
                 requireOpen();
                 try {
-                    return callSites.project(
-                            rawModel, 0L, "owned-moc", provider.providerId(), provider.artifactProfile());
+                    return operation.get();
                 } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
                     throw new IllegalStateException("Core owned model read failed safely: " + exception);
                 }

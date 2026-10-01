@@ -257,8 +257,15 @@ public final class TestCoreApiFixture {
             selectors.addAll(ownedMocSelectors());
         }
 
+        if ("5.1.03".equals(artifactProfile)) {
+            final var required = CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile)
+                    .orElseThrow();
+            selectors.removeIf(selector -> !required.contains(selector.alias()));
+        }
+
         final java.util.HashSet<String> capabilities =
-                new java.util.HashSet<>(CorePublicApiSelectorContract.CAPABILITY_IDS);
+                new java.util.HashSet<>(CorePublicApiSelectorContract.capabilityIdsFor(artifactProfile)
+                        .orElse(CorePublicApiSelectorContract.CAPABILITY_IDS));
         if (omitOwnedMoc) {
             capabilities.remove(ownedMocCapabilityId());
         }
@@ -284,7 +291,7 @@ public final class TestCoreApiFixture {
             final String artifactProfile,
             final java.util.List<StaticSelector> extraSelectors,
             final java.util.Set<String> extraCapabilities) {
-        final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
+        final String reviewedVersion = artifactProfile;
         return resolver(
                 reviewedVersion,
                 artifactProfile,
@@ -359,7 +366,7 @@ public final class TestCoreApiFixture {
 
     /** Fixture resolver whose evidence omits the owned-Moc selectors and capability. */
     public static VerifiedMemberResolver resolverWithoutOwnedMoc(final String artifactProfile) {
-        final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
+        final String reviewedVersion = artifactProfile;
         return resolver(
                 reviewedVersion,
                 artifactProfile,
@@ -408,7 +415,7 @@ public final class TestCoreApiFixture {
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETER_COUNTS, "getParameterCounts", "()[I"},
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETERS, "getParameters", "()[[I"}
         });
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2_03.equals(profile)) {
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2_03.equals(profile) || "5.1.03".equals(profile)) {
             selectors.add(instanceMethod(
                     CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS, Drawables.class, "getRenderOrders", "()[I"));
         } else {
