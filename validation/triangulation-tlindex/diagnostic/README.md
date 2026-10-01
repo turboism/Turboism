@@ -67,3 +67,29 @@ report. Its four parser tests cover counts, missing/duplicate output, invalid or
 incomplete rows, schema errors and impossible shortcut outcomes. Capture/edge
 correctness still needs the existing independent checks before accepting a
 production candidate; this report only establishes aggregate branch behavior.
+
+
+## Query/add fusion semantic experiment
+
+`ContainsAddFusionSelfCheck.java` compares original conditional contains/add with
+unconditional add only when debug is off. Its own triangle types model constant
+hash, six point permutations, mutable float coordinates and index-independent
+geometric equality. Eight seeds exercise tree-sized collision buckets, duplicate
+identities/geometries, signed zero, NaN, removal, iterator removal, clear and
+coordinate mutation. Every step compares exact stored identity/order and debug
+add counters. This does not load official classes, weave a caller, or measure
+host performance.
+
+```sh
+mkdir -p /tmp/tl-fusion-classes
+javac --release 17 -d /tmp/tl-fusion-classes \
+  validation/triangulation-tlindex/diagnostic/ContainsAddFusionSelfCheck.java
+java -Xverify:all -cp /tmp/tl-fusion-classes \
+  dev.turboism.validation.tlindex.diagnostic.ContainsAddFusionSelfCheck
+```
+
+The recorded run passed 1,117,616 assertions with 745,328 original versus 560,262
+candidate equality calls in the measured fixture operations. These are invocation
+counts in the own fixture, not JFR samples or a predicted host speedup. Production
+caller shape gates, actual branch counts, official side-effect equivalence and
+three-version A/B remain outstanding before selecting this as a final candidate.
