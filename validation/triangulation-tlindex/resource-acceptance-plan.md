@@ -1,6 +1,6 @@
 # Remaining SC-04a acceptance protocol
 
-Status: driver (216 checks), full wrapper regression, and seven analysis tests pass.
+Status: driver (216 checks), full wrapper regression, and nine analysis tests pass.
 Resource-window host A/B completed after one failed off attempt. See dated evidence:
 first-operation gains coexist with higher retained RSS, and later UI operations
 do not demonstrate repeated triangulation. Acceptance remains open.
@@ -92,9 +92,12 @@ bound; identity transition counts expose observed changes.
 
 Nine deterministic accounting/negative tests pass via
 `python3 -B validation/triangulation-tlindex/test-resource-windows.py`.
-This verifies the accounting code only. No actual resource-window host result is
-yet available, and each repeated operation still needs independent JFR proof of
-triangulation execution before interpreting retention as repeated-target evidence.
+This verifies the accounting code only. The completed resource-window pair in
+`resource-windows5203-r2` demonstrates first-operation triangulation, but neither
+leg has target samples in operations two and three. Each repeated operation still
+needs independent execution evidence before interpreting retention as
+repeated-target evidence. The newer contains candidate requires its own paired
+results; the older pair does not establish its performance.
 
 Pass `--jfr-json /path/to/execution.json` with that same run's exported
 `jdk.ExecutionSample,jdk.NativeMethodSample` JSON (export with `jfr print --json
