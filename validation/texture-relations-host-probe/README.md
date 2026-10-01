@@ -67,13 +67,20 @@ SDK export entry for the fixture's single raw image. It awaits completion off th
 Native export writes only a newly allocated OS-temporary PSD; no source model save,
 replacement, external editor launch or file deletion is requested.
 
-The `025-native-export-readable-v2` profile follows the user's explicit decision:
-PASS requires native export to be readable, not pixel or structural equality.
-This intermediate implementation still reports `FAILED` without a file/revision
-capability because handle lifecycle wiring is unfinished. Native status and
-readability are asserted; generic failure or native UNAVAILABLE is not PASS.
-Observed structural mismatch/unknown is diagnostic only. Older run results retain
-their original profile and verdict; this change does not reclassify failed runs.
-This deliberately does **not** certify full PSD fidelity, successful public EXPORTED,
-automatic replacement, Undo, reopen without the temporary PSD, or complete US2.
-The authoritative lifecycle checks above remain mandatory.
+The original `025-native-export-readable-v2` profile remains strict: a save-only
+observation cannot pass it. The current production SDK issues a handle and baseline
+following a nonempty regular file and native save return (`SAVED_UNVERIFIED`);
+it does not parse or compare PSD contents. The SDK exposes no file path or bytes,
+so this probe cannot independently establish content readability.
+
+The explicit catalogue variants `saved-only` and `saved-only-assisted` select
+`025-native-export-save-only-v1`. PASS proves only the production export result,
+exact save-only diagnostic, issued handle/baseline and successful handle stop.
+Content readability, structure and fidelity remain unverified. The original
+readable-content acceptance gap and failed historical result are retained.
+Every issued handle is stopped in a finally block even when an assertion fails;
+cleanup failures fail the scenario and preserve any primary assertion failure.
+
+Neither profile proves automatic replacement, Undo, external editor operation,
+reopen without the temporary PSD, complete US2 or complete framework support.
+The authoritative supervisor lifecycle checks above remain mandatory.

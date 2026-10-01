@@ -7,9 +7,10 @@ import java.util.Optional;
 /**
  * Result of exporting one model-bound raw image into a runtime-owned temporary PSD.
  *
- * <p>EXPORTED requires validated native export completeness, not merely a readable PSD or a normal
- * native void return. It describes Cubism's current resources, not lossless preservation of every
- * original PSD feature. Only EXPORTED carries a handle and baseline revision. Constructing this
+ * <p>EXPORTED means the native save completed and the runtime issued a handle and baseline for
+ * a nonempty regular output file. The current save-only path does not independently parse or
+ * compare the PSD contents, establish layer completeness, or prove fidelity. The diagnostic
+ * reports this limitation as SAVED_UNVERIFIED. Only EXPORTED carries a handle and baseline revision. Constructing this
  * value does not issue a runtime-authorized handle or establish host evidence.</p>
  *
  * @param diagnostic runtime-sanitized explanation, without granting access to a filesystem path

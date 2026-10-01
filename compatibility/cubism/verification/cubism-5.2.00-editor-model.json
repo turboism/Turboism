@@ -105,7 +105,8 @@
     "cubism.texture-atlas.layout.write",
     "cubism.texture-atlas.native-layout-invocation",
     "ui.object-context-menu.contribute",
-    "cubism.editor-model.texture.write"
+    "cubism.editor-model.texture.write",
+    "cubism.editor-model.art-mesh.inspector-write"
   ],
   "cubismVersion": "5.2.00",
   "profileId": "cubism-5.2.00",
@@ -9944,6 +9945,9 @@
     ],
     "cubism.editor-model.texture.write": [
       "structure"
+    ],
+    "cubism.editor-model.art-mesh.inspector-write": [
+      "declaredGeneration"
     ]
   }
 }

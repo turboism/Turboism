@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 
 /** Offline smoke-assertion tests; never loads or launches Cubism. */
 public final class TextureRelationsHostProbeTest {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (!"5.0.00".equals(TextureRelationsHostProbe.expectedVersion("5000"))
                 || !"5.3.04".equals(TextureRelationsHostProbe.expectedVersion("5304")))
             throw new AssertionError("wrong exact host label");
@@ -61,6 +61,56 @@ public final class TextureRelationsHostProbeTest {
             throw new AssertionError("Expected export observation rejection");
         }
         System.out.println("PASS: 8 readable-v2 export-observation assertion cases; not host evidence");
+        final String saved = "PSD_NATIVE_EXPORT;status=SAVED_UNVERIFIED;integrity=UNAVAILABLE;readable=true;structure=false";
+        final int[] stopCalls = {0};
+        final var savedResult = new PsdExportResult(PsdExportResult.Status.EXPORTED, saved, rawId,
+            Optional.of(stoppableFile(stopCalls, false)), Optional.of(new PsdFileRevision() { }));
+        TextureRelationsHostProbe.finishExportObservation(savedResult, new Properties(), true);
+        if (stopCalls[0] != 1) throw new AssertionError("successful save did not stop exactly once");
+        try {
+            TextureRelationsHostProbe.finishExportObservation(savedResult, new Properties(), false);
+            throw new AssertionError("save-only silently satisfied readable profile");
+        } catch (IllegalStateException expected) { }
+        if (stopCalls[0] != 2) throw new AssertionError("failed assertion leaked issued handle");
+        for (String invalid : List.of(saved.replace("readable=true", "readable=false"),
+                saved.replace("structure=false", "structure=true"), saved.replace("UNAVAILABLE", "MISMATCH"), observation)) {
+            try {
+                TextureRelationsHostProbe.validateSavedExportObservation(new PsdExportResult(
+                    PsdExportResult.Status.EXPORTED, invalid, rawId, Optional.of(editFile()),
+                    Optional.of(new PsdFileRevision() { })));
+                throw new AssertionError("invalid save-only observation accepted");
+            } catch (IllegalStateException expected) { }
+        }
+        final var stopFailure = new PsdExportResult(PsdExportResult.Status.EXPORTED, saved, rawId,
+            Optional.of(stoppableFile(stopCalls, true)), Optional.of(new PsdFileRevision() { }));
+        try {
+            TextureRelationsHostProbe.finishExportObservation(stopFailure, new Properties(), false);
+            throw new AssertionError("invalid readable observation accepted");
+        } catch (IllegalStateException expected) {
+            if (expected.getSuppressed().length != 1) throw new AssertionError("cleanup failure lost primary assertion", expected);
+        }
+        try {
+            TextureRelationsHostProbe.finishExportObservation(stopFailure, new Properties(), true);
+            throw new AssertionError("failed cleanup passed");
+        } catch (java.util.concurrent.ExecutionException expected) { }
+        System.out.println("PASS: save-only isolation, strict diagnostics, stop-on-failure and cleanup failure preservation");
+    }
+
+    static PsdEditFile stoppableFile(int[] calls, boolean fail) {
+        return new PsdEditFile() {
+            @Override public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
+                throw new AssertionError("external open not authorized by this scenario");
+            }
+            @Override public Registration observeSaves(Consumer<PsdFileRevision> listener) {
+                throw new AssertionError("external save not part of this scenario");
+            }
+            @Override public CompletionStage<PsdFileOperationResult> stop() {
+                calls[0]++;
+                if (fail) return java.util.concurrent.CompletableFuture.failedFuture(new IllegalStateException("stop failed"));
+                return java.util.concurrent.CompletableFuture.completedFuture(
+                    new PsdFileOperationResult(PsdFileOperationResult.Status.STOPPED, "stopped"));
+            }
+        };
     }
 
     static PsdEditFile editFile() {

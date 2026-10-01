@@ -142,3 +142,17 @@ Core真实产物启动回归复现5.2.00–.02基础/完整profile共存时owned
 新增27个Glue/参数/绑定SDK方法精确映射，总62个。5.3.04 free-r6正式通过仅绑定当时冻结产物；Multiply Color新断言仍待实机。46组已复制终态的lifecycle SHA/所有最终门禁/原始properties字节已逐项与官方队列核对一致；15个早期历史终态没有本地sanitized副本，不用于本轮新支持结论。
 
 本轮离线门禁：真实产物Core factory回归8项（覆盖20版）PASS；Core候选/歧义回归24项PASS（新增完整扩展正向及绑定/条件变更负向）；MCP夹具probe10项PASS；调度30项、隔离队列115项、SDK覆盖索引4项、范围防误报5项均PASS；纹理关系/PSD观察9+8项自检及权限/生产包隔离PASS；devCheck、Core三门禁、Python lint与修改wrapper语法检查PASS。实机新任务尚未执行，不以这些检查替代native验收。
+
+本轮终态：5.0.00/.01 owned-MOC、5.3.01完整MCP及5.0.00/5.2.02/5.3.04关系图均supervisor PASS；owned-MOC目前20版（11基础、9完整getter；Core Glue仅空getter）。54组摘要与57份properties已核对官方SHA与原始字节。
+
+5.2.02 free-r2停在已激活Trial欢迎modal，新增精确Confirm/OK信息确认与许可观测（不激活Trial）；free-r3实际许可观测FREE，完成模型投影与参数4→2准备，但Screen Color写入被Inspector精确准入拒绝。20版静态审计显示完整no-alpha合同全部存在，依赖表错误包含现代AlphaComposition；修复明确15版旧合同、同步Python求解与runtime，14份记录只增一项Inspector能力、selectors不增。126项相关Java回归、devCheck和Core三门禁PASS；实机新包仍待复测，不将静态声明作为行为支持。
+
+5.0.02完整MCP首轮未发布client结果，runtime显示MCP启动无条件访问仅5.2+支持的可选authoringTransactions；不是模型损坏或全部能力不支持。修复MCP只对精确SDK不可用异常返回typed UNAVAILABLE服务，其他错误继续失败；保持完整client断言，不能用事务UNAVAILABLE冒充旧版事务通过。
+
+5.3.04原PSD readable-v2场景FAIL，原因native返回SAVED_UNVERIFIED；SDK没有bytes/path接口，不能独立证明PSD内容可读。新增明确save-only场景保留旧场景缺口，finally释放issued handle并保留primary/cleanup错误。save-only-r1已supervisor PASS、三个门禁true、cleanup safe，EXPORTED/issued baseline/STOPPED；内容、结构、保真、replace/external edit仍未验证。原结果不改判。
+
+已逐项冻结提交35项新任务（准确job/digest见campaign-jobs.json）：MCP10、PSD save-only5、其余17版纹理关系图、5.3.04参数批量迁移/动画时间线/工作区3。官方worker在线，按FIFO持续运行，不干预其他会话；排队和部分断言不算PASS。新增非MCP assisted入口只用绑定queue任务home的启动agent，禁止普通profile/其他task，启动观测为OBSERVATION_ONLY。动画目录对齐实际wrapper九版范围，旧版保留工具缺口。全能力验收远未完成。
+
+追加5个修复后MCP新包复测（5.2.02 r4、5.0.02/5.1.03/5.2.00/5.2.01 r2），本轮共40项冻结提交。126项runtime回归+38项MCP回归全部PASS、无跳过；MCP新增HTTP transport启动/连接发布/关闭清理回归，旧版optional事务不可用不会执行工作，SecurityException和未知backend故障不隐藏。Python generator2/调度32/覆盖索引9项通过，开发与Core门禁PASS。终态仍待持续收取，见capability-admission-regression.json。
+
+检查点证据审计更新：59组sanitized lifecycle SHA及门禁、62份properties与官方源字节一致。最新devCheck PASS；本轮40项新任务中五项已终态（PSD save-only5304 PASS；MCP5202/5002/5103/5200旧冻结包FAIL），35项仍运行/排队，包括五版修复后新冻结包复测。未停止或干预其他会话，未把queued、readiness或UNAVAILABLE当作支持。

@@ -921,12 +921,27 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
       "resources": {
         "host-slot": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
       }
     },
     "psd-clip-mask": {
@@ -1342,12 +1357,27 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
       "resources": {
         "host-slot": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
       }
     },
     "edit": {
@@ -1443,12 +1473,27 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
       "resources": {
         "host-slot": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
       }
     },
     "warp-deformer-alt-symmetry": {
@@ -1493,68 +1538,68 @@
           "{runLabel}",
           "--jvm-option",
           "-Dturboism.validation.warpAlt.mode=observe"
-    ],
-    "weight": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=weightStroke",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.axis=1",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.drag=48,0"
-    ],
-    "weight-h": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=weightStroke",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.axis=2",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.drag=0,48"
-    ],
-    "drive-gesture": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=driveGesture"
-    ],
-    "drive-gesture-c5": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=driveGesture",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.point=5"
-    ],
-    "manual": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=observe",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.observeSeconds=5400"
-    ],
-    "bezier": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=bezierHandle",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.axis=1",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.drag=48,-32"
-    ],
-    "bezier-h": [
-     "{version}",
-     "{runLabel}",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.mode=bezierHandle",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.axis=2",
-     "--jvm-option",
-     "-Dturboism.validation.warpAlt.drag=48,-32"
+        ],
+        "weight": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=weightStroke",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=1",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,0"
+        ],
+        "weight-h": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=weightStroke",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=2",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=0,48"
+        ],
+        "drive-gesture": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=driveGesture"
+        ],
+        "drive-gesture-c5": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=driveGesture",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.point=5"
+        ],
+        "manual": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=observe",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.observeSeconds=5400"
+        ],
+        "bezier": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=bezierHandle",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=1",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,-32"
+        ],
+        "bezier-h": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.mode=bezierHandle",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.axis=2",
+          "--jvm-option",
+          "-Dturboism.validation.warpAlt.drag=48,-32"
         ]
       },
       "resources": {
@@ -1681,9 +1726,24 @@
       }
     },
     "psd-export-observation": {
-      "description": "Native readable PSD export via production SDK, issued handle and stop; not fidelity/replace/external-edit acceptance.",
+      "description": "Native PSD export observation: readable-v2 or explicit save-only profile; issued handle and stop; no fidelity/replace/external-edit acceptance.",
       "command": "scripts/preview/run-psd-export-observation-host-validation.sh",
       "versions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
         "5300",
         "5301",
         "5302",
@@ -1709,6 +1769,24 @@
           "-Dturboism.optimization.mesaGlThread=false",
           "--linux-env",
           "mesa_glthread=false"
+        ],
+        "saved-only": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.textures.exportSaveOnly=true"
+        ],
+        "saved-only-assisted": [
+          "{version}",
+          "{runLabel}",
+          "--jvm-option",
+          "-Dturboism.validation.textures.startFree=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false",
+          "--jvm-option",
+          "-Dturboism.validation.textures.exportSaveOnly=true"
         ]
       }
     }

@@ -4,6 +4,7 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.CubismHistory;
@@ -13,6 +14,7 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -225,7 +227,7 @@ final class McpHttpServer implements AutoCloseable {
                             historyCommands.tools(),
                             glues.tools(),
                             textures.tools(execution)),
-                    checked.cubism().authoringTransactions(),
+                    optionalAuthoringTransactions(checked.cubism()),
                     execution,
                     runtimeDiagnostics::observe);
             final McpResourceCatalog resources = runtimeDiagnostics.observe(McpResourceCatalog.combine(
@@ -769,6 +771,15 @@ final class McpHttpServer implements AutoCloseable {
 
         String stage() {
             return stage;
+        }
+    }
+
+    /** Exact-version absence of this optional backend must not prevent read-only MCP startup. */
+    static AuthoringTransactionService optionalAuthoringTransactions(final CubismFacade cubism) {
+        try {
+            return cubism.authoringTransactions();
+        } catch (CubismEditorApiUnavailableException unavailable) {
+            return AuthoringTransactionService.unavailable();
         }
     }
 

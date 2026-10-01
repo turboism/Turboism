@@ -86,7 +86,8 @@
     "cubism.texture-atlas.dialog-injection",
     "cubism.texture-atlas.layout.write",
     "ui.object-context-menu.contribute",
-    "cubism.editor-model.texture.write"
+    "cubism.editor-model.texture.write",
+    "cubism.editor-model.art-mesh.inspector-write"
   ],
   "cubismVersion": "5.1.01",
   "profileId": "cubism-5.1.01",
@@ -9472,6 +9473,9 @@
     ],
     "cubism.editor-model.texture.write": [
       "structure"
+    ],
+    "cubism.editor-model.art-mesh.inspector-write": [
+      "declaredGeneration"
     ]
   }
 }
