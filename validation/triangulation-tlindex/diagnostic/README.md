@@ -316,3 +316,27 @@ fc7a5d2cc9a204cc5abf9cbbcc4e6b5002d96e99351a0ee9cf433da3b520551b.
 It is waiting for the fresh-edge5302 performance pair before preparation/submission,
 using the original frozen Agent2f6dd5ba to isolate diagnostic changes. Native results
 and repeated target execution remain unproven.
+
+### Auto-connect r4: cancelled capture queries
+
+R3 failed before its capture callback started: FixedEdt atomically transitioned
+QUEUED to TIMED_OUT, so late dispatch skips that cancelled invocation. Its partial
+JFR shows native mouse-move/lazy mesh work on the EDT after command return. R4
+retries only a MESH_CAPTURE invocation in that cancelled state, before the unchanged
+30-second ready deadline and total run deadline, with interruption preserved.
+STARTED, COMPLETED and other operations are never retried. Results returned after
+the ready deadline are rejected.
+
+The task-local auto-connect-capture-wait.tsv records cancelled waits, deadline
+failures and stale edge/index/position/vertex cache versions. Cache validity is
+checked before reading native arrays. All 711 selected sources, three native
+rebuild/preserveBorder cycles, 21 phase markers, native cancellation and standard
+host gates remain required. Production algorithms and the common runner/SDK are
+unchanged.
+
+Own Invocation lifecycle checks pass17 under -Xverify:all; snapshot checks pass17
+and native adapter guards pass25. The Java17 -Xlint:all -Werror diagnostic build is
+frozen at SHA25358e39f4ff2819ca11b3dcd77163f1561c13895767ddf1257fb421d1c75e69,
+with selfchecks excluded from its JAR. Prepared input12256aef630c39e0283fe24240e16b82a420f5ff83a3d29ae29bdd9408a00f0e
+still uses production Agent2f6dd5ba. No r4 host result exists at preparation time;
+successful preparation cannot establish repeated execution or performance acceptance.

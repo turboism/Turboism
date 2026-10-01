@@ -10,7 +10,10 @@ final class MeshResultSnapshot {
 
     static final class CacheNotReady extends IllegalStateException {
         private static final long serialVersionUID = 1L;
-        CacheNotReady() { super("native mesh cache is stale"); }
+        CacheNotReady(int edgeVersion, int indexCacheVersion, int positionVersion, int vertexCacheVersion) {
+            super("native mesh cache is stale: edge=" + edgeVersion + " indexCache=" + indexCacheVersion
+                + " position=" + positionVersion + " vertexCache=" + vertexCacheVersion);
+        }
     }
 
     record Result(int pointCount, int positionValues, int indexValues, int edgeVersion,
@@ -25,7 +28,7 @@ final class MeshResultSnapshot {
         int positionVersion = integer(call(mesh, "get_postion_edit_version"));
         int vertexCacheVersion = integer(call(mesh, "getCache_version_gl_vertex$core"));
         if (edgeVersion != cacheVersion || positionVersion != vertexCacheVersion) {
-            throw new CacheNotReady();
+            throw new CacheNotReady(edgeVersion, cacheVersion, positionVersion, vertexCacheVersion);
         }
         int count = integer(call(mesh, "getPointCount"));
         Object positions = call(mesh, "getCached_positions$core");

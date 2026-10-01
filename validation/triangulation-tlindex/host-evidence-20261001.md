@@ -1124,3 +1124,22 @@ post-containment fixture source/copy, golden JAR/BAT and staged artifact hashes
 match; the top-level validation remains FAIL with normalExit=false. No fabricated
 normal exit or repeated-target acceptance is claimed. All monitoring workflows
 are now terminal; the next action is evidence-led protocol diagnosis, not restart.
+
+### R4 diagnostic frozen, shared queue blocked
+
+R4 changes only the diagnostic capture protocol: retry MESH_CAPTURE after atomic
+QUEUED-to-TIMED_OUT cancellation, never a started invocation, before the unchanged
+30-second ready deadline and total run budget. Own lifecycle17, snapshot17 and
+native guard25 checks PASS; Java17 lint/Werror compilation succeeds. The sidecar
+records cancelled waits and all four stale cache versions; stale arrays and late
+results remain rejected. Three cycles,711 sources and standard host gates remain.
+
+Driver25358e39f4ff2819ca11b3dcd77163f1561c13895767ddf1257fb421d1c75e69
+is frozen in auto-connect5203-build-r4b. Prepared input
+12256aef630c39e0283fe24240e16b82a420f5ff83a3d29ae29bdd9408a00f0e retains
+old production Agent2f6dd5ba to isolate this diagnostic change. It has not run.
+The shared host was observed quarantined by another task, seq2338/job
+2486b790-d594-4d5a-801d-c36e93b5360d, reason "no durable final supervisor verdict".
+No cancellation, recovery, evidence change or process signal is applied to that
+other task. Our submission must remain FIFO behind existing jobs. T044/T046 and
+final Agent021e4908 verification remain incomplete.
