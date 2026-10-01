@@ -1165,3 +1165,22 @@ summary succeeds. failure-review.json binds the evidence and original outcome.
 The terminal monitor correctly refused acceptance analysis and did not rerun.
 Review native cache publication before any further diagnostic change. Separately,
 final Agent021e4908 on/off5302 and real settings-UI inputs are being prepared.
+
+### Final receipt-fixed candidate inputs submitted
+
+Complete inventories for frozen Agent021e49085daf68d02d2ab76d638f61403b6d1ece27d95050ed835aa1b0df3181
+and unchanged resource driver3bee41a3 PASS. Final real settings UI prepared
+794fd8f543bac4e7672ced956b71c02f33c15be9815a56c2bda2f83460f6d0a0 was submitted
+as seq2344/job4b694947-2e28-4ea9-a855-239b8df637b5. Probe5d79212f and its pinned
+fixture are unchanged. The input must still pass actual UI and independent-startup
+linkage; submission is not UI acceptance.
+
+5302 reverse order is on then off: prepared on
+a9b158156588990bb20794c8945b0b9454889a658a23d2701fcb8ceee92fa29f and off
+0368aa32f559095f5a2139cc173a7e80262ee5db012c9c9f794cfe1497138d80. On was submitted
+as seq2345/job4fad5b66-e9d5-405c-8ee4-2585590fe89c; off is not yet submitted. The
+serial client submits off only after on succeeds, then checks both INFO receipts,
+ordered outputs, actual execution and resource windows. The client waits through
+another task's quarantine without recovery; its own quarantine/failure stops it.
+At the observation both owned jobs are queued behind seq2343. No new host PASS or
+speedup is claimed. Files: fresh-edge-receipt-{settings-ui-r1,resource5302}.
