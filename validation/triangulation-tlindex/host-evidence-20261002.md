@@ -215,17 +215,62 @@ First-operation CPU direction differs (+3.73%/−6.06%), and retained RSS compar
 differ by round/window. Further identical reopen/OK cycles do not resolve the
 missing repeated-target evidence; acceptance needs a verified native trigger.
 
+## Managed production startup options (offline)
+
+The maintained release managed entry now reads the root-level
+`meshTriangulationEdgeIndex` preference when staging JVM options. Missing config
+or key defaults on; enabled emits `-XX:+DisableAttachMechanism`, explicit false
+omits it. Non-Boolean values and non-object configs refuse launch preparation.
+Both the ephemeral managed BAT and optional regenerated persisted integration use
+the same helper. Runtime ownership, exact definitions, leases and external-Agent
+rejection are unchanged. Persisted integrations remain preference snapshots;
+they need regeneration when changing their option block.
+
+PowerShell 7.6.6 was downloaded from Microsoft's official release into `/tmp`,
+with archive SHA `ddbc4a2d113bbd46d283cfedcbcd117a70caefd7673f41f2b4e0000badf103bc`.
+Real PowerShell/Java 17 parser regression passes 68 assertions, including actual
+VM attach-option values for default/on/off, wrong namespace and invalid values.
+The existing empty-pipeline Count assertion was corrected for strict-mode
+PowerShell. The pure synthetic BAT regression passes 44 assertions, including
+on/off staging, spaces/Chinese paths, source byte preservation, idempotence,
+backup/restore and user-edit conflict refusal. Installer configuration/payload
+regression and `devCheck` also pass. No installed Cubism BAT was edited or run.
+
+Eight further JVM cases consume the exact options extracted from the maintained
+helper's staged synthetic BAT. They run the unchanged final companion and real
+Turboism premain: 5203/5302/5303 on/off, a missing-key default, and an external
+attach-enable override. All 72 premain assertions pass. Each on case captures the
+reviewed actual official definitions and admits a lazy lease; off and override
+cases refuse ownership/capture. The actual VM option is checked separately in
+each case. Official classes are metadata only: no official initializer, geometry,
+Editor window or full Windows cmd.exe/Proton launch executes in this slice.
+
+Evidence is under `build/t050-lazy-edge-bytecode/managed-startup/`.
+Final `offline-review.json` SHA is
+`f3a3479b1bfceed911f03008336afeb1fbe509e9aefeffd4a3297b509b8c4251`;
+all 114 bound source/tool/artifact/config/staged-BAT/command/log inputs were
+independently rehashed after the report writer finished. Initial test-harness
+failures (CRLF extraction, SHA case and duplicate test-only Agent timeout), the
+strict-mode Count failure, and the initial live-output-log pin failure remain
+preserved. They were corrected without native host retries or frozen-artifact
+changes. This resolves the maintained launcher argument omission at the source
+and actual premain level; full native managed launch and final UI/startup linkage
+still require evidence. Dynamic attach tools are unavailable while the option is
+enabled; the documented managed off restart omits it.
+
 ## Remaining acceptance
 
 5303 T039 callback self-unregistration conflicts with the owned gateway and is
 correctly refused; the single-Agent 5303 scene remains unadmitted. Final three-version
 stable performance/resources, real repeated-target execution, complete per-cycle
-outputs and final UI/independent-startup linkage remain open. Ordinary managed BAT
-launch generation (`cubism-launch-common.ps1`) and preview launch arguments
-(`launch-cubism-turboism.ps1`) do not emit `-XX:+DisableAttachMechanism`;
-the validation wrapper explicitly does. The current ownership protocol refuses
-attach-enabled startup with `DYNAMIC_ATTACH_ENABLED`. This limits the lazy benefit
-to the admitted startup conditions; default-production lazy activation has not
-been demonstrated. Preserve that admission and resolve the actual production
-launch path before extrapolating the measured benefit. No theoretical bottleneck
-or stable net gain is claimed; no merge to main or push occurred.
+outputs and final UI/independent-startup linkage remain open. The maintained
+managed entry's argument omission is fixed above; the older development preview
+script is unchanged and is not the release managed entry. Full native execution
+through the maintained production launch path is not yet demonstrated. The
+ownership protocol still refuses attach-enabled startup with
+`DYNAMIC_ATTACH_ENABLED`; preserve that admission before extrapolating measured
+benefit. The existing native auto-connect diagnostic also remains failed:
+seq2340/r4 returns its first native command but its GL index-cache version stays
+stale, producing no result rows. Its delayed recorder must not be rerun unchanged;
+result production needs binding to the actual command/cycle/source. No theoretical
+bottleneck or stable net gain is claimed; no merge to main or push occurred.
