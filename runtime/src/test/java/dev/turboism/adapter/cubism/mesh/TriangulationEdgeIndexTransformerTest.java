@@ -32,6 +32,41 @@ final class TriangulationEdgeIndexTransformerTest {
     private static final String POINT = TriangulationEdgeIndexFixture.POINT.replace('/', '.');
 
     @Test
+    void wovenContainsPreservesIdentityAndGeometricEquality() throws Exception {
+        final Host host = wovenHost();
+        final Object t = host.triangle(10f, 1, 2, 3);
+        host.add(t);
+        host.query(1, 2);
+        assertEquals(true, host.contains(t));
+        assertEquals(true, host.contains(host.triangle(10f, 90, 91, 92)));
+        assertEquals(false, host.contains(host.triangle(20f, 1, 2, 3)));
+        host.remove(t);
+        assertEquals(false, host.contains(t));
+    }
+
+    @Test
+    void missingContainsSiteRejectsTheWholePatch() {
+        final org.objectweb.asm.ClassWriter writer = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(FIXTURE.get(LIST)).accept(
+                new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9, writer) {
+                    @Override
+                    public org.objectweb.asm.MethodVisitor visitMethod(final int access, final String name,
+                            final String descriptor, final String signature, final String[] exceptions) {
+                        if ("c".equals(name) && descriptor.equals("(L" + TRIANGLE.replace('.', '/') + ";)Z")) {
+                            return null;
+                        }
+                        return super.visitMethod(access, name, descriptor, signature, exceptions);
+                    }
+                }, 0);
+        final byte[] bytes = writer.toByteArray();
+        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(
+                Set.of(TriangulationEdgeIndexTransformer.sha256(bytes)));
+        assertNull(transformer.transform(null, TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME,
+                null, null, bytes));
+        assertTrue(transformer.diagnostic().contains("contains sites=0"));
+    }
+
+    @Test
     void patchedListAnswersIndexedQueriesInInsertionOrder() throws Exception {
         final Host host = wovenHost();
 
@@ -288,6 +323,10 @@ final class TriangulationEdgeIndexTransformerTest {
             return (boolean) list.getClass()
                     .getMethod("b", triangle.getClass())
                     .invoke(list, triangle);
+        }
+
+        boolean contains(final Object triangle) throws Exception {
+            return (boolean) list.getClass().getMethod("c", triangle.getClass()).invoke(list, triangle);
         }
 
         void clear() throws Exception {
