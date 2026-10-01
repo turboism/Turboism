@@ -39,6 +39,7 @@ Usage:
     [--tri-dweave <dm-dump-only|dm-dump+weave>]
     [--tri-tlindex <tl-dump-only|tl-dump+weave>]
     [--tri-tlindex-home-config <absolute path to leg-matching UI config>]
+    [--tri-fresh-edge-guard-metadata]
     [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
@@ -52,6 +53,8 @@ expects the production-patched bytes the transformer emits. The family admits
 The 5302 profile is admitted only for t029-tlprod-* labels.
 A captured settings UI config may be staged with --tri-tlindex-home-config;
 its explicit edge-index Boolean must match the leg and its SHA is frozen by prepare.
+--tri-fresh-edge-guard-metadata emits cold guard decisions only for a production
+on leg with tl-dump-only; it is a diagnostic, not a performance measurement.
 
 The T040 manifest is intentionally runnable=false until manager admission. This
 wrapper does not build, launch, prepare in this offline checkout, install hooks,
@@ -466,6 +469,7 @@ tri_tlindex=''
 tri_weave_agent_arg=''
 tri_tlprod_home_config=''
 tri_tlprod_home_config_sha256=''
+tri_fresh_guard_metadata=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -497,6 +501,9 @@ while [[ $# -gt 0 ]]; do
       [[ $# -ge 2 ]] || fail 'missing --tri-tlindex-home-config value'
       [[ -z "$tri_tlprod_home_config" ]] || fail 'production home config supplied twice'
       tri_tlprod_home_config="$2"; shift 2 ;;
+    --tri-fresh-edge-guard-metadata)
+      [[ "$tri_fresh_guard_metadata" == 0 ]] || fail 'fresh-edge guard metadata supplied twice'
+      tri_fresh_guard_metadata=1; shift ;;
     --tri-weave-agent)
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
       [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
@@ -566,6 +573,10 @@ if [[ -n "$tri_tlindex" ]]; then
   [[ -n "$tri_tlprod_leg" ]] && tri_tlindex_expected='tl-dump-only'
   [[ "$tri_tlindex_mode" == "$tri_tlindex_expected" ]] \
     || fail "--tri-tlindex $tri_tlindex_mode inconsistent with leg label $run_label"
+fi
+if [[ "$tri_fresh_guard_metadata" == 1 ]]; then
+  [[ "$tri_tlprod_leg" == on* && "$tri_tlindex_mode" == tl-dump-only ]] \
+    || fail '--tri-fresh-edge-guard-metadata requires a production on capture leg'
 fi
 # A real settings probe may supply the exact config it wrote. This is restricted to
 # production legs, and the explicit Boolean must agree with their on/off identity.
@@ -803,6 +814,9 @@ runner_args+=(--ready-marker 'TURBOISM_DEFERRED_GL_ERROR_CHECK deferred=ACTIVE')
 # fixture override is permitted on an ordinary 5203 scene.
 if [[ -n "$tri_tlprod_leg" ]]; then
   runner_args+=(--jvm-option '-Dturboism.validation.atlasImageShadow.tlprodOptIn=TLPROD_EXPLICIT_OPT_IN')
+fi
+if [[ "$tri_fresh_guard_metadata" == 1 ]]; then
+  runner_args+=(--jvm-option '-Dturboism.validation.triangulationEdgeGuard=FRESH_EDGE_GUARD_METADATA_V1')
 fi
 
 # T029-IDENTITY probe admission contract: exactly seven fixed properties — no fixture hash,
