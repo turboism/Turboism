@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "Offline production admission, SDK owned-MOC behavior and lifecycle regressions only; live legacy adaptation still pending",
+  "scope": "131 default-task synthetic production admission, SDK owned-MOC behavior and lifecycle regressions; excludes licensed real-artifact factory/startup tests; live legacy adaptation still pending",
   "result": "PASS",
   "tests": 131,
   "classes": [

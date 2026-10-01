@@ -707,9 +707,6 @@
  "capabilityConditions": {
   "cubism.core.owned-moc.read": [
    "structure"
-  ],
-  "cubism.geometry.read": [
-   "structure"
   ]
  }
 }
