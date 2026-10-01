@@ -28,25 +28,57 @@ public final class NativeAutoConnectSelfCheck {
             throw new AssertionError("native error not propagated");
         } catch (UnsupportedOperationException expected) { checks++; }
         File fixture = new File("/tmp/autoconnect-owned.cmo3");
-        reject(() -> NativeAutoConnect.enter(new Controller(fixture), fixture));
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                reject(() -> NativeAutoConnect.enter(new Controller(new File("/tmp/another.cmo3")), fixture));
-                // Even a correctly bound file is insufficient when modeling mode is absent.
-                reject(() -> NativeAutoConnect.enter(new Controller(fixture), fixture));
-            } catch (Throwable problem) { failure.set(problem); }
+        CountingFile actual = new CountingFile(fixture.getPath());
+        Controller controller = new Controller(actual);
+        reject(() -> NativeAutoConnect.binding(controller));
+        AtomicReference<NativeAutoConnect.Binding> ref = new AtomicReference<>();
+        onEdt(() -> ref.set(NativeAutoConnect.binding(controller)));
+        NativeAutoConnect.Binding binding = ref.get();
+        onEdt(() -> reject(() -> NativeAutoConnect.boundDocument(controller, binding)));
+        binding.verifyFixture(fixture);
+        require(actual.canonicalCalls == 1);
+        reject(() -> binding.verifyFixture(fixture));
+        reject(() -> NativeAutoConnect.enter(controller, binding));
+        onEdt(() -> {
+            require(NativeAutoConnect.boundDocument(controller, binding) == controller);
+            controller.file = new File(actual.getPath());
+            require(NativeAutoConnect.boundDocument(controller, binding) == controller);
+            controller.file = new File("/tmp/another.cmo3");
+            reject(() -> NativeAutoConnect.boundDocument(controller, binding));
+            controller.file = actual;
+            reject(() -> NativeAutoConnect.boundDocument(new Controller(actual), binding));
+            reject(() -> binding.verifyFixture(fixture));
+            reject(() -> NativeAutoConnect.enter(controller, binding)); // wrong edit mode
+            require(actual.canonicalCalls == 1);
         });
-        if (failure.get() != null) throw new AssertionError("EDT checks failed", failure.get());
+        onEdt(() -> ref.set(NativeAutoConnect.binding(new Controller(new File("/tmp/another.cmo3")))));
+        reject(() -> ref.get().verifyFixture(fixture));
         System.out.println("Native auto-connect guard checks PASS: " + checks);
     }
     public static final class Controller {
-        private final File file;
+        private File file;
         Controller(File file) { this.file = file; }
         public Controller getCurrentDoc() { return this; }
         public Controller getFileContent() { return this; }
         public File getFile() { return file; }
         public Object getCurrentEditMode() { return this; }
+    }
+    public static final class CountingFile extends File {
+        private static final long serialVersionUID = 1L;
+        int canonicalCalls;
+        CountingFile(String path) { super(path); }
+        @Override public File getCanonicalFile() throws java.io.IOException {
+            if (SwingUtilities.isEventDispatchThread()) throw new AssertionError("filesystem I/O on EDT");
+            canonicalCalls++;
+            return super.getCanonicalFile();
+        }
+    }
+    private static void onEdt(Action action) throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try { action.run(); } catch (Throwable problem) { failure.set(problem); }
+        });
+        if (failure.get() != null) throw new AssertionError("EDT checks failed", failure.get());
     }
     public static final class Panel {}
     public static class BasePanelMode {

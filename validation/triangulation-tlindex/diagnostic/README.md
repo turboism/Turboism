@@ -299,3 +299,20 @@ Do not initialize host classes from the transformation callback. Either bind the
 reviewed dependency safely, or retain a runtime fallback that checks the actual
 loaded edge equality semantics before eliding the search. Reading a resource
 alone is weaker than proving the actual loaded type's equals behavior.
+
+Auto-connect r3 fixes a second, independently observed diagnostic failure: r2's
+MESH_CAPTURE timeout had47 partial-JFR capture samples in WinNTFileSystem.canonicalize0
+via boundDocument. A per-driver Binding now captures document identity and File on
+the EDT, validates canonical fixture equality once off the EDT, then rechecks exact
+document identity and captured path without filesystem I/O on later EDT operations.
+Unverified bindings, changed document/path and canonicalization on the EDT are
+rejected. Per-cycle fixture SHA verification remains in the driver. Bindings are
+not stored globally and do not extend beyond the diagnostic run.
+
+25 adapter guard checks pass, including a File double that throws if canonicalized
+on the EDT and proves repeated binding checks perform no additional canonicalization.
+The r3 driver compiled with Java17 -Xlint:all -Werror; SHA
+fc7a5d2cc9a204cc5abf9cbbcc4e6b5002d96e99351a0ee9cf433da3b520551b.
+It is waiting for the fresh-edge5302 performance pair before preparation/submission,
+using the original frozen Agent2f6dd5ba to isolate diagnostic changes. Native results
+and repeated target execution remain unproven.
