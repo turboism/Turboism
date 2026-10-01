@@ -32,7 +32,16 @@ class McpTexturePersistenceProbeTest {
         final var morph =
                 new ParameterBinding(first, new ParameterId("m"), ParameterBindingFamily.BLEND_SHAPE, List.of());
         final List<ParameterBinding> original = List.of(a, b, c, other, morph);
-        assertEquals(List.of(c), McpTexturePersistenceProbe.freeBindingPrunePlan(original));
+        assertEquals(List.of(b, c), McpTexturePersistenceProbe.freeBindingPrunePlan(original));
+        assertEquals(2, McpTexturePersistenceProbe.maximumBoundParameters(List.of(a, other, morph)));
+        assertEquals(List.of(b, c), McpTexturePersistenceProbe.freeBindingPrunePlan(List.of(morph, a, b, c, other)));
+        final var morphB =
+                new ParameterBinding(first, new ParameterId("n"), ParameterBindingFamily.BLEND_SHAPE, List.of());
+        final var morphC =
+                new ParameterBinding(first, new ParameterId("o"), ParameterBindingFamily.BLEND_SHAPE, List.of());
+        assertThrows(
+                IllegalStateException.class,
+                () -> McpTexturePersistenceProbe.freeBindingPrunePlan(List.of(a, morph, morphB, morphC)));
         assertTrue(McpTexturePersistenceProbe.freeBindingPrunePlan(List.of(a, b, other))
                 .isEmpty());
         assertEquals(4, McpTexturePersistenceProbe.maximumBoundParameters(original));

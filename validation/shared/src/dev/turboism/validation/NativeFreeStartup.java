@@ -2,6 +2,7 @@ package dev.turboism.validation;
 
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dialog;
 import java.awt.Window;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,6 +57,35 @@ public final class NativeFreeStartup {
             return "UPDATE_PAGE_CANCELLED";
         }
         return null;
+    }
+
+    /** Bounded read-only evidence for visible native dialogs, including unmatched prompts. */
+    public static String describeDialogs() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("Native dialog observations must run on the EDT");
+        }
+        final List<String> descriptions = new ArrayList<>();
+        for (Window window : Window.getWindows()) {
+            if (!(window instanceof Dialog dialog) || !dialog.isShowing()) continue;
+            final List<Component> pending = new ArrayList<>();
+            pending.add(dialog);
+            final StringBuilder text = new StringBuilder();
+            for (int index = 0; index < pending.size() && index < 200; index++) {
+                final Component component = pending.get(index);
+                if (component instanceof JLabel label && label.isShowing()) text.append(label.getText()).append(' ');
+                if (component instanceof AbstractButton button && button.isShowing()) {
+                    text.append("button=").append(button.getText()).append(' ');
+                }
+                if (component instanceof Container container && pending.size() < 200) {
+                    pending.addAll(Arrays.asList(container.getComponents()));
+                }
+            }
+            final String value = text.toString().replace('\n', ' ').replace('\r', ' ');
+            descriptions.add("class=" + dialog.getClass().getName() + " title=" + dialog.getTitle()
+                    + " modal=" + dialog.isModal() + " text=" + value.substring(0, Math.min(1024, value.length())));
+            if (descriptions.size() == 8) break;
+        }
+        return descriptions.toString();
     }
 
     /** Performs at most one exact UI action on the EDT and returns its evidence label, or null. */
