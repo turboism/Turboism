@@ -22,6 +22,7 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
     private volatile boolean enabled;
     private Thread watcher;
     private Thread startupHelper;
+    private String lastDialogObservation = "";
 
     @Override
     public void init(final PluginContext context) {
@@ -70,6 +71,11 @@ public final class McpHostValidationPlugin implements TurboismPlugin {
             try {
                 SwingUtilities.invokeAndWait(() -> {
                     if (!enabled) return;
+                    final String observation = NativeFreeStartup.describeDialogs();
+                    if (!observation.equals(lastDialogObservation)) {
+                        lastDialogObservation = observation;
+                        logger.info("MCP_VALIDATION_DIALOG_OBSERVATION " + observation);
+                    }
                     final String action = NativeFreeStartup.select();
                     if (action != null) logger.info("MCP_VALIDATION_" + action);
                 });

@@ -50,16 +50,24 @@ public final class McpTexturePersistenceProbe {
 
     private McpTexturePersistenceProbe() {}
 
-    /** Deterministic, validation-only plan retaining two keyform parameters per object. */
+    /** Deterministic, validation-only plan retaining at most two total parameters per object. */
     static List<ParameterBinding> freeBindingPrunePlan(final List<ParameterBinding> bindings) {
         final Map<ParameterBindingTarget, Set<String>> retained = new java.util.HashMap<>();
         final List<ParameterBinding> removed = new ArrayList<>();
         for (ParameterBinding binding : bindings) {
+            if (binding.family() == ParameterBindingFamily.KEYFORM_GRID) continue;
+            final Set<String> parameters = retained.computeIfAbsent(binding.target(), ignored -> new LinkedHashSet<>());
+            parameters.add(binding.parameterId().value());
+            if (parameters.size() > 2) {
+                throw new IllegalStateException("FREE fixture has more than two non-keyform parameters per object");
+            }
+        }
+        for (ParameterBinding binding : bindings) {
             if (binding.family() != ParameterBindingFamily.KEYFORM_GRID) continue;
             final Set<String> parameters = retained.computeIfAbsent(binding.target(), ignored -> new LinkedHashSet<>());
             if (parameters.contains(binding.parameterId().value())) continue;
-            parameters.add(binding.parameterId().value());
-            if (parameters.size() > 2) removed.add(binding);
+            if (parameters.size() < 2) parameters.add(binding.parameterId().value());
+            else removed.add(binding);
         }
         return List.copyOf(removed);
     }
@@ -296,6 +304,25 @@ public final class McpTexturePersistenceProbe {
                 return task.get(120, TimeUnit.SECONDS);
             } catch (java.util.concurrent.TimeoutException timeout) {
                 nativeTimedOut = true;
+                final StringBuilder threads = new StringBuilder();
+                Thread.getAllStackTraces().entrySet().stream()
+                        .filter(entry -> entry.getKey().getName().startsWith("AWT-EventQueue")
+                                || Arrays.stream(entry.getValue())
+                                        .anyMatch(frame -> frame.getClassName().startsWith("com.live2d.")
+                                                || frame.getClassName().startsWith("jp.noids.")))
+                        .sorted(Comparator.comparing(entry -> entry.getKey().getName()))
+                        .limit(12)
+                        .forEach(entry -> {
+                            threads.append(entry.getKey().getName())
+                                    .append(' ')
+                                    .append(entry.getKey().getState())
+                                    .append('\n');
+                            Arrays.stream(entry.getValue())
+                                    .limit(40)
+                                    .forEach(frame ->
+                                            threads.append("  ").append(frame).append('\n'));
+                        });
+                result.setProperty("nativeTimeoutThreads", threads.toString());
                 throw timeout;
             }
         }
@@ -565,6 +592,7 @@ public final class McpTexturePersistenceProbe {
 
         private void verifyPersistence() throws Exception {
             Files.createDirectories(output.getParent());
+            result.setProperty("nativePersistenceStage", "SDK_TEXTURE_EDITS");
             final Snapshot expected = edt(() -> {
                 requireFile(currentDocument(), fixture);
                 final ModelTextures library = textures();
@@ -587,6 +615,7 @@ public final class McpTexturePersistenceProbe {
                 if (pristineBindings != null) persistedBindings = bindings();
                 result.setProperty("persistedAtlasId", retainedAtlas.value());
                 result.setProperty("persistenceOperationKinds", "5");
+                result.setProperty("nativePersistenceStage", "NATIVE_SAVE_CALL");
                 require(
                         Boolean.TRUE.equals(invoke(
                                 originalDocument.getClass().getMethod("saveDocument", File.class, boolean.class),
@@ -596,13 +625,16 @@ public final class McpTexturePersistenceProbe {
                         "Native save rejected");
                 return value;
             });
+            result.setProperty("nativePersistenceStage", "AWAIT_SAVED_BYTES");
             awaitSaved();
             result.setProperty("savedFileSha256", fileHash(output));
             result.setProperty("savedFingerprint", expected.digest());
+            result.setProperty("nativePersistenceStage", "CLOSE_ORIGINAL");
             edt(() -> {
                 closeOwned(originalDocument);
                 return null;
             });
+            result.setProperty("nativePersistenceStage", "REOPEN_SAVED");
             openOwned(output);
             edt(() -> {
                 savedDocument = currentDocument();
@@ -620,6 +652,7 @@ public final class McpTexturePersistenceProbe {
                 closeOwned(savedDocument);
                 return null;
             });
+            result.setProperty("nativePersistenceStage", "REOPEN_ORIGINAL");
             openOwned(fixture);
             edt(() -> {
                 require(
@@ -627,6 +660,7 @@ public final class McpTexturePersistenceProbe {
                         "Original fixture reopen did not restore full native state and bindings");
                 return null;
             });
+            result.setProperty("nativePersistenceStage", "PASS");
         }
 
         private void awaitSaved() throws Exception {
