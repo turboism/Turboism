@@ -963,3 +963,35 @@ pristine/patched class hashes differ in each version. This links final UI saved
 values to actual independently launched startup behavior, not merely UI wording.
 Machine-readable evidence: fusion-settings-ui-r2/startup-link-review.json (6 runs).
 It closes this final UI/startup linkage gap, not resource/performance acceptance.
+
+### Reverse 5303 and r2 diagnostic submission
+
+Reverse5303 on2310/off2314 completed all standard/ordered-output/transform/execution
+checks. First-operation off→on94.04→90.50 s (-3.77%), CPU131.82→122.75 s (-6.88%).
+Whole-process CSV298.37→333.84 s and CPU321.01→334.28 s both increase. Six pairs
+now consistently improve first operation, but whole-session benefit remains mixed.
+The on baseline RSS4382.3 MiB also differs substantially from off2473.5 MiB;
+no simple retention or leak conclusion follows. Reports/completion hashes are in
+fusion-resource5303-reverse; updated comparison and RSS tables preserve adverse data.
+
+After these performance legs and analyses finished, diagnostic r2 built with SHA
+54ec1ae4362f0531bf63c47a5c3db733ada960351d946ca9335fdda9c9dd3f7e.
+Prepared0a8fb6a19b9e4ae1cc0be141840892347bb1a7ee8e88817bb5beee643aa132e4
+passed input inventory checks and was submitted as seq2316,
+job4ef37795-6606-4ac5-8d5b-5b3bfeb85481. The frozen production agent remains2f6dd5ba.
+Queue submission is not successful native repeated execution.
+
+Fresh-edge own-type semantic selfcheck passed809874 comparisons with5683 original
+contains searches. Counterexamples demonstrate why reused identities and value
+-equality edge types cannot use this elimination. Static-only prototype compiles
+Java17 -Xlint:all -Werror and accepts pinned h/j pairs for all3 official jars;
+output h SHA5203=d0914150cd000dadbacf17aaef9492d15d06b7d6e1ee46776acb99a66a69c974,
+53x=5a692d2338c995769a25344ceacbb391bc980e2278d55d2683430dacaff5d552.
+No official class was executed. Generated-bytecode verification/negative tests,
+production integration and real-host A/B remain uncompleted for this new candidate.
+
+Fresh-edge generated-bytecode follow-up:41 checks now PASS under -Xverify:all,
+executing only own generated fixtures. Original and transformed fixtures agree
+across all8 branch masks and constructor-failure positions0–3. Paired pins and
+shape-negative cases are tested. Production dependency admission remains open:
+resource bytes or h's hash alone must not be used to infer actual loaded j equality.
