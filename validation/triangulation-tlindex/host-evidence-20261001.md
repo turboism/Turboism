@@ -525,3 +525,106 @@ refusal conditions. `contains-fusion-experiment/bytecode-selfcheck.log` records
 execution; each `prototype<version>/pins.txt` records input/output SHA. Production
 source/artifact remains unchanged. Official-body runtime behavior, integration
 and real-host performance are still unverified for this prototype.
+
+
+## Completed contains branch diagnostic (seq2234)
+
+Job `caba0c55-e949-4d5c-bd5e-b7c601964be5`, run
+`queue-4ed3d800adb94e86b8e80ad1d2a75aa9`, completed successfully with normal exit,
+safe cleanup, verified identity and unchanged fixture. Diagnostic agent remains
+`42a4282bc67cd70183e95d4dd4d988da6726de53b03974f039785aa8d37b5528`.
+`contains-diagnostic5203/counts-analysis.json` validates staged-agent hashes,
+outcome gates and complete aggregate counts and pins raw inputs. Independent
+`semantic-check.json` verifies canonical/payload binding, exact patched class and
+first-four ordered edges against the prior off leg.
+
+| Reason | Calls | Native true | Native false |
+| --- | ---: | ---: | ---: |
+| identity shortcut | 0 | 0 | 0 |
+| clean identity miss | 777185 | 12 | 777173 |
+| dirty state | 2157 | 0 | 2157 |
+| dead / set-size / key-size / bookkeeping error | 0 | 0 | 0 |
+
+Total 779342 calls, zero identity shortcut hits. The result supports unknown/new
+identities as the dominant fallback reason; dirty fallback is about 0.277%.
+Unlike sampled stacks, these are actual invocation/outcome counters over the
+whole diagnostic JVM. They do not identify individual caller sites or timing.
+The positive-only contains shortcut adds checks without avoiding any native
+lookup in this run. Next implementation work should evaluate guarded query/add
+fusion, retaining native geometric equality; the 12 true results explicitly rule
+out assuming every unknown identity is absent. Diagnostic timings are excluded
+from production acceptance, and repeated operation/three-version stability and
+resource gates remain open.
+
+Cubism wraps the shutdown stderr line with a logger source suffix. The analyzer
+now accepts that exact observed wrapper while rejecting arbitrary trailing text;
+five parser tests pass, including the wrapped real-log shape. The `ERROR` prefix
+on that intercepted stderr line is not itself a failed host verdict.
+
+
+## Guarded fusion candidate integration (not host-accepted)
+
+After seq2234 showed zero identity hits, the guarded fusion patcher was ported to
+runtime and attached to the existing edge-index transformer/setting. The two
+class targets have independent hash/shape gates and independent outcomes. Fusion
+uses native add even if edge indexing declines. The installer refuses already
+loaded membership callers as well as TriangleList; redefinitions are ignored.
+ASM tree 9.7.1 is added for the reviewed frame-preserving implementation, with
+Maven Central artifact checksums pinned in Gradle verification metadata (commons
+is test-only). The initial missing-checksum build failure is retained in
+`/tmp/t029-fusion-focused.log`; reviewed checksums resolved it.
+
+Focused tests pass: membership fixture 1 test (48 internal checks), existing
+transformer 12, installer 6, official class-family evidence 2, total 21 tests,
+zero failures/errors. Official fusion output hashes match the offline prototype.
+Log `/tmp/t029-fusion-focused-r2.log`. Full `devCheck :bootstrap:jar` is running;
+no new frozen production artifact or host performance verdict exists yet. The
+prior contains shortcut remains unchanged to isolate the fusion candidate's
+behavior; its lack of hits in seq2234 remains recorded, not hidden.
+
+
+Full integration check correction: `/tmp/t029-fusion-devcheck.log` initially found
+three missing public-method docs; those were fixed. The second run
+`/tmp/t029-fusion-devcheck-r2.log` rejects ASM tree/commons under the repository's
+explicit core-only supply-chain boundary. The added dependency declarations and
+verification entries have been withdrawn rather than widening that policy. The
+runtime patcher and its test are not yet buildable without their core-Visitor
+port; focused results above apply to the pre-port experiment only. No candidate
+has been frozen or submitted. Next action is porting the proven transformation
+and tests to core ASM, then rerunning focused/exact-byte/full checks.
+
+
+Core-only port completed: the runtime patcher buffers/replays the selected method
+with core ASM visitors, preserving labels and expanded frames. The test's own
+fixture remapping and mutations also use only core ASM. No Gradle dependency or
+verification-metadata changes remain. The first port compile caught intentional
+instruction-identity comparison; a narrow documented suppression preserves that
+control-flow identity check. `/tmp/t029-fusion-core-focused-r2.log` passes all 21
+focused/exact-family tests, including byte-for-byte output SHA equality with the
+offline tree prototype. `/tmp/t029-fusion-core-devcheck.log` passes full devCheck
+and bootstrap jar construction (98 tasks). No fusion host performance result yet.
+Before freezing final A/B inputs, verify the packaged patcher and ensure runtime
+evidence independently demonstrates the membership caller transformation; the
+TriangleList capture alone does not prove the new caller was transformed.
+
+
+## Frozen fusion resource pair started
+
+Production commits `f0da33fc2` (core-only guarded fusion) and `f04670000`
+(independent input/output-hash receipt). Full post-receipt checks and build pass:
+`/tmp/t029-fusion-receipt-checks.log`, 102 tasks. The packaged shaded transformer
+was invoked against all three official jars without loading host classes;
+`fusion-packaged-pin/result.log` confirms both TriangleList and h outputs match
+reviewed pins. Frozen agent SHA:
+`2f6dd5ba7fe734072e89b7c09d400bcc35840cecf811bdecdb64b3425052fda4`.
+Driver remains `3bee41a353df55f20da9845052b7a90f7380ced8bca7c46f8251fbe48785209e`.
+
+`fusion-resource5203/` contains immutable bundle manifest and prepared identities:
+off `ec99909779995efd0b47800109170c9d1909f2e40b8fe5460d24464e39efa901`,
+on `c79e042346cebce692ec3e1988d17c719a03dca43a8aabf394c61478e96eb285`.
+The queue client verifies both inventories/UI hashes first. Off seq2243, job
+`ec79608f-ad17-44a7-a15f-a88e62225444`, is running. On is submitted only after
+off succeeds. Post-pair analysis additionally requires exactly one 5203 membership
+receipt on, none off, with h input `ef4a5eb2...` and output `d38c2fbe...` full pins.
+It retains four-edge/canonical/class/JFR/resource-window checks. No performance
+verdict yet; no production-ready or theoretical-bottleneck claim.

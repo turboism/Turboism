@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 MARKER = '[TL-CONTAINS-DIAGNOSTIC-v1] '
@@ -13,7 +14,15 @@ def counts_from_log(lines):
     records = []
     for line in lines:
         if MARKER in line:
-            records.append(json.loads(line.split(MARKER, 1)[1]))
+            payload = line.split(MARKER, 1)[1].lstrip()
+            record, end = json.JSONDecoder().raw_decode(payload)
+            suffix = payload[end:].strip()
+            # Cubism wraps System.err in its own logger, appending source location.
+            if suffix and not re.fullmatch(
+                    r'\] at dev\.turboism\.adapter\.cubism\.mesh\.ContainsDiagnostic '
+                    r'\(ContainsDiagnostic\.(?:java|kt):\d+\) lambda\$static\$0\(\)', suffix):
+                raise ValueError('unexpected text after diagnostic aggregate')
+            records.append(record)
     if len(records) != 1:
         raise ValueError('exactly one shutdown aggregate required; missing/duplicate is invalid')
     counts = records[0]
