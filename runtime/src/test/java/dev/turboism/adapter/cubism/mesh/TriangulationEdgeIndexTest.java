@@ -399,6 +399,144 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
+    void consecutiveRemovalsAndReplacementAddsShareOneIdentityScan() {
+        final class CountingSet extends LinkedHashSet<Tri> {
+            int visits;
+
+            @Override
+            public Iterator<Tri> iterator() {
+                final Iterator<Tri> actual = super.iterator();
+                return new Iterator<>() {
+                    @Override public boolean hasNext() { return actual.hasNext(); }
+                    @Override public Tri next() { visits++; return actual.next(); }
+                    @Override public void remove() { actual.remove(); }
+                };
+            }
+        }
+        final var set = new CountingSet();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 256; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        set.visits = 0;
+        assertTrue(TriangulationEdgeIndex.remove(set, triangles.get(0)));
+        assertTrue(TriangulationEdgeIndex.remove(set, triangles.get(1)));
+        final Tri first = tri(1000, 1, 2, 1003);
+        final Tri second = tri(1001, 1, 2, 1004);
+        assertTrue(TriangulationEdgeIndex.add(set, first, first.ia, first.ib, first.ic));
+        assertTrue(TriangulationEdgeIndex.add(set, second, second.ia, second.ib, second.ic));
+        final List<?> hits = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertEquals(set.size(), set.visits,
+                "the native two-remove/two-add sequence needs one survivor traversal");
+        assertEquals(scan(set, 1, 2), hits);
+        assertSame(first, hits.get(hits.size() - 2));
+        assertSame(second, hits.get(hits.size() - 1));
+    }
+
+    @Test
+    void pendingRemovalCannotShortcutMembershipForAnAbsentIdentity() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, first, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, second, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertTrue(TriangulationEdgeIndex.remove(set, first));
+        assertFalse(TriangulationEdgeIndex.contains(set, first));
+        assertTrue(TriangulationEdgeIndex.contains(set, second));
+        assertEquals(List.of(second), TriangulationEdgeIndex.tryQuery(set, 1, 2));
+    }
+
+    @Test
+    void pendingIdentityReinsertionKeepsTheActualInsertionOrder() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        final Tri survivor = tri(3, 1, 2, 5);
+        for (final Tri t : List.of(first, second, survivor)) {
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertTrue(TriangulationEdgeIndex.remove(set, first));
+        assertTrue(TriangulationEdgeIndex.remove(set, second));
+        assertTrue(TriangulationEdgeIndex.add(set, first, 1, 2, 3));
+        final List<?> actual = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertEquals(2, actual.size());
+        assertSame(survivor, actual.get(0));
+        assertSame(first, actual.get(1));
+    }
+
+    @Test
+    void pendingBudgetOverflowAndSideRemovalRebuildFromLiveIdentities() {
+        for (final boolean overflow : List.of(false, true)) {
+            final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+            final List<Tri> triangles = new ArrayList<>();
+            for (int i = 0; i < 16; i++) {
+                final Tri t = tri(i, 1, 2, i + 3);
+                triangles.add(t);
+                TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+            }
+            TriangulationEdgeIndex.tryQuery(set, 1, 2);
+            for (int i = 0; i < (overflow ? 9 : 2); i++) {
+                assertTrue(TriangulationEdgeIndex.remove(set, triangles.get(i)));
+            }
+            if (!overflow) {
+                final Iterator<Tri> iterator = set.iterator();
+                iterator.next();
+                iterator.remove();
+            }
+            final List<?> actual = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+            final List<Tri> expected = new ArrayList<>(set);
+            assertEquals(expected.size(), actual.size());
+            for (int i = 0; i < expected.size(); i++) assertSame(expected.get(i), actual.get(i));
+        }
+    }
+
+    @Test
+    void clearReleasesUnresolvedRemovalReferences() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, first, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, second, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        final var oldState = TriangulationEdgeIndex.st(set);
+        TriangulationEdgeIndex.remove(set, first);
+        TriangulationEdgeIndex.remove(set, second);
+        TriangulationEdgeIndex.clear(set);
+        assertTrue(oldState.keys.isEmpty());
+        assertTrue(oldState.byKey.isEmpty());
+        for (final Object reference : oldState.pending) assertNull(reference);
+        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 1, 2));
+    }
+
+    @Test
+    void failedPendingMembershipScanPermanentlyDeclinesTheIndex() {
+        final class FailingSet extends LinkedHashSet<Tri> {
+            boolean fail;
+            @Override public Iterator<Tri> iterator() {
+                if (fail) throw new IllegalStateException("scan unavailable");
+                return super.iterator();
+            }
+        }
+        final var set = new FailingSet();
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, first, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, second, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        TriangulationEdgeIndex.remove(set, first);
+        set.fail = true;
+        assertTrue(TriangulationEdgeIndex.contains(set, second)); // native fallback still works
+        set.fail = false;
+        assertNull(TriangulationEdgeIndex.tryQuery(set, 1, 2));
+        TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
     void removalReconcilesStaleIdentityKeysAndEqualReplacement() {
         final LinkedHashSet<Tri> set = new LinkedHashSet<>();
         final Tri old = tri(1, 1, 2, 3);
@@ -433,6 +571,29 @@ final class TriangulationEdgeIndexTest {
         for (Tri t : triangles) java.util.Arrays.fill(t.coords, 0f);
         final Tri probe = triangles.get(triangles.size() - 1);
         assertEquals(nativeSet.remove(probe), TriangulationEdgeIndex.remove(indexedSet, probe));
+        final List<?> actual = TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
+        final List<Tri> expected = new ArrayList<>(nativeSet);
+        assertEquals(expected.size(), actual.size());
+        for (int i = 0; i < expected.size(); i++) assertSame(expected.get(i), actual.get(i));
+    }
+
+    @Test
+    void aPendingPairDoesNotGuessVictimsAfterEqualityMutation() {
+        final LinkedHashSet<Tri> nativeSet = new LinkedHashSet<>();
+        final LinkedHashSet<Tri> indexedSet = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 32; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            triangles.add(t);
+            nativeSet.add(t);
+            TriangulationEdgeIndex.add(indexedSet, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
+        for (final Tri t : triangles) java.util.Arrays.fill(t.coords, 0f);
+        for (int i = 31; i >= 30; i--) {
+            final Tri probe = triangles.get(i);
+            assertEquals(nativeSet.remove(probe), TriangulationEdgeIndex.remove(indexedSet, probe));
+        }
         final List<?> actual = TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2);
         final List<Tri> expected = new ArrayList<>(nativeSet);
         assertEquals(expected.size(), actual.size());
