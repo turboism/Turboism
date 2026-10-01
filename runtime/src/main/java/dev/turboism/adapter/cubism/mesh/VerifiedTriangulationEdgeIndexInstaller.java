@@ -87,6 +87,17 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
             return transformer == null ? "" : transformer.membershipDiagnostic();
         }
 
+        /** Independent outcome for fresh-edge failed-search elimination. */
+        public TriangulationEdgeIndexTransformer.Outcome freshEdgeTransformOutcome() {
+            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE
+                    : transformer.freshEdgeOutcome();
+        }
+
+        /** Fresh-edge rejection detail. */
+        public String freshEdgeDiagnostic() {
+            return transformer == null ? "" : transformer.freshEdgeDiagnostic();
+        }
+
         @Override
         public void close() {
             final Status previous = current.getAndSet(Status.CLOSED);

@@ -995,3 +995,41 @@ executing only own generated fixtures. Original and transformed fixtures agree
 across all8 branch masks and constructor-failure positions0–3. Paired pins and
 shape-negative cases are tested. Production dependency admission remains open:
 resource bytes or h's hash alone must not be used to infer actual loaded j equality.
+
+### Guarded fresh-edge production candidate (not host validated)
+
+The runtime implementation now guards the actual loaded edge Class using ClassValue:
+exact binary name, final direct Object subclass, and Object-declared equals.
+Unknown/nonidentity classes and custom ArrayList subclasses retain native contains,
+including equality side effects/exceptions. No host class is loaded from transform.
+This replaces the proposed resource-only j admission with an actual-type semantic
+guard; freshness still depends on the exact pinned h caller and its reviewed locals.
+
+The transformer applies the fresh-edge and membership stages independently and
+reports each against final returned bytes. Focused runtime tests26/26 and official
+shape tests2/2 pass. Three-version static method normalization confirms only a(l,l,j)
+and c()V changed; remaining15 methods in5203 and26 in53x compare equal. Combined h
+SHA5203=d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92;
+53x=40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6.
+Each c() has exactly3 guarded calls and no original ArrayList.contains call.
+No official class was executed by that check.
+
+devCheck and :bootstrap:jar PASS (98 tasks). Frozen new candidate agent SHA
+0de3cf6cf61b86fbcb15b0e672e87020e96945e379c5649a26661fce5e9ab080
+is under fresh-edge-candidate with artifact-pin.json confirming packaged helper,
+ClassValue and patcher classes. previewBundle was not run; prior frozen deliveries
+were not overwritten. Packaged-transform verification and real-host A/B remain.
+
+### Auto-connect r2 failed in result binding, not accepted
+
+seq2316/job4ef37795-6606-4ac5-8d5b-5b3bfeb85481 failed and was safely cleaned up.
+The first native command returned after66.386s; result capture then timed out
+MESH_CAPTURE state=STARTED. Main JFR is empty, but one6.5MB retained JFR chunk
+was copied and hashed; jfr summary and export succeeded. Partial attribution after
+command return spans34.427s. All47 samples with capture stacks have leaf
+WinNTFileSystem.canonicalize0; the retained representative stack is
+File.getCanonicalFile -> NativeAutoConnect.boundDocument -> NativeAutoConnect.capture.
+This supports fixing repeated filesystem canonicalization on the EDT, not increasing
+the deadline or blaming array hashing without evidence. No native outputs completed;
+no repeated-target, equivalence or retention acceptance is claimed. Partial artifacts
+are under auto-connect5203-r2; the failed outcome is preserved.

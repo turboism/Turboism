@@ -11,12 +11,13 @@ import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Exact-selector transformer for indexed edge queries and guarded membership/add fusion.
+ * Exact-selector transformer for indexed edge queries, membership fusion and fresh-edge searches.
  *
  * <p>Each of the two targets has independent reviewed class hashes and shape gates. Unknown
  * bytes remain untouched. Fusion calls the original add method and does not require an indexed
  * TriangleList, so either transformation can safely decline independently. Both outcomes are
- * exposed separately; success of one must not be reported as success of the other.</p>
+ * exposed separately; success of one must not be reported as success of another. Fresh-edge
+ * search elimination additionally checks the actual loaded equality semantics at runtime.</p>
  *
  * <p>Only initial definitions are eligible. The installer declines if either target was already
  * loaded, and redefinition callbacks are ignored. The query patch retains its native scan
@@ -68,6 +69,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
     private final AtomicReference<Outcome> membershipOutcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> membershipDiagnostic = new AtomicReference<>("");
+    private final AtomicReference<Outcome> freshEdgeOutcome = new AtomicReference<>(Outcome.NONE);
+    private final AtomicReference<String> freshEdgeDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), ignored -> {});
@@ -107,6 +110,12 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         return membershipDiagnostic.get();
     }
 
+    /** Outcome for fresh-edge search elimination, separate from membership fusion. */
+    public Outcome freshEdgeOutcome() { return freshEdgeOutcome.get(); }
+
+    /** Rejection detail for the fresh-edge caller. */
+    public String freshEdgeDiagnostic() { return freshEdgeDiagnostic.get(); }
+
     @Override
     public byte[] transform(
             final ClassLoader loader,
@@ -120,19 +129,35 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             if (!MEMBERSHIP_DIGESTS.contains(observed)) {
                 membershipOutcome.set(Outcome.HASH_MISMATCH);
                 membershipDiagnostic.set("observed=" + observed);
+                freshEdgeOutcome.set(Outcome.HASH_MISMATCH);
+                freshEdgeDiagnostic.set("observed=" + observed);
                 return null;
             }
+            byte[] patched = classfileBuffer;
+            boolean freshPatched = false;
+            boolean membershipPatched = false;
             try {
-                final byte[] patched = TriangulationMembershipPatcher.patch(classfileBuffer);
+                patched = FreshTriangulationEdgePatcher.patch(classfileBuffer);
+                freshEdgeOutcome.set(Outcome.PATCHED);
+                freshPatched = true;
+            } catch (IllegalArgumentException rejected) {
+                freshEdgeOutcome.set(Outcome.SHAPE_REJECTED);
+                freshEdgeDiagnostic.set(rejected.getMessage());
+            }
+            try {
+                patched = TriangulationMembershipPatcher.patch(patched);
                 membershipOutcome.set(Outcome.PATCHED);
-                reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed
-                        + " outputSha256=" + sha256(patched));
-                return patched;
+                membershipPatched = true;
             } catch (IllegalArgumentException rejected) {
                 membershipOutcome.set(Outcome.SHAPE_REJECTED);
                 membershipDiagnostic.set(rejected.getMessage());
-                return null;
             }
+            // Each receipt binds the final returned bytes; either independent stage may decline.
+            if (freshPatched) reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256=" + observed
+                    + " outputSha256=" + sha256(patched));
+            if (membershipPatched) reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed
+                    + " outputSha256=" + sha256(patched));
+            return freshPatched || membershipPatched ? patched : null;
         }
         if (!TARGET_INTERNAL_NAME.equals(className)) return null;
         final String observed = sha256(classfileBuffer);
