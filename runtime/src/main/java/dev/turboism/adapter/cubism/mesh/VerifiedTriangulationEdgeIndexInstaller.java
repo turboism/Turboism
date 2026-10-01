@@ -76,6 +76,17 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
             return transformer == null ? "" : transformer.diagnostic();
         }
 
+        /** Independent outcome for the reviewed contains/add caller. */
+        public TriangulationEdgeIndexTransformer.Outcome membershipTransformOutcome() {
+            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE
+                    : transformer.membershipOutcome();
+        }
+
+        /** Membership rejection detail, or empty when this installation has none. */
+        public String membershipDiagnostic() {
+            return transformer == null ? "" : transformer.membershipDiagnostic();
+        }
+
         @Override
         public void close() {
             final Status previous = current.getAndSet(Status.CLOSED);
@@ -121,7 +132,10 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
     private static boolean targetAlreadyLoaded(final Instrumentation instrumentation) {
         try {
             for (final Class<?> loaded : instrumentation.getAllLoadedClasses()) {
-                if (TARGET_CLASS_NAME.equals(loaded.getName())) return true;
+                if (TARGET_CLASS_NAME.equals(loaded.getName())
+                        || TriangulationEdgeIndexTransformer.MEMBERSHIP_CLASS_NAME.equals(loaded.getName())) {
+                    return true;
+                }
             }
             return false;
         } catch (RuntimeException uncertain) {

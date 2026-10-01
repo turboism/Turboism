@@ -102,8 +102,29 @@ final class TriangulationEdgeIndexExactHostShapeTest {
     }
 
     private static byte[] readEntry(final Path jar) throws IOException {
+        return readEntry(jar, ENTRY);
+    }
+
+    @Test
+    void bothMembershipCallersMatchPrototypeBytes() throws Exception {
+        final Map<String, String> expected = Map.of(
+                "Cubism-5.2 (5.2.03 family)", "d38c2fbe690cba705e223b7d43f0aaabcee0679c02f9996e5e4ab5ff49492be7",
+                "Cubism-5.3.02 (5.3.x family)", "32e143cfcd433be586c74d98ca24c47e2829b9807ac7d61e1ab4f35f59ecc544");
+        for (final var artifact : reviewedArtifacts(legacyEvidence()).entrySet()) {
+            final byte[] bytes = readEntry(artifact.getValue(),
+                    TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
+            final var transformer = new TriangulationEdgeIndexTransformer();
+            final byte[] patched = transformer.transform(null,
+                    TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, bytes);
+            assertNotNull(patched);
+            assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.membershipOutcome());
+            assertEquals(expected.get(artifact.getKey()), TriangulationEdgeIndexTransformer.sha256(patched));
+        }
+    }
+
+    private static byte[] readEntry(final Path jar, final String entry) throws IOException {
         try (JarFile file = new JarFile(jar.toFile());
-                InputStream stream = file.getInputStream(file.getEntry(ENTRY))) {
+                InputStream stream = file.getInputStream(file.getEntry(entry))) {
             return stream.readAllBytes();
         }
     }
