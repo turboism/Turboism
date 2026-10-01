@@ -8,6 +8,11 @@ import javax.swing.SwingUtilities;
 final class MeshResultSnapshot {
     private MeshResultSnapshot() {}
 
+    static final class CacheNotReady extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+        CacheNotReady() { super("native mesh cache is stale"); }
+    }
+
     record Result(int pointCount, int positionValues, int indexValues, int edgeVersion,
                   String positionsSha256, String indicesSha256) {}
 
@@ -20,7 +25,7 @@ final class MeshResultSnapshot {
         int positionVersion = integer(call(mesh, "get_postion_edit_version"));
         int vertexCacheVersion = integer(call(mesh, "getCache_version_gl_vertex$core"));
         if (edgeVersion != cacheVersion || positionVersion != vertexCacheVersion) {
-            throw new IllegalStateException("native mesh cache is stale");
+            throw new CacheNotReady();
         }
         int count = integer(call(mesh, "getPointCount"));
         Object positions = call(mesh, "getCached_positions$core");
