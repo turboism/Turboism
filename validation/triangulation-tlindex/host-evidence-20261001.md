@@ -1207,3 +1207,48 @@ off as seq2350/job9e183118-3ffa-45e8-967f-efbde8e762d9, now FIFO queued behind o
 tasks. No paired performance acceptance or actual fresh-guard hit-rate claim is
 made. Final three-version startup linkage, repeated-target retention, resource
 bounds and stable improvement remain open; T044/T046 are incomplete.
+
+### Final off5302 failure and manual-intervention exclusion
+
+Off seq2350/job9e183118-3ffa-45e8-967f-efbde8e762d9 ended FAIL after the third
+operation, during its retained observation. The terminal result and retained-end
+marker are missing; the Runner reports "host exited before terminal result".
+Cleanup is safe, but normalExit=false and the original failed gates remain.
+Supervisor post-containment fixture/golden/staged hashes match independently;
+these supplementary checks do not change the terminal FAIL. Wrapper exit0 alone
+is insufficient. The empty main JFR and sole10,930,109-byte retained chunk are
+recorded; chunk SHA6ee1aa9a338a8da6be82ea607b7adf83638f7c59ed9375e59c5e2e3a1f23c7b0.
+Copies and hashes are bound by fresh-edge-receipt-resource5302/failure-review.json.
+
+The user confirmed operating the validation window around23:11 Beijing time.
+They did not confirm closing it; the exit cause is not established. This complete
+pair is excluded from performance acceptance. Its successful on leg cannot be
+paired with another attempt to fabricate a completed comparison.
+
+### Static native publication boundary and bounded final5302 follow-up
+
+Pinned, read-only native bytecode review passes27 boundary checks across the three
+versions. The raw index getter reads its field; commandAutoConnect increments the
+edge version after autoConnect, whereas updateIndices publishes the cache version
+through getGlIndices/updateMesh. A separate5203 producer review passes7 checks:
+native triangulation writes cached_indices contents and may reuse the same array
+when its length matches; it does not publish the GL cache version. Array identity
+alone therefore cannot prove fresh computation. This does not prove permanent
+staleness, a performance bottleneck or host output equivalence; no cache field or
+official class is modified/executed by this audit.
+
+Reports under repeated-target-review: native-cache-publication-review.json SHA
+056e50377a758b55cbd9102c7ad266354d3acdbfc96760f2e34485cad0f1c43f and
+5203-producer-publication-review.json SHA
+15766d9ffe936a26c0d4e50f97037de0c8ac6624a529984099a107dec5456499.
+
+The user asks for a bounded conclusion after the long run. One new complete5302
+on/off pair is prepared under fresh-edge-receipt-resource5302-r2, retaining final
+Agent021e4908, driver3bee41a3, the same prepared inventories and exact UI JSON
+bytes. New request suffix -receipt021e-ui2344-resource5302-r2 prevents reuse of
+old jobs. A local directory-copy substitution initially changed a JSON path;
+the inventory check rejected this before any submission. The failed local log is
+retained, original JSON bytes restored, and both inventories now verify. No host
+gate or frozen input is relaxed. This pair stops on failure and is not expanded
+into automatic reruns. Give an adopt/hold recommendation when it ends; single-pair
+PASS alone cannot establish stable three-version acceptance. T044/T046 remain open.
