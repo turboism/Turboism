@@ -96,3 +96,34 @@ production `on<N>` labels with `--tri-tlindex tl-dump-only`. It adds exactly the
 fixed JVM option above; default prepares omit it. Off legs, non-production legs,
 duplicate flags and arbitrary token arguments are rejected. A diagnostic leg
 uses its own frozen Agent/bundle and does not establish an A/B performance gain.
+
+### Offline lazy edge materialization experiment (2026-10-02)
+
+The next candidate targets the three temporary edges in h.c's constrained-edge
+intersection loop. Each pinned edge overload forwards to an existing four-point
+native overload. A candidate can keep that native computation and its order,
+while constructing a fresh edge only when an intersection needs subsequent
+edge processing. Null/index/assertion checks still precede all three calls;
+the fourth construction/intersection elsewhere in c is outside this candidate.
+
+`diagnostic/audit-lazy-edge-materialization.py` checks exact 5203/5302/5303 JAR
+hashes, final types, pure getters, constructor calls, native forwarding and site
+inventories using javap only. Supply local paths through `--jar-5203`,
+`--jar-5302` and `--jar-5303`; their hashes must match the fixed reviewed versions.
+`diagnostic/LazyEdgeMaterializationSelfCheck.java` runs only owned types.
+It checks ordered endpoint identity, distinct duplicates, call order, constructor
+failures, changing coordinates and float boundary cases. The private predicate
+is an owned stand-in; this is not execution of the native triangulator.
+
+Java17 lint/Werror compilation and1177 owned checks passed. After24 warmup pairs,
+seven alternating samples measured lower thread CPU in both sparse (-29.79%)
+and dense (-22.04%) owned stencils; actual thread allocation fell99.98%/59.52%.
+These are candidate-selection measurements. Input construction, warmup,
+GC-thread CPU, RSS and retained memory are outside the measured scope. The
+initial four-pair warmup run showed compilation drift and remains preserved.
+See `build/t049-lazy-edge-offline/offline-review-cli.json` and the dated report.
+
+No production bridge/transformer, frozen Agent or host task changed. Actual
+dependency-definition gates, native bytecode/exception verification and complete
+host output/performance evidence remain required. Production acceptance stays
+on hold; a theoretical bottleneck has not been established.
