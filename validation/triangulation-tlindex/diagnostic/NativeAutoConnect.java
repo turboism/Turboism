@@ -56,7 +56,8 @@ final class NativeAutoConnect {
         Class<?> manual = Class.forName(
             "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolMode_MeshEdit_Manual",
             false, mode.getClass().getClassLoader());
-        Object panel = call(manual.getField("INSTANCE").get(null), "getToolPanel");
+        Object panel = callReturning(manual.getField("INSTANCE").get(null), "getToolPanel",
+            "com.live2d.cubism.view.palette.tool.toolMode.meshEditor.ToolPanel_MeshEdit");
         Object rebuildBox = call(panel, "getCheckboxRebuildMesh");
         Object borderBox = call(panel, "getCheckboxSaveBorderOfEdge");
         invokeNamed(rebuildBox, "setSelected", rebuild);
@@ -117,6 +118,20 @@ final class NativeAutoConnect {
     private static Object call(Object receiver, String name) throws Exception {
         require(receiver != null, "missing native object: " + name);
         return invoke(receiver.getClass().getMethod(name), receiver);
+    }
+
+    // Kotlin/JVM may expose same-name, same-argument methods with different return descriptors.
+    // Select the descriptor used by the reviewed native command rather than Class.getMethod.
+    static Object callReturning(Object receiver, String name, String returnType) throws Exception {
+        Method selected = null;
+        for (Method method : receiver.getClass().getMethods()) {
+            if (!method.getName().equals(name) || method.getParameterCount() != 0
+                    || !method.getReturnType().getName().equals(returnType) || method.isBridge()) continue;
+            require(selected == null, "ambiguous native return descriptor: " + name);
+            selected = method;
+        }
+        require(selected != null, "missing native return descriptor: " + name + ":" + returnType);
+        return invoke(selected, receiver);
     }
 
     static Object invokeNamed(Object receiver, String name, Object... args) throws Exception {

@@ -258,3 +258,19 @@ The current auto-connect diagnostic build is recorded under
 `18dd504d5cc9a37a45abaf1a6f4df1b37a786322871ae97db39f48d31fb4b90d`.
 It was compiled after both5302 measurement legs ended and before5303 began.
 No native auto-connect execution is claimed by this build receipt.
+
+#### First host failure and exact-descriptor correction
+
+The initial driver18dd504d run (seq2303) entered native mesh mode with711 selected
+sources, then failed before command dispatch: name-only reflection selected the
+CWidget-returning getToolPanel method and received a CScrollPane. This failed run
+is retained and does not prove repeated target execution. Official5203 metadata
+contains two zero-argument getToolPanel methods with distinct return types, both
+nonbridge. The adapter now requires the exact reviewed ToolPanel_MeshEdit return
+descriptor and rejects missing/ambiguous/bridge matches.
+
+The corrected adapter passes15 guard checks. `NativePanelDescriptorSelfCheck`
+loads official metadata without class initialization and verifies a unique exact
+nonbridge descriptor. It passed against Cubism-5.2.03/jars. Neither check proves
+native command completion. The separate r2 build/run waits for the active53x
+performance pipeline to finish; the original build and failed outcome are immutable.

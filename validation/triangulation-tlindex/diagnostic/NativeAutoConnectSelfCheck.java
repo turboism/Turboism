@@ -13,6 +13,10 @@ public final class NativeAutoConnectSelfCheck {
         require(!NativeAutoConnect.sameIdentities(List.of(a), List.of(b)));
         require(!NativeAutoConnect.sameIdentities(List.of(a, a), List.of(a, a)));
         require(!NativeAutoConnect.sameIdentities(List.of(a, b), List.of(a, a)));
+        PanelMode panelMode = new PanelMode();
+        require(NativeAutoConnect.callReturning(panelMode, "getToolPanel", Panel.class.getName()) == panelMode.panel);
+        reject(() -> NativeAutoConnect.callReturning(panelMode, "getToolPanel", String.class.getName()));
+        reject(() -> NativeAutoConnect.callReturning(panelMode, "getToolPanel", Object.class.getName()));
         Commands commands = new Commands();
         NativeAutoConnect.invokeNamed(commands, "option", true);
         require(commands.option);
@@ -43,6 +47,14 @@ public final class NativeAutoConnectSelfCheck {
         public Controller getFileContent() { return this; }
         public File getFile() { return file; }
         public Object getCurrentEditMode() { return this; }
+    }
+    public static final class Panel {}
+    public static class BasePanelMode {
+        public Object getToolPanel() { return null; }
+    }
+    public static final class PanelMode extends BasePanelMode {
+        final Panel panel = new Panel();
+        @Override public Panel getToolPanel() { return panel; }
     }
     public static final class Commands {
         boolean option;
