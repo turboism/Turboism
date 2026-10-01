@@ -70,7 +70,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_owned_moc_is_separate_from_mcp_and_requires_observed_core_tuple(self) -> None:
         task = self.manifest.tasks["core-owned-moc"]
-        self.assertEqual(("5100", "5103", "5200", "5201", "5202", "5300", "5301", "5304"), task.versions)
+        self.assertEqual(("5100", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"), task.versions)
         self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
         with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
             for version in task.versions:

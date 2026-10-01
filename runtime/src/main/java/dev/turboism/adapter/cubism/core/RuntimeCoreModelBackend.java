@@ -30,14 +30,19 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             final VerifiedMemberResolver resolver) {
         this.source = Objects.requireNonNull(source, "source");
         this.provider = Objects.requireNonNull(provider, "provider");
-        this.tracer = Objects.requireNonNull(tracer, "tracer");
+        this.tracer = tracer;
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.runtimeInfo = new CoreRuntimeMetadata(
                 provider, resolver, this::requireOpen, CoreRuntimeMetadata.DEFAULT_MOC_BYTE_QUOTA);
-        this.modelAccess = new CoreBackedCubismModelAccess(source, provider, tracer);
+        this.modelAccess = tracer == null
+                ? () -> {
+                    requireOpen();
+                    throw new UnsupportedOperationException("Complete Core geometry is unavailable on this profile.");
+                }
+                : new CoreBackedCubismModelAccess(source, provider, tracer);
     }
 
-    /** Admits one exact Core provider and its complete structural call-site table. */
+    /** Admits exact Core metadata/owned-MOC evidence; complete geometry is enabled only when separately authorized. */
     public static CoreProviderResult<RuntimeCoreModelBackend> admit(
             final VerifiedMemberResolver resolver, final CoreVersionExpectation expectation) {
         Objects.requireNonNull(resolver, "resolver");
@@ -48,6 +53,10 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             return CoreProviderResult.failed(providerResult.failure().orElseThrow());
         }
         final CorePublicApiProvider provider = providerResult.value().orElseThrow();
+        if (!hasGeometryEvidence(provider)) {
+            return CoreProviderResult.success(
+                    new RuntimeCoreModelBackend(new BorrowedCoreModelSource(), null, provider, resolver));
+        }
         final CoreProviderResult<CoreStructuralTracer> tracerResult =
                 CoreStructuralTracerFactory.admit(provider, resolver);
         if (!tracerResult.isSuccess()) {
@@ -72,6 +81,10 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             return CoreProviderResult.failed(providerResult.failure().orElseThrow());
         }
         final CorePublicApiProvider provider = providerResult.value().orElseThrow();
+        if (!hasGeometryEvidence(provider)) {
+            return CoreProviderResult.success(
+                    new RuntimeCoreModelBackend(new BorrowedCoreModelSource(), null, provider, resolver));
+        }
         final CoreProviderResult<CoreStructuralTracer> tracerResult =
                 CoreStructuralTracerFactory.admit(provider, resolver);
         if (!tracerResult.isSuccess()) {
@@ -91,10 +104,17 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
         return runtimeInfo;
     }
 
+    /** Whether this admitted profile carries complete borrowed geometry evidence. */
+    public boolean completeGeometryAvailable() {
+        requireOpen();
+        return tracer != null;
+    }
+
     /** Publishes the current Editor-owned Core model after verified Runtime acquisition. */
     public void publishBorrowedModel(final Object borrowedModel, final String modelIdentity) {
         synchronized (lifecycle) {
             requireOpen();
+            requireGeometry();
             if (!resolver.isInstance(
                     dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.MODEL_CLASS,
                     borrowedModel)) {
@@ -113,6 +133,7 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
      */
     public CoreEvaluatedJoin evaluatedJoin() {
         requireOpen();
+        requireGeometry();
         return new CoreEvaluatedJoin(source, provider, tracer);
     }
 
@@ -132,7 +153,20 @@ public final class RuntimeCoreModelBackend implements AutoCloseable {
             }
             closed = true;
             source.close();
-            tracer.close();
+            if (tracer != null) tracer.close();
+        }
+    }
+
+    private static boolean hasGeometryEvidence(final CorePublicApiProvider provider) {
+        return dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.capabilityIdsFor(
+                        provider.artifactProfile())
+                .orElseThrow()
+                .contains("cubism.geometry.read");
+    }
+
+    private void requireGeometry() {
+        if (tracer == null) {
+            throw new UnsupportedOperationException("Complete Core geometry is unavailable on this profile.");
         }
     }
 

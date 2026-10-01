@@ -28,6 +28,7 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
     public static CoreVersionExpectation reviewedProfile(final String profile) {
         Objects.requireNonNull(profile, "profile");
         return switch (profile) {
+            case "5.1.03" -> exact(5, 0, 0);
             case "5.2.03" -> exact(5, 0, 256);
             case "5.3.02" -> exact(6, 0, 257);
             case "5.3.04" -> exact(6, 0, 513);

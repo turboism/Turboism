@@ -995,10 +995,11 @@
     }
   ],
   "adaptationConstraints": [
-    "Existing OwnedModel getters each project the full snapshot; missing extended structure prevents even canvas/parameter/part reads.",
+    "At revision61010bc3c every OwnedModel getter projected the full snapshot, allowing absent extended selectors to block basic reads. Legacy adaptation must remove that dependency.",
     "Granular reads must retain parent lifetime locking, immutable fresh copies and closed-handle refusal.",
     "Absent Glue/Deformer APIs and mandatory Drawable relation fields must fail explicitly, never become fake empty collections.",
     "A smaller owned-MOC profile must not authorize the complete borrowed geometry snapshot.",
     "Exact artifact/native tuple and independently verified selectors remain mandatory."
-  ]
+  ],
+  "implementationAuditAtRevision": "61010bc3c"
 }

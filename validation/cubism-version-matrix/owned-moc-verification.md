@@ -27,3 +27,5 @@
 prepared digest 和逐项结果见 [任务清单](campaign-jobs.json)。原始 properties 按原样留存，其中旧探针固定文本“Empty Glue/Deformer lists”不准确：此次 Deformer 为97，只有 Glue 为空；应以计数为准。
 
 [全20版 selector 差异审计](core-selector-delta-audit.json)仅是静态比对：5.0/5.1 缺18个新版结构 selectors，62个存在。不可据此把旧版整体标为不支持，或将缺失结构伪造为空。5.3 与5.2 的一个 API 差异由现有独立5.3 profile处理，比对缺失也不代表5.3能力不可用。
+
+5.1.03已增加精确legacy准入与基础family适配，131项离线回归/devCheck/Core门禁通过；[回归证据](legacy-core-adaptation-regression.json)。新的owned-r4实机已提交，终态前保留待验证，不能将此前r3失败改写为通过。

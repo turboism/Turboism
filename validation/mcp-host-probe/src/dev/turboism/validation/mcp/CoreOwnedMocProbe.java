@@ -96,6 +96,10 @@ public final class CoreOwnedMocProbe {
                 "Official MOC is not known and consistent");
         result.setProperty("mocVersion", inspection.version().name());
         result.setProperty("latestMocVersion", inspector.latestVersion().name());
+        if (expected.equals("5.0.0")) {
+            verifyLegacy(runtime, data, inspection, result);
+            return;
+        }
         try (OwnedMoc moc = runtime.mocLoader().load(data)) {
             require(moc.nativeHandle() != 0, "MOC native handle is zero");
             require(moc.version() == inspection.version() && moc.consistency() == inspection.consistency(),
@@ -178,6 +182,104 @@ public final class CoreOwnedMocProbe {
         }
     }
 
+    /** Exact legacy expectation: populated basic families plus explicit negative assertions. */
+    private static void verifyLegacy(final CoreRuntimeInfo runtime, final MocData data,
+            final MocInfo inspection, final Properties result) throws Exception {
+        require(!runtime.capabilities().parameterRepeat(), "Legacy Core unexpectedly exposes parameter repeat");
+        try (OwnedMoc parent = runtime.mocLoader().load(data)) {
+            require(parent.nativeHandle() != 0, "MOC native handle is zero");
+            require(parent.version() == inspection.version() && parent.consistency() == inspection.consistency(),
+                    "Loader/inspector diagnostics differ");
+            final OwnedModel first = parent.instantiateModel();
+            try (first; OwnedModel second = parent.instantiateModel()) {
+                require(first.nativeHandle() != 0 && second.nativeHandle() != 0
+                        && first.nativeHandle() != second.nativeHandle(), "Independent model handles required");
+                first.update();
+                second.update();
+                final LegacySnapshot saved = legacySnapshot(first);
+                require(saved.equals(legacySnapshot(first)) && saved.equals(legacySnapshot(second)),
+                        "Legacy independent/repeated model reads disagree");
+                require(saved.canvas.widthPixels() > 0 && saved.canvas.heightPixels() > 0
+                        && saved.canvas.pixelsPerUnit() > 0, "Invalid canvas metrics");
+                require(saved.parameters.size() == 42 && saved.parts.size() == 19,
+                        "Legacy pinned MOC lacks expected populated basic families");
+                for (OwnedParameter parameter : saved.parameters) {
+                    require(parameter.repeat().isEmpty(), "Legacy repeat must be unavailable");
+                    requireImmutable(parameter.keyValues());
+                }
+                requireImmutable(saved.parameters);
+                requireImmutable(saved.parts);
+                final String before = digest(saved.toString().getBytes(StandardCharsets.UTF_8));
+                first.update();
+                legacySnapshot(first);
+                require(before.equals(digest(saved.toString().getBytes(StandardCharsets.UTF_8))),
+                        "Previously copied legacy snapshot changed after native evaluation");
+                requireLegacyUnavailable(first);
+                requireLegacyUnavailable(second);
+                result.setProperty("snapshotSha256", before);
+                result.setProperty("parameterCount", "42");
+                result.setProperty("partCount", "19");
+                result.setProperty("supportedReadFamilies", "canvas,parameters,parts");
+                result.setProperty("unsupportedReadFamilies", "complete-drawables,glues,deformers");
+                result.setProperty("unsupportedReadFamiliesRejected", "PASS");
+                result.setProperty("allStructuralReadMethods", "PARTIAL_EXPECTED");
+                result.setProperty("immutableCopies", "PASS");
+                result.setProperty("independentInstances", "PASS");
+            }
+            requireAllClosed(first);
+            first.close();
+            parent.close();
+            requireClosed(parent::nativeHandle);
+            requireClosed(parent::instantiateModel);
+            result.setProperty("explicitChildThenParentClose", "PASS");
+            result.setProperty("useAfterCloseRejected", "PASS");
+        }
+        try (OwnedMoc parent = runtime.mocLoader().load(data);
+                OwnedModel first = parent.instantiateModel();
+                OwnedModel second = parent.instantiateModel()) {
+            require(first.nativeHandle() != 0 && second.nativeHandle() != 0
+                    && first.nativeHandle() != second.nativeHandle(), "Cascade requires independent live children");
+            first.update();
+            second.update();
+            legacySnapshot(first);
+            legacySnapshot(second);
+            requireLegacyUnavailable(first);
+            requireLegacyUnavailable(second);
+            parent.close();
+            requireAllClosed(first);
+            requireAllClosed(second);
+            requireClosed(parent::instantiateModel);
+            result.setProperty("parentCascadeClose", "PASS");
+        }
+        result.setProperty("limitation", "Basic owned-MOC families only; extended structure explicitly unavailable");
+    }
+
+    private static LegacySnapshot legacySnapshot(final OwnedModel model) {
+        return new LegacySnapshot(model.canvasInfo(), model.parameters(), model.parts());
+    }
+
+    private static void requireLegacyUnavailable(final OwnedModel model) {
+        requireUnavailable(model::drawables);
+        requireUnavailable(model::glues);
+        requireUnavailable(model::deformers);
+    }
+
+    private static void requireUnavailable(final Runnable action) {
+        try { action.run(); } catch (UnsupportedOperationException expected) { return; }
+        throw new IllegalStateException("Legacy missing native family did not report unavailable");
+    }
+
+    private static void requireAllClosed(final OwnedModel model) {
+        requireClosed(model::nativeHandle);
+        requireClosed(model::canvasInfo);
+        requireClosed(model::parameters);
+        requireClosed(model::parts);
+        requireClosed(model::drawables);
+        requireClosed(model::glues);
+        requireClosed(model::deformers);
+        requireClosed(model::update);
+    }
+
     private static Snapshot snapshot(final OwnedModel model) {
         return new Snapshot(model.canvasInfo(), model.parameters(), model.parts(), model.drawables(), model.glues(), model.deformers());
     }
@@ -202,4 +304,6 @@ public final class CoreOwnedMocProbe {
 
     private record Snapshot(OwnedCanvasInfo canvas, List<OwnedParameter> parameters, List<OwnedPart> parts,
             List<OwnedDrawable> drawables, List<OwnedGlue> glues, List<OwnedDeformer> deformers) { }
+
+    private record LegacySnapshot(OwnedCanvasInfo canvas, List<OwnedParameter> parameters, List<OwnedPart> parts) { }
 }

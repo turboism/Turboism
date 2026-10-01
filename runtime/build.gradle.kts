@@ -101,6 +101,9 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
         ),
         rootProject.file(
+            "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json"
+        ),
+        rootProject.file(
             "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
         ),
         rootProject.file(
@@ -136,6 +139,10 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             ),
             "--output",
             output,
+            "--pack",
+            rootProject.file(
+                "compatibility/cubism/mapping-packs/draft/cubism-5.1.03-core-model-read.json"
+            ),
             "--pack",
             rootProject.file(
                 "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"

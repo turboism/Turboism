@@ -10,8 +10,8 @@ shift
 # Tuples observed in finalized exact-host preflights; no series-based guessing.
 case "$version" in
   5100|5103) core_tuple='5.0.0' ;;
-  5200|5201|5202) core_tuple='5.0.256' ;;
-  5300|5301) core_tuple='6.0.257' ;;
+  5200|5201|5202|5203) core_tuple='5.0.256' ;;
+  5300|5301|5302|5303) core_tuple='6.0.257' ;;
   5304) core_tuple='6.0.513' ;;
   *) echo "error: no observed Core tuple for $version" >&2; exit 2 ;;
 esac

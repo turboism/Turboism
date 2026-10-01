@@ -1022,9 +1022,32 @@
       "preparedDigest": "5f3ab6a7d177c3529fe44f7501da53ac070482f7005ef5d3b3f809e5c5c0aeb9",
       "evidenceDirectory": "jobs/07b2ac33-8d1b-4cea-87a0-0e2e6dd28fad/evidence",
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-39fe2e2b96b44eb5b557850e310b643e",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "core-preflight-evidence/5.3.02-allversions-r1",
+      "observations": {
+        "actualCoreSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+        "actualEditorSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "expectedCoreSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+        "expectedEditorSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "nativeCoreVersion": "6.0.257",
+        "profile": "cubism-5.3.02",
+        "runId": "queue-39fe2e2b96b44eb5b557850e310b643e",
+        "stableSnapshots": "3",
+        "status": "PASS"
+      }
     },
     {
       "version": "5.3.03",
@@ -1035,9 +1058,32 @@
       "preparedDigest": "f810e6e8d133c1382ef2dfab7b5001e902a8d3fa31dbce0dcb0df3efa14c2525",
       "evidenceDirectory": "jobs/c4fef6bd-baa3-4f6f-8bf1-0c08a72e7182/evidence",
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-6cb6be9385fd4819b380f1e309992826",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "core-preflight-evidence/5.3.03-allversions-r1",
+      "observations": {
+        "actualCoreSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+        "actualEditorSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "expectedCoreSha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+        "expectedEditorSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+        "nativeCoreVersion": "6.0.257",
+        "profile": "cubism-5.3.03-distribution",
+        "runId": "queue-6cb6be9385fd4819b380f1e309992826",
+        "stableSnapshots": "3",
+        "status": "PASS"
+      }
     },
     {
       "version": "5.2.03",
@@ -1048,9 +1094,86 @@
       "preparedDigest": "e2f0673734481089d6bfa3403bb810f7d3b87e25ec57487b431bc3970e72d92a",
       "evidenceDirectory": "jobs/d509a5a5-b9f4-44aa-b56d-e0811c34155f/evidence",
       "scope": "Native Core tuple and stable Editor model identity only; not all framework capabilities",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-97836d8ba1aa4cf89c1c88600d56b2f9",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "clientEvidence": "core-preflight-evidence/5.2.03-allversions-r1",
+      "observations": {
+        "actualCoreSha256": "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+        "actualEditorSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "expectedCoreSha256": "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+        "expectedEditorSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "nativeCoreVersion": "5.0.256",
+        "profile": "cubism-5.2",
+        "runId": "queue-97836d8ba1aa4cf89c1c88600d56b2f9",
+        "stableSnapshots": "3",
+        "status": "PASS"
+      }
+    },
+    {
+      "version": "5.1.03",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r4",
+      "jobId": "d881055a-e30b-47de-9c2c-833b243654c2",
+      "preparedDigest": "3ab239c65b6d1755cee3ed012ee6b923b163ce1b5d70220ed637482a4e2ac495",
+      "evidenceDirectory": "jobs/d881055a-e30b-47de-9c2c-833b243654c2/evidence",
+      "scope": "Production SDK owned-MOC exact supported and unsupported families, evaluation and ownership; not all framework capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "5.0.0",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+      "legacyExpectation": "canvas/parameters/parts supported; complete-drawables/glues/deformers explicitly unavailable"
+    },
+    {
+      "version": "5.2.03",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "a7fd2516-6040-4140-a4ad-f4f97c089b68",
+      "preparedDigest": "3ef2d229cdc9d06f59df05f208d8d1cc82b343f799e666641cbbfec67bd6ad08",
+      "evidenceDirectory": "jobs/a7fd2516-6040-4140-a4ad-f4f97c089b68/evidence",
+      "scope": "Production SDK owned-MOC exact supported and unsupported families, evaluation and ownership; not all framework capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "5.0.256",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+      "legacyExpectation": "full existing structural assertions"
+    },
+    {
+      "version": "5.3.02",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "50562e8e-535e-4e12-8fdc-7ddd7a47f2dc",
+      "preparedDigest": "7d9469714912d7f1b6b57b4864d618d84d1f9bedbd4b1db8584ddee094a88fd8",
+      "evidenceDirectory": "jobs/50562e8e-535e-4e12-8fdc-7ddd7a47f2dc/evidence",
+      "scope": "Production SDK owned MOC structure/evaluation/ownership; not all framework capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "6.0.257",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
+    },
+    {
+      "version": "5.3.03",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "8471a00f-254d-492e-b7f2-7ac537fbfe2a",
+      "preparedDigest": "2ef4e5611574fc8dcf55e60a035f429fbc767dd73cc3acf07a74ec3e121507dc",
+      "evidenceDirectory": "jobs/8471a00f-254d-492e-b7f2-7ac537fbfe2a/evidence",
+      "scope": "Production SDK owned MOC structure/evaluation/ownership; not all framework capabilities",
+      "status": "SUBMITTED",
+      "expectedNativeCoreVersion": "6.0.257",
+      "mocFixtureSha256": "aa59f7a3dc3b30b23b5f10afd9192ed755e4d01dc9a12442d99b972a418e2543",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained"
     }
   ]
 }
