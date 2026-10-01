@@ -1509,3 +1509,65 @@ no previewBundle, new packaged candidate or new host run occurred. This prepares
 a diagnostic only. Actual host guard proof, performance improvement, final
 three-version comparisons and T044/T046/stable-optimization completion remain
 unproven. No main merge/push or theoretical-limit claim is made.
+
+### T048 single actual-host guard diagnostic closed (2026-10-02)
+
+This bounded diagnostic is complete. One 5302 on leg was submitted, with no JFR
+or resource-observation protocol and no new performance pair. Production
+acceptance remains **HOLD_PRODUCTION_ACCEPTANCE**. Stable optimization and a
+theoretical bottleneck have not been established.
+
+Wrapper commit fcf8134 admits only the fixed Boolean
+`--tri-fresh-edge-guard-metadata` on production on/tl-dump-only legs. Default
+prepares omit the option; off, non-production, duplicate and arbitrary-token
+cases reject. Full offline wrapper regression passed after supplying the
+existing reviewed identity probe explicitly. The original sandbox X11-access
+failure and the subsequent missing-probe failure remain preserved; neither was
+counted as PASS. Successful log under build/t048-guard-host has SHA
+7caca9a3b28472ccc2b5fb99762f44ace331372be1fb13da270a49df6711fa44.
+
+Only :bootstrap:jar was built, not previewBundle. Independently frozen Agent
+0dc308898ce9c3c52d7e10015d2be3eab31ba933c59ab285fd3d1af9b14c73e6 differs from
+the ee244 performance Agent only in FreshTriangulationEdgeSearch, its $1 and
+framework-version metadata. Settings, patcher and other algorithm bytes agree.
+Both packaged diagnostic classes' full instruction dumps agree with the tested
+classes after numeric constant-pool-index/comment-padding normalization. The
+initial padding-sensitive rejection and dumps remain preserved; whole class
+bytes were not declared equal. Artifact-pin.json under candidate-reviewed has
+SHA679159f1e514df5f4d4bdb92b69fe662a9127398a577de9db5ffbc154d7d2879.
+
+Prepared ID277bc6cce19c5c703c52cb58450b48ac1ba02b85354e80fb42b9ad60aa378d3c
+has146 checked inventory entries. Original heavy029e9a4e…, driver3bee41a3…,
+official5302 JAR988ef6a8… and real UI seq2344 on config190ea2fc… stay bound.
+The UI config was copied as original bytes, not edited by path substitution.
+Queue seq2373/job20e880ac-359d-4fe3-984f-a0c8705ef817 ran as
+queue-24c42e77d8234cd3bd47a9c44cc84b95, after FIFO wait behind another session.
+The authoritative outcome has validationStatus=PASS, cleanup=safe,
+normalExit=true, identityVerified=true and fixtureUnchanged=true. Cubism exited;
+the Runner stopped the remaining task-owned launcher tree before supervisor
+cleanup. This is not a claim that every launcher descendant exited gracefully.
+
+Independent post-terminal review rechecked all frozen inputs and staged Agent,
+official/staged JARs, result/payload binding and both production patch receipts.
+Captured TriangleList SHA is f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5;
+the first four ordered outputs equal the retained off baseline (edge counts
+1203,1122,132,100 and their ordered hashes).
+
+The exact console receipt reports actual type
+com.live2d.graphics3d.editableMesh.triangulation.j, admitted=true,
+reason=IDENTITY_EQUALITY, equalsOwner=java.lang.Object, finalType=true,
+objectSuperclass=true and coldComputation=true. Its AppClassLoader label is
+diagnostic metadata, not unique loader identity proof. Cubism wraps System.err
+as ERROR text; this receipt's severity label is not an admission failure.
+Console SHA6df7b4c492b0bd45661cc948476f0606d9c868fdbc5e420f0e15dfd7359d9042.
+Single-diagnostic/host-review.json SHA
+566e51abb21d378e7cfa9d44963b90b8d6ddded143b6b9a560198c9cd7fa9122 binds this
+run and the checked outputs.
+
+The guard admitted the real object type, so the earlier weak aggregate benefit
+cannot be explained by this guard always rejecting. Cold records do not measure
+query count, hit rate or eliminated scans. This single diagnostic does not
+change the retained pair's performance verdict: first wall -4.31%, first CPU
++3.46%, three-operation wall +0.65%, observed RSS peak -13.89%. T044/T046,
+final three-version stable benefit and resource bounds remain open. This round
+adds no retry or performance pair; no main merge/push occurred.
