@@ -93,3 +93,30 @@ candidate equality calls in the measured fixture operations. These are invocatio
 counts in the own fixture, not JFR samples or a predicted host speedup. Production
 caller shape gates, actual branch counts, official side-effect equivalence and
 three-version A/B remain outstanding before selecting this as a final candidate.
+
+
+## Offline bytecode prototype
+
+`FusionBytecodePrototype.java` reads a reviewed official jar and emits a standalone
+patched `h.class` into a new directory. It is not an agent and does not install
+anything. Both known caller SHA values are required, plus exact method access,
+two receiver/argument-matched contains/add blocks, branch destinations, no handlers,
+and existing empty-stack join frames. It inserts a debug-switch guard: debug-on
+runs the original block; debug-off calls the existing add and jumps to the original
+join. Existing method frames are preserved with matching new frames, so no host
+class hierarchy is loaded to calculate frames.
+
+Compile the prototype and `FusionBytecodeSelfCheck.java` with local ASM 9.7 core,
+tree and commons jars. Run the selfcheck with `java -Xverify:all`. The 47 checks
+execute generated own fixtures after remapping away all official class names;
+they verify baseline/patched stored identity/order, debug counts, no duplicate
+adds in debug mode, removal of redundant contains calls when debug is off, and
+rejection of unknown SHA, missing sites, wrong argument, wrong branch and wrong
+access. These tests do not execute the official class body.
+
+The prototype emitted output for all three reviewed jars. Artifacts are under
+`build/t029-real-host-acceptance/contains-fusion-experiment/prototype{5203,5302,5303}`;
+each has original/patched pins. No production integration or real-host fusion
+result exists. Production integration requires the normal admission, lifecycle,
+configuration and semantic gates plus new artifact A/B; queued branch diagnosis
+remains independent and must be preserved.

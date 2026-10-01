@@ -504,3 +504,24 @@ the add/pop, and the target is the next instruction. 5203 `h` SHA is
 Jar/class/output hashes and exact instruction blocks are pinned in
 `contains-fusion-experiment/three-version-shape.json`. This is read-only javap
 inspection, not an implemented transformer or successful official execution.
+
+
+Debug-side-effect refinement: all three official `c$a.b()Z` methods consist only
+of `iconst_0; ireturn`; the reviewed debug switch is not dynamically mutable.
+5203 companion SHA is `339501ac3499cb1c319bacbd1606c85004eeaa218e5654a72e98d83a12b2b23e`;
+5302/5303 share `0558a3ea9810ebfb796a1169db774f5a295645ee235150a3fe38f276a6e49c51`.
+Raw disassembly and method checks: `contains-fusion-experiment/debug-switch-review.json`.
+This resolves the dynamic-toggle uncertainty for those pinned bytes, not arbitrary
+future versions or third-party transformations. A prototype may still preserve
+an explicit debug-on original path and must reject unknown caller shapes. No
+production transformation has been implemented or accepted at this point.
+
+
+Offline guarded fusion bytecode prototype now emits separate patched `h.class`
+files for all three pinned jars, without installing or loading official classes.
+Its generated own-fixture selfcheck passes 47 assertions under `-Xverify:all`,
+covering both debug branches, duplicate adds, exact identity/order and five
+refusal conditions. `contains-fusion-experiment/bytecode-selfcheck.log` records
+execution; each `prototype<version>/pins.txt` records input/output SHA. Production
+source/artifact remains unchanged. Official-body runtime behavior, integration
+and real-host performance are still unverified for this prototype.
