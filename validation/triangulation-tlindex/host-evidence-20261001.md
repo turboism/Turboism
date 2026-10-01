@@ -1944,3 +1944,60 @@ initialization/error/geometry/full output and final three-version stable host
 benefit/resource/UI/startup acceptance remain open. T050 stays partial, T044/T046
 and the continuous goal remain active, HOLD_PRODUCTION_ACCEPTANCE persists, and no
 theoretical bottleneck is asserted.
+
+### T050 owned lifecycle gateway and operation leases
+
+The preceding goal turn only checked and reported status (no progress). This
+turn implements the JDK-only TriangulationDefinitionLifecycle in runtime and
+passes its handle to both premain contributors and the bootstrap thread before
+JvmShims installs. No host job, performance pair, previewBundle, default startup
+flag, official BAT/model or frozen Agent was changed.
+
+Supported ownership requires one trusted premain Agent with the reviewed entry
+manifest, the actual HotSpot DisableAttachMechanism value enabled, no native/debug
+Agent or external boot/module replacement options, and retransformation support.
+Other starts retain their raw Instrumentation and cannot admit a lazy gate.
+Bootstrap withholds the raw handle from downstream installers. This is a trusted
+in-process protocol, not protection against malicious JNI/reflection or a raw
+handle escaping that protocol. Existing multi-Agent host validation does not
+satisfy this contract and has not been relaunched with ineffective gates.
+
+Capture and definition/registration mutations take exclusive ownership before
+JVM entry. A full optimized operation must hold a thread-confined read lease,
+including exceptional exit. Mutations wait outside the JVM, then permanently
+revoke prior gates. Recapture revokes old gates before retransformation even if
+the new fingerprints fail. Callback mutations/leases and read-to-write upgrades
+refuse without waiting; search-path appends preserve existing behavior because
+they cannot replace loaded dependencies. Collectors clear their Class/fingerprint
+references after capture and retained gates do not root application loaders.
+
+Final review found an inherited module-aware callback bypass: its method was
+declared by a base not implementing ClassFileTransformer. The real-JVM red control
+fails at that precise assertion. Source and owned-inherited-before-fix.log are
+retained. Final detection also recognizes the trusted java.instrument transform
+dispatch frame. Java17 release/lint/Werror and -Xverify:all pass115 owned checks
+over six JVM cases:45 system-loader checks,46 Boot-Class-Path/bootstrap-loader
+checks, and four6-check rejected-start cases (attach enabled, extra Agent, debug
+option, and a later option overriding attach-disabled). These execute generated
+owned classes only, with real captured/changed value3/value9 behavior. They cover
+concurrent late registration, mutation waiting for a live lease, callback/upgrade
+refusal, failed recapture revocation, clone integrity, restore/re-admission,
+installer handoff, wrong-thread close and loader release while retaining a gate.
+
+Thirteen existing bootstrap regressions pass for the ordinary startup failure and
+settings paths. DevCheck passes after documenting four public API items; the
+initial failure is retained. Jdeps reports only java.base, java.instrument,
+java.management and jdk.management. JDK17.0.20 executable/compiler/libjvm hashes,
+compiled classes, commands, logs and XML receipts are bound in
+build/t050-lazy-edge-bytecode/owned-lifecycle/offline-review.json SHA
+185b5fbbfb80c0b6faa47a425d1427625cccf0bc5126d51696b497195f31cc29 (66 inputs).
+Both ee244 performance and0dc308 diagnostic frozen Agents are unchanged.
+
+This completes the owned lifecycle mechanism slice, not lazy production or host
+acceptance. Eligible packaged Turboism bootstrap execution, official dependency
+fingerprint integration, full operation lease/finally/native fallback and a
+supported single-Agent probe composition remain pending. Official native
+initialization/geometry/full outputs and final three-version stable repeated
+performance/resources/UI/startup evidence are still required. T050 stays partial,
+T044/T046 and the full goal remain unfulfilled, HOLD_PRODUCTION_ACCEPTANCE remains,
+and no stable improvement or theoretical bottleneck is claimed.
