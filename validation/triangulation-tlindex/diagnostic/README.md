@@ -317,6 +317,32 @@ It is waiting for the fresh-edge5302 performance pair before preparation/submiss
 using the original frozen Agent2f6dd5ba to isolate diagnostic changes. Native results
 and repeated target execution remain unproven.
 
+### Retained edge allocation-site attribution
+
+`analyze-edge-allocation-sites.py` reads saved first-operation JFR recordings
+through a streaming exporter. It requires a reviewed hotspot-report SHA and
+rechecks recording/window digests, event counts and class weights against that
+report. Allocating callers and inclusive callers are reported separately using
+exact binary names and method descriptors; constructor frames alone are skipped.
+Compact raw edge samples remain available for independent inspection. The output
+directory must be new. No host process or performance acceptance is produced.
+
+```sh
+rtk proxy python3 -B validation/triangulation-tlindex/diagnostic/test-edge-allocation-sites.py
+rtk proxy python3 -B validation/triangulation-tlindex/diagnostic/analyze-edge-allocation-sites.py \
+  --evidence-dir /path/to/completed-pair-reports \
+  --reference-sha256 REVIEWED_HOTSPOT_SHA256 \
+  --out /path/to/new-attribution-directory
+```
+
+T050's retained5302 pair attributes99.35%/99.49% of edge allocation weights to
+the three proposed construction sites. Matching them against SHA-pinned pristine
+bytes and reconstructed production-transform bytes is recorded in
+`build/t050-lazy-edge-bytecode/constructor-site-review.json`. JIT sampling weights
+are neither exact allocations nor CPU savings. This evidence supports an offline
+prototype; original failure/class-initialization semantics, runtime dependency
+admission, full native outputs and stable real-host benefit remain unproved.
+
 ### Auto-connect r4: cancelled capture queries
 
 R3 failed before its capture callback started: FixedEdt atomically transitioned
