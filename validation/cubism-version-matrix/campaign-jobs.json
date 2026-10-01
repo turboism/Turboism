@@ -2216,6 +2216,32 @@
       "status": "SUBMITTED",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+    },
+    {
+      "version": "5.0.00",
+      "task": "core-acquisition",
+      "variant": "assisted",
+      "round": "allversions-simple-r1",
+      "jobId": "ec170db7-124a-4176-ad83-8539cf927c76",
+      "preparedDigest": "04d85129ca9e00fe7525c5e1046cc890f9d3d18dacf682b5266dc7a470894a0b",
+      "evidenceDirectory": "jobs/ec170db7-124a-4176-ad83-8539cf927c76/evidence",
+      "fixtureSha256": "9dd4f3f97825aa8aa64bc601349f21e8369f5f49e245ef718b3edc9da47fd631",
+      "scope": "Exact installed identity, native Core tuple and stable model observation using official FREE Simple Model; no owned-MOC or full capability verdict",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+    },
+    {
+      "version": "5.0.01",
+      "task": "core-acquisition",
+      "variant": "assisted",
+      "round": "allversions-simple-r1",
+      "jobId": "a2eb98af-6d7a-413e-9281-1a216b65c1c5",
+      "preparedDigest": "eace4889fc9ba4c8f3de94fb44f1c0e088c70658bb3e55a28abe61abe895c9e2",
+      "evidenceDirectory": "jobs/a2eb98af-6d7a-413e-9281-1a216b65c1c5/evidence",
+      "fixtureSha256": "9dd4f3f97825aa8aa64bc601349f21e8369f5f49e245ef718b3edc9da47fd631",
+      "scope": "Exact installed identity, native Core tuple and stable model observation using official FREE Simple Model; no owned-MOC or full capability verdict",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
     }
   ]
 }

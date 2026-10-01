@@ -1,0 +1,321 @@
+{
+  "schemaVersion": 1,
+  "scope": "Exact installed artifacts; stored Screen Color API availability only, not live support",
+  "versions": [
+    {
+      "version": "5.0.00",
+      "editorSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "cfea4b8f2b1027951d7eeb64dfd021b05019ef159c06d35d88a900c7f7689375",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.01",
+      "editorSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "e7399526de06d8ec681c0629997b4f0438213a6aa0a1a061fcd94c1abcd81634",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.02",
+      "editorSha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "e7399526de06d8ec681c0629997b4f0438213a6aa0a1a061fcd94c1abcd81634",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.03",
+      "editorSha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.04",
+      "editorSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.05",
+      "editorSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.0.06",
+      "editorSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource.class": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.1.00",
+      "editorSha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource.class": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.1.01",
+      "editorSha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource.class": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.1.02",
+      "editorSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource.class": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.1.03",
+      "editorSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource.class": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.2.00",
+      "editorSha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource.class": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.2.01",
+      "editorSha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource.class": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.2.02",
+      "editorSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource.class": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.2.03",
+      "editorSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+      "partStoredScreenColor": false,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource.class": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.3.00",
+      "editorSha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767",
+      "partStoredScreenColor": true,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource.class": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.3.01",
+      "editorSha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4",
+      "partStoredScreenColor": true,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource.class": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.3.02",
+      "editorSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+      "partStoredScreenColor": true,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource.class": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.3.03",
+      "editorSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+      "partStoredScreenColor": true,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource.class": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    },
+    {
+      "version": "5.3.04",
+      "editorSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+      "partStoredScreenColor": true,
+      "nativeContainScreenColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/parts/CPartForm.class": "d893391e09712edda3f597ceacba93292d86558cdeb7e72cbb86dd52f4c6fa5e",
+        "com/live2d/cubism/doc/model/CModelSource.class": "e48aab045f6f4c14eb0fc14b89a92d6c9f14b909814d1c5919937db4099e823b",
+        "com/live2d/core/id/Id.class": "c76b673c8a323e77fc79da5da940a62d191d27536b4c6ed5b15eff527399c204"
+      }
+    }
+  ],
+  "guardSemantics5304": {
+    "storedFamilies": [
+      "getAllDrawables",
+      "getAllDeformers"
+    ],
+    "comparison": "RGB to black with 1/512 tolerance; alpha excluded",
+    "probeComparison": "All stored RGB exactly zero; stricter than native tolerance",
+    "partPolicy": "Additional recovery/read assertion for 5.3 only; no native Part mutations"
+  },
+  "stableIdentity": "com.live2d.core.id.Id.toString returns serialized idString; probe now calls getIdString explicitly"
+}
