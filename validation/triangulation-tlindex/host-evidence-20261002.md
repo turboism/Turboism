@@ -2,8 +2,9 @@
 
 Production acceptance remains **HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED**.
 The continuous optimization goal, T050, T044 and T046 remain unfinished.
-This continuation closes bounded native correctness/activation and one separate
-final-candidate 5302 resource comparison. It does not close production acceptance.
+This continuation closes bounded native correctness/activation and two separate
+final-candidate 5302 resource comparisons in opposite orders. It does not close
+production acceptance.
 
 ## Supported scene and frozen inputs
 
@@ -141,10 +142,90 @@ stable net performance acceptance. Prior candidate observations remain historica
 and do not measure this new lazy candidate. No further host jobs were submitted
 in this bounded comparison.
 
+## Reverse-order final-candidate comparison
+
+The second matching pair, order on then off, completed under
+`build/t050-lazy-edge-bytecode/performance5302-r2/`. The complete prepared input
+inventory and host-dependency pins match the first pair. Only run labels and the
+capture runId differ. Source revision is `a41b6976c8bbb6a5854674dd58cc055bc3f3acdc`;
+all production/companion/capture/driver/plugin/config and measurement inputs are
+unchanged. No production source, frozen artifact or shared Runner was changed.
+
+| Leg | Sequence | Job | Prepared | Run |
+| --- | ---: | --- | --- | --- |
+| on | 2401 | `d2def462-bfbf-40c3-a858-bb4679cfce06` | `04b525aedc2bf8bf2507a0c7ccb6760b855eeea095c181469cc71eae4c2f1450` | `queue-b0b6a7f3e35d43dab1d270ef098f167e` |
+| off | 2402 | `901fa4a9-1bfe-4ff9-855b-b06645152d20` | `25befd3ce60dd2b11f777ef9b365cd60401b544139fe1c8986bc0d3a7c3e4329` | `queue-3cc3473d69c147aa9e1ca21b385f9b23` |
+
+Both authoritative outcomes are succeeded/PASS, safe cleanup, normal exit,
+verified identity and unchanged fixture; both read-only observers exit zero.
+Independent review rechecks each 138-file/12-directory inventory, actual staged
+inputs, startup/config, production receipts, terminal/payload and all saved
+evidence hashes. The first four complete ordered outputs match the first pair
+and explicitly bound off baseline. This remains a four-return output check.
+
+| Observation | off | on | Change |
+| --- | ---: | ---: | ---: |
+| First operation wall seconds | 94.3723 | 86.0753 | −8.79% |
+| First operation sampled Java CPU seconds | 131.97 | 123.97 | −6.06% |
+| Three UI operations total wall seconds | 125.5646 | 116.5753 | −7.16% |
+| Whole observed Java CPU seconds | 311.23 | 293.43 | −5.72% |
+| Whole observed sampled RSS peak MiB | 5258.11 | 5090.41 | −3.19% |
+| Whole available sampled PSS peak MiB | 5211.42 | 5030.51 | −3.47% |
+| First-operation JFR edge allocation weight bytes | 13,080,883,552 | 183,219,872 | −98.60% |
+
+First-operation GC events fall 40→13; whole GC events 122→86. Actual target samples
+are 3420/off and 2129/on, with 116 production-index and 4 lazy-production samples
+on. Every operation window has zero unresolved frames. Operations 2/3 again have
+zero target samples in both legs and cannot establish repeated triangulation.
+First-operation CPU omits 863/452 ms at the off boundaries and 145/911 ms at the
+on boundaries. Each observer has one post-exit missing-Java record outside all
+operation windows, explicitly excluded from whole-process CPU calculation.
+
+Retained RSS medians after operations 1/2/3 are 3388.16/4714.01/4600.24 MiB off
+and 3775.77/4440.61/4546.23 MiB on. The first on median is higher; the last is
+lower. Sampled heap maximum/last are 5020.33/3524.23 MiB off and
+4799.62/3569.78 MiB on. These values do not establish retention safety.
+
+To avoid multi-gigabyte recursive CLI metadata exports, a task-local JDK
+RecordingFile consumer projects five required event types, exact event timestamps,
+up to the same 64 stack frames, allocation class/weight and heap bytes. Its used
+fields pass parity against both first-pair official CLI execution projections,
+all resource windows, GC/heap/allocation aggregates, and targeted official CLI
+heap event time/value multisets. The initial check exposed different event arrival
+ordering: the last heap event is now selected by timestamp. Original exports,
+failed script and failure record are preserved. No host rerun was needed.
+An initial independent-report check encountered unresolved frames outside the
+operation windows; its failed script/log remain saved. The final review preserves
+those signatures and explicitly counts unresolved frames per operation window.
+
+The final independent review recomputes markers, sampled CPU/RSS/PSS/retained
+medians, GC/heap/allocation, target counts and comparison percentages, rehashes
+all report inputs and saved evidence, and checks exact raw/projected execution
+signatures. The bounded report SHA is
+`be5bd699faec49d3686b413a8220fad9d00f17e1a604ae696134ba057bba217b`;
+exporter parity SHA is
+`51bcca51b0a97729a7f64b8c639b4f06f277d746c31e09c46caf05820801430a`.
+`independent-pair-review.json` and `cross-round-review.json` preserve the final
+recalculation and two-round input linkage.
+
+Across both orders the first-operation wall improves 5.77%/8.79%, and estimated
+edge allocation weight falls 98.82%/98.60%. This establishes a repeatable direction
+in two bounded observations, not a statistical production-wide acceptance claim.
+First-operation CPU direction differs (+3.73%/−6.06%), and retained RSS comparisons
+differ by round/window. Further identical reopen/OK cycles do not resolve the
+missing repeated-target evidence; acceptance needs a verified native trigger.
+
 ## Remaining acceptance
 
 5303 T039 callback self-unregistration conflicts with the owned gateway and is
 correctly refused; the single-Agent 5303 scene remains unadmitted. Final three-version
 stable performance/resources, real repeated-target execution, complete per-cycle
-outputs and final UI/independent-startup linkage remain open. No theoretical
-bottleneck or stable net gain is claimed; no merge to main or push occurred.
+outputs and final UI/independent-startup linkage remain open. Ordinary managed BAT
+launch generation (`cubism-launch-common.ps1`) and preview launch arguments
+(`launch-cubism-turboism.ps1`) do not emit `-XX:+DisableAttachMechanism`;
+the validation wrapper explicitly does. The current ownership protocol refuses
+attach-enabled startup with `DYNAMIC_ATTACH_ENABLED`. This limits the lazy benefit
+to the admitted startup conditions; default-production lazy activation has not
+been demonstrated. Preserve that admission and resolve the actual production
+launch path before extrapolating the measured benefit. No theoretical bottleneck
+or stable net gain is claimed; no merge to main or push occurred.
