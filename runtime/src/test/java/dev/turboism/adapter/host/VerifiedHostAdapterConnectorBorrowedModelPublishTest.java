@@ -28,8 +28,33 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
     private static final Path PROJECT_ROOT = locateProjectRoot();
 
     private static final VerifiedHostAdapterConnector.EditorAccessFactory PRODUCTION_ACCESS =
-            (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
-                    resolver, sessionId, coreBackend == null ? null : coreBackend.evaluatedJoin());
+            VerifiedHostAdapterConnector::productionEditorAccess;
+
+    @Test
+    void productionEditorCompositionKeepsLegacyMetadataWithoutCompleteGeometry() throws Exception {
+        EditorFixture.Host.currentDocument = new EditorFixture.Document();
+        final VerifiedHostAdapterConnector.CoreBackendFactory legacy = ignored -> RuntimeCoreModelBackend.admit(
+                        TestCoreApiFixture.resolverWithExtras(
+                                "5.1.03",
+                                TestCoreApiFixture.ownedMocSelectors(),
+                                TestCoreApiFixture.ownedMocCapability()),
+                        CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo metadata;
+        try (HostAdapterConnection connection = connector(PRODUCTION_ACCESS, legacy)
+                .connect(new HostInstanceDescriptor("legacy-session", evidence()))) {
+            assertEquals("model-1", connection.modelAccess().active().id().value());
+            metadata = connection.coreRuntimeInfo();
+            assertEquals(new dev.turboism.sdk.cubism.core.CoreVersion(11, 12, 13), metadata.version());
+            assertTrue(metadata.mocLoader() != null);
+            final var unavailable = assertThrows(
+                    IllegalStateException.class,
+                    () -> connection.modelAccess().active().mocInfo());
+            assertTrue(unavailable.getMessage().contains("no Core evaluated join is installed"));
+        }
+        assertThrows(IllegalStateException.class, metadata::version);
+    }
 
     @BeforeEach
     void resetFixture() {

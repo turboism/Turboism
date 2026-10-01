@@ -1,0 +1,16 @@
+{
+  "jobId": "d8b3b7b1-aa7a-4b38-ba7e-9ab56368ccac",
+  "preparedDigest": "be0071911a20617d0c6d785bcf07632bf52bb1eb1c4c139b9f1a49dba1767b0d",
+  "runId": "queue-8e674cf0ea1c4e5eb4baf9c52ae721f8",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "failed",
+  "validationStatus": "FAIL",
+  "identityVerified": false,
+  "fixtureUnchanged": false,
+  "normalExit": false,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "9d6bf6708657bb74b412bf0dce1b0e34cf14d473f3b58227d7bba6f485dfa691",
+  "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+  "nativeAssertions": "NOT_STARTED",
+  "failure": "HostSession production Editor composition requested complete evaluatedJoin from the basic legacy profile"
+}

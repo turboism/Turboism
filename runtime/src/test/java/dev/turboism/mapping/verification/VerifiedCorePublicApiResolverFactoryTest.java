@@ -16,6 +16,27 @@ class VerifiedCorePublicApiResolverFactoryTest {
     private final VerifiedCorePublicApiResolverFactory factory = new VerifiedCorePublicApiResolverFactory();
 
     @Test
+    void exactLegacyHostResolvesTheOwnedMocSliceThroughStartupValidation() {
+        final Path editor = EditorSelectorContractTestPaths.artifact("5.1.03");
+        final var resolution =
+                CubismHostCompatibilityResolver.resolve(editor, editor.resolveSibling("Live2DCubismCore.jar"), name -> {
+                    final Path path = PROJECT_ROOT
+                            .resolve("compatibility/cubism/verification")
+                            .resolve(name);
+                    try {
+                        return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
+                    } catch (java.io.IOException failure) {
+                        throw new java.io.UncheckedIOException(failure);
+                    }
+                });
+        final var slice = resolution.slice("core-model-read");
+        assertTrue(slice.admitted(), slice.detail());
+        assertEquals(
+                java.util.Set.of("cubism.core.owned-moc.read"),
+                slice.contract().orElseThrow().capabilities());
+    }
+
+    @Test
     void admitsPinnedCoreArtifactsForAllSupportedProfiles() throws Exception {
         assertAdmitted("5.1.03", "5.1.03");
         assertAdmitted("5.2.03", "5.2.03");

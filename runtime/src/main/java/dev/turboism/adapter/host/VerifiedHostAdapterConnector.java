@@ -76,16 +76,19 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final CoreBackendFactory coreBackendFactory;
     private final java.util.function.Supplier<Locale> effectiveLocale;
 
+    static CubismModelAccess productionEditorAccess(
+            final VerifiedMemberResolver resolver, final String sessionId, final RuntimeCoreModelBackend coreBackend) {
+        return new EditorBackedCubismModelAccess(
+                resolver,
+                sessionId,
+                coreBackend == null || !coreBackend.completeGeometryAvailable() ? null : coreBackend.evaluatedJoin());
+    }
+
     VerifiedHostAdapterConnector() {
         this(
                 new VerifiedRuntimeHostAdaptersFactory()::create,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
-                (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
-                        resolver,
-                        sessionId,
-                        coreBackend == null || !coreBackend.completeGeometryAvailable()
-                                ? null
-                                : coreBackend.evaluatedJoin()),
+                VerifiedHostAdapterConnector::productionEditorAccess,
                 slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
                 slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
                 null,
@@ -103,12 +106,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this(
                 factory,
                 slice -> resolverForSlice(slice, new VerifiedEditorModelResolverFactory()),
-                (resolver, sessionId, coreBackend) -> new EditorBackedCubismModelAccess(
-                        resolver,
-                        sessionId,
-                        coreBackend == null || !coreBackend.completeGeometryAvailable()
-                                ? null
-                                : coreBackend.evaluatedJoin()),
+                VerifiedHostAdapterConnector::productionEditorAccess,
                 slice -> resolverForSlice(slice, new VerifiedMainToolbarResolverFactory()),
                 slice -> resolverForSlice(slice, new VerifiedEmbeddedPanelResolverFactory()),
                 null,
