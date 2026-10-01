@@ -220,3 +220,53 @@ offline-review.json SHA
 binds568 inputs. This is controlled Linux OpenJDK17.0.20 definition evidence;
 production transformer ownership, native initialization/geometry/outputs and
 final host performance/resource acceptance remain open. No new host task was added.
+
+### Owned definition lifecycle for integration (2026-10-02)
+
+`runtime/.../mesh/TriangulationDefinitionLifecycle.java` provides the JDK-only
+ownership gateway for the pending lazy-edge integration. Bootstrap passes its
+handle to both premain installers and the bootstrap thread, before JvmShims
+installation. Admission requires one trusted premain Agent with the expected
+manifest, the actual HotSpot DisableAttachMechanism value enabled, no native/debug
+Agent or external boot/module replacement options, and retransformation support.
+Unsupported starts receive the original Instrumentation and cannot capture an
+admitted gate. Default launcher arguments have not been changed.
+
+All owned transformer registration/removal, retransform/redefine and module/native
+prefix changes acquire exclusive ownership before JVM entry. Capture installs its
+last capable collector under that same ownership. Optimized execution must hold
+a thread-confined read lease for the entire operation, including exceptional exit.
+Subsequent owned mutations wait outside the JVM and permanently revoke gates;
+capture itself retires previous gates before retransformation, including on a
+failed capture. Mutations and lease acquisition from transformer callbacks refuse
+without waiting, and same-thread read/write upgrades refuse. Search-path appends
+retain their existing behavior: they cannot replace already loaded dependencies.
+
+`diagnostic/OwnedDefinitionLifecycleSelfCheck.java` executes generated owned
+classes with real Instrumentation. It verifies concurrent downstream registration,
+operation-time redefinition, callback rejection, failed recapture revocation,
+defensive copies, restoration requiring a new gate, thread-confined/idempotent
+leases, retained-gate loader release and installer ownership handoff. Separate
+JVMs reject enabled/overridden attach, two Agents and debug options. The older
+unowned collector limitation remains valid; this protocol requires bootstrap to
+withhold the raw handle and trusted in-process code to use the gateway. It is not
+a security boundary against hostile JNI, reflection or escaped raw Instrumentation.
+
+Evidence is under `build/t050-lazy-edge-bytecode/owned-lifecycle/`. This mechanism
+is not yet used by the lazy weave. Official dependency fingerprints, full lease
+coverage/native fallback, supported single-Agent validation probe composition,
+native output/initialization and final host performance/resources remain pending.
+The existing multi-Agent host setup does not satisfy this new admission contract.
+Frozen Agents, official BATs, standard startup flags and the host queue are unchanged.
+
+The module-aware inherited callback control first failed: its declaring base did
+not implement ClassFileTransformer. The final detector also recognizes the trusted
+java.instrument transform dispatch frame. The failure log and pre-fix source are
+retained. Final Java17 lint/Werror and -Xverify:all pass115 checks across six JVM
+cases, including the helper on Boot-Class-Path (bootstrap loader). Thirteen existing
+bootstrap tests and devCheck pass; initial public-API documentation failure is
+retained. Jdeps finds only JDK modules. The eligible packaged Turboism bootstrap
+itself has not been executed, and no official geometry or host performance ran.
+Final offline-review.json SHA
+`185b5fbbfb80c0b6faa47a425d1427625cccf0bc5126d51696b497195f31cc29`
+binds66 inputs; the pre-correction checkpoint is superseded.
