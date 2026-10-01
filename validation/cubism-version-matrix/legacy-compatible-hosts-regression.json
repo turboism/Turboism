@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "result": "PASS_OFFLINE_ONLY",
+  "exactVersions": [
+    "5.0.02",
+    "5.0.03",
+    "5.0.04",
+    "5.0.05",
+    "5.0.06",
+    "5.1.00",
+    "5.1.01",
+    "5.1.02"
+  ],
+  "sourceProfile": "5.1.03",
+  "authorizedCapabilities": [
+    "cubism.core.owned-moc.read"
+  ],
+  "geometryRejected": true,
+  "realArtifactFactoryTests": 7,
+  "schedulerTests": 29,
+  "gates": [
+    "devCheck",
+    "Python lint"
+  ],
+  "nativeVerdict": "PENDING_OFFICIAL_QUEUED_JOBS",
+  "logs": {
+    "mundane-5003-5006-compatible.log": "4fde0b5797e2aa8df2640afa759342d47b25c3ebf2175656d5ffc9e3ff272699",
+    "mundane-5003-5006-scheduler.log": "59cdbbd6f3abd28bb48b085679b6405219c9822dff91efe38463bfc3b23743b2",
+    "mundane-legacy-expanded-devcheck.log": "87819618c890a28026af406ac9da72d7fa7a2becee3191da4e8acb9f4de1df21"
+  }
+}

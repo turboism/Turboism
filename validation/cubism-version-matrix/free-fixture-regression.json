@@ -19,7 +19,7 @@
   "liveTask": "mcp:5304@free-fixture",
   "invariants": [
     "Only exact task-owned documents; original bytes are never overwritten",
-    "Use production SDK unbind to retain at most two keyform parameters per target",
+    "Use production SDK unbind to retain at most two total distinct parameters per target, reserving non-keyform parameter budget first",
     "Preserve non-keyform families; remaining excessive binding count fails closed",
     "Every SDK unbind creates exactly one Undo entry; full binding projection restored by Undo and prepared by Redo",
     "Native texture baseline stays unchanged during fixture preparation",
@@ -34,5 +34,33 @@
     "mundane-free-fixture-probe-build.log": "50f485c15eed2a1cf4503a39f720cbe768db8b8bea3b22e3a4f9c95f8f6bd27d",
     "mundane-free-fixture-probe-selftest.log": "6ad3b6345ecdc38302a40dc57ee7e077e241c459aac0102fcf0b5384428c73da",
     "mundane-free-fixture-queue-regression.log": "ddbbf212c435a6686a7e47d56e64404509662946c811c2a29e3493d68b3bdd41"
+  },
+  "budgetFixRegression": {
+    "javaTests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "log": "mundane-free-r3-build.log",
+    "logSha256": "cc6d7b8dc6f7f48439772fc92af6bcb55f0afef102bd3adaae988cbffcdd8f82",
+    "assertions": [
+      "KEYFORM a,b,c + BLEND m retains a,m and removes b,c",
+      "Non-keyform parameters are preserved independent of input ordering",
+      "More than two non-keyform parameters fails closed",
+      "Other target bindings are unaffected"
+    ]
+  },
+  "nativeBudgetFixResult": {
+    "jobId": "7573bd1e-cc02-45ac-be7e-0946b92f20d2",
+    "round": "allversions-free-r3",
+    "maxParametersBefore": 4,
+    "maxParametersAfter": 2,
+    "removedKeyformBindings": 2,
+    "blendShapeBindingsBefore": 1,
+    "blendShapeBindingsAfter": 1,
+    "preparation": "SDK_UNBIND_UNDO_REDO_PASS",
+    "nativeLayerPixelUndoRedo": "PASS",
+    "fullResult": "FAIL",
+    "failure": "Native save EDT call timed out; save/reopen and full restoration not proven",
+    "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r3"
   }
 }
