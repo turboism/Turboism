@@ -1294,3 +1294,59 @@ implementation and evidence. Final5203/5303 comparisons, final three-version
 UI/startup linkage, guard/scan evidence, real repeated-target outputs and agreed
 resource bounds remain open. T044/T046 and the broader stable-optimization goal
 are not complete. No theoretical bottleneck is claimed.
+
+### T047 retained-recording attribution and offline removal-batch experiment
+
+No new host was launched. The retained final021e5302 pair was read with streaming
+execution and allocation analysis. First-operation on has428 inclusive remove
+samples,420 leaf samples; all420 leaf frames have BCI123, the backedge of the
+frozen bridge's identity-survivor scan. Registration st has2 frames. The pinned
+native53x h.a(l,l,j) performs adjacent removals at126/133, then adds replacements.
+This motivates combining the survivor traversals; sample/BCI counts are not
+causal operation costs. Runtime patch/install frames are also present in the
+broad prefix report, so its inclusive allocation totals are not exclusively
+steady-state bridge work. Weak-key allocation weight62,897,536bytes from17 events
+is a sampling estimate, not retained bytes or an exact allocation count.
+
+hotspot-review.json SHAe01fb937b2ec2e8bec9c0e95342043d40b19a576dd413439ece0127ff651ca8e
+binds the retained JFR/window hashes and separately counts Java/native samples.
+It agrees with the strict report's whole sample totals and first-window target
+counts. Original performance/host outcomes remain unchanged.
+
+The experiment retains each native remove first and its exact return/equality
+semantics, but defers at most8 known, distinct identities. One survivor scan
+proves actual removal before either indexed query or positive membership can
+answer. Unknown probes, surviving arguments, reinsertion, size drift, a full
+budget or partial failure cause dirty/native fallback or live-set rebuild.
+Pending references are released on clear/rebuild/invalidation; registration
+remains weak with no set back-reference. No host selector, caller weave,
+public bridge descriptor, settings or production dependency changed.
+
+The new owned-object regression fails against old code with509 survivor visits
+for a256-triangle two-remove/two-add sequence, then passes with256 visits. The
+26 differential/lifecycle cases include a pair of mutated-equality tree-bin
+victims, pending membership, reinsertion, capacity overflow, side removals,
+failed scan, clear release and the existing independent8-thread/weak-key gates.
+Other affected bridge/patcher cases make53 focused tests; both reviewed native
+families pass2 static weave tests, and devCheck passes. These tests do not execute
+official classes or prove host resource safety.
+
+A separate OpenJDK17.0.20 benchmark loads old021e and candidate bridge classes in
+isolated loaders and flips self-owned512-triangle disjoint quadrilaterals. Eight
+warmup pairs precede five alternating-order measured pairs of2000 cycles. Every
+cycle checks the two ordered result identities. No measured cycle group has GC.
+Median thread CPU73,763,371→57,954,888ns (-21.43%), wall73,926,723→58,073,322ns
+(-21.44%), ThreadMXBean measured allocation5,561,024→3,437,728bytes (-38.18%).
+This is one controlled owned-object workload, not Cubism speedup or RSS/retention
+acceptance. Measurement excludes initial index construction, including the new
+per-state array of8 pending references. The measured candidate classes are copied
+and match the tested classes; host peak/retained memory remains unmeasured.
+
+Evidence: build/t047-offline/{offline-review.json,measurements.jsonl,
+RemovalBatchBenchmark.java,measured-candidate-classes,TEST-*.xml,t047-*.log}.
+Old sandbox cache-lock failure and the expected red test remain retained.
+The candidate is an offline source experiment; frozen production Agent021e is
+unchanged. No new Agent is packaged or submitted. T047's offline slice is
+complete; T044/T046 and stable final-host optimization remain unproven. The next
+step is freezing a new artifact and collecting a bounded host comparison;
+these owned-object numbers cannot grant production acceptance.
