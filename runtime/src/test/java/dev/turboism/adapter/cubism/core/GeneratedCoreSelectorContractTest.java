@@ -16,10 +16,21 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-                "e3449dce32c127b73d525f8b5f4782faade43b8aa236fd1f862805e7310809ff",
+                "68eef67f5ecf825930878129b6880af124cafc2d7df7975c974dc153c55b9793",
                 CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256);
         assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
-        assertEquals(62, CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size());
+        assertEquals(44, CorePublicApiSelectorContract.COMMON_STRUCTURAL_ALIASES.size());
+        assertEquals(
+                62,
+                CorePublicApiSelectorContract.requiredAliasesFor("5.1.03")
+                        .orElseThrow()
+                        .size());
+        assertEquals(
+                Set.of("cubism.core.owned-moc.read"),
+                CorePublicApiSelectorContract.capabilityIdsFor("5.1.03").orElseThrow());
+        assertFalse(CorePublicApiSelectorContract.requiredAliasesFor("5.1.03")
+                .orElseThrow()
+                .contains(CorePublicApiSelectorContract.MODEL_GET_GLUES));
         assertEquals(
                 80,
                 CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")

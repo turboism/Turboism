@@ -159,6 +159,7 @@ tasks.processResources {
         "cubism-5.2.02-workspace-control.json",
         "cubism-5.2.03-autobackup.json",
         "cubism-5.2.03-clipmask.json",
+        "cubism-5.1.03-core-model-read.json",
         "cubism-5.2.03-core-model-read.json",
         "cubism-5.2.03-editor-model.json",
         "cubism-5.2.03-performance-render-scene.json",

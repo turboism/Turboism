@@ -46,7 +46,7 @@ public final class CorePublicApiProviderFactory {
         }
         if (!resolver.authorizes(
                 CorePublicApiSelectorContract.ADAPTER_SLICE_ID,
-                CorePublicApiSelectorContract.CAPABILITY_IDS,
+                CorePublicApiSelectorContract.capabilityIdsFor(artifactProfile).orElseThrow(),
                 requiredAliases.orElseThrow())) {
             return failed(
                     CoreProviderFailure.Code.EVIDENCE_REJECTED,

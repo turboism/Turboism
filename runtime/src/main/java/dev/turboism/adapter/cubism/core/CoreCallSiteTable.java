@@ -118,6 +118,24 @@ final class CoreCallSiteTable implements AutoCloseable {
         return new CoreCanvasSnapshot(size[0], size[1], origin[0], origin[1], pixelsPerUnit);
     }
 
+    CoreCanvasSnapshot projectCanvas(final Object rawModel) {
+        return readCanvas(requireObject(
+                callSite(CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO).invoke(rawModel),
+                "Core canvas information is unavailable."));
+    }
+
+    List<CoreParameterDefinition> projectParameters(final Object rawModel) {
+        return readParameters(requireObject(
+                callSite(CorePublicApiSelectorContract.MODEL_GET_PARAMETERS).invoke(rawModel),
+                "Core parameters are unavailable."));
+    }
+
+    List<CorePartDefinition> projectParts(final Object rawModel) {
+        return readParts(requireObject(
+                callSite(CorePublicApiSelectorContract.MODEL_GET_PARTS).invoke(rawModel),
+                "Core parts are unavailable."));
+    }
+
     private List<CoreParameterDefinition> readParameters(final Object parameters) {
         final Object countValue =
                 callSite(CorePublicApiSelectorContract.PARAMETERS_GET_COUNT).invoke(parameters);

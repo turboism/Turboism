@@ -93,3 +93,9 @@
 5.3.00 owned-r1 /Core6.0.257 已收取 supervisor PASS，身份/夹具/正常退出均true、cleanup safe，全部owned-MOC断言通过，结构计数同5.3.01，parameterRepeat=true/latestMocVersion=V5_3。当前六个版本的owned-MOC行为验收通过；全能力矩阵仍未完成。Core预检目录新增显式assisted变体，选择FREE并依照已授权规则处理跨版本Load/Yes及更新Cancel，保留标准变体，不证明Mesa优化支持；29项调度回归通过。
 
 已提交5.3.02 /5.3.03 /5.2.03 assisted Core预检，逐版观察tuple后再扩独立owned-MOC任务白名单；具体job/prepared digest见campaign-jobs.json。未提交无FREE辅助的5.3.02 prepared输入，避免已知启动流程不匹配。
+
+5.2.03 /5.3.02 /5.3.03 assisted Core预检均已确认supervisor PASS，native tuple分别5.0.256/6.0.257/6.0.257，identityVerified/fixtureUnchanged/normalExit=true、cleanup safe，均NO_PUBLIC_BRIDGE。已原样复制结果并保留raw lifecycle摘要，见core-preflight-evidence/与campaign-jobs.json；只证明身份和模型观察，不等同owned-MOC或全能力通过。
+
+正在适配5.1.03精确Core：62个实际存在selectors、独立capabilityIds仅cubism.core.owned-moc.read、native tuple固定实测5.0.0。基础Canvas/Parameters/Parts按family读取，完整Drawable关系/Glue/Deformer明确UnsupportedOperationException；较小profile不能准入geometry。已有直接公开生产admit路径、不可变/新鲜副本、完整geometry拒绝、显式/父级联关闭及旧版在途读取保护回归；实机适配验收尚待，不能记为PASS。
+
+5.1.03适配已通过131项相关Java回归、devCheck、Core三门禁和生成源一致性检查。回归包括较小legacy selector计划的直接生产准入、geometry拒绝、新鲜/不可变副本、父关闭等待Canvas原生读取；该并发夹具的阻塞点位于Canvas getter，已按真实调用family修正。record/pack及resource/index/family声明、manifest、selectorpolicy、SDK文档同步；新agent与probe已重建。5.1.03 owned-r4、5.2.03/5.3.02/5.3.03 owned-r1已冻结/提交，未在终态前记为通过。旧版探针固定要求42参数/19部件，精确拒绝缺失三族；allStructuralReadMethods=PARTIAL_EXPECTED，避免完整结构误报。

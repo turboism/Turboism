@@ -22,6 +22,13 @@ final class CoreStructuralTracerFactory {
         }
 
         final String artifactProfile = provider.artifactProfile();
+        if (!CorePublicApiSelectorContract.capabilityIdsFor(artifactProfile)
+                .orElse(Set.of())
+                .contains("cubism.geometry.read")) {
+            return failed(
+                    CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                    "Core profile does not authorize the complete geometry surface.");
+        }
         final String resolverProfile = CorePublicApiProviderFactory.artifactProfile(resolver.admittedCubismVersion());
         final Optional<String> expectedProviderId = CorePublicApiSelectorContract.providerIdFor(artifactProfile);
         final Optional<Set<String>> requiredAliases = CorePublicApiSelectorContract.requiredAliasesFor(artifactProfile);

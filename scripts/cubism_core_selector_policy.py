@@ -133,9 +133,14 @@ def validate_policy_shape(policy: dict[str, Any]) -> list[dict[str, Any]]:
         fail("profiles must be a non-empty object")
     for version, profile in profiles.items():
         version_key(version)
-        if not isinstance(profile, dict) or set(profile) != {"providerId"}:
-            fail(f"profiles.{version} must contain only providerId")
+        if (not isinstance(profile, dict) or "providerId" not in profile
+                or set(profile) - {"providerId", "capabilityIds"}):
+            fail(f"profiles.{version} must contain providerId and optional capabilityIds")
         require_text(profile["providerId"], f"profiles.{version}.providerId")
+        if "capabilityIds" in profile:
+            capabilities = require_string_list(profile["capabilityIds"], f"profiles.{version}.capabilityIds")
+            if not set(capabilities) <= set(policy["capabilityIds"]):
+                fail(f"profiles.{version}.capabilityIds contains an undeclared capability")
 
     selectors = policy["selectors"]
     if not isinstance(selectors, list) or not selectors:
@@ -433,6 +438,20 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
             f"            case ARTIFACT_PROFILE_{identifier} -> "
             f"Optional.of(REQUIRED_ALIASES_{identifier});"
         )
+    lines.extend([
+        "            default -> Optional.empty();",
+        "        };",
+        "    }",
+        "",
+        "    public static Optional<Set<String>> capabilityIdsFor(final String artifactProfile) {",
+        "        Objects.requireNonNull(artifactProfile, \"artifactProfile\");",
+        "        return switch (artifactProfile) {",
+    ])
+    for version in profiles:
+        identifier = version.replace(".", "_")
+        capabilities = policy["profiles"][version].get("capabilityIds", policy["capabilityIds"])
+        expression = "Set.of(" + ", ".join(java_string(value) for value in capabilities) + ")"
+        lines.append(f"            case ARTIFACT_PROFILE_{identifier} -> Optional.of({expression});")
     lines.extend(
         [
             "            default -> Optional.empty();",

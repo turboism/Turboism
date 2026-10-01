@@ -40,6 +40,48 @@ class OwnedMocRuntimeTest {
     }
 
     @Test
+    void legacyOwnedModelReadsBasicFamiliesWithoutExtendedSelectors() {
+        final var resolver = TestCoreApiFixture.resolverWithExtras(
+                "5.1.03", TestCoreApiFixture.ownedMocSelectors(), TestCoreApiFixture.ownedMocCapability());
+        final var backend = RuntimeCoreModelBackend.admit(resolver, CoreVersionExpectation.exact(11, 12, 13))
+                .value()
+                .orElseThrow();
+        assertFalse(backend.completeGeometryAvailable());
+        assertThrows(
+                UnsupportedOperationException.class, () -> backend.modelAccess().active());
+        assertThrows(UnsupportedOperationException.class, backend::evaluatedJoin);
+        assertThrows(
+                UnsupportedOperationException.class, () -> backend.publishBorrowedModel(modelWithCanvas(), "legacy"));
+        final var nativeModel = modelWithCanvas();
+        TestCoreApiFixture.Moc.prepare(nativeModel, 42L);
+        final OwnedMoc parent = backend.coreRuntimeInfo().mocLoader().load(MocData.copyOf(new byte[] {5, 1}));
+        final OwnedModel owned = parent.instantiateModel();
+        assertEquals(512f, owned.canvasInfo().widthPixels());
+        assertEquals("ParamA", owned.parameters().get(0).id());
+        assertTrue(owned.parameters().get(0).repeat().isEmpty());
+        assertEquals("PartA", owned.parts().get(0).id());
+        final var savedParameters = owned.parameters();
+        assertThrows(UnsupportedOperationException.class, savedParameters::clear);
+        nativeModel.getParameters().getValues()[0] = 7f;
+        assertEquals(1.5f, savedParameters.get(0).currentValue());
+        assertEquals(7f, owned.parameters().get(0).currentValue());
+        assertThrows(UnsupportedOperationException.class, owned::drawables);
+        assertThrows(UnsupportedOperationException.class, owned::glues);
+        assertThrows(UnsupportedOperationException.class, owned::deformers);
+        owned.update();
+        parent.close();
+        assertThrows(IllegalStateException.class, owned::canvasInfo);
+        assertThrows(IllegalStateException.class, owned::parameters);
+        assertThrows(IllegalStateException.class, owned::parts);
+        assertThrows(IllegalStateException.class, owned::drawables);
+        assertThrows(IllegalStateException.class, owned::glues);
+        assertThrows(IllegalStateException.class, owned::deformers);
+        backend.close();
+        assertThrows(
+                IllegalStateException.class, () -> backend.coreRuntimeInfo().version());
+    }
+
+    @Test
     void loadsOwnedMocWithByteLevelDiagnostics() {
         final MocLoader loader = loader("5.3.02");
         final TestCoreApiFixture.Model model = modelWithCanvas();
@@ -288,6 +330,15 @@ class OwnedMocRuntimeTest {
 
     @Test
     void parentCloseWaitsForAnInFlightNativeRead() throws Exception {
+        verifyParentCloseWaitsForRead("5.3.02");
+    }
+
+    @Test
+    void legacyParentCloseWaitsForAnInFlightBasicRead() throws Exception {
+        verifyParentCloseWaitsForRead("5.1.03");
+    }
+
+    private void verifyParentCloseWaitsForRead(final String profile) throws Exception {
         final var reading = new java.util.concurrent.CountDownLatch(1);
         final var release = new java.util.concurrent.CountDownLatch(1);
         final var closing = new java.util.concurrent.CountDownLatch(1);
@@ -304,11 +355,11 @@ class OwnedMocRuntimeTest {
                     }
                 });
         TestCoreApiFixture.Moc.prepare(model, 42L);
-        final OwnedMoc moc = loader("5.3.02").load(MocData.copyOf(new byte[] {6, 1}));
+        final OwnedMoc moc = loader(profile).load(MocData.copyOf(new byte[] {6, 1}));
         final OwnedModel child = moc.instantiateModel();
         final var threads = java.util.concurrent.Executors.newFixedThreadPool(2);
         try {
-            final var read = threads.submit(child::parameters);
+            final var read = threads.submit(child::canvasInfo);
             assertTrue(reading.await(5, java.util.concurrent.TimeUnit.SECONDS));
             final var close = threads.submit(() -> {
                 closing.countDown();
@@ -320,7 +371,8 @@ class OwnedMocRuntimeTest {
                     () -> close.get(100, java.util.concurrent.TimeUnit.MILLISECONDS));
             assertEquals(0, model.closeCount(), "Native memory must remain live during the read");
             release.countDown();
-            assertFalse(read.get(5, java.util.concurrent.TimeUnit.SECONDS).isEmpty());
+            assertEquals(
+                    512f, read.get(5, java.util.concurrent.TimeUnit.SECONDS).widthPixels());
             close.get(5, java.util.concurrent.TimeUnit.SECONDS);
             assertEquals(1, model.closeCount());
             assertThrows(IllegalStateException.class, child::parameters);
