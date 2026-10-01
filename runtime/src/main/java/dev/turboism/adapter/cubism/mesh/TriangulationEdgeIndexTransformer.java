@@ -9,19 +9,16 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Exact-selector transformer for the host triangulator's per-edge triangle lookup.
+ * Exact-selector transformer for indexed edge queries and guarded membership/add fusion.
  *
- * <p>It rewrites one class only — {@code TriangleList} — and only when the observed bytes match a
- * reviewed digest. Two digests are admitted: the bytes shared by the reviewed 5.3.x builds
- * (5.3.00 through 5.3.04 ship identical {@code TriangleList} bytes) and the reviewed 5.2.03
- * bytes, whose instruction shape was independently verified to satisfy the same four-method
- * contract. Every other class, and every unrecognised shape, is returned untouched. The
- * transformer is non-retransforming, so it can only act on the first definition — a class the
- * host has already loaded is never patched behind its back.</p>
+ * <p>Each of the two targets has independent reviewed class hashes and shape gates. Unknown
+ * bytes remain untouched. Fusion calls the original add method and does not require an indexed
+ * TriangleList, so either transformation can safely decline independently. Both outcomes are
+ * exposed separately; success of one must not be reported as success of the other.</p>
  *
- * <p>The patch itself is fail-closed: {@link TriangulationEdgeIndexPatcher} refuses any class
- * whose four target methods do not each carry exactly the reviewed call-site/prologue shape, and
- * the woven {@code a(j)} keeps the original scan body as the automatic fallback.</p>
+ * <p>Only initial definitions are eligible. The installer declines if either target was already
+ * loaded, and redefinition callbacks are ignored. The query patch retains its native scan
+ * fallback; membership fusion retains the original contains/add branch when debug is enabled.</p>
  */
 public final class TriangulationEdgeIndexTransformer implements ClassFileTransformer {
 
@@ -31,6 +28,12 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     /** Binary name used for already-loaded detection. */
     static final String TARGET_CLASS_NAME =
             "com.live2d.graphics3d.editableMesh.triangulation.TriangleList";
+    static final String MEMBERSHIP_INTERNAL_NAME =
+            "com/live2d/graphics3d/editableMesh/triangulation/h";
+    static final String MEMBERSHIP_CLASS_NAME = MEMBERSHIP_INTERNAL_NAME.replace('/', '.');
+    private static final Set<String> MEMBERSHIP_DIGESTS = Set.of(
+            "ef4a5eb2f0e1b0ac0295f76146a513a326729cfe4526884104cbb27978c52543",
+            "5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d");
 
     /** SHA-256 of the 5.3.x-family class bytes (identical on 5.3.00 through 5.3.04). */
     static final String REVIEWED_CLASS_SHA256_53X =
@@ -60,6 +63,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final TriangulationEdgeIndexPatcher patcher = new TriangulationEdgeIndexPatcher();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
+    private final AtomicReference<Outcome> membershipOutcome = new AtomicReference<>(Outcome.NONE);
+    private final AtomicReference<String> membershipDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203));
@@ -79,6 +84,16 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         return diagnostic.get();
     }
 
+    /** Outcome for the membership caller, independent of the edge-query transformation. */
+    public Outcome membershipOutcome() {
+        return membershipOutcome.get();
+    }
+
+    /** Rejection detail for the membership caller, or empty when no rejection was observed. */
+    public String membershipDiagnostic() {
+        return membershipDiagnostic.get();
+    }
+
     @Override
     public byte[] transform(
             final ClassLoader loader,
@@ -86,7 +101,25 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             final Class<?> classBeingRedefined,
             final ProtectionDomain domain,
             final byte[] classfileBuffer) {
-        if (classfileBuffer == null || !TARGET_INTERNAL_NAME.equals(className)) return null;
+        if (classfileBuffer == null || classBeingRedefined != null) return null;
+        if (MEMBERSHIP_INTERNAL_NAME.equals(className)) {
+            final String observed = sha256(classfileBuffer);
+            if (!MEMBERSHIP_DIGESTS.contains(observed)) {
+                membershipOutcome.set(Outcome.HASH_MISMATCH);
+                membershipDiagnostic.set("observed=" + observed);
+                return null;
+            }
+            try {
+                final byte[] patched = TriangulationMembershipPatcher.patch(classfileBuffer);
+                membershipOutcome.set(Outcome.PATCHED);
+                return patched;
+            } catch (IllegalArgumentException rejected) {
+                membershipOutcome.set(Outcome.SHAPE_REJECTED);
+                membershipDiagnostic.set(rejected.getMessage());
+                return null;
+            }
+        }
+        if (!TARGET_INTERNAL_NAME.equals(className)) return null;
         final String observed = sha256(classfileBuffer);
         if (!admittedDigests.contains(observed)) {
             outcome.compareAndSet(Outcome.NONE, Outcome.HASH_MISMATCH);

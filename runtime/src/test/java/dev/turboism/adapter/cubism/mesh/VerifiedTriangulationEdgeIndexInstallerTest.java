@@ -61,6 +61,17 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
     }
 
     @Test
+    void declinesWhenMembershipCallerIsAlreadyLoaded() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Class<?> loaded = loadedTarget(TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME);
+        final var installation = VerifiedTriangulationEdgeIndexInstaller.install(
+                instrumentation(calls, new Class<?>[] {loaded}, false), ignored -> {});
+        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED,
+                installation.status());
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
     void registrationFailureIsFailClosed() {
         final List<String> calls = new ArrayList<>();
         final List<String> codes = new ArrayList<>();
@@ -114,16 +125,20 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
 
     /** Defines a class literally named like the target so the loaded-check sees it. */
     private static Class<?> loadedTarget() throws Exception {
+        return loadedTarget(TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME);
+    }
+
+    private static Class<?> loadedTarget(final String internalName) throws Exception {
         final ClassWriter writer = new ClassWriter(0);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
-                TriangulationEdgeIndexTransformer.TARGET_INTERNAL_NAME,
+                internalName,
                 null, "java/lang/Object", null);
         writer.visitEnd();
         final byte[] bytes = writer.toByteArray();
         return new ClassLoader() {
             Class<?> define() {
                 return defineClass(
-                        TriangulationEdgeIndexTransformer.TARGET_CLASS_NAME, bytes, 0, bytes.length);
+                        internalName.replace('/', '.'), bytes, 0, bytes.length);
             }
         }.define();
     }
