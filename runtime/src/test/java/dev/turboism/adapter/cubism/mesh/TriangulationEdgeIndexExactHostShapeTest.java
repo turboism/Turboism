@@ -69,10 +69,10 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         }
     }
 
-    /** Asserts the patched bytes carry all four bridge call sites. */
+    /** Asserts the patched bytes carry all five bridge call sites. */
     private static void assertWovenCallSites(final byte[] patched) {
         final org.objectweb.asm.ClassReader reader = new org.objectweb.asm.ClassReader(patched);
-        final int[] calls = new int[4]; // add, remove, clear, tryQuery
+        final int[] calls = new int[5]; // add, remove, clear, tryQuery, contains
         reader.accept(new org.objectweb.asm.ClassVisitor(org.objectweb.asm.Opcodes.ASM9) {
             @Override
             public org.objectweb.asm.MethodVisitor visitMethod(
@@ -89,6 +89,7 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                                 case "remove" -> calls[1]++;
                                 case "clear" -> calls[2]++;
                                 case "tryQuery" -> calls[3]++;
+                                case "contains" -> calls[4]++;
                                 default -> throw new AssertionError("unexpected bridge call: " + n);
                             }
                         }
@@ -96,7 +97,7 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                 };
             }
         }, 0);
-        assertEquals(List.of(1, 1, 1, 1), List.of(calls[0], calls[1], calls[2], calls[3]),
+        assertEquals(List.of(1, 1, 1, 1, 1), List.of(calls[0], calls[1], calls[2], calls[3], calls[4]),
                 "each bridge call site must appear exactly once");
     }
 

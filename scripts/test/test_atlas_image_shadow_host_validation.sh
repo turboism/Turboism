@@ -1247,7 +1247,7 @@ env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fi
   --prepare-dir "$prepare_tlp_on" > "$test_root/prepare-tlprod-on.log" 2>&1 \
   || fail 'tlprod on-leg prepare failed'
 grep -q 'tlindexPreference=default-on' "$test_root/prepare-tlprod-on.log"
-grep -q 'tlWeaveExpectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec' \
+grep -q 'tlWeaveExpectClassSha256=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5' \
   "$test_root/prepare-tlprod-on.log"
 python3 - "$prepare_tlp_on/runner-request.json" <<'PYTP1'
 import json
@@ -1267,8 +1267,8 @@ expected = [
     "-Dturboism.validation.tlWeave.phase=t029-tlindex",
     "-Dturboism.validation.tlWeave.runId=tlprod-on1",
     "-Dturboism.validation.tlWeave.outputDir={HOME}/tl-weave",
-    "-Dturboism.validation.tlWeave.expectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec",
-    "-Dturboism.validation.tlWeave.expectCaptureClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec",
+    "-Dturboism.validation.tlWeave.expectClassSha256=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5",
+    "-Dturboism.validation.tlWeave.expectCaptureClassSha256=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5",
     "-Dturboism.validation.tlWeave.expectLoader=jdk.internal.loader.ClassLoaders$AppClassLoader",
     "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3.03/app/lib/Live2D_Cubism.jar",
     "-Dturboism.validation.tlWeave.captureN=4",
@@ -1371,7 +1371,7 @@ aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--a
 assert aux == ["tri-weave-agent.jar", "atlas-image-shadow-scene-driver.jar"], aux
 props = [argv[i + 1] for i, flag in enumerate(argv)
          if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
-assert "-Dturboism.validation.tlWeave.expectClassSha256=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec" in props, props
+assert "-Dturboism.validation.tlWeave.expectClassSha256=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5" in props, props
 assert "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3/app/lib/Live2D_Cubism.jar" in props, props
 assert not any("t039." in a or "aux-agent-before-main" in a for a in argv), argv
 print("T029_TLPROD_5302_PLAN PASS expectSha=patched53 codeSource=5.3")
@@ -1394,7 +1394,7 @@ aux = [argv[i + 1].split(":")[-1] for i, flag in enumerate(argv) if flag == "--a
 assert aux == ["tri-weave-agent.jar", "atlas-image-shadow-scene-driver.jar"], aux
 props = [argv[i + 1] for i, flag in enumerate(argv)
          if flag == "--jvm-option" and "tlWeave." in argv[i + 1]]
-assert "-Dturboism.validation.tlWeave.expectClassSha256=97e7ca33aa45135a7b0a4c6acb8b82da8be9f7f761cc2b0611a4b19155751844" in props, props
+assert "-Dturboism.validation.tlWeave.expectClassSha256=33bea8bc8bf437df71915b17a704a2283946424458b54848cdb8cdea35010cb4" in props, props
 assert "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files/Live2D%%20Cubism%%205.2/app/lib/Live2D_Cubism.jar" in props, props
 assert not any("t039." in a or "aux-agent-before-main" in a for a in argv), argv
 print("T029_TLPROD_5203_PLAN PASS expectSha=patched52 codeSource=5.2")

@@ -134,3 +134,41 @@ tlWrongSha/tlShapePins），`hostExecuted=false officialClassLoaded=false`
 是否仍存活：存活则实际victim是另一等值对象，置dirty重建；不存活则可摘参数
 的自录键。后续候选去掉逐存活对象的containsKey，不改变原生删除和回退路径。
 这依赖精确宿主的已审阅变更入口，不承诺支持未织入add隐藏的任意同尺寸替换。
+
+## 2026-10-01 后续候选：仅对象身份命中的 contains 快路（已实现，待实机）
+
+三对 29f13cf8 实机未证明稳定收益。r3 的 64 层栈导出中，on 的
+`l.equals` 叶样本有 669 个位于 `HashSet.contains` 链，off 为 15 个。
+这只是采样归因，不是调用次数或因果效应。5203 javap 再次确认
+`TriangleList.c(l)` 在原 null 检查后只调用 `b.contains(l)`；三角形
+hashCode 恒零，equals 为顶点坐标的排列比较。
+
+可检验的方案是仅对“已知仍存活的相同对象”返回 true：状态非 dead、非 dirty，
+记录尺寸与原集合尺寸相同，身份表存在参数。依赖既有全 add/clear 织入与
+iterator.remove 仅缩小集合的变更协议。不得用端点 index 代替几何 equals，
+不得把身份未命中直接返回 false；未知、过期或相等但不同身份的参数仍执行
+原生 contains。原 null 检查保留。此方案不绕过 add/remove 的原生语义。
+
+实施前还需确认三版本 c(l) 精确形状、固定元素类型与恒零哈希绑定；增加
+身份命中、相等异身份、坐标变化、iterator.remove 后过期状态、dead 状态的
+差分回归。必须更新织入形状与工件哈希，并单独实机验证。当前资源 A/B
+继续使用冻结的旧候选，不含此方案；尚未对该方案作性能承诺。
+
+补充静态核验：5203（bcc6e34f…）、5302（988ef6a8…）、5303（bd0a23b9…）
+三个官方 JAR 均确认 c(l) 调用 LinkedHashSet.contains，且 l.hashCode 只有
+iconst_0 / ireturn。逐版本 JAR SHA 与原始 javap 片段保存在
+`build/t029-real-host-acceptance/contains-shape-review.json`。这只排除了这两个
+入口的版本形状差异，不替代候选差分测试或实机效果验证。
+
+
+实现进展：生产 helper 新增正向身份 contains；patcher 对 c(l) 的唯一原生
+contains 站点增加第五项准入检查，缺失时整类拒绝。19 项 helper、12 项
+transformer、5 项 installer 测试通过；官方类形状测试和 devCheck 通过。
+打包后的 agent 为 `77ce425567f8a4fb1ef1c5055fe5015a33c1cf1dcefbc90dcfff9c0bbeebd17c`。
+使用该 JAR 中的 patcher 处理三版本官方类得到：
+
+- 5203 patched SHA `33bea8bc8bf437df71915b17a704a2283946424458b54848cdb8cdea35010cb4`
+- 5302/5303 patched SHA `f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5`
+
+原始类 SHA 未变。原生 add/remove 保持不变，unknown/dirty/dead contains
+仍使用原生几何相等查找。新候选尚无实机效果证据；完整 wrapper 绑定回归已通过。

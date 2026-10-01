@@ -28,6 +28,8 @@ import org.objectweb.asm.Opcodes;
  *       {@code TriangulationEdgeIndex.remove(LinkedHashSet,Object)}. Identical stack shape.</li>
  *   <li>{@code c()V}: swap the single {@code LinkedHashSet.clear} invoke for
  *       {@code TriangulationEdgeIndex.clear(LinkedHashSet)}. Identical stack shape.</li>
+ *   <li>{@code c(l)Z}: swap the single {@code LinkedHashSet.contains} invoke for a positive
+ *       identity shortcut; unknown or stale membership still invokes native contains.</li>
  *   <li>{@code a(j)List}: after the leading
  *       {@code aload_1; ldc ""; Intrinsics.checkNotNullParameter} prologue emit
  *       {@code r = TriangulationEdgeIndex.tryQuery(b, j.a().getIndex(), j.b().getIndex());
@@ -35,8 +37,8 @@ import org.objectweb.asm.Opcodes;
  *       declines.</li>
  * </ul>
  *
- * <p>Fail-closed by construction: every one of the four method gates must match exactly once —
- * one {@code LinkedHashSet.add}/{@code remove}/{@code clear} call site each and one leading
+ * <p>Fail-closed by construction: every one of the five method gates must match exactly once —
+ * one {@code LinkedHashSet.add}/{@code remove}/{@code clear}/{@code contains} call site each and one leading
  * {@code a(j)} prologue sequence — or {@link NotApplicable} is thrown and the caller keeps the
  * original bytes.</p>
  *
@@ -85,7 +87,7 @@ public final class TriangulationEdgeIndexPatcher {
     /** Counts the pinned features; the class is only patched when every count is exactly one. */
     private static final class Survey {
         boolean aLFound, bLFound, cFound, aJFound;
-        int aLAddSites, bLRemoveSites, cClearSites, aJPrologues;
+        int aLAddSites, bLRemoveSites, cClearSites, aJPrologues, cLContainsSites;
     }
 
     private void verify(final byte[] original) {
@@ -121,6 +123,9 @@ public final class TriangulationEdgeIndexPatcher {
                                     if ("b".equals(name) && A_L_DESC.equals(desc)) {
                                         survey.bLFound = true;
                                         return countInvoke(() -> survey.bLRemoveSites++, "remove", "(" + OBJ + ")Z");
+                                    }
+                                    if ("c".equals(name) && A_L_DESC.equals(desc)) {
+                                        return countInvoke(() -> survey.cLContainsSites++, "contains", "(" + OBJ + ")Z");
                                     }
                                     if ("c".equals(name) && "()V".equals(desc)) {
                                         survey.cFound = true;
@@ -278,6 +283,8 @@ public final class TriangulationEdgeIndexPatcher {
             throw new NotApplicable("b(l) LinkedHashSet.remove sites=" + survey.bLRemoveSites);
         if (survey.cClearSites != 1)
             throw new NotApplicable("c() LinkedHashSet.clear sites=" + survey.cClearSites);
+        if (survey.cLContainsSites != 1)
+            throw new NotApplicable("c(l) LinkedHashSet.contains sites=" + survey.cLContainsSites);
         if (survey.aJPrologues != 1)
             throw new NotApplicable("a(j) leading prologue sequences=" + survey.aJPrologues);
     }
@@ -350,6 +357,31 @@ public final class TriangulationEdgeIndexPatcher {
                                                         Opcodes.INVOKESTATIC,
                                                         BRIDGE,
                                                         "remove",
+                                                        "(Ljava/util/LinkedHashSet;" + OBJ + ")Z",
+                                                        false);
+                                                return;
+                                            }
+                                            super.visitMethodInsn(op, owner, n, d, itf);
+                                        }
+                                    };
+                                }
+                                if ("c".equals(name) && A_L_DESC.equals(desc)) {
+                                    return new MethodVisitor(Opcodes.ASM9, mv) {
+                                        @Override
+                                        public void visitMethodInsn(
+                                                final int op,
+                                                final String owner,
+                                                final String n,
+                                                final String d,
+                                                final boolean itf) {
+                                            if (op == Opcodes.INVOKEVIRTUAL
+                                                    && SET.equals(owner)
+                                                    && "contains".equals(n)
+                                                    && ("(" + OBJ + ")Z").equals(d)) {
+                                                super.visitMethodInsn(
+                                                        Opcodes.INVOKESTATIC,
+                                                        BRIDGE,
+                                                        "contains",
                                                         "(Ljava/util/LinkedHashSet;" + OBJ + ")Z",
                                                         false);
                                                 return;

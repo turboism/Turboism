@@ -884,16 +884,16 @@ elif [[ -n "$tri_tlprod_leg" ]]; then
   case "$version" in
     5303)
       tl_pristine_sha=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29
-      tl_patched_sha=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec
+      tl_patched_sha=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5
       ;;
     5302)
       tl_pristine_sha=87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29
-      tl_patched_sha=fbac6e0d9a4015e0a81ea6349414edc177445c7766ebafb2420c5077abc3b5ec
+      tl_patched_sha=f3427cec0e5c0c7d93c8a2cf72351a82a39b635b15682afc291eb3a62dc888f5
       tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.3/app/lib/Live2D_Cubism.jar'
       ;;
     5203)
       tl_pristine_sha=b0a11ffc8969e5a8d1266ca01db85dacb75ca4de64e14b9f282ba4c32169d920
-      tl_patched_sha=97e7ca33aa45135a7b0a4c6acb8b82da8be9f7f761cc2b0611a4b19155751844
+      tl_patched_sha=33bea8bc8bf437df71915b17a704a2283946424458b54848cdb8cdea35010cb4
       tl_expect_codesource='file:/C:/Program%%20Files/Live2D%%20Cubism%%205.2/app/lib/Live2D_Cubism.jar'
       ;;
   esac
