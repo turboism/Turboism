@@ -75,7 +75,7 @@ public final class DefinitionAdmissionSelfCheck implements Opcodes {
         }
     }
     private static Map<String, String> expected(String name, byte[] bytes) {
-        return Map.of(name.replace('/', '.'), DefinitionFingerprint.of(bytes));
+        return Map.of(name.replace('/', '.'), DefinitionFingerprint.runtimeOf(bytes));
     }
     private static int value(Class<?> type) throws Exception {
         return (int) type.getMethod("value").invoke(type.getConstructor().newInstance());
@@ -169,6 +169,50 @@ public final class DefinitionAdmissionSelfCheck implements Opcodes {
             observations.add("lateTransformerLimit=collectorMatchDoesNotProveFinalDefinition");
         } finally { instrumentation.removeTransformer(late); }
     }
+    private static byte[] runtimeMetadataFixture(String name, boolean classOnly, int value, int visibleTag) {
+        int deprecated = classOnly ? ACC_DEPRECATED : 0;
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(V17, ACC_PUBLIC | ACC_FINAL | ACC_SUPER | deprecated, name, null, "java/lang/Object", null);
+        AnnotationVisitor visible = writer.visitAnnotation("L" + OWNED + "Note;", true);
+        visible.visit("number", visibleTag); visible.visitEnd();
+        if (classOnly) writer.visitAnnotation("L" + OWNED + "ClassNote;", false).visitEnd();
+        FieldVisitor field = writer.visitField(ACC_PUBLIC | ACC_STATIC | ACC_FINAL | deprecated, "index", "I", null, 7);
+        if (classOnly) field.visitAnnotation("L" + OWNED + "ClassNote;", false).visitEnd();
+        field.visitEnd();
+        MethodVisitor method = writer.visitMethod(ACC_PUBLIC | ACC_STATIC | deprecated, "value", "(I)I", null, null);
+        if (classOnly) {
+            method.visitAnnotation("L" + OWNED + "ClassNote;", false).visitEnd();
+            method.visitAnnotableParameterCount(1, false);
+            method.visitParameterAnnotation(0, "L" + OWNED + "ClassNote;", false).visitEnd();
+        }
+        method.visitCode(); method.visitIntInsn(BIPUSH, value); method.visitInsn(IRETURN);
+        method.visitMaxs(0, 0); method.visitEnd(); writer.visitEnd(); return writer.toByteArray();
+    }
+    private static void runtimeProjectionControls(LiveDefinitionAdmission engine) {
+        String name = OWNED + "RuntimeProjection";
+        byte[] reviewed = runtimeMetadataFixture(name, true, 3, 7);
+        byte[] projected = runtimeMetadataFixture(name, false, 3, 7);
+        require(!DefinitionFingerprint.of(reviewed).equals(DefinitionFingerprint.of(projected)), "full static metadata fingerprint unchanged");
+        require(DefinitionFingerprint.runtimeOf(reviewed).equals(DefinitionFingerprint.runtimeOf(projected)), "runtime projection normalizes JVM-omitted class metadata");
+        require(!DefinitionFingerprint.runtimeOf(reviewed).equals(DefinitionFingerprint.runtimeOf(
+                runtimeMetadataFixture(name, false, 4, 7))), "runtime projection still refuses changed instructions");
+        require(!DefinitionFingerprint.runtimeOf(reviewed).equals(DefinitionFingerprint.runtimeOf(
+                runtimeMetadataFixture(name, false, 3, 8))), "runtime projection still refuses changed visible annotations");
+        Class<?> type = new Loader().define(name, reviewed, reviewed);
+        require(engine.capture(new Class<?>[] {type}, expected(name, reviewed)).getAsBoolean(), "real JVM class-only metadata projection");
+        observations.add("runtimeProjection=classRetentionMetadataOnly;instructionsAndVisibleAnnotationsRetained");
+    }
+    private static void recorderControls(LiveDefinitionAdmission engine) throws Exception {
+        String name = OWNED + "RecorderControls"; byte[] bytes = fixture(name, 3, false);
+        Class<?> type = new Loader().define(name, bytes, bytes);
+        LiveDefinitionAdmission.Gate untouched = engine.capture(new Class<?>[] {type}, expected(name, bytes),
+                (observedName, observedBytes) -> Arrays.fill(observedBytes, (byte) 0));
+        require(untouched.getAsBoolean() && value(type) == 3, "recorder receives a defensive copy of JVM bytes");
+        LiveDefinitionAdmission.Gate refused = engine.capture(new Class<?>[] {type}, expected(name, bytes),
+                (observedName, observedBytes) -> { throw new IllegalStateException("owned recorder rejection"); });
+        require(!refused.getAsBoolean() && value(type) == 3, "recorder failure refuses admission without changing definition");
+        require(!engine.capture(new Class<?>[] {type}, expected(name, bytes), null).getAsBoolean(), "null recorder fallback");
+    }
     public static void main(String[] args) throws Exception {
         if (args.length != 1) throw new IllegalArgumentException("new output directory required");
         Path out = Path.of(args[0]); Files.createDirectory(out);
@@ -190,6 +234,8 @@ public final class DefinitionAdmissionSelfCheck implements Opcodes {
         require(value(good) == 3 && value(bad) == 8, "actual definitions differ under same binary name");
         LiveDefinitionAdmission engine = new LiveDefinitionAdmission(instrumentation);
         try {
+            runtimeProjectionControls(engine);
+            recorderControls(engine);
             LiveDefinitionAdmission.Gate goodGate = engine.capture(new Class<?>[] {good}, expected(name, reviewed));
             require(goodGate.getAsBoolean(), "actual reviewed definition admitted: " + goodGate.reason());
             observations.add("reviewed=" + goodGate.reason());
@@ -197,7 +243,7 @@ public final class DefinitionAdmissionSelfCheck implements Opcodes {
             require(!badGate.getAsBoolean(), "changed live definition with reviewed resource admitted");
             observations.add("resourceLies=" + badGate.reason());
             require(!engine.capture(new Class<?>[] {good, bad}, expected(name, reviewed)).getAsBoolean(), "duplicate binary names rejected");
-            require(!engine.capture(new Class<?>[] {good}, Map.of(name.replace('/', '.'), DefinitionFingerprint.of(reviewed), "missing.Type", "0".repeat(64))).getAsBoolean(), "missing dependency rejected");
+            require(!engine.capture(new Class<?>[] {good}, Map.of(name.replace('/', '.'), DefinitionFingerprint.runtimeOf(reviewed), "missing.Type", "0".repeat(64))).getAsBoolean(), "missing dependency rejected");
             Map<String, String> invalidExpected = new LinkedHashMap<>();
             invalidExpected.put(name.replace('/', '.'), null);
             require(!engine.capture(new Class<?>[] {good}, invalidExpected).getAsBoolean(), "invalid expected map fallback");
