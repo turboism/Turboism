@@ -65,7 +65,9 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("schemaVersion", "1");
         result.setProperty("runId", runId);
         result.setProperty("profile", exportObservation
-            ? "025-native-export-readable-v2" : "025-relations-read-only-smoke");
+            ? (Boolean.getBoolean("turboism.validation.textures.exportSaveOnly")
+                ? "025-native-export-save-only-v1" : "025-native-export-readable-v2")
+            : "025-relations-read-only-smoke");
         result.setProperty("expectedHostVersion", expectedVersion(
                 System.getProperty("turboism.validation.textures.expectedVersion", "5302")));
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
@@ -132,7 +134,7 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
             if (stopped) return;
             result.setProperty("status", "FAIL");
             result.setProperty("expected", exportObservation
-                ? "coherent relation graph and readable structural native export observation"
+                ? "coherent relation graph and export observation for the explicitly selected profile"
                 : "available nonempty coherent relation graph");
             result.setProperty("actual", error.toString());
             if (error.getCause() != null) result.setProperty("cause", error.getCause().toString());
@@ -187,14 +189,47 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("export.diagnostic", exported.diagnostic());
         result.setProperty("export.fileIssued", Boolean.toString(exported.file().isPresent()));
         result.setProperty("export.fullFidelity", "NOT_VERIFIED");
-        validateExportObservation(exported);
-        final var stopped = exported.file().orElseThrow().stop().toCompletableFuture()
-            .get(60, java.util.concurrent.TimeUnit.SECONDS);
-        result.setProperty("export.stopStatus", stopped.status().name());
-        if (stopped.status() != dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.STOPPED) {
-            throw new IllegalStateException("Issued PSD edit handle did not stop cleanly");
+        finishExportObservation(exported, result, Boolean.getBoolean("turboism.validation.textures.exportSaveOnly"));
+    }
+
+    /** Revokes every issued handle even if assertion or cleanup fails; preserves the primary failure. */
+    static void finishExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported,
+            final Properties result, final boolean saveOnly) throws Exception {
+        Throwable primary = null;
+        try {
+            if (saveOnly) validateSavedExportObservation(exported);
+            else validateExportObservation(exported);
+            result.setProperty("export.contentReadability", "NOT_INDEPENDENTLY_TESTED");
+            result.setProperty("export.structure", "NOT_VERIFIED");
+        } catch (Exception | Error error) {
+            primary = error;
+            throw error;
+        } finally {
+            if (exported.file().isPresent()) {
+                try {
+                    final var stopped = exported.file().orElseThrow().stop().toCompletableFuture()
+                        .get(60, java.util.concurrent.TimeUnit.SECONDS);
+                    result.setProperty("export.stopStatus", stopped.status().name());
+                    if (stopped.status() != dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.STOPPED)
+                        throw new IllegalStateException("Issued PSD edit handle did not stop cleanly");
+                } catch (Exception | Error cleanup) {
+                    if (primary == null) throw cleanup;
+                    primary.addSuppressed(cleanup);
+                }
+            }
         }
-        result.setProperty("assertion", "native export readable; runtime-issued edit handle obtained and stopped; no pixel or structural admission");
+        result.setProperty("assertion", saveOnly
+            ? "native save returned with runtime-issued edit handle and baseline; handle stopped; PSD contents not independently read or parsed"
+            : "runtime readable-export observation and issued edit handle stopped; no independent content, pixel or structural admission");
+    }
+
+    static void validateSavedExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported) {
+        if (exported.status() != dev.turboism.sdk.cubism.psd.PsdExportResult.Status.EXPORTED
+            || exported.file().isEmpty() || exported.initialRevision().isEmpty()
+            || !"PSD_NATIVE_EXPORT;status=SAVED_UNVERIFIED;integrity=UNAVAILABLE;readable=true;structure=false"
+                .equals(exported.diagnostic())) {
+            throw new IllegalStateException("Native save-only observation with issued handle and baseline was not obtained");
+        }
     }
 
     static String expectedVersion(final String code) {

@@ -488,6 +488,9 @@ def required_aliases(
     if required is None:
         return frozenset(s["alias"] for s in selectors)
     aliases = set(required) | set(MODEL_BINDING)
+    inspector = constants["EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract"]
+    if capability == inspector["CAPABILITY_ID"] and cubism_version in inspector["SUPPORTED_CUBISM_VERSIONS"]:
+        aliases -= set(constants["EditorInspectorDrawableWriteSelectorContract"]["ALPHA_COMPOSITION_ALIASES"])
     tex = constants["EditorTextureSelectorContract"]
     if capability == tex["WRITE_CAPABILITY_ID"]:
         aliases.update(
@@ -970,6 +973,7 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
     family_packs = load_family_packs("editor-model")
     relation_contract = constants["EditorTextureRelationsSelectorContract"]
     texture_contract = constants["EditorTextureSelectorContract"]
+    inspector_contract = constants["EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract"]
     psd_contracts = {
         constants[name]["CAPABILITY_ID"]: constants[name]
         for name in (
@@ -1001,6 +1005,15 @@ def refresh_editor_model(constants: dict, editor: dict, families: dict) -> None:
             raise ValueError(f"relation generation is not reviewed: {version}")
         scoped_aliases = set(relation_contract["REQUIRED_ALIASES"])
         scoped_capabilities = []
+        if version in inspector_contract["SUPPORTED_CUBISM_VERSIONS"]:
+            inspector_write = inspector_contract["CAPABILITY_ID"]
+            if inspector_write not in derived["capabilityIds"]:
+                raise ValueError(f"Inspector no-alpha contract is incomplete: {version}")
+            scoped_capabilities.append(inspector_write)
+            scoped_aliases.update(required_aliases(
+                constants, editor, derived["selectors"], version, inspector_write,
+                derived["capabilityConditions"][inspector_write],
+            ))
         texture_write = texture_contract["WRITE_CAPABILITY_ID"]
         if texture_write not in derived["capabilityIds"]:
             raise ValueError(f"texture write lacks a complete capability contract: {version}")

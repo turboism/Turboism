@@ -113,6 +113,25 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "--linux-env", "mesa_glthread=false",
         ], assisted[2:])
 
+    def test_save_only_export_never_silently_replaces_readable_profile(self) -> None:
+        standard = scheduler.render_command(self.request("psd-export-observation:5304"), self.manifest)
+        self.assertNotIn("-Dturboism.validation.textures.exportSaveOnly=true", standard)
+        saved = scheduler.render_command(self.request("psd-export-observation:5304@saved-only-assisted"), self.manifest)
+        self.assertIn("-Dturboism.validation.textures.exportSaveOnly=true", saved)
+        self.assertIn("-Dturboism.validation.textures.startFree=true", saved)
+
+    def test_non_mcp_startup_assistance_is_explicit_and_snapshotted(self) -> None:
+        for name in ("parameter-batch-transfer", "animation-timeline", "workspace"):
+            standard = scheduler.render_command(self.request(name + ":5304"), self.manifest)
+            self.assertNotIn("build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar", standard)
+            assisted = scheduler.render_command(self.request(name + ":5304@assisted"), self.manifest)
+            self.assertIn("--aux-agent", assisted)
+            self.assertIn("build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar", assisted)
+            self.assertIn("-Dturboism.validation.startupAssistance=true", assisted)
+        self.assertEqual(REVIEWED_VERSIONS[-9:], self.manifest.tasks["animation-timeline"].versions)
+        with self.assertRaises(scheduler.SchedulerError):
+            self.request("animation-timeline:5103")
+
     def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
         task = self.manifest.tasks["atlas"]
         self.assertEqual({"host-slot": 1, "display-input": 1, "performance-host": 1}, task.resources)
@@ -167,7 +186,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not support version"):
             scheduler.parse_request("workspace:9999", "test-run", self.manifest)
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not define variants"):
-            scheduler.parse_request("workspace:5302@matrix", "test-run", self.manifest)
+            scheduler.parse_request("clipmask-viewer:5302@matrix", "test-run", self.manifest)
 
     def test_planner_serializes_all_versions_in_fifo_order(self) -> None:
         requests = [

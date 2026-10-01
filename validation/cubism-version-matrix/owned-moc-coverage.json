@@ -144,6 +144,26 @@
   ],
   "liveResults": [
     {
+      "version": "5.0.00",
+      "jobId": "2501a359-6846-4068-95d5-740b868b5917",
+      "preparedDigest": "8b63f8a9baac4a7d88f80b391ff754ebae1c07655a809f50a1aea7455c8b06ee",
+      "evidenceDirectory": "mcp-evidence/5.0.00-allversions-owned-r1",
+      "nativeCoreVersion": "5.0.0",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.0.01",
+      "jobId": "e0bc93b7-37d3-4004-9b62-a645988ce32a",
+      "preparedDigest": "9a6ed1e5dee4c3899625e4d60d1e6d4e450e63411882ab314197b011adcdf8ec",
+      "evidenceDirectory": "mcp-evidence/5.0.01-allversions-owned-r1",
+      "nativeCoreVersion": "5.0.0",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
       "version": "5.0.02",
       "nativeCoreVersion": "5.0.0",
       "jobId": "42aab530-9b5b-4460-91f6-156652d52506",

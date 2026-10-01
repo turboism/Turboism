@@ -12,7 +12,7 @@ import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
-/** Explicitly enabled, validation-only FREE startup assistance inside the task JVM. */
+/** Explicitly enabled task-local startup assistance; never activates a license or trial. */
 public final class NativeFreeStartup {
     private NativeFreeStartup() {}
 
@@ -25,6 +25,15 @@ public final class NativeFreeStartup {
     public static boolean isWelcome(final String title, final String text) {
         return "Confirm".equals(title) && text != null && text.contains("Welcome!")
                 && text.contains("Start as FREE version with limited functions");
+    }
+
+    /** Acknowledges only the observed informational welcome for an already active trial. */
+    public static boolean isActiveTrialWelcome(final String title, final String text) {
+        if (!"Confirm".equals(title) || text == null) return false;
+        final String plain = text.replaceAll("<[^>]*>", " ").replaceAll("\\s+", " ").trim();
+        return plain.matches("Live2D Cubism Editor Welcome! Trial license will expire in [1-9][0-9]? day\\(s\\) "
+                + "Please note that initializing or updating your operating system during the trial period "
+                + "may terminate the trial version\\.");
     }
 
     /** Known native warning; user explicitly authorized opening the task fixture. */
@@ -43,6 +52,9 @@ public final class NativeFreeStartup {
     }
 
     public static String promptAction(final String title, final String text, final String button) {
+        if (isActiveTrialWelcome(title, text) && "OK".equals(button)) {
+            return "ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED";
+        }
         if (("Information Dialog Box".equals(title) || "Information".equals(title))
                 && "OK".equals(button) && text != null
                 && text.contains("Screen Color is only available in the PRO version.")
@@ -128,12 +140,16 @@ public final class NativeFreeStartup {
                 }
             }
             if (ok != null && isWelcome(dialog.getTitle(), labels.toString())) {
+                System.setProperty("turboism.validation.observedLicenseMode", "FREE_WELCOME_OBSERVED");
                 ok.doClick(0);
                 return "FREE_WELCOME_CONFIRMED";
             }
             for (AbstractButton button : buttons) {
                 final String action = promptAction(dialog.getTitle(), labels.toString(), button.getText());
                 if (action != null) {
+                    if ("ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED".equals(action)) {
+                        System.setProperty("turboism.validation.observedLicenseMode", "ACTIVE_TRIAL_WELCOME_OBSERVED");
+                    }
                     System.out.println("NATIVE_VALIDATION_PROMPT title=" + dialog.getTitle()
                             + " text=" + labels.toString().replace('\n', ' ')
                             + " button=" + button.getText() + " action=" + action);

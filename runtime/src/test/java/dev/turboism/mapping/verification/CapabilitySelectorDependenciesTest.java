@@ -18,6 +18,34 @@ class CapabilitySelectorDependenciesTest {
                 "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
                 "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
             })
+    void inspectorDependenciesRetainExactLegacyContractAndRejectMissingColorSelector(final String version)
+            throws Exception {
+        final var record = record(version);
+        final String capability = "cubism.editor-model.art-mesh.inspector-write";
+        assertTrue(record.capabilityIds().contains(capability));
+        final Set<String> required = CapabilitySelectorDependencies.requiredAliases(record, capability);
+        assertTrue(CapabilitySelectorDependencies.allAliases(record).containsAll(required));
+        final String alpha = "cubism.editor-model.art-mesh-source.set-alpha-composition";
+        assertEquals(version.startsWith("5.3."), required.contains(alpha));
+        final Set<String> verified = new HashSet<>(CapabilitySelectorDependencies.allAliases(record));
+        assertTrue(verified.remove("cubism.editor-model.drawable-form.screen-color"));
+        assertFalse(
+                CapabilitySelectorDependencies.capabilities(record, verified).contains(capability));
+        assertTrue(CapabilitySelectorDependencies.capabilities(record, verified).contains("cubism.editor-model.read"));
+        if (version.startsWith("5.3.")) {
+            final Set<String> withoutAlpha = new HashSet<>(CapabilitySelectorDependencies.allAliases(record));
+            assertTrue(withoutAlpha.remove(alpha));
+            assertFalse(CapabilitySelectorDependencies.capabilities(record, withoutAlpha)
+                    .contains(capability));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02",
+                "5.1.03", "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04"
+            })
     void optionalTextureWriteFailureKeepsReadsAndExcludesTheUnverifiedAlias(final String version) throws Exception {
         final var record = record(version);
         final String missing = "cubism.editor-model.texture-handler.add-texture-atlas";

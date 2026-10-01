@@ -1,0 +1,14 @@
+{
+  "jobId": "31185cfd-8756-46e0-8895-5e44ebe17e60",
+  "preparedDigest": "db82e86cf05603f42a3397bda35de930f8317bac9ce0bc48e83ebe9112968a68",
+  "runId": "queue-491e92aae3cb4ef2a7830b54686c4712",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "succeeded",
+  "validationStatus": "PASS",
+  "identityVerified": true,
+  "fixtureUnchanged": true,
+  "normalExit": true,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "fee25604e74afd43e3a1334abbc0d7ea4ba169d6bab67b6be26245d7c1a67ee4",
+  "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+}

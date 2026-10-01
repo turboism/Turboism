@@ -19,6 +19,7 @@ import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorCon
 import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorIntegrationWebSocketSelectorContract;
@@ -551,6 +552,11 @@ final class CapabilitySelectorDependencies {
         }
         final Set<String> aliases = new HashSet<>(required);
         aliases.addAll(MODEL_BINDING);
+        if (capability.equals(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID)
+                && EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract.SUPPORTED_CUBISM_VERSIONS.contains(
+                        record.cubismVersion())) {
+            aliases.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
+        }
         if (capability.equals(EditorTextureSelectorContract.WRITE_CAPABILITY_ID)) {
             aliases.addAll(
                     EditorTextureSelectorContract.LEGACY_RAW_IMAGE_REMOVAL_VERSIONS.contains(record.cubismVersion())

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "completeFrameworkCoverage": false,
+  "scenario": "texture-relations:read-only",
+  "scope": "Nonempty coherent graph, unique identities, resolved current raw and model-image mesh links in the task fixture",
+  "liveResults": [
+    {
+      "version": "5.0.00",
+      "jobId": "a706b547-b65c-459f-a33c-8bb493e5c346",
+      "preparedDigest": "8ff77228f1c32a0f2cd735f6e17d75a2f430bfeb1e16b34a0160248bf294a285",
+      "evidenceDirectory": "texture-evidence/5.0.00-allversions-relations-r1",
+      "supervisorResult": "PASS",
+      "rawCount": 1,
+      "modelImageCount": 17,
+      "artMeshCount": 17
+    },
+    {
+      "version": "5.2.02",
+      "jobId": "72201a45-4ccb-45d9-a90e-6ac23973e01f",
+      "preparedDigest": "ff3e2a81671a0e06adcb18cf2129f054b3c27bddbbd0fcf492b71fffec4599ec",
+      "evidenceDirectory": "texture-evidence/5.2.02-allversions-relations-r1",
+      "supervisorResult": "PASS",
+      "rawCount": 1,
+      "modelImageCount": 7,
+      "artMeshCount": 21
+    },
+    {
+      "version": "5.3.04",
+      "jobId": "31185cfd-8756-46e0-8895-5e44ebe17e60",
+      "preparedDigest": "db82e86cf05603f42a3397bda35de930f8317bac9ce0bc48e83ebe9112968a68",
+      "evidenceDirectory": "texture-evidence/5.3.04-allversions-relations-r1",
+      "supervisorResult": "PASS",
+      "rawCount": 1,
+      "modelImageCount": 7,
+      "artMeshCount": 21
+    }
+  ],
+  "uncovered": [
+    "Shared and multiple-input fixture matrix",
+    "PSD content readability, fidelity, replacement and external editing",
+    "Full field semantics against independent golden outputs",
+    "Other SDK methods and framework capabilities"
+  ]
+}

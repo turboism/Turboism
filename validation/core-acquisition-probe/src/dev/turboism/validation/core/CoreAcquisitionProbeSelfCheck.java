@@ -13,6 +13,21 @@ public final class CoreAcquisitionProbeSelfCheck {
                 + " Current editor version: Cubism 5.0.0 Version of the file you are trying to load: Cubism 5.2.3";
         final String update = "A new version has been released."
                 + " Do you want to exit the Editor and open the download page?";
+        final String trial = "<html><h3>Live2D Cubism Editor</h3>Welcome!<br>Trial license will expire in 42 day(s)<br><br>"
+                + "Please note that initializing or updating your operating system during the trial period "
+                + "may terminate the trial version.<br></html>";
+        if (!"ACTIVE_TRIAL_WELCOME_ACKNOWLEDGED".equals(
+                dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", trial, "OK")))
+            throw new AssertionError("existing active trial information rejected");
+        for (String invalid : new String[] {"Would you like to start the trial?", "Activate PRO or Trial license",
+                trial + " Start trial", trial.replace("42", "0"), trial.replace("42", "-1"),
+                trial.replace("Trial license will expire", "License expired")}) {
+            if (dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", invalid, "OK") != null)
+                throw new AssertionError("unreviewed trial action accepted");
+        }
+        if (dev.turboism.validation.NativeFreeStartup.promptAction("Start", trial, "OK") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", trial, "Start trial") != null)
+            throw new AssertionError("trial activation button/title accepted");
         for (String button : new String[] {"Load", "Yes", "Yes(Y)"}) {
             if (!"NEWER_MODEL_OPEN_CONFIRMED".equals(
                     dev.turboism.validation.NativeFreeStartup.promptAction("Warning", newer, button)))

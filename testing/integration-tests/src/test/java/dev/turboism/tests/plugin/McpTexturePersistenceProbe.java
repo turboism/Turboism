@@ -136,6 +136,9 @@ public final class McpTexturePersistenceProbe {
                                         .replace('\r', ' '));
                 context.logger().error("MCP texture native round-trip failed", failure);
             }
+            result.setProperty(
+                    "observedLicenseMode",
+                    System.getProperty("turboism.validation.observedLicenseMode", "NOT_OBSERVED"));
             final Path pending = stateRoot.resolve(RESULT + ".pending");
             try (var stream = Files.newOutputStream(pending)) {
                 result.store(stream, "Task-local texture evidence");

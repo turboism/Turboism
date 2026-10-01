@@ -100,6 +100,38 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void startsTransportWhenExactLegacyEditorHasNoOptionalTransactionBackend() throws Exception {
+        final var original = dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices());
+        final var unavailable = new dev.turboism.sdk.cubism.CubismEditorApiUnavailableException(
+                "dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()",
+                Optional.of("5.0.02"),
+                List.of("5.2.03"));
+        final var legacy = new McpHttpServer.Dependencies(
+                original.logger(),
+                original.modelObjects(),
+                original.parameterQuery(),
+                original.hierarchyQuery(),
+                original.selectionQuery(),
+                original.read(),
+                original.clipMasks(),
+                McpOptionalTransactionTest.facade(unavailable),
+                original.history(),
+                original.workspace(),
+                original.workspaceLayout(),
+                original.diagnostics(),
+                original.editorCommands(),
+                original.uiScheduler(),
+                original.stateDir(),
+                original.port(),
+                original.requestsPerMinute());
+        try (final McpHttpServer server = McpHttpServer.start(legacy)) {
+            assertTrue(server.endpoint().getPort() > 0);
+            assertTrue(Files.isRegularFile(temporaryDirectory.resolve("mcp-connection.json")));
+        }
+        assertFalse(Files.exists(temporaryDirectory.resolve("mcp-connection.json")));
+    }
+
+    @Test
     void acceptsCredentialFreeLoopbackClientsAndPublishesNoAuthorizationMaterial() throws Exception {
         final McpHttpServer server =
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));

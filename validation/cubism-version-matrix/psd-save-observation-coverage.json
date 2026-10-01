@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "completeFrameworkCoverage": false,
+  "scenario": "psd-export-observation:saved-only-assisted",
+  "scope": "Native save completion reported through production SDK with issued edit handle/baseline and successful stop; contents not independently parsed",
+  "liveResults": [
+    {
+      "version": "5.3.04",
+      "jobId": "e3e719a7-6d51-431d-8d68-723ced9a184e",
+      "preparedDigest": "78ac2b258ce33ddabdbead99a1dfbeb7016eefaed1851746f81ba9da4d77efb6",
+      "evidenceDirectory": "texture-evidence/5.3.04-allversions-psd-save-r1",
+      "supervisorResult": "PASS",
+      "profile": "025-native-export-save-only-v1",
+      "exportResult": "EXPORTED",
+      "handleStop": "STOPPED",
+      "contentReadability": "NOT_INDEPENDENTLY_TESTED",
+      "structure": "NOT_VERIFIED",
+      "fidelity": "NOT_VERIFIED"
+    }
+  ],
+  "uncovered": [
+    "Original readable-v2/content readability acceptance",
+    "Layer completeness and PSD fidelity",
+    "Source replacement and Undo/Redo",
+    "External editor open/save/revision observation",
+    "All other versions and SDK methods"
+  ]
+}

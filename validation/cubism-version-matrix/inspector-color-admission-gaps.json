@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "scope": "Exact record selector dependency gaps; no behavior or whole-family support conclusion",
+  "versions": [
+    {
+      "version": "5.0.00",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "26b2f2e4576a3b7ff7545f5290342d995ae3778ac3d9ae85be3dca3654899e5e"
+    },
+    {
+      "version": "5.0.01",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "476d8a6d38f9058257c0effe5ee741a13265a4410eb34c8ca3febecb572b7dac"
+    },
+    {
+      "version": "5.0.02",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "6631f1ae9260bcaf489f299af957533482a904c48909ec983324ef50c9c230f3"
+    },
+    {
+      "version": "5.0.03",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "7f4212783cdc33ae0fa54f5331c3be67343e59cc009c85b9ad843617aa11de6a"
+    },
+    {
+      "version": "5.0.04",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "499125a38404fa51a73db35341605f40bf702693ae8a22215b9c74a691044430"
+    },
+    {
+      "version": "5.0.05",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "b8980b583fbcac174f605225b980769b258df159f44f402c71cf088e2c3669fb"
+    },
+    {
+      "version": "5.0.06",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "6d0742cef0c756a3b5aa1c1a105469d4f6879e5c5438b30ed997127809fbb0b6"
+    },
+    {
+      "version": "5.1.00",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "4f7502b5d9c496b0c92dd1ded4bf4f30f148e4d404565dbae89bb9d042412caf"
+    },
+    {
+      "version": "5.1.01",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "2efa3acab2b75c491f288747496587cd92908720957a11e7ea967cd467bb5b5c"
+    },
+    {
+      "version": "5.1.02",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "02694e3a347c81d9bde40711447a00929bf17344c62524292ec0d8e2f4164cc0"
+    },
+    {
+      "version": "5.1.03",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "2e28131d62205844ad107010e2d0a6ccfdfcfcd321cfeeb7a35500c1f59abdea"
+    },
+    {
+      "version": "5.2.00",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "bd5cada51523c9a5d9b808361fca5d0c05b8575073dc0e29d0073f913ebbb985"
+    },
+    {
+      "version": "5.2.01",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "c21be64fd120be1becb6abe59496e94db80200a728183473955271e3f67b6bd1"
+    },
+    {
+      "version": "5.2.02",
+      "inspectorCapabilityDeclared": false,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "5eb8070d4cf9aa0cbd4d586ceced4c350838d8d6fb330bb49d83f3b225232b5d"
+    },
+    {
+      "version": "5.2.03",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "dabaa7b4b474d7ac9b10111b615533ba1cf2e73bab159d8967a712a3af3609b3"
+    },
+    {
+      "version": "5.3.00",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "ca8c4a5e9bc41ab77d99a190067433045be0868430296ac672477d76069c906a"
+    },
+    {
+      "version": "5.3.01",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "aef5951b4ebd45e925e03ca5ccef4ce06236197b9f47a8a40c4f0c1a7f30a089"
+    },
+    {
+      "version": "5.3.02",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "673f7dc39e5b583dcb67a5586f764aecc823a709fc1455c3a2c6352c1292c77e"
+    },
+    {
+      "version": "5.3.03",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "d3b858e8253864f181d9c613af0d21f8da8d9fd50a7a343785b3a5415f5160ac"
+    },
+    {
+      "version": "5.3.04",
+      "inspectorCapabilityDeclared": true,
+      "noAlphaContractMissingAliases": [],
+      "afterInspectorCapabilityDeclared": true,
+      "afterRecordSha256": "c53982730ce25dbfbcab13d6ad64842a674b3065e34397a9ae2ea2c85e59d183"
+    }
+  ],
+  "rootCause": "Dependency table required modern AlphaComposition aliases on exact legacy records although runtime selects complete no-alpha Inspector contract",
+  "fixScope": "Explicit 15-version no-alpha dependency contract, matching Python generator and runtime; additive capability emission only when full exact contract verifies; no native behavior verdict"
+}

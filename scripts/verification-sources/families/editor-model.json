@@ -79,10 +79,10 @@
   "dev/turboism/mapping/verification/selector/EditorPartTreeSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorPhysicsReadSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorPsdSnapshotSelectorContract.java",
-    "dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java",
-    "dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/EditorRawImagePsdReplaceSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/EditorRawImagePsdSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorSelectionReadSelectorContract.java",
-    "dev/turboism/mapping/verification/selector/EditorTextureRelationsSelectorContract.java",
+  "dev/turboism/mapping/verification/selector/EditorTextureRelationsSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorTextureSelectorContract.java",
   "dev/turboism/mapping/verification/selector/EditorWarpMirrorSelectorContract.java",
   "dev/turboism/mapping/verification/selector/TextureAtlasSelectorContract.java"
