@@ -1,5 +1,6 @@
 package dev.turboism.validation.tlindex.diagnostic;
 
+import dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,9 +26,39 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
     private static final String R = LazyEdgeBytecodePrototype.R, V = LazyEdgeBytecodePrototype.V;
     private static int checks;
     private static boolean core;
+    private static boolean leased;
+    private static boolean productionComposition;
+    private static TriangulationDefinitionLifecycle leaseOwner;
+    private static byte[] leaseStampBytes;
     private static FrozenEdgeTransforms composition;
 
     private LazyEdgeBytecodeSelfCheck() {}
+
+    public static final class LeaseStamp {
+        private LeaseStamp() {}
+        public static int value() { return 3; }
+    }
+    public static final class LeaseBridge {
+        public static TriangulationDefinitionLifecycle.Gate gate;
+        public static boolean enabled = true;
+        public static int acquired, released;
+        private LeaseBridge() {}
+        public static AutoCloseable enter(Class<?> owner) {
+            AutoCloseable lease = enabled ? gate.acquire() : null;
+            if (lease != null) acquired++;
+            return lease;
+        }
+        public static void leave(AutoCloseable lease) throws Exception {
+            if (lease != null) { lease.close(); released++; }
+        }
+    }
+
+    private static void renewLease() {
+        LeaseBridge.gate = leaseOwner.capture(new Class<?>[] {LeaseStamp.class},
+                java.util.Map.of(LeaseStamp.class.getName(), DefinitionFingerprint.runtimeOf(leaseStampBytes)),
+                DefinitionFingerprint::runtimeOf);
+        require(LeaseBridge.gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"), "woven method left its operation lease locked");
+    }
     public static class Vec {
         public final float x, y;
         public Vec(float x, float y) { this.x = x; this.y = y; }
@@ -266,9 +297,14 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         Support.constructorThrowAt = constructorThrow; Support.intersectionThrowAt = intersectionThrow;
         Support.predicateThrowAt = predicateThrow; Support.output = null;
         Support.trace = new ArrayList<>(); Assertions.ENABLED = assertions;
+        LeaseBridge.acquired = LeaseBridge.released = 0;
         Throwable failure = null;
         try { host.getMethod("c").invoke(host.getConstructor().newInstance()); }
         catch (InvocationTargetException expected) { failure = expected.getCause(); }
+        if (leased) {
+            require(LeaseBridge.acquired == LeaseBridge.released, "woven normal/exception exit did not release its lease");
+            renewLease(); // A real exclusive capture must succeed on this same thread.
+        }
         return new Result(failure, List.copyOf(Support.trace), Support.output == null ? null : List.copyOf(Support.output),
                 Support.constructors, Support.intersections, Support.pairCalls);
     }
@@ -320,10 +356,37 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
     private static byte[] patch(byte[] bytes) {
         try {
             byte[] input = composition == null ? bytes : composition.apply(bytes, true);
+            if (productionComposition) {
+                input = productionStage("FreshTriangulationEdgePatcher", "patchShape", input);
+                input = productionStage("TriangulationMembershipPatcher", "patch", input);
+            }
+            if (leased) {
+                var method = Class.forName("dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgePatcher")
+                        .getDeclaredMethod("patchShape", byte[].class, java.util.function.Function.class, String.class);
+                method.setAccessible(true);
+                try {
+                    return (byte[]) method.invoke(null, input,
+                            (java.util.function.Function<String, byte[]>) LazyEdgeBytecodeSelfCheck::definition, SELF + "$LeaseBridge");
+                } catch (InvocationTargetException rejected) {
+                    if (rejected.getCause() instanceof RuntimeException failure) throw failure;
+                    if (rejected.getCause() instanceof Error failure) throw failure;
+                    throw rejected;
+                }
+            }
             return core ? CoreLazyEdgeBytecodePrototype.patchShape(input, LazyEdgeBytecodeSelfCheck::definition)
                     : LazyEdgeBytecodePrototype.patchShape(input, LazyEdgeBytecodeSelfCheck::definition);
         } catch (RuntimeException failure) { throw failure; }
         catch (Exception failure) { throw new IllegalArgumentException("owned composition failed", failure); }
+    }
+    private static byte[] productionStage(String owner, String name, byte[] bytes) throws Exception {
+        var method = Class.forName("dev.turboism.adapter.cubism.mesh." + owner).getDeclaredMethod(name, byte[].class);
+        method.setAccessible(true);
+        try { return (byte[]) method.invoke(null, (Object) bytes); }
+        catch (InvocationTargetException rejected) {
+            if (rejected.getCause() instanceof RuntimeException failure) throw failure;
+            if (rejected.getCause() instanceof Error failure) throw failure;
+            throw rejected;
+        }
     }
     private static void membershipCheck(Class<?> before, Class<?> after, Triangle face) throws Exception {
         for (boolean debug : new boolean[] {false, true}) {
@@ -340,19 +403,32 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
                 require(nativeList.debugAdds == candidateList.debugAdds, "membership debug effects");
             }
             require(nativeList.containsCalls == 6, "native membership contains count");
-            require(candidateList.containsCalls == (composition != null && !debug ? 0 : 6), "membership fused/debug query count");
+            require(candidateList.containsCalls == ((composition != null || productionComposition) && !debug ? 0 : 6), "membership fused/debug query count");
         }
     }
     public static void main(String[] args) throws Exception {
         String[] inputs = args;
-        if (args.length > 0 && args[0].equals("--core")) {
+        if (args.length > 0 && args[0].equals("--leased")) {
+            leased = true; inputs = java.util.Arrays.copyOfRange(args, 1, args.length);
+            leaseOwner = TriangulationDefinitionLifecycle.forPremain(DefinitionAdmissionSelfCheckAgent.instrumentation(),
+                    DefinitionAdmissionSelfCheckAgent.class.getName());
+            require(leaseOwner.startupReason().equals("SUPPORTED_OWNED_PREMAIN"), "owned leased startup unavailable");
+            try (var stream = LeaseStamp.class.getResourceAsStream("LazyEdgeBytecodeSelfCheck$LeaseStamp.class")) {
+                leaseStampBytes = Objects.requireNonNull(stream).readAllBytes();
+            }
+            renewLease();
+            if (inputs.length > 0 && inputs[0].equals("--production-compose")) {
+                productionComposition = true;
+                inputs = java.util.Arrays.copyOfRange(inputs, 1, inputs.length);
+            }
+        } else if (args.length > 0 && args[0].equals("--core")) {
             core = true; inputs = java.util.Arrays.copyOfRange(args, 1, args.length);
         } else if (args.length > 1 && args[0].equals("--compose")) {
             core = true; composition = new FrozenEdgeTransforms(Path.of(args[1]));
             inputs = java.util.Arrays.copyOfRange(args, 2, args.length);
         }
         try { selfCheck(inputs); }
-        finally { if (composition != null) composition.close(); }
+        finally { if (composition != null) composition.close(); if (leaseOwner != null) leaseOwner.close(); }
     }
     private static void selfCheck(String[] args) throws Exception {
         if (args.length > 1) throw new IllegalArgumentException("optional new owned-fixture directory");
@@ -373,6 +449,15 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         membershipCheck(before, after, face);
         Support.constraint = new Edge(new Point(-1, 2f, -1f), new Point(-2, 2f, 5f));
         Support.extraFirst = new Point(-3, 8f, 9f); Support.extraSecond = new Point(-4, 3f, 1f);
+        if (leased) {
+            LeaseBridge.enabled = false;
+            Result nativeRun = run(before, new Triangle[] {face, face, face}, 0, 0, true, 0, 0, 0);
+            Result fallback = run(after, new Triangle[] {face, face, face}, 0, 0, true, 0, 0, 0);
+            equivalent(nativeRun, fallback);
+            require(fallback.constructors == nativeRun.constructors && fallback.pairCalls == nativeRun.pairCalls,
+                    "missing lease did not preserve all native constructions/calls");
+            LeaseBridge.enabled = true;
+        }
         for (int hit = 0; hit < 8; hit++) for (int block = 0; block < 8; block++) {
             pair(before, after, new Triangle[] {face, face, face}, hit, block, true);
             Result nativeRun = run(before, new Triangle[] {face, face, face}, hit, block, true, 0, 0, 0);
@@ -462,7 +547,8 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
             }
         } finally { Files.deleteIfExists(fake); }
         System.out.println("LAZY_EDGE_GENERATED_BYTECODE_SELFCHECK PASS checks=" + checks
-                + " implementation=" + (core ? "core" : "tree") + " composed=" + (composition != null)
+                + " implementation=" + (leased ? "production-leased" : core ? "core" : "tree")
+                + " composed=" + (composition != null || productionComposition)
                 + " officialClassesExecuted=false nativeGeometryExecuted=false");
     }
 }

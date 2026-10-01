@@ -98,6 +98,16 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
             return transformer == null ? "" : transformer.freshEdgeDiagnostic();
         }
 
+        /** Outcome for temporary-edge construction; it is separate from every earlier stage. */
+        public TriangulationEdgeIndexTransformer.Outcome lazyEdgeTransformOutcome() {
+            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE : transformer.lazyEdgeOutcome();
+        }
+
+        /** Lazy construction rejection detail, or empty when that stage was not attempted. */
+        public String lazyEdgeDiagnostic() {
+            return transformer == null ? "" : transformer.lazyEdgeDiagnostic();
+        }
+
         @Override
         public void close() {
             final Status previous = current.getAndSet(Status.CLOSED);
@@ -130,7 +140,7 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
         }
 
         final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(
-                code -> report(diagnostic, code));
+                code -> report(diagnostic, code), TriangulationDefinitionLifecycle.ownedBy(instrumentation));
         try {
             instrumentation.addTransformer(transformer, false);
             report(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALLED");

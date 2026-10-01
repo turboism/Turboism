@@ -2001,3 +2001,49 @@ initialization/geometry/full outputs and final three-version stable repeated
 performance/resources/UI/startup evidence are still required. T050 stays partial,
 T044/T046 and the full goal remain unfulfilled, HOLD_PRODUCTION_ACCEPTANCE remains,
 and no stable improvement or theoretical bottleneck is claimed.
+
+### T050 production integration slice closed (2026-10-02)
+
+The production transformer now composes fresh, membership and full-method leased
+lazy construction when the owned startup protocol permits it. Complete host
+identity uses ReviewedHostArtifacts; pinned Kotlin/composed-baseline hashes and
+canonical bridge identity remain mandatory. Actual eight-dependency metadata,
+origin/loader and runtime definition fingerprints admit the lease only after
+exclusive capture. Empty/revoked leases retain eager native construction. Normal
+and Throwable exits release leases; callback entry declines without waiting.
+An empty published ClassValue holder prevents competing cold captures. Weak
+loader registration factories retain immutable plans and diagnostics only.
+Startup suppression's owned-mode transformer remains inert until shutdown.
+
+Both isolated-runtime and final packaged helpers verify all three official
+versions. Six final packaged reviewed/tampered cases pass189 checks, including
+eight simultaneous cold entries/one capture per loader and permanent fallback
+after a definition lifecycle mutation. Both current packaged plain leased and
+fresh/membership/leased fixture modes pass4882 owned checks; the real packaged
+boot lifecycle passes46. Remapped owned edges still use the fresh guard's native
+fallback. Official classes are defined with the real transformer and resolved
+metadata, but official initialization/constructors/geometry are not invoked.
+The complete packaged Turboism premain is not executed by these provider-Agent
+checks. Forty affected JUnit regressions and devCheck pass.
+
+Independent candidate SHA0e5bb77f401a25a8d28399de0fb893200abe6320d8beaa2d6a04ad302c9aff44
+is frozen under build/t050-lazy-edge-bytecode/production-integration/candidate/.
+Final offline-review.json SHAef491d69296b3bb3e05fe460380918bc883d80772883d4552a798ae6763b8955
+binds391 source/JDK/library/compiled-class/command/log/capture/XML inputs.
+Initial wrong rejection-receipt assertion and frozen-patcher parent-shadow
+refusal remain preserved; final current packaged composition is explicit.
+The ee244 performance and0dc308 diagnostic frozen Agents are unchanged. No
+previewBundle, official BAT, model/golden, queue mutation or new host job occurred.
+Read-only FIFO observations show latest2390 failed; that is another session's
+task and does not establish an orphan or authorize queue recovery.
+
+Code and offline integration evidence can close; full production acceptance
+cannot. Exactly three remaining stages are supported single-Agent probe and full
+packaged bootstrap startup; native initialization/exception/geometry/full outputs
+with genuine repeated target execution; and final three-version stable performance,
+resources, UI and independent startup-setting linkage. Current multi-Agent host
+launches reject the new protocol; default flags remain unchanged. T050 is partial,
+T044/T046 and the continuous optimization goal remain unfulfilled. The old pair's
+first wall-4.31%, CPU+3.46%, aggregate wall+0.65% is still insufficient stable
+benefit. HOLD_PRODUCTION_ACCEPTANCE persists; no merge/push or theoretical-limit
+claim is justified by this slice.

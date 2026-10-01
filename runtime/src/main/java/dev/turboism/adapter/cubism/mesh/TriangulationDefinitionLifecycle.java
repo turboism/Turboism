@@ -20,7 +20,7 @@ import java.util.function.Function;
 import java.util.jar.JarFile;
 
 /**
- * Definition ownership for the lazy-edge integration. The lazy weave is not yet connected.
+ * Definition ownership and full-operation leases for the guarded lazy-edge weave.
  *
  * <p>The supported protocol has one trusted premain Agent, disabled dynamic attach,
  * and no native Agent. Bootstrap must pass only {@link #instrumentation()} to all
@@ -144,7 +144,11 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                 owner.lock.readLock().unlock();
                 return null;
             }
-            return new Lease(owner);
+            try { return new Lease(owner); }
+            catch (RuntimeException | Error failure) {
+                owner.lock.readLock().unlock();
+                throw failure;
+            }
         }
         private void revoke(String why) { admitted = false; reason = why; }
     }
@@ -252,7 +256,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
         if (lock.getReadHoldCount() != 0) throw new IllegalStateException("definition mutation during an owned operation");
     }
 
-    private static boolean inTransformerCallback() {
+    static boolean inTransformerCallback() {
         return STACK.walk(frames -> frames.anyMatch(frame -> {
             Class<?> type = frame.getDeclaringClass();
             // Module-aware implementations can be inherited from a base which does
