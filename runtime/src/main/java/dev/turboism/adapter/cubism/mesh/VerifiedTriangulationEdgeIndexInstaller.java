@@ -118,7 +118,8 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
             return Installation.declined(Status.TARGET_ALREADY_LOADED);
         }
 
-        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer();
+        final TriangulationEdgeIndexTransformer transformer = new TriangulationEdgeIndexTransformer(
+                code -> report(diagnostic, code));
         try {
             instrumentation.addTransformer(transformer, false);
             report(diagnostic, "TRIANGULATION_EDGE_INDEX_INSTALLED");
