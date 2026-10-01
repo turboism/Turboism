@@ -204,6 +204,9 @@ export_after_editor="${TURBOISM_ATLAS_IMAGE_SHADOW_EXPORT_AFTER_EDITOR:-false}"
 editor_reopen="${TURBOISM_ATLAS_IMAGE_SHADOW_EDITOR_REOPEN:-false}"
 [[ "$editor_reopen" == "true" || "$editor_reopen" == "false" ]] \
   || fail 'editor-reopen flag must be true or false'
+resource_observation="${TURBOISM_ATLAS_IMAGE_SHADOW_RESOURCE_OBSERVATION:-false}"
+[[ "$resource_observation" == true || "$resource_observation" == false ]] \
+  || fail 'resource-observation flag must be true or false'
 case "$run_label" in
   *-heavy*)
     fixture_env_key="$heavy_fixture_env_key"
@@ -774,6 +777,15 @@ runner_args+=(
   --jvm-option "-Dturboism.validation.atlasImageShadow.exportProbeAfterEditor=${export_after_editor}"
   --jvm-option "-Dturboism.validation.atlasImageShadow.editorReopen=${editor_reopen}"
 )
+
+if [[ "$resource_observation" == true ]]; then
+  [[ -n "$tri_tlprod_leg" && "$fixture_name" == "$heavy_fixture_name"
+    && "$layout_mode" == preserve && "$export_probe" == false ]] \
+    || fail 'resource observation requires explicit heavy TLPROD without layout/export'
+  # Separate resource protocol: three open/OK operations, 30-second baseline and
+  # post-operation windows. The fixed capture agent still covers only its first four calls.
+  runner_args+=(--jvm-option '-Dturboism.validation.atlasImageShadow.resourceObservation=true')
+fi
 
 # The Runner's deferred GL gate samples the runtime log once right after launch when no
 # ready marker is configured; the JVM is then typically still inside Proton startup, so an
