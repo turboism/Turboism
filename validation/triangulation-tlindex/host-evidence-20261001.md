@@ -1350,3 +1350,95 @@ unchanged. No new Agent is packaged or submitted. T047's offline slice is
 complete; T044/T046 and stable final-host optimization remain unproven. The next
 step is freezing a new artifact and collecting a bounded host comparison;
 these owned-object numbers cannot grant production acceptance.
+
+
+### 2026-10-02 T047 packaged candidate and bounded 5302 host pair in progress
+
+The tested removal-batch implementation is committed as b15783d1c. Bootstrap jar
+build and license verification pass. A new Agent is frozen separately at
+build/t029-real-host-acceptance/removal-batch-candidate/turboism-agent.jar, SHA
+ee244d0f0be9acc3ca9c812420ebea8bf034742fd75010c6f817987f8ddc1ad0.
+The old021e artifact and previewBundle are preserved. ZIP entry sets agree;
+only the bridge, its St/SetKey classes and framework-version metadata differ.
+Settings, patcher and other algorithm classes are unchanged. A first byte-equality
+check failed before any host submission because packaging reordered the constant
+pool. That failure is preserved. Complete javap instructions, descriptors,
+branches and exception tables match the tested classes after numeric pool-index
+and trailing-comment-layout normalization; class bytes are not equal.
+
+The actual packaged JAR also passes five alternating owned-object comparisons,
+checking ordered identities every cycle. Median thread CPU decreases16.57% and
+measured allocation38.18%, without GC in measured groups. These are owned-object
+selection measurements, not Cubism or retained-memory acceptance. Artifact pin
+SHA560bef844f38070e10673c3a625b0c0ab8813651331670585db8562ed88092d2
+binds instruction and execution reviews. Original driver remains SHA
+3bee41a353df55f20da9845052b7a90f7380ced8bca7c46f8251fbe48785209e.
+
+Both complete prepared inventories and original real-UI seq2344 off/on JSON
+bytes verify before submission. Prepared on=dd06cf64b234b9824f9ba2b8d43da0efbc246d77d62a4e5651b84f599f533652,
+off=2554299c705d2da5d7504d6bec46fc383a441bf3652a066ddab72c6c4e27ee6c.
+New request suffix -t047-removal-batch-ui2344-resource5302-r1 binds this pair.
+On seq2363/job76797f58-f484-4e59-b8ba-f21eb082aa27 started through FIFO at
+2026-10-02 00:20:16 Asia/Shanghai, runqueue-eae8a916127c414f934b050baef42ee6.
+Read-only observations confirm its recorded Java identity and first operation
+completion. Off is submitted only after on succeeds. This is the existing
+bounded client, not a duplicate submission; failure stops the pipeline without
+automatic rerun. No heavy build or JFR analysis runs during these measurements.
+
+Evidence directory: build/t029-real-host-acceptance/removal-batch-resource5302-r1.
+setup.json SHA00a8c4902fc4133ffd86c3ed6d6ea104d0d90532a8195b64d2878b76f27e5aad.
+Host/performance acceptance remains NOT_DECIDED. Completed semantic/resource
+reports are still pending. T044/T046 and the stable-optimization goal remain open;
+final5203/5303, new-candidate UI/startup linkage, actual repeated-target/guard
+proof and resource bounds are not replaced by the old candidate evidence.
+This pair ends with an adopt/hold recommendation and no automatic additional job.
+
+
+### 2026-10-02 bounded removal-batch 5302 pair complete: hold production acceptance
+
+The same client completed normally with exit0 and RESOURCE_ANALYSIS_COMPLETE.
+On seq2363/job76797f58-f484-4e59-b8ba-f21eb082aa27 and off seq2365/job
+a87d20ef-88b6-4e57-9f0e-5f7d99fee08c pass normal exit, exact host identity,
+unchanged fixture and safe task-owned cleanup. Off run is
+queue-c6ffe0f35ce64964bf17c27103030a71; it waited behind another session's
+FIFO task and was not inserted ahead of it. No duplicate or extra job was
+submitted. Independent review verifies actual staged Agent ee244d0f, driver
+3bee41a3, unchanged official5302 JAR/fixture, both actual home config hashes,
+prepared/job/run binding and all completion report hashes.
+
+Payload/canonical binding, the default fresh-edge/membership INFO receipts,
+first four ordered edge outputs and precise TriangleList SHA pass. On has108
+production bridge samples, off has none. This confirms sampled execution,
+not actual guard admission, all-cycle output equivalence or eliminated scans.
+
+| Sampled observation | Off | On | On change |
+| --- | ---: | ---: | ---: |
+| First explicit operation wall seconds | 91.0739 | 87.1515 | -4.31% |
+| First operation Java CPU seconds | 120.87 | 125.05 | +3.46% |
+| Three operation wall seconds combined | 121.4026 | 122.1894 | +0.65% |
+| Whole resource observer Java CPU seconds | 319.41 | 317.96 | -0.45% |
+| Resource observer peak RSS MiB | 5792.77 | 4988.03 | -13.89% |
+| Available-readings peak PSS MiB | 5738.08 | 4933.66 | -14.02% |
+
+On whole-process PSS has1 unavailable record; off has none. PSS peaks are from
+available readings, not continuous full coverage. CPU deltas omit unsampled
+boundaries and unobserved lifetimes; RSS/PSS are sampled peaks. Retained median
+RSS on is3753.15/4689.71/4375.87MiB, off4626.84/4906.59/5167.23MiB. Both legs
+have101 recorded GC events. Maximum JFR heap summary on4737.82MiB vs off4793.72MiB
+and final recorded summary3531.89 vs3638.61MiB are event observations, not an
+object-retention or leak proof. Operation2/3 still have zero sampled target
+execution on both legs; their wall changes cannot establish repeated
+triangulation benefit. Missing samples do not prove absence of execution.
+
+Bounded-review.json SHAfacb40f5335ad3d299af50c5c5ee32ef5a5c22cb63938175d187039b475c06a2
+under removal-batch-resource5302-r1 records HOLD_PRODUCTION_ACCEPTANCE /
+NOT_PASSED without rewriting either host PASS. This is a mixed single pair:
+first wall and sampled memory improve, first CPU rises, all-operation time is
+slightly worse and observed whole CPU is nearly unchanged. It supports local
+improvement, not stable net gain or a promised repeatable memory reduction.
+
+The bounded measurement and evidence review are closed. Hold production
+adoption/merge; no further host task is automatically submitted. T044/T046 and
+the stable-optimization goal remain unfulfilled: final5203/5303, final-candidate
+UI/startup linkage, actual repeated-target outputs, guard/scan proof and resource
+bounds are still missing. No theoretical bottleneck has been established.
