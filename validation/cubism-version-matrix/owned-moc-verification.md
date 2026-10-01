@@ -1,9 +1,11 @@
 # Owned MOC 生产 SDK 实机验证（部分能力）
 
-这是全能力表中的一项证据，不是最终全版本支持表。所有未列版本仍待验证。
+这是全能力表中的一项证据，不是最终全版本支持表。20个安装版本均已完成此场景；其他能力仍待验证。
 
 | Editor | 实测 Core | 生产 SDK owned-MOC | supervisor | parameterRepeat / latest MOC |
 |---|---|---|---|---|
+| 5.0.01 | 5.0.0 | PASS（Canvas／参数／部件；扩展三族明确拒绝） | PASS | 不提供 / V5_0 |
+| 5.0.00 | 5.0.0 | PASS（Canvas／参数／部件；扩展三族明确拒绝） | PASS | 不提供 / V5_0 |
 | 5.0.02 | 5.0.0 | PASS（Canvas／参数／部件；扩展三族明确拒绝） | PASS | 不提供 / V5_0 |
 | 5.0.03 | 5.0.0 | PASS（Canvas／参数／部件；扩展三族明确拒绝） | PASS | 不提供 / V5_0 |
 | 5.0.04 | 5.0.0 | PASS（Canvas／参数／部件；扩展三族明确拒绝） | PASS | 不提供 / V5_0 |
@@ -23,10 +25,12 @@
 | 5.3.03 | 6.0.257 | PASS | PASS | 提供 / V5_3 |
 | 5.3.04 | 6.0.513 | PASS | PASS | 提供 / V5_3 |
 
-9版完整结构getter与9版基础family通过，每版均核对contained-supervisor身份、夹具不变、正常退出及cleanup safe。完整profile读取42参数、19部件、84 drawable、97 deformer、0 Glue；基础profile读取42参数、19部件，完整Drawable/Glue/Deformer明确拒绝。空Glue仅覆盖getter，未证明非空语义、Editor bridge、完整MCP保存或Mesa优化。
+9版完整结构getter与11版基础family通过，每版均核对contained-supervisor身份、夹具不变、正常退出及cleanup safe。完整profile读取42参数、19部件、84 drawable、97 deformer、0 Glue；基础profile读取42参数、19部件，完整Drawable/Glue/Deformer明确拒绝。空Glue仅覆盖getter，未证明非空语义、Editor bridge、完整MCP保存或Mesa优化。
 
 | Editor | 原生结果 | supervisor 摘录 | job |
 |---|---|---|---|
+| 5.0.01 | [properties](mcp-evidence/5.0.01-allversions-owned-r1/core-owned-moc-result.properties) | [终态](mcp-evidence/5.0.01-allversions-owned-r1/lifecycle-result.json) | `e0bc93b7-37d3-4004-9b62-a645988ce32a` |
+| 5.0.00 | [properties](mcp-evidence/5.0.00-allversions-owned-r1/core-owned-moc-result.properties) | [终态](mcp-evidence/5.0.00-allversions-owned-r1/lifecycle-result.json) | `2501a359-6846-4068-95d5-740b868b5917` |
 | 5.0.02 | [properties](mcp-evidence/5.0.02-allversions-owned-r2/core-owned-moc-result.properties) | [终态](mcp-evidence/5.0.02-allversions-owned-r2/lifecycle-result.json) | `42aab530-9b5b-4460-91f6-156652d52506` |
 | 5.0.03 | [properties](mcp-evidence/5.0.03-allversions-owned-r1/core-owned-moc-result.properties) | [终态](mcp-evidence/5.0.03-allversions-owned-r1/lifecycle-result.json) | `c4b44dc5-90bb-45d0-87e7-dc408490153b` |
 | 5.0.04 | [properties](mcp-evidence/5.0.04-allversions-owned-r1/core-owned-moc-result.properties) | [终态](mcp-evidence/5.0.04-allversions-owned-r1/lifecycle-result.json) | `f254ebd3-54fa-4f39-852e-8c7c8d7bc7ad` |
@@ -54,8 +58,10 @@ prepared digest 和逐项结果见 [任务清单](campaign-jobs.json)。原始 p
 
 [启动回归证据](legacy-startup-regression.json)：record残留条件与生产HostSession join两条路径已分别复现并修复，235项宿主/Core合成回归和6项真实产物回归通过。r5 supervisor FAIL/cleanup safe，native未开始，详见[终态](mcp-evidence/5.1.03-allversions-owned-r5/lifecycle-result.json)与[启动stack](mcp-evidence/5.1.03-allversions-owned-r5/startup-failure.txt)；后续r6的实机验收见下段。
 
-5.1.03 owned-r6已收取supervisor PASS：身份/夹具/正常退出true、cleanup safe，Core实测5.0.0，基础Canvas/42参数/19部件、update/独立实例/不可变副本/显式和父级联释放/关闭后拒绝均通过；complete-drawables/glues/deformers明确UOE，allStructuralReadMethods=PARTIAL_EXPECTED。目前共18版owned-MOC验收，9版完整结构getter与9版基础family；不证明完整geometry、Editor bridge或全能力。逐SDK方法覆盖与缺口见[覆盖映射](owned-moc-coverage.json)。
+5.1.03 owned-r6已收取supervisor PASS：身份/夹具/正常退出true、cleanup safe，Core实测5.0.0，基础Canvas/42参数/19部件、update/独立实例/不可变副本/显式和父级联释放/关闭后拒绝均通过；complete-drawables/glues/deformers明确UOE，allStructuralReadMethods=PARTIAL_EXPECTED。目前共20版owned-MOC验收，9版完整结构getter与11版基础family；不证明完整geometry、Editor bridge或全能力。逐SDK方法覆盖与缺口见[覆盖映射](owned-moc-coverage.json)。
 
 5.1.00–5.1.02各自实机supervisor PASS，三个最终门禁true、cleanup safe，基础读取与缺失族负向断言均通过。5.0.02首轮夹具加载中断，nativeAssertions=NOT_STARTED，其他5.0版仍在队列中；不能据此判定Core不支持。任务标识及摘要见campaign-jobs.json。
 
 5.0.02 owned-r2复测supervisor PASS，三个最终门禁true、cleanup safe，Core5.0.0基础family和缺失族拒绝断言均通过。首轮加载中断证据仍保留。5.0.06 owned-r2复测也已supervisor PASS，基础family与负向断言通过；5.0.00/.01需要合适夹具，不能据加载失败记为不支持。
+
+5.0.00/.01采用官方旧版Simple任务副本实机通过（Core5.0.0），基础family、生命周期和缺失三族拒绝断言均PASS，三个最终门禁true、cleanup safe；owned-MOC现在覆盖全部20版，仍不证明完整框架支持。

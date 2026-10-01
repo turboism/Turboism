@@ -4,25 +4,25 @@
   "baselineRevision": "7d7de1de4",
   "sdkArtifact": {
     "name": "sdk-0.44.0-SNAPSHOT.jar",
-    "sha256": "845cd5fc69335a4aadb26eae20da7d8f6227741c66e9704d6ad1fe12c51e143a",
+    "sha256": "223369993905272525c21cad9d8f425fd23c9248dafb972cac57339608c2fe4e",
     "sizeBytes": 1147937
   },
   "coverageIndex": {
     "path": "owned-moc-coverage.json",
-    "sha256": "9cefbcd850fc7421ed94db23d0710371c7307fa4d714b952a44eacacd8199900"
+    "sha256": "88d08696d65b73c5318299adb220cfc9c2f4f133f16362eb6416d61353c445a7"
   },
   "coverageIndexes": [
     {
       "path": "owned-moc-coverage.json",
-      "sha256": "9cefbcd850fc7421ed94db23d0710371c7307fa4d714b952a44eacacd8199900"
+      "sha256": "88d08696d65b73c5318299adb220cfc9c2f4f133f16362eb6416d61353c445a7"
     },
     {
       "path": "mcp-texture-coverage.json",
-      "sha256": "2682d9b70c733b3124fb74ec9773efc3ac38dc486da4570055e82d32f5ec6584"
+      "sha256": "04839b848a185669c8400d8dabaefb20506f8eceaa7c8f82a2d9aad398acf50d"
     },
     {
       "path": "mcp-authoring-coverage.json",
-      "sha256": "205c3ff4d88cd73e6873c341c7a1c8bd1d711db59e543c19be51bf97660b4632"
+      "sha256": "37faff624d371f4fe27c790d364fe0c16a06dbc3a3879af48bf622b0d0941200"
     }
   ],
   "rules": [

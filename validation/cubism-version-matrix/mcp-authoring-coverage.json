@@ -179,6 +179,15 @@
       "mcpClientResult": "PASS",
       "supervisorResult": "PASS",
       "supportVerdict": "SCOPED_MCP_SCENARIO_PASS_ONLY"
+    },
+    {
+      "version": "5.3.01",
+      "jobId": "93e61a45-2bce-47a3-9582-25f36786aa0f",
+      "preparedDigest": "d9600591ab9de331a2b590a0249290d6346bc584e7f1c9112f607516b76265b0",
+      "evidenceDirectory": "mcp-evidence/5.3.01-allversions-free-r2",
+      "mcpClientResult": "PASS",
+      "supervisorResult": "PASS",
+      "supportVerdict": "SCOPED_MCP_SCENARIO_PASS_ONLY"
     }
   ],
   "uncovered": [

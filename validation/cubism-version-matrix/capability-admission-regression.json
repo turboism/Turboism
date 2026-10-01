@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "scope": "Offline/synthetic regression only; native reruns have independent frozen jobs",
+  "javaSuites": [
+    {
+      "suite": "dev.turboism.mapping.verification.CapabilitySelectorDependenciesTest",
+      "tests": 75,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.mapping.verification.CubismHostCompatibilityResolverTest",
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.adapter.cubism.editor.EditorInspectorDrawableWriteTest",
+      "tests": 27,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.plugin.mcp.McpTransactionDomainTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.plugin.mcp.McpHttpServerIntegrationTest",
+      "tests": 20,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.plugin.mcp.McpStartupDiagnosticTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "suite": "dev.turboism.plugin.mcp.McpOptionalTransactionTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "javaTotal": 164,
+  "pythonGeneratorTests": 2,
+  "schedulerTests": 32,
+  "inventoryTests": 9,
+  "devCheck": "PASS",
+  "coreInventoryMemberSelectorGates": "PASS",
+  "nativeStartupTaskBinding": "PASS; rejects foreign home/run; observation-only",
+  "psdProbeChecks": "PASS; saved/readable isolation, strict diagnostics, stop on assertion failure, primary/cleanup preservation",
+  "proprietaryArtifactStaticScope": "refresh-editor-model verifies existing selectors and complete no-alpha contract against each of 20 exact Editor JARs; adds no selector to14 changed records",
+  "nativeSupportClaim": false,
+  "copiedEvidenceAudit": {
+    "lifecycleSummaries": 59,
+    "propertiesByteIdentical": 62,
+    "source": "official queue original lifecycle SHA and task result bytes"
+  }
+}

@@ -33,6 +33,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -122,7 +123,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -161,7 +161,30 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "jobId": "2501a359-6846-4068-95d5-740b868b5917",
+          "preparedDigest": "8b63f8a9baac4a7d88f80b391ff754ebae1c07655a809f50a1aea7455c8b06ee",
+          "evidenceDirectory": "mcp-evidence/5.0.00-allversions-owned-r1",
+          "scenario": "core-owned-moc",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "capabilityId": "cubism.core.owned-moc.read",
+          "index": "owned-moc-coverage.json",
+          "structuralReadMethods": "PARTIAL_EXPECTED"
+        },
+        {
+          "jobId": "a706b547-b65c-459f-a33c-8bb493e5c346",
+          "preparedDigest": "8ff77228f1c32a0f2cd735f6e17d75a2f430bfeb1e16b34a0160248bf294a285",
+          "evidenceDirectory": "texture-evidence/5.0.00-allversions-relations-r1",
+          "scenario": "texture-relations",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "index": "texture-relations-coverage.json",
+          "scope": "Nonempty coherent relation graph with resolved links only; no shared/multiple-input or PSD write acceptance"
+        }
+      ]
     },
     {
       "version": "5.0.01",
@@ -184,6 +207,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -273,7 +297,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -312,7 +335,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "jobId": "e0bc93b7-37d3-4004-9b62-a645988ce32a",
+          "preparedDigest": "9a6ed1e5dee4c3899625e4d60d1e6d4e450e63411882ab314197b011adcdf8ec",
+          "evidenceDirectory": "mcp-evidence/5.0.01-allversions-owned-r1",
+          "scenario": "core-owned-moc",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "capabilityId": "cubism.core.owned-moc.read",
+          "index": "owned-moc-coverage.json",
+          "structuralReadMethods": "PARTIAL_EXPECTED"
+        }
+      ]
     },
     {
       "version": "5.0.02",
@@ -335,6 +371,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -424,7 +461,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -499,6 +535,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -588,7 +625,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -663,6 +699,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -752,7 +789,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -827,6 +863,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -916,7 +953,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -991,6 +1027,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.clip-mask.write",
@@ -1080,7 +1117,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.auto-yure.read",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
@@ -1157,6 +1193,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -1249,7 +1286,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
         "cubism.editor-model.edit.parameter-structure.add-parameter-group",
@@ -1321,6 +1357,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -1413,7 +1450,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.add-parameter",
         "cubism.editor-model.edit.parameter-structure.add-parameter-group",
@@ -1485,6 +1521,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -1584,7 +1621,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.edit-parameter",
         "cubism.editor-model.edit.parameter-structure.move-parameter",
@@ -1649,6 +1685,7 @@
         "cubism.editor-model.animation-timeline.read",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -1748,7 +1785,6 @@
         "cubism.editor-history.semantic-read",
         "cubism.editor-model.animation-eval",
         "cubism.editor-model.animation-timeline.write",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.default-keyform-lock.write",
         "cubism.editor-model.edit.parameter-structure.edit-parameter",
         "cubism.editor-model.edit.parameter-structure.move-parameter",
@@ -1815,6 +1851,7 @@
         "cubism.editor-model.animation-timeline.write",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -1929,7 +1966,6 @@
       "capabilitiesWithoutExactRecord": [
         "cubism.core.owned-moc.read",
         "cubism.editor-history.semantic-read",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.model-instance.read",
         "cubism.editor-model.part-inspector.write",
         "cubism.editor-model.part-opacity.write",
@@ -1979,6 +2015,7 @@
         "cubism.editor-model.animation-timeline.write",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -2093,7 +2130,6 @@
       "capabilitiesWithoutExactRecord": [
         "cubism.core.owned-moc.read",
         "cubism.editor-history.semantic-read",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.model-instance.read",
         "cubism.editor-model.part-inspector.write",
         "cubism.editor-model.part-opacity.write",
@@ -2143,6 +2179,7 @@
         "cubism.editor-model.animation-timeline.write",
         "cubism.editor-model.animation.read",
         "cubism.editor-model.art-mesh-clip-mask.read",
+        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.art-mesh.parameter-bindings.write",
         "cubism.editor-model.art-mesh.write",
         "cubism.editor-model.auto-yure.read",
@@ -2257,7 +2294,6 @@
       "capabilitiesWithoutExactRecord": [
         "cubism.core.owned-moc.read",
         "cubism.editor-history.semantic-read",
-        "cubism.editor-model.art-mesh.inspector-write",
         "cubism.editor-model.model-instance.read",
         "cubism.editor-model.part-inspector.write",
         "cubism.editor-model.part-opacity.write",
@@ -2279,6 +2315,16 @@
           "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
           "structuralReadMethods": "PASS",
           "wholeFrameworkSupport": false
+        },
+        {
+          "jobId": "72201a45-4ccb-45d9-a90e-6ac23973e01f",
+          "preparedDigest": "ff3e2a81671a0e06adcb18cf2129f054b3c27bddbbd0fcf492b71fffec4599ec",
+          "evidenceDirectory": "texture-evidence/5.2.02-allversions-relations-r1",
+          "scenario": "texture-relations",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "index": "texture-relations-coverage.json",
+          "scope": "Nonempty coherent relation graph with resolved links only; no shared/multiple-input or PSD write acceptance"
         }
       ]
     },
@@ -2771,6 +2817,19 @@
           "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
           "structuralReadMethods": "PASS",
           "wholeFrameworkSupport": false
+        },
+        {
+          "jobId": "93e61a45-2bce-47a3-9582-25f36786aa0f",
+          "preparedDigest": "d9600591ab9de331a2b590a0249290d6346bc584e7f1c9112f607516b76265b0",
+          "evidenceDirectory": "mcp-evidence/5.3.01-allversions-free-r2",
+          "scenario": "mcp:free-fixture",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "index": "mcp-texture-coverage.json",
+          "workspaceControl": "UNAVAILABLE",
+          "coreDiagnosticOnly": true,
+          "validationOnlyNativePersistence": true,
+          "scope": "Complete MCP client scenario; nonempty Editor Glue and authoring restoration; native texture persistence with Screen/Multiply Color preparation"
         }
       ]
     },
@@ -3275,6 +3334,28 @@
           "coreDiagnosticOnly": true,
           "validationOnlyNativePersistence": true,
           "wholeFrameworkSupport": false
+        },
+        {
+          "jobId": "31185cfd-8756-46e0-8895-5e44ebe17e60",
+          "preparedDigest": "db82e86cf05603f42a3397bda35de930f8317bac9ce0bc48e83ebe9112968a68",
+          "evidenceDirectory": "texture-evidence/5.3.04-allversions-relations-r1",
+          "scenario": "texture-relations",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "wholeFrameworkSupport": false,
+          "index": "texture-relations-coverage.json",
+          "scope": "Nonempty coherent relation graph with resolved links only; no shared/multiple-input or PSD write acceptance"
+        },
+        {
+          "scenario": "psd-export-observation:saved-only-assisted",
+          "jobId": "e3e719a7-6d51-431d-8d68-723ced9a184e",
+          "preparedDigest": "78ac2b258ce33ddabdbead99a1dfbeb7016eefaed1851746f81ba9da4d77efb6",
+          "index": "psd-save-observation-coverage.json",
+          "evidenceDirectory": "texture-evidence/5.3.04-allversions-psd-save-r1",
+          "verdict": "PASS_SAVE_ONLY_OBSERVATION",
+          "contentReadability": "NOT_INDEPENDENTLY_TESTED",
+          "structure": "NOT_VERIFIED",
+          "fidelity": "NOT_VERIFIED",
+          "wholeFrameworkSupport": false
         }
       ]
     }
@@ -3522,6 +3603,20 @@
       "compatibility/cubism/verification/cubism-5.3.04-editor-model.json"
     ],
     "cubism.editor-model.art-mesh.inspector-write": [
+      "compatibility/cubism/verification/cubism-5.0.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.02-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.03-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.04-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.05-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.0.06-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.02-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.1.03-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.00-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.01-editor-model.json",
+      "compatibility/cubism/verification/cubism-5.2.02-editor-model.json",
       "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
       "compatibility/cubism/verification/cubism-5.3.00-editor-model.json",
       "compatibility/cubism/verification/cubism-5.3.01-editor-model.json",
@@ -5915,22 +6010,29 @@
   ],
   "scenarios": [
     {
-      "id": "animation-timeline:default",
+      "id": "animation-timeline:assisted",
       "task": "animation-timeline",
-      "variant": "default",
+      "variant": "assisted",
       "wrapper": "scripts/preview/run-animation-timeline-host-validation.sh",
       "catalogueVersions": [
-        "5000",
-        "5001",
-        "5002",
-        "5003",
-        "5004",
-        "5005",
-        "5006",
-        "5100",
-        "5101",
-        "5102",
-        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "animation-timeline:standard",
+      "task": "animation-timeline",
+      "variant": "standard",
+      "wrapper": "scripts/preview/run-animation-timeline-host-validation.sh",
+      "catalogueVersions": [
         "5200",
         "5201",
         "5202",
@@ -8641,9 +8743,38 @@
       "coverageMapping": "PENDING_AUDIT"
     },
     {
-      "id": "parameter-batch-transfer:default",
+      "id": "parameter-batch-transfer:assisted",
       "task": "parameter-batch-transfer",
-      "variant": "default",
+      "variant": "assisted",
+      "wrapper": "scripts/preview/run-parameter-batch-transfer-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "parameter-batch-transfer:standard",
+      "task": "parameter-batch-transfer",
+      "variant": "standard",
       "wrapper": "scripts/preview/run-parameter-batch-transfer-host-validation.sh",
       "catalogueVersions": [
         "5000",
@@ -8995,6 +9126,34 @@
       "id": "psd-export-observation:assisted",
       "task": "psd-export-observation",
       "variant": "assisted",
+      "wrapper": "scripts/preview/run-psd-export-observation-host-validation.sh",
+      "catalogueVersions": [
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "psd-export-observation:saved-only",
+      "task": "psd-export-observation",
+      "variant": "saved-only",
+      "wrapper": "scripts/preview/run-psd-export-observation-host-validation.sh",
+      "catalogueVersions": [
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "psd-export-observation:saved-only-assisted",
+      "task": "psd-export-observation",
+      "variant": "saved-only-assisted",
       "wrapper": "scripts/preview/run-psd-export-observation-host-validation.sh",
       "catalogueVersions": [
         "5300",
@@ -9687,9 +9846,38 @@
       "coverageMapping": "PENDING_AUDIT"
     },
     {
-      "id": "workspace:default",
+      "id": "workspace:assisted",
       "task": "workspace",
-      "variant": "default",
+      "variant": "assisted",
+      "wrapper": "scripts/preview/run-workspace-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "workspace:standard",
+      "task": "workspace",
+      "variant": "standard",
       "wrapper": "scripts/preview/run-workspace-host-validation.sh",
       "catalogueVersions": [
         "5000",
@@ -10370,7 +10558,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.00-editor-model.json",
-      "sha256": "5a1601f1b6dae817bc9631f980ac7e7455799df3e8b8d85ff9961ecbda61193d",
+      "sha256": "26b2f2e4576a3b7ff7545f5290342d995ae3778ac3d9ae85be3dca3654899e5e",
       "version": "5.0.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10458,7 +10646,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -10543,7 +10732,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.01-editor-model.json",
-      "sha256": "25846f01b0d656b2d431ae876760c1225fdf9b7ed523b97fda61c68b48f33fde",
+      "sha256": "476d8a6d38f9058257c0effe5ee741a13265a4410eb34c8ca3febecb572b7dac",
       "version": "5.0.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10631,7 +10820,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -10716,7 +10906,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.02-editor-model.json",
-      "sha256": "9f0e376f184f19173945e57d4947e83929f45d9262726a568c9659b54a91dc08",
+      "sha256": "6631f1ae9260bcaf489f299af957533482a904c48909ec983324ef50c9c230f3",
       "version": "5.0.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10804,7 +10994,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -10889,7 +11080,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.03-editor-model.json",
-      "sha256": "8988936806752af7374548ea802f1203a7dc69b1279baf21aa31c352dcafd979",
+      "sha256": "7f4212783cdc33ae0fa54f5331c3be67343e59cc009c85b9ad843617aa11de6a",
       "version": "5.0.03",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -10977,7 +11168,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -11062,7 +11254,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.04-editor-model.json",
-      "sha256": "8534aa07af053fe7af7e823d7844aed3859349fe8cfdc2396eef0bc043f37a5e",
+      "sha256": "499125a38404fa51a73db35341605f40bf702693ae8a22215b9c74a691044430",
       "version": "5.0.04",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11150,7 +11342,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -11235,7 +11428,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.05-editor-model.json",
-      "sha256": "7c977f8f09301d9c1d8bb60ebb4ea3a7de6a8fcc0338c564115af01914f04d58",
+      "sha256": "b8980b583fbcac174f605225b980769b258df159f44f402c71cf088e2c3669fb",
       "version": "5.0.05",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11323,7 +11516,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -11408,7 +11602,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.0.06-editor-model.json",
-      "sha256": "a022333d7079ffc8d4047a886129046e96f4e85cf61bea82ebf08b231ecc5089",
+      "sha256": "6d0742cef0c756a3b5aa1c1a105469d4f6879e5c5438b30ed997127809fbb0b6",
       "version": "5.0.06",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11496,7 +11690,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -11595,7 +11790,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.00-editor-model.json",
-      "sha256": "8688b84abaca21a429b0573d4a0b298ddfc69b908a857a000cbd463a9bbf648e",
+      "sha256": "4f7502b5d9c496b0c92dd1ded4bf4f30f148e4d404565dbae89bb9d042412caf",
       "version": "5.1.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11685,7 +11880,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -11823,7 +12019,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.01-editor-model.json",
-      "sha256": "086bd1144b3669d04ed6f24df9ffe3ff855eb39fe2149018b9cb8cf17bda894e",
+      "sha256": "2efa3acab2b75c491f288747496587cd92908720957a11e7ea967cd467bb5b5c",
       "version": "5.1.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -11913,7 +12109,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -12051,7 +12248,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.02-editor-model.json",
-      "sha256": "e8783243a22f630b17416bb346a0e3f3c024c819ad09a748b48eb0bf408e3398",
+      "sha256": "02694e3a347c81d9bde40711447a00929bf17344c62524292ec0d8e2f4164cc0",
       "version": "5.1.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12148,7 +12345,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -12286,7 +12484,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.1.03-editor-model.json",
-      "sha256": "0ff429b28e59a832e034acd333a5f7700233d7b30e0d1bcbfdb2f2cb34fc734b",
+      "sha256": "2e28131d62205844ad107010e2d0a6ccfdfcfcd321cfeeb7a35500c1f59abdea",
       "version": "5.1.03",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12383,7 +12581,8 @@
         "cubism.texture-atlas.dialog-injection",
         "cubism.texture-atlas.layout.write",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -12521,7 +12720,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.00-editor-model.json",
-      "sha256": "6372dbfb6da029d4409caab841a50cf488b7fe85d2211fadd57ff18aed76779d",
+      "sha256": "bd5cada51523c9a5d9b808361fca5d0c05b8575073dc0e29d0073f913ebbb985",
       "version": "5.2.00",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12630,7 +12829,8 @@
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -12799,7 +12999,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.01-editor-model.json",
-      "sha256": "75ff4b21bee39afad894d140a405aa7baa52afcc00e04b3c1367b418c87bf82d",
+      "sha256": "c21be64fd120be1becb6abe59496e94db80200a728183473955271e3f67b6bd1",
       "version": "5.2.01",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -12908,7 +13108,8 @@
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
@@ -13077,7 +13278,7 @@
     },
     {
       "path": "compatibility/cubism/verification/cubism-5.2.02-editor-model.json",
-      "sha256": "af9e9402a297c9309637e1c5d2b041073a78122ca25c5f3ae54a924f90ca2755",
+      "sha256": "5eb8070d4cf9aa0cbd4d586ceced4c350838d8d6fb330bb49d83f3b225232b5d",
       "version": "5.2.02",
       "artifact": {
         "name": "Live2D_Cubism.jar",
@@ -13186,7 +13387,8 @@
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.native-layout-invocation",
         "ui.object-context-menu.contribute",
-        "cubism.editor-model.texture.write"
+        "cubism.editor-model.texture.write",
+        "cubism.editor-model.art-mesh.inspector-write"
       ]
     },
     {
