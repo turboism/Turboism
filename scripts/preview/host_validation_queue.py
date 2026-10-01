@@ -893,8 +893,21 @@ def mcp_client_dependency(argv: list[str], source_root: Path, task_spec: str) ->
             or versions[0] not in {
                 "5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102",
                 "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"}
-            or task_spec not in {"direct-runner", "mcp:" + versions[0]}):
+            or task_spec not in {"direct-runner", "mcp:" + versions[0],
+                                 "mcp:" + versions[0] + "@standard",
+                                 "mcp:" + versions[0] + "@free-fixture"}):
         raise QueueError("custom client requires reviewed dependency inventory for the exact MCP task")
+    if task_spec.endswith("@free-fixture"):
+        required_jvm = {
+            "-Dturboism.validation.startFree=true",
+            "-Dturboism.validation.freeFixture=true",
+            "-Dturboism.optimization.mesaGlThread=false",
+        }
+        jvm = options.get("--jvm-option", [])
+        if (any([option for option in jvm if option.startswith(value.split("=", 1)[0] + "=")] != [value]
+                for value in required_jvm)
+                or options.get("--linux-env") != ["mesa_glthread=false"]):
+            raise QueueError("FREE fixture variant requires exact SDK preparation and render configuration")
     client = source_root / "scripts/preview/mcp-host-validation-client.py"
     expected = {
         "--client-script": [str(client) + ":mcp-host-validation-client.py"],
