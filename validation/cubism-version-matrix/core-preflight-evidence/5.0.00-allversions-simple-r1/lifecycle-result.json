@@ -1,0 +1,14 @@
+{
+  "jobId": "ec170db7-124a-4176-ad83-8539cf927c76",
+  "preparedDigest": "04d85129ca9e00fe7525c5e1046cc890f9d3d18dacf682b5266dc7a470894a0b",
+  "runId": "queue-36ac001e06384bdf8ee3e6bcb59d8f4c",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "succeeded",
+  "validationStatus": "PASS",
+  "identityVerified": true,
+  "fixtureUnchanged": true,
+  "normalExit": true,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "9ea07c6934d4200c0da1ec7c37002b36543ca96e36da205a6c954f11825883e2",
+  "renderConfiguration": ""
+}

@@ -18,12 +18,35 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
     private PluginContext context;
     private volatile boolean stopped;
     private Thread worker;
+    private Thread startupHelper;
 
     @Override public void init(final PluginContext context) { this.context = context; }
 
     @Override public void enable() {
         final String runId = System.getProperty("turboism.validation.textures.runId", "");
         if (runId.isBlank()) throw new IllegalStateException("Task-scoped runId is required");
+        if (Boolean.getBoolean("turboism.validation.textures.startFree")) {
+            startupHelper = new Thread(() -> {
+                while (!stopped) {
+                    try {
+                        SwingUtilities.invokeAndWait(() -> {
+                            if (stopped) return;
+                            final String action = dev.turboism.validation.NativeFreeStartup.select();
+                            if (action != null) context.logger().info("TEXTURE_RELATIONS_" + action);
+                        });
+                        Thread.sleep(500L);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    } catch (java.lang.reflect.InvocationTargetException error) {
+                        context.logger().warn("Texture relation startup helper failed: " + error.getCause());
+                        return;
+                    }
+                }
+            }, "texture-relations-task-startup");
+            startupHelper.setDaemon(true);
+            startupHelper.start();
+        }
         worker = new Thread(() -> run(runId), "texture-relations-host-smoke");
         worker.setDaemon(true);
         worker.start();
@@ -32,6 +55,7 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
     @Override public void disable() {
         stopped = true;
         if (worker != null) worker.interrupt();
+        if (startupHelper != null) startupHelper.interrupt();
     }
     @Override public void shutdown() { disable(); }
 
@@ -42,7 +66,8 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("runId", runId);
         result.setProperty("profile", exportObservation
             ? "025-native-export-readable-v2" : "025-relations-read-only-smoke");
-        result.setProperty("expectedHostVersion", "5.3.02");
+        result.setProperty("expectedHostVersion", expectedVersion(
+                System.getProperty("turboism.validation.textures.expectedVersion", "5302")));
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
         result.setProperty("writeUndoPersistence", "NOT_TESTED: no model replacement or save");
         result.setProperty("full025Acceptance", "NOT_TESTED");
@@ -170,6 +195,14 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
             throw new IllegalStateException("Issued PSD edit handle did not stop cleanly");
         }
         result.setProperty("assertion", "native export readable; runtime-issued edit handle obtained and stopped; no pixel or structural admission");
+    }
+
+    static String expectedVersion(final String code) {
+        if (!java.util.Set.of("5000", "5001", "5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103",
+                "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304").contains(code)) {
+            throw new IllegalArgumentException("Unreviewed exact texture-relation host version");
+        }
+        return code.substring(0, 1) + "." + code.substring(1, 2) + "." + code.substring(2);
     }
 
     static void validateExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported) {

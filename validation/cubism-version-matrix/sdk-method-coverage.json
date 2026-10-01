@@ -18,7 +18,11 @@
     },
     {
       "path": "mcp-texture-coverage.json",
-      "sha256": "7dd7da6c9fe7a328ef6b42239c9598669d52e4e89af89640f9afdb02f88f5745"
+      "sha256": "2682d9b70c733b3124fb74ec9773efc3ac38dc486da4570055e82d32f5ec6584"
+    },
+    {
+      "path": "mcp-authoring-coverage.json",
+      "sha256": "205c3ff4d88cd73e6873c341c7a1c8bd1d711db59e543c19be51bf97660b4632"
     }
   ],
   "rules": [
@@ -30,7 +34,7 @@
   "classCount": 894,
   "methodCount": 5389,
   "fieldCount": 1063,
-  "explicitlyMappedMethodCount": 35,
+  "explicitlyMappedMethodCount": 62,
   "classes": [
     {
       "owner": "dev/turboism/sdk/CubismEditor",
@@ -25480,7 +25484,13 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/model/Glues;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "CubismModel.glues()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "id",
@@ -25522,7 +25532,13 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/model/ParameterBindingBatchOperations;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "CubismModel.parameterBindingBatch()",
+            "evidenceKey": "assertion.bindingUndoRedoRestoration.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "parameterBindings",
@@ -25550,7 +25566,13 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/model/Parameters;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "CubismModel.parameters()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "parts",
@@ -26545,7 +26567,13 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/id/ArtMeshId;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.drawableAId()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "drawableB",
@@ -26559,42 +26587,78 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/id/ArtMeshId;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.drawableBId()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "id",
           "descriptor": "()Ldev/turboism/sdk/cubism/model/GlueId;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.id()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "index",
           "descriptor": "()I",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.index()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "intensity",
           "descriptor": "()F",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.intensity()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "name",
           "descriptor": "()Ljava/lang/String;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.name()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "parameterIds",
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.parameterIds()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "parameters",
@@ -26608,35 +26672,65 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/id/ArtMeshId;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.setDrawableA(ArtMeshId)",
+            "evidenceKey": "assertion.glueWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setDrawableB",
           "descriptor": "(Ldev/turboism/sdk/cubism/id/ArtMeshId;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.setDrawableB(ArtMeshId)",
+            "evidenceKey": "assertion.glueWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setId",
           "descriptor": "(Ldev/turboism/sdk/cubism/model/GlueId;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.setId(GlueId)",
+            "evidenceKey": "assertion.glueWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setIntensity",
           "descriptor": "(F)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.setIntensity(float)",
+            "evidenceKey": "assertion.glueWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setName",
           "descriptor": "(Ljava/lang/String;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glue.setName(String)",
+            "evidenceKey": "assertion.glueWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         }
       ]
     },
@@ -26698,21 +26792,39 @@
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glues.all()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "find",
           "descriptor": "(Ldev/turboism/sdk/cubism/model/GlueId;)Ldev/turboism/sdk/cubism/model/Glue;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glues.find(GlueId)",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "providerVersion",
           "descriptor": "()Ljava/util/Optional;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Glues.providerVersion()",
+            "evidenceKey": "assertion.glueRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         }
       ]
     },
@@ -28277,21 +28389,39 @@
           "descriptor": "()F",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.getDefaultValue()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "getMaximumValue",
           "descriptor": "()F",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.getMaximumValue()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "getMinimumValue",
           "descriptor": "()F",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.getMinimumValue()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "getParameterBindings",
@@ -28311,14 +28441,26 @@
           "descriptor": "()F",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.getValue()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "id",
           "descriptor": "()Ldev/turboism/sdk/cubism/id/ParameterId;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.id()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "index",
@@ -28367,7 +28509,13 @@
           "descriptor": "(F)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameter.setValue(float)",
+            "evidenceKey": "assertion.parameterWriteReadback.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "type",
@@ -28478,7 +28626,13 @@
           "descriptor": "(Ljava/util/List;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "ParameterBindingBatchOperations.invert(List)",
+            "evidenceKey": "assertion.bindingUndoRedoRestoration.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "transfer",
@@ -29103,7 +29257,13 @@
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameters.all()",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "copy",
@@ -29152,7 +29312,13 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/id/ParameterId;)Ldev/turboism/sdk/cubism/model/Parameter;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture-authoring",
+            "coverageIndex": "mcp-authoring-coverage.json",
+            "sdkMethod": "Parameters.find(ParameterId)",
+            "evidenceKey": "assertion.parameterRead.status",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "findById",

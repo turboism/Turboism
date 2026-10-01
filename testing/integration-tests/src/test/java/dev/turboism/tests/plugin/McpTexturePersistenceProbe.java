@@ -87,6 +87,10 @@ public final class McpTexturePersistenceProbe {
         return color.red() == 0f && color.green() == 0f && color.blue() == 0f;
     }
 
+    static boolean neutralMultiplyColor(final Color color) {
+        return color.red() == 1f && color.green() == 1f && color.blue() == 1f;
+    }
+
     static List<String> storedScreenColorFamilies(final String version) {
         return switch (version) {
             case "5000",
@@ -313,6 +317,8 @@ public final class McpTexturePersistenceProbe {
         private List<ParameterBinding> persistedBindings;
         private Map<String, Color> pristineScreenColors;
         private Map<String, Color> persistedScreenColors;
+        private Map<String, Color> pristineMultiplyColors;
+        private Map<String, Color> persistedMultiplyColors;
         private volatile boolean nativeTimedOut;
 
         Engine(final PluginContext context, final Path stateRoot, final String runId, final Properties result)
@@ -394,6 +400,7 @@ public final class McpTexturePersistenceProbe {
                 if (Boolean.getBoolean("turboism.validation.freeFixture")) {
                     pristineBindings = bindings();
                     pristineScreenColors = screenColors();
+                    pristineMultiplyColors = multiplyColors();
                 }
                 result.setProperty("pristineFingerprint", pristine.digest());
                 result.setProperty(
@@ -406,6 +413,7 @@ public final class McpTexturePersistenceProbe {
                     if (pristineBindings != null) {
                         prepareFreeFixture();
                         prepareFreeScreenColors();
+                        prepareFreeMultiplyColors();
                     }
                     if (pristine.inputs().isEmpty()) seedNativeLayerInput();
                     baseline = snapshot();
@@ -498,6 +506,14 @@ public final class McpTexturePersistenceProbe {
 
         /** Exact-artifact native reads cover every stored keyform, not only the evaluated color. */
         private Map<String, Color> screenColors() throws Exception {
+            return storedColors("getScreenColor");
+        }
+
+        private Map<String, Color> multiplyColors() throws Exception {
+            return storedColors("getMultiplyColor");
+        }
+
+        private Map<String, Color> storedColors(final String getter) throws Exception {
             final Object source = call(currentDocument(), "getModelSource");
             final Map<String, Color> colors = new TreeMap<>();
             for (String family : storedScreenColorFamilies(result.getProperty("hostVersion"))) {
@@ -505,7 +521,7 @@ public final class McpTexturePersistenceProbe {
                     final String identity = family + "/" + call(call(object, "getId"), "getIdString");
                     int index = 0;
                     for (Object form : (Iterable<?>) call(object, "getKeyforms")) {
-                        final Object color = call(form, "getScreenColor");
+                        final Object color = call(form, getter);
                         final Color value = new Color(
                                 ((Number) call(color, "getR")).floatValue(),
                                 ((Number) call(color, "getG")).floatValue(),
@@ -513,11 +529,11 @@ public final class McpTexturePersistenceProbe {
                                 ((Number) call(color, "getA")).floatValue());
                         require(
                                 colors.put(identity + "/" + index++, value) == null,
-                                "Duplicate native screen-color keyform identity");
+                                "Duplicate native color keyform identity");
                     }
                 }
             }
-            require(!colors.isEmpty(), "No stored keyforms for native screen-color evidence");
+            require(!colors.isEmpty(), "No stored keyforms for native color evidence");
             return Map.copyOf(colors);
         }
 
@@ -568,10 +584,61 @@ public final class McpTexturePersistenceProbe {
             result.setProperty("freeFixtureScreenColorPreparation", "SDK_COLOR_UNDO_REDO_PASS");
         }
 
+        private void prepareFreeMultiplyColors() throws Exception {
+            final Map<String, Color> before = multiplyColors();
+            result.setProperty(
+                    "freeFixtureMultiplyColorsBefore",
+                    Long.toString(before.values().stream()
+                            .filter(color -> !neutralMultiplyColor(color))
+                            .count()));
+            final Map<String, Color> screensBefore = screenColors();
+            final int start = position();
+            final Color neutral = new Color(1f, 1f, 1f, 1f);
+            final var model = context.cubism().model().active();
+            for (var drawable : model.drawables().all()) {
+                final int previous = position();
+                drawable.setMultiplyColor(neutral);
+                require(
+                        position() == previous || position() == previous + 1,
+                        "Multiply-color SDK write must be a no-op or one Undo entry");
+            }
+            for (var deformer : model.deformers().all()) {
+                final int previous = position();
+                deformer.setMultiplyColor(neutral);
+                require(
+                        position() == previous || position() == previous + 1,
+                        "Deformer multiply-color SDK write must be a no-op or one Undo entry");
+            }
+            final Map<String, Color> prepared = multiplyColors();
+            final long remaining = prepared.values().stream()
+                    .filter(color -> !neutralMultiplyColor(color))
+                    .count();
+            result.setProperty("freeFixtureMultiplyColorsAfter", Long.toString(remaining));
+            require(remaining == 0, "FREE fixture retains PRO-only Multiply Color in stored keyforms");
+            final Object source = call(currentDocument(), "getModelSource");
+            require(
+                    Boolean.FALSE.equals(call(source, "containMultiplyColor")),
+                    "Native FREE Multiply Color guard still rejects the prepared fixture");
+            result.setProperty("freeFixtureNativeMultiplyColorGuard", "PASS");
+            require(snapshot().equals(pristine), "Multiply-color preparation changed native texture state");
+            require(screenColors().equals(screensBefore), "Multiply-color preparation changed Screen Color");
+            final int end = position();
+            if (end != start) {
+                move(start);
+                require(multiplyColors().equals(before), "Multiply-color Undo did not restore every stored keyform");
+                move(end);
+                require(multiplyColors().equals(prepared), "Multiply-color Redo differs from prepared keyforms");
+                require(snapshot().equals(pristine), "Multiply-color Undo/Redo changed native texture state");
+            } else require(before.equals(prepared), "Multiply-color write changed native state without Undo");
+            require(screenColors().equals(screensBefore), "Multiply-color Undo/Redo changed Screen Color");
+            result.setProperty("freeFixtureMultiplyColorPreparation", "SDK_COLOR_UNDO_REDO_PASS");
+        }
+
         private boolean originalStateRestored() throws Exception {
             return snapshot().equals(pristine)
                     && (pristineBindings == null || bindings().equals(pristineBindings))
-                    && (pristineScreenColors == null || screenColors().equals(pristineScreenColors));
+                    && (pristineScreenColors == null || screenColors().equals(pristineScreenColors))
+                    && (pristineMultiplyColors == null || multiplyColors().equals(pristineMultiplyColors));
         }
 
         private int position() {
@@ -723,6 +790,7 @@ public final class McpTexturePersistenceProbe {
                 if (pristineBindings != null) {
                     persistedBindings = bindings();
                     persistedScreenColors = screenColors();
+                    persistedMultiplyColors = multiplyColors();
                 }
                 result.setProperty("persistedAtlasId", retainedAtlas.value());
                 result.setProperty("persistenceOperationKinds", "5");
@@ -759,6 +827,10 @@ public final class McpTexturePersistenceProbe {
                     require(
                             screenColors().equals(persistedScreenColors),
                             "Reopened stored screen colors differ from saved state");
+                    require(
+                            multiplyColors().equals(persistedMultiplyColors),
+                            "Reopened stored multiply colors differ from saved state");
+                    result.setProperty("freeFixtureMultiplyColorSaveReopen", "PASS");
                     result.setProperty("freeFixtureBindingSaveReopen", "PASS");
                 }
                 result.setProperty("reopenedFingerprint", snapshot().digest());
