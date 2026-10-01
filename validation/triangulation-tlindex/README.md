@@ -270,3 +270,57 @@ itself has not been executed, and no official geometry or host performance ran.
 Final offline-review.json SHA
 `185b5fbbfb80c0b6faa47a425d1427625cccf0bc5126d51696b497195f31cc29`
 binds66 inputs; the pre-correction checkpoint is superseded.
+
+### Production lazy weave and packaged helper verification (2026-10-02)
+
+The runtime transformer now attempts fresh, membership and leased lazy stages in
+that order. Lazy preparation requires the existing owned lifecycle, exact complete
+host identity from ReviewedHostArtifacts, the pinned Kotlin JAR, a reviewed
+post-membership baseline and the canonical bridge. It builds an immutable plan
+without application Class/loader references. Initial weaving and actual live
+definition admission have separate receipts; all weave receipts bind the final
+returned bytes. Unsupported preparation preserves the two earlier stages.
+
+The JDK-only bridge publishes an empty ClassValue holder and performs one capture
+inside the published holder. Callback entry refuses before metadata/capture.
+Actual eight-dependency fingerprints, metadata/origin/loader links and exclusive
+capture admit a full-method read lease; absent or permanently revoked leases use
+the original eager construction path. Normal and Throwable exits release the
+lease. The cold first group and fourth construction path remain eager. In owned
+mode startup suppression keeps its already inert transformer until handle close,
+avoiding prohibited self-removal from a transformer callback.
+
+`diagnostic/LazyEdgeBytecodeSelfCheck --leased` accepts the owned Instrumentation
+Agent with attach disabled. Optional `--production-compose` uses the current
+packaged fresh-shape and membership patchers before the leased shape. Both modes
+pass4882 owned checks under -Xverify:all, including native fallback construction
+counts, exception stack/order/identity preservation and real exclusive capture
+after every method exit. The remapped owned fresh guard still uses native fallback;
+these checks do not execute official geometry.
+
+`diagnostic/LazyEdgeProductionIntegrationSelfCheck` receives the official JAR,
+prior reviewed runtime-fingerprints.tsv, a new output directory and reviewed or
+tampered mode. Its only Agent provides Instrumentation and exposes the new
+packaged candidate on Boot-Class-Path. The real production transformer runs in
+initial definition callbacks. All three versions admit eight concurrent cold
+callers with exactly one capture; modified live edge definitions refuse admission.
+Later mutation permanently retires the old holder's gate. Six packaged cases
+pass189 checks and the packaged lifecycle check passes46. Official classes are
+defined and metadata resolved; initializers, constructors and geometry are not
+invoked. This does not execute the complete Turboism premain.
+
+Forty affected JUnit tests, devCheck and bootstrap JAR packaging pass. New isolated
+candidate SHA is0e5bb77f401a25a8d28399de0fb893200abe6320d8beaa2d6a04ad302c9aff44.
+Exact commands, initial failures and final artifacts are under
+build/t050-lazy-edge-bytecode/production-integration/. Final offline-review.json SHA
+ef491d69296b3bb3e05fe460380918bc883d80772883d4552a798ae6763b8955 binds391 inputs.
+The earlier wrong expected rejection string and frozen-patcher parent-shadow
+refusal are preserved; explicit current packaged composition succeeds. Existing
+ee244 performance and0dc308 diagnostic Agents remain unchanged.
+
+This closes the integration code slice. Production acceptance stays on hold.
+Remaining gates are supported single-Agent probe/full-bootstrap startup, native
+initialization/geometry/full repeated outputs, and final three-version stable
+performance/resources/UI/startup linkage. Current multi-Agent host validation
+cannot enable this new weave; default launch flags have not changed. No new host
+job was submitted, stable benefit is unproved, and no theoretical limit is claimed.

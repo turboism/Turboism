@@ -64,6 +64,7 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
 
     private final Set<String> admittedDigests;
     private final Consumer<String> membershipReceipt;
+    private final TriangulationDefinitionLifecycle lifecycle;
     private final TriangulationEdgeIndexPatcher patcher = new TriangulationEdgeIndexPatcher();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
@@ -71,6 +72,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final AtomicReference<String> membershipDiagnostic = new AtomicReference<>("");
     private final AtomicReference<Outcome> freshEdgeOutcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> freshEdgeDiagnostic = new AtomicReference<>("");
+    private final AtomicReference<Outcome> lazyEdgeOutcome = new AtomicReference<>(Outcome.NONE);
+    private final AtomicReference<String> lazyEdgeDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), ignored -> {});
@@ -86,8 +89,18 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
 
     private TriangulationEdgeIndexTransformer(final Set<String> admittedDigests,
             final Consumer<String> membershipReceipt) {
+        this(admittedDigests, membershipReceipt, null);
+    }
+
+    TriangulationEdgeIndexTransformer(final Consumer<String> receipt, final TriangulationDefinitionLifecycle lifecycle) {
+        this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), receipt, lifecycle);
+    }
+
+    private TriangulationEdgeIndexTransformer(final Set<String> admittedDigests,
+            final Consumer<String> membershipReceipt, final TriangulationDefinitionLifecycle lifecycle) {
         this.admittedDigests = Objects.requireNonNull(admittedDigests, "admittedDigests");
         this.membershipReceipt = Objects.requireNonNull(membershipReceipt, "membershipReceipt");
+        this.lifecycle = lifecycle;
     }
 
     /** Latest observed outcome; {@code NONE} until the target class has been defined. */
@@ -116,6 +129,18 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     /** Rejection detail for the fresh-edge caller. */
     public String freshEdgeDiagnostic() { return freshEdgeDiagnostic.get(); }
 
+    /** Outcome for guarded temporary-edge construction, independent of the older stages. */
+    public Outcome lazyEdgeOutcome() { return lazyEdgeOutcome.get(); }
+
+    /** Why the guarded construction weave declined; ordinary unsupported starts do not attempt it. */
+    public String lazyEdgeDiagnostic() { return lazyEdgeDiagnostic.get(); }
+
+    @Override
+    public byte[] transform(final Module module, final ClassLoader loader, final String name,
+            final Class<?> redefined, final ProtectionDomain domain, final byte[] bytes) {
+        return transform(loader, name, redefined, domain, bytes, module == null || !module.isNamed());
+    }
+
     @Override
     public byte[] transform(
             final ClassLoader loader,
@@ -123,6 +148,11 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             final Class<?> classBeingRedefined,
             final ProtectionDomain domain,
             final byte[] classfileBuffer) {
+        return transform(loader, className, classBeingRedefined, domain, classfileBuffer, true);
+    }
+
+    private byte[] transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
+            final ProtectionDomain domain, final byte[] classfileBuffer, final boolean unnamedModule) {
         if (classfileBuffer == null || classBeingRedefined != null) return null;
         if (MEMBERSHIP_INTERNAL_NAME.equals(className)) {
             final String observed = sha256(classfileBuffer);
@@ -136,6 +166,7 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             byte[] patched = classfileBuffer;
             boolean freshPatched = false;
             boolean membershipPatched = false;
+            boolean lazyPatched = false;
             try {
                 patched = FreshTriangulationEdgePatcher.patch(classfileBuffer);
                 freshEdgeOutcome.set(Outcome.PATCHED);
@@ -152,10 +183,24 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
                 membershipOutcome.set(Outcome.SHAPE_REJECTED);
                 membershipDiagnostic.set(rejected.getMessage());
             }
+            if (lifecycle != null && freshPatched && membershipPatched) {
+                try {
+                    if (!unnamedModule) throw new IllegalArgumentException("named host module rejected");
+                    patched = LazyTriangulationEdgePreparation.prepare(patched, domain, loader, lifecycle, this::reportMembership);
+                    lazyPatched = true; lazyEdgeOutcome.set(Outcome.PATCHED);
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
+                    lazyEdgeOutcome.set(Outcome.SHAPE_REJECTED);
+                    lazyEdgeDiagnostic.set(failure.getClass().getSimpleName() + ":" + failure.getMessage());
+                    reportMembership("TRIANGULATION_LAZY_EDGE_DECLINED reason=" + lazyEdgeDiagnostic.get());
+                }
+            }
             // Each receipt binds the final returned bytes; either independent stage may decline.
             if (freshPatched) reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256=" + observed
                     + " outputSha256=" + sha256(patched));
             if (membershipPatched) reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed
+                    + " outputSha256=" + sha256(patched));
+            if (lazyPatched) reportMembership("TRIANGULATION_LAZY_EDGE_PATCHED inputSha256=" + observed
                     + " outputSha256=" + sha256(patched));
             return freshPatched || membershipPatched ? patched : null;
         }

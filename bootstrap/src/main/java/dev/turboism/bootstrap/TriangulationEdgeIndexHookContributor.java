@@ -48,7 +48,8 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
                             environment.instrumentation(),
                             code -> {
                                 if (code.startsWith("TRIANGULATION_MEMBERSHIP_PATCHED ")
-                                        || code.startsWith("TRIANGULATION_FRESH_EDGE_PATCHED ")) {
+                                        || code.startsWith("TRIANGULATION_FRESH_EDGE_PATCHED ")
+                                        || code.startsWith("TRIANGULATION_LAZY_EDGE_")) {
                                     RuntimeDiagnostics.info("triangulation-edge-index", code);
                                 } else {
                                     RuntimeDiagnostics.debug("triangulation-edge-index", code);
