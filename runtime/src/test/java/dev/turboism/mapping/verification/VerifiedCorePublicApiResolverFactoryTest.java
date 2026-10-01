@@ -27,8 +27,8 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void otherObservedLegacyHostsAdmitOnlyTheStructurallyVerifiedBasicProfile() throws Exception {
-        for (String version :
-                java.util.List.of("5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02")) {
+        for (String version : java.util.List.of(
+                "5.0.00", "5.0.01", "5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02")) {
             final var slice = resolveHost(version).slice("core-model-read");
             assertTrue(slice.admitted(), version + ": " + slice.detail());
             final var contract = slice.contract().orElseThrow();
@@ -53,6 +53,35 @@ class VerifiedCorePublicApiResolverFactoryTest {
                         dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
                                         "5.1.03")
                                 .orElseThrow()));
+            }
+        }
+    }
+
+    @Test
+    void allModernHostsAuthorizeTheCompleteCoreProfileThroughStartupValidation() throws Exception {
+        for (String version : java.util.List.of(
+                "5.2.00", "5.2.01", "5.2.02", "5.2.03", "5.3.00", "5.3.01", "5.3.02", "5.3.03", "5.3.04")) {
+            final var slice = resolveHost(version).slice("core-model-read");
+            assertTrue(slice.admitted(), version + ": " + slice.detail());
+            final var contract = slice.contract().orElseThrow();
+            final String profile =
+                    version.startsWith("5.2.") ? "5.2.03" : version.equals("5.3.04") ? "5.3.04" : "5.3.02";
+            assertEquals(profile, contract.sourceVersion(), version + ": " + slice.detail());
+            final Path artifact = coreArtifact(version);
+            try (URLClassLoader loader = loader(artifact)) {
+                final var resolver = contract.compatible()
+                        ? factory.createCompatible(record(profile), artifact, loader, contract)
+                        : factory.create(record(profile), artifact, loader);
+                assertTrue(
+                        resolver.authorizes(
+                                "adapter.core-model.readonly",
+                                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
+                                        .capabilityIdsFor(profile)
+                                        .orElseThrow(),
+                                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
+                                        .requiredAliasesFor(profile)
+                                        .orElseThrow()),
+                        version + ": complete Core plan rejected; " + contract);
             }
         }
     }

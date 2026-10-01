@@ -309,8 +309,18 @@ public final class CubismHostCompatibilityResolver {
             }
         }
         if (distinct.size() > 1) {
-            final Set<String> ambiguous = ambiguousCapabilities(passed);
-            final List<CandidateOutcome> usable = passed.stream()
+            // A fully verified Core profile may add selectors and capabilities to the
+            // legacy basic profile without changing any existing binding. Keep the
+            // complete profile in that case; an extension is not a conflicting ABI.
+            // Partial profiles and actual binding/condition disagreements still fail closed.
+            final List<CandidateOutcome> contenders = CORE_SLICE.equals(sliceId)
+                    ? passed.stream()
+                            .filter(outcome ->
+                                    passed.stream().noneMatch(other -> other.strictlyExtendsCompleteCore(outcome)))
+                            .toList()
+                    : passed;
+            final Set<String> ambiguous = ambiguousCapabilities(contenders);
+            final List<CandidateOutcome> usable = contenders.stream()
                     .map(outcome -> outcome.withAmbiguities(ambiguous))
                     .filter(outcome ->
                             !outcome.contract(sliceId, identity).capabilities().isEmpty())
@@ -746,6 +756,23 @@ public final class CubismHostCompatibilityResolver {
                     && conditionSets(record).equals(conditionSets(other.record))
                     && verifiedAliases.equals(other.verifiedAliases)
                     && bindingKeys(record).equals(bindingKeys(other.record));
+        }
+
+        private boolean strictlyExtendsCompleteCore(final CandidateOutcome other) {
+            if (!"adapter.core-model.readonly".equals(record.adapterSliceId())
+                    || !record.adapterSliceId().equals(other.record.adapterSliceId())
+                    || !verifiedAliases.equals(CapabilitySelectorDependencies.allAliases(record))
+                    || !other.verifiedAliases.equals(CapabilitySelectorDependencies.allAliases(other.record))
+                    || !Set.copyOf(record.capabilityIds()).containsAll(other.record.capabilityIds())) {
+                return false;
+            }
+            final Set<String> keys = bindingKeys(record);
+            final Set<String> otherKeys = bindingKeys(other.record);
+            return keys.size() > otherKeys.size()
+                    && keys.containsAll(otherKeys)
+                    && conditionSets(record)
+                            .entrySet()
+                            .containsAll(conditionSets(other.record).entrySet());
         }
 
         private static Map<String, Set<String>> conditionSets(final StaticVerificationRecord record) {

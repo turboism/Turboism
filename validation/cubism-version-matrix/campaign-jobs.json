@@ -2185,9 +2185,39 @@
       "evidenceDirectory": "jobs/eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad/evidence",
       "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
       "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-ec5aebb30acd4b3e8f56f596e86d382b",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "freeFixtureMaxParametersBefore": "4",
+        "freeFixtureMaxParametersAfter": "2",
+        "freeFixtureRemovedBindings": "2",
+        "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
+        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=4}",
+        "parameterCount": "28",
+        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS",
+        "freeFixtureBindingSaveReopen": "PASS",
+        "nativeTextureStatus": "PASS",
+        "freeFixtureScreenColorsBefore": "7",
+        "freeFixtureScreenColorsAfter": "0",
+        "freeFixtureScreenColorPreparation": "SDK_COLOR_UNDO_REDO_PASS",
+        "nativePersistenceStage": "PASS",
+        "saveReopen": "PASS",
+        "originalReopened": "true",
+        "fixtureUnchanged": "true"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-free-r6"
     },
     {
       "version": "5.3.01",
@@ -2199,9 +2229,35 @@
       "evidenceDirectory": "jobs/03223c97-967c-4c17-9b58-2556475cc521/evidence",
       "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
       "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-5a26f1418aef4f76bcaae29979717b3a",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "FAIL",
+        "error": "ExecutionException\\: java.lang.IllegalStateException\\: Native save rejected",
+        "freeFixtureMaxParametersBefore": "4",
+        "freeFixtureMaxParametersAfter": "2",
+        "freeFixtureRemovedBindings": "2",
+        "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
+        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=4}",
+        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS",
+        "nativeTextureStatus": "FAIL",
+        "freeFixtureScreenColorsBefore": "7",
+        "freeFixtureScreenColorsAfter": "0",
+        "freeFixtureScreenColorPreparation": "SDK_COLOR_UNDO_REDO_PASS",
+        "nativePersistenceStage": "NATIVE_SAVE_CALL"
+      },
+      "clientEvidence": "mcp-evidence/5.3.01-allversions-free-r1"
     },
     {
       "version": "5.2.02",
@@ -2213,9 +2269,24 @@
       "evidenceDirectory": "jobs/08058f63-a5bf-4278-9061-903769d13cba/evidence",
       "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
       "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-41d1e5051e334744a412800a88f5d763",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "NOT_PUBLISHED",
+        "nativeTextureStatus": "NOT_PUBLISHED"
+      },
+      "clientEvidence": "mcp-evidence/5.2.02-allversions-free-r1"
     },
     {
       "version": "5.0.00",
@@ -2227,8 +2298,29 @@
       "evidenceDirectory": "jobs/ec170db7-124a-4176-ad83-8539cf927c76/evidence",
       "fixtureSha256": "9dd4f3f97825aa8aa64bc601349f21e8369f5f49e245ef718b3edc9da47fd631",
       "scope": "Exact installed identity, native Core tuple and stable model observation using official FREE Simple Model; no owned-MOC or full capability verdict",
-      "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-36ac001e06384bdf8ee3e6bcb59d8f4c",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "nativeCoreVersion": "5.0.0",
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "stableSnapshots": "3",
+        "actualCoreSha256": "9deda4c05a69549e23196bcf7981e9e5325e387c9b7beb468145e21467ac27b0",
+        "actualEditorSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd",
+        "expectedCoreSha256": "9deda4c05a69549e23196bcf7981e9e5325e387c9b7beb468145e21467ac27b0",
+        "expectedEditorSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd"
+      },
+      "clientEvidence": "core-preflight-evidence/5.0.00-allversions-simple-r1"
     },
     {
       "version": "5.0.01",
@@ -2240,8 +2332,125 @@
       "evidenceDirectory": "jobs/a2eb98af-6d7a-413e-9281-1a216b65c1c5/evidence",
       "fixtureSha256": "9dd4f3f97825aa8aa64bc601349f21e8369f5f49e245ef718b3edc9da47fd631",
       "scope": "Exact installed identity, native Core tuple and stable model observation using official FREE Simple Model; no owned-MOC or full capability verdict",
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-0a66bd32400f4c9aa51345f47c8c623e",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "nativeCoreVersion": "5.0.0",
+        "bridgeStatus": "NO_PUBLIC_BRIDGE",
+        "stableSnapshots": "3",
+        "actualCoreSha256": "e8b99be96fddfe907e9c83878a6df5e9463a4d147b507f28e2aaaa973e2c090a",
+        "actualEditorSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b",
+        "expectedCoreSha256": "e8b99be96fddfe907e9c83878a6df5e9463a4d147b507f28e2aaaa973e2c090a",
+        "expectedEditorSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b"
+      },
+      "clientEvidence": "core-preflight-evidence/5.0.01-allversions-simple-r1"
+    },
+    {
+      "version": "5.0.00",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "2501a359-6846-4068-95d5-740b868b5917",
+      "preparedDigest": "8b63f8a9baac4a7d88f80b391ff754ebae1c07655a809f50a1aea7455c8b06ee",
+      "evidenceDirectory": "jobs/2501a359-6846-4068-95d5-740b868b5917/evidence",
+      "scope": "Production SDK basic Core owned-MOC/lifecycle, missing full geometry explicitly refused",
       "status": "SUBMITTED",
-      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.0.01",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r1",
+      "jobId": "e0bc93b7-37d3-4004-9b62-a645988ce32a",
+      "preparedDigest": "9a6ed1e5dee4c3899625e4d60d1e6d4e450e63411882ab314197b011adcdf8ec",
+      "evidenceDirectory": "jobs/e0bc93b7-37d3-4004-9b62-a645988ce32a/evidence",
+      "scope": "Production SDK basic Core owned-MOC/lifecycle, missing full geometry explicitly refused",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.2.02",
+      "task": "mcp",
+      "round": "allversions-free-r2",
+      "jobId": "8bb96859-5582-496c-92ca-ac4819423ea2",
+      "preparedDigest": "2eb0c2f8ff51fce345697f4f83acdc6d97fa606cf2e8f8b47d1c5425b1761ebe",
+      "evidenceDirectory": "jobs/8bb96859-5582-496c-92ca-ac4819423ea2/evidence",
+      "scope": "Full MCP client, task-only native persistence, SDK FREE binding/Screen Color/Multiply Color preparation and recovery; no blanket framework verdict",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.3.01",
+      "task": "mcp",
+      "round": "allversions-free-r2",
+      "jobId": "93e61a45-2bce-47a3-9582-25f36786aa0f",
+      "preparedDigest": "d9600591ab9de331a2b590a0249290d6346bc584e7f1c9112f607516b76265b0",
+      "evidenceDirectory": "jobs/93e61a45-2bce-47a3-9582-25f36786aa0f/evidence",
+      "scope": "Full MCP client, task-only native persistence, SDK FREE binding/Screen Color/Multiply Color preparation and recovery; no blanket framework verdict",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.0.00",
+      "task": "texture-relations",
+      "round": "allversions-relations-r1",
+      "jobId": "a706b547-b65c-459f-a33c-8bb493e5c346",
+      "preparedDigest": "8ff77228f1c32a0f2cd735f6e17d75a2f430bfeb1e16b34a0160248bf294a285",
+      "evidenceDirectory": "jobs/a706b547-b65c-459f-a33c-8bb493e5c346/evidence",
+      "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; newer model Load/Yes; update Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.2.02",
+      "task": "texture-relations",
+      "round": "allversions-relations-r1",
+      "jobId": "72201a45-4ccb-45d9-a90e-6ac23973e01f",
+      "preparedDigest": "ff3e2a81671a0e06adcb18cf2129f054b3c27bddbbd0fcf492b71fffec4599ec",
+      "evidenceDirectory": "jobs/72201a45-4ccb-45d9-a90e-6ac23973e01f/evidence",
+      "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; newer model Load/Yes; update Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.3.04",
+      "task": "texture-relations",
+      "round": "allversions-relations-r1",
+      "jobId": "31185cfd-8756-46e0-8895-5e44ebe17e60",
+      "preparedDigest": "db82e86cf05603f42a3397bda35de930f8317bac9ce0bc48e83ebe9112968a68",
+      "evidenceDirectory": "jobs/31185cfd-8756-46e0-8895-5e44ebe17e60/evidence",
+      "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; newer model Load/Yes; update Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+    },
+    {
+      "version": "5.3.04",
+      "task": "psd-export-observation",
+      "round": "allversions-psd-observation-r1",
+      "jobId": "dce0c312-5b2c-4dae-beb2-89844e85e59c",
+      "preparedDigest": "8e10b685b9b5d5d01c0027d3601046a95e049cd8bee0fcffa835e45f7ca1a164",
+      "evidenceDirectory": "jobs/dce0c312-5b2c-4dae-beb2-89844e85e59c/evidence",
+      "scope": "Production SDK native readable PSD export, issued edit handle and stop; no fidelity/replace/third-party editor acceptance",
+      "status": "SUBMITTED",
+      "assistance": "FREE startup; newer model Load/Yes; update Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
     }
   ]
 }

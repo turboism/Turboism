@@ -1,0 +1,697 @@
+{
+  "schemaVersion": 1,
+  "scope": "Exact installed-artifact ABI; not live support",
+  "nativeGuardSemantics": "All Drawable/Deformer stored keyforms; RGB white within 1/512 tolerance; alpha excluded (5.3.01/5.3.04 bytecode reviewed)",
+  "probeComparison": "All stored RGB exactly white; stricter than native tolerance. 5.3 Part colors are read and restored; no Part mutation.",
+  "failureEvidence": {
+    "version": "5.3.01",
+    "jobId": "03223c97-967c-4c17-9b58-2556475cc521",
+    "message": "Multiply Color is only available in the PRO version. Save failed. Please try again meeting the restrictions."
+  },
+  "versions": [
+    {
+      "version": "5.0.00",
+      "editorSha256": "42ee222a05478f48739bb1fbf7e7bc7350b21004e506e1b555d1d55c584d99cd",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "cfea4b8f2b1027951d7eeb64dfd021b05019ef159c06d35d88a900c7f7689375"
+      }
+    },
+    {
+      "version": "5.0.01",
+      "editorSha256": "1aa93b1d9d8da88e8c28de06b680c41a73fc70243307d856d4a2967e6e487a0b",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "e7399526de06d8ec681c0629997b4f0438213a6aa0a1a061fcd94c1abcd81634"
+      }
+    },
+    {
+      "version": "5.0.02",
+      "editorSha256": "39e73c8238acba5270422a6e0f228c66a733177d009c710721381285ab0af072",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "e7399526de06d8ec681c0629997b4f0438213a6aa0a1a061fcd94c1abcd81634"
+      }
+    },
+    {
+      "version": "5.0.03",
+      "editorSha256": "05bc9b872527fed3dc2641ff833b03d86e6fdafbe6faa294eb3d0afcc0f88a66",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c"
+      }
+    },
+    {
+      "version": "5.0.04",
+      "editorSha256": "7298c5731525a2bd5ac4e6d5246f1f08603651b0ec37cf5dc3e8ad1802ad8758",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c"
+      }
+    },
+    {
+      "version": "5.0.05",
+      "editorSha256": "1225893a466d486415773b0a62ec61a75badb2cb5cb2fce8ae744b0123becec4",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c"
+      }
+    },
+    {
+      "version": "5.0.06",
+      "editorSha256": "cbb9d9ecddb9be0252733ece055ecae7d709de5c56647b7226f6c44607e646f2",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "55e8960852f23b5c6eb027128e2be792d2c034bae93fd4a4cd3561f1995dac4d",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "fabf4e6ee6d228dfb9bb62a31bbcffc53a5f580758885ee57c30841c7166481b",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "3a3d72ce6d24d7050cf7b54eb158ccb5e5f0796f55e4a49386fd04625dcbb29b",
+        "com/live2d/cubism/doc/model/CModelSource": "debee62b7583ae61433fff492892d36715a74c41b19cd70b18d4777e6b0daf3c"
+      }
+    },
+    {
+      "version": "5.1.00",
+      "editorSha256": "cdda37ed4105cf5e4ecb5811f7065df35b9b9a3319bcb74f8e9189d91e8d3f05",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "eebe2494bcfe0ad5b8f6a9a6bb0345703434109a305bea25ae1ae3bfe6ded7c9",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "075d9341cc93be8ca23b2aa3389413a7bd0153a2b8cb86ba009ea391ea041a15",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad"
+      }
+    },
+    {
+      "version": "5.1.01",
+      "editorSha256": "ddb1f5569bc8da49f3c9f6b6eaec3fe57e4f7abec67c9c44079233ea51056c02",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "eebe2494bcfe0ad5b8f6a9a6bb0345703434109a305bea25ae1ae3bfe6ded7c9",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "075d9341cc93be8ca23b2aa3389413a7bd0153a2b8cb86ba009ea391ea041a15",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad"
+      }
+    },
+    {
+      "version": "5.1.02",
+      "editorSha256": "0567130093015c969d32b91c6a48d4603c28c8224c6a14fa969491f8974f63ca",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "eebe2494bcfe0ad5b8f6a9a6bb0345703434109a305bea25ae1ae3bfe6ded7c9",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "075d9341cc93be8ca23b2aa3389413a7bd0153a2b8cb86ba009ea391ea041a15",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad"
+      }
+    },
+    {
+      "version": "5.1.03",
+      "editorSha256": "a3d916077bd7a176345233da95f1eb0a8bbdf8967fd08162776d5bf6d746009b",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "eebe2494bcfe0ad5b8f6a9a6bb0345703434109a305bea25ae1ae3bfe6ded7c9",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "075d9341cc93be8ca23b2aa3389413a7bd0153a2b8cb86ba009ea391ea041a15",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "bd312a5abfb3d8ff73a8c60fb08ad30352254efd1795ef2ebebe338a823ab0b3",
+        "com/live2d/cubism/doc/model/CModelSource": "337a8dfd14e0ae2b01e41956ea6ec142c15836879aa0813e1328720e3da9ebad"
+      }
+    },
+    {
+      "version": "5.2.00",
+      "editorSha256": "25c41c81ddb3af884b7f0d61a02eba9b09f0412bdc025997c419de7ab7158cf1",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "507c4562f3108af9eb6301b4c2708f9e30cd456cf409bcdd1220e8bf72d233d5",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "aed452f85d552e00f7fdb6d805504f4d1327f74fb7d94b64bbb2c7a8b3e4e557",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4"
+      }
+    },
+    {
+      "version": "5.2.01",
+      "editorSha256": "c1b70ca8c571c4f4df4ebce63b3381f6bed1b132ab0ed539046fd0609e2b00ac",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "507c4562f3108af9eb6301b4c2708f9e30cd456cf409bcdd1220e8bf72d233d5",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "aed452f85d552e00f7fdb6d805504f4d1327f74fb7d94b64bbb2c7a8b3e4e557",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4"
+      }
+    },
+    {
+      "version": "5.2.02",
+      "editorSha256": "ba1f31a1846490c3f111a4ae99887c36bcc0c1bc1a3cf970eb5a7aeed7902aff",
+      "partStoredMultiplyColor": false,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "507c4562f3108af9eb6301b4c2708f9e30cd456cf409bcdd1220e8bf72d233d5",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "aed452f85d552e00f7fdb6d805504f4d1327f74fb7d94b64bbb2c7a8b3e4e557",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "b9badfd41064c39e03f21d9e5ad24981dabc1fbd5c64b6fafef1567f8f6dea79",
+        "com/live2d/cubism/doc/model/CModelSource": "54e4323b70810b74778f881180eea05498e9447dafc1dc68af779941dadacbe4"
+      }
+    },
+    {
+      "version": "5.3.00",
+      "editorSha256": "c89dcaf17b6bfad7227db30bffc2f29cdf49b8e4b0cec1f12af2d85b1c13e767",
+      "partStoredMultiplyColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "3a8a1c089b16da478bcf5e52512364d415eb1bc97c41dd691664f4954dc45f97",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "426f4e107742ecb1ab05fcb0bf3edc9aa1c0bfa19a172a2fde4acb1a60b3ea74",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1"
+      }
+    },
+    {
+      "version": "5.3.01",
+      "editorSha256": "694bb49c66ddcf15695dbd8f66e1cbaeb0097f651e2e77c327567244f801d2f4",
+      "partStoredMultiplyColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "3a8a1c089b16da478bcf5e52512364d415eb1bc97c41dd691664f4954dc45f97",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "426f4e107742ecb1ab05fcb0bf3edc9aa1c0bfa19a172a2fde4acb1a60b3ea74",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "644be62269ed310b548c5aa88f7100984c36411ca4c319a2395254471eac2364",
+        "com/live2d/cubism/doc/model/CModelSource": "55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1"
+      }
+    },
+    {
+      "version": "5.3.04",
+      "editorSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+      "partStoredMultiplyColor": true,
+      "storedReadFamilies": [
+        "getAllDrawables",
+        "getAllDeformers",
+        "getAllParts"
+      ],
+      "methods": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/parts/CPartForm": [
+          {
+            "name": "getMultiplyColor",
+            "descriptor": "()Lcom/live2d/type/CFloatColor;",
+            "access": 17
+          }
+        ],
+        "com/live2d/cubism/doc/model/CModelSource": [
+          {
+            "name": "containMultiplyColor",
+            "descriptor": "()Z",
+            "access": 17
+          }
+        ]
+      },
+      "classEntrySha256": {
+        "com/live2d/cubism/doc/model/drawable/ACDrawableForm": "ae3008596998e1c1542114cfbdc7a61d75602d26749ee8504a16394099428201",
+        "com/live2d/cubism/doc/model/deformer/ACDeformerForm": "6a39e8181b23e568d201a73720e92925dc736302696de2938744125812ee1494",
+        "com/live2d/cubism/doc/model/parts/CPartForm": "d893391e09712edda3f597ceacba93292d86558cdeb7e72cbb86dd52f4c6fa5e",
+        "com/live2d/cubism/doc/model/CModelSource": "e48aab045f6f4c14eb0fc14b89a92d6c9f14b909814d1c5919937db4099e823b"
+      }
+    }
+  ]
+}

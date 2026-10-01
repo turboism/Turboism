@@ -9,7 +9,7 @@ sdk=("$root/build/worktree/$id/sdk/libs/"sdk-*.jar)
 src="$root/validation/texture-relations-host-probe/src"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
-javac --release 17 -cp "${sdk[0]}" -d "$out" "$src/dev/turboism/validation/textures/TextureRelationsHostProbe.java"
+javac --release 17 -cp "${sdk[0]}" -d "$out" "$src/dev/turboism/validation/textures/TextureRelationsHostProbe.java" "validation/shared/src/dev/turboism/validation/NativeFreeStartup.java"
 cp -R "$src/META-INF" "$out/"
 if [[ "${1:-}" == --export-observation ]]; then
   python3 - "$out/META-INF/turboism/plugin.json" <<'PY'

@@ -23,6 +23,15 @@ public final class CoreAcquisitionProbeSelfCheck {
             throw new AssertionError("update cancellation rejected");
         final String freeLimit = "FREE version - The max number of Parameters allowed per object: 2"
                 + " This operation is cancelled as 3 parameters are set.";
+        final String multiplyLimit = "Multiply Color is only available in the PRO version."
+                + " Save failed. Please try again meeting the restrictions.";
+        if (!"FREE_MULTIPLY_COLOR_SAVE_FAILURE_ACKNOWLEDGED".equals(
+                dev.turboism.validation.NativeFreeStartup.promptAction("Information", multiplyLimit, "OK")))
+            throw new AssertionError("known Multiply Color save failure rejected");
+        if (dev.turboism.validation.NativeFreeStartup.promptAction("Confirm", multiplyLimit, "OK") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Information", multiplyLimit, "Yes") != null
+                || dev.turboism.validation.NativeFreeStartup.promptAction("Information", "Save changes?", "OK") != null)
+            throw new AssertionError("unexpected Multiply Color confirmation accepted");
         final String screenLimit = "Screen Color is only available in the PRO version."
                 + " Save failed. Please try again meeting the restrictions.";
         if (!"FREE_SCREEN_COLOR_SAVE_FAILURE_ACKNOWLEDGED".equals(

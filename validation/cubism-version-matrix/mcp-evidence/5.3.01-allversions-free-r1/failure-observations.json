@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "jobId": "03223c97-967c-4c17-9b58-2556475cc521",
+  "preparedDigest": "a6569502b09770a92c01bd64844caf4f014fc9790fddbf7cdcd1b18bcf577ee1",
+  "sourceRuntimeLogSha256": "a0f2701596d72f660a3c8ca162d74717b908aa2ca47e07ab020851377835a905",
+  "sourceBasename": "turboism-06-20-10.070-p340-4377860115865945096.log",
+  "matches": [
+    "2026-10-01T06:21:12.837559300Z [INFO] [dev.turboism.validation.mcp] MCP_VALIDATION_DIALOG_OBSERVATION [class=javax.swing.JDialog title=Home modal=false text=button=Opens upon start only when News and Release Notes have been updated Home  button= button=A new version is available. Release Notes , class=javax.swing.JDialog title=Information modal=true text=Information button= null button=OK Multiply Color is only available in the PRO version. Save failed. Please try again meeting the restrictions. ]",
+    "2026-10-01T06:21:15.209815300Z [INFO] [dev.turboism.validation.mcp] MCP_VALIDATION_DIALOG_OBSERVATION [class=javax.swing.JDialog title=Home modal=false text=button=Opens upon start only when News and Release Notes have been updated Home  button= button= button= button=A new version is available. Release Notes , class=javax.swing.JDialog title=Information modal=true text=Information button= null button=OK Multiply Color is only available in the PRO version. Save failed. Please try again meeting the restrictions. ]"
+  ],
+  "verdict": "FIX_REQUIRED_NOT_UNSUPPORTED",
+  "scope": "Task runtime failure observation; no support claim"
+}

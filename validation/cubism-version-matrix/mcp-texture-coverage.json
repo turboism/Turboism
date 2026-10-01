@@ -4,7 +4,7 @@
   "scenario": "mcp:free-fixture",
   "probe": {
     "path": "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/McpTexturePersistenceProbe.java",
-    "sha256": "edaab90b395ce108cec809a2696f46a9da21ccc371809626291655077ce8f8ad"
+    "sha256": "f9ac0977ea0a7c5206cde79c979d1598af66e5133fac6ce52525f6bd0ed6f020"
   },
   "methods": [
     {
@@ -105,7 +105,19 @@
       "scope": "Observed native texture preparation/save/reopen/recovery only; full MCP blocked by no Glue fixture",
       "supportVerdict": "NOT_CLAIMED_FULL_CAMPAIGN",
       "liveProbeJarSha256": "18cb61ed3a88dbdecf62f5a5e4a0e19b6136ae36f51b9cfd2e86fc17aa896b51",
-      "currentProbeDifference": "Pending next native run: exact older-version stored-color family selection, all Drawable audit, explicit getIdString and independent native Screen Color guard"
+      "currentProbeDifference": "Historical partial pass; see r6 for accepted complete MCP scenario; current Multiply Color assertions pending native rerun"
+    },
+    {
+      "version": "5.3.04",
+      "jobId": "eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad",
+      "preparedDigest": "2f316c78b06095f08770e64f0dbb9ec99fe4a318fd56135876c1a92e868eee18",
+      "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r6",
+      "nativeTextureResult": "PASS",
+      "mcpClientResult": "PASS",
+      "supervisorResult": "PASS",
+      "scope": "Full MCP client scenario, with native five-kind texture persistence, SDK FREE parameter/Screen Color preparation and original recovery. Workspace control UNAVAILABLE; Core diagnostics only.",
+      "supportVerdict": "SCOPED_SCENARIO_PASS_ONLY",
+      "currentProbeDifference": "Pending rerun: added independent Multiply Color white preparation/Undo/Redo/save/reopen/original recovery; r6 does not prove these new assertions"
     }
   ],
   "uncovered": [

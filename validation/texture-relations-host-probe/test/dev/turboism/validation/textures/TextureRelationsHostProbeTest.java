@@ -15,6 +15,11 @@ import java.util.function.Consumer;
 /** Offline smoke-assertion tests; never loads or launches Cubism. */
 public final class TextureRelationsHostProbeTest {
     public static void main(String[] args) {
+        if (!"5.0.00".equals(TextureRelationsHostProbe.expectedVersion("5000"))
+                || !"5.3.04".equals(TextureRelationsHostProbe.expectedVersion("5304")))
+            throw new AssertionError("wrong exact host label");
+        try { TextureRelationsHostProbe.expectedVersion("5305"); throw new AssertionError("unknown host accepted"); }
+        catch (IllegalArgumentException expected) { }
         rejects(null);
         rejects(TextureRelationsSnapshot.unavailable());
         rejects(new TextureRelationsSnapshot(TextureRelationsSnapshot.Availability.AVAILABLE,

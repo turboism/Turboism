@@ -3262,6 +3262,19 @@
           "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
           "structuralReadMethods": "PASS",
           "wholeFrameworkSupport": false
+        },
+        {
+          "scenario": "mcp:free-fixture",
+          "jobId": "eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad",
+          "preparedDigest": "2f316c78b06095f08770e64f0dbb9ec99fe4a318fd56135876c1a92e868eee18",
+          "index": "mcp-texture-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r6",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "scope": "Complete MCP client scenario, Editor nonempty Glue writes/restoration, parameter/binding/texture writes and native five-kind persistence, command execution/restoration",
+          "workspaceControl": "UNAVAILABLE",
+          "coreDiagnosticOnly": true,
+          "validationOnlyNativePersistence": true,
+          "wholeFrameworkSupport": false
         }
       ]
     }
@@ -7063,7 +7076,6 @@
     },
     {
       "id": "core-acquisition:assisted",
-      "coverageMapping": "PENDING_AUDIT",
       "task": "core-acquisition",
       "variant": "assisted",
       "wrapper": "scripts/preview/run-core-acquisition-host-validation.sh",
@@ -7088,7 +7100,8 @@
         "5302",
         "5303",
         "5304"
-      ]
+      ],
+      "coverageMapping": "PENDING_AUDIT"
     },
     {
       "id": "core-acquisition:standard",
@@ -7125,6 +7138,8 @@
       "variant": "default",
       "wrapper": "scripts/preview/run-core-owned-moc-host-validation.sh",
       "catalogueVersions": [
+        "5000",
+        "5001",
         "5002",
         "5003",
         "5004",
@@ -7699,7 +7714,6 @@
     },
     {
       "id": "mcp:free-fixture",
-      "coverageMapping": "PENDING_AUDIT",
       "task": "mcp",
       "variant": "free-fixture",
       "wrapper": "scripts/preview/run-mcp-host-validation.sh",
@@ -7724,7 +7738,8 @@
         "5302",
         "5303",
         "5304"
-      ]
+      ],
+      "coverageMapping": "PENDING_AUDIT"
     },
     {
       "id": "mcp:standard",
@@ -8977,6 +8992,34 @@
       "coverageMapping": "PENDING_AUDIT"
     },
     {
+      "id": "psd-export-observation:assisted",
+      "task": "psd-export-observation",
+      "variant": "assisted",
+      "wrapper": "scripts/preview/run-psd-export-observation-host-validation.sh",
+      "catalogueVersions": [
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "psd-export-observation:standard",
+      "task": "psd-export-observation",
+      "variant": "standard",
+      "wrapper": "scripts/preview/run-psd-export-observation-host-validation.sh",
+      "catalogueVersions": [
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
       "id": "recent-preview:default",
       "task": "recent-preview",
       "variant": "default",
@@ -9126,6 +9169,64 @@
       "task": "status-bar",
       "variant": "default",
       "wrapper": "scripts/preview/run-status-bar-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "texture-relations:assisted",
+      "task": "texture-relations",
+      "variant": "assisted",
+      "wrapper": "scripts/preview/run-texture-relations-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ],
+      "coverageMapping": "PENDING_AUDIT"
+    },
+    {
+      "id": "texture-relations:standard",
+      "task": "texture-relations",
+      "variant": "standard",
+      "wrapper": "scripts/preview/run-texture-relations-host-validation.sh",
       "catalogueVersions": [
         "5000",
         "5001",
@@ -9628,10 +9729,8 @@
     "scripts/preview/run-image-archive-host-validation.sh",
     "scripts/preview/run-mesh-edit-host-validation.sh",
     "scripts/preview/run-plugin-management-chooser-host-validation.sh",
-    "scripts/preview/run-psd-export-observation-host-validation.sh",
     "scripts/preview/run-resource-host-validation.sh",
     "scripts/preview/run-settings-page-host-validation.sh",
-    "scripts/preview/run-texture-relations-host-validation.sh",
     "scripts/preview/run-texture-upload-host-validation.sh",
     "scripts/preview/run-warp-position-host-validation.sh"
   ],

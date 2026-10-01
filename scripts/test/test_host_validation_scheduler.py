@@ -41,7 +41,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "protected-export", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
-            "startup-suppression", "status-bar", "theme", "update-check", "warp-deformer-alt-symmetry", "workspace",
+            "startup-suppression", "status-bar", "theme", "texture-relations", "psd-export-observation", "update-check", "warp-deformer-alt-symmetry", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
         self.assertEqual(1, self.manifest.resources["host-slot"].capacity)
@@ -70,7 +70,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_owned_moc_is_separate_from_mcp_and_requires_observed_core_tuple(self) -> None:
         task = self.manifest.tasks["core-owned-moc"]
-        self.assertEqual(("5002", "5003", "5004", "5005", "5006", "5100", "5101", "5102", "5103", "5200", "5201", "5202", "5203", "5300", "5301", "5302", "5303", "5304"), task.versions)
+        self.assertEqual(REVIEWED_VERSIONS, task.versions)
         self.assertEqual({"host-slot": 1, "display-input": 1}, task.resources)
         with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not start the host")):
             for version in task.versions:
@@ -78,13 +78,27 @@ class HostValidationSchedulerTest(unittest.TestCase):
                 self.assertTrue(command[1].endswith("run-core-owned-moc-host-validation.sh"))
                 self.assertEqual([version, "test-run"], command[2:])
         with self.assertRaises(scheduler.SchedulerError):
-            self.request("core-owned-moc:5000")
+            self.request("core-owned-moc:5400")
         wrapper = (PREVIEW / "run-core-owned-moc-host-validation.sh").read_text()
         self.assertIn("state/core-owned-moc-result.properties", wrapper)
         self.assertIn("--require-fixture-unchanged", wrapper)
         self.assertNotIn("--client-script", wrapper)
         self.assertIn("-Dturboism.optimization.mesaGlThread=false", wrapper)
         self.assertIn("--linux-env 'mesa_glthread=false'", wrapper)
+
+    def test_texture_relation_and_psd_observation_have_reviewed_exact_version_boundaries(self) -> None:
+        self.assertEqual(REVIEWED_VERSIONS, self.manifest.tasks["texture-relations"].versions)
+        self.assertEqual(REVIEWED_VERSIONS[-5:], self.manifest.tasks["psd-export-observation"].versions)
+        for name in ("texture-relations", "psd-export-observation"):
+            self.assertEqual({"host-slot": 1, "display-input": 1}, self.manifest.tasks[name].resources)
+            for version in self.manifest.tasks[name].versions:
+                command = scheduler.render_command(self.request(name + ":" + version + "@assisted"), self.manifest)
+                self.assertEqual([version, "test-run"], command[2:4])
+                self.assertIn("-Dturboism.validation.textures.startFree=true", command)
+            with self.assertRaises(scheduler.SchedulerError):
+                self.request(name + ":5400")
+        with self.assertRaises(scheduler.SchedulerError):
+            self.request("psd-export-observation:5203")
 
     def test_assisted_core_preflight_is_explicit_and_reserves_display(self) -> None:
         task = self.manifest.tasks["core-acquisition"]
