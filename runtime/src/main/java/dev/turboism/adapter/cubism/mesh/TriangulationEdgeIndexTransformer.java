@@ -1,11 +1,13 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -60,6 +62,7 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     }
 
     private final Set<String> admittedDigests;
+    private final Consumer<String> membershipReceipt;
     private final TriangulationEdgeIndexPatcher patcher = new TriangulationEdgeIndexPatcher();
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> diagnostic = new AtomicReference<>("");
@@ -67,11 +70,21 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final AtomicReference<String> membershipDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
-        this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203));
+        this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), ignored -> {});
     }
 
     TriangulationEdgeIndexTransformer(final Set<String> admittedDigests) {
+        this(admittedDigests, ignored -> {});
+    }
+
+    TriangulationEdgeIndexTransformer(final Consumer<String> membershipReceipt) {
+        this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), membershipReceipt);
+    }
+
+    private TriangulationEdgeIndexTransformer(final Set<String> admittedDigests,
+            final Consumer<String> membershipReceipt) {
         this.admittedDigests = Objects.requireNonNull(admittedDigests, "admittedDigests");
+        this.membershipReceipt = Objects.requireNonNull(membershipReceipt, "membershipReceipt");
     }
 
     /** Latest observed outcome; {@code NONE} until the target class has been defined. */
@@ -112,6 +125,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             try {
                 final byte[] patched = TriangulationMembershipPatcher.patch(classfileBuffer);
                 membershipOutcome.set(Outcome.PATCHED);
+                reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed
+                        + " outputSha256=" + sha256(patched));
                 return patched;
             } catch (IllegalArgumentException rejected) {
                 membershipOutcome.set(Outcome.SHAPE_REJECTED);
@@ -134,6 +149,15 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             outcome.set(Outcome.SHAPE_REJECTED);
             diagnostic.set(rejected.getMessage());
             return null;
+        }
+    }
+
+    private void reportMembership(final String receipt) {
+        try {
+            membershipReceipt.accept(receipt);
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            // Diagnostics must not discard an otherwise verified transformation.
         }
     }
 
