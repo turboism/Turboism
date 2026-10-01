@@ -63,7 +63,7 @@ The analyzer requires successful host gates, matching staged diagnostic agent
 hashes, a log belonging to the outcome task, and exactly one complete aggregate.
 It refuses zero execution, duplicate/missing output, bookkeeping failures and
 incomplete native returns. It hashes inputs and never overwrites an existing
-report. Its four parser tests cover counts, missing/duplicate output, invalid or
+report. Its five parser tests cover counts, missing/duplicate output, invalid or
 incomplete rows, schema errors and impossible shortcut outcomes. Capture/edge
 correctness still needs the existing independent checks before accepting a
 production candidate; this report only establishes aggregate branch behavior.

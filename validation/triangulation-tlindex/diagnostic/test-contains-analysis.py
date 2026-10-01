@@ -29,6 +29,13 @@ class CountersTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 analysis.counts_from_log(lines)
 
+    def test_host_logger_wrapper(self):
+        line = 'ERROR [ ' + analysis.MARKER + json.dumps(self.base())
+        line += ' ] at dev.turboism.adapter.cubism.mesh.ContainsDiagnostic (ContainsDiagnostic.kt:19) lambda$static$0()'
+        self.assertEqual(analysis.counts_from_log([line])['calls'], 15)
+        with self.assertRaises(ValueError):
+            analysis.counts_from_log([line + ' unexpected'])
+
     def test_invalid_or_incomplete(self):
         for row in ([1, 0, 0], [1, 1, 1], [-1, 0, 0], [True, 1, 0], [1, 0]):
             with self.subTest(row=row):
