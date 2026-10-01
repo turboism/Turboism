@@ -24,12 +24,14 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
     private static final String SCENE = "dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent";
     private static volatile String status = "NOT_INSTALLED";
     private static volatile boolean owned;
+    private static volatile String failureReason = "";
     private static final Map<String, byte[]> INITIAL = new ConcurrentHashMap<>();
     private static final Map<String, byte[]> CAPTURED = new ConcurrentHashMap<>();
 
     public TriangulationSingleAgentValidationHook() {}
     public static String status() { return status; }
     public static boolean owned() { return owned; }
+    public static String failureReason() { return failureReason; }
     public static Map<String, byte[]> initialDefinitions() { return copies(INITIAL); }
     public static Map<String, byte[]> capturedDefinitions() { return copies(CAPTURED); }
     private static Map<String, byte[]> copies(Map<String, byte[]> values) {
@@ -156,6 +158,10 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
             };
         } catch (Exception | Error failure) {
             status = "REJECTED";
+            Throwable cause = failure instanceof InvocationTargetException invocation && invocation.getCause() != null
+                    ? invocation.getCause() : failure;
+            failureReason = cause.getClass().getName() + ":" + java.util.Objects.toString(cause.getMessage(), "");
+            System.err.println("TRI_SINGLE_AGENT_VALIDATION status=REJECTED failure=" + failureReason);
             for (ClassFileTransformer transformer : transforms) instrumentation.removeTransformer(transformer);
             for (Sidecar file : files) file.close();
             throw failure;
