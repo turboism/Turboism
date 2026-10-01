@@ -1873,3 +1873,74 @@ production native fallback integration, actual official class/geometry/output an
 startup checks remain required. T044/T046 and final three-version stable host
 performance/resources remain open. HOLD_PRODUCTION_ACCEPTANCE and the continuous
 goal stay active; neither stable improvement nor a theoretical bottleneck is claimed.
+
+### T050 actual official definition and runtime projection
+
+The preceding goal turn was progress:446ca916f completed the core port and
+frozen-transform composition. This turn verified its clean state and read-only
+FIFO, with unrelated2385 running and2386/2387 queued. No queue task was changed,
+no host launch or performance measurement was added, and runtime production source
+and both frozen Agents remain unchanged. The goal remains unachieved.
+
+NativeClassDefinitionCheck defines candidate h in an isolated URL loader with
+platform parent, reviewed official JAR, fixed ee244 Agent and inventoried sibling
+libraries. The whole official/Agent and candidate output hashes are fixed;
+Kotlin stdlib1.7.21 has the identical fixed SHA
+d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19 in all three
+versions. Target h receives the original entry signer/domain and package metadata
+to model transformed signed-class loading; this does not assert an official
+signature over the derivative bytes. Expected application/Kotlin origins and
+actual Class identity/loader are checked.
+
+Class.forName(false), declared method/constructor/field resolution and actual
+retransformation verify eight types without invoking official initializers,
+constructors or geometry. Owned controls have a failing initializer: metadata and
+capture must leave it untouched, after which explicit owned initialization throws
+as expected. Another owned class with a void return in an int method is rejected
+with VerifyError, demonstrating the verification path is active. The only premain
+is the owned instrumentation provider, which registers no transformer; the owned
+observer/collector are the controlled capture pipeline. No official code is invoked.
+
+Initial5302-composed and raw-capture runs failed full fingerprint comparison;
+their logs and observed bytes are retained. All eight types differed. Javap on
+Assertions and TriPoint identifies omitted RuntimeInvisibleAnnotations/parameter
+annotations, omitted Deprecated attributes and reordered methods; pool/debug/frame
+differences were already normalized. Runtime projection therefore excludes only
+invisible CLASS-retention annotations and the ASM Deprecated pseudo flag, while
+retaining all executable/control-flow/handler/field/member/runtime-visible data.
+The existing full static definition-v1 fingerprint remains separate and all six
+prior candidate fingerprints still match their pinned oracle reports. New runtime
+namespace is runtime-definition-v1; code and visible annotation tampering remain
+refused. This is an executable/runtime projection, not a claim to reconstruct
+omitted class-file metadata.
+
+The diagnostic recorder receives a defensive byte clone and cannot alter the
+JVM buffer. Mutation and recorder-exception controls show definitions unchanged;
+recorder errors/null refuse admission. Final Java17 release/lint/Werror compile,
+-Xverify:all and36 owned admission checks PASS, including the still-reproduced
+later-transformer false-positive boundary. No production admission is enabled.
+
+Linux OpenJDK17.0.20 passes all six final standalone/composed cases across the
+three official versions, each with eight actual runtime fingerprint matches.
+Composed h hashes remain5203 fb521f43… and53x5d6a5428…; metadata resolution defines
+24/25 loader types, but only the eight explicitly reviewed dependencies are claimed
+as captured/matched. Raw reviewed and observed bytes, eight dependency records,
+method/field metadata, classpath inventories and receipts are saved per case.
+Initial and intermediate results are retained independently; previous source
+snapshots from446ca916f preserve historical evidence.
+
+Final build/t050-lazy-edge-bytecode/native-definition/offline-review.json SHA
+e0443a1e612a759be0b310f4927bf6c323c912835d8fc937ad3a831497e19f77 binds568
+source/library/class/log/raw-capture/receipt inputs and134 distinct classpath JAR
+paths, with both frozen Agents rehashed unchanged. Official JARs/BAT/models/golden,
+previewBundle, main and remote branches were untouched.
+
+Actual controlled definition/frame/link checks and the runtime projection are now
+complete slices. They do not close production transformer ordering: a collector
+still cannot prove final bytes under an arbitrary later transformer. The next gate
+requires enforceable supported lifecycle ownership or final-method definition
+evidence, followed by JDK-only guarded integration/native fallback. Native
+initialization/error/geometry/full output and final three-version stable host
+benefit/resource/UI/startup acceptance remain open. T050 stays partial, T044/T046
+and the continuous goal remain active, HOLD_PRODUCTION_ACCEPTANCE persists, and no
+theoretical bottleneck is asserted.

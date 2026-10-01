@@ -188,3 +188,35 @@ offline-review.json SHA
 binds184 inputs. The definition collector ordering gap is still unresolved.
 Official output class definition/native execution, production integration and
 final host acceptance remain open; no new host job or performance result was added.
+
+### Actual official class definition check (2026-10-02)
+
+`diagnostic/NativeClassDefinitionCheck.java` accepts the reviewed official JAR,
+existing candidate directory, fixed frozen Agent and a new result directory.
+Run it in an isolated Java17 process with `-Xverify:all` and the owned
+DefinitionAdmissionSelfCheckAgent. It defines candidate h plus official dependencies,
+resolves their metadata and retransforms them for capture. It invokes no official
+initializer, constructor or geometry method. Generated controls prove the metadata
+and capture path does not initialize classes and rejects an invalid return opcode.
+
+All six standalone/composed cases for5203/5302/5303 pass. Eight dependencies per
+case match their runtime fingerprints: h, j, TriPoint, l, r, GVector2, Kotlin
+Assertions and Intrinsics. Definition uses original signer/domain metadata for
+package compatibility; altered bytes do not acquire an official JAR signature.
+
+The initial full-fingerprint comparisons failed because HotSpot omits invisible
+CLASS-retention annotations and the Deprecated pseudo access bit during
+retransformation. `DefinitionFingerprint.of` retains complete static metadata;
+the separate `runtimeOf` projection retains instructions, control flow, fields,
+member flags/signatures and visible annotations. Full static fingerprints of all
+six prior candidates remain identical. Owned tests refuse instruction or visible
+annotation changes, check recorder defensive copies/failure fallback and retain
+the explicit downstream-transformer limitation. All36 owned admission checks pass.
+
+Evidence is under `build/t050-lazy-edge-bytecode/native-definition/`, including
+initial failures, raw reviewed/observed bytes, classpath inventory and receipts.
+offline-review.json SHA
+`e0443a1e612a759be0b310f4927bf6c323c912835d8fc937ad3a831497e19f77`
+binds568 inputs. This is controlled Linux OpenJDK17.0.20 definition evidence;
+production transformer ownership, native initialization/geometry/outputs and
+final host performance/resource acceptance remain open. No new host task was added.
