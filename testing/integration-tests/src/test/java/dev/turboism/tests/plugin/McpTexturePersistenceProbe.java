@@ -393,6 +393,8 @@ public final class McpTexturePersistenceProbe {
         private void prepareFreeFixture() throws Exception {
             final int before = position();
             final List<ParameterBinding> plan = freeBindingPrunePlan(pristineBindings);
+            result.setProperty("freeFixtureRemovedBindings", Integer.toString(plan.size()));
+            result.setProperty("freeFixtureFamiliesBefore", bindingFamilyCounts(pristineBindings));
             result.setProperty(
                     "freeFixtureMaxParametersBefore", Integer.toString(maximumBoundParameters(pristineBindings)));
             for (ParameterBinding binding : plan) {
@@ -405,7 +407,14 @@ public final class McpTexturePersistenceProbe {
                 require(position() == previous + 1, "FREE fixture unbind must create exactly one Undo entry");
             }
             final List<ParameterBinding> prepared = bindings();
-            require(maximumBoundParameters(prepared) <= 2, "FREE fixture still exceeds two parameters per object");
+            result.setProperty("freeFixtureFamiliesAfter", bindingFamilyCounts(prepared));
+            result.setProperty("freeFixtureMaxParametersAfter", Integer.toString(maximumBoundParameters(prepared)));
+            require(
+                    maximumBoundParameters(prepared) <= 2,
+                    "FREE fixture still exceeds two parameters per object: before="
+                            + maximumBoundParameters(pristineBindings) + ", after=" + maximumBoundParameters(prepared)
+                            + ", removedKeyformBindings=" + plan.size() + ", remainingFamilies="
+                            + bindingFamilyCounts(prepared));
             require(snapshot().equals(pristine), "FREE fixture preparation changed native texture state");
             final int after = position();
             if (after != before) {
@@ -415,9 +424,14 @@ public final class McpTexturePersistenceProbe {
                 require(bindings().equals(prepared), "FREE fixture Redo differs from prepared bindings");
                 require(snapshot().equals(pristine), "FREE fixture Undo/Redo changed native texture state");
             }
-            result.setProperty("freeFixtureRemovedBindings", Integer.toString(plan.size()));
-            result.setProperty("freeFixtureMaxParametersAfter", Integer.toString(maximumBoundParameters(prepared)));
             result.setProperty("freeFixturePreparation", "SDK_UNBIND_UNDO_REDO_PASS");
+        }
+
+        private static String bindingFamilyCounts(final List<ParameterBinding> bindings) {
+            final Map<String, Integer> counts = new TreeMap<>();
+            for (ParameterBinding binding : bindings)
+                counts.merge(binding.family().name(), 1, Integer::sum);
+            return counts.toString();
         }
 
         private boolean originalStateRestored() throws Exception {
