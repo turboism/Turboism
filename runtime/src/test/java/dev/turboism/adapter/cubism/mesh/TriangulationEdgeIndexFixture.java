@@ -98,6 +98,20 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         remove.visitMaxs(2, 2);
         remove.visitEnd();
 
+        // boolean c(l): prologue + b.contains(l)
+        final MethodVisitor contains = writer.visitMethod(
+                ACC_PUBLIC, "c", "(L" + TRIANGLE + ";)Z", null, null);
+        contains.visitCode();
+        prologue(contains);
+        contains.visitVarInsn(ALOAD, 0);
+        contains.visitFieldInsn(GETFIELD, LIST, "b", "Ljava/util/LinkedHashSet;");
+        contains.visitVarInsn(ALOAD, 1);
+        contains.visitMethodInsn(
+                INVOKEVIRTUAL, "java/util/LinkedHashSet", "contains", "(Ljava/lang/Object;)Z", false);
+        contains.visitInsn(IRETURN);
+        contains.visitMaxs(2, 2);
+        contains.visitEnd();
+
         // void c(): b.clear()
         final MethodVisitor clear = writer.visitMethod(ACC_PUBLIC, "c", "()V", null, null);
         clear.visitCode();

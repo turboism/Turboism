@@ -71,6 +71,62 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
+    void containsSkipsCollisionEqualityOnlyForKnownLiveIdentities() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            final Tri t = tri(i, i, i + 1, i + 2);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(set, 0, 1);
+        int nativeEqualityCalls = 0;
+        for (final Tri t : triangles) {
+            t.equalityCalls = 0;
+            assertTrue(set.contains(t));
+            nativeEqualityCalls += t.equalityCalls;
+            t.equalityCalls = 0;
+            assertTrue(TriangulationEdgeIndex.contains(set, t));
+            assertEquals(0, t.equalityCalls, "known live identity avoids collision-tree equality");
+        }
+        assertTrue(nativeEqualityCalls > 0, "native control actually exercised collision equality");
+        final Tri equalDifferentIndices = tri(10, 900, 901, 902);
+        assertEquals(set.contains(equalDifferentIndices),
+                TriangulationEdgeIndex.contains(set, equalDifferentIndices));
+        final Tri absent = tri(1000, 0, 1, 2);
+        assertFalse(TriangulationEdgeIndex.contains(set, absent));
+        triangles.get(10).coords[0] = 999f;
+        assertEquals(set.contains(triangles.get(10)),
+                TriangulationEdgeIndex.contains(set, triangles.get(10)));
+        assertEquals(set.contains(equalDifferentIndices),
+                TriangulationEdgeIndex.contains(set, equalDifferentIndices));
+    }
+
+    @Test
+    void containsFallsBackAfterSideRemovalDirtyStateAndClear() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri removed = tri(1, 1, 2, 3);
+        final Tri survivor = tri(2, 3, 4, 5);
+        TriangulationEdgeIndex.add(set, removed, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, survivor, 3, 4, 5);
+        assertTrue(TriangulationEdgeIndex.contains(set, survivor)); // initial dirty state
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        final Iterator<Tri> iterator = set.iterator();
+        assertSame(removed, iterator.next());
+        iterator.remove();
+        assertFalse(TriangulationEdgeIndex.contains(set, removed));
+        final Tri replacement = tri(3, 6, 7, 8);
+        TriangulationEdgeIndex.add(set, replacement, 6, 7, 8);
+        assertFalse(TriangulationEdgeIndex.contains(set, removed)); // same size, but dirty
+        assertTrue(TriangulationEdgeIndex.contains(set, replacement));
+        TriangulationEdgeIndex.st(set).dead = true;
+        assertEquals(set.contains(tri(2, 90, 91, 92)),
+                TriangulationEdgeIndex.contains(set, tri(2, 90, 91, 92)));
+        TriangulationEdgeIndex.clear(set);
+        assertFalse(TriangulationEdgeIndex.contains(set, survivor));
+    }
+
+    @Test
     void indexedQueriesMatchTheBruteForceScan() {
         final Random random = new Random(0xC0FFEE);
         for (int trial = 0; trial < 200; trial++) {

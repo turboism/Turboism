@@ -218,6 +218,23 @@ public final class TriangulationEdgeIndex {
         return true;
     }
 
+    /**
+     * Positive identity shortcut for the pinned host's constant-hash triangles.
+     * Unknown identities still require native geometric equality; never infer a negative
+     * answer from the index. Cardinality and cleanliness use the same mutation protocol
+     * as removal: all additions/clears are woven, iterator removal only shrinks the set.
+     */
+    public static boolean contains(final LinkedHashSet s, final Object tri) {
+        try {
+            final St t = st(s);
+            if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size()
+                    && t.keys.containsKey(tri)) return true;
+        } catch (Throwable bookkeeping) {
+            FatalErrors.rethrowIfFatal(bookkeeping);
+        }
+        return s.contains(tri);
+    }
+
     /** Replaces {@code LinkedHashSet.clear}. */
     public static void clear(final LinkedHashSet s) {
         s.clear();
