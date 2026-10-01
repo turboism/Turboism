@@ -247,6 +247,7 @@ class PluginContextUnavailableContractTest {
                     "optional accessor " + method.getName() + "() has no PluginService." + memberName + " member");
         }
         for (PluginService service : PluginService.values()) {
+            if (service == PluginService.MESH_TOOLS) continue; // Directory-only, never a legacy accessor.
             final String accessorName = toAccessorName(service.name());
             final Method accessor = assertDoesNotThrow(
                     () -> PluginContext.class.getDeclaredMethod(accessorName),
@@ -262,7 +263,7 @@ class PluginContextUnavailableContractTest {
         }
         assertEquals(
                 optionalAccessors,
-                PluginService.values().length,
+                PluginService.values().length - 1,
                 "optional accessors and PluginService members must be a bijection");
     }
 

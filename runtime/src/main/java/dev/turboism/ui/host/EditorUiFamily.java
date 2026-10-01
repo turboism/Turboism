@@ -4,6 +4,7 @@ package dev.turboism.ui.host;
 public enum EditorUiFamily {
     MENU,
     MAIN_TOOLBAR,
+    MESH_TOOLBAR,
     VERTICAL_TOOLBAR,
     HORIZONTAL_TOOLBAR,
     PALETTE_TOOLBAR,

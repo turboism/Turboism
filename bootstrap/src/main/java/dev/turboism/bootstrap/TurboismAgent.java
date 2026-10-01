@@ -129,6 +129,7 @@ public final class TurboismAgent {
             JvmShims.install(attachmentMode, instrumentation, options);
             final HookEnvironment premainEnvironment = HookEnvironment.builder()
                     .instrumentation(instrumentation)
+                    .attachmentMode(attachmentMode)
                     .options(options)
                     .classPath(System.getProperty("java.class.path", ""))
                     .workingDirectory(Path.of(System.getProperty("user.dir", ".")))
@@ -145,7 +146,7 @@ public final class TurboismAgent {
                 }
             }
             bootstrapThreadStarter.accept(
-                    () -> start(options, instrumentation, List.copyOf(premainInstalled), contributors));
+                    () -> start(options, instrumentation, attachmentMode, List.copyOf(premainInstalled), contributors));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failStartSafely(failure);
@@ -183,6 +184,7 @@ public final class TurboismAgent {
     private static void start(
             final AgentOptions options,
             final Instrumentation instrumentation,
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
             final List<HookContributor> premainInstalled,
             final List<HookContributor> contributors) {
         final List<HookContributor> bound = new ArrayList<>(premainInstalled);
@@ -200,7 +202,7 @@ public final class TurboismAgent {
             bound.addAll(installPhase(
                     contributors,
                     HookContributor.Phase.HOST_RESOLVED,
-                    environment(instrumentation, options, resolved, null)));
+                    environment(instrumentation, attachmentMode, options, resolved, null)));
             final PreviewRuntime runtime = PreviewRuntimeLauncher.startPreviewRuntime(
                     meshMirrorHook,
                     warpAltMirrorHook,
@@ -209,7 +211,7 @@ public final class TurboismAgent {
                             resolved,
                             prepared -> {
                                 final HookEnvironment runtimeEnvironment =
-                                        environment(instrumentation, options, resolved, prepared);
+                                        environment(instrumentation, attachmentMode, options, resolved, prepared);
                                 prepareEarlyHooks(
                                         contributors,
                                         bound,
@@ -224,7 +226,7 @@ public final class TurboismAgent {
                             },
                             prepared -> {
                                 final HookEnvironment runtimeEnvironment =
-                                        environment(instrumentation, options, resolved, prepared);
+                                        environment(instrumentation, attachmentMode, options, resolved, prepared);
                                 for (HookContributor contributor : bound) {
                                     if (contributor.phase() == HookContributor.Phase.PREMAIN) {
                                         bindRuntimeHook(contributor, runtimeEnvironment);
@@ -364,11 +366,13 @@ public final class TurboismAgent {
 
     private static HookEnvironment environment(
             final Instrumentation instrumentation,
+            final StartupSuppressionInstaller.AttachmentMode attachmentMode,
             final AgentOptions options,
             final ResolvedHost resolved,
             final PreviewRuntime runtime) {
         return HookEnvironment.builder()
                 .instrumentation(instrumentation)
+                .attachmentMode(attachmentMode)
                 .options(options)
                 .host(resolved.host())
                 .runtime(runtime)

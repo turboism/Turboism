@@ -86,6 +86,11 @@ class PluginServiceDirectoryContractTest {
     @Test
     void everyMemberTypeNamesItsAccessorReturnType() throws Exception {
         for (PluginService service : PluginService.values()) {
+            if (service == PluginService.MESH_TOOLS) {
+                assertThrows(NoSuchMethodException.class, () -> PluginContext.class.getDeclaredMethod("meshTools"));
+                assertSame(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class, service.type());
+                continue;
+            }
             final Method accessor = PluginContext.class.getDeclaredMethod(accessorName(service.name()));
             assertSame(
                     accessor.getReturnType(),

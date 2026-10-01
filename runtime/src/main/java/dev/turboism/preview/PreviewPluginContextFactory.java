@@ -134,11 +134,16 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         final PluginDescriptor requestedDescriptor = Objects.requireNonNull(descriptor, "descriptor");
         final ClassLoader requestedClassLoader = Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
         final DisposableScope requestedScope = Objects.requireNonNull(scope, "scope");
-        requestedScope.register(
-                hostAccess.editorUiPluginResources().register(requestedDescriptor.id(), requestedClassLoader));
         final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner =
                 servicesFactory.admitEventOwner(requestedDescriptor);
         try {
+            requestedScope.register(hostAccess
+                    .editorUiPluginResources()
+                    .register(requestedDescriptor.id(), eventOwner.key().generation(), requestedClassLoader));
+            if (eventOwner.key().generation() != 0L) {
+                requestedScope.register(
+                        hostAccess.editorUiPluginResources().register(requestedDescriptor.id(), requestedClassLoader));
+            }
             requestedScope.register(() -> {
                 eventOwner.beginClosing();
                 if (!eventOwner.awaitQuiescence(java.time.Duration.ofSeconds(5))) {
@@ -162,6 +167,28 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                             .build();
             final CorePluginContext context =
                     new CorePluginContext(services.dependencies().withConfig(services.typedConfig()), environment);
+            if (requestedDescriptor
+                    .capabilities()
+                    .contains(dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry.REQUIRED_CAPABILITY)) {
+                final var meshTools = new dev.turboism.adapter.cubism.mesh.RuntimeMeshToolRegistry(
+                        requestedDescriptor.id(),
+                        eventOwner.key().generation(),
+                        dev.turboism.permissions.PermissionChecker.from(
+                                new dev.turboism.permissions.CubismPermissionGate(
+                                        requestedDescriptor.id(),
+                                                services.dependencies().permissions(),
+                                        services.dependencies().cubismAuditSink(),
+                                                services.dependencies().clock())),
+                        true,
+                        hostAccess.meshToolCoordinator(),
+                        hostAccess.editorUiContributions());
+                try {
+                    context.installMeshTools(meshTools);
+                } catch (RuntimeException | Error failure) {
+                    meshTools.close();
+                    throw failure;
+                }
+            }
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                     home,
                     context,

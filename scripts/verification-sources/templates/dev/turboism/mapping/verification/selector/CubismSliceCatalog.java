@@ -563,6 +563,7 @@ public final class CubismSliceCatalog {
         Map.entry("edit-toggle", HookContractKind.DECLARED_GENERATION),
         Map.entry("editor-ui", HookContractKind.DECLARED_GENERATION),
         Map.entry("native-edit-begin", HookContractKind.TRANSFORMED_TARGET),
+        Map.entry("mesh-tool-session", HookContractKind.TRANSFORMED_TARGET),
         Map.entry("object-context-menu", HookContractKind.DECLARED_GENERATION),
         Map.entry("performance-fps", HookContractKind.DECLARED_GENERATION),
         Map.entry("physics-editor", HookContractKind.DECLARED_GENERATION),
