@@ -1252,3 +1252,45 @@ retained, original JSON bytes restored, and both inventories now verify. No host
 gate or frozen input is relaxed. This pair stops on failure and is not expanded
 into automatic reruns. Give an adopt/hold recommendation when it ends; single-pair
 PASS alone cannot establish stable three-version acceptance. T044/T046 remain open.
+
+
+### Bounded final5302 pair complete: hold production acceptance
+
+The new complete on/off pair ended successfully: on seq2355/job
+db482a9c-7006-475b-bd3d-a70034395faf and off seq2357/job
+45416af3-c876-49d1-9af5-fa0f896b8cd1. Both final Agent021e4908 legs pass normal exit,
+identity, unchanged fixture and safe cleanup. Strict review passes payload binding,
+default fresh-edge/membership receipts, the first four ordered edge outputs,
+pinned TriangleList SHA and sampled production execution. On has434 production
+bridge samples, off has none. These checks do not establish actual fresh-guard
+admission or complete per-cycle repeated-target outputs.
+
+| Sampled observation | Off | On | On change |
+| --- | ---: | ---: | ---: |
+| First explicit operation wall seconds | 83.2949 | 90.5236 | +8.68% |
+| First operation Java CPU seconds | 112.27 | 120.66 | +7.47% |
+| Whole resource observer Java CPU seconds | 308.68 | 306.71 | -0.64% |
+| Resource observer peak RSS MiB | 5201.17 | 5611.97 | +7.90% |
+| Available-readings peak PSS MiB | 5145.68 | 5555.82 | +7.97% |
+
+Whole-process off PSS has one unavailable record; on has none. PSS peaks refer to
+available readings, not complete continuous coverage. CPU deltas omit unsampled
+boundaries and unobserved lifetimes; RSS/PSS are sampled peaks. Retained median
+RSS on is4170.74/5030.61/4932.72MiB, off4560.76/4772.61/4829.99MiB. Both legs still
+have zero triangulation/production-index samples in operation2/3. This does not
+prove no execution, and these windows cannot establish repeated-target retention.
+
+The analysis pipeline finished normally; completion.json binds all four report
+hashes. Independent bounded-review.json SHA5845ef44591294c4febe2f1ff1b1ea060d55d367d616ff48723e3b38fd1bf660
+records HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED without changing either host PASS.
+A premature reviewer invocation before completion.json existed was rejected and
+retained in bounded-review-attempt-1.json; the completed review checks every
+completion report hash before writing its conclusion.
+
+No additional host job is submitted by this review. This final pair shows slower
+first operation, negligible observed whole Java CPU reduction and higher sampled
+memory; it does not support stable net benefit. Hold adoption/merge, preserve the
+implementation and evidence. Final5203/5303 comparisons, final three-version
+UI/startup linkage, guard/scan evidence, real repeated-target outputs and agreed
+resource bounds remain open. T044/T046 and the broader stable-optimization goal
+are not complete. No theoretical bottleneck is claimed.
