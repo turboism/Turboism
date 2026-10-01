@@ -448,3 +448,59 @@ worker online. Output root: `build/t029-real-host-acceptance/contains-diagnostic
 No real diagnostic counters are available yet. Preserve normal exit, fixture and
 capture checks before interpreting aggregate counts. This instrumented artifact
 and its timing cannot substitute for final production performance acceptance.
+
+
+Static caller follow-up while seq2234 waits: reviewed 5203 `h.a(l,l,j)` creates
+new triangle instances at bytecode offsets 89 and 106 (locals 7 and 8), then
+queries those instances with `TriangleList.c` at offsets 251 and 269 before each
+conditional add. The first contains call on each fresh identity cannot hit the
+positive identity shortcut. This supports the identity-miss hypothesis for that
+caller; it does not quantify its runtime share or prove native contains is false
+(an equal-but-distinct object can exist). Raw javap and pinned source/output hashes
+are in `contains-diagnostic5203/{h-bytecode.txt,caller-origin.json}`. Branch counts
+remain pending; do not replace geometric equality with identity-negative answers.
+
+
+Membership semantics follow-up (5203 only): `l.equals` checks six vertex
+permutations using `TriPoint.equals`; point equality compares x/y with JVM float
+comparison and ignores point index. Signed zeros compare equal; NaN does not.
+`TriPoint` inherits public coordinate mutators from `GVector2`, so coordinate
+immutability cannot be assumed from class shape. A geometry-keyed membership
+index would need a proven mutation protocol and compatible float normalization;
+existing index-keyed edge buckets cannot prove non-membership of equal geometry
+with different indices. This is a correctness constraint, not proof that points
+actually mutate during triangulation or that optimization is impossible. Pinned
+raw bytecode/signatures and summary: `contains-diagnostic5203/membership-semantics.json`.
+
+
+Alternative under review, not implemented: the two adjacent contains/conditional
+add pairs in `h.a(l,l,j)` repeat a native collision lookup for an absent triangle.
+Fusion could remove that duplicate search without a coordinate cache. However,
+`TriangleList.a(l)` has debug-mode logging and a static counter increment before
+native add. Unconditional add is therefore not automatically equivalent when the
+triangle is already present. A candidate must retain the original debug path,
+prove native collection identity/order semantics for mutable/degenerate equality,
+and independently pin caller bytecode. The separate helper with intervening
+geometric validation is not an interchangeable site. Review details and raw add
+bytecode are in `contains-diagnostic5203/fusion-review.json`; no speedup claim.
+
+
+Own-type fusion experiment passed 1,117,616 assertions across eight fixed seeds,
+including mutable geometric equality in collision trees, NaN/signed zero,
+duplicate identities, removes, iterator removes, clear and debug-mode counters.
+Exact stored identities/order matched after every operation. Measured fixture
+operations made 745,328 original versus 560,262 candidate equality calls (about
+24.8% fewer). Log: `contains-fusion-experiment/result.log`; source and invocation
+are in `diagnostic/`. This is a semantic experiment, not an official-class or
+host benchmark, and it does not justify weakening any native equality behavior.
+
+
+Three-version static fusion review: all reviewed versions contain exactly two
+adjacent contains/conditional-add blocks in `h.a(l,l,j)`, at offsets 251/261 and
+269/279. Receiver and argument locals match in each block, the branch skips only
+the add/pop, and the target is the next instruction. 5203 `h` SHA is
+`ef4a5eb2f0e1b0ac0295f76146a513a326729cfe4526884104cbb27978c52543`;
+5302/5303 share `5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d`.
+Jar/class/output hashes and exact instruction blocks are pinned in
+`contains-fusion-experiment/three-version-shape.json`. This is read-only javap
+inspection, not an implemented transformer or successful official execution.
