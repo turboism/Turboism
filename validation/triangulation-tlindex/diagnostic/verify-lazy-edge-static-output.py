@@ -107,6 +107,8 @@ def main():
     parser.add_argument("--jar", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--baseline", type=Path,
+                        help="optional SHA-bound bytes after the reviewed existing transforms")
     args = parser.parse_args()
     pins_path = args.candidate / "pins.txt"
     pins = dict(line.split("=", 1) for line in pins_path.read_text().splitlines())
@@ -116,7 +118,11 @@ def main():
     candidate_path = args.candidate / "h.class"
     candidate = candidate_path.read_bytes()
     require(sha(original) == pins[HOST] and sha(candidate) == pins["hOutput"], "class pin drift")
-    before, after = parse(original), parse(candidate)
+    baseline = original
+    if args.baseline is not None:
+        baseline = args.baseline.read_bytes()
+        require(sha(baseline) == pins["hBeforeLazy"], "pre-lazy baseline binding drift")
+    before, after = parse(baseline), parse(candidate)
     require(after["pool"].startswith(before["pool"]), "original constant pool changed")
     for key in ("version", "header", "interfaces", "fields", "classAttributes"):
         require(before[key] == after[key], key + " changed")
@@ -134,10 +140,15 @@ def main():
     after_code = code_metadata(dict(after["methods"][("c", "()V")][1])["Code"])
     require(after_code["maxLocals"] == before_code["maxLocals"] + 8, "temporary local count")
     require(before_code["handlersBytes"] == after_code["handlersBytes"] == 0, "unexpected c handlers")
+    inputs = (args.jar, candidate_path, pins_path, Path(__file__))
+    if args.baseline is not None:
+        inputs += (args.baseline,)
     report = {"status": "STATIC_CLASS_DATA_PRESERVATION_CHECKED", "version": pins["version"],
               "officialClassesExecuted": False,
-              "inputs": {str(p): file_sha(p) for p in (args.jar, candidate_path, pins_path, Path(__file__))},
-              "unchangedMethods": unchanged, "unchangedOriginalConstantPool": True,
+              "baseline": "official" if args.baseline is None else "explicit-pre-lazy-transform",
+              "inputs": {str(p): file_sha(p) for p in inputs},
+              "unchangedMethods": unchanged, "unchangedBaselineConstantPool": True,
+              "unchangedOriginalConstantPool": baseline == original,
               "originalCode": before_code, "candidateCode": after_code,
               "limitations": ["Class-file data comparison, not official-class definition or native execution.",
                               "The selected c body requires generated-fixture control-flow/exception tests and later actual dependency admission."]}

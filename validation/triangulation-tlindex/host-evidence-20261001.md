@@ -1808,3 +1808,68 @@ correctness and startup/output verification, then final three-version stable
 performance/resources. The new owned lazy-edge gains do not replace those gates.
 T050 stays partial, T044/T046 and the continuous goal stay unachieved; no
 theoretical bottleneck or reliable remaining-duration estimate is claimed.
+
+### T050 ASM-core port and frozen-transform composition
+
+The previous goal turn made progress: b5f1b96 bound the owned definition collector
+and reproduced its downstream-transformer ordering gap. On its clean source this
+turn addressed the other production-integration prerequisites, without pretending
+that ordering gap was solved. Read-only FIFO inspection still found unrelated
+seq2385 running and2386 queued; no optimization job or queue mutation occurred.
+No performance measurement requiring a quiet host was running in that snapshot.
+
+The new diagnostic core port records/replays only c method events. It retains all
+original executable events in order, including the private/inlined predicate and
+fourth path, and inserts the same warm branch, six getter observations, validation,
+native endpoint calls and fresh delayed objects as the tree prototype. ClassWriter
+retains the input pool and raw other methods; c frames use header data without
+loading official classes. Java17 release/lint/Werror compilation uses core ASM
+9.7.1 alone; jdeps confirms no tree/commons class reference in the core module.
+Tree/commons remain confined to owned-fixture generation and the old test oracle.
+
+Fresh and membership patchers come from the unchanged SHA-pinned ee244 performance
+Agent in an isolated loader, with parent shadowing rejected. The public CLI still
+requires a fixed official whole-JAR digest; optional --compose requires the fixed
+Agent digest before applying fresh, membership, then core lazy materialization.
+No arbitrary caller bytes enter through the public CLI. Shape entries are owned
+testing/data research, not actual-dependency or final-definition admission.
+
+Expanded tree, core and composed modes each pass3533 owned checks under
+-Xverify:all. The original3505 checks remain, with28 membership controls for debug
+on/off, three repeated invocations, return values, ordered same-object contents,
+debug add effects and6→0 contains calls only in the non-debug fused mode. Native
+edge names are remapped before execution, so the frozen fresh guard uses its
+native fallback; this does not prove native fast-guard execution. Geometry and
+private predicates remain owned stand-ins. No official body is defined or run.
+
+The six standalone/composed official class-data cases pass preservation and
+whole-definition fingerprint comparison with the tree oracle. They are also
+byte-identical, not merely normalized matches. Standalone hashes remain the prior
+prototype hashes. Composed5203 starts at d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92
+and outputs fb521f43ea595fa33553df81dd66d29ea4958ce1e75c2fe0355b2ead0d5db133.
+Composed5302/5303 start at the measured40d07540… and output
+5d6a54280e10ee492cec0542701fe3cd7d2830b295976dba14192dca8a83c8b2.
+All16/27 non-c methods are raw-identical to their post-membership baselines.
+maxStack stays6; locals30/26; code1673/1310 bytes, no handlers. The53 composed c
+is one byte longer than the standalone output; the core/tree bytes agree exactly.
+
+The data verifier now accepts an explicit SHA-bound pre-lazy baseline and reports
+baseline pool preservation separately from pristine official pool preservation.
+It does not mislabel the existing membership transform as unchanged official
+bytes. Wrong-baseline and unreviewed-Agent negative controls reject before output
+publication. Prior source snapshots from b5f1b96 are retained and match the earlier
+prototype review's exact digests; historical reports are not overwritten or
+reinterpreted as checks of the expanded current source.
+
+Final build/t050-lazy-edge-bytecode/core-composition/offline-review.json SHA
+95e3e6d247d0c9b7802a7ec188bd2fcde9fc31f40bd1ce7c0c5fde30a462b2d3 binds184
+source/library/class/fixture/log/command/report inputs, six candidate cases,
+historical sources and unchanged ee244/0dc308 frozen Agents. Runtime production
+source, previewBundle and host inputs remain unchanged. No main merge or push.
+
+This completes the ASM-core port and offline composition evidence slice. T050 is
+still partial: supported transformer-lifecycle ownership/final dependency admission,
+production native fallback integration, actual official class/geometry/output and
+startup checks remain required. T044/T046 and final three-version stable host
+performance/resources remain open. HOLD_PRODUCTION_ACCEPTANCE and the continuous
+goal stay active; neither stable improvement nor a theoretical bottleneck is claimed.

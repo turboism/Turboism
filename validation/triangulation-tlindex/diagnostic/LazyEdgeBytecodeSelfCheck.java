@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Random;
 import java.util.zip.ZipEntry;
@@ -23,6 +24,8 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
     private static final String T = LazyEdgeBytecodePrototype.T, L = LazyEdgeBytecodePrototype.L;
     private static final String R = LazyEdgeBytecodePrototype.R, V = LazyEdgeBytecodePrototype.V;
     private static int checks;
+    private static boolean core;
+    private static FrozenEdgeTransforms composition;
 
     private LazyEdgeBytecodeSelfCheck() {}
     public static class Vec {
@@ -77,6 +80,23 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
                     first.y + second.y + third.y + fourth.y);
         }
     }
+    public static final class Switch {
+        public boolean debug;
+        public boolean b() { return debug; }
+    }
+    public static final class Config {
+        public static final Switch a = new Switch();
+        private Config() {}
+    }
+    public static final class NativeTriangleList {
+        public final LinkedHashSet<Triangle> contents = new LinkedHashSet<>();
+        public int containsCalls, debugAdds;
+        public boolean c(Triangle face) { containsCalls++; return contents.contains(face); }
+        public boolean a(Triangle face) {
+            if (Config.a.b()) debugAdds++;
+            return contents.add(face);
+        }
+    }
     public static final class Support {
         public static Edge constraint;
         public static Triangle[] inputs;
@@ -126,6 +146,7 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         ClassWriter w = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         w.visit(V17, ACC_PUBLIC | ACC_FINAL, H, null, "java/lang/Object", null);
         w.visitSource("OwnedHost.java", null);
+        w.visitField(ACC_PUBLIC | ACC_STATIC, "membership", "L" + P + "TriangleList;", null, null).visitEnd();
         MethodVisitor init = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         init.visitCode(); a(init, 0);
         init.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
@@ -134,6 +155,7 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         predicate.visitCode(); a(predicate, 1); a(predicate, 2);
         predicate.visitMethodInsn(INVOKESTATIC, SELF + "$Support", "blocked", "(L" + J + ";L" + J + ";)Z", false);
         predicate.visitInsn(IRETURN); predicate.visitMaxs(0, 0); predicate.visitEnd();
+        membershipFixture(w);
         MethodVisitor m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "c", "()V", null, null); m.visitCode();
         m.visitTypeInsn(NEW, "java/util/ArrayList"); m.visitInsn(DUP);
         m.visitMethodInsn(INVOKESPECIAL, "java/util/ArrayList", "<init>", "()V", false); m.visitVarInsn(ASTORE, 7);
@@ -182,6 +204,23 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         m.visitInsn(RETURN); m.visitMaxs(0, 0); m.visitEnd(); w.visitEnd(); return w.toByteArray();
     }
 
+    private static void membershipFixture(ClassWriter writer) {
+        String list = P + "TriangleList", argument = "(L" + L + ";)Z";
+        MethodVisitor method = writer.visitMethod(ACC_PUBLIC | ACC_FINAL, "a",
+                "(L" + L + ";L" + L + ";L" + J + ";)Ljava/util/List;", null, null);
+        method.visitCode(); method.visitFieldInsn(GETSTATIC, H, "membership", "L" + list + ";");
+        method.visitVarInsn(ASTORE, 4);
+        for (int local : new int[] {5, 6}) { method.visitInsn(ACONST_NULL); method.visitVarInsn(ASTORE, local); }
+        a(method, 1); method.visitVarInsn(ASTORE, 7); a(method, 2); method.visitVarInsn(ASTORE, 8);
+        Label first = new Label(); method.visitJumpInsn(GOTO, first); method.visitLabel(first);
+        for (int local : new int[] {7, 8}) {
+            Label skip = new Label(); a(method, 4); a(method, local);
+            method.visitMethodInsn(INVOKEVIRTUAL, list, "c", argument, false); method.visitJumpInsn(IFNE, skip);
+            a(method, 4); a(method, local); method.visitMethodInsn(INVOKEVIRTUAL, list, "a", argument, false);
+            method.visitInsn(POP); method.visitLabel(skip);
+        }
+        method.visitInsn(ACONST_NULL); method.visitInsn(ARETURN); method.visitMaxs(0, 0); method.visitEnd();
+    }
     private static byte[] definition(String name) {
         byte[] platform = LazyEdgeBytecodePrototype.platformBytes(name);
         if (platform != null) return platform;
@@ -202,6 +241,9 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
                 if (name.equals(L)) return SELF + "$Triangle";
                 if (name.equals(R)) return SELF + "$Geometry";
                 if (name.equals(V)) return SELF + "$Vec";
+                if (name.equals(P + "TriangleList")) return SELF + "$NativeTriangleList";
+                if (name.equals(P + "c$a")) return SELF + "$Switch";
+                if (name.equals(P + "c")) return SELF + "$Config";
                 return name;
             }
             @Override public String mapMethodName(String owner, String name, String descriptor) {
@@ -210,7 +252,8 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
             }
         }), 0);
         byte[] owned = writer.toByteArray();
-        return new ClassLoader(LazyEdgeBytecodeSelfCheck.class.getClassLoader()) {
+        ClassLoader parent = composition == null ? LazyEdgeBytecodeSelfCheck.class.getClassLoader() : composition.bridgeLoader();
+        return new ClassLoader(parent) {
             Class<?> define() { return defineClass(null, owned, 0, owned.length); }
         }.define();
     }
@@ -270,14 +313,51 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         ClassNode n = new ClassNode(); new ClassReader(bytes).accept(n, 0); return n;
     }
     private static void reject(byte[] bytes) {
-        try { LazyEdgeBytecodePrototype.patchShape(bytes, LazyEdgeBytecodeSelfCheck::definition);
+        try { patch(bytes);
             throw new AssertionError("bad stencil accepted");
         } catch (IllegalArgumentException expected) { require(true, "shape refused"); }
     }
+    private static byte[] patch(byte[] bytes) {
+        try {
+            byte[] input = composition == null ? bytes : composition.apply(bytes, true);
+            return core ? CoreLazyEdgeBytecodePrototype.patchShape(input, LazyEdgeBytecodeSelfCheck::definition)
+                    : LazyEdgeBytecodePrototype.patchShape(input, LazyEdgeBytecodeSelfCheck::definition);
+        } catch (RuntimeException failure) { throw failure; }
+        catch (Exception failure) { throw new IllegalArgumentException("owned composition failed", failure); }
+    }
+    private static void membershipCheck(Class<?> before, Class<?> after, Triangle face) throws Exception {
+        for (boolean debug : new boolean[] {false, true}) {
+            Config.a.debug = debug;
+            NativeTriangleList nativeList = new NativeTriangleList(), candidateList = new NativeTriangleList();
+            before.getField("membership").set(null, nativeList); after.getField("membership").set(null, candidateList);
+            Triangle other = new Triangle(face.first, face.second, face.third);
+            for (int round = 0; round < 3; round++) {
+                require(before.getMethod("a", Triangle.class, Triangle.class, Edge.class)
+                        .invoke(before.getConstructor().newInstance(), face, other, null) == null, "native membership return");
+                require(after.getMethod("a", Triangle.class, Triangle.class, Edge.class)
+                        .invoke(after.getConstructor().newInstance(), face, other, null) == null, "composed membership return");
+                require(new ArrayList<>(nativeList.contents).equals(new ArrayList<>(candidateList.contents)), "membership order/identity");
+                require(nativeList.debugAdds == candidateList.debugAdds, "membership debug effects");
+            }
+            require(nativeList.containsCalls == 6, "native membership contains count");
+            require(candidateList.containsCalls == (composition != null && !debug ? 0 : 6), "membership fused/debug query count");
+        }
+    }
     public static void main(String[] args) throws Exception {
+        String[] inputs = args;
+        if (args.length > 0 && args[0].equals("--core")) {
+            core = true; inputs = java.util.Arrays.copyOfRange(args, 1, args.length);
+        } else if (args.length > 1 && args[0].equals("--compose")) {
+            core = true; composition = new FrozenEdgeTransforms(Path.of(args[1]));
+            inputs = java.util.Arrays.copyOfRange(args, 2, args.length);
+        }
+        try { selfCheck(inputs); }
+        finally { if (composition != null) composition.close(); }
+    }
+    private static void selfCheck(String[] args) throws Exception {
         if (args.length > 1) throw new IllegalArgumentException("optional new owned-fixture directory");
         byte[] original = fixture();
-        byte[] patched = LazyEdgeBytecodePrototype.patchShape(original, LazyEdgeBytecodeSelfCheck::definition);
+        byte[] patched = patch(original);
         if (args.length == 1) {
             Path out = Path.of(args[0]); Files.createDirectory(out);
             Files.write(out.resolve("original-owned.class"), original);
@@ -285,11 +365,12 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
             byte[] inline = fixture(true);
             Files.write(out.resolve("original-inline-owned.class"), inline);
             Files.write(out.resolve("patched-inline-owned.class"),
-                    LazyEdgeBytecodePrototype.patchShape(inline, LazyEdgeBytecodeSelfCheck::definition));
+                    patch(inline));
         }
         Class<?> before = defineOwned(original), after = defineOwned(patched);
         Point a = new Point(0, 0f, 0f), b = new Point(1, 4f, 0f), c = new Point(2, 0f, 4f);
         Triangle face = new Triangle(a, b, c);
+        membershipCheck(before, after, face);
         Support.constraint = new Edge(new Point(-1, 2f, -1f), new Point(-2, 2f, 5f));
         Support.extraFirst = new Point(-3, 8f, 9f); Support.extraSecond = new Point(-4, 3f, 1f);
         for (int hit = 0; hit < 8; hit++) for (int block = 0; block < 8; block++) {
@@ -346,7 +427,7 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
         pair(before, after, new Triangle[] {face, face}, 7, 0, true); Support.constraint = savedConstraint;
         byte[] inline = fixture(true);
         Class<?> inlineBefore = defineOwned(inline), inlineAfter = defineOwned(
-                LazyEdgeBytecodePrototype.patchShape(inline, LazyEdgeBytecodeSelfCheck::definition));
+                patch(inline));
         for (int hit = 0; hit < 8; hit++) for (int block = 0; block < 8; block++)
             pair(inlineBefore, inlineAfter, new Triangle[] {face, face, face}, hit, block, true);
         for (int s = 0; s < 3; s++) {
@@ -372,13 +453,16 @@ public final class LazyEdgeBytecodeSelfCheck implements Opcodes {
             try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(fake))) {
                 zip.putNextEntry(new ZipEntry(H + ".class")); zip.write(original); zip.closeEntry();
             }
-            try { LazyEdgeBytecodePrototype.main(new String[] {fake.toString(), output.toString()});
+            try {
+                if (core) CoreLazyEdgeBytecodePrototype.main(new String[] {fake.toString(), output.toString()});
+                else LazyEdgeBytecodePrototype.main(new String[] {fake.toString(), output.toString()});
                 throw new AssertionError("unreviewed JAR admitted");
             } catch (IllegalArgumentException expected) {
                 require(!Files.exists(output), "unknown bytes created artifact");
             }
         } finally { Files.deleteIfExists(fake); }
         System.out.println("LAZY_EDGE_GENERATED_BYTECODE_SELFCHECK PASS checks=" + checks
+                + " implementation=" + (core ? "core" : "tree") + " composed=" + (composition != null)
                 + " officialClassesExecuted=false nativeGeometryExecuted=false");
     }
 }
