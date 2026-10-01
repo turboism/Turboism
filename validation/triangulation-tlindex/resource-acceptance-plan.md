@@ -188,3 +188,46 @@ that record (not an unrelated edit), and later operations independently execute
 the target. Capture canonical output per cycle and preserve unchanged fixture
 bytes. If undo merely restores already triangulated cached state, reject this
 trigger too rather than treating UI success as repeated target execution.
+
+### Native auto-connect candidate after undo rejection
+
+Undo diagnostic seq2290 timed out safely; recovered partial JFR shows target
+samples3679/0/0 across the three completed editor operations. It does not establish
+repeated execution. Do not rerun the same undo trigger as a retention protocol.
+
+The first target stack enters TAE__EditLayer_ModelImage.setupEditLayer through
+GEditableMesh2.getGlIndices/updateMesh/updateIndices. 5203 bytecode shows that
+updateIndices skips when _edge_edit_version equals cache_version_gl_indices.
+Native command_meshEditConnectAuto dispatches only in mesh-editor edit mode;
+commandAutoConnect calls autoConnect on each editDataList entry, marks its edges
+updated, ends the edit and repaints. This is a concrete native candidate to review,
+not authorization to directly bump cached versions or bypass the editor.
+
+Pinned static artifacts and remaining prerequisites are under
+build/t029-real-host-acceptance/repeated-target-review/native-auto-connect-candidate.json.
+Before submission, review native mesh selection/entry, checkbox options, all three
+versions, and per-cycle output capture. Mesh editing changes the workload: keep it
+as a separate diagnostic and do not substitute it for the frozen atlas A/B.
+
+Static follow-up across5203/5302/5303 is recorded in
+`repeated-target-review/auto-connect-shape-review.json` with pinned input dumps.
+All three commandAutoConnect methods read the native rebuild/border checkboxes,
+call autoConnect, and mark edges updated. autoConnect directly calls the native
+triangulator after rebuilding edges when requested; it is not gated solely by
+the cached GL-index version. The progress parameter differs (`util.i.a` in5203,
+`util.j.a` in53x), so invoke the public controller command, not a hardcoded
+low-level descriptor.
+
+5203 entry review requires main modeling mode, a nonempty selected ArtMesh list,
+unlocked hierarchy, and present/unlocked editable-mesh extensions. Native entry
+may return false or display a dialog; require the actual resulting edit mode and
+its editDataList, not just the command return value. Selection can use native
+selector.addSelected(source,int) with sources from the bound document; never
+unlock source data to satisfy the diagnostic. Record selected IDs and counts.
+
+For per-cycle observations, all three versions expose editDataList and raw
+getCached_indices$core/getCached_positions$core getters. These are candidates
+for hashing existing results without getGlIndices-triggered extra work. Validate
+cache freshness and nonnull arrays before interpreting them; still require JFR
+execution evidence and paired off/on output equivalence. Do not treat these
+static checks as a runnable or accepted host diagnostic.

@@ -729,3 +729,85 @@ Snapshots are released before retained observation. Native undo may still leave
 cached triangulation or produce no record; these remain falsifiable failures.
 No repeated-target execution, per-cycle output equivalence, or retention result
 is claimed until actual host evidence exists.
+
+### Native undo live observation (2026-10-01 10:16 UTC)
+
+Seq2290 remains running; the identity-bound host collector is live for Java
+PID2800920/startTicks7010624. The first two native undo operations returned and
+passed the guard, both restoring cursor0 (`undo-diagnostic.tsv`: `1\t0`, `2\t0`).
+Their marker durations are 759.075s and 782.026s. Operation2 took26.043s, and
+operation3 has started. These are diagnostic observations, not a successful
+three-cycle run or evidence of repeated triangulation. Final JFR attribution and
+the terminal outcome are still required. Do not restart or extend the2400s queue
+job based on observation timeouts.
+
+A snapshot is retained at
+`build/t029-real-host-acceptance/undo-trigger5203/live-observation-1790849720966.json`.
+The sandbox has a separate PID namespace: absence of the host PID from its /proc
+is not process-exit evidence. The live host collector takes precedence. The
+hs_err_pid328.log found inside the cloned prefix is dated2026-08-03 and is not
+an error from this run.
+
+Reverse performance on seq2278 succeeded; off seq2293 remains queued. No reverse
+pair comparison or stable speedup is established yet.
+
+### Native undo diagnostic terminal result: trigger unproven
+
+Seq2290 reached its2400s limit: terminalState=timed_out, validationStatus=FAIL,
+cleanup=safe, normalExit=false. Identity and fixture terminal gates are false;
+this is missing successful final verification, not evidence that fixture bytes
+changed. The client exited1 and retained the failed outcome. No rerun submitted.
+
+The normal atlas-profiling.jfr is empty. Three repository chunks survived; each
+passes `jfr summary`, was copied and SHA-pinned in retained-jfr-inventory.json,
+and was assembled into retained-partial.jfr. Streaming attribution is recorded in
+`build/t029-real-host-acceptance/undo-trigger5203/partial-attribution.json`.
+Sample coverage spans epoch1790847902626.068–1790850282141.715, including all
+three completed editor-operation intervals. Native triangulation samples are
+3679/0/0 out of10716/2303/6727 total samples for operations1/2/3. Thus native undo
+has not established repeated target execution; do not adopt it as the repeated
+retention protocol or interpret the shorter later operations as optimization.
+
+Undo1/2 completed in759.075s/782.026s; undo3 was incomplete. None shows native
+triangulation samples. Undo leaf samples include substantial MessageDigest
+engineUpdate activity (13938/16000/10889), alongside the Windows toolkit event
+loop; these are stack samples, not causal durations or invocation counts. Further
+caller attribution would be needed before naming the source of hashing cost.
+No successful trigger verdict, output-equivalence verdict, performance acceptance,
+or theoretical-limit claim follows from this partial recording.
+
+Next repeated-target investigation must identify a native operation that changes
+triangulation input, instead of relying on open/OK plus undo. Keep the frozen
+reverse A/B unchanged; seq2293 is still queued.
+
+### Fusion reverse pair completed
+
+On seq2278 and off seq2293 both passed normal exit, safe cleanup, identity and
+fixture gates. Four ordered edge summaries match; exact TriangleList pins and
+membership-transform receipt pass; production bridge samples occur on the on leg.
+Recovered analysis and input/report pins are in
+`build/t029-real-host-acceptance/fusion-resource5203-reverse/completion.json`.
+
+First operation off/on wall134.7785765/118.2282216s (on−12.28%), sampled Java
+CPU169.64/148.06s (−12.72%). Whole-process CPU396.48/340.96s. First pair had only
+−3.58% wall/−3.36% operation CPU and no whole-process CPU reduction. Both pairs
+have favorable first-operation signs, but this is not stable all-version proof.
+Reverse operation starts are4818.726s apart due to FIFO. Baseline RSS medians
+off2624.65/on3570.40MiB, first retained4554.35/5102.15MiB, third retained
+5865.70/5768.41MiB. Baseline variation and mixed absolute residency preclude a
+simple memory-win claim. Operations2/3 again have zero target samples both legs.
+
+Original analyzer failed on two unresolved method frames in one off-leg sample.
+The corrected window analyzer reports unknown frames explicitly; ten accounting
+and parser tests pass. Original exports and error logs are preserved. A recovery
+script variable-shadowing error also remains in failed recovery artifacts;
+corrected semantic/resource/window analyses then passed without another host run.
+Unknown frames are outside the three operation windows; no unresolved frame is
+converted to positive target execution. Top-leaf attribution in the recovery
+report means first resolved frame when an unresolved frame exists.
+
+Separate MeshResultSnapshot recorder preparation passed15 synthetic checks and
+Java17 -Xlint:all -Werror. It reads cached arrays only, checks freshness, preserves
+index order and raw float bits, and retains no native objects. Not yet integrated
+or host validated; native auto-connect diagnostic and three-version acceptance
+remain outstanding. No production candidate change or main merge made.
