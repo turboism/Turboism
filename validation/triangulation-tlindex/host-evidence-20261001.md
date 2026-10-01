@@ -811,3 +811,39 @@ Java17 -Xlint:all -Werror. It reads cached arrays only, checks freshness, preser
 index order and raw float bits, and retains no native objects. Not yet integrated
 or host validated; native auto-connect diagnostic and three-version acceptance
 remain outstanding. No production candidate change or main merge made.
+
+### Fusion 53x acceptance in progress
+
+Same frozen production agent2f6dd5ba and resource driver3bee41a3 were prepared
+for5302/5303 with the same UI-saved configurations. 5303 preparation initially
+rejected its T039 agent outside the new bundle; the pinned T039 bytes were copied
+into a separate5303 bundle, preserving the refusal log. No production bytes changed.
+
+5302 off seq2298 (`e2dbee86-ebc7-4c37-b7cf-452801674aaa`) passed host gates,
+normal exit, identity, unchanged fixture and safe cleanup. First-operation marker
+duration102.3275225s; no relative performance verdict until paired analysis.
+5302 on seq2299 (`a3618472-8bb4-480c-a712-8fb5abec98d0`) is running.
+The live serial client will analyze5302 before starting5303, avoiding analysis
+load during its own performance legs. Inputs and logs: fusion-resource5302 and
+fusion-resource5303 under build/t029-real-host-acceptance.
+
+### Fusion 5302 pair completed
+
+Seq2298 off / seq2299 on both pass host gates and four ordered-edge equality,
+exact class pins, membership transform receipt and observed production execution.
+All phase/resource analyses completed; completion.json pins their reports under
+fusion-resource5302. No unresolved JFR frames in either leg.
+
+First operation off/on102.3275225/87.1885996s (−14.79%), sampled Java CPU
+153.24/114.78s (−25.10%). Whole-process CPU338.34/325.72s, but sampled process wall
+299.959/309.617s: the whole session did not get faster in this pair. In particular,
+third UI operation grew from15.20s to28.32s with no target samples in either leg.
+Baseline RSS medians3212.14/2998.96MiB, first retained4962.43/4359.54MiB, third
+retained5501.57/4768.24MiB. These are single-pair observations, not approved resource
+tolerances or proof of repeated-target retention. Operations2/3 have zero target
+samples both legs. 5303 follows in the live serial client; no all-version verdict.
+
+Auto-connect diagnostic driver18dd504d5cc9a37a45abaf1a6f4df1b37a786322871ae97db39f48d31fb4b90d
+built separately after the5302 performance legs ended. Java17 strict compilation,
+15 snapshot checks,12 command-guard checks and6 protocol-analyzer tests pass.
+No host execution or repeated-target verdict for this driver yet.
