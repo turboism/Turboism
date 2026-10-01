@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
@@ -80,6 +81,32 @@ public final class McpTexturePersistenceProbe {
                     .add(binding.parameterId().value());
         }
         return parameters.values().stream().mapToInt(Set::size).max().orElse(0);
+    }
+
+    static boolean neutralScreenColor(final Color color) {
+        return color.red() == 0f && color.green() == 0f && color.blue() == 0f;
+    }
+
+    static List<String> storedScreenColorFamilies(final String version) {
+        return switch (version) {
+            case "5000",
+                    "5001",
+                    "5002",
+                    "5003",
+                    "5004",
+                    "5005",
+                    "5006",
+                    "5100",
+                    "5101",
+                    "5102",
+                    "5103",
+                    "5200",
+                    "5201",
+                    "5202",
+                    "5203" -> List.of("getAllDrawables", "getAllDeformers");
+            case "5300", "5301", "5302", "5303", "5304" -> List.of("getAllDrawables", "getAllDeformers", "getAllParts");
+            default -> throw new IllegalArgumentException("Unreviewed stored screen-color host version");
+        };
     }
 
     public static boolean runIfRequested(final PluginContext context, final Path stateRoot) {
@@ -284,6 +311,8 @@ public final class McpTexturePersistenceProbe {
         private String originalHash;
         private List<ParameterBinding> pristineBindings;
         private List<ParameterBinding> persistedBindings;
+        private Map<String, Color> pristineScreenColors;
+        private Map<String, Color> persistedScreenColors;
         private volatile boolean nativeTimedOut;
 
         Engine(final PluginContext context, final Path stateRoot, final String runId, final Properties result)
@@ -362,7 +391,10 @@ public final class McpTexturePersistenceProbe {
                 originalDocument.getClass().getMethod("closeFile", boolean.class, boolean.class);
                 appClass.getMethod("command_open", File.class, boolean.class);
                 pristine = snapshot();
-                if (Boolean.getBoolean("turboism.validation.freeFixture")) pristineBindings = bindings();
+                if (Boolean.getBoolean("turboism.validation.freeFixture")) {
+                    pristineBindings = bindings();
+                    pristineScreenColors = screenColors();
+                }
                 result.setProperty("pristineFingerprint", pristine.digest());
                 result.setProperty(
                         "pristineInputCount", Integer.toString(pristine.inputs().size()));
@@ -371,7 +403,10 @@ public final class McpTexturePersistenceProbe {
             });
             try {
                 edt(() -> {
-                    if (pristineBindings != null) prepareFreeFixture();
+                    if (pristineBindings != null) {
+                        prepareFreeFixture();
+                        prepareFreeScreenColors();
+                    }
                     if (pristine.inputs().isEmpty()) seedNativeLayerInput();
                     baseline = snapshot();
                     result.setProperty(
@@ -461,9 +496,82 @@ public final class McpTexturePersistenceProbe {
             return counts.toString();
         }
 
+        /** Exact-artifact native reads cover every stored keyform, not only the evaluated color. */
+        private Map<String, Color> screenColors() throws Exception {
+            final Object source = call(currentDocument(), "getModelSource");
+            final Map<String, Color> colors = new TreeMap<>();
+            for (String family : storedScreenColorFamilies(result.getProperty("hostVersion"))) {
+                for (Object object : (Iterable<?>) call(source, family)) {
+                    final String identity = family + "/" + call(call(object, "getId"), "getIdString");
+                    int index = 0;
+                    for (Object form : (Iterable<?>) call(object, "getKeyforms")) {
+                        final Object color = call(form, "getScreenColor");
+                        final Color value = new Color(
+                                ((Number) call(color, "getR")).floatValue(),
+                                ((Number) call(color, "getG")).floatValue(),
+                                ((Number) call(color, "getB")).floatValue(),
+                                ((Number) call(color, "getA")).floatValue());
+                        require(
+                                colors.put(identity + "/" + index++, value) == null,
+                                "Duplicate native screen-color keyform identity");
+                    }
+                }
+            }
+            require(!colors.isEmpty(), "No stored keyforms for native screen-color evidence");
+            return Map.copyOf(colors);
+        }
+
+        private void prepareFreeScreenColors() throws Exception {
+            final Map<String, Color> before = screenColors();
+            result.setProperty(
+                    "freeFixtureScreenColorsBefore",
+                    Long.toString(before.values().stream()
+                            .filter(color -> !neutralScreenColor(color))
+                            .count()));
+            final int start = position();
+            final Color neutral = new Color(0f, 0f, 0f, 1f);
+            final var model = context.cubism().model().active();
+            for (var drawable : model.drawables().all()) {
+                final int previous = position();
+                drawable.setScreenColor(neutral);
+                require(
+                        position() == previous || position() == previous + 1,
+                        "Screen-color SDK write must be a no-op or one Undo entry");
+            }
+            for (var deformer : model.deformers().all()) {
+                final int previous = position();
+                deformer.setScreenColor(neutral);
+                require(
+                        position() == previous || position() == previous + 1,
+                        "Deformer screen-color SDK write must be a no-op or one Undo entry");
+            }
+            final Map<String, Color> prepared = screenColors();
+            final long remaining = prepared.values().stream()
+                    .filter(color -> !neutralScreenColor(color))
+                    .count();
+            result.setProperty("freeFixtureScreenColorsAfter", Long.toString(remaining));
+            require(remaining == 0, "FREE fixture retains PRO-only Screen Color in stored keyforms");
+            final Object source = call(currentDocument(), "getModelSource");
+            require(
+                    Boolean.FALSE.equals(call(source, "containScreenColor")),
+                    "Native FREE Screen Color guard still rejects the prepared fixture");
+            result.setProperty("freeFixtureNativeScreenColorGuard", "PASS");
+            require(snapshot().equals(pristine), "Screen-color preparation changed native texture state");
+            final int end = position();
+            if (end != start) {
+                move(start);
+                require(screenColors().equals(before), "Screen-color Undo did not restore every stored keyform");
+                move(end);
+                require(screenColors().equals(prepared), "Screen-color Redo differs from prepared keyforms");
+                require(snapshot().equals(pristine), "Screen-color Undo/Redo changed native texture state");
+            } else require(before.equals(prepared), "Screen-color write changed native state without Undo");
+            result.setProperty("freeFixtureScreenColorPreparation", "SDK_COLOR_UNDO_REDO_PASS");
+        }
+
         private boolean originalStateRestored() throws Exception {
             return snapshot().equals(pristine)
-                    && (pristineBindings == null || bindings().equals(pristineBindings));
+                    && (pristineBindings == null || bindings().equals(pristineBindings))
+                    && (pristineScreenColors == null || screenColors().equals(pristineScreenColors));
         }
 
         private int position() {
@@ -612,7 +720,10 @@ public final class McpTexturePersistenceProbe {
                 library.removeModelImage(new ModelImageId(imageId));
                 library.removeRawImage(new RawImageId(rawId));
                 final Snapshot value = snapshot();
-                if (pristineBindings != null) persistedBindings = bindings();
+                if (pristineBindings != null) {
+                    persistedBindings = bindings();
+                    persistedScreenColors = screenColors();
+                }
                 result.setProperty("persistedAtlasId", retainedAtlas.value());
                 result.setProperty("persistenceOperationKinds", "5");
                 result.setProperty("nativePersistenceStage", "NATIVE_SAVE_CALL");
@@ -645,6 +756,9 @@ public final class McpTexturePersistenceProbe {
                             bindings().equals(persistedBindings),
                             "Reopened parameter bindings differ from saved state");
                     require(maximumBoundParameters(bindings()) <= 2, "Reopened FREE fixture exceeds parameter limit");
+                    require(
+                            screenColors().equals(persistedScreenColors),
+                            "Reopened stored screen colors differ from saved state");
                     result.setProperty("freeFixtureBindingSaveReopen", "PASS");
                 }
                 result.setProperty("reopenedFingerprint", snapshot().digest());

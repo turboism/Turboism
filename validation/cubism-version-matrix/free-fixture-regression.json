@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "Offline validation-only FREE fixture plan and unchanged native persistence protocol; live save/reopen not yet verified",
+  "scope": "Offline validation-only FREE fixture plan; 5.3.04 r5 native texture persistence passed but complete MCP failed on missing Glue fixture",
   "result": "PASS",
   "java": {
     "tests": 7,
@@ -62,5 +62,43 @@
     "fullResult": "FAIL",
     "failure": "Native save EDT call timed out; save/reopen and full restoration not proven",
     "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r3"
+  },
+  "screenColorRegression": {
+    "javaTests": 9,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "buildLogSha256": "ceda76330d67582e4cd8a344563200fd572516c337b47a871559755875966de6",
+    "gates": [
+      "devCheck",
+      "spotlessApply",
+      "probe build",
+      "probe startup-failure selftest",
+      "Core helper selfcheck"
+    ],
+    "assertions": [
+      "All RGB channels must be neutral; alpha is not a FREE Screen Color criterion",
+      "5.0-5.2 audits all Drawable and Deformer stored keyforms; 5.3 also audits Part forms",
+      "Unknown versions rejected",
+      "Task-local SDK color writes require no-op or one Undo entry; full color projection Undo/Redo and texture state invariants",
+      "Native containScreenColor independently rejects any remaining PRO-only Screen Color",
+      "Complete stored color projection equals saved/reopened state and original reopened state"
+    ]
+  },
+  "nativeScreenColorResult": {
+    "jobId": "fcbf2d0b-6e2c-4b50-9f08-a7b2f259f9d5",
+    "round": "allversions-free-r5",
+    "nonNeutralBefore": 6,
+    "nonNeutralAfter": 0,
+    "preparation": "SDK_COLOR_UNDO_REDO_PASS",
+    "saveReopen": "PASS",
+    "originalReopened": true,
+    "taskOriginalBytesUnchanged": true,
+    "clientResult": "FAIL",
+    "fullSupervisorResult": "FAIL",
+    "cleanup": "safe",
+    "failure": "Complete MCP next requires a nonempty Glue relation, absent in this fixture",
+    "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r5",
+    "supportVerdict": "NOT_CLAIMED_FULL_CAMPAIGN"
   }
 }

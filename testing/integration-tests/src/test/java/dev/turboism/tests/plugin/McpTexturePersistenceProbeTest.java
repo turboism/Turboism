@@ -3,6 +3,7 @@ package dev.turboism.tests.plugin;
 import static org.junit.jupiter.api.Assertions.*;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
@@ -19,6 +20,27 @@ class McpTexturePersistenceProbeTest {
     Path temporary;
 
     private static final String RUN = "queue-1234567890abcdef";
+
+    @Test
+    void storedScreenColorAuditCoversDrawablesAndVersionedPartForms() {
+        assertEquals(
+                List.of("getAllDrawables", "getAllDeformers"),
+                McpTexturePersistenceProbe.storedScreenColorFamilies("5202"));
+        assertEquals(
+                List.of("getAllDrawables", "getAllDeformers", "getAllParts"),
+                McpTexturePersistenceProbe.storedScreenColorFamilies("5304"));
+        assertThrows(
+                IllegalArgumentException.class, () -> McpTexturePersistenceProbe.storedScreenColorFamilies("5305"));
+    }
+
+    @Test
+    void screenColorNeutralityChecksEveryRgbChannel() {
+        assertTrue(McpTexturePersistenceProbe.neutralScreenColor(new Color(0f, 0f, 0f, 1f)));
+        assertTrue(McpTexturePersistenceProbe.neutralScreenColor(new Color(0f, 0f, 0f, 0f)));
+        assertFalse(McpTexturePersistenceProbe.neutralScreenColor(new Color(0.1f, 0f, 0f, 1f)));
+        assertFalse(McpTexturePersistenceProbe.neutralScreenColor(new Color(0f, 0.1f, 0f, 1f)));
+        assertFalse(McpTexturePersistenceProbe.neutralScreenColor(new Color(0f, 0f, 0.1f, 1f)));
+    }
 
     @Test
     void freeFixturePlanKeepsTwoParametersPerTargetAndPreservesOtherFamilies() {

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scope": "Read-only official ArchiveReader inspection; does not establish live compatibility or support",
+  "sourceBasename": "测试 混合模式.cmo3",
+  "sourceSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+  "sourceBytes": 69802,
+  "xmlSha256": "f48a0fde6cab262c2d6f86ed0066f35cc86b0f156e5dfaf44be3b6c33d302436",
+  "fileFormatVersion": "502030002",
+  "readerEditorVersion": "5.3.04",
+  "readerEditorSha256": "c9bb3e9960bf49908a531b7010421c393a8dd5f9376745eb6fdb273f41a1cf5d",
+  "artMeshes": 21,
+  "deformers": 12,
+  "parts": 9,
+  "glues": 1,
+  "glueEndpointsDistinct": true,
+  "glueVertexUids": 8,
+  "originalUnchanged": true,
+  "liveCompatibility": "PENDING",
+  "limitations": [
+    "Contains 5.2 Original Shape extension; not established compatible with 5.0.00/.01",
+    "FREE parameter and Screen Color preparation must remain task-local and pass complete Undo/Redo/save/reopen/recovery assertions"
+  ],
+  "glueWeights": 8
+}

@@ -9,7 +9,7 @@
   },
   "coverageIndex": {
     "path": "owned-moc-coverage.json",
-    "sha256": "f1abbbfb573555a67112eb076cb2372e3fbda40834d7626c5bf4b7b10609300a"
+    "sha256": "9cefbcd850fc7421ed94db23d0710371c7307fa4d714b952a44eacacd8199900"
   },
   "rules": [
     "Include incubating members, public/protected constructors, nested types, generated methods and fields.",

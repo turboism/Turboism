@@ -259,6 +259,10 @@
         ],
         "workspaceAvailability": "UNAVAILABLE",
         "workspaceLayoutAvailability": "AVAILABLE"
+      },
+      "observations": {
+        "status": "FAIL",
+        "nativeTextureStatus": "FAIL"
       }
     },
     {
@@ -441,7 +445,11 @@
         "workspaceAvailability": "UNAVAILABLE",
         "workspaceLayoutAvailability": "AVAILABLE"
       },
-      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields",
+      "observations": {
+        "status": "FAIL",
+        "nativeTextureStatus": "FAIL"
+      }
     },
     {
       "version": "5.2.02",
@@ -488,7 +496,11 @@
         "workspaceAvailability": "UNAVAILABLE",
         "workspaceLayoutAvailability": "AVAILABLE"
       },
-      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields",
+      "observations": {
+        "status": "FAIL",
+        "nativeTextureStatus": "FAIL"
+      }
     },
     {
       "version": "5.3.01",
@@ -535,7 +547,11 @@
         "workspaceAvailability": "UNAVAILABLE",
         "workspaceLayoutAvailability": "AVAILABLE"
       },
-      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields"
+      "limitation": "Partial assertions and client schema checks do not prove full runtime support; inspect copied properties and final supervisor fields",
+      "observations": {
+        "status": "FAIL",
+        "nativeTextureStatus": "FAIL"
+      }
     },
     {
       "version": "5.3.04",
@@ -574,7 +590,8 @@
         "fixtureUnchanged": false,
         "normalExit": false,
         "cleanup": "safe"
-      }
+      },
+      "observations": {}
     },
     {
       "version": "5.3.04",
@@ -1434,7 +1451,9 @@
         "freeFixtureMaxParametersBefore": "4",
         "error": "ExecutionException\\: java.lang.IllegalStateException\\: FREE fixture still exceeds two parameters per object",
         "clientModelMutation": "NONE covers client only; verification plugin attempted SDK task-copy binding edits",
-        "nativeSaveReopen": "NOT_STARTED"
+        "nativeSaveReopen": "NOT_STARTED",
+        "status": "FAIL",
+        "nativeTextureStatus": "FAIL"
       }
     },
     {
@@ -1543,7 +1562,8 @@
         "freeFixtureMaxParametersAfter": "3",
         "freeFixtureRemovedBindings": "1",
         "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
-        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=5}"
+        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=5}",
+        "nativeTextureStatus": "FAIL"
       },
       "clientEvidence": "mcp-evidence/5.3.04-allversions-free-r2"
     },
@@ -1713,7 +1733,8 @@
         "freeFixtureRemovedBindings": "2",
         "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
         "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=4}",
-        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS"
+        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS",
+        "nativeTextureStatus": "FAIL"
       },
       "clientEvidence": "mcp-evidence/5.3.04-allversions-free-r3"
     },
@@ -1942,9 +1963,35 @@
       "preparedDigest": "d9c34214172bd10e5064c84b45ad58ac99c5ee21894084a2f0add61b628fbc29",
       "evidenceDirectory": "jobs/d4e456c7-0150-4de6-b3fd-1e4adba83910/evidence",
       "scope": "Public production SDK legacy Canvas/Parameters/Parts, native update, independent models, immutable projections, explicit and parent cascade closure; complete Drawables/Glues/Deformers explicitly rejected",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-c9f0d64336c5489c84dccf8922a100d0",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "nativeCoreVersion": "5.0.0",
+        "allStructuralReadMethods": "PARTIAL_EXPECTED",
+        "supportedReadFamilies": "canvas,parameters,parts",
+        "unsupportedReadFamilies": "complete-drawables,glues,deformers",
+        "unsupportedReadFamiliesRejected": "PASS",
+        "independentInstances": "PASS",
+        "immutableCopies": "PASS",
+        "parentCascadeClose": "PASS",
+        "explicitChildThenParentClose": "PASS",
+        "useAfterCloseRejected": "PASS",
+        "parameterCount": "42",
+        "partCount": "19"
+      },
+      "clientEvidence": "mcp-evidence/5.0.05-allversions-owned-r1"
     },
     {
       "version": "5.0.06",
@@ -1954,9 +2001,24 @@
       "preparedDigest": "77b459e2e976255d3c5a684b039073ae4aa217b4f7304e64da6f73a4adbaf09d",
       "evidenceDirectory": "jobs/7f1ffb21-3d09-4067-b77b-d5a45019bdd4/evidence",
       "scope": "Public production SDK legacy Canvas/Parameters/Parts, native update, independent models, immutable projections, explicit and parent cascade closure; complete Drawables/Glues/Deformers explicitly rejected",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-9d9242bf17004a1d97c21d0da0278207",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "FAIL",
+        "error": "Task fixture readiness failed or timed out"
+      },
+      "clientEvidence": "mcp-evidence/5.0.06-allversions-owned-r1"
     },
     {
       "version": "5.3.04",
@@ -1967,6 +2029,190 @@
       "preparedDigest": "cd067b85af429ba030dfbe66c43e74ef7a9848af181da5c32b61c0365974df26",
       "evidenceDirectory": "jobs/497e3c4a-cd80-42e6-b25c-26c8d6e5bccd/evidence",
       "scope": "Same complete MCP and native persistence assertions as r3; adds bounded read-only dialog and native timeout thread/stage diagnostics",
+      "status": "FINAL",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-30549c0d0c3541beb4ebde262abdff39",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "FAIL",
+        "error": "TimeoutException\\: null",
+        "freeFixtureMaxParametersBefore": "4",
+        "freeFixtureMaxParametersAfter": "2",
+        "freeFixtureRemovedBindings": "2",
+        "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
+        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=4}",
+        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS",
+        "nativeTextureStatus": "FAIL",
+        "nativePersistenceStage": "NATIVE_SAVE_CALL"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-free-r4"
+    },
+    {
+      "version": "5.0.02",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r2",
+      "jobId": "42aab530-9b5b-4460-91f6-156652d52506",
+      "preparedDigest": "cbec4e8b47b16189769124c2e38d2832f5e482bb96187f2a632bab0508d21dd0",
+      "evidenceDirectory": "jobs/42aab530-9b5b-4460-91f6-156652d52506/evidence",
+      "scope": "Same production SDK owned-MOC assertions as r1; bounded read-only prompt observations after intermittent native deserialize cancellation",
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-8615cec04e7648c9b8eb28d7b40f532a",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "nativeCoreVersion": "5.0.0",
+        "allStructuralReadMethods": "PARTIAL_EXPECTED",
+        "supportedReadFamilies": "canvas,parameters,parts",
+        "unsupportedReadFamilies": "complete-drawables,glues,deformers",
+        "unsupportedReadFamiliesRejected": "PASS",
+        "independentInstances": "PASS",
+        "immutableCopies": "PASS",
+        "parentCascadeClose": "PASS",
+        "explicitChildThenParentClose": "PASS",
+        "useAfterCloseRejected": "PASS",
+        "parameterCount": "42",
+        "partCount": "19"
+      },
+      "clientEvidence": "mcp-evidence/5.0.02-allversions-owned-r2"
+    },
+    {
+      "version": "5.0.06",
+      "task": "core-owned-moc",
+      "round": "allversions-owned-r2",
+      "jobId": "3b47b96e-2c23-4906-b694-0c3ea7a08a1a",
+      "preparedDigest": "4a0ff4a50640f63233b6c00b169a92cee3d3c49198a4f28ac1ded076e37751e6",
+      "evidenceDirectory": "jobs/3b47b96e-2c23-4906-b694-0c3ea7a08a1a/evidence",
+      "scope": "Same production SDK owned-MOC assertions as r1; bounded read-only prompt observations after intermittent native deserialize cancellation",
+      "status": "FINAL",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "result": {
+        "runId": "queue-4abad4a5fd5a4bd980a79b6828637b8b",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "succeeded",
+        "validationStatus": "PASS",
+        "identityVerified": true,
+        "fixtureUnchanged": true,
+        "normalExit": true,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "PASS",
+        "nativeCoreVersion": "5.0.0",
+        "allStructuralReadMethods": "PARTIAL_EXPECTED",
+        "supportedReadFamilies": "canvas,parameters,parts",
+        "unsupportedReadFamilies": "complete-drawables,glues,deformers",
+        "unsupportedReadFamiliesRejected": "PASS",
+        "independentInstances": "PASS",
+        "immutableCopies": "PASS",
+        "parentCascadeClose": "PASS",
+        "explicitChildThenParentClose": "PASS",
+        "useAfterCloseRejected": "PASS",
+        "parameterCount": "42",
+        "partCount": "19"
+      },
+      "clientEvidence": "mcp-evidence/5.0.06-allversions-owned-r2"
+    },
+    {
+      "version": "5.3.04",
+      "task": "mcp",
+      "variant": "free-fixture",
+      "round": "allversions-free-r5",
+      "jobId": "fcbf2d0b-6e2c-4b50-9f08-a7b2f259f9d5",
+      "preparedDigest": "80f1a0c679780b5428d2852c9c1de4f99b357e9bdb6f46414c5a00ffb81fd994",
+      "evidenceDirectory": "jobs/fcbf2d0b-6e2c-4b50-9f08-a7b2f259f9d5/evidence",
+      "scope": "Complete MCP and native texture persistence assertions; SDK parameter and Screen Color preparation with full stored-keyform audit, Undo/Redo, save/reopen and original-state restoration",
+      "status": "FINAL",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel",
+      "result": {
+        "runId": "queue-9fecf10d71cd407990fa1250779acba9",
+        "finalizedBy": "contained-supervisor",
+        "terminalState": "failed",
+        "validationStatus": "FAIL",
+        "identityVerified": false,
+        "fixtureUnchanged": false,
+        "normalExit": false,
+        "cleanup": "safe"
+      },
+      "observations": {
+        "status": "FAIL",
+        "error": "ValidationFailure: the exact-host fixture contains no Glue relation",
+        "freeFixtureMaxParametersBefore": "4",
+        "freeFixtureMaxParametersAfter": "2",
+        "freeFixtureRemovedBindings": "2",
+        "freeFixtureFamiliesBefore": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=6}",
+        "freeFixtureFamiliesAfter": "{BLEND_SHAPE\\=1, KEYFORM_GRID\\=4}",
+        "freeFixturePreparation": "SDK_UNBIND_UNDO_REDO_PASS",
+        "freeFixtureBindingSaveReopen": "PASS",
+        "nativeTextureStatus": "PASS",
+        "freeFixtureScreenColorsBefore": "6",
+        "freeFixtureScreenColorsAfter": "0",
+        "freeFixtureScreenColorPreparation": "SDK_COLOR_UNDO_REDO_PASS",
+        "nativePersistenceStage": "PASS",
+        "saveReopen": "PASS",
+        "originalReopened": "true",
+        "fixtureUnchanged": "true"
+      },
+      "clientEvidence": "mcp-evidence/5.3.04-allversions-free-r5"
+    },
+    {
+      "version": "5.3.04",
+      "task": "mcp",
+      "variant": "free-fixture",
+      "round": "allversions-free-r6",
+      "jobId": "eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad",
+      "preparedDigest": "2f316c78b06095f08770e64f0dbb9ec99fe4a318fd56135876c1a92e868eee18",
+      "evidenceDirectory": "jobs/eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad/evidence",
+      "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+      "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
+      "status": "SUBMITTED",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+    },
+    {
+      "version": "5.3.01",
+      "task": "mcp",
+      "variant": "free-fixture",
+      "round": "allversions-free-r1",
+      "jobId": "03223c97-967c-4c17-9b58-2556475cc521",
+      "preparedDigest": "a6569502b09770a92c01bd64844caf4f014fc9790fddbf7cdcd1b18bcf577ee1",
+      "evidenceDirectory": "jobs/03223c97-967c-4c17-9b58-2556475cc521/evidence",
+      "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+      "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
+      "status": "SUBMITTED",
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
+    },
+    {
+      "version": "5.2.02",
+      "task": "mcp",
+      "variant": "free-fixture",
+      "round": "allversions-free-r1",
+      "jobId": "08058f63-a5bf-4278-9061-903769d13cba",
+      "preparedDigest": "11fe26de5f9c74a5e5816b32c88d07ec23e217b8636d811cde91b475621058b9",
+      "evidenceDirectory": "jobs/08058f63-a5bf-4278-9061-903769d13cba/evidence",
+      "fixtureSha256": "2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10",
+      "scope": "Complete MCP native texture save/reopen and nonempty Glue/parameter/hierarchy/texture/history assertions; SDK FREE parameter and Screen Color preparation audited across all stored forms; original file recovery retained",
       "status": "SUBMITTED",
       "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
       "assistance": "FREE startup; exact newer-model Load/Yes; update download Cancel"
