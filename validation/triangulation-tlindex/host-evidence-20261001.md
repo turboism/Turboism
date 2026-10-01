@@ -1763,3 +1763,48 @@ fallback, and repeated frame/exception/output checks on the composed packaged
 implementation. Complete native output, class initialization, UI/startup linkage,
 three-version stable benefit/resource acceptance and theoretical-limit evidence
 remain unproved. HOLD_PRODUCTION_ACCEPTANCE and T044/T046/goal remain open.
+
+### T050 owned definition collector: bounded research conclusion
+
+The user asked how much remains and whether the work can close. This turn completed
+the pending owned-JVM collector check and records a production hold, without
+adding host jobs or expanding the performance runs. Read-only FIFO inspection
+found unrelated manual-modeling-brush seq2385 running and source-warp seq2386
+queued; no optimization host job was running. Those jobs were not changed.
+
+Four diagnostic-only Java sources capture actual Class identities at a temporary
+Instrumentation retransformation collector and compare ASM-core semantic
+fingerprints. A persistent observer revokes gates on later definition callbacks;
+weak class keys and weak gate links avoid retaining application loaders. The
+isolated owned agent executes no official class or native geometry. The initial
+compile failed Werror on explicit close inside try-with-resources; that log is
+retained. Final Java17 release/lint/Werror and -Xverify:all pass28 checks, including
+resource-byte deception, same-name different loaders, instruction tampering,
+pool/debug/member normalization, missing/duplicate dependencies, invalid maps,
+revocation/restoration, two concurrent independent captures, loader release,
+idempotent close, unavailable instrumentation, UTF-16 surrogate preservation and
+refusal to silently ignore module definitions. No performance benchmark ran.
+
+One explicit limitation control uses real JVM transformations and execution with
+an interleaved registration: a capable transformer is installed just after the
+collector. Reviewed value3 bytes pass the collector comparison, yet the JVM
+executes value9. The selfcheck reproduces this gap rather than treating the gate
+as proof of the final definition. ProductionAdmissionReady=false: transformer
+ownership, ordering and lifecycle closure remain required. Later-event revocation
+does not fix a downstream transformation within the same initial capture.
+
+Final build/t050-lazy-edge-bytecode/definition-admission/offline-review.json SHA
+3f4bb3be9a3baf8d9cb0c51cef7e6cd8e3bddb3c577e15116f290f3edd9ff9df binds71
+source/library/class/log/command/owned-fixture inputs. Frozen Agents ee244d0f…
+and0dc30889… were rehashed unchanged. Runtime production source, previewBundle,
+host inputs, main and remote branches were untouched. No extra test rounds or
+host pairs are added to this slice.
+
+Research evidence can close with HOLD_PRODUCTION_ACCEPTANCE. Full optimization
+acceptance cannot: latest5302 first wall -4.31%, first CPU +3.46%, three-operation
+wall +0.65% and sampled RSS peak -13.89% still do not establish stable net benefit.
+Remaining work is production integration/definition fallback, complete native
+correctness and startup/output verification, then final three-version stable
+performance/resources. The new owned lazy-edge gains do not replace those gates.
+T050 stays partial, T044/T046 and the continuous goal stay unachieved; no
+theoretical bottleneck or reliable remaining-duration estimate is claimed.
