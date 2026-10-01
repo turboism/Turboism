@@ -94,10 +94,13 @@ def analyze(marker_path, sample_path, jfr_path=None):
             value = event["values"]
             epoch = datetime.datetime.fromisoformat(value["startTime"]).timestamp() * 1000
             frames = (value.get("stackTrace") or {}).get("frames", [])
-            classes = [f["method"]["type"]["name"].replace("/", ".") for f in frames]
+            names = [((f.get("method") or {}).get("type") or {}).get("name") for f in frames]
+            classes = [name.replace("/", ".") for name in names if isinstance(name, str)]
+            unknown_frames = len(frames) - len(classes)
             execution_samples.append((epoch,
                 any(c.startswith("com.live2d.graphics3d.editableMesh.triangulation.") for c in classes),
-                any(c == "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex" for c in classes)))
+                any(c == "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex" for c in classes),
+                unknown_frames))
     windows = []
     for start, end in zip(markers[::2], markers[1::2]):
         duration = (end["monotonicNanos"] - start["monotonicNanos"]) / 1e9
@@ -120,7 +123,9 @@ def analyze(marker_path, sample_path, jfr_path=None):
             "status": "NOT_PROVIDED" if jfr_path is None else
                 "OBSERVED" if any(s[1] for s in window_samples) else "NOT_OBSERVED",
             "triangulationSamples": sum(s[1] for s in window_samples),
-            "productionIndexSamples": sum(s[2] for s in window_samples)}
+            "productionIndexSamples": sum(s[2] for s in window_samples),
+            "unknownFrames": sum(s[3] for s in window_samples),
+            "samplesWithUnknownFrames": sum(s[3] > 0 for s in window_samples)}
         for role in ("host-java", "task-auxiliary"):
             snapshots = [{(r["pid"], r["startTicks"]): r for r in row["records"]
                           if r["role"] == role} for row in rows]
