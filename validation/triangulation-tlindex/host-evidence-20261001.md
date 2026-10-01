@@ -307,3 +307,73 @@ The official 5203 triangle `hashCode()` returns constant zero, consistent with
 collision-tree search stacks. This identifies an attribution target, not a proven
 cause or theoretical limit. New resource analysis uses 64 frames explicitly.
 Whole-process CPU, wall, RSS and edge comparisons are unaffected by print depth.
+
+## Resource protocol first execution: incomplete (seq2200)
+
+Off job `dac65550-aa5d-42e6-ae0c-561f85554dd4` failed with
+`host exited before terminal result`. Cleanup is safe, timeout is false, and the
+supervisor did not write cgroup.kill. No on leg was submitted. Baseline lasted
+30.007 s; native operation windows lasted approximately 137.085, 16.317 and
+16.304 s. Third retained-start exists, but third retained-end and canonical result
+do not. These partial observations are **not an accepted resource comparison**.
+Post-containment hashes match fixture, official BAT/JAR and staged agents, but
+whole-run terminal gates remain FAIL. Do not relabel this as PASS.
+
+The cloned prefix's hs_err_pid328.log is dated 2026-08-03 and describes a startup
+failure; it is historical, not evidence for this run. No cause has been proven for
+the early exit. First-run outcome, markers and process samples are retained in
+`resource-windows5203/`, with `failure-analysis.json`. A single retry reuses the
+same immutable prepared IDs under `resource-windows5203-r2/` through the queue.
+
+Further read-only failure inspection: the first resource run's `atlas-profiling.jfr`
+is empty, so shutdown/caller events cannot be recovered from it. User systemd
+journal reports this exact task scope used a 7.5G memory peak and 2.7G swap peak
+before destruction at 05:10:50 UTC. Queried kernel/oomd logs provided no explicit
+OOM evidence; resource pressure is a hypothesis, not an established exit cause.
+Retry seq2211 (`e8cb251e-f231-435a-bf81-fe918de7adfd`) adds read-only per-sample
+cgroup memory.current/swap.current/events/pressure and host available memory to
+both legs' collectors. Production, driver, fixture and UI configs remain unchanged.
+
+Retry off seq2211 completed standard gates, normal exit and safe cleanup. All
+four idle windows and three native operation windows are present. Read-only pressure
+collector captured 372 samples: cgroup memory peak 7165.98 MiB, swap peak
+2690.57 MiB, minimum host MemAvailable 1234.57 MiB; all observed memory.events
+counters (including oom/oom_kill) remained zero. This successful run shows that
+similar high occupancy alone does not explain the first exit. It does not rule out
+unsampled/global events in the failed run. Summary: r2 `off-pressure-summary.json`.
+On submitted as seq2215 / `ccf4476c-ecdb-4412-b60f-cac4eac48b52`; full paired
+resource analysis remains pending, so no acceptance conclusion is drawn here.
+
+## Completed explicit-window pair (seq2211 off / seq2215 on)
+
+Both legs passed standard gates, canonical/payload binding, first-four ordered edge
+digests, exact class identity and production execution verification. All baseline,
+operation and retained windows are present. Agent remains 29f13cf8; driver 3bee41a3.
+Reports and input hashes are in `resource-windows5203-r2/*-window-analysis.json`.
+
+| Window | Off/on wall s | Off/on Java CPU s | Off/on Java RSS median MiB | Off/on Java PSS median MiB |
+| --- | ---: | ---: | ---: | ---: |
+| baseline | 30.012 / 30.009 | 1.28 / 0.76 | 2954.59 / 2424.04 | 2891.53 / 2360.76 |
+| operation 1 | 152.017 / 138.690 | 197.29 / 177.76 | 2945.72 / 2795.88 | 2892.49 / 2732.88 |
+| retained 1 | 30.001 / 30.001 | 1.08 / 0.65 | 4429.39 / 4760.16 | 4378.99 / 4699.20 |
+| operation 2 | 23.045 / 14.009 | 31.10 / 24.01 | 4452.12 / 4883.87 | 4384.61 / 4838.18 |
+| retained 2 | 30.002 / 30.001 | 2.31 / 1.13 | 4379.72 / 5283.88 | 4333.70 / 5233.29 |
+| operation 3 | 18.655 / 15.354 | 23.82 / 24.61 | 4532.50 / 5478.87 | 4487.28 / 5428.79 |
+| retained 3 | 30.001 / 30.001 | 18.69 / 0.95 | 4678.29 / 5729.93 | 4632.98 / 5679.72 |
+
+First operation wall decreases about 8.77%, sampled CPU about 9.90%. Operation 1
+has 5589 off / 5313 on triangulation samples, including 2368 production-index
+samples on. **Neither operation 2 nor 3 has observed triangulation on either leg.**
+Thus this is a repeated UI-operation test, not verified repeated-triangulation
+retention evidence. The tiny off baseline/last-retained counts (2/1 samples) must
+not be reclassified as full target operations.
+
+Retained Java RSS median grows from first to third window by 248.90 MiB off and
+969.76 MiB on. On ends with higher RSS/PSS but lower boundary heap used
+(3234.67 versus 4276.85 MiB); heap samples, GC timing, native allocations and swap
+are different measurements, and none alone establishes an index leak. First-operation
+RSS peaks are 4359.21 off / 4753.01 MiB on. Timing boundaries are explicit, but CPU
+samples omit small boundary intervals documented in each report. No numeric
+resource tolerance has been approved; stable effectiveness remains unproven in
+light of the three earlier pairs' inconsistent direction. `pair-verdict.json`
+records these limits; no main merge or theoretical-bottleneck claim.

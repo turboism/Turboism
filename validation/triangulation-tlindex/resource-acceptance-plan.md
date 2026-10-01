@@ -1,7 +1,9 @@
 # Remaining SC-04a acceptance protocol
 
 Status: driver (216 checks), full wrapper regression, and seven analysis tests pass.
-Resource-window host A/B is submitted; actual measurements remain pending.
+Resource-window host A/B completed after one failed off attempt. See dated evidence:
+first-operation gains coexist with higher retained RSS, and later UI operations
+do not demonstrate repeated triangulation. Acceptance remains open.
 This is not an acceptance result.
 Production correctness and historical resource observations are recorded in
 [host evidence](host-evidence-20261001.md).
@@ -88,7 +90,7 @@ Missing PSS is unknown rather than zero. Process identity changes or missing Jav
 samples fail analysis. CPU across unobserved process births/exits remains a lower
 bound; identity transition counts expose observed changes.
 
-Seven deterministic accounting/negative tests pass via
+Nine deterministic accounting/negative tests pass via
 `python3 -B validation/triangulation-tlindex/test-resource-windows.py`.
 This verifies the accounting code only. No actual resource-window host result is
 yet available, and each repeated operation still needs independent JFR proof of
@@ -103,3 +105,6 @@ sampling did not demonstrate execution, not that execution was impossible; later
 UI cycles without observed triangulation cannot establish repeated-target retention.
 The analysis separately counts production index frames and official triangulator
 frames, and never treats first-operation samples as proof for later operations.
+
+Large JFR JSON is parsed one event at a time and hashed as a stream, avoiding
+whole-file allocation. Tests cover chunk boundaries, truncation and trailing data.

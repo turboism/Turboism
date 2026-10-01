@@ -6,12 +6,53 @@ import datetime
 import hashlib
 import json
 from pathlib import Path
+import re
 import statistics
 
 
 def require(condition, message):
     if not condition:
         raise ValueError(message)
+
+
+def jfr_events(path):
+    """Read the standard jfr-print envelope one event at a time, bounded by event size."""
+    decoder = json.JSONDecoder()
+    with path.open() as stream:
+        buffer = stream.read(65536)
+        header = re.match(r'\s*\{\s*"recording"\s*:\s*\{\s*"events"\s*:\s*\[', buffer)
+        require(header is not None, "unsupported JFR JSON envelope")
+        buffer = buffer[header.end():]
+        first = True
+        while True:
+            buffer = buffer.lstrip()
+            while not buffer:
+                buffer = stream.read(65536).lstrip()
+                require(bool(buffer), "truncated JFR events")
+            if buffer.startswith("]"):
+                tail = buffer[1:] + stream.read()
+                require(re.fullmatch(r'\s*\}\s*\}\s*', tail) is not None, "invalid JFR JSON tail")
+                return
+            if not first:
+                require(buffer.startswith(","), "missing JFR event separator")
+                buffer = buffer[1:].lstrip()
+            while True:
+                try:
+                    event, end = decoder.raw_decode(buffer)
+                    break
+                except json.JSONDecodeError:
+                    chunk = stream.read(65536)
+                    require(bool(chunk), "truncated or invalid JFR event")
+                    buffer = (buffer + chunk).lstrip()
+            require(isinstance(event, dict), "invalid JFR event object")
+            yield event
+            buffer = buffer[end:]
+            first = False
+
+
+def file_sha256(path):
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def analyze(marker_path, sample_path, jfr_path=None):
@@ -47,7 +88,7 @@ def analyze(marker_path, sample_path, jfr_path=None):
 
     execution_samples = []
     if jfr_path is not None:
-        for event in json.loads(jfr_path.read_text())["recording"]["events"]:
+        for event in jfr_events(jfr_path):
             if event["type"] not in ("jdk.ExecutionSample", "jdk.NativeMethodSample"):
                 continue
             value = event["values"]
@@ -113,7 +154,7 @@ def analyze(marker_path, sample_path, jfr_path=None):
         windows.append(item)
     retained = [w for w in windows if w["phase"] == "retained"]
     return {"schemaVersion": 1, "performanceAcceptance": "NOT_DECIDED",
-            "inputs": {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+            "inputs": {str(p): file_sha256(p)
                        for p in (marker_path, sample_path, jfr_path) if p is not None},
             "javaIdentity": list(next(iter(java_ids))), "windows": windows,
             "lastMinusFirstRetainedJavaMedianRssBytes":
