@@ -127,3 +127,30 @@ No production bridge/transformer, frozen Agent or host task changed. Actual
 dependency-definition gates, native bytecode/exception verification and complete
 host output/performance evidence remain required. Production acceptance stays
 on hold; a theoretical bottleneck has not been established.
+
+### Definition collector research and adoption hold (2026-10-02)
+
+`diagnostic/DefinitionAdmissionSelfCheck.java` uses a separate owned Instrumentation
+agent and generated classes. Java17 lint/Werror compilation and `-Xverify:all`
+pass28 checks. The ASM-core fingerprint preserves executable instructions,
+metadata and control-flow positions while normalizing pool indices, debug data
+and member order. Live capture rejects a changed definition even when its loader
+returns reviewed resource bytes. Later retransformation revokes an old gate;
+concurrent independent captures and weak loader lifetime checks also pass.
+
+This collector is **not ready for production admission**. A deterministic control
+registers a capable transformer after the collector: the collector sees reviewed
+value3 bytes, its gate passes, but the real JVM executes value9. Matching an
+intermediate callback cannot prove the final definition. Transformer ordering and
+lifecycle ownership must be resolved before integrating the lazy-edge candidate.
+No runtime production source or frozen Agent changed, and no host job was added.
+
+Evidence and exact commands are under
+`build/t050-lazy-edge-bytecode/definition-admission/`, with final
+`offline-review.json` SHA
+`3f4bb3be9a3baf8d9cb0c51cef7e6cd8e3bddb3c577e15116f290f3edd9ff9df`.
+The research slice is recorded; T050/T044/T046 and the stable-benefit goal remain
+open. Current recommendation is to hold production adoption and merging. Further
+work comprises production integration with native fallback, complete correctness
+verification, and final three-version performance/resource acceptance. Existing
+host measurements have not established stable net benefit or a theoretical limit.
