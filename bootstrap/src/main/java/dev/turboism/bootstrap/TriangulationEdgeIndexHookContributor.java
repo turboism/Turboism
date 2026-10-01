@@ -46,7 +46,13 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
             final VerifiedTriangulationEdgeIndexInstaller.Installation installation =
                     VerifiedTriangulationEdgeIndexInstaller.install(
                             environment.instrumentation(),
-                            code -> RuntimeDiagnostics.debug("triangulation-edge-index", code));
+                            code -> {
+                                if (code.startsWith("TRIANGULATION_MEMBERSHIP_PATCHED ")) {
+                                    RuntimeDiagnostics.info("triangulation-edge-index", code);
+                                } else {
+                                    RuntimeDiagnostics.debug("triangulation-edge-index", code);
+                                }
+                            });
             RuntimeDiagnostics.debug(
                     "bootstrap", "Triangulation edge index status=" + installation.status());
             return installation;

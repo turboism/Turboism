@@ -113,12 +113,22 @@ final class TriangulationEdgeIndexExactHostShapeTest {
         for (final var artifact : reviewedArtifacts(legacyEvidence()).entrySet()) {
             final byte[] bytes = readEntry(artifact.getValue(),
                     TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
-            final var transformer = new TriangulationEdgeIndexTransformer();
+            final java.util.List<String> receipts = new java.util.ArrayList<>();
+            final var transformer = new TriangulationEdgeIndexTransformer(receipts::add);
             final byte[] patched = transformer.transform(null,
                     TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, bytes);
             assertNotNull(patched);
             assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.membershipOutcome());
             assertEquals(expected.get(artifact.getKey()), TriangulationEdgeIndexTransformer.sha256(patched));
+            assertEquals(List.of("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256="
+                    + TriangulationEdgeIndexTransformer.sha256(bytes) + " outputSha256="
+                    + expected.get(artifact.getKey())), receipts);
+            final var brokenReceipt = new TriangulationEdgeIndexTransformer(code -> {
+                throw new IllegalStateException("sink unavailable");
+            });
+            assertEquals(expected.get(artifact.getKey()), TriangulationEdgeIndexTransformer.sha256(
+                    brokenReceipt.transform(null, TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME,
+                            null, null, bytes)));
         }
     }
 
