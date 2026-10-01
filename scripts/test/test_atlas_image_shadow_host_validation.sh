@@ -1278,6 +1278,55 @@ assert "--home-config" not in argv, argv
 assert not any("triWeave." in a or "dmWeave." in a for a in argv)
 print("T029_TLPROD_ON5303_PLAN PASS expectSha=patched props=11")
 PYTP1
+# Resource mode is an explicit, separately measured protocol; ordinary prepares omit it.
+python3 - "$prepare_tlp_on/runner-request.json" <<'PYRESOURCEDEFAULT'
+import json, sys
+from pathlib import Path
+assert not any("resourceObservation" in a for a in json.loads(Path(sys.argv[1]).read_text())["argv"])
+PYRESOURCEDEFAULT
+prepare_resources="$test_root/prepare-tlprod-resources"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  TURBOISM_ATLAS_IMAGE_SHADOW_RESOURCE_OBSERVATION=true \
+  "$wrapper" 5303 t029-tlprod-on1-heavy-nolayout-jfr \
+  --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' \
+  --prepare-dir "$prepare_resources" > "$test_root/prepare-resources.log" 2>&1 \
+  || fail 'resource protocol prepare failed'
+python3 - "$prepare_resources/runner-request.json" <<'PYRESOURCE'
+import json, sys
+from pathlib import Path
+argv = json.loads(Path(sys.argv[1]).read_text())["argv"]
+assert argv.count("-Dturboism.validation.atlasImageShadow.resourceObservation=true") == 1
+assert "-Dturboism.validation.atlasImageShadow.tlprodOptIn=TLPROD_EXPLICIT_OPT_IN" in argv
+PYRESOURCE
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    TURBOISM_ATLAS_IMAGE_SHADOW_RESOURCE_OBSERVATION=maybe \
+    "$wrapper" 5303 t029-tlprod-on1-heavy-nolayout-jfr \
+    --bundle-manifest "$manifest_heavy" --tri-tlindex 'tl-dump-only' --dry-run \
+    > "$test_root/resource-invalid.log" 2>&1; then
+  fail 'resource protocol accepted invalid boolean'
+fi
+grep -q 'resource-observation flag must be true or false' "$test_root/resource-invalid.log"
+for resource_case in non-production export; do
+  resource_label=t029-tlprod-on1-heavy-nolayout-jfr
+  resource_export=false
+  if [[ "$resource_case" == non-production ]]; then
+    resource_label=t029-tlindex-base1-heavy-nolayout-jfr
+  else
+    resource_export=true
+  fi
+  if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+      TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+      TURBOISM_ATLAS_IMAGE_SHADOW_RESOURCE_OBSERVATION=true \
+      TURBOISM_ATLAS_IMAGE_SHADOW_EXPORT_PROBE="$resource_export" \
+      "$wrapper" 5303 "$resource_label" --bundle-manifest "$manifest_heavy" \
+      --tri-tlindex 'tl-dump-only' --dry-run > "$test_root/resource-$resource_case.log" 2>&1; then
+    fail "resource protocol accepted $resource_case"
+  fi
+  grep -q 'resource observation requires explicit heavy TLPROD without layout/export' \
+    "$test_root/resource-$resource_case.log"
+done
 # 5303 off leg: pristine digest + pinned home config staged
 prepare_tlp_off="$test_root/prepare-tlprod-off"
 env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \

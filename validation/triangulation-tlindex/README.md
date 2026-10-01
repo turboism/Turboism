@@ -60,5 +60,8 @@ The follow-up production removal correction is documented in the final section o
 [DESIGN.md](DESIGN.md). Candidate `640e3b1e…` preserves the native removal before
 identity reconciliation; its first 5203 on leg (seq2063) passed standard gates.
 Its paired off leg (seq2069) also passed correctness, but the resource verdict was
-negative. Follow-up candidate `29f13cf8…` is queued at seq2080; see the dated report. The remaining measurement
-boundaries are described in [resource acceptance plan](resource-acceptance-plan.md).
+negative. Follow-up candidate `29f13cf8…` completed three 5203 pairs: the first two
+showed lower observed CPU/wall time, the third regressed, and all three RSS peaks
+increased. Stable performance is **not established**. See the dated report for
+exact evidence and the [resource acceptance plan](resource-acceptance-plan.md)
+for the fixed-window A/B now submitted with the same production agent.

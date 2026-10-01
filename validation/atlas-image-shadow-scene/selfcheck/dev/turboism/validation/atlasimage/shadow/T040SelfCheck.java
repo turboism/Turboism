@@ -41,6 +41,7 @@ public final class T040SelfCheck {
         }
         final AtomicInteger checks = new AtomicInteger();
         checkContract(checks);
+        checkResourceContract(checks);
         checkFreezeBridge(checks);
         checkRunClaimState(checks);
         checkPayloadStore(checks);
@@ -49,6 +50,51 @@ public final class T040SelfCheck {
         checkUiStateMachine(checks);
         System.out.println("T040_SHADOW_SCENE_SELFCHECK PASS checks=" + checks.get()
             + " hostExecuted=false");
+    }
+
+    private static void checkResourceContract(final AtomicInteger checks) throws Exception {
+        final String enabled = ShadowSceneContract.NAMED_PREFIX + "resourceObservation";
+        final String token = ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn";
+        final String[] keys = {enabled, token, ShadowSceneContract.LAYOUT_MODE_PROPERTY,
+            ShadowSceneContract.EXPORT_PROBE_PROPERTY};
+        final String[] previous = new String[keys.length];
+        for (int i = 0; i < keys.length; i++) previous[i] = System.getProperty(keys[i]);
+        final String task = "t029-tlprod-resource-selfcheck";
+        try {
+            for (String variant : new String[] {"valid", "no-token", "wrong-token", "wrong-name",
+                    "wrong-hash", "layout", "export", "invalid-boolean"}) {
+                System.setProperty(enabled, "invalid-boolean".equals(variant) ? "maybe" : "true");
+                System.setProperty(token, ShadowSceneContract.TLPROD_OPT_IN);
+                System.setProperty(ShadowSceneContract.LAYOUT_MODE_PROPERTY,
+                    "layout".equals(variant) ? ShadowSceneContract.LAYOUT_MODE_AUTO_SCALE
+                        : ShadowSceneContract.LAYOUT_MODE_PRESERVE);
+                System.setProperty(ShadowSceneContract.EXPORT_PROBE_PROPERTY,
+                    "export".equals(variant) ? "true" : "false");
+                if ("no-token".equals(variant)) System.clearProperty(token);
+                if ("wrong-token".equals(variant)) System.setProperty(token, "wrong");
+                final String name = task + "-" + ("wrong-name".equals(variant)
+                    ? "other.cmo3" : ShadowSceneContract.FIXTURE_HEAVY_NAME);
+                final String sha = "wrong-hash".equals(variant) ? "0".repeat(64)
+                    : ShadowSceneContract.FIXTURE_HEAVY_SHA256;
+                if ("valid".equals(variant)) {
+                    check(checks, T040ShadowSceneDriverAgent.DriverConfig
+                            .resourceObservationSeconds(task, name, sha) == 30L,
+                        "explicit resource protocol has fixed thirty-second windows");
+                } else {
+                    rejects(checks, () -> T040ShadowSceneDriverAgent.DriverConfig
+                        .resourceObservationSeconds(task, name, sha));
+                }
+            }
+            System.clearProperty(enabled);
+            check(checks, T040ShadowSceneDriverAgent.DriverConfig
+                    .resourceObservationSeconds(task, "unused", "unused") == 0L,
+                "resource observation is disabled by default");
+        } finally {
+            for (int i = 0; i < keys.length; i++) {
+                if (previous[i] == null) System.clearProperty(keys[i]);
+                else System.setProperty(keys[i], previous[i]);
+            }
+        }
     }
 
     private static void checkHigherVersionLoadWarning(final AtomicInteger checks) throws Exception {
@@ -721,7 +767,51 @@ public final class T040SelfCheck {
                 && "false".equals(preserveStage.getProperty("layout.attempted"))
                 && "true".equals(preserveStage.getProperty("editor.closed")),
             "the preserved-layout run confirms the editor without opening any layout dialog");
+        check(checks, !Files.exists(preserve.stage.getParent().resolve("resource-windows.tsv")),
+            "ordinary runs do not opt into resource observations");
         disposeUiFixture(preserve);
+
+        f$b.reset();
+        final UiFixture resources = createUiFixture(
+            Files.createTempDirectory("t040-ui-resources-"), false, false);
+        try {
+            new T040ShadowSceneDriverAgent.FixedDriver(
+                T040ShadowSceneDriverAgent.DriverConfig.forResourceSelfCheck(resources.home,
+                    resources.taskId, resources.fixture, resources.fixtureName, resources.fixtureSha256),
+                expected -> goodFreeze(expected, "NO_CALLS")).run();
+            check(checks, "COMPLETE".equals(ShadowPayloadStore.loadProperties(resources.result)
+                    .getProperty("collectionStatus")) && f$b.OK_CLICKS.get() == 3,
+                "resource protocol completes three native editor operations");
+            final java.util.List<String> windows = Files.readAllLines(
+                resources.stage.getParent().resolve("resource-windows.tsv"), StandardCharsets.UTF_8);
+            final String[] phases = {"baseline-start", "baseline-end", "operation-start",
+                "operation-end", "retained-start", "retained-end", "operation-start",
+                "operation-end", "retained-start", "retained-end", "operation-start",
+                "operation-end", "retained-start", "retained-end"};
+            check(checks, windows.size() == phases.length + 1,
+                "resource protocol publishes all window boundaries");
+            long previousNanos = 0L;
+            long idleStart = 0L;
+            for (int i = 0; i < phases.length; i++) {
+                final String[] fields = windows.get(i + 1).split("\t");
+                final long nanos = Long.parseLong(fields[3]);
+                check(checks, fields.length == 5 && phases[i].equals(fields[0])
+                        && Integer.parseInt(fields[1]) == (i < 2 ? 0 : 1 + (i - 2) / 4)
+                        && Long.parseLong(fields[2]) > 0 && nanos >= previousNanos
+                        && Long.parseLong(fields[4]) >= 0,
+                    "resource boundary has ordered phase, operation, clocks and heap");
+                if (fields[0].equals("baseline-start") || fields[0].equals("retained-start")) {
+                    idleStart = nanos;
+                }
+                if (fields[0].equals("baseline-end") || fields[0].equals("retained-end")) {
+                    check(checks, nanos - idleStart >= 1_000_000_000L,
+                        "resource idle window lasts the complete fixed duration");
+                }
+                previousNanos = nanos;
+            }
+        } finally {
+            disposeUiFixture(resources);
+        }
 
         f$b.reset();
         final Path promptHome = Files.createTempDirectory("t040-ui-prompt-");

@@ -208,7 +208,7 @@ identity lookups for each survivor, relying on the statically reviewed host muta
 protocol and retaining an identity-only survival check plus dirty rebuild fallback.
 That follow-up requires its own frozen artifact and host comparison.
 
-## Follow-up identity-only survivor scan (pending host result)
+## Follow-up identity-only survivor scan (one favorable pair; stability pending)
 
 The per-survivor identity-map lookup has been removed. With all host add/clear
 sites woven and iterator removal the only unwoven write, a clean state with matching
@@ -224,11 +224,86 @@ Driver remains `cfc09977…`. Prepared IDs:
 - on `5df28314271b163a1941ffcbb3487d64e0e19b7ae360699573b915ea0c89a4b7`
 - off `e5e30646e0cc6d3291a7eda8544b88feaee955454d3a2087f11359462962c9a4`
 
-On submitted as seq2080 / `e8ab1099-fc06-4b04-835b-2146701a16d2`.
-The task-local client submits off only after on succeeds. The post-pair watcher runs
-canonical/edge/class/JFR verification and resource analysis, then writes
-`build/t029-real-host-acceptance/identity-scan5203/completion.json` with explicit
-success/failure and observed ratios; it never declares performance acceptance or
-changes the queue/main. At this report update seq2080 is queued, so this candidate
-has **no completed host acceptance** yet. Remaining SC-04a measurement work is in
-[resource acceptance plan](resource-acceptance-plan.md).
+Completed on seq2080 / `e8ab1099-fc06-4b04-835b-2146701a16d2` and off
+seq2085 / `8475b5b4-497d-41ec-b3af-c720080976a8`. Standard gates, normal exit,
+fixture integrity, safe cleanup, canonical/payload binding, four ordered edge
+digests, expected class SHA and production JFR execution passed.
+
+| Leg | Observed Java wall s | CPU s | RSS peak MiB | Triangulation sample span s |
+| --- | ---: | ---: | ---: | ---: |
+| off | 210.633 | 350.45 | 4443.12 | 99.345 |
+| on | 189.749 | 308.68 | 4630.93 | 95.102 |
+
+Whole observed process wall decreased 9.915% and CPU decreased 11.919%, while RSS
+increased 4.227%. The sampled triangulation window CPU was 104.41 s on versus
+112.60 s off. These are one pair's observations with a FIFO gap, not proof of a
+stable causal gain. The on leaf samples still include 1532 `l.equals` and 462
+`TriangulationEdgeIndex.remove` samples; the remaining native removal and identity
+scan costs have not vanished.
+
+Authoritative data: `build/t029-real-host-acceptance/identity-scan5203/`
+`completion.json`, `final-ab-analysis.json`, and `resource-analysis.json`.
+`performanceAcceptance` remains `NOT_DECIDED`.
+
+Two additional pairs reuse the identical prepared inventories and UI JSONs:
+`identity-scan5203-r2` (off→on) and `identity-scan5203-r3` (on→off).
+The task client sequences submission through the unified queue and only analyzes
+after all four performance legs finish. At this update r2 off seq2180 and on seq2181 both passed standard gates; r3 on
+seq2185 is submitted. Preliminary r2 process metrics (before canonical/edge/JFR
+analysis): off/on wall 193.967/184.695 s, CPU 317.50/306.45 s, RSS peak
+4056.95/4470.19 MiB. Thus wall −4.780%, CPU −3.480%, RSS +10.186%. These
+smaller time savings and larger memory costs still do not establish acceptance.
+Raw CSV hashes and calculations are retained in r2 `preliminary-process-analysis.json`.
+Remaining SC-04a measurement work is in
+[resource acceptance plan](resource-acceptance-plan.md). New-candidate 5302/5303
+and real UI revalidation remain open. No main merge or production acceptance.
+
+## Three-pair stability result for 29f13cf8 (not accepted)
+
+Both repeat pairs completed canonical/payload, four ordered-edge, class identity and
+production execution checks. r2 jobs seq2180/2181 and r3 jobs seq2185/2191 all passed
+standard gates, normal exit, unchanged fixtures and safe cleanup.
+
+| Pair/order | Off/on wall s | Off/on CPU s | Off/on RSS peak MiB | Wall delta | CPU delta | RSS delta |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 on→off | 210.633 / 189.749 | 350.45 / 308.68 | 4443.12 / 4630.93 | −9.915% | −11.919% | +4.227% |
+| 2 off→on | 193.967 / 184.695 | 317.50 / 306.45 | 4056.95 / 4470.19 | −4.780% | −3.480% | +10.186% |
+| 3 on→off | 182.463 / 193.375 | 311.01 / 331.08 | 4293.62 / 5125.86 | +5.980% | +6.453% | +19.383% |
+
+The third pair reverses the apparent speed benefit, and all three sampled RSS peaks
+increase. Stable effectiveness is **not established**. FIFO gaps and startup/GC
+variation prevent interpreting these whole-process observations as precise target
+costs. Triangulation JFR sampled spans on/off were 95.102/99.345,
+95.713/94.955, and 96.989/94.689 seconds: the target-window direction also fails to
+show consistent improvement. On `l.equals` leaf samples remain 1532/1656/1628 and
+index remove samples 462/473/472; further attribution is needed, not a theoretical
+bottleneck claim.
+
+All data remains under the three named pair directories. The consolidated
+`build/t029-real-host-acceptance/identity-scan5203-three-pair-summary.json` pins
+analysis hashes. No production change was made during measurements.
+
+The new explicit resource driver passed 216 offline selfchecks; driver SHA
+`3bee41a353df55f20da9845052b7a90f7380ced8bca7c46f8251fbe48785209e`.
+Its fixed baseline/operation/retention windows and three-cycle host measurements
+remain pending wrapper regression and real execution; these tests do not confer
+performance acceptance.
+
+Resource wrapper regression passed after supplying the reviewed identity probe
+SHA `9c4a4ccc…` (the first attempt stopped for a missing test input, retained in
+`resource-wrapper-regression.log`; successful run is `resource-wrapper-regression-r2.log`).
+The new 5203 resource pair is prepared and submitted via task-local
+`resource-windows5203/`, keeping production `29f13cf8…` unchanged. Prepared IDs:
+
+- off `2d7a7d20da0a0b6514b196af92d41ea20a0d1d74cab39fbd15b49ec8b7a8e513`
+- on `2cdabf11b0d8a7df4adf54dbfc54941fc643dab3350b641425cc273d16d502df`
+
+Full-stack diagnostic note: `jfr print` defaults to five frames. The historical
+sample-span/leaf reports used that limit; do not treat missing deeper frames as
+absence of target execution. Re-export of r3 with `--stack-depth 64` attributes
+on `l.equals` leaf samples to HashSet add 696, contains 669, remove 254,
+iterator remove 8, and Intrinsics equality 1; off counts are 19/15/6/1/4.
+The official 5203 triangle `hashCode()` returns constant zero, consistent with
+collision-tree search stacks. This identifies an attribution target, not a proven
+cause or theoretical limit. New resource analysis uses 64 frames explicitly.
+Whole-process CPU, wall, RSS and edge comparisons are unaffected by print depth.

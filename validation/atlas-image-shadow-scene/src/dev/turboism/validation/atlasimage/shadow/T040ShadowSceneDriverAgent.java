@@ -83,6 +83,7 @@ public final class T040ShadowSceneDriverAgent {
         final boolean exportAfterEditor;
         final boolean editorReopen;
         final boolean higherVersionLoadAllowed;
+        final long resourceObservationSeconds;
 
         private DriverConfig(final Path home, final String taskId, final Path fixture,
                              final String fixtureName, final String fixtureSha256,
@@ -93,7 +94,7 @@ public final class T040ShadowSceneDriverAgent {
                              final long closePollSeconds, final long layoutDialogSeconds,
                              final long editorSettleSeconds, final boolean menuDump,
                              final boolean exportProbe, final boolean exportAfterEditor,
-                             final boolean editorReopen) {
+                             final boolean editorReopen, final long resourceObservationSeconds) {
             this.home = home;
             this.taskId = taskId;
             this.fixture = fixture;
@@ -114,6 +115,7 @@ public final class T040ShadowSceneDriverAgent {
             this.exportProbe = exportProbe;
             this.exportAfterEditor = exportAfterEditor;
             this.editorReopen = editorReopen;
+            this.resourceObservationSeconds = resourceObservationSeconds;
             this.higherVersionLoadAllowed = ShadowSceneContract.VERSION_5203.equals(version)
                 && ShadowSceneContract.TLPROD_OPT_IN.equals(System.getProperty(
                     ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn"))
@@ -216,7 +218,23 @@ public final class T040ShadowSceneDriverAgent {
                 ShadowSceneContract.booleanProperty(
                     ShadowSceneContract.EXPORT_AFTER_EDITOR_PROPERTY, false),
                 ShadowSceneContract.booleanProperty(
-                    ShadowSceneContract.EDITOR_REOPEN_PROPERTY, false));
+                    ShadowSceneContract.EDITOR_REOPEN_PROPERTY, false),
+                resourceObservationSeconds(taskId, fixtureName, fixtureSha256));
+        }
+
+        static long resourceObservationSeconds(final String taskId, final String fixtureName,
+                final String fixtureSha256) {
+            if (!ShadowSceneContract.booleanProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "resourceObservation", false)) return 0L;
+            if (!ShadowSceneContract.TLPROD_OPT_IN.equals(System.getProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn"))
+                    || !(taskId + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME).equals(fixtureName)
+                    || !ShadowSceneContract.FIXTURE_HEAVY_SHA256.equals(fixtureSha256)
+                    || !ShadowSceneContract.LAYOUT_MODE_PRESERVE.equals(ShadowSceneContract.layoutMode())
+                    || ShadowSceneContract.booleanProperty(ShadowSceneContract.EXPORT_PROBE_PROPERTY, false)) {
+                throw new IllegalArgumentException("resource observation requires explicit heavy TLPROD without layout/export");
+            }
+            return 30L;
         }
 
         static DriverConfig forSelfCheck(final Path home, final String taskId,
@@ -248,7 +266,15 @@ public final class T040ShadowSceneDriverAgent {
                 ShadowSceneContract.STARTUP_TIMEOUT_SECONDS,
                 ShadowSceneContract.CLOSE_POLL_TIMEOUT_SECONDS,
                 ShadowSceneContract.LAYOUT_DIALOG_TIMEOUT_SECONDS, 0L, false, false, false,
-                false);
+                false, 0L);
+        }
+
+        static DriverConfig forResourceSelfCheck(final Path home, final String taskId,
+                final Path fixture, final String fixtureName, final String fixtureSha256) {
+            return new DriverConfig(home, taskId, fixture, fixtureName, fixtureSha256,
+                30L, ShadowSceneContract.VERSION_5203, ShadowSceneContract.VERSION_5203,
+                ShadowSceneContract.LAYOUT_SCALE_KERNEL_PERCENT, ShadowSceneContract.LAYOUT_MODE_PRESERVE,
+                20L, 20L, 20L, 0L, false, false, false, false, 1L);
         }
 
         static DriverConfig forSelfCheck(final Path home, final String taskId,
@@ -385,8 +411,10 @@ public final class T040ShadowSceneDriverAgent {
                 main = awaitHostReady();
                 evidence.stage("MAIN", "READY");
                 captureBaseline();
+                observeResources("baseline", 0);
                 if (config.menuDump) dumpMenuTree();
                 if (config.exportProbe && !config.exportAfterEditor) probeExportDialog();
+                resourceMarker("operation-start", 1);
                 final EditorMenuDispatch menuDispatch = new EditorMenuDispatch(main, evidence);
                 menuDispatch.dispatch();
                 evidence.stage("EDITOR", "REQUESTED");
@@ -426,25 +454,32 @@ public final class T040ShadowSceneDriverAgent {
                 evidence.stage("EDITOR", "OK_COMPLETED");
                 awaitMenuCompletion(menuDispatch);
                 evidence.stage("EDITOR", "ACTION_COMPLETE");
+                resourceMarker("operation-end", 1);
+                observeResources("retained", 1);
                 if (config.exportProbe && config.exportAfterEditor) probeExportDialog();
-                if (config.editorReopen) {
+                final int operationCount = config.resourceObservationSeconds > 0 ? 3
+                    : config.editorReopen ? 2 : 1;
+                for (int operation = 2; operation <= operationCount; operation++) {
                     // Second open→OK round-trip: the "user reopens the atlas" path. The
                     // host hands the editor fresh atlas instances (deep copies); whether
                     // the second open still rebuilds every page is exactly what the
                     // cache-reuse verdicts answer.
                     final EditorMenuDispatch reopenDispatch =
                         new EditorMenuDispatch(main, evidence);
+                    resourceMarker("operation-start", operation);
                     reopenDispatch.dispatch();
-                    evidence.stage("EDITOR2", "REQUESTED");
+                    evidence.stage("EDITOR" + operation, "REQUESTED");
                     final Editor editor2 = waitForEditor(main);
-                    evidence.stage("EDITOR2", "CONFIRMED");
+                    evidence.stage("EDITOR" + operation, "CONFIRMED");
                     final OkDispatch ok2 =
                         new OkDispatch(editor2, main, evidence, baselineWindows);
                     ok2.dispatch();
                     waitForEditorClosed(editor2, main);
                     awaitOkCompletion(ok2);
                     awaitMenuCompletion(reopenDispatch);
-                    evidence.stage("EDITOR2", "ACTION_COMPLETE");
+                    evidence.stage("EDITOR" + operation, "ACTION_COMPLETE");
+                    resourceMarker("operation-end", operation);
+                    observeResources("retained", operation);
                 }
 
                 final Map<String, String> freeze;
@@ -474,6 +509,35 @@ public final class T040ShadowSceneDriverAgent {
                 System.err.println("ATLAS_IMAGE_SHADOW_DRIVER_BLOCKED "
                     + failure.getClass().getSimpleName());
             }
+        }
+
+        private void resourceMarker(final String phase, final int operation) throws Exception {
+            if (config.resourceObservationSeconds == 0) return;
+            final Path target = run.resolve("resource-windows.tsv");
+            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                Files.writeString(target, "phase\toperation\tepochMillis\tmonotonicNanos\theapUsedBytes\n",
+                    StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            }
+            if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalStateException("resource window log is not a regular file");
+            }
+            final long heapUsed = java.lang.management.ManagementFactory.getMemoryMXBean()
+                .getHeapMemoryUsage().getUsed();
+            Files.writeString(target, phase + "\t" + operation + "\t" + System.currentTimeMillis()
+                + "\t" + System.nanoTime() + "\t" + heapUsed + "\n", StandardCharsets.UTF_8,
+                StandardOpenOption.APPEND, StandardOpenOption.WRITE);
+        }
+
+        private void observeResources(final String phase, final int operation) throws Exception {
+            if (config.resourceObservationSeconds == 0) return;
+            resourceMarker(phase + "-start", operation);
+            final long duration = TimeUnit.SECONDS.toNanos(config.resourceObservationSeconds);
+            final long deadline = System.nanoTime() + duration;
+            if (deadline > runDeadlineNanos) throw new IllegalStateException("resource observation exceeds run budget");
+            while (System.nanoTime() < deadline) {
+                sleep(Math.min(250L, remainingMillis(deadline)));
+            }
+            resourceMarker(phase + "-end", operation);
         }
 
         /**
