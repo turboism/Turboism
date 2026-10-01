@@ -274,3 +274,28 @@ loads official metadata without class initialization and verifies a unique exact
 nonbridge descriptor. It passed against Cubism-5.2.03/jars. Neither check proves
 native command completion. The separate r2 build/run waits for the active53x
 performance pipeline to finish; the original build and failed outcome are immutable.
+
+### Fresh-edge failed-search elimination (offline candidate)
+
+`FreshEdgeContainsSelfCheck` compares ordered identities and branch traces for
+fresh Object-equality edge instances;809874 checks pass. Reused identities and
+value-equality objects are explicit counterexamples to widening the rewrite.
+`FreshEdgeBytecodePrototype` accepts paired pinned h/j bytes from all3 official
+jars, checks the c()V/three-query/local-initialization shape, then replaces only
+contains invocations with POP2/ICONST_0. Existing frames and branches are retained;
+no official class is loaded. Shape checks alone are not a general escape proof:
+paired reviewed hashes are mandatory at its public patch entry.
+
+`FreshEdgeBytecodeSelfCheck` executes generated own fixtures with -Xverify:all;
+41 checks pass, including all branch masks, constructor exceptions, duplicate
+patch, changed locals/access/owner, nonfinal or overridden-equality edge metadata,
+and refusal of unreviewed input hashes. Java17 -Xlint:all -Werror compiles both.
+Artifacts/logs: build/t029-real-host-acceptance/fresh-edge-prototype and
+fresh-edge-selfcheck. No production integration or real-host benefit is claimed.
+
+Production admission still needs a design decision: h may be defined before j,
+so an h-only transformer must not assume it has observed the actual j definition.
+Do not initialize host classes from the transformation callback. Either bind the
+reviewed dependency safely, or retain a runtime fallback that checks the actual
+loaded edge equality semantics before eliding the search. Reading a resource
+alone is weaker than proving the actual loaded type's equals behavior.
