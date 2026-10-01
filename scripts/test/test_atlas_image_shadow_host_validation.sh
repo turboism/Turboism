@@ -1376,6 +1376,55 @@ assert "-Dturboism.validation.tlWeave.expectCodeSource=file:/C:/Program%%20Files
 assert not any("t039." in a or "aux-agent-before-main" in a for a in argv), argv
 print("T029_TLPROD_5302_PLAN PASS expectSha=patched53 codeSource=5.3")
 PYTP3
+# Guard metadata is a fixed, production-on-only diagnostic. Apart from this one
+# JVM option, its frozen Runner arguments must equal the ordinary on prepare.
+prepare_guard_metadata="$test_root/prepare-guard-metadata"
+env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+  TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+  "$wrapper" 5302 t029-tlprod-on1-heavy-nolayout \
+  --bundle-manifest "$manifest_5302" --tri-tlindex tl-dump-only \
+  --tri-fresh-edge-guard-metadata --prepare-dir "$prepare_guard_metadata" \
+  > "$test_root/prepare-guard-metadata.log" 2>&1 || fail 'guard metadata prepare failed'
+python3 - "$prepare_tlp_5302/runner-request.json" "$prepare_guard_metadata/runner-request.json" <<'PYGUARD'
+import json, sys
+from pathlib import Path
+normal, diagnostic = [json.loads(Path(p).read_text())["argv"] for p in sys.argv[1:]]
+option = "-Dturboism.validation.triangulationEdgeGuard=FRESH_EDGE_GUARD_METADATA_V1"
+assert not any("triangulationEdgeGuard" in arg for arg in normal), normal
+assert diagnostic.count(option) == 1, diagnostic
+position = diagnostic.index(option)
+assert diagnostic[position - 1] == "--jvm-option", diagnostic
+assert diagnostic[:position - 1] + diagnostic[position + 1:] == normal
+print("T048_GUARD_METADATA_PLAN PASS exactToken=true defaultAbsent=true otherArgumentsUnchanged=true")
+PYGUARD
+for guard_case in off non-production; do
+  guard_label=t029-tlprod-off1-heavy-nolayout
+  [[ "$guard_case" == non-production ]] && guard_label=t029-tlindex-base1-heavy-nolayout
+  if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+      TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+      "$wrapper" 5303 "$guard_label" --bundle-manifest "$manifest_heavy" \
+      --tri-tlindex tl-dump-only --tri-fresh-edge-guard-metadata --dry-run \
+      > "$test_root/guard-$guard_case.log" 2>&1; then
+    fail "guard metadata accepted $guard_case"
+  fi
+  grep -q 'requires a production on capture leg' "$test_root/guard-$guard_case.log"
+done
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5302 t029-tlprod-on1-heavy-nolayout --bundle-manifest "$manifest_5302" \
+    --tri-tlindex tl-dump-only --tri-fresh-edge-guard-metadata \
+    --tri-fresh-edge-guard-metadata --dry-run > "$test_root/guard-duplicate.log" 2>&1; then
+  fail 'guard metadata accepted duplicate flags'
+fi
+grep -q 'fresh-edge guard metadata supplied twice' "$test_root/guard-duplicate.log"
+if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5302 t029-tlprod-on1-heavy-nolayout --bundle-manifest "$manifest_5302" \
+    --tri-tlindex tl-dump-only --tri-fresh-edge-guard-metadata BAD_TOKEN --dry-run \
+    > "$test_root/guard-token.log" 2>&1; then
+  fail 'guard metadata accepted an arbitrary token argument'
+fi
+grep -q '^Usage:' "$test_root/guard-token.log"
 # 5203 on leg: patched digest + 5.2 codeSource under the heavy fixture
 prepare_tlp_5203="$test_root/prepare-tlprod-5203"
 env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5203="$heavy_fixture_real" \

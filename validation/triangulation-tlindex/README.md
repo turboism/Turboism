@@ -89,3 +89,9 @@ remain unchanged. This source slice has offline evidence only; it supplies no
 new host admission, eliminated-scan rate or performance acceptance. Frozen
 Agent `ee244d0f…` is unchanged. See the dated host evidence and
 `build/t048-offline/offline-review.json` for tests and hashes.
+
+The managed shadow wrapper accepts `--tri-fresh-edge-guard-metadata` only for
+production `on<N>` labels with `--tri-tlindex tl-dump-only`. It adds exactly the
+fixed JVM option above; default prepares omit it. Off legs, non-production legs,
+duplicate flags and arbitrary token arguments are rejected. A diagnostic leg
+uses its own frozen Agent/bundle and does not establish an A/B performance gain.
