@@ -106,10 +106,10 @@ final class TriangulationEdgeIndexExactHostShapeTest {
     }
 
     @Test
-    void bothMembershipCallersMatchPrototypeBytes() throws Exception {
+    void bothCallerOptimizationsMatchReviewedCombinedBytes() throws Exception {
         final Map<String, String> expected = Map.of(
-                "Cubism-5.2 (5.2.03 family)", "d38c2fbe690cba705e223b7d43f0aaabcee0679c02f9996e5e4ab5ff49492be7",
-                "Cubism-5.3.02 (5.3.x family)", "32e143cfcd433be586c74d98ca24c47e2829b9807ac7d61e1ab4f35f59ecc544");
+                "Cubism-5.2 (5.2.03 family)", "d0fac0cd2c2092db163db7b78bffd011713f2bef17279b08ab088af4e7d27d92",
+                "Cubism-5.3.02 (5.3.x family)", "40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6");
         for (final var artifact : reviewedArtifacts(legacyEvidence()).entrySet()) {
             final byte[] bytes = readEntry(artifact.getValue(),
                     TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
@@ -119,8 +119,11 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                     TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME, null, null, bytes);
             assertNotNull(patched);
             assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.membershipOutcome());
+            assertEquals(TriangulationEdgeIndexTransformer.Outcome.PATCHED, transformer.freshEdgeOutcome());
             assertEquals(expected.get(artifact.getKey()), TriangulationEdgeIndexTransformer.sha256(patched));
-            assertEquals(List.of("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256="
+            assertEquals(List.of("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256="
+                    + TriangulationEdgeIndexTransformer.sha256(bytes) + " outputSha256="
+                    + expected.get(artifact.getKey()), "TRIANGULATION_MEMBERSHIP_PATCHED inputSha256="
                     + TriangulationEdgeIndexTransformer.sha256(bytes) + " outputSha256="
                     + expected.get(artifact.getKey())), receipts);
             final var brokenReceipt = new TriangulationEdgeIndexTransformer(code -> {
