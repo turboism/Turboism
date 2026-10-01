@@ -333,3 +333,16 @@ JUnit tests and devCheck pass. These checks invoke no official initializer or
 geometry and start no full Editor runtime. Production remains
 HOLD_PRODUCTION_ACCEPTANCE; full host scene/repeated outputs and final
 three-version stable performance/resources/UI/startup linkage remain open.
+
+The supported single-Agent scene subsequently passed real 5302 job2395. Frozen
+inputs and staged artifacts were independently checked; the lazy patch was
+admitted, startup config remained unchanged, and the first four complete ordered
+endpoint digests matched bound off baseline job2365. See
+[2026-10-02 host evidence](host-evidence-20261002.md). This is bounded native
+correctness/activation evidence; full-cycle outputs and stable performance stay
+unproved. Final-candidate 5302 pair 2396/2397 completed with first wall −5.77%,
+first Java CPU +3.73%, whole observed Java CPU −3.07% and sampled RSS peak −12.54%.
+JFR estimated edge-allocation weight fell 98.82%, with actual lazy-path samples;
+this is an allocation estimate, not a speedup percentage. One pair and no later
+target samples leave stable/repeated-target acceptance open. 5303 composition
+and the remaining three-version gates stay open.

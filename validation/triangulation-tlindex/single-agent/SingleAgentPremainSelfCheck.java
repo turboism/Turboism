@@ -35,7 +35,8 @@ public final class SingleAgentPremainSelfCheck {
         }
         require(args[1].equals("installed") || args[1].equals("unreviewed-origin"), "unknown test mode");
         require(TriangulationSingleAgentValidationHook.owned() && TriangulationSingleAgentValidationHook.status().equals("INSTALLED"),
-                "real premain did not hand the companion an owned handle");
+                "real premain companion status=" + TriangulationSingleAgentValidationHook.status()
+                        + " failure=" + TriangulationSingleAgentValidationHook.failureReason());
         ClassLoader app = ClassLoader.getSystemClassLoader();
         Class<?> capture = Class.forName("dev.turboism.validation.triweave.Capture", false, app);
         require(capture.getClassLoader() == app, "official-typed capture was incorrectly bootstrap loaded");
@@ -83,8 +84,16 @@ public final class SingleAgentPremainSelfCheck {
         try (AutoCloseable lease = LazyTriangulationEdgeBridge.enter(host)) {
             require((lease != null) == sameOrigin, "real premain/probe combination changed its admission");
         }
+        boolean metadataScene = "scene".equals(System.getProperty(TriangulationSingleAgentValidationHook.PREFIX + "mode"));
+        if (metadataScene) {
+            require(java.awt.GraphicsEnvironment.isHeadless() && java.awt.Frame.getFrames().length == 0,
+                    "scene metadata check must have no Editor window");
+        }
         System.out.println("SINGLE_AGENT_REAL_PREMAIN PASS mode=" + args[1] + " checks=" + checks
                 + " actualTurboismPremain=true captureLoader=system lazyAdmission=" + sameOrigin
                 + " officialDefinitions=true officialCodeInvoked=false fullHostRuntimeStarted=false");
+        // Only this headless metadata-check JVM is stopped. The real Editor never runs this main.
+        // Its scene driver otherwise keeps polling the AWT queue for a deliberately absent window.
+        if (metadataScene) System.exit(0);
     }
 }

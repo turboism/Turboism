@@ -1571,4 +1571,86 @@ if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy
 fi
 grep -q 'requires a production capture leg' "$test_root/tlprod-ui-nonprod.log"
 
+# T050 protocol fixtures contain no executable production/probe classes.
+# They test frozen input/argv admission only; real packaged/host checks are separate.
+single_bundle="$preview_root/atlas-image-shadow/bundle.single"
+single_manifest="$test_root/bundle-single.manifest"
+single_probe="$test_root/settings-page-host-probe.jar"
+ui_on="$test_root/ui-on.json"
+printf '{"meshTriangulationEdgeIndex":true}\n' > "$ui_on"
+python3 - "$manifest_5302" "$single_bundle" "$single_manifest" "$single_probe" <<'PYSINGLEFIXTURE'
+import hashlib, shutil, sys, zipfile
+from pathlib import Path
+source, bundle, target, probe = map(Path, sys.argv[1:])
+values = dict(line.split('=', 1) for line in source.read_text().splitlines() if '=' in line)
+bundle.mkdir()
+with zipfile.ZipFile(bundle / 'turboism-agent.jar', 'w') as jar:
+    jar.writestr('dev/turboism/bootstrap/TriangulationSingleAgentValidationHook.class', b'protocol fixture')
+with zipfile.ZipFile(probe, 'w') as jar:
+    jar.writestr('dev/turboism/validation/settingspage/SettingsPageProbePlugin.class', b'protocol fixture')
+shutil.copyfile(values['driver'], bundle / 'atlas-image-shadow-scene-driver.jar')
+values.update(bundleRoot=str(bundle), productionAgent=str(bundle / 'turboism-agent.jar'),
+              productionAgentSha256=hashlib.sha256((bundle / 'turboism-agent.jar').read_bytes()).hexdigest(),
+              driver=str(bundle / 'atlas-image-shadow-scene-driver.jar'))
+target.write_text(''.join(f'{k}={v}\n' for k, v in values.items()))
+PYSINGLEFIXTURE
+for leg in on5 off5; do
+  single_config="$ui_on"
+  [[ "$leg" == off* ]] && single_config="$ui_off"
+  single_prepare="$test_root/prepare-single-$leg"
+  env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+    TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+    "$wrapper" 5302 "t029-tlprod-$leg-heavy-nolayout" --bundle-manifest "$single_manifest" \
+    --tri-tlindex tl-dump-only --tri-tlindex-home-config "$single_config" \
+    --tri-single-agent-startup-probe "$single_probe" --prepare-dir "$single_prepare" \
+    > "$test_root/single-$leg.log" 2>&1 || fail 'single-Agent scene prepare failed'
+  python3 - "$single_prepare/runner-request.json" "$leg" <<'PYSINGLEARGV'
+import json, sys
+from pathlib import Path
+argv = json.loads(Path(sys.argv[1]).read_text())['argv']
+assert '--aux-agent' not in argv and '--aux-agent-before-main' not in argv
+plugins = [argv[i+1] for i, flag in enumerate(argv) if flag == '--plugin']
+assert len(plugins) == 1 and plugins[0].endswith(':settings-page-host-probe.jar'), plugins
+files = [argv[i+1] for i, flag in enumerate(argv) if flag == '--home-file']
+assert len(files) == 2, files
+assert any(p.endswith(':validation/tri-weave-agent.jar') for p in files), files
+assert any(p.endswith(':validation/atlas-image-shadow-scene-driver.jar') for p in files), files
+assert argv.count('-XX:+DisableAttachMechanism') == 1
+assert argv.count('-Dturboism.validation.triSingleAgent.mode=scene') == 1
+assert argv.count('-Dturboism.validation.settingsStartupReadOnly=true') == 1
+expected = 'true' if sys.argv[2].startswith('on') else 'false'
+assert argv.count('-Dturboism.validation.settingsStartupExpectedEdgeIndex=' + expected) == 1
+assert argv.count('-Dturboism.validation.tlWeave.mode=tl-dump-only') == 1
+assert not any('triWeave.' in arg or 'dmWeave.' in arg for arg in argv)
+print('T050_SINGLE_AGENT_ARGV PASS leg=' + sys.argv[2] + ' hostLaunched=false')
+PYSINGLEARGV
+done
+for control in wrong-version missing-config duplicate missing-plugin missing-companion; do
+  single_version=5302
+  single_options=(--tri-tlindex tl-dump-only --tri-tlindex-home-config "$ui_on" \
+    --tri-single-agent-startup-probe "$single_probe")
+  single_manifest_control="$single_manifest"
+  case "$control" in
+    wrong-version) single_version=5303 ;;
+    missing-config) single_options=(--tri-tlindex tl-dump-only --tri-single-agent-startup-probe "$single_probe") ;;
+    duplicate) single_options+=(--tri-single-agent-startup-probe "$single_probe") ;;
+    missing-plugin) single_options=(--tri-tlindex tl-dump-only --tri-tlindex-home-config "$ui_on" \
+      --tri-single-agent-startup-probe "$test_root/missing.jar") ;;
+    missing-companion) single_manifest_control="$manifest_5302" ;;
+  esac
+  if env "${runner_env[@]}" TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5302="$heavy_fixture_real" \
+      TURBOISM_ATLAS_IMAGE_SHADOW_FIXTURE_HEAVY_5303="$heavy_fixture_real" \
+      TURBOISM_TRI_WEAVE_AGENT="$tri_weave_agent_stub" \
+      "$wrapper" "$single_version" t029-tlprod-on5-heavy-nolayout \
+      --bundle-manifest "$single_manifest_control" "${single_options[@]}" --dry-run \
+      > "$test_root/single-$control.log" 2>&1; then
+    fail "single-Agent scene accepted $control"
+  fi
+done
+grep -q 'currently admits only 5203/5302' "$test_root/single-wrong-version.log"
+grep -q 'requires an explicit production home config' "$test_root/single-missing-config.log"
+grep -q 'startup probe supplied twice' "$test_root/single-duplicate.log"
+grep -q 'startup probe must be an absolute regular file' "$test_root/single-missing-plugin.log"
+grep -q 'requires the reviewed validation companion' "$test_root/single-missing-companion.log"
+
 printf 'ATLAS_IMAGE_SHADOW_HOST_VALIDATION_OFFLINE_TEST PASS hostLaunched=false\n'

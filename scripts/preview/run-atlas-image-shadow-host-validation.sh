@@ -40,6 +40,7 @@ Usage:
     [--tri-tlindex <tl-dump-only|tl-dump+weave>]
     [--tri-tlindex-home-config <absolute path to leg-matching UI config>]
     [--tri-fresh-edge-guard-metadata]
+    [--tri-single-agent-startup-probe <settings-page-host-probe.jar>]
     [--tri-weave-agent <absolute path to tri-weave-agent.jar>]
     [--bundle-manifest <published manifest>]
     [--prepare-dir <directory> | --dry-run]
@@ -55,6 +56,9 @@ A captured settings UI config may be staged with --tri-tlindex-home-config;
 its explicit edge-index Boolean must match the leg and its SHA is frozen by prepare.
 --tri-fresh-edge-guard-metadata emits cold guard decisions only for a production
 on leg with tl-dump-only; it is a diagnostic, not a performance measurement.
+--tri-single-agent-startup-probe admits only 5203/5302 production capture legs.
+It stages capture/driver sidecars as home files for the validation companion and
+uses the real read-only startup plugin; no auxiliary premain Agent is installed.
 
 The T040 manifest is intentionally runnable=false until manager admission. This
 wrapper does not build, launch, prepare in this offline checkout, install hooks,
@@ -74,11 +78,13 @@ tri_identity_probe_flag=0
 tri_weave_ab_flag=0
 tri_dweave_flag=0
 tri_tlindex_flag=0
+tri_single_agent_flag=0
 for arg in "$@"; do
   [[ "$arg" == --tri-identity-probe ]] && tri_identity_probe_flag=1
   [[ "$arg" == --tri-weave-ab ]] && tri_weave_ab_flag=1
   [[ "$arg" == --tri-dweave ]] && tri_dweave_flag=1
   [[ "$arg" == --tri-tlindex ]] && tri_tlindex_flag=1
+  [[ "$arg" == --tri-single-agent-startup-probe ]] && tri_single_agent_flag=1
 done
 if [[ "$tri_identity_probe_flag" == 1 ]]; then
   [[ "$version" == 5303 ]] || fail '--tri-identity-probe is 5303-only'
@@ -470,6 +476,7 @@ tri_weave_agent_arg=''
 tri_tlprod_home_config=''
 tri_tlprod_home_config_sha256=''
 tri_fresh_guard_metadata=0
+tri_single_agent_startup_probe=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle-manifest)
@@ -504,6 +511,10 @@ while [[ $# -gt 0 ]]; do
     --tri-fresh-edge-guard-metadata)
       [[ "$tri_fresh_guard_metadata" == 0 ]] || fail 'fresh-edge guard metadata supplied twice'
       tri_fresh_guard_metadata=1; shift ;;
+    --tri-single-agent-startup-probe)
+      [[ $# -ge 2 ]] || fail 'missing --tri-single-agent-startup-probe value'
+      [[ -z "$tri_single_agent_startup_probe" ]] || fail 'single-agent startup probe supplied twice'
+      tri_single_agent_startup_probe="$2"; shift 2 ;;
     --tri-weave-agent)
       [[ $# -ge 2 ]] || fail 'missing --tri-weave-agent value'
       [[ -z "$tri_weave_agent_arg" ]] || fail 'tri-weave-agent supplied twice'
@@ -514,6 +525,18 @@ while [[ $# -gt 0 ]]; do
     *) usage ;;
   esac
 done
+
+if [[ "$tri_single_agent_flag" == 1 ]]; then
+  [[ "$version" == 5203 || "$version" == 5302 ]] || fail 'single-agent scene currently admits only 5203/5302'
+  [[ -n "$tri_tlprod_leg" && "$tri_tlindex" == tl-dump-only ]] \
+    || fail 'single-agent scene requires a production tl-dump-only capture leg'
+  [[ -n "$tri_tlprod_home_config" ]] || fail 'single-agent scene requires an explicit production home config'
+  [[ "$tri_single_agent_startup_probe" = /* && -f "$tri_single_agent_startup_probe"
+    && ! -L "$tri_single_agent_startup_probe" ]] || fail 'single-agent startup probe must be an absolute regular file'
+  tri_single_agent_startup_probe="$(realpath -e -- "$tri_single_agent_startup_probe")"
+  jar tf "$tri_single_agent_startup_probe" | grep -qx 'dev/turboism/validation/settingspage/SettingsPageProbePlugin.class' \
+    || fail 'single-agent startup probe entry is missing'
+fi
 
 # --tri-identity-probe (T029-IDENTITY): a single frozen diagnostic aux agent with the
 # strictest admission in this wrapper — only the pinned review build, only the exact frozen
@@ -711,6 +734,10 @@ require_artifact() {
 }
 production_agent="$(require_artifact "${values[productionAgent]}" "${values[productionAgentSha256]}" \
   turboism-agent.jar productionAgent)"
+if [[ "$tri_single_agent_flag" == 1 ]]; then
+  jar tf "$production_agent" | grep -qx 'dev/turboism/bootstrap/TriangulationSingleAgentValidationHook.class' \
+    || fail 'single-agent scene requires the reviewed validation companion'
+fi
 
 # When the production atlas preference is on under 5303, the production transformer and the
 # T039 shadow weave both target com/live2d/util/f/g. T039 must premain first — it pins the
@@ -753,11 +780,10 @@ if [[ -n "$tri_identity_probe" ]]; then
 fi
 # T029-TRIAB / T029-DWEAVE: the dump+weave aux agent premains after production and
 # T039 and before the scene driver — the same physical jar serves both namespaces.
-if [[ -n "$tri_weave_mode" || -n "$tri_dweave_mode" || -n "$tri_tlindex_mode" ]]; then
+if [[ "$tri_single_agent_flag" == 0 && ( -n "$tri_weave_mode" || -n "$tri_dweave_mode" || -n "$tri_tlindex_mode" ) ]]; then
   runner_args+=(--aux-agent "$tri_weave_agent:tri-weave-agent.jar")
 fi
 runner_args+=(
-  --aux-agent "$driver:atlas-image-shadow-scene-driver.jar"
   --fixture-local "$fixture"
   --fixture-sha256 "$fixture_sha256"
   --fixture-name "$fixture_name"
@@ -788,6 +814,29 @@ runner_args+=(
   --jvm-option "-Dturboism.validation.atlasImageShadow.exportProbeAfterEditor=${export_after_editor}"
   --jvm-option "-Dturboism.validation.atlasImageShadow.editorReopen=${editor_reopen}"
 )
+
+if [[ "$tri_single_agent_flag" == 1 ]]; then
+  startup_expected_edge=false
+  [[ "$tri_tlprod_leg" == on* ]] && startup_expected_edge=true
+  runner_args+=(
+    --plugin "$tri_single_agent_startup_probe:settings-page-host-probe.jar"
+    --home-file "$tri_weave_agent:validation/tri-weave-agent.jar"
+    --home-file "$driver:validation/atlas-image-shadow-scene-driver.jar"
+    --jvm-option '-XX:+DisableAttachMechanism'
+    --jvm-option '-Dturboism.validation.triSingleAgent.optIn=T050_SINGLE_AGENT_TLPROD_V1'
+    --jvm-option '-Dturboism.validation.triSingleAgent.mode=scene'
+    --jvm-option '-Dturboism.validation.triSingleAgent.probePath={HOME}/validation/tri-weave-agent.jar'
+    --jvm-option "-Dturboism.validation.triSingleAgent.probeSha256=$tri_weave_agent_sha256"
+    --jvm-option '-Dturboism.validation.triSingleAgent.scenePath={HOME}/validation/atlas-image-shadow-scene-driver.jar'
+    --jvm-option "-Dturboism.validation.triSingleAgent.sceneSha256=${values[driverSha256]}"
+    --jvm-option '-Dturboism.validation.settingsEdgeIndex=true'
+    --jvm-option '-Dturboism.validation.settingsStartupReadOnly=true'
+    --jvm-option "-Dturboism.validation.settingsStartupExpectedEdgeIndex=$startup_expected_edge"
+    --jvm-option "-Dturboism.validation.hostVersion=$version"
+  )
+else
+  runner_args+=(--aux-agent "$driver:atlas-image-shadow-scene-driver.jar")
+fi
 
 if [[ "$resource_observation" == true ]]; then
   [[ -n "$tri_tlprod_leg" && "$fixture_name" == "$heavy_fixture_name"

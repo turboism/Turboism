@@ -52,6 +52,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
     private static final String RESULT_FILE = "settings-result.txt";
     private static final boolean PERFORMANCE = Boolean.getBoolean("turboism.validation.settingsPerformance");
     private static final boolean EDGE_INDEX = Boolean.getBoolean("turboism.validation.settingsEdgeIndex");
+    private static final boolean STARTUP_ONLY = Boolean.getBoolean("turboism.validation.settingsStartupReadOnly");
     private static final String PREF_KEY = EDGE_INDEX ? "meshTriangulationEdgeIndex"
         : PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
     private static final String REVIEWED_VERSION = "5.3.03";
@@ -136,6 +137,10 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
             // localeSource=STARTUP) can leave the report unwritten until shutdown.
             // Host identity is already pinned by the runner's exact-JAR gate.
             if (PERFORMANCE && EDGE_INDEX) throw new IllegalArgumentException("settings modes are mutually exclusive");
+            if (STARTUP_ONLY && (!EDGE_INDEX || PERFORMANCE)) {
+                throw new IllegalArgumentException("read-only startup requires edge-index mode");
+            }
+            final byte[] startupConfig = STARTUP_ONLY ? Files.readAllBytes(turboismHome.resolve("config.json")) : null;
             evidence.put("preferenceKey", PREF_KEY);
             evidence.put("hostVersion", hostVersionLabel());
             final JMenuItem settingsItem = awaitSettingsItem();
@@ -146,7 +151,27 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                 return;
             }
             if (PERFORMANCE || EDGE_INDEX) awaitModelAndRenderer();
-            runScenario(settingsItem);
+            if (STARTUP_ONLY) {
+                final String expected = System.getProperty("turboism.validation.settingsStartupExpectedEdgeIndex", "");
+                if (!expected.equals("true") && !expected.equals("false")) {
+                    throw new IllegalArgumentException("explicit startup edge preference required");
+                }
+                final Boolean persisted = persistedValue();
+                check(Boolean.valueOf(expected).equals(persisted), "startup preference differs from the leg");
+                check(java.util.Arrays.equals(startupConfig, Files.readAllBytes(turboismHome.resolve("config.json"))),
+                    "config changed during read-only startup inspection");
+                evidence.put("mode", "startup-read-only");
+                evidence.put("expectedEdgeIndex", expected);
+                evidence.put("persistedEdgeIndex", Objects.toString(persisted));
+                evidence.put("startupConfigSha256", java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256").digest(startupConfig)));
+                evidence.put("settingsOpened", "false");
+                evidence.put("configWritten", "false");
+                evidence.put("editorExitOwnedBySceneDriver", "true");
+                step("startup", "menu-model-native-frame-and-preference");
+            } else {
+                runScenario(settingsItem);
+            }
             pass = failures.isEmpty();
         } catch (Throwable failure) {
             final Throwable cause = failure instanceof InvocationTargetException invocation
@@ -155,14 +180,18 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                 + " " + Objects.toString(cause.getMessage(), ""));
         } finally {
             if (!failures.isEmpty()) pass = false;
-            writeResult(pass);
+            if (!writeResult(pass) && STARTUP_ONLY) pass = false;
             logResult(pass);
-            try {
-                Thread.sleep(SETTLE_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
+            if (STARTUP_ONLY) {
+                logger.info("SETTINGS_STARTUP_READONLY_" + (pass ? "PASS" : "FAIL"));
+            } else {
+                try {
+                    Thread.sleep(SETTLE_MILLIS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                Runtime.getRuntime().exit(pass ? 0 : 2);
             }
-            Runtime.getRuntime().exit(pass ? 0 : 2);
         }
     }
 
@@ -728,7 +757,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         logger.info("SETTINGS_PAGE_PROBE_STEP " + name + " " + detail);
     }
 
-    private void writeResult(final boolean pass) {
+    private boolean writeResult(final boolean pass) {
         final StringBuilder body = new StringBuilder();
         body.append("schemaVersion=1\n");
         body.append("plugin=dev.turboism.validation.settingspage\n");
@@ -747,8 +776,10 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         try {
             Files.createDirectories(stateDir);
             Files.writeString(stateDir.resolve(RESULT_FILE), body.toString(), StandardCharsets.UTF_8);
+            return true;
         } catch (java.io.IOException failure) {
             logger.error("SETTINGS_PAGE_PROBE_RESULT_WRITE_FAILED " + failure.getMessage());
+            return false;
         }
     }
 
