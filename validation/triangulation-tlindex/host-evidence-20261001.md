@@ -1102,3 +1102,25 @@ receipt-fixed candidate will need its own frozen UI inputs.
 Evidence: fresh-edge-resource5302/{analysis-failure-review.json,
 observational-review,completion.json,fresh-edge-attribution.json},
 fresh-edge-receipt-candidate/artifact-pin.json and auto-connect5203-r3.
+
+### R3 diagnostic terminal failure and post-command native work
+
+Seq2330 failed at MESH_CAPTURE/EDT_TIMEOUT and was safely contained; no result
+rows completed. Its first command returned after62.796s. Main JFR is empty; the
+single retained6.66MB chunk was copied, hashed and successfully summarized/exported.
+Post-return partial coverage22.455s includes237 triangulation samples. A retained
+stack binds h.c -> updateIndices/updateMesh/getGlIndices -> initByEditableMesh ->
+actionManager lazy initialization -> Point_DragSelect -> mouseMoved -> EDT.
+No capture/MeshResultSnapshot or canonicalization frames were observed in this
+post-return partial recording. This differs from r2's47 canonicalization samples;
+absence in samples alone does not prove that a method never ran.
+
+The evidence motivates checking native post-command activity and EDT query
+admission/completion separately. It does not establish stale-cache cause, prove
+three repeated commands, or authorize simply extending deadlines. The initial
+partial attribution omitted the diagnostic package prefix; its artifact is retained
+and capture-timeout-attribution-r2.json corrects the matching explicitly. Supervisor
+post-containment fixture source/copy, golden JAR/BAT and staged artifact hashes
+match; the top-level validation remains FAIL with normalExit=false. No fabricated
+normal exit or repeated-target acceptance is claimed. All monitoring workflows
+are now terminal; the next action is evidence-led protocol diagnosis, not restart.
