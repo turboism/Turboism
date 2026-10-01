@@ -101,7 +101,7 @@ def main() -> None:
                         default=ROOT / "validation/cubism-version-matrix/sdk-method-coverage.json")
     args = parser.parse_args()
     coverage = args.coverage or [ROOT / "validation/cubism-version-matrix" / name
-                                for name in ("owned-moc-coverage.json", "mcp-texture-coverage.json")]
+                                for name in ("owned-moc-coverage.json", "mcp-texture-coverage.json", "mcp-authoring-coverage.json")]
     document = build_inventory(args.sdk_jar, coverage)
     args.output.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
     print(f"Indexed {document['classCount']} types, {document['methodCount']} methods, "

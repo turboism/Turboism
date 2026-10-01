@@ -43,6 +43,15 @@ class McpTexturePersistenceProbeTest {
     }
 
     @Test
+    void multiplyColorNeutralityChecksEveryRgbChannelIndependentlyOfAlpha() {
+        assertTrue(McpTexturePersistenceProbe.neutralMultiplyColor(new Color(1f, 1f, 1f, 1f)));
+        assertTrue(McpTexturePersistenceProbe.neutralMultiplyColor(new Color(1f, 1f, 1f, 0f)));
+        assertFalse(McpTexturePersistenceProbe.neutralMultiplyColor(new Color(0.9f, 1f, 1f, 1f)));
+        assertFalse(McpTexturePersistenceProbe.neutralMultiplyColor(new Color(1f, 0.9f, 1f, 1f)));
+        assertFalse(McpTexturePersistenceProbe.neutralMultiplyColor(new Color(1f, 1f, 0.9f, 1f)));
+    }
+
+    @Test
     void freeFixturePlanKeepsTwoParametersPerTargetAndPreservesOtherFamilies() {
         final var first = new ParameterBindingTarget(ParameterBindingTargetType.ART_MESH, "mesh-a");
         final var second = new ParameterBindingTarget(ParameterBindingTargetType.ART_MESH, "mesh-b");

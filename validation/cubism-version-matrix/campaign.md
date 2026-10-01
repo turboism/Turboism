@@ -8,7 +8,7 @@
 
 - 20 个实际安装的 Editor/Core 已检查文件存在与 Editor 摘要；安装目录别名 `5.2` / `5.3` 分别绑定 5.2.03 / 5.3.02，不能按目录名猜版本。
 - `inventory.json` 索引静态能力、46 个可选 SDK 服务、保证存在的上下文成员、SDK 源文件、30 个插件、当前目录场景，以及未登记的验证脚本。
-- `sdk-method-coverage.json` 从当前 SDK classfile 索引公开／受保护方法、构造器、字段及嵌套类型，包含 incubating API；owned-MOC 的21个方法与MCP纹理/夹具准备/历史的14个方法已关联明确场景，其余映射待审计。方法映射本身不产生版本支持结论。
+- `sdk-method-coverage.json` 从当前 SDK classfile 索引公开／受保护方法、构造器、字段及嵌套类型，包含 incubating API；owned-MOC 的21个方法、MCP纹理/夹具准备/历史的14个方法及MCP Glue/参数/绑定的27个方法已关联明确场景，其余映射待审计。方法映射本身不产生版本支持结论。
 - `verification-table.md` 是中间台账，尚不是最终支持表。无精确静态记录不等于不支持，兼容准入路径也需要调查。
 - `campaign-jobs.json` 保存新增实机任务标识；提交状态不是验收结果。运行态必须重新查询共享队列，终态必须核对 supervisor 证据。
 
@@ -130,3 +130,15 @@
 官方Simple Model已下载并按实际编辑文件格式4.0.05核对；17 ArtMesh、1 Deformer、16 Part、24 Parameter，无Original Shape扩展。官方页面的SDK3.2说明不用于猜测编辑格式。下载来源与SHA见official-simple-fixture.json，二进制仅存在本地验证存储。5.0.00/.01使用不可变任务副本的assisted身份预检已入队，尚待native tuple与最终门禁，不宣称支持。
 
 SDK成员索引现支持多个明确场景和精确classfile descriptor，35个方法已映射（owned-MOC 21、MCP纹理/参数准备/颜色/历史14）；缺失、重载歧义与重复/交叠映射均拒绝，四项防误报回归与Python lint通过。纹理保存单项PASS与MCP/supervisor整体FAIL明确保留，方法映射不产生支持结论。
+
+5.3.04 free-r6已收取完整MCP **supervisor PASS**（job eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad）：非空Glue读写/readback/no-op/stale/Undo/Redo/transaction/rollback/原始恢复、参数读写恢复、bindings scope与Undo/Redo、五类纹理写入和原生保存重开、hierarchy/history、command实际执行恢复及协议场景全部PASS。Workspace control明确UNAVAILABLE，Core断言仅诊断结构，native保存仍是验证辅助；这不是框架全部能力通过。证据见mcp-evidence/5.3.04-allversions-free-r6/。
+
+5.0.00/.01官方旧版Simple夹具预检均supervisor PASS，Core实测5.0.0、stableSnapshots=3、NO_PUBLIC_BRIDGE；身份/夹具/正常退出true、cleanup safe。仅以这两版正式tuple证据扩owned-MOC任务白名单到20版，基础family实机断言尚待。5.3.01 free-r1保存FAIL已由原生日志定位Multiply Color PRO限制；新验证副本准备将用公开SDK归一白色，审核所有stored forms及独立native guard、Undo/Redo、保存重开、原始恢复，保留完整client和保存断言。5.2.02 free-r1在插件前遭Core准入拒绝，不能算不支持。
+
+Core真实产物启动回归复现5.2.00–.02基础/完整profile共存时owned-MOC被误标ambiguous。修复只在完整Core profile全部selectors验证且严格包含相同旧绑定/条件/能力时保留完整profile；真正绑定/条件分歧仍fail-closed。20版真实产物factory回归已通过，旧版geometry仍拒绝；修复后的实机复测尚待。
+
+本轮冻结提交八项新实机任务：5.0.00/.01独立owned-MOC；5.2.02/5.3.01修复后完整MCP free-r2；5.0.00/5.2.02/5.3.04纹理关系图；5.3.04 PSD可读导出观察。准确job/prepared digest见campaign-jobs.json。正式worker在线，但一个其他工作树的旧协议运行任务无version/resources声明，队列按安全规则串行阻挡新claim；未干预其会话或释放其锁。排队不算PASS。新纹理/PSD入口有显式assisted变体，FREE/Load/Cancel只处理任务内已授权提示；纹理关系保留非空连贯图断言，PSD只证明readable export/issued handle/stop，不能提升为保真/replace/external-edit。目录现135场景，缺口保持显式待审计。
+
+新增27个Glue/参数/绑定SDK方法精确映射，总62个。5.3.04 free-r6正式通过仅绑定当时冻结产物；Multiply Color新断言仍待实机。46组已复制终态的lifecycle SHA/所有最终门禁/原始properties字节已逐项与官方队列核对一致；15个早期历史终态没有本地sanitized副本，不用于本轮新支持结论。
+
+本轮离线门禁：真实产物Core factory回归8项（覆盖20版）PASS；Core候选/歧义回归24项PASS（新增完整扩展正向及绑定/条件变更负向）；MCP夹具probe10项PASS；调度30项、隔离队列115项、SDK覆盖索引4项、范围防误报5项均PASS；纹理关系/PSD观察9+8项自检及权限/生产包隔离PASS；devCheck、Core三门禁、Python lint与修改wrapper语法检查PASS。实机新任务尚未执行，不以这些检查替代native验收。

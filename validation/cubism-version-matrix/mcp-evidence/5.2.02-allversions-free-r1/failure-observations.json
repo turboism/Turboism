@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "jobId": "08058f63-a5bf-4278-9061-903769d13cba",
+  "preparedDigest": "11fe26de5f9c74a5e5816b32c88d07ec23e217b8636d811cde91b475621058b9",
+  "sourceRuntimeLogSha256": "cdeb15b1739e99538e5a7bb4cbd0ea115925f25e26200a49fd44e76f548408e9",
+  "sourceBasename": "turboism-06-23-07.298-p340-7451712046855148502.log",
+  "matches": [
+    "java.lang.IllegalArgumentException: Verified Cubism Core runtime admission failed safely: EVIDENCE_REJECTED: Verified resolver does not authorize the complete Core selector contract."
+  ],
+  "verdict": "FIX_REQUIRED_NOT_UNSUPPORTED",
+  "scope": "Task runtime failure observation; no support claim"
+}

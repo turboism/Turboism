@@ -573,6 +573,92 @@ class CubismHostCompatibilityResolverTest {
     }
 
     @Test
+    void completeCoreExtensionPreservesBaseCapabilityInEitherCandidateOrder() throws Exception {
+        final var basic = List.of(selectorSpec("synthetic.class", "class", "", "", 1, 0));
+        final var complete =
+                List.of(basic.get(0), selectorSpec("synthetic.value", "method", "value", "()Ljava/lang/String;", 1, 8));
+        final byte[] base = recordBytes(
+                "5.1.03",
+                "synthetic.base",
+                "adapter.core-model.readonly",
+                basic,
+                List.of("cubism.core.owned-moc.read"));
+        final byte[] full = recordBytes(
+                "5.2.03",
+                "synthetic.full",
+                "adapter.core-model.readonly",
+                complete,
+                List.of("cubism.core.owned-moc.read", "cubism.geometry.read"));
+        final var a = candidate("core-model-read", "5.1.03", base, "synthetic.base");
+        final var b = candidate("core-model-read", "5.2.03", full, "synthetic.full");
+        final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
+        for (var order : List.of(List.of(a, b), List.of(b, a))) {
+            final var probe = CubismHostCompatibilityResolver.probeSlice(
+                    "core-model-read",
+                    identity(artifact),
+                    artifact,
+                    order,
+                    new StaticVerificationRecordLoader(),
+                    new StaticSelectorVerifier(),
+                    name -> name.equals(a.recordFileName()) ? base : full);
+            assertTrue(probe.resolution().admitted());
+            assertEquals("5.2.03", probe.resolution().contract().orElseThrow().sourceVersion());
+            assertEquals(
+                    Set.of("cubism.core.owned-moc.read", "cubism.geometry.read"),
+                    probe.resolution().contract().orElseThrow().capabilities());
+        }
+    }
+
+    @Test
+    void coreExtensionWithChangedBaseBindingOrConditionStillFailsClosed() throws Exception {
+        final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
+        final var basic = List.of(selectorSpec("synthetic.class", "class", "", "", 1, 0));
+        final byte[] base = recordBytes(
+                "5.1.03",
+                "synthetic.base",
+                "adapter.core-model.readonly",
+                basic,
+                List.of("cubism.core.owned-moc.read"));
+        final var a = candidate("core-model-read", "5.1.03", base, "synthetic.base");
+        for (boolean changeBinding : List.of(true, false)) {
+            final var fullSelectors = List.of(
+                    changeBinding
+                            ? selectorSpec("synthetic.class", "method", "value", "()Ljava/lang/String;", 1, 8)
+                            : basic.get(0),
+                    selectorSpec("synthetic.value", "method", "value", "()Ljava/lang/String;", 1, 8));
+            final byte[] full = recordBytes(
+                    "5.2.03",
+                    "synthetic.full",
+                    "adapter.core-model.readonly",
+                    fullSelectors,
+                    List.of("cubism.core.owned-moc.read", "cubism.geometry.read"),
+                    Map.of(
+                            "cubism.core.owned-moc.read",
+                            changeBinding ? List.of("structure") : List.of("declaredGeneration"),
+                            "cubism.geometry.read",
+                            List.of("structure")));
+            final var b = candidate("core-model-read", "5.2.03", full, "synthetic.full");
+            final var probe = CubismHostCompatibilityResolver.probeSlice(
+                    "core-model-read",
+                    identity(artifact),
+                    artifact,
+                    List.of(a, b),
+                    new StaticVerificationRecordLoader(),
+                    new StaticSelectorVerifier(),
+                    name -> name.equals(a.recordFileName()) ? base : full);
+            assertFalse(
+                    probe.resolution().contract().orElseThrow().capabilities().contains("cubism.core.owned-moc.read"));
+            assertEquals(
+                    changeBinding ? "ambiguous:candidate-bindings" : "declaredGeneration",
+                    probe.resolution()
+                            .contract()
+                            .orElseThrow()
+                            .droppedCapabilities()
+                            .get("cubism.core.owned-moc.read"));
+        }
+    }
+
+    @Test
     void rejectsTamperedRecordBytes() throws Exception {
         final Path artifact = hostJar(DECLARED_VERSION, DECLARED_BUILD, DECLARED_DATE, true);
         final CubismHostIdentity identity = identity(artifact);
@@ -708,7 +794,10 @@ class CubismHostCompatibilityResolverTest {
                 "cubism-" + version + "-" + sliceId + ".json",
                 sha256(recordBytes),
                 verificationId,
-                ADAPTER_SLICE,
+                new StaticVerificationRecordLoader()
+                        .load(recordBytes, "synthetic.json")
+                        .record()
+                        .adapterSliceId(),
                 "synthetic-profile");
     }
 

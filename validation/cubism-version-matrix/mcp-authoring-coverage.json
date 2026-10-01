@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "completeFrameworkCoverage": false,
+  "scenario": "mcp:free-fixture-authoring",
+  "client": {
+    "path": "scripts/preview/mcp-host-validation-client.py",
+    "sha256": "eeed79694f6d2e9f60e1fd22d6577116a493eb3e77a67944f69f8ee9ea01bb4a"
+  },
+  "methods": [
+    {
+      "sdkMethod": "Glues.all()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glues.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP list/get/readback uses actual Editor nonempty Glue collection; exact provider version and envelope validated"
+    },
+    {
+      "sdkMethod": "Glues.find(GlueId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glues.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP list/get/readback uses actual Editor nonempty Glue collection; exact provider version and envelope validated"
+    },
+    {
+      "sdkMethod": "Glues.providerVersion()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glues.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP list/get/readback uses actual Editor nonempty Glue collection; exact provider version and envelope validated"
+    },
+    {
+      "sdkMethod": "Glue.id()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.name()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.index()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.intensity()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.drawableAId()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.drawableBId()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.parameterIds()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "MCP actual nonempty Editor Glue projection; identity, typed fields and links checked; independent golden semantics for every field are not claimed"
+    },
+    {
+      "sdkMethod": "Glue.setName(String)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueWriteReadback.status",
+      "assertion": "Five writes require changed/readback state, one native Undo, no-op and stale guards, Undo/Redo, transaction rollback and final baseline recovery"
+    },
+    {
+      "sdkMethod": "Glue.setId(GlueId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueWriteReadback.status",
+      "assertion": "Five writes require changed/readback state, one native Undo, no-op and stale guards, Undo/Redo, transaction rollback and final baseline recovery"
+    },
+    {
+      "sdkMethod": "Glue.setIntensity(float)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueWriteReadback.status",
+      "assertion": "Five writes require changed/readback state, one native Undo, no-op and stale guards, Undo/Redo, transaction rollback and final baseline recovery"
+    },
+    {
+      "sdkMethod": "Glue.setDrawableA(ArtMeshId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueWriteReadback.status",
+      "assertion": "Five writes require changed/readback state, one native Undo, no-op and stale guards, Undo/Redo, transaction rollback and final baseline recovery"
+    },
+    {
+      "sdkMethod": "Glue.setDrawableB(ArtMeshId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Glue.java",
+      "evidenceKey": "assertion.glueWriteReadback.status",
+      "assertion": "Five writes require changed/readback state, one native Undo, no-op and stale guards, Undo/Redo, transaction rollback and final baseline recovery"
+    },
+    {
+      "sdkMethod": "Parameters.all()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameters.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP live parameter list and single lookup/readback"
+    },
+    {
+      "sdkMethod": "Parameters.find(ParameterId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameters.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP live parameter list and single lookup/readback"
+    },
+    {
+      "sdkMethod": "Parameter.id()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP typed finite parameter projection; write target selected within observed bounds; no independent golden metadata claim"
+    },
+    {
+      "sdkMethod": "Parameter.getValue()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP typed finite parameter projection; write target selected within observed bounds; no independent golden metadata claim"
+    },
+    {
+      "sdkMethod": "Parameter.getMinimumValue()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP typed finite parameter projection; write target selected within observed bounds; no independent golden metadata claim"
+    },
+    {
+      "sdkMethod": "Parameter.getMaximumValue()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP typed finite parameter projection; write target selected within observed bounds; no independent golden metadata claim"
+    },
+    {
+      "sdkMethod": "Parameter.getDefaultValue()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "MCP typed finite parameter projection; write target selected within observed bounds; no independent golden metadata claim"
+    },
+    {
+      "sdkMethod": "Parameter.setValue(float)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "evidenceKey": "assertion.parameterWriteReadback.status",
+      "assertion": "Changed value readback and final original-value restoration; target selected within SDK bounds"
+    },
+    {
+      "sdkMethod": "ParameterBindingBatchOperations.invert(List)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterBindingBatchOperations.java",
+      "evidenceKey": "assertion.bindingUndoRedoRestoration.status",
+      "assertion": "MCP explicit all-target scope, one Undo entry, Undo/Redo/Undo and complete sorted binding metadata restored; other binding CRUD/transfer operations not covered"
+    },
+    {
+      "sdkMethod": "CubismModel.glues()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
+      "evidenceKey": "assertion.glueRead.status",
+      "assertion": "Actual production active-model entry used by validated MCP operation; does not cover all returned service methods"
+    },
+    {
+      "sdkMethod": "CubismModel.parameters()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
+      "evidenceKey": "assertion.parameterRead.status",
+      "assertion": "Actual production active-model entry used by validated MCP operation; does not cover all returned service methods"
+    },
+    {
+      "sdkMethod": "CubismModel.parameterBindingBatch()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/CubismModel.java",
+      "evidenceKey": "assertion.bindingUndoRedoRestoration.status",
+      "assertion": "Actual production active-model entry used by validated MCP operation; does not cover all returned service methods"
+    }
+  ],
+  "liveResults": [
+    {
+      "version": "5.3.04",
+      "jobId": "eb9c1f5f-bfe1-4e4a-8471-e70bce2c88ad",
+      "preparedDigest": "2f316c78b06095f08770e64f0dbb9ec99fe4a318fd56135876c1a92e868eee18",
+      "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r6",
+      "mcpClientResult": "PASS",
+      "supervisorResult": "PASS",
+      "supportVerdict": "SCOPED_MCP_SCENARIO_PASS_ONLY"
+    }
+  ],
+  "uncovered": [
+    "Other exact versions await complete MCP acceptance",
+    "Core Glue and independent golden semantics of every projected metadata field",
+    "Glue create/delete and complete SDK authoring surface",
+    "Parameter definition CRUD, combined/Blend Shape authoring, binding CRUD and transfers",
+    "Workspace control (UNAVAILABLE in successful client)",
+    "Plugins/hooks and all other SDK operations"
+  ]
+}
