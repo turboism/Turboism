@@ -1184,3 +1184,26 @@ ordered outputs, actual execution and resource windows. The client waits through
 another task's quarantine without recovery; its own quarantine/failure stops it.
 At the observation both owned jobs are queued behind seq2343. No new host PASS or
 speedup is claimed. Files: fresh-edge-receipt-{settings-ui-r1,resource5302}.
+
+### Final candidate UI PASS and on5302 default INFO receipts observed
+
+Seq2344 succeeded with all standard gates. The actual final Agent021e4908 staged
+hash and real UI result were independently checked: visible precise Chinese label,
+default checked, Apply=false, Cancel preserves Apply, reopen=false, OK=true and
+reopen=true. Off/on snapshots8945ee22/190ea2fc match the actual5302 A/B inputs byte
+for byte and differ only in meshTriangulationEdgeIndex. Final evidence is in
+fresh-edge-receipt-settings-ui-r1/ui-semantic-review.json. The first review-script
+attempt assumed a nested runtime JSON object; its KeyError and unverified state
+remain in semantic-review-attempt-1.json. The corrected verifier checks the actual
+top-level schema. No failed host outcome was changed.
+
+On5302 seq2345 succeeded with all standard gates. Its default runtime log contains
+exactly the observed fresh-edge and membership INFO success receipts, input
+5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d and shared final
+output40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6.
+This closes the default-log observability defect for this leg; full semantic,
+execution and resource comparison still waits for off. The serial client submitted
+off as seq2350/job9e183118-3ffa-45e8-967f-efbde8e762d9, now FIFO queued behind other
+tasks. No paired performance acceptance or actual fresh-guard hit-rate claim is
+made. Final three-version startup linkage, repeated-target retention, resource
+bounds and stable improvement remain open; T044/T046 are incomplete.
