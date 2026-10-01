@@ -96,9 +96,27 @@ class WindowAccountingTest(unittest.TestCase):
         jfr.write_text(json.dumps({"recording": {"events": events}}))
         operations = [w for w in self.analyze(jfr)["windows"] if w["phase"] == "operation"]
         self.assertEqual(operations[0]["targetExecution"], {
-            "status": "OBSERVED", "triangulationSamples": 1, "productionIndexSamples": 1})
+            "status": "OBSERVED", "triangulationSamples": 1, "productionIndexSamples": 1,
+            "unknownFrames": 0, "samplesWithUnknownFrames": 0})
         self.assertEqual([w["targetExecution"]["status"] for w in operations[1:]],
                          ["NOT_OBSERVED", "NOT_OBSERVED"])
+
+    def test_unknown_method_frames_are_reported_without_inventing_execution(self):
+        jfr = Path(self.temp.name) / "unknown.json"
+        events = [{"type": "jdk.ExecutionSample", "values": {
+            "startTime": datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).isoformat(),
+            "stackTrace": {"frames": frames}}} for epoch, frames in (
+                (132, [{"method": None}, {"method": {"type": {"name":
+                    "com/live2d/graphics3d/editableMesh/triangulation/h"}}}]),
+                (167, [{"method": None}, {"method": {"type": None}}]))]
+        jfr.write_text(json.dumps({"recording": {"events": events}}))
+        operations = [w["targetExecution"] for w in self.analyze(jfr)["windows"]
+                      if w["phase"] == "operation"]
+        self.assertEqual(operations[0]["status"], "OBSERVED")
+        self.assertEqual(operations[0]["unknownFrames"], 1)
+        self.assertEqual(operations[1]["status"], "NOT_OBSERVED")
+        self.assertEqual(operations[1]["unknownFrames"], 2)
+        self.assertEqual(operations[1]["samplesWithUnknownFrames"], 1)
 
     def test_streaming_jfr_across_chunks(self):
         path = Path(self.temp.name) / "large.json"

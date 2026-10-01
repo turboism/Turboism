@@ -191,3 +191,25 @@ triangulation separately in each operation (excluding undo/retained phases).
 REPEATED_TARGET_OBSERVED still does not establish per-cycle output equivalence,
 retention safety or performance acceptance. Five deterministic negative/boundary
 checks run via `python3 -B validation/triangulation-tlindex/diagnostic/test-undo-trigger-analysis.py`.
+
+### Cached mesh result recorder (auto-connect diagnostic preparation)
+
+`MeshResultSnapshot` reads existing native cache arrays on the EDT, requires
+matching position/index cache versions, validates finite 2D positions and triangle
+indices, and emits ordered SHA-256 digests without retaining host references.
+It never calls getGlIndices/updateMesh. Raw float bits preserve signed zero.
+The result is an observation only: native command execution, selected source
+identity and paired output equality still need separate evidence.
+
+`MeshResultSnapshotSelfCheck` covers stale-cache refusal before reading arrays,
+EDT enforcement, mutation during observation, native error propagation, ordering,
+shape/index bounds and nonfinite coordinates. Run with Java17:
+
+```sh
+javac --release 17 -Xlint:all -Werror -d /tmp/mesh-snapshot-check \
+  validation/triangulation-tlindex/diagnostic/MeshResultSnapshot*.java
+java -Djava.awt.headless=true -cp /tmp/mesh-snapshot-check MeshResultSnapshotSelfCheck
+```
+
+15 checks passed locally. The recorder is not yet wired into a host driver;
+its shape assumptions still require native validation before host acceptance.
