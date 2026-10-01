@@ -90,6 +90,9 @@ public enum PluginService {
     /** {@link PluginContext#meshEditUi()} */
     MESH_EDIT_UI(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class),
 
+    /** Directory-only custom mesh tools; no legacy {@link PluginContext} accessor. */
+    MESH_TOOLS(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class),
+
     /** {@link PluginContext#editorCommands()} */
     EDITOR_COMMANDS(dev.turboism.sdk.cubism.command.EditorCommandService.class),
 
@@ -194,6 +197,7 @@ public enum PluginService {
     @SuppressWarnings("deprecation") // Bridges the deprecated pre-directory accessors.
     Object resolve(final PluginContext context) {
         return switch (this) {
+            case MESH_TOOLS -> null; // Installed by runtime directories, never by a legacy accessor.
             case LOCALIZATION ->
                 available(context.localization(), dev.turboism.sdk.i18n.PluginLocalization.unavailable());
             case TASKS -> available(context.tasks(), dev.turboism.sdk.task.PluginTaskScheduler.unavailable());

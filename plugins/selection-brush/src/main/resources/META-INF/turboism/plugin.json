@@ -1,0 +1,53 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.selection-brush",
+  "name": "Selection Brush",
+  "version": "0.1.0",
+  "description": "Selects editable ArtMesh vertices with a radius-controlled brush in verified Cubism mesh sessions.",
+  "entrypoints": [
+    "dev.turboism.plugin.selectionbrush.SelectionBrushPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.toolbar.mesh.contribute",
+      "scope": "application",
+      "reason": "Contributes the Selection Brush button and radius slider to the mesh toolbar."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads native editable ArtMesh vertex positions for brush hit testing."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Updates native mesh vertex selection without changing authored geometry or Undo history."
+    }
+  ],
+  "capabilities": [
+    "cubism.mesh.custom-tools"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "tags": [
+    "mesh",
+    "selection",
+    "brush"
+  ],
+  "category": "modeling"
+}

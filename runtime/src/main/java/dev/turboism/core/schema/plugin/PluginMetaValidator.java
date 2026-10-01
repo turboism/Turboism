@@ -103,6 +103,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
             "turboism.action.register",
             "turboism.action.invoke",
             "turboism.ui.menu.contribute",
+            "turboism.ui.toolbar.mesh.contribute",
             "turboism.ui.toolbar.main.contribute",
             "turboism.ui.toolbar.palette.contribute",
             "turboism.ui.context-menu.contribute",

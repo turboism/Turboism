@@ -394,6 +394,7 @@ val checkHeadlessRuntimeClasspath by tasks.registering(JavaExec::class) {
 }
 
 dependencies {
+    testImplementation(project(":plugins:selection-brush"))
     implementation(project(":sdk"))
     // Internal management contracts shared with the framework shell.
     // The runtime never depends on :plugins:* modules.

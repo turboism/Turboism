@@ -12,6 +12,7 @@ include(
     "plugins:cubism-tab-filter",
     "plugins:parameter",
     "plugins:mesh-edit-mirror-axis-enhance",
+    "plugins:selection-brush",
     "plugins:mcp",
     "plugins:turboism-with-fx",
     "plugins:project-inspector",

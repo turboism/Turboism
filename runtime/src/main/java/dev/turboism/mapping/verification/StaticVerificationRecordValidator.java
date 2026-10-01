@@ -35,6 +35,7 @@ public final class StaticVerificationRecordValidator extends AbstractJsonValidat
             "hook:edit-toggle",
             "hook:editor-ui",
             "hook:native-edit-begin",
+            "hook:mesh-tool-session",
             "hook:object-context-menu",
             "hook:performance-fps",
             "hook:physics-editor",
