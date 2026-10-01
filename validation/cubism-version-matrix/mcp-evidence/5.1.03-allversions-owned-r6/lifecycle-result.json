@@ -1,0 +1,15 @@
+{
+  "jobId": "0165fbd2-3473-4407-b613-1ca42b69b72b",
+  "preparedDigest": "cc81752879fdb1d2fe2d7b8a2aa238e1b0c4bcc4dfc41cf5843384d8a78dc0b6",
+  "runId": "queue-30a8bdc29f6f40ca9ce3655e57d893f9",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "succeeded",
+  "validationStatus": "PASS",
+  "identityVerified": true,
+  "fixtureUnchanged": true,
+  "normalExit": true,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "2572f1b32acc5a3e5f02d06eae54a47f3e40a0d338bfed587af5681e4f972b79",
+  "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
+  "scope": "Legacy basic owned-MOC families only; complete drawable/glue/deformer reads rejected"
+}

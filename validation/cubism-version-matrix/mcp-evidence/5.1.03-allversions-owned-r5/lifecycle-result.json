@@ -9,7 +9,7 @@
   "fixtureUnchanged": false,
   "normalExit": false,
   "cleanup": "safe",
-  "sourceLifecycleSha256": "9d6bf6708657bb74b412bf0dce1b0e34cf14d473f3b58227d7bba6f485dfa691",
+  "sourceLifecycleSha256": "adb34bc464f29f82e0d148f7620af459953e27ab1992a0b48078f62ce58b3e8c",
   "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; Runner gate retained",
   "nativeAssertions": "NOT_STARTED",
   "failure": "HostSession production Editor composition requested complete evaluatedJoin from the basic legacy profile"

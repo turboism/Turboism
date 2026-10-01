@@ -1,0 +1,15 @@
+{
+  "jobId": "f9155f7d-63de-4d27-8c62-89ba53334b1e",
+  "preparedDigest": "2754aa66552ac9d615a0acf85f64a726011491d10be4376a15d5157e810aa0f2",
+  "runId": "queue-56ddfe7271fa450da15d2555474d8222",
+  "finalizedBy": "contained-supervisor",
+  "terminalState": "failed",
+  "validationStatus": "FAIL",
+  "identityVerified": false,
+  "fixtureUnchanged": false,
+  "normalExit": false,
+  "cleanup": "safe",
+  "sourceLifecycleSha256": "5a5401749e6700bebfab03bc73ff66bd97701b92e44b041baf6055d2b87fb787",
+  "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+  "failureStage": "SDK FREE fixture parameter-binding preparation; native save/reopen not started"
+}

@@ -1,0 +1,11 @@
+{
+  "jobId": "b7c07219-7a3d-4340-b42a-655c29efe747",
+  "preparedDigest": "4d82f359b5716d990ec6cfc6bccafa816b13424f5ea3aa13e27caf5372994b21",
+  "sourceConsoleSha256": "6a1cde1fd1fd4885228c32a97255afc20527267bd1eb136c4f19663382580cc9",
+  "observations": [
+    "INFO  [ NATIVE_VALIDATION_PROMPT title=Warning text=Warning  null <html><body>The file you are trying to load was created using a newer version of the editor currently in use.<br><br>Model files or animation files created or saved with a newer version of the editor<br>may not open correctly or <span class='caution'>may be damaged</span> when opened with an older version.<br>The editing of newer version data on an older editor version should be done at<br><span class='caution'>one&#x27;s own risk.</span><br><br>Current editor version: Cubism 5.0.2 <br>Version of the file you are trying to load: Cubism 5.2.3</body></html>  button=Load action=NEWER_MODEL_OPEN_CONFIRMED ] at dev.turboism.validation.NativeFreeStartup (NativeFreeStartup.kt:95) select()",
+    "ERROR [ java.lang.Exception: File load interrupted ] at java.lang.Throwable$WrappedPrintStream (Throwable$WrappedPrintStream.kt:-1) println()",
+    "INFO  [ NATIVE_VALIDATION_PROMPT title=Note! text=Note!  null A new version has been released. Do you want to exit the Editor and open the download page?  button=Cancel action=UPDATE_PAGE_CANCELLED ] at dev.turboism.validation.NativeFreeStartup (NativeFreeStartup.kt:95) select()"
+  ],
+  "verdict": "FIXTURE_LOAD_INTERRUPTED_NATIVE_ASSERTIONS_NOT_STARTED"
+}

@@ -7,7 +7,8 @@
 ## 当前范围
 
 - 20 个实际安装的 Editor/Core 已检查文件存在与 Editor 摘要；安装目录别名 `5.2` / `5.3` 分别绑定 5.2.03 / 5.3.02，不能按目录名猜版本。
-- `inventory.json` 索引静态能力、46 个可选 SDK 服务、保证存在的上下文成员、SDK 源文件、30 个插件、128 个目录场景，以及未登记的验证脚本。
+- `inventory.json` 索引静态能力、46 个可选 SDK 服务、保证存在的上下文成员、SDK 源文件、30 个插件、当前目录场景，以及未登记的验证脚本。
+- `sdk-method-coverage.json` 从当前 SDK classfile 索引公开／受保护方法、构造器、字段及嵌套类型，包含 incubating API；owned-MOC 的 21 个方法已关联明确场景，其余映射待审计。方法映射本身不产生版本支持结论。
 - `verification-table.md` 是中间台账，尚不是最终支持表。无精确静态记录不等于不支持，兼容准入路径也需要调查。
 - `campaign-jobs.json` 保存新增实机任务标识；提交状态不是验收结果。运行态必须重新查询共享队列，终态必须核对 supervisor 证据。
 
@@ -99,3 +100,23 @@
 正在适配5.1.03精确Core：62个实际存在selectors、独立capabilityIds仅cubism.core.owned-moc.read、native tuple固定实测5.0.0。基础Canvas/Parameters/Parts按family读取，完整Drawable关系/Glue/Deformer明确UnsupportedOperationException；较小profile不能准入geometry。已有直接公开生产admit路径、不可变/新鲜副本、完整geometry拒绝、显式/父级联关闭及旧版在途读取保护回归；实机适配验收尚待，不能记为PASS。
 
 5.1.03适配已通过131项相关Java回归、devCheck、Core三门禁和生成源一致性检查。回归包括较小legacy selector计划的直接生产准入、geometry拒绝、新鲜/不可变副本、父关闭等待Canvas原生读取；该并发夹具的阻塞点位于Canvas getter，已按真实调用family修正。record/pack及resource/index/family声明、manifest、selectorpolicy、SDK文档同步；新agent与probe已重建。5.1.03 owned-r4、5.2.03/5.3.02/5.3.03 owned-r1已冻结/提交，未在终态前记为通过。旧版探针固定要求42参数/19部件，精确拒绝缺失三族；allStructuralReadMethods=PARTIAL_EXPECTED，避免完整结构误报。
+
+5.2.03 /5.3.02 /5.3.03 独立owned-MOC均已收取supervisor PASS，Core分别5.0.256/6.0.257/6.0.257，身份/夹具/正常退出均true，cleanup safe；目前九版完整结构owned-MOC通过，仍不等于全能力通过。证据已更新owned-moc-verification.md。
+
+5.1.03 owned-r4失败由验证记录残留geometry capabilityCondition导致；专用licensed启动回归实际复现，删除残留条件并刷新record/pack SHA后6项真实产物回归通过。此前131项仅默认任务的合成测试，不包含licensed产物factory测试，范围已修正。owned-r5随后暴露HostSession无条件获取evaluatedJoin，bootstrap在plugin前失败，native断言未开始；supervisor FAIL/cleanup safe，保留启动stack证据。共享生产Editor access构造改为仅在完整geometry可用时创建join，235项宿主/Core合成回归+6项真实产物回归/devCheck通过；owned-r6已冻结入队，尚待native验收。见legacy-startup-regression.json。
+
+5.1.01 /5.1.02 assisted身份预检均supervisor PASS，实测Core5.0.0，身份/夹具/正常退出true、cleanup safe、NO_PUBLIC_BRIDGE。原生tuple证据已复制；不提升为owned-MOC或完整框架支持。5.0.02身份预检已提交，尚待结果。
+
+新增显式mcp free-fixture变体：在精确任务副本内用公开SDK移除超过两个的keyform参数绑定，验证每操作Undo、完整绑定Undo/Redo、纹理未变及最终绑定数，再保留原生五类纹理操作保存重开；保存状态额外核对参数绑定，最终原始文件重开必须恢复原始绑定与纹理。未放宽native save/client断言，不绕过FREE许可。7项Java/115项队列/29项调度回归、devCheck/探针编译自检通过；5.3.04实机已提交，尚待验收。见free-fixture-regression.json。
+
+5.3.04 FREE MCP r1已收取supervisor FAIL/cleanup safe，夹具准备阶段拒绝：SDK投影初始最多每对象4个绑定参数，尝试修剪keyform后仍超限；native保存断言尚未开始。原始properties已留存，client modelMutation=NONE仅覆盖client，不能覆盖验证插件对任务副本的SDK操作。新增调整前后族计数与修剪数量诊断，r2已入队；不删除两参数限制，不跳过保存或恢复断言，不记为unsupported。
+
+5.1.03 owned-r6已确认supervisor PASS：Core5.0.0、身份/夹具/正常退出true、cleanup safe。生产公开SDK完成基础Canvas/42参数/19部件读取、update、独立实例、不可变投影、显式child→parent关闭及两个live children父级联关闭、关闭后拒绝；完整Drawable关系/Glue/Deformer明确UnsupportedOperationException，allStructuralReadMethods=PARTIAL_EXPECTED。此前r4/r5失败保留，不将旧版基础PASS提升为geometry/bridge或全能力。21个公开SDK方法到实际断言/证据键映射见owned-moc-coverage.json，明确保留非空Glue及其他缺口。
+
+5.0.02 assisted身份预检supervisor PASS，实测Core5.0.0，身份/夹具/正常退出true、cleanup safe、NO_PUBLIC_BRIDGE；5.0.03/.04/.05/.06已冻结入队，尚待tuple与身份验收。
+
+5.0.03–5.0.06 assisted预检现均supervisor PASS，实测Core5.0.0，三个最终门禁true、cleanup safe、NO_PUBLIC_BRIDGE；原始properties与supervisor摘要已留存。真实产物factory回归新增循环5.0.02–5.0.06、5.1.00–5.1.02，全部严格兼容准入5.1.03基础profile，绑定各自Core指纹，仅授权owned-MOC并明确拒绝geometry。7项真实产物测试、29项调度回归、devCheck通过；八版基础owned-MOC已逐一冻结入队，最终结果仍待收取。
+
+5.3.04 FREE MCP r2诊断明确：KEYFORM三个参数与BLEND_SHAPE一个参数共四个，旧planner仅将KEYFORM减到两个而留下总数三个。planner现先预留全部非KEYFORM参数额度，再按稳定顺序保留KEYFORM，总distinct参数不得超过二；非KEYFORM本身超过二仍拒绝，保留Morph。7项Java回归与实机r3证明最多参数4→2、解绑两个KEYFORM、BLEND_SHAPE保留、Undo/Redo与纹理未变断言通过。但r3后续原生保存调用超时，supervisor FAIL/cleanup safe，不记为unsupported或保存支持。r4保持全部原断言并加入只读弹窗、保存阶段及超时线程栈诊断，已冻结入队。
+
+5.1.00/.01/.02 owned-r1已各自supervisor PASS，身份/夹具/正常退出true、cleanup safe，实测Core5.0.0，基础42参数/19部件与update、独立实例、不可变副本、显式/父级联释放、关闭后拒绝均PASS；扩展三族明确拒绝。现在13版owned-MOC验收：九版完整结构getter、四版基础family。5.0.02 owned-r1在原生加载5.2.03夹具时返回File load interrupted，Load与更新Cancel均实际执行，后续readiness超时、nativeAssertions=NOT_STARTED；预检PASS不替代本轮SDK验收，不作unsupported结论。
