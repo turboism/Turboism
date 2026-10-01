@@ -33,10 +33,11 @@ import java.util.Map;
  *   <li>Buckets are only touched when the precheck {@code sz == size-1} holds; any unwoven
  *       mutation (an {@code iterator().remove()} shrinking the set) breaks the precheck and the
  *       index falls back: dirty triggers a rebuild, an unweaved element makes the index dead.</li>
- *   <li>{@link #remove} runs the native set operation first. It deindexes the argument
- *       only when cardinality and a scan of surviving identities prove it is the single
- *       missing recorded object. Equal-but-distinct arguments, stale state or unexpected
- *       survivors mark the index dirty; the next query rebuilds from the live set.</li>
+ *   <li>{@link #remove} runs the native set operation first. Up to eight known removal
+ *       arguments await one shared identity scan before the next indexed answer. Only
+ *       cardinality and absence from the surviving set prove the actual removed identities;
+ *       ambiguous victims, reinsertion or drift make the state dirty. Pending buckets are
+ *       never used to answer a query or shortcut membership.</li>
  *   <li>Bookkeeping never throws into the host: everything after the real set operation is
  *       guarded; failures only mark the index dirty or dead.</li>
  *   <li>{@code STATES} uses weak identity keys, not {@code WeakHashMap} or set value equality:
@@ -58,6 +59,8 @@ public final class TriangulationEdgeIndex {
     static final class St {
         final HashMap<Long, ArrayList<Object>> byKey = new HashMap<>();
         final IdentityHashMap<Object, long[]> keys = new IdentityHashMap<>();
+        final Object[] pending = new Object[8];
+        int pendingSize;
         int sz;
         boolean dirty = true;
         boolean dead;
@@ -116,6 +119,7 @@ public final class TriangulationEdgeIndex {
         if (t != null) {
             t.byKey.clear();
             t.keys.clear();
+            clearPending(t);
             // Once inconsistency was proven, keep only a weak-keyed tombstone:
             // clear may release triangles, but must not reactivate a dead index.
             if (t.dead) STATES.put(new SetKey(s, COLLECTED), t);
@@ -126,7 +130,10 @@ public final class TriangulationEdgeIndex {
     private static synchronized void invalidate(final LinkedHashSet s) {
         expungeCollected();
         final St t = STATES.get(new SetKey(s, null));
-        if (t != null) t.dead = true;
+        if (t != null) {
+            t.dead = true;
+            clearPending(t);
+        }
         Reference.reachabilityFence(s);
     }
 
@@ -140,14 +147,16 @@ public final class TriangulationEdgeIndex {
         try {
             final St t = st(s);
             if (changed && !t.dead) {
+                final boolean incremental = !t.dirty && t.sz == s.size() - 1
+                        && t.keys.size() == t.sz + t.pendingSize && !isPending(t, tri);
                 final long k1 = key(ia, ib), k2 = key(ib, ic), k3 = key(ic, ia);
                 t.keys.put(tri, new long[] {k1, k2, k3});
-                if (!t.dead && !t.dirty && t.sz == s.size() - 1) {
+                if (incremental) {
                     put(t, k1, tri);
                     if (k2 != k1) put(t, k2, tri);
                     if (k3 != k1 && k3 != k2) put(t, k3, tri);
                 } else {
-                    t.dirty = true;
+                    markDirty(t);
                 }
                 t.sz = s.size();
             }
@@ -160,60 +169,108 @@ public final class TriangulationEdgeIndex {
 
     /**
      * Preserves the exact native removal (including its victim in a treeified hash bucket).
-     * Bookkeeping scans only identities, never invokes element equality a second time.
+     * Bookkeeping defers a bounded batch of identities, never invokes element equality again.
      */
     public static boolean remove(final LinkedHashSet s, final Object tri) {
         final boolean removed = s.remove(tri);
         if (!removed) return false;
         try {
             final St t = st(s);
-            final Object victim = tri;
-            boolean exactVictim = !t.dead && !t.dirty && t.sz == s.size() + 1
-                    && t.keys.size() == s.size() + 1 && t.keys.containsKey(tri);
-            if (exactVictim) {
-                for (final Object survivor : s) {
-                    if (survivor == tri) {
-                        exactVictim = false;
-                        break;
-                    }
-                }
-            }
-            // A clean state with the pre-removal cardinality covers all stored identities:
-            // all host adds/clears are woven, and the only unwoven write is iterator.remove
-            // (a shrink, caught here or by the next add's size precheck). Native remove only
-            // shrinks that known set. If tri survives it removed an equal different object;
-            // otherwise tri is the single missing identity. Do not redo a hash lookup for
-            // every survivor: that verification itself dominated the 5203 candidate JFR.
-            final long[] ks = exactVictim ? t.keys.remove(victim) : null;
-            if (ks == null || t.dead || t.dirty) {
-                t.dirty = true; // unknown keys or stale index -> resync on next query
+            if (!t.dead && !t.dirty && t.sz == s.size() + 1
+                    && t.keys.size() == t.sz + t.pendingSize && t.keys.containsKey(tri)
+                    && !isPending(t, tri) && t.pendingSize < t.pending.length) {
+                t.pending[t.pendingSize++] = tri;
             } else {
-                for (int i = 0; i < 3; i++) {
-                    if (i > 0 && (ks[i] == ks[0] || (i == 2 && ks[2] == ks[1]))) continue;
-                    final ArrayList<Object> bucket = t.byKey.get(ks[i]);
-                    if (bucket == null) {
-                        t.dirty = true;
-                        break;
-                    }
-                    int at = -1;
-                    for (int j = 0; j < bucket.size(); j++) {
-                        if (bucket.get(j) == victim) {
-                            at = j;
-                            break;
-                        }
-                    }
-                    if (at < 0) {
-                        t.dirty = true;
-                        break;
-                    }
-                    bucket.remove(at);
-                    if (bucket.isEmpty()) t.byKey.remove(ks[i]);
-                }
+                markDirty(t);
             }
             t.sz = s.size();
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             invalidate(s);
+        }
+        return true;
+    }
+
+    @SuppressWarnings("ReferenceEquality") // Pending identities are not geometric equality keys.
+    private static boolean isPending(final St t, final Object tri) {
+        for (int i = 0; i < t.pendingSize; i++) {
+            if (t.pending[i] == tri) return true;
+        }
+        return false;
+    }
+
+    private static void clearPending(final St t) {
+        java.util.Arrays.fill(t.pending, 0, t.pendingSize, null);
+        t.pendingSize = 0;
+    }
+
+    private static void markDirty(final St t) {
+        t.dirty = true;
+        clearPending(t);
+    }
+
+    /** Resolve known native removals once before any indexed result becomes visible. */
+    @SuppressWarnings("ReferenceEquality") // Prove physical absence without repeating host equals.
+    private static boolean settle(final St t, final LinkedHashSet s) {
+        if (t.dirty || t.sz != s.size() || t.keys.size() != s.size() + t.pendingSize) {
+            markDirty(t);
+            return false;
+        }
+        if (t.pendingSize == 1) {
+            final Object first = t.pending[0];
+            for (final Object survivor : s) {
+                if (survivor == first) {
+                    markDirty(t);
+                    return false;
+                }
+            }
+        } else if (t.pendingSize == 2) {
+            final Object first = t.pending[0], second = t.pending[1];
+            for (final Object survivor : s) {
+                if (survivor == first || survivor == second) {
+                    markDirty(t);
+                    return false;
+                }
+            }
+        } else {
+            for (final Object survivor : s) {
+                if (isPending(t, survivor)) {
+                    markDirty(t);
+                    return false;
+                }
+            }
+        }
+        // The clean-state cardinality covers every live identity plus these distinct
+        // absent arguments. If an argument survives, native remove picked an equal
+        // different victim; the dirty path above rebuilds from the actual set instead.
+        for (int i = 0; i < t.pendingSize; i++) {
+            if (!deindex(t, t.pending[i])) {
+                markDirty(t);
+                return false;
+            }
+        }
+        clearPending(t);
+        return true;
+    }
+
+    @SuppressWarnings("ReferenceEquality") // Only the proven physical victim is deindexed.
+    private static boolean deindex(final St t, final Object victim) {
+        final long[] ks = t.keys.remove(victim);
+        if (ks == null) return false;
+        for (int i = 0; i < 3; i++) {
+            if (i > 0 && (ks[i] == ks[0] || (i == 2 && ks[2] == ks[1]))) continue;
+            final ArrayList<Object> bucket = t.byKey.get(ks[i]);
+            if (bucket == null) return false;
+            int at = -1;
+            for (int j = 0; j < bucket.size(); j++) {
+                if (bucket.get(j) == victim) {
+                    at = j;
+                    break;
+                }
+            }
+            if (at < 0) return false;
+            bucket.remove(at);
+            if (bucket.isEmpty()) t.byKey.remove(ks[i]);
         }
         return true;
     }
@@ -227,10 +284,12 @@ public final class TriangulationEdgeIndex {
     public static boolean contains(final LinkedHashSet s, final Object tri) {
         try {
             final St t = st(s);
+            if (!t.dead && t.pendingSize > 0) settle(t, s);
             if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size()
                     && t.keys.containsKey(tri)) return true;
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
+            if (s != null) invalidate(s); // settle may have partially changed bookkeeping
         }
         return s.contains(tri);
     }
@@ -262,6 +321,7 @@ public final class TriangulationEdgeIndex {
         }
         if (t.dead) return null;
         try {
+            if (t.pendingSize > 0) settle(t, s);
             if (t.dirty || t.sz != s.size()) {
                 if (!rebuild(t, s)) {
                     t.dead = true;
@@ -275,6 +335,7 @@ public final class TriangulationEdgeIndex {
         } catch (Throwable indexFailure) {
             FatalErrors.rethrowIfFatal(indexFailure);
             t.dead = true; // never trust a crashed index again
+            clearPending(t);
             return null;
         }
     }
@@ -291,6 +352,7 @@ public final class TriangulationEdgeIndex {
      *     marks the index dead
      */
     static boolean rebuild(final St t, final LinkedHashSet s) {
+        clearPending(t);
         final HashMap<Long, ArrayList<Object>> map = new HashMap<>();
         final IdentityHashMap<Object, Boolean> live = new IdentityHashMap<>();
         for (final Object o : s) {
