@@ -11,6 +11,16 @@
     "path": "owned-moc-coverage.json",
     "sha256": "9cefbcd850fc7421ed94db23d0710371c7307fa4d714b952a44eacacd8199900"
   },
+  "coverageIndexes": [
+    {
+      "path": "owned-moc-coverage.json",
+      "sha256": "9cefbcd850fc7421ed94db23d0710371c7307fa4d714b952a44eacacd8199900"
+    },
+    {
+      "path": "mcp-texture-coverage.json",
+      "sha256": "7dd7da6c9fe7a328ef6b42239c9598669d52e4e89af89640f9afdb02f88f5745"
+    }
+  ],
   "rules": [
     "Include incubating members, public/protected constructors, nested types, generated methods and fields.",
     "Descriptors distinguish overloads; each declared member is indexed once, inheritance is recorded.",
@@ -20,7 +30,7 @@
   "classCount": 894,
   "methodCount": 5389,
   "fieldCount": 1063,
-  "explicitlyMappedMethodCount": 21,
+  "explicitlyMappedMethodCount": 35,
   "classes": [
     {
       "owner": "dev/turboism/sdk/CubismEditor",
@@ -19405,7 +19415,13 @@
           "descriptor": "(JJI)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "CubismHistory.moveTo(long,long,int)",
+            "evidenceKey": "freeFixtureScreenColorPreparation",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "moveTo",
@@ -19426,7 +19442,13 @@
           "descriptor": "()Ldev/turboism/sdk/cubism/history/HistorySnapshot;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "CubismHistory.snapshot()",
+            "evidenceKey": "freeFixturePreparation",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "unavailable",
@@ -25828,7 +25850,13 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/model/Color;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "Deformer.setScreenColor(Color)",
+            "evidenceKey": "freeFixtureScreenColorPreparation",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setTargetDeformer",
@@ -26261,7 +26289,13 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/model/Color;)V",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "Drawable.setScreenColor(Color)",
+            "evidenceKey": "freeFixtureScreenColorPreparation",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "setTargetDeformer",
@@ -27990,14 +28024,26 @@
           "descriptor": "(Ljava/lang/String;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.addModelImageGroup(String)",
+            "evidenceKey": "persistenceOperationKinds",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "addTextureAtlas",
           "descriptor": "(Ljava/lang/String;II)Ldev/turboism/sdk/cubism/id/TextureAtlasId;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.addTextureAtlas(String,int,int)",
+            "evidenceKey": "persistenceOperationKinds",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "exportRawImagePsd",
@@ -28011,14 +28057,26 @@
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.modelImageGroups()",
+            "evidenceKey": "saveReopen",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "rawImages",
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.rawImages()",
+            "evidenceKey": "saveReopen",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "relations",
@@ -28032,21 +28090,39 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/id/ModelImageId;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.removeModelImage(ModelImageId)",
+            "evidenceKey": "persistenceOperationKinds",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "removeRawImage",
           "descriptor": "(Ldev/turboism/sdk/cubism/id/RawImageId;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.removeRawImage(RawImageId)",
+            "evidenceKey": "persistenceOperationKinds",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "removeTextureAtlas",
           "descriptor": "(Ldev/turboism/sdk/cubism/id/TextureAtlasId;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.removeTextureAtlas(TextureAtlasId)",
+            "evidenceKey": "persistenceOperationKinds",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "replaceRawImagePsd",
@@ -28067,7 +28143,13 @@
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ModelTextures.textureAtlases()",
+            "evidenceKey": "saveReopen",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         }
       ]
     },
@@ -28216,7 +28298,13 @@
           "descriptor": "()Ljava/util/List;",
           "accessFlags": 1,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "Parameter.getParameterBindings()",
+            "evidenceKey": "freeFixtureBindingSaveReopen",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         },
         {
           "name": "getValue",
@@ -28493,7 +28581,13 @@
           "descriptor": "(Ldev/turboism/sdk/cubism/model/ParameterBindingTarget;)V",
           "accessFlags": 1025,
           "syntheticOrBridge": false,
-          "scenarioMapping": "PENDING_AUDIT"
+          "scenarioMapping": {
+            "scenario": "mcp:free-fixture",
+            "coverageIndex": "mcp-texture-coverage.json",
+            "sdkMethod": "ParameterBindingOperations.unbind(ParameterBindingTarget)",
+            "evidenceKey": "freeFixturePreparation",
+            "scope": "See per-version results and limitations in coverage index; no blanket support verdict"
+          }
         }
       ]
     },

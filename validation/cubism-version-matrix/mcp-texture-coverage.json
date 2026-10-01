@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "completeFrameworkCoverage": false,
+  "scenario": "mcp:free-fixture",
+  "probe": {
+    "path": "testing/integration-tests/src/test/java/dev/turboism/tests/plugin/McpTexturePersistenceProbe.java",
+    "sha256": "edaab90b395ce108cec809a2696f46a9da21ccc371809626291655077ce8f8ad"
+  },
+  "methods": [
+    {
+      "sdkMethod": "ModelTextures.rawImages()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "SDK identities and metadata agree with exact-artifact native texture state; complete snapshot compared across save/reopen and original restoration",
+      "evidenceKey": "saveReopen"
+    },
+    {
+      "sdkMethod": "ModelTextures.modelImageGroups()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "SDK identities and metadata agree with exact-artifact native texture state; complete snapshot compared across save/reopen and original restoration",
+      "evidenceKey": "saveReopen"
+    },
+    {
+      "sdkMethod": "ModelTextures.textureAtlases()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "SDK identities and metadata agree with exact-artifact native texture state; complete snapshot compared across save/reopen and original restoration",
+      "evidenceKey": "saveReopen"
+    },
+    {
+      "sdkMethod": "ModelTextures.addModelImageGroup(String)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "One of five production SDK texture operation kinds persisted together; native complete library/layer/pixel state compared after save/reopen; no per-method blanket support claim",
+      "evidenceKey": "persistenceOperationKinds"
+    },
+    {
+      "sdkMethod": "ModelTextures.addTextureAtlas(String,int,int)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "One of five production SDK texture operation kinds persisted together; native complete library/layer/pixel state compared after save/reopen; no per-method blanket support claim",
+      "evidenceKey": "persistenceOperationKinds"
+    },
+    {
+      "sdkMethod": "ModelTextures.removeTextureAtlas(TextureAtlasId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "One of five production SDK texture operation kinds persisted together; native complete library/layer/pixel state compared after save/reopen; no per-method blanket support claim",
+      "evidenceKey": "persistenceOperationKinds"
+    },
+    {
+      "sdkMethod": "ModelTextures.removeModelImage(ModelImageId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "One of five production SDK texture operation kinds persisted together; native complete library/layer/pixel state compared after save/reopen; no per-method blanket support claim",
+      "evidenceKey": "persistenceOperationKinds"
+    },
+    {
+      "sdkMethod": "ModelTextures.removeRawImage(RawImageId)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ModelTextures.java",
+      "assertion": "One of five production SDK texture operation kinds persisted together; native complete library/layer/pixel state compared after save/reopen; no per-method blanket support claim",
+      "evidenceKey": "persistenceOperationKinds"
+    },
+    {
+      "sdkMethod": "CubismHistory.snapshot()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/history/CubismHistory.java",
+      "assertion": "Read actual native Undo position while validating each SDK mutation and restoration",
+      "evidenceKey": "freeFixturePreparation"
+    },
+    {
+      "sdkMethod": "CubismHistory.moveTo(long,long,int)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/history/CubismHistory.java",
+      "assertion": "SDK history moves restore complete stored parameter/Screen Color projections and texture state",
+      "evidenceKey": "freeFixtureScreenColorPreparation",
+      "sdkDescriptor": "(JJI)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;"
+    },
+    {
+      "sdkMethod": "Parameter.getParameterBindings()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Parameter.java",
+      "assertion": "Complete sorted parameter bindings compared before/after preparation, Undo/Redo, saved reopen and original reopen",
+      "evidenceKey": "freeFixtureBindingSaveReopen"
+    },
+    {
+      "sdkMethod": "ParameterBindingOperations.unbind(ParameterBindingTarget)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/ParameterBindingOperations.java",
+      "assertion": "Preserve non-keyform families and total parameter quota; one Undo entry per unbind; complete binding projection Undo/Redo",
+      "evidenceKey": "freeFixturePreparation"
+    },
+    {
+      "sdkMethod": "Drawable.setScreenColor(Color)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Drawable.java",
+      "assertion": "Task-local SDK preparation; no-op or one Undo; every stored keyform audited; Undo/Redo, texture invariant, save/reopen and original color projection restoration",
+      "evidenceKey": "freeFixtureScreenColorPreparation"
+    },
+    {
+      "sdkMethod": "Deformer.setScreenColor(Color)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/model/Deformer.java",
+      "assertion": "Task-local SDK preparation; no-op or one Undo; every stored keyform audited; Undo/Redo, texture invariant, save/reopen and original color projection restoration",
+      "evidenceKey": "freeFixtureScreenColorPreparation"
+    }
+  ],
+  "liveResults": [
+    {
+      "version": "5.3.04",
+      "jobId": "fcbf2d0b-6e2c-4b50-9f08-a7b2f259f9d5",
+      "preparedDigest": "80f1a0c679780b5428d2852c9c1de4f99b357e9bdb6f46414c5a00ffb81fd994",
+      "evidenceDirectory": "mcp-evidence/5.3.04-allversions-free-r5",
+      "nativeTextureResult": "PASS",
+      "mcpClientResult": "FAIL",
+      "supervisorResult": "FAIL",
+      "scope": "Observed native texture preparation/save/reopen/recovery only; full MCP blocked by no Glue fixture",
+      "supportVerdict": "NOT_CLAIMED_FULL_CAMPAIGN",
+      "liveProbeJarSha256": "18cb61ed3a88dbdecf62f5a5e4a0e19b6136ae36f51b9cfd2e86fc17aa896b51",
+      "currentProbeDifference": "Pending next native run: exact older-version stored-color family selection, all Drawable audit, explicit getIdString and independent native Screen Color guard"
+    }
+  ],
+  "uncovered": [
+    "Other versions awaiting whole-scenario supervisor acceptance",
+    "Per-operation standalone persistence and independent golden field semantics",
+    "PSD export/replace, relations/sources APIs",
+    "Other SDK services, plugins and hooks",
+    "Part or ArtPath color writes; only stored reads and fail-closed guard"
+  ]
+}

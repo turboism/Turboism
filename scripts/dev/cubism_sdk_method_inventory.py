@@ -15,17 +15,25 @@ from sdk_api_baseline_common import ACC_BRIDGE, ACC_SYNTHETIC, API_VISIBILITY  #
 from sdk_api_baseline_parse import api_classes, load_parsed_classes  # noqa: E402
 
 
-def build_inventory(sdk_jar: Path, coverage_path: Path) -> dict:
+def build_inventory(sdk_jar: Path, coverage_paths: Path | list[Path]) -> dict:
     classes, artifact_sha, artifact_size = load_parsed_classes(sdk_jar, "dev/turboism/sdk/")
-    coverage_bytes = coverage_path.read_bytes()
-    coverage = json.loads(coverage_bytes)
+    if isinstance(coverage_paths, Path):
+        coverage_paths = [coverage_paths]
     mapped = {}
-    for row in coverage["methods"]:
-        owner, name = row["sdkMethod"].split("(", 1)[0].rsplit(".", 1)
-        package = row["sdkSource"].removeprefix("sdk/src/main/java/").removesuffix(".java")
-        if package.rsplit("/", 1)[1] != owner:
-            raise ValueError(f"Coverage owner/source mismatch: {row['sdkMethod']}")
-        mapped[(package, name)] = row
+    indexes = []
+    for coverage_path in coverage_paths:
+        coverage_bytes = coverage_path.read_bytes()
+        coverage = json.loads(coverage_bytes)
+        indexes.append({"path": coverage_path.name, "sha256": hashlib.sha256(coverage_bytes).hexdigest()})
+        for row in coverage["methods"]:
+            owner, name = row["sdkMethod"].split("(", 1)[0].rsplit(".", 1)
+            package = row["sdkSource"].removeprefix("sdk/src/main/java/").removesuffix(".java")
+            if package.rsplit("/", 1)[1] != owner:
+                raise ValueError(f"Coverage owner/source mismatch: {row['sdkMethod']}")
+            key = (package, name, row.get("sdkDescriptor"))
+            if key in mapped:
+                raise ValueError(f"Duplicate SDK scenario mapping: {row['sdkMethod']}")
+            mapped[key] = {**row, "scenario": coverage["scenario"], "coverageIndex": coverage_path.name}
     mapped_counts = {key: 0 for key in mapped}
     indexed = []
     for parsed in sorted(api_classes(classes), key=lambda item: item.info.name):
@@ -41,11 +49,15 @@ def build_inventory(sdk_jar: Path, coverage_path: Path) -> dict:
                 "syntheticOrBridge": bool(method.access & (ACC_SYNTHETIC | ACC_BRIDGE)),
                 "scenarioMapping": "PENDING_AUDIT",
             }
-            key = (info.name, method.name)
-            if key in mapped:
+            matches = [key for key in mapped if key[:2] == (info.name, method.name)
+                       and key[2] in (None, method.descriptor)]
+            if len(matches) > 1:
+                raise ValueError(f"Overlapping SDK scenario mappings: {info.name}.{method.name}")
+            if matches:
+                key = matches[0]
                 mapped_counts[key] += 1
                 row["scenarioMapping"] = {
-                    "scenario": coverage["scenario"], "coverageIndex": coverage_path.name,
+                    "scenario": mapped[key]["scenario"], "coverageIndex": mapped[key]["coverageIndex"],
                     "sdkMethod": mapped[key]["sdkMethod"], "evidenceKey": mapped[key]["evidenceKey"],
                     "scope": "See per-version results and limitations in coverage index; no blanket support verdict",
                 }
@@ -64,7 +76,8 @@ def build_inventory(sdk_jar: Path, coverage_path: Path) -> dict:
         "schemaVersion": 1, "completeFrameworkCoverage": False,
         "baselineRevision": "7d7de1de4",
         "sdkArtifact": {"name": sdk_jar.name, "sha256": artifact_sha, "sizeBytes": artifact_size},
-        "coverageIndex": {"path": coverage_path.name, "sha256": hashlib.sha256(coverage_bytes).hexdigest()},
+        "coverageIndex": indexes[0],
+        "coverageIndexes": indexes,
         "rules": [
             "Include incubating members, public/protected constructors, nested types, generated methods and fields.",
             "Descriptors distinguish overloads; each declared member is indexed once, inheritance is recorded.",
@@ -82,12 +95,14 @@ def build_inventory(sdk_jar: Path, coverage_path: Path) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk-jar", required=True, type=Path)
-    parser.add_argument("--coverage", type=Path,
-                        default=ROOT / "validation/cubism-version-matrix/owned-moc-coverage.json")
+    parser.add_argument("--coverage", type=Path, action="append",
+                        help="Repeat to include several explicit scenario indexes")
     parser.add_argument("--output", type=Path,
                         default=ROOT / "validation/cubism-version-matrix/sdk-method-coverage.json")
     args = parser.parse_args()
-    document = build_inventory(args.sdk_jar, args.coverage)
+    coverage = args.coverage or [ROOT / "validation/cubism-version-matrix" / name
+                                for name in ("owned-moc-coverage.json", "mcp-texture-coverage.json")]
+    document = build_inventory(args.sdk_jar, coverage)
     args.output.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")
     print(f"Indexed {document['classCount']} types, {document['methodCount']} methods, "
           f"{document['fieldCount']} fields; {document['explicitlyMappedMethodCount']} explicit scenario mappings")

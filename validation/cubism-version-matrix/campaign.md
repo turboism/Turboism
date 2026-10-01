@@ -8,7 +8,7 @@
 
 - 20 个实际安装的 Editor/Core 已检查文件存在与 Editor 摘要；安装目录别名 `5.2` / `5.3` 分别绑定 5.2.03 / 5.3.02，不能按目录名猜版本。
 - `inventory.json` 索引静态能力、46 个可选 SDK 服务、保证存在的上下文成员、SDK 源文件、30 个插件、当前目录场景，以及未登记的验证脚本。
-- `sdk-method-coverage.json` 从当前 SDK classfile 索引公开／受保护方法、构造器、字段及嵌套类型，包含 incubating API；owned-MOC 的 21 个方法已关联明确场景，其余映射待审计。方法映射本身不产生版本支持结论。
+- `sdk-method-coverage.json` 从当前 SDK classfile 索引公开／受保护方法、构造器、字段及嵌套类型，包含 incubating API；owned-MOC 的21个方法与MCP纹理/夹具准备/历史的14个方法已关联明确场景，其余映射待审计。方法映射本身不产生版本支持结论。
 - `verification-table.md` 是中间台账，尚不是最终支持表。无精确静态记录不等于不支持，兼容准入路径也需要调查。
 - `campaign-jobs.json` 保存新增实机任务标识；提交状态不是验收结果。运行态必须重新查询共享队列，终态必须核对 supervisor 证据。
 
@@ -126,3 +126,7 @@
 5.3.04 FREE MCP r4保存失败原因明确为PRO-only Screen Color，原生modal观察与runtime log摘要见mcp-evidence/5.3.04-allversions-free-r4/dialog-observations.json。r5通过公开SDK将任务副本全部存储关键形Screen Color归零（非黑RGB 6→0），核对SDK写入Undo/Redo、纹理未变；五类纹理操作原生保存、重开、参数/颜色投影一致及原始文件重开恢复全部PASS。但随后完整MCP因夹具没有非空Glue关系而FAIL；supervisor failed/FAIL、cleanup safe，三个整体最终门禁false。只保留保存单项通过证据，不提升为整体能力支持。client status与nativeTextureStatus已分开记录，防止后读的PASS覆盖整体FAIL。
 
 只读官方ArchiveReader检查发现Downloads同名模型的SHA为2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10，与原夹具不同；含21 ArtMesh、12 Deformer、9 Part、一个Glue及不同ArtMesh端点，结构证据见mcp-glue-fixture-audit.json。已以这个原始文件的不可变任务副本提交5.3.04 free-r6、5.3.01/5.2.02 free-r1；全部完整断言保留，终态尚待。新probe按精确版本审核全部Drawable/Deformer存储颜色，5.3额外审核Part；5.0–5.2实际没有Part Screen Color字段，不伪造读取。增加原生containScreenColor独立只读guard，稳定ID使用序列化getIdString；九项Java回归/devCheck/探针编译自检通过。
+
+官方Simple Model已下载并按实际编辑文件格式4.0.05核对；17 ArtMesh、1 Deformer、16 Part、24 Parameter，无Original Shape扩展。官方页面的SDK3.2说明不用于猜测编辑格式。下载来源与SHA见official-simple-fixture.json，二进制仅存在本地验证存储。5.0.00/.01使用不可变任务副本的assisted身份预检已入队，尚待native tuple与最终门禁，不宣称支持。
+
+SDK成员索引现支持多个明确场景和精确classfile descriptor，35个方法已映射（owned-MOC 21、MCP纹理/参数准备/颜色/历史14）；缺失、重载歧义与重复/交叠映射均拒绝，四项防误报回归与Python lint通过。纹理保存单项PASS与MCP/supervisor整体FAIL明确保留，方法映射不产生支持结论。

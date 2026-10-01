@@ -463,7 +463,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "42aab530-9b5b-4460-91f6-156652d52506",
+          "preparedDigest": "cbec4e8b47b16189769124c2e38d2832f5e482bb96187f2a632bab0508d21dd0",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.0.02-allversions-owned-r2",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.0.03",
@@ -614,7 +627,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "c4b44dc5-90bb-45d0-87e7-dc408490153b",
+          "preparedDigest": "73d082b594d5e86a35f8c95af754d8ab1a4c1f9840fa25dafd13eee0f3c30785",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.0.03-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.0.04",
@@ -765,7 +791,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "f254ebd3-54fa-4f39-852e-8c7c8d7bc7ad",
+          "preparedDigest": "95e6070b2cb299f6878743dec77e63662735e4e8ced20785c31379f554eca953",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.0.04-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.0.05",
@@ -916,7 +955,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "d4e456c7-0150-4de6-b3fd-1e4adba83910",
+          "preparedDigest": "d9c34214172bd10e5064c84b45ad58ac99c5ee21894084a2f0add61b628fbc29",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.0.05-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.0.06",
@@ -1067,7 +1119,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "3b47b96e-2c23-4906-b694-0c3ea7a08a1a",
+          "preparedDigest": "4a0ff4a50640f63233b6c00b169a92cee3d3c49198a4f28ac1ded076e37751e6",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.0.06-allversions-owned-r2",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.1.00",
@@ -1218,7 +1283,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "d0a21c17-a245-433d-a6f1-e50c1a74a243",
+          "preparedDigest": "3e1e0c3ee2c6c2b7054456bec268368518f22a1fee07f536c4362282bab678e1",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.1.00-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.1.01",
@@ -1369,7 +1447,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "975a4716-e33b-4fed-bf31-ec3cceb19948",
+          "preparedDigest": "1ed3cdff6f76034136e5c1b3c5e3ea873aca95c3da9952b7d48f484892f1fbf0",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.1.01-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.1.02",
@@ -1520,7 +1611,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "08ea7c21-6425-4e0a-966d-2a71a11fa7e5",
+          "preparedDigest": "8ee84cbe49aa6ca560927529fb21916afbc7ef34274e583aa0a8b75c6996c777",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.1.02-allversions-owned-r1",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.1.03",
@@ -1671,7 +1775,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "0165fbd2-3473-4407-b613-1ca42b69b72b",
+          "preparedDigest": "cc81752879fdb1d2fe2d7b8a2aa238e1b0c4bcc4dfc41cf5843384d8a78dc0b6",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.1.03-allversions-owned-r6",
+          "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS",
+          "structuralReadMethods": "PARTIAL_EXPECTED",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.2.00",
@@ -1822,7 +1939,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "f5578093-0dad-4cb1-95f0-a3136949fff9",
+          "preparedDigest": "44530471ab5268a9f6344005f4e3395aae043c774cbf1511d8890661f7220f32",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.2.00-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.2.01",
@@ -1973,7 +2103,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "1a47c5b9-f6b1-4bdc-9581-ea43c9728eba",
+          "preparedDigest": "b7fbaa0a6c651f3ec670ff90b11ddbfca4d63a92565c54024ba8e56340e20b8e",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.2.01-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.2.02",
@@ -2124,7 +2267,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "85d9c5fd-9b69-4ce4-9c6b-affe1ff5db7a",
+          "preparedDigest": "8d6946562018cbae3989e71e04740d5fab3b56923c5cd2d492f50745384b10e5",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.2.02-allversions-owned-r3",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.2.03",
@@ -2275,7 +2431,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "a7fd2516-6040-4140-a4ad-f4f97c089b68",
+          "preparedDigest": "3ef2d229cdc9d06f59df05f208d8d1cc82b343f799e666641cbbfec67bd6ad08",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.2.03-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.3.00",
@@ -2426,7 +2595,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "6ae62c47-e7fb-428f-9276-d4c2e8a2c69e",
+          "preparedDigest": "c84390367a50ad2eb1cc44939ac72da9b4f094df13bf299368906ae5dcd1d46d",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.00-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.3.01",
@@ -2577,7 +2759,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "979febd0-c89f-4aa9-bd5c-2641418caa67",
+          "preparedDigest": "e003abd2ffdfbed8711ba784738615c8476d6ea6884fee009762b0eba8b74368",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.01-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.3.02",
@@ -2728,7 +2923,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "50562e8e-535e-4e12-8fdc-7ddd7a47f2dc",
+          "preparedDigest": "7d9469714912d7f1b6b57b4864d618d84d1f9bedbd4b1db8584ddee094a88fd8",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.02-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.3.03",
@@ -2879,7 +3087,20 @@
       ],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "8471a00f-254d-492e-b7f2-7ac537fbfe2a",
+          "preparedDigest": "2ef4e5611574fc8dcf55e60a035f429fbc767dd73cc3acf07a74ec3e121507dc",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.03-allversions-owned-r1",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     },
     {
       "version": "5.3.04",
@@ -3029,7 +3250,20 @@
       "capabilitiesWithoutExactRecord": [],
       "verifiedSupported": [],
       "verifiedUnsupported": [],
-      "runtimeCapabilityAudit": "PENDING"
+      "runtimeCapabilityAudit": "PARTIAL_SCENARIO_COVERAGE",
+      "scopedLiveEvidence": [
+        {
+          "scenario": "core-owned-moc",
+          "capabilityId": "cubism.core.owned-moc.read",
+          "jobId": "6b80a640-8264-44bf-91f0-d10590071d50",
+          "preparedDigest": "3264ebb68c191f2336cb77dee80e9be8d559ad065b700983e3b5c753eb7f4384",
+          "index": "owned-moc-coverage.json",
+          "evidenceDirectory": "mcp-evidence/5.3.04-allversions-owned-r5",
+          "verdict": "PASS_WITH_DOCUMENTED_SCOPE",
+          "structuralReadMethods": "PASS",
+          "wholeFrameworkSupport": false
+        }
+      ]
     }
   ],
   "capabilities": {
