@@ -1644,3 +1644,56 @@ inputs and retains the fixed per-version SHA gate. Re-audit yields the identical
 static verdict/digests. Final offline-review-cli.json SHA
 423566d10862aadace44efb090c8d8c6559e7eaf57c7a6789c1934b8dd215f23 binds the
 final CLI source and unchanged measurements; the initial review remains saved.
+
+### T050 retained allocation-site attribution (prototype still pending)
+
+The preceding goal turn only rechecked terminal state and answered the user's
+status question; it did not advance optimization. This turn revalidated the clean
+eec4a58 source and idle shared FIFO, then completed the first T050 evidence gate.
+No host task, production-source change, previewBundle, merge or push occurred.
+
+`analyze-edge-allocation-sites.py` streams only ObjectAllocationSample events
+from the retained recordings, uses the exact first-operation windows and exact
+edge binary name, and separates the allocating caller from inclusive h.c frames.
+It preserves compact raw edge samples and checks recording/window digests before
+and after reading. All event counts, operation counts, all-class weights and edge
+weights agree exactly with the prior hotspot report. Five parser tests cover
+direct versus delegated allocation, overloads, inclusive time boundaries, missing
+stacks/internal names, and invalid weights/event types. Final test log and sources
+are pinned in build/t050-lazy-edge-bytecode/offline-review.json.
+
+On/off have3717/3630 edge allocation samples. Edge weights remain
+13,118,570,616/13,030,867,680 estimated bytes. Three direct h.c NEW sites at
+BCIs301/320/339 account for13,033,429,264/12,964,200,968 estimated bytes:
+99.35099%/99.48839% of edge weights and62.20865%/63.02810% of all first-operation
+allocation weights. These are sampling estimates, not exact allocated/live bytes
+or causal CPU cost. Other callers remain separate, including h.a overloads and
+the native lazy n.a path; their inclusive h.c frames are not counted as primary
+construction sites.
+
+The frozen ee244 Agent's own patchers were invoked on official5302 class bytes
+as data only. Reconstructed h SHA40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6
+matches the saved production-transform receipts, whose original runtime logs
+were rehashed. Its c()V has the same three NEW positions as pinned pristine h,
+followed by the separate fourth NEW at649. The candidate's constructor calls
+remain315/334/353; additional constructor657 stays outside scope. No official
+class was defined or executed. A final-defined h digest was not captured, so this
+is receipt/bytecode/BCI correspondence rather than independent downstream-
+transformation or dependency-definition proof.
+
+Final allocation-site-review.json SHA
+508017396dffba54be7ca6c7c1ca2143d22bcc6a5d6de79e223d9d072e0db275 and
+constructor-site-review.json SHA
+65ad9116e9f9a72159e5dccae82036857d26a960c6f404a84d599dba3509e425 bind windows,
+recordings, raw samples, logs and inspected bytes. Offline-review.json SHA
+e23c053afaf5fe4710d341f33bc65bd1adaae1332a85a03bed9c9219272e2b83 binds sources,
+five-test log, reconstruction/mapping scripts and unchanged frozen ee244/0dc308
+Agents. Initial attribution/report/logs remain preserved separately.
+
+The actual allocation-site share now supports implementing the offline lazy-edge
+bytecode prototype. T050 remains partial: generated-own-class execution,
+unknown-byte rejection, original fourth path/private predicate/order/fresh
+identity, null/assertion/exception stacks, class initialization, dependency
+definitions and frame/control-flow verification remain required. Neither stable
+host benefit nor a theoretical bottleneck follows. Production acceptance remains
+HOLD_PRODUCTION_ACCEPTANCE, and T044/T046/the overall goal remain open.
