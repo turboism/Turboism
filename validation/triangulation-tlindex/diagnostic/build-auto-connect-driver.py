@@ -30,7 +30,12 @@ def replace(old, new):
     assert text.count(old) == 1, old
     text = text.replace(old, new)
 replace('    private T040ShadowSceneDriverAgent() {}', '''    private T040ShadowSceneDriverAgent() {}
-    private static Instrumentation meshInstrumentation;''')
+    private static Instrumentation meshInstrumentation;
+    static boolean mayRetryCaptureWait(FixedEdt.Timeout timeout, long nowNanos, long deadlineNanos) {
+        return timeout.operation == FixedEdt.Operation.MESH_CAPTURE
+            && timeout.state == FixedEdt.State.TIMED_OUT
+            && nowNanos < deadlineNanos && !Thread.currentThread().isInterrupted();
+    }''')
 replace('            final DriverConfig config = DriverConfig.fromSystemProperties();', '''            final DriverConfig config = DriverConfig.fromSystemProperties();
             if (config.resourceObservationSeconds == 0 || config.exportProbe || config.shadow
                     || !"5203".equals(config.version)) {
@@ -66,6 +71,9 @@ replace('        private void resourceMarker(final String phase, final int opera
             Files.writeString(run.resolve("auto-connect-protocol.properties"),
                 "scope=DIAGNOSTIC_ONLY\\nrebuild=true\\npreserveBorder=true\\ncycles=3\\n",
                 StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+            Files.writeString(run.resolve("auto-connect-capture-wait.tsv"),
+                "cycle\\tepochMillis\\treason\\tdetail\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
             final NativeAutoConnect.Binding binding = FixedEdt.callWithin(
                 () -> NativeAutoConnect.binding(meshController()),
                 FixedEdt.Operation.MESH_BIND, evidence, remainingMillis(runDeadlineNanos));
@@ -91,14 +99,33 @@ replace('        private void resourceMarker(final String phase, final int opera
                 final long readyDeadline = Math.min(runDeadlineNanos,
                     System.nanoTime() + TimeUnit.SECONDS.toNanos(30));
                 java.util.List<NativeAutoConnect.MeshResult> results;
+                String lastCacheFailure = null;
                 while (true) {
+                    if (System.nanoTime() >= readyDeadline) {
+                        recordCaptureWait(cycle, "READY_DEADLINE_EXPIRED", "No further capture dispatched");
+                        throw new IllegalStateException("mesh capture ready deadline expired");
+                    }
                     try {
                         results = FixedEdt.callWithin(() -> NativeAutoConnect.capture(
                             meshController(), binding, ids),
                             FixedEdt.Operation.MESH_CAPTURE, evidence, remainingMillis(readyDeadline));
+                        if (System.nanoTime() >= readyDeadline) {
+                            recordCaptureWait(cycle, "READY_DEADLINE_EXPIRED", "Query returned after ready deadline");
+                            throw new IllegalStateException("mesh capture returned after ready deadline");
+                        }
                         break;
                     } catch (MeshResultSnapshot.CacheNotReady pending) {
+                        if (!pending.getMessage().equals(lastCacheFailure)) {
+                            recordCaptureWait(cycle, "CACHE_NOT_READY", pending.getMessage());
+                            lastCacheFailure = pending.getMessage();
+                        }
                         if (System.nanoTime() >= readyDeadline) throw pending;
+                        sleep(100L);
+                    } catch (FixedEdt.Timeout timeout) {
+                        final boolean retry = mayRetryCaptureWait(timeout, System.nanoTime(), readyDeadline);
+                        recordCaptureWait(cycle, retry ? "CANCELLED_BEFORE_START_RETRY" : "TIMEOUT_NOT_RETRIED",
+                            timeout.getMessage());
+                        if (!retry) throw timeout;
                         sleep(100L);
                     }
                 }
@@ -126,6 +153,13 @@ replace('        private void resourceMarker(final String phase, final int opera
             verifyMeshFixture();
         }
 
+        private void recordCaptureWait(int cycle, String reason, String detail) throws Exception {
+            Files.writeString(run.resolve("auto-connect-capture-wait.tsv"),
+                cycle + "\\t" + System.currentTimeMillis() + "\\t" + reason + "\\t"
+                    + detail.replace('\\t', ' ').replace('\\r', ' ').replace('\\n', ' ') + "\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        }
+
         private void resourceMarker(final String phase, final int operation) throws Exception {''')
 driver.write_text(text)
 edt = src / 'FixedEdt.java'
@@ -141,6 +175,22 @@ for name in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVA
     env.pop(name, None)
 subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
                 '-d', str(classes), *map(str, sorted(src.glob('*.java')))], env=env, check=True)
+check_source = diag / 'CaptureWaitSelfCheck.java'
+inputs[str(check_source.relative_to(root))] = hashlib.sha256(check_source.read_bytes()).hexdigest()
+check_src = out / 'selfcheck-src'
+check_classes = out / 'selfcheck-classes'
+check_src.mkdir(); check_classes.mkdir()
+check_java = check_src / check_source.name
+check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + check_source.read_text())
+subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                '-cp', str(classes), '-d', str(check_classes), str(check_java)], env=env, check=True)
+check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                        str(classes) + os.pathsep + str(check_classes),
+                        'dev.turboism.validation.atlasimage.shadow.CaptureWaitSelfCheck'],
+                       env=env, capture_output=True, text=True)
+(out / 'capture-wait-selfcheck.log').write_text(check.stdout + check.stderr)
+check.check_returncode()
+print(check.stdout, end='')
 manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'

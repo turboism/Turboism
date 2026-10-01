@@ -29,9 +29,25 @@ public final class MeshResultSnapshotSelfCheck {
                 require(MeshResultSnapshot.capture(mesh).equals(original));
                 mesh.stale = true;
                 int reads = mesh.arrayReads;
-                reject(() -> MeshResultSnapshot.capture(mesh));
+                try {
+                    MeshResultSnapshot.capture(mesh);
+                    throw new AssertionError("expected cache rejection");
+                } catch (MeshResultSnapshot.CacheNotReady expected) {
+                    require(expected.getMessage().equals(
+                        "native mesh cache is stale: edge=7 indexCache=-1 position=4 vertexCache=4"));
+                }
                 require(mesh.arrayReads == reads);
                 mesh.stale = false;
+                mesh.vertexStale = true;
+                try {
+                    MeshResultSnapshot.capture(mesh);
+                    throw new AssertionError("expected vertex cache rejection");
+                } catch (MeshResultSnapshot.CacheNotReady expected) {
+                    require(expected.getMessage().equals(
+                        "native mesh cache is stale: edge=7 indexCache=7 position=4 vertexCache=-1"));
+                }
+                require(mesh.arrayReads == reads);
+                mesh.vertexStale = false;
                 mesh.changeDuringRead = true;
                 reject(() -> MeshResultSnapshot.capture(mesh));
                 mesh.changeDuringRead = false;
@@ -52,6 +68,7 @@ public final class MeshResultSnapshotSelfCheck {
 
     public static final class NativeShape {
         boolean stale;
+        boolean vertexStale;
         boolean changeDuringRead;
         boolean throwGetter;
         int arrayReads;
@@ -59,7 +76,7 @@ public final class MeshResultSnapshotSelfCheck {
         public int get_edge_edit_version() { return version; }
         public int getCache_version_gl_indices$core() { return stale ? -1 : version; }
         public int get_postion_edit_version() { return 4; }
-        public int getCache_version_gl_vertex$core() { return 4; }
+        public int getCache_version_gl_vertex$core() { return vertexStale ? -1 : 4; }
         public int getPointCount() { return 3; }
         public float[] getCached_positions$core() {
             arrayReads++;
