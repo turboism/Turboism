@@ -19,12 +19,28 @@ final class DefinitionFingerprint implements Opcodes {
     private static List<Object> row(Object... items) { return Arrays.asList(items); }
 
     static String of(byte[] bytes) {
+        return fingerprint(bytes, false);
+    }
+
+    // HotSpot retransformation reconstructs executable/runtime metadata, but
+    // omits CLASS-retention annotations and the Deprecated pseudo access bit.
+    // Keep the full static fingerprint separate; retain all visible annotations,
+    // instructions, fields, flags and control-flow in this runtime projection.
+    static String runtimeOf(byte[] bytes) {
+        return fingerprint(bytes, true);
+    }
+
+    private static int access(int flags, boolean runtime) {
+        return runtime ? flags & ~ACC_DEPRECATED : flags;
+    }
+
+    private static String fingerprint(byte[] bytes, boolean runtime) {
         List<Object> header = new ArrayList<>();
         TreeMap<String, List<Object>> fields = new TreeMap<>(), methods = new TreeMap<>();
         new ClassReader(bytes).accept(new ClassVisitor(ASM9) {
             @Override public void visit(int version, int access, String name, String signature,
                     String superName, String[] interfaces) {
-                header.add(row("class", version, access, name, signature, superName, interfaces));
+                header.add(row("class", version, access(access, runtime), name, signature, superName, interfaces));
             }
             @Override public void visitNestHost(String name) { header.add(row("nestHost", name)); }
             @Override public void visitNestMember(String name) { header.add(row("nestMember", name)); }
@@ -37,9 +53,11 @@ final class DefinitionFingerprint implements Opcodes {
             @Override public void visitPermittedSubclass(String name) { header.add(row("permitted", name)); }
             @Override public void visitAttribute(Attribute attribute) { reject(attribute); }
             @Override public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+                if (runtime && !visible) return null;
                 return annotation(header, row("annotation", desc, visible));
             }
             @Override public AnnotationVisitor visitTypeAnnotation(int ref, TypePath path, String desc, boolean visible) {
+                if (runtime && !visible) return null;
                 return annotation(header, row("typeAnnotation", ref, path == null ? null : path.toString(), desc, visible));
             }
             @Override public RecordComponentVisitor visitRecordComponent(String name, String desc, String signature) {
@@ -49,20 +67,22 @@ final class DefinitionFingerprint implements Opcodes {
                 throw new IllegalArgumentException("module definitions are outside this admission stencil");
             }
             @Override public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-                List<Object> data = new ArrayList<>(); data.add(row("field", access, name, desc, signature, value));
+                List<Object> data = new ArrayList<>(); data.add(row("field", access(access, runtime), name, desc, signature, value));
                 if (fields.put(name + ':' + desc, data) != null) throw new IllegalArgumentException("duplicate field");
                 return new FieldVisitor(ASM9) {
                     @Override public AnnotationVisitor visitAnnotation(String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(data, row("annotation", d, v));
                     }
                     @Override public AnnotationVisitor visitTypeAnnotation(int r, TypePath p, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(data, row("typeAnnotation", r, p == null ? null : p.toString(), d, v));
                     }
                     @Override public void visitAttribute(Attribute a) { reject(a); }
                 };
             }
             @Override public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-                List<Object> data = new ArrayList<>(); data.add(row("method", access, name, desc, signature, exceptions));
+                List<Object> data = new ArrayList<>(); data.add(row("method", access(access, runtime), name, desc, signature, exceptions));
                 if (methods.put(name + desc, data) != null) throw new IllegalArgumentException("duplicate method");
                 return new MethodVisitor(ASM9) {
                     private final IdentityHashMap<Label, Integer> positions = new IdentityHashMap<>();
@@ -85,22 +105,31 @@ final class DefinitionFingerprint implements Opcodes {
                     @Override public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] targets) { op("lookup", dflt, keys, targets); }
                     @Override public void visitMultiANewArrayInsn(String d, int dimensions) { op("multiArray", d, dimensions); }
                     @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) { handlers.add(row(start, end, handler, type)); }
-                    @Override public AnnotationVisitor visitAnnotation(String d, boolean v) { return annotation(data, row("annotation", d, v)); }
+                    @Override public AnnotationVisitor visitAnnotation(String d, boolean v) {
+                        return runtime && !v ? null : annotation(data, row("annotation", d, v));
+                    }
                     @Override public AnnotationVisitor visitAnnotationDefault() { return annotation(data, row("annotationDefault")); }
                     @Override public AnnotationVisitor visitParameterAnnotation(int parameter, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(data, row("parameterAnnotation", parameter, d, v));
                     }
-                    @Override public void visitAnnotableParameterCount(int count, boolean visible) { data.add(row("annotableParameters", count, visible)); }
+                    @Override public void visitAnnotableParameterCount(int count, boolean visible) {
+                        if (!runtime || visible) data.add(row("annotableParameters", count, visible));
+                    }
                     @Override public AnnotationVisitor visitTypeAnnotation(int ref, TypePath path, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(data, row("typeAnnotation", ref, path == null ? null : path.toString(), d, v));
                     }
                     @Override public AnnotationVisitor visitInsnAnnotation(int ref, TypePath path, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(code, row("insnAnnotation", instruction - 1, ref, path == null ? null : path.toString(), d, v));
                     }
                     @Override public AnnotationVisitor visitTryCatchAnnotation(int ref, TypePath path, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(handlers, row("handlerAnnotation", ref, path == null ? null : path.toString(), d, v));
                     }
                     @Override public AnnotationVisitor visitLocalVariableAnnotation(int ref, TypePath path, Label[] start, Label[] end, int[] index, String d, boolean v) {
+                        if (runtime && !v) return null;
                         return annotation(code, row("localAnnotation", ref, path == null ? null : path.toString(), start, end, index, d, v));
                     }
                     @Override public void visitAttribute(Attribute a) { reject(a); }
@@ -114,7 +143,8 @@ final class DefinitionFingerprint implements Opcodes {
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             try (DataOutputStream stream = new DataOutputStream(buffer)) {
-                encode(stream, row("definition-v1", header, new ArrayList<>(fields.values()), new ArrayList<>(methods.values())));
+                encode(stream, row(runtime ? "runtime-definition-v1" : "definition-v1", header,
+                        new ArrayList<>(fields.values()), new ArrayList<>(methods.values())));
             }
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(buffer.toByteArray()));
         } catch (Exception error) { throw new IllegalArgumentException("definition encoding failed", error); }

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
+import java.util.function.BiConsumer;
 
 /**
  * Owned-JVM research admission; not wired into production or an official host.
@@ -76,10 +77,16 @@ final class LiveDefinitionAdmission implements AutoCloseable {
     }
 
     Gate capture(Class<?>[] dependencies, Map<String, String> expected) {
+        return capture(dependencies, expected, (name, bytes) -> {});
+    }
+
+    // Owned diagnostic hook only: copy observed bytes before handing them to a
+    // recorder, so it cannot alter the buffer that the JVM receives.
+    Gate capture(Class<?>[] dependencies, Map<String, String> expected, BiConsumer<String, byte[]> recorder) {
         Gate gate = new Gate();
         if (!registered) { gate.revoke("RETRANSFORM_UNAVAILABLE"); return gate; }
         if (closed) { gate.revoke("CLOSED"); return gate; }
-        if (dependencies == null || dependencies.length == 0 || expected == null) {
+        if (dependencies == null || dependencies.length == 0 || expected == null || recorder == null) {
             gate.revoke("DEPENDENCIES_MISSING"); return gate;
         }
         Class<?>[] actual = dependencies.clone();
@@ -116,7 +123,8 @@ final class LiveDefinitionAdmission implements AutoCloseable {
                             || captured.containsKey(redefined)) {
                         gate.revoke("CAPTURE_IDENTITY_REJECTED"); return null;
                     }
-                    captured.put(redefined, DefinitionFingerprint.of(bytes));
+                    recorder.accept(redefined.getName(), bytes.clone());
+                    captured.put(redefined, DefinitionFingerprint.runtimeOf(bytes));
                 } catch (RuntimeException refused) { gate.revoke("CAPTURE_BYTES_REJECTED"); }
                 // Capture observes bytes but never edits or returns replacement code.
                 return null;
