@@ -111,3 +111,80 @@ frames, and never treats first-operation samples as proof for later operations.
 
 Large JFR JSON is parsed one event at a time and hashed as a stream, avoiding
 whole-file allocation. Tests cover chunk boundaries, truncation and trailing data.
+
+## Repeated-target protocol investigation after fusion pair
+
+The first fusion pair again has no triangulation samples in operations 2/3.
+Do not extend the current reopen-only loop and call it repeated-target evidence.
+A concrete next diagnostic is native document close/reload in the same JVM,
+followed by the existing editor open/OK action on the unchanged task fixture.
+
+Repository precedent: `ProtectedExportHostProbeAgent.openAndAwaitBoundDocument`
+uses `CEAppCtrl.command_open(File, boolean)` and verifies the bound file;
+`closeDocument` uses `command_closeFileContent`, with project-child detachment
+as its completion check. This precedent establishes an API investigation path,
+not support on all three reviewed host versions or proof of retriangulation.
+Its disposable-copy helper also changes saved timestamps and may force-release
+file-cache entries: those behaviors must NOT be carried into a retention test,
+because they change lifecycle observations.
+
+Before host submission, review the native command signatures for each version.
+Use a separate opt-in driver/diagnostic artifact, leaving the current frozen pair
+unchanged. On the EDT, verify that the active document is the task-owned fixture;
+record its byte hash, document identity and project membership. Close through the
+native command, explicitly observe any discard dialog, and require removal from
+the project. Reopen the same task path through the native open command, require
+a different live document object and the original bytes, then run open/OK.
+Do not force GC, clear host caches, mark documents artificially saved, or retain
+old documents in a probe registry. Identity comparisons must use object identity,
+not identityHashCode equality; any probe reference needed to verify replacement
+must be released before the retained observation window.
+
+Keep reload time separate from editor-operation time, and preserve thirty-second
+retained windows with identity-bound process/cgroup measurements. Each of all
+three operation windows must independently show native triangulation execution;
+absence of samples leaves the repeated-target gate unproven. The four-capture
+agent's hard cap cannot establish output equality for every later cycle: add a
+separate per-cycle evidence strategy before claiming repeated-cycle correctness.
+This experiment is pending and does not establish either retention safety or a
+theoretical optimization limit.
+
+### Three-version native API review
+
+Read-only javap review of the three official jars confirms identical signatures
+for command_open(File, boolean), command_closeFileContent(IFileContent),
+getCurrentDoc() and getCurrentProject(). Raw signatures, close dispatch bytecode
+and IFileContent defaults are retained in
+`build/t029-real-host-acceptance/repeated-target-review/`.
+
+- 5203: CEAppCtrl SHA `6762f7d5bb593648f54cc8cf834e71d788fa8b0c7c5621ee1827a30ac18980f7`; close implementation O SHA `6c80b27bdbcb2da5fce4616e710671552da4d9c3f4759b6b43225e4fddaee59b`.
+- 5302: CEAppCtrl SHA `ed2ed37d5d3f34375aa8918c12305c61be6e6e78bfc7e28c382c72b2e04215fc`; close implementation O SHA `18691b3a694cc0329cb1e5afa765b3e89f55c56c6d72e3dec3fab0434c8089bf`.
+- 5303: CEAppCtrl SHA `a4613396fdf86de9b9ba6ca9950b2bf7748dd7ae5f8d85ea142968331bca2b2e`; close implementation O SHA `7f932833eed8b5442c40f5ccf2053b98748c67f2112441d3bc22da2b7fedd638`.
+
+The modeling-document branch delegates through IFileContent default arguments
+to closeFile(true, false), preserving the normal close/save path. A returned
+command is not proof of document detachment (the wrapper discards the boolean).
+The next implementation must handle the task-owned native discard prompt and
+verify project detachment separately. Static API compatibility is proven here;
+actual reload, modal handling and repeated target execution are not yet proven.
+
+
+### Correction: native close/reload is not the no-explicit-GC acceptance loop
+
+Following the native close call into CModelingDocument.closeFile(boolean, boolean)
+reveals an unconditional System.gc() at bytecode offset241 after project removal
+in **all three versions**. Pinned class/dump hashes and exact instructions are in
+`repeated-target-review/native-close-gc.json`. This supersedes the proposed
+close/reload route above for the existing no-forced-GC retention gate. Native
+close/reload could measure ordinary close/reopen behavior if explicitly labeled,
+but must not be substituted for no-explicit-GC repeated triangulation acceptance.
+Do not patch away host GC or introduce DisableExplicitGC merely to pass the gate.
+
+The next candidate trigger to investigate is native command_undo(IDocument)
+after the atlas operation, followed by editor open/OK again. The controller has
+this public command; existence alone does not prove it restores pre-triangulation
+state. First verify a specific undo record was created, the command restores
+that record (not an unrelated edit), and later operations independently execute
+the target. Capture canonical output per cycle and preserve unchanged fixture
+bytes. If undo merely restores already triangulated cached state, reject this
+trigger too rather than treating UI success as repeated target execution.

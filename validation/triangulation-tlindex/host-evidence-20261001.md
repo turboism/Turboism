@@ -628,3 +628,104 @@ off succeeds. Post-pair analysis additionally requires exactly one 5203 membersh
 receipt on, none off, with h input `ef4a5eb2...` and output `d38c2fbe...` full pins.
 It retains four-edge/canonical/class/JFR/resource-window checks. No performance
 verdict yet; no production-ready or theoretical-bottleneck claim.
+
+
+## First frozen fusion resource pair completed (stability unproven)
+
+Agent `2f6dd5ba7fe734072e89b7c09d400bcc35840cecf811bdecdb64b3425052fda4`:
+off seq2243 (`ec79608f-ad17-44a7-a15f-a88e62225444`), on seq2244
+(`598cf7fa-c353-4b51-ae82-9122639cacff`). Both exited normally with safe cleanup,
+unchanged fixture and verified identity. Canonical/standard gates, four ordered
+edge summaries, pinned TriangleList classes and production execution pass. On has
+exactly the reviewed h transformation receipt; off has none.
+
+`build/t029-real-host-acceptance/fusion-resource5203/` retains full reports.
+First operation off/on: 137.962782 / 133.018025 seconds (about -3.58%);
+sampled Java CPU 173.14 / 167.33 seconds (about -3.36%). JFR triangulation sample
+span 94.415943 / 85.838165 seconds is a sampled bound, not an exact timer.
+Baseline RSS medians 2535.16 / 2632.36 MiB; first retained medians 4838.21 /
+4179.16 MiB; third retained medians 5294.33 / 4509.61 MiB. Whole-observed-process
+Java CPU 382.19 / 383.27 seconds does not show an overall CPU reduction.
+Operations two and three have zero triangulation samples on both legs; these
+remain UI-repeat observations, not demonstrated repeated-target retention.
+
+The original analysis pipeline completed semantics/resource summaries, then failed
+because it expected an execution JSON export that analyze.py had not persisted.
+Recovery exported the original retained JFR recordings with stack depth 64 and
+ran the streaming window analyzer; no host leg was rerun. completion.json records
+this recovery. The original analyzer still materializes full JFR JSON in memory;
+correct that for subsequent pairs. Single-pair performance acceptance remains
+NOT_DECIDED. Next: reverse-order frozen-candidate replication, followed by the
+remaining version/UI/repeated-target gates if the benefit persists.
+
+
+### Reverse-order replication submitted
+
+`fusion-resource5203-reverse/` reuses exactly the same two prepared inventories
+and frozen agent, with on submitted before off. On seq2278,
+job `1ea6e3ce-58f3-43db-98bb-dd40713ad409`, is queued; the client submits off only
+after on succeeds. Both inventories and UI configuration hashes passed again.
+The first local preflight was refused before any submission because text copying
+normalized UI JSON newlines; byte-for-byte copying restored the original hashes.
+The refusal log remains `preflight-failed-newline-normalization.log`.
+
+The reverse analyzer now persists depth-64 JFR JSON directly to disk and consumes
+the existing streaming event parser. Its downstream window analyzer reads that
+same export. Nine existing resource/parser regression tests pass. No production
+artifact changes were made between pairs. The first pair's original script and
+outputs remain intact. Reverse performance results are still pending.
+
+
+### Fusion first-operation caller attribution
+
+`build/t029-real-host-acceptance/attribute-fusion.py` streams the retained depth-64
+exports, filters strictly to the first explicit operation, and pins export/window
+report hashes in `fusion-resource5203/hotspot-attribution.json`. Target samples
+are off4655/on4354. Native HashSet.contains stacks decrease from 883 to 278;
+the remaining on stacks pass through TriangleList.c and the contains helper.
+Native add/remove remain visible. On leaf samples include l.equals1172,
+HashMap.TreeNode.find758, and TriangulationEdgeIndex.remove570. The latter is a
+method-level sample attribution, not proof that all570 samples belong to its
+survivor scan. The source still verifies the actual removed identity by scanning
+survivors; geometric equality may select a different equal identity, so that scan
+cannot simply be deleted. JIT inlining may redistribute leaf attribution between
+TreeNode.find and l.equals; comparing their leaf counts individually is not a
+causal performance claim. No invocation counts, stable speedup or theoretical
+limit are inferred from these sample totals. Reverse pair remains pending.
+
+
+### Repeated-target trigger correction
+
+Static review followed native close into CModelingDocument on all3 official
+versions. Each calls System.gc() unconditionally at offset241. Therefore the
+proposed close/reload trigger cannot establish the existing no-explicit-GC
+retention gate; it is not implemented as that acceptance path. Raw pinned
+bytecode is retained under repeated-target-review, with native-close-gc.json.
+Investigate native undo of the specific atlas operation next; no claim that undo
+actually retriggers triangulation yet. This finding does not invalidate the
+completed single-operation pairs, which did not use document close/reload.
+
+### Native undo trigger diagnostic prepared and queued
+
+Separate driver `d8c74ec635ac3771ce57223a9d4c2da23b3310fdb78644a8234c4d37c6347bfd`
+built by diagnostic/build-undo-driver.py, from pinned driver source plus native
+undo guard/adapter. Fourteen guard checks and seven synthetic EDT adapter checks
+pass; generated driver compiles with Java17 -Xlint:all -Werror. Original production
+agent remains 2f6dd5ba..., and the reverse performance pair is unchanged.
+
+Prepared `2d438cb097b0732e464b0012b43480d1c28a655652b2b18a8f6adbd76ca0d1a9`,
+seq2290 job `3863d3c1-2494-48f7-8810-f3140df4d929` is queued. Inputs were fully
+hashed again before submit. Initial preparation rejected the bundle location;
+copying the separate bundle to the required worktree delivery directory resolved
+it, with prepare-rejected-location.log retained. Artifacts/client under
+`build/t029-real-host-acceptance/undo-trigger5203/`.
+
+This diagnostic undoes after each operation and before its observation window.
+Its extra diagnostic-undo markers deliberately invalidate the standard resource
+acceptance protocol. Native snapshots use the current edit mode's manager, require
+one new history object, verify identity immediately before native command_undo,
+and check cursor/history after return. Fixture bytes are checked before/after.
+Snapshots are released before retained observation. Native undo may still leave
+cached triangulation or produce no record; these remain falsifiable failures.
+No repeated-target execution, per-cycle output equivalence, or retention result
+is claimed until actual host evidence exists.
