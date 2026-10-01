@@ -213,3 +213,48 @@ java -Djava.awt.headless=true -cp /tmp/mesh-snapshot-check MeshResultSnapshotSel
 
 15 checks passed locally. The recorder is not yet wired into a host driver;
 its shape assumptions still require native validation before host acceptance.
+
+`NativeAutoConnect` is the task-bound command adapter under preparation. It uses
+native selection and mesh-editor commands, rejects locked/missing mesh extensions,
+checks selected source identities against edit data, sets the two real checkbox
+options, and captures existing results on a later EDT observation. It does not
+unlock model data or write cache-version fields. Sources with fewer than three
+points are excluded and selected source IDs are returned for the driver to record.
+The driver must additionally verify fixture SHA and record options/phase markers.
+
+Java17 -Xlint:all -Werror compilation and12 `NativeAutoConnectSelfCheck` guard
+checks pass. Native class names, edit-data ordering and actual command/repaint
+completion are not established by these synthetic tests. The separate driver now builds; task-owned host validation is still pending.
+
+`build-auto-connect-driver.py OUTPUT` generates a separate5203-only diagnostic
+from the same pinned T040 source. It replaces the atlas editor loop with native
+mesh entry, three rebuild+preserve-border auto-connect cycles, cached-result
+observations, and native cancel before ordinary exit. Each cycle records command
+start/return/result-ready boundaries separately. Stale caches are observed for at
+most30s without forcing recomputation; other capture errors propagate immediately.
+The selected IDs are Base64-encoded and each result row contains cycle, source ID,
+point count, edge version, position/index lengths and ordered hashes. Fixture SHA
+is checked around the operations. Distinct mesh/auto-connect markers intentionally
+fail the ordinary atlas resource protocol.
+
+Generator syntax and generated Java17 -Xlint:all -Werror compilation pass.
+Protocol analysis has six synthetic checks below; real-host execution is pending. Native undo history is
+part of this different workload; even successful repeated execution would not by
+itself establish index retention safety or replace atlas A/B acceptance.
+
+`analyze-auto-connect.py MARKERS SELECTED RESULTS PROTOCOL JFR_JSON OUTCOME OUTPUT`
+requires successful host gates, complete entry/three-cycle/cancel markers, exact
+native options and a complete ordered result set for every selected ID each cycle.
+It counts command and settling samples separately; all three command intervals
+must show target samples before reporting REPEATED_COMMAND_TARGET_OBSERVED.
+Unresolved frames are counted, not treated as positive target execution. Reports
+always leave cross-run equality unassessed and performance acceptance inapplicable.
+Six synthetic tests pass with `python3 -B validation/triangulation-tlindex/diagnostic/test-auto-connect-analysis.py`,
+including missing-cycle, delayed-only execution, partial-host and incomplete-result
+rejection cases. This validates the analyzer, not the pending native diagnostic.
+
+The current auto-connect diagnostic build is recorded under
+`build/t029-real-host-acceptance/auto-connect5203-build/build.json`, with driver SHA
+`18dd504d5cc9a37a45abaf1a6f4df1b37a786322871ae97db39f48d31fb4b90d`.
+It was compiled after both5302 measurement legs ended and before5303 began.
+No native auto-connect execution is claimed by this build receipt.
