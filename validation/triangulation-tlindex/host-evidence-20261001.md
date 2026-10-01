@@ -1143,3 +1143,25 @@ The shared host was observed quarantined by another task, seq2338/job
 No cancellation, recovery, evidence change or process signal is applied to that
 other task. Our submission must remain FIFO behind existing jobs. T044/T046 and
 final Agent021e4908 verification remain incomplete.
+
+### R4 terminal failure: capture admitted, index cache stale
+
+The other session restored the shared queue; our r4 submitted as seq2340/job
+36cabddb-3ce3-47bd-8c5f-d7504d62a482 and ran with the frozen inputs. The first native
+command returned after64.3473187s with711 selected sources. Capture callbacks now
+ran, but reported edgeVersion370/indexCacheVersion-1/positionVersion1/vertexCacheVersion1.
+No version change was recorded before the original30s ready deadline expired.
+There were no cancelled-before-start retry rows and no completed result rows.
+This narrows the observed failure to result readiness; it does not prove that all
+meshes stay stale forever or that cache-refresh/forced-computation is appropriate.
+
+The job remains FAIL, normalExit=false, cleanup=safe. Supervisor post-containment
+source/copy fixture, cloned/golden JAR/BAT and staged artifact hashes all match;
+these supplementary checks do not rewrite the top-level failed gates. Original
+outcome, wait/marker/selection/protocol files and the sole7,988,269-byte partial JFR
+are retained under auto-connect5203-r4. JFR SHA
+995c231e1d592a4f9e97afec1a7729c26db3db5909836166f333806d1819a185;
+summary succeeds. failure-review.json binds the evidence and original outcome.
+The terminal monitor correctly refused acceptance analysis and did not rerun.
+Review native cache publication before any further diagnostic change. Separately,
+final Agent021e4908 on/off5302 and real settings-UI inputs are being prepared.
