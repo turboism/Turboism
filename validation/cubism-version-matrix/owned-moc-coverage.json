@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "completeFrameworkCoverage": false,
+  "capabilityId": "cubism.core.owned-moc.read",
+  "scenario": "core-owned-moc",
+  "productionPath": [
+    "PluginContext.cubism().coreRuntime()",
+    "CubismFacadeAdapters permission wrapper",
+    "RuntimeCoreModelBackend",
+    "CoreRuntimeMetadata",
+    "OwnedMocRuntime verified native callsites"
+  ],
+  "probe": {
+    "path": "validation/mcp-host-probe/src/dev/turboism/validation/mcp/CoreOwnedMocProbe.java",
+    "sha256": "5233cf0aa16454f479ac61d198c9438a2b654fcc9fe0fafe90b8a12f6a24a17e"
+  },
+  "methods": [
+    {
+      "sdkMethod": "CoreRuntimeInfo.version()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/CoreRuntimeInfo.java",
+      "assertion": "Exact native tuple equals the independently observed expected tuple",
+      "evidenceKey": "nativeCoreVersion"
+    },
+    {
+      "sdkMethod": "CoreRuntimeInfo.capabilities()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/CoreRuntimeInfo.java",
+      "assertion": "Reported feature set; legacy repeat is explicitly false; full profiles only record the feature set",
+      "evidenceKey": "capabilities"
+    },
+    {
+      "sdkMethod": "CoreRuntimeInfo.mocInspector()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/CoreRuntimeInfo.java",
+      "assertion": "Obtain permission-checked inspection service",
+      "evidenceKey": "mocVersion"
+    },
+    {
+      "sdkMethod": "MocInspector.latestVersion()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/MocInspector.java",
+      "assertion": "Latest supported version must not be UNKNOWN",
+      "evidenceKey": "latestMocVersion"
+    },
+    {
+      "sdkMethod": "MocInspector.inspect(MocData)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/MocInspector.java",
+      "assertion": "Pinned official MOC must have known version and CONSISTENT status",
+      "evidenceKey": "mocVersion"
+    },
+    {
+      "sdkMethod": "CoreRuntimeInfo.mocLoader()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/CoreRuntimeInfo.java",
+      "assertion": "Obtain loader through public facade permission wrapper",
+      "evidenceKey": "status"
+    },
+    {
+      "sdkMethod": "MocLoader.load(MocData)",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/MocLoader.java",
+      "assertion": "Load exact pinned bytes; returned handle is nonzero; inspection agrees",
+      "evidenceKey": "fixtureSha256"
+    },
+    {
+      "sdkMethod": "OwnedMoc.version()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedMoc.java",
+      "assertion": "Equals inspector version",
+      "evidenceKey": "mocVersion"
+    },
+    {
+      "sdkMethod": "OwnedMoc.consistency()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedMoc.java",
+      "assertion": "Equals inspector consistency",
+      "evidenceKey": "status"
+    },
+    {
+      "sdkMethod": "OwnedMoc.nativeHandle()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedMoc.java",
+      "assertion": "Nonzero while open; rejects access after close",
+      "evidenceKey": "useAfterCloseRejected"
+    },
+    {
+      "sdkMethod": "OwnedMoc.instantiateModel()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedMoc.java",
+      "assertion": "Two simultaneous models have distinct nonzero handles; rejects after parent close",
+      "evidenceKey": "independentInstances"
+    },
+    {
+      "sdkMethod": "OwnedMoc.close()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedMoc.java",
+      "assertion": "Explicit child-first release, idempotence and parent cascade to two live children",
+      "evidenceKey": "parentCascadeClose"
+    },
+    {
+      "sdkMethod": "OwnedModel.nativeHandle()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Distinct nonzero handles; rejects access after explicit/cascade close",
+      "evidenceKey": "independentInstances"
+    },
+    {
+      "sdkMethod": "OwnedModel.canvasInfo()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Positive metrics; repeated and independent projections agree; rejects after close",
+      "evidenceKey": "allStructuralReadMethods"
+    },
+    {
+      "sdkMethod": "OwnedModel.parameters()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Populated immutable copied projections; legacy 42 parameters with unavailable repeat; closed access rejected",
+      "evidenceKey": "parameterCount"
+    },
+    {
+      "sdkMethod": "OwnedModel.parts()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Populated immutable copied projections; legacy 19 parts; closed access rejected",
+      "evidenceKey": "partCount"
+    },
+    {
+      "sdkMethod": "OwnedModel.drawables()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Full profile: populated vertices/UV/index bounds and immutable positions; legacy: explicit UOE; closed access rejected",
+      "evidenceKey": "drawableCount"
+    },
+    {
+      "sdkMethod": "OwnedModel.glues()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Full profile: empty immutable getter only; nonempty semantics remain unverified; legacy: explicit UOE",
+      "evidenceKey": "glueCount"
+    },
+    {
+      "sdkMethod": "OwnedModel.deformers()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Full profile: populated immutable copied list; legacy: explicit UOE; closed access rejected",
+      "evidenceKey": "deformerCount"
+    },
+    {
+      "sdkMethod": "OwnedModel.update()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Native call succeeds on two instances and leaves earlier copies stable; closed calls rejected",
+      "evidenceKey": "immutableCopies"
+    },
+    {
+      "sdkMethod": "OwnedModel.close()",
+      "sdkSource": "sdk/src/main/java/dev/turboism/sdk/cubism/core/OwnedModel.java",
+      "assertion": "Explicit release, repeat close and every getter/update rejected after close",
+      "evidenceKey": "explicitChildThenParentClose"
+    }
+  ],
+  "liveResults": [
+    {
+      "version": "5.1.00",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "d0a21c17-a245-433d-a6f1-e50c1a74a243",
+      "preparedDigest": "3e1e0c3ee2c6c2b7054456bec268368518f22a1fee07f536c4362282bab678e1",
+      "evidenceDirectory": "mcp-evidence/5.1.00-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.1.01",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "975a4716-e33b-4fed-bf31-ec3cceb19948",
+      "preparedDigest": "1ed3cdff6f76034136e5c1b3c5e3ea873aca95c3da9952b7d48f484892f1fbf0",
+      "evidenceDirectory": "mcp-evidence/5.1.01-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.1.02",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "08ea7c21-6425-4e0a-966d-2a71a11fa7e5",
+      "preparedDigest": "8ee84cbe49aa6ca560927529fb21916afbc7ef34274e583aa0a8b75c6996c777",
+      "evidenceDirectory": "mcp-evidence/5.1.02-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.1.03",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "0165fbd2-3473-4407-b613-1ca42b69b72b",
+      "preparedDigest": "cc81752879fdb1d2fe2d7b8a2aa238e1b0c4bcc4dfc41cf5843384d8a78dc0b6",
+      "evidenceDirectory": "mcp-evidence/5.1.03-allversions-owned-r6",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.2.00",
+      "nativeCoreVersion": "5.0.256",
+      "jobId": "f5578093-0dad-4cb1-95f0-a3136949fff9",
+      "preparedDigest": "44530471ab5268a9f6344005f4e3395aae043c774cbf1511d8890661f7220f32",
+      "evidenceDirectory": "mcp-evidence/5.2.00-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.2.01",
+      "nativeCoreVersion": "5.0.256",
+      "jobId": "1a47c5b9-f6b1-4bdc-9581-ea43c9728eba",
+      "preparedDigest": "b7fbaa0a6c651f3ec670ff90b11ddbfca4d63a92565c54024ba8e56340e20b8e",
+      "evidenceDirectory": "mcp-evidence/5.2.01-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.2.02",
+      "nativeCoreVersion": "5.0.256",
+      "jobId": "85d9c5fd-9b69-4ce4-9c6b-affe1ff5db7a",
+      "preparedDigest": "8d6946562018cbae3989e71e04740d5fab3b56923c5cd2d492f50745384b10e5",
+      "evidenceDirectory": "mcp-evidence/5.2.02-allversions-owned-r3",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.2.03",
+      "nativeCoreVersion": "5.0.256",
+      "jobId": "a7fd2516-6040-4140-a4ad-f4f97c089b68",
+      "preparedDigest": "3ef2d229cdc9d06f59df05f208d8d1cc82b343f799e666641cbbfec67bd6ad08",
+      "evidenceDirectory": "mcp-evidence/5.2.03-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.3.00",
+      "nativeCoreVersion": "6.0.257",
+      "jobId": "6ae62c47-e7fb-428f-9276-d4c2e8a2c69e",
+      "preparedDigest": "c84390367a50ad2eb1cc44939ac72da9b4f094df13bf299368906ae5dcd1d46d",
+      "evidenceDirectory": "mcp-evidence/5.3.00-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.3.01",
+      "nativeCoreVersion": "6.0.257",
+      "jobId": "979febd0-c89f-4aa9-bd5c-2641418caa67",
+      "preparedDigest": "e003abd2ffdfbed8711ba784738615c8476d6ea6884fee009762b0eba8b74368",
+      "evidenceDirectory": "mcp-evidence/5.3.01-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.3.02",
+      "nativeCoreVersion": "6.0.257",
+      "jobId": "50562e8e-535e-4e12-8fdc-7ddd7a47f2dc",
+      "preparedDigest": "7d9469714912d7f1b6b57b4864d618d84d1f9bedbd4b1db8584ddee094a88fd8",
+      "evidenceDirectory": "mcp-evidence/5.3.02-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.3.03",
+      "nativeCoreVersion": "6.0.257",
+      "jobId": "8471a00f-254d-492e-b7f2-7ac537fbfe2a",
+      "preparedDigest": "2ef4e5611574fc8dcf55e60a035f429fbc767dd73cc3acf07a74ec3e121507dc",
+      "evidenceDirectory": "mcp-evidence/5.3.03-allversions-owned-r1",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    },
+    {
+      "version": "5.3.04",
+      "nativeCoreVersion": "6.0.513",
+      "jobId": "6b80a640-8264-44bf-91f0-d10590071d50",
+      "preparedDigest": "3264ebb68c191f2336cb77dee80e9be8d559ad065b700983e3b5c753eb7f4384",
+      "evidenceDirectory": "mcp-evidence/5.3.04-allversions-owned-r5",
+      "structuralReadMethods": "PASS",
+      "glueScope": "EMPTY_GETTER_ONLY",
+      "verdict": "PASS_WITH_DOCUMENTED_SCOPE"
+    }
+  ],
+  "legacyExpectedScope": {
+    "supportedFamilies": [
+      "canvas",
+      "parameters",
+      "parts"
+    ],
+    "negativeAssertions": [
+      "complete-drawables",
+      "glues",
+      "deformers"
+    ],
+    "liveVerdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+  },
+  "uncovered": [
+    "Nonempty Glue relationships",
+    "Permission revocation during live native use (synthetic tests only)",
+    "Invalid/quota-exceeding MOC bytes (synthetic tests only)",
+    "Editor-to-Core borrowed-model acquisition",
+    "Full field semantics independently compared to native/golden output",
+    "Mesa optimization",
+    "Other SDK services, plugins and framework capabilities"
+  ]
+}

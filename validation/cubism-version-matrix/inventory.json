@@ -6828,9 +6828,38 @@
       "coverageMapping": "PENDING_AUDIT"
     },
     {
-      "id": "core-acquisition:default",
+      "id": "core-acquisition:assisted",
+      "coverageMapping": "PENDING_AUDIT",
       "task": "core-acquisition",
-      "variant": "default",
+      "variant": "assisted",
+      "wrapper": "scripts/preview/run-core-acquisition-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ]
+    },
+    {
+      "id": "core-acquisition:standard",
+      "task": "core-acquisition",
+      "variant": "standard",
       "wrapper": "scripts/preview/run-core-acquisition-host-validation.sh",
       "catalogueVersions": [
         "5000",
@@ -6862,13 +6891,23 @@
       "variant": "default",
       "wrapper": "scripts/preview/run-core-owned-moc-host-validation.sh",
       "catalogueVersions": [
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
         "5100",
+        "5101",
+        "5102",
         "5103",
         "5200",
         "5201",
         "5202",
+        "5203",
         "5300",
         "5301",
+        "5302",
+        "5303",
         "5304"
       ],
       "coverageMapping": "PENDING_AUDIT"
@@ -7425,9 +7464,38 @@
       "coverageMapping": "PENDING_AUDIT"
     },
     {
-      "id": "mcp:default",
+      "id": "mcp:free-fixture",
+      "coverageMapping": "PENDING_AUDIT",
       "task": "mcp",
-      "variant": "default",
+      "variant": "free-fixture",
+      "wrapper": "scripts/preview/run-mcp-host-validation.sh",
+      "catalogueVersions": [
+        "5000",
+        "5001",
+        "5002",
+        "5003",
+        "5004",
+        "5005",
+        "5006",
+        "5100",
+        "5101",
+        "5102",
+        "5103",
+        "5200",
+        "5201",
+        "5202",
+        "5203",
+        "5300",
+        "5301",
+        "5302",
+        "5303",
+        "5304"
+      ]
+    },
+    {
+      "id": "mcp:standard",
+      "task": "mcp",
+      "variant": "standard",
       "wrapper": "scripts/preview/run-mcp-host-validation.sh",
       "catalogueVersions": [
         "5000",
@@ -14667,5 +14735,6 @@
         "cubism.workspace.control"
       ]
     }
-  ]
+  ],
+  "methodCoverageIndex": "sdk-method-coverage.json"
 }
