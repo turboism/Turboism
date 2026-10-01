@@ -121,7 +121,12 @@ public final class StartupSuppressionInstaller {
                 policy,
                 ignored -> {
                     final StartupSuppressionClassFileTransformer installed = reference.get();
-                    if (installed != null) {
+                    // An owned definition callback must never wait for an active
+                    // operation. targetAttempted already makes this transformer
+                    // inert; its installation handle removes it at shutdown.
+                    if (installed != null
+                            && dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle
+                                    .ownedBy(instrumentation) == null) {
                         instrumentation.removeTransformer(installed);
                     }
                 },
