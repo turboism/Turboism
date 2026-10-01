@@ -847,3 +847,119 @@ Auto-connect diagnostic driver18dd504d5cc9a37a45abaf1a6f4df1b37a786322871ae97db3
 built separately after the5302 performance legs ended. Java17 strict compilation,
 15 snapshot checks,12 command-guard checks and6 protocol-analyzer tests pass.
 No host execution or repeated-target verdict for this driver yet.
+
+### Fusion 5303 pair completed
+
+Off seq2300 job14c9becc-ba9d-4dfd-aec3-02a69cc755a4 and on seq2301
+jobf6bf0b0c-794d-4e5f-8607-6dbc87ba4e8c pass all host gates, ordered-edge equality,
+exact class/transform receipt checks and observed production execution. Full
+resource/window reports are pinned by fusion-resource5303/completion.json.
+
+First operation off/on105.780429/88.9901439s (about−15.87%); sampled Java CPU
+167.00/128.28s (−23.19%). Whole-process CPU376.30/310.43s; sampled process wall
+314.917/286.489s. Baseline RSS medians2912.04/2627.45MiB, first retained
+4290.43/3802.48MiB, second retained4907.75/4960.64MiB, third retained
+5284.91/5083.87MiB. This single pair has a small opposite-direction second-retained
+RSS difference and different baselines; no blanket memory-win claim.
+
+Operations2/3 again have zero target samples. Off has one target sample attributed
+to the baseline window and3674 to operation1; on has2342 in operation1. These are
+sample-time attributions, not counts of invocations. Unknown method frames=0.
+All three versions now have positive first-operation pairs for the same frozen
+candidate. Stable replication, actual repeated-target retention and final UI/resource
+acceptance remain open. No theoretical-limit claim or main merge.
+
+### Follow-up scheduling
+
+Native auto-connect diagnostic seq2303/jobebb55755-fdab-4874-b80c-07fd8471efe4
+is queued with prepared401b9c04fabca712a9aafaf5695ebeecd24e2f83ee0277638893a859dcddba81.
+Reverse-order5302 on seq2304/job6e291489-dbe3-44c2-af76-10b1f6bc2e04 follows;
+its client will submit off after on and analyze the pair before starting reverse5303.
+Reverse clients reuse the original prepared IDs and byte-identical UI JSON, with
+new request IDs. Both inventories were rehashed before submission. FIFO applies;
+no concurrent host run or worker intervention. Diagnostic JFR analysis must wait
+if a subsequent owned performance leg has already started.
+
+### Auto-connect diagnostic first host failure
+
+Seq2303 failed with safe cleanup, without normal exit/final identity/fixture gates.
+The host entered native mesh mode and recorded711 selected source IDs. The first
+command failed before dispatch with NoSuchMethodException:
+`com.live2d.ui.container.CScrollPane.getCheckboxRebuildMesh()`.
+The no-argument reflection lookup selected a getToolPanel return descriptor that
+produces a scroll container, whereas the reviewed native command uses the
+ToolPanel_MeshEdit descriptor. No auto-connect-returned/end or result rows exist;
+this run proves neither repeated target execution nor optimization behavior.
+Original prepared401b9c04 and driver18dd504d plus all failure records are retained.
+
+The adapter now selects getToolPanel by its reviewed exact return type and rejects
+ambiguous/missing/bridge descriptors. Regression source includes covariant bridge
+and wrong-descriptor rejection checks; compilation/tests/new diagnostic artifact
+are deferred while reverse5302 on seq2304 is measuring. This is not yet a verified
+fix or a rerun result. The frozen production candidate remains unchanged.
+
+### Final UI preflight refusal and corrected preparation
+
+Final-agent UI seq2305 failed before host launch: expected fixture hash57c4854b…
+from inherited configuration differed from copied, previously reviewed UI fixture
+2866a509…. Safe cleanup; no UI behavior was exercised. The initial inventory check
+verified the file bytes but omitted equality with the Runner's declared fixture
+hash, so it was insufficient. Original input/review/outcome/log remain under
+fusion-settings-ui and are not counted as UI acceptance.
+
+fusion-settings-ui-r2 now pins both fixture path and SHA explicitly and checks the
+single normalized --fixture-sha256 against the fixture inventory, as well as all
+input file hashes, agent2f6dd5ba and probe5d79212f. Prepared
+f37dbad15d666bf34f0c953a682566e1bcd2a1e82b7d20e4e4b3806d12ddfb75
+passes those checks. The new request is separate; no validation gate was relaxed.
+
+The official5203 ToolMode_MeshEdit_Manual javap declares getToolPanel returning
+both ToolPanel_MeshEdit and CWidget, confirming why name-only reflection was
+insufficient in seq2303. The exact-return-descriptor fix still awaits its new
+compiled/host artifact; the old failed diagnostic remains immutable.
+
+### Reverse 5302 completed; final candidate UI semantics verified
+
+Reverse pair on seq2304 / off seq2307 completed with standard host gates PASS.
+First-operation wall off→on: 93.1862576→88.0417819 s (-5.52%);
+CPU 122.51→121.06 s (-1.18%). Whole-process CSV observation
+309.539→287.101 s, CPU 325.47→310.45 s. This replicates the positive
+first-operation direction, but the CPU effect is much smaller than the first
+pair. Completion/report hashes are in fusion-resource5302-reverse/completion.json.
+The comparison now includes five pairs; no stable acceptance is declared.
+
+Final UI retry seq2308 / job e918e38d-f290-43f0-96ad-b1ac49b468ba succeeded
+with normal exit, identity/fixture verification and safe cleanup. Actual
+settings-result.txt reports zero failures: absent config defaults selected,
+Apply saves false, Cancel preserves it, reopening shows false, OK saves true,
+and reopening shows true. Agent2f6dd5ba / probe5d79212f remain pinned.
+The actual UI off/on snapshots hash to 8945ee22… / 190ea2fc… and are byte-identical
+to the A/B source configurations. The result SHA is
+d5329da999862c1222b2264263d7f14051d79ce5dd76bdd4cd010d1d904608dc.
+Full semantic/hash review: fusion-settings-ui-r2/ui-semantic-review.json.
+This UI process alone is not a restart-transformer check; independent A/B launch
+receipts remain necessary to establish startup behavior.
+
+The diagnostic exact-return fix compiled with Java17 -Xlint:all -Werror;
+NativeAutoConnectSelfCheck passed all15 checks. Official5203 metadata inspection
+found both CWidget and ToolPanel_MeshEdit returns (both nonbridge), and exactly
+one reviewed ToolPanel_MeshEdit descriptor. This verifies descriptor selection,
+not successful native command execution. New driver construction is deferred
+until reverse5303 performance legs end; seq2310 on is currently running.
+
+Endpoint-source correction: reverse5302 309.064→287.053 s and
+324.64→309.97 CPU s are identity-resource JSON totals, not process CSV.
+The CSV totals above match final-ab-analysis.json and the comparison table.
+Both observations are retained; endpoint windows must not be mixed.
+
+### Final UI configuration linked to six independent startups
+
+`verify-final-ui-startup-link.py` passed for5203/5302/5303 off/on. Each run's
+prepared --home-config bytes and actual task turboism-home/config.json exactly
+match the final UI snapshots; prepared Agent SHA is2f6dd5ba. Runtime-log hashes
+and actual TriangleList definition hashes were re-read and matched the completed
+reports. Membership transformation receipts occur only on enabled launches;
+pristine/patched class hashes differ in each version. This links final UI saved
+values to actual independently launched startup behavior, not merely UI wording.
+Machine-readable evidence: fusion-settings-ui-r2/startup-link-review.json (6 runs).
+It closes this final UI/startup linkage gap, not resource/performance acceptance.
