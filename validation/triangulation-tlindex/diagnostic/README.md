@@ -1,0 +1,69 @@
+# Contains branch diagnostic (not performance acceptance)
+
+The first contains candidate resource pair (seq2219 on / seq2226 off) did not
+demonstrate a gain. Full-stack JFR proves the native contains hotspot reaches the
+woven helper, but time-biased stack samples cannot estimate shortcut hit rates.
+
+Ranked hypotheses and falsifiable observations:
+
+1. Unknown identities dominate: `identityMiss` attempts will dominate native
+   fallbacks. Its true/false split distinguishes equal-but-distinct objects from
+   absent objects without adding another native lookup.
+2. Stale state dominates: `dirty`, `setSize`, `keySize` or `dead` attempts will
+   dominate. This would direct investigation to the mutation/rebuild protocol.
+3. The shortcut already handles most calls: `identityHit` will dominate, while
+   residual native add/remove or index-maintenance samples remain expensive.
+   Counts alone cannot quantify those other costs.
+
+Build from the SHA-pinned production source and frozen agent:
+
+```sh
+python3 validation/triangulation-tlindex/diagnostic/build-contains-probe.py \
+  /absolute/path/to/frozen/turboism-agent.jar /absolute/path/to/new-output
+```
+
+This generates a helper copy in the new output directory, compiles it, and runs
+36 checks against the real generated helper. It then replaces only the outer
+`TriangulationEdgeIndex.class` entry, adds `ContainsDiagnostic.class`, verifies
+every other existing jar entry is unchanged, and repeats the checks against the
+packaged jar with the original inner classes. Production source and the input jar
+are never edited. Source or input-agent SHA mismatch refuses the build. Native
+return values, equal-but-distinct queries and native exception identity are tested.
+
+At normal JVM shutdown the counter emits one stderr line with prefix
+`[TL-CONTAINS-DIAGNOSTIC-v1]` and a JSON object. Each reason has three columns:
+`[attempts, returnedTrue, returnedFalse]`. Reasons are mutually exclusive and
+follow the original short-circuit checks in order. `identityHit` returns true
+without native lookup. For fallback reasons, attempts minus completed returns
+means native exceptions or unfinished calls; it is not a false result. Fatal
+bookkeeping failures retain the original fatal policy and may prevent output.
+Missing shutdown output never means zero calls. The build checks the exact JSON
+counts in both selfchecks, including intentionally throwing native calls.
+
+The fixed-size atomic counters retain no host sets or triangles and do no per-call
+I/O. They still perturb timing and compilation. Submit the separately labeled
+diagnostic artifact only through the unified host queue, with cloned fixtures and
+the normal capture gates. Its timings are **not** the frozen production candidate's
+performance result. Counts aggregate the complete JVM run, not a specific window.
+No performance acceptance, new threshold, or theoretical bottleneck follows from
+this probe alone.
+
+
+After normal completion, use the console log inside that task directory, the queue
+outcome, and the diagnostic build manifest:
+
+```sh
+python3 validation/triangulation-tlindex/diagnostic/analyze-contains-probe.py \
+  /task/logs/console.log /job/outcome.json /diagnostic-build/manifest.json \
+  /new/report.json
+python3 -B validation/triangulation-tlindex/diagnostic/test-contains-analysis.py
+```
+
+The analyzer requires successful host gates, matching staged diagnostic agent
+hashes, a log belonging to the outcome task, and exactly one complete aggregate.
+It refuses zero execution, duplicate/missing output, bookkeeping failures and
+incomplete native returns. It hashes inputs and never overwrites an existing
+report. Its four parser tests cover counts, missing/duplicate output, invalid or
+incomplete rows, schema errors and impossible shortcut outcomes. Capture/edge
+correctness still needs the existing independent checks before accepting a
+production candidate; this report only establishes aggregate branch behavior.
