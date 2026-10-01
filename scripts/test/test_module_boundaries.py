@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 GRADLEW = ROOT / "gradlew"
-BOUNDARY_SCRIPT = (ROOT / "gradle/module-boundaries.gradle.kts").as_posix()
+BOUNDARY_SCRIPT = ROOT / "gradle/module-boundaries.gradle.kts"
 
 
 def write_project(project: Path, dependency: str = "", source: str = "") -> None:
@@ -31,6 +31,11 @@ def run_fixture(
 ) -> None:
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
+        # The task declares its policy file as a project-relative input. Keep the
+        # actual rule source in the fixture so Gradle reaches the rejection being tested.
+        policy = root / "gradle/module-boundaries.gradle.kts"
+        policy.parent.mkdir()
+        policy.write_bytes(BOUNDARY_SCRIPT.read_bytes())
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
             'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
@@ -38,7 +43,7 @@ def run_fixture(
         )
         (root / "build.gradle.kts").write_text(
             'tasks.register("checkSdkV4ExactApiCompatibility")\n'
-            f'apply(from = "{BOUNDARY_SCRIPT}")\n',
+            'apply(from = "gradle/module-boundaries.gradle.kts")\n',
             encoding="utf-8",
         )
         write_project(root / "sdk", sdk_dependency)

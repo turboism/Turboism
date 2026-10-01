@@ -73,6 +73,7 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.USER_FILES,
                 PluginService.FILE_CHOOSER_HISTORY,
                 PluginService.PHYSICS_EDITOR,
+                PluginService.MESH_TOOLS,
                 PluginService.SCENE_TABLE,
                 PluginService.CUBISM_LOG,
                 PluginService.APPEARANCE,

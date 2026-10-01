@@ -68,6 +68,60 @@ class PreviewPluginContextFactoryCompositionTest {
     Path tempDir;
 
     @Test
+    void previewSharedSnapshotsFollowLiveSelectionAndHostDisconnect() throws Exception {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final var resolver = selectionResolver();
+        final HostSession session = HostSessionTestSupport.connectedSession(
+                () -> Optional.ofNullable(current.get()),
+                ignored -> adapters("selection-project"),
+                descriptor -> new dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess(
+                        resolver, descriptor.sessionId()),
+                ignored -> resolver);
+        final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
+        final Path home = tempDir.resolve("selection-home");
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
+                SharedAsyncHostReadLane lane = new SharedAsyncHostReadLane(8);
+                DisposableScope scope = new DisposableScope()) {
+            final var factory = new PreviewPluginContextFactory(
+                    home,
+                    scheduler,
+                    session.adapterAccess(),
+                    lane,
+                    log,
+                    new RuntimeFailureCollector(),
+                    FileChooserHistoryService.unavailable());
+            final CorePluginContext context = factory.create(
+                            descriptor(), PreviewPluginContextFactoryCompositionTest.class.getClassLoader(), scope)
+                    .context();
+            assertTrue(
+                    context.cubism().runtime().selection().selectedObjectIds().isEmpty());
+
+            SelectionHost.selectedId = "MeshA";
+            current.set(HostSessionTestSupport.descriptor("selection-session"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(
+                    List.of("MeshA"), context.cubism().runtime().selection().selectedObjectIds());
+            assertEquals(
+                    context.cubism().runtime().selection(), context.cubismRead().selection());
+
+            SelectionHost.selectedId = "MeshB";
+            assertEquals(
+                    List.of("MeshB"), context.cubism().runtime().selection().selectedObjectIds());
+            assertEquals(
+                    context.cubism().runtime().selection(), context.cubismRead().selection());
+
+            current.set(null);
+            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertTrue(
+                    context.cubism().runtime().selection().selectedObjectIds().isEmpty());
+        } finally {
+            SelectionHost.selectedId = null;
+            session.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void previewCompositionPublishesSessionSnapshotReadsToCanonicalAndLegacyFacadeSurfaces() throws Exception {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final AtomicReference<UserFileGrantSource> actualSource = new AtomicReference<>();
@@ -262,6 +316,96 @@ class PreviewPluginContextFactoryCompositionTest {
                 Set.of("export-settings"),
                 List.of(StaticSelector.classSelector("fixture.host", "example/Host")),
                 PreviewPluginContextFactoryCompositionTest.class.getClassLoader());
+    }
+
+    private static dev.turboism.mapping.verification.VerifiedMemberResolver selectionResolver() {
+        final String owner = SelectionHost.class.getName().replace('.', '/');
+        final String self = "()L" + owner + ";";
+        final var methods = new java.util.ArrayList<StaticSelector>();
+        methods.add(StaticSelector.staticMethod(
+                "cubism.editor-model.app-controller.instance",
+                owner,
+                "instance",
+                self,
+                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
+        methods.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", owner));
+        for (final String[] entry : List.of(
+                new String[] {"app-controller.current-document", "currentDocument", self},
+                new String[] {"app-controller.update-manager", "updateManager", self},
+                new String[] {"modeling-document.model-source", "modelSource", self},
+                new String[] {"update-manager.selection-guid-list", "selectionGuidList", "()Ljava/util/List;"},
+                new String[] {"model-source.all-objects", "allObjects", "()Ljava/util/List;"},
+                new String[] {"model-source.all-parameters", "allParameters", "()Ljava/util/List;"},
+                new String[] {"parameter-controllable-source.guid", "guid", self},
+                new String[] {"parameter-controllable-source.id", "id", self},
+                new String[] {"parameter-source.guid", "guid", self},
+                new String[] {"parameter-source.id", "id", self},
+                new String[] {"guid.value", "value", "()Ljava/lang/String;"},
+                new String[] {"id.value", "value", "()Ljava/lang/String;"})) {
+            methods.add(StaticSelector.method(
+                    "cubism.editor-model." + entry[0], owner, entry[1], entry[2], StaticSelector.ACCESS_PUBLIC));
+        }
+        return TestVerifiedResolvers.create(
+                "5.3.02",
+                dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract.CAPABILITY_ID),
+                methods,
+                SelectionHost.class.getClassLoader());
+    }
+
+    /** Minimal host fixture traversed by the verified selection reader in Preview composition. */
+    public static final class SelectionHost {
+        private static final SelectionHost INSTANCE = new SelectionHost("host");
+        private static final List<SelectionHost> OBJECTS =
+                List.of(new SelectionHost("MeshA"), new SelectionHost("MeshB"));
+        private static volatile String selectedId;
+        private final String value;
+
+        SelectionHost(final String value) {
+            this.value = value;
+        }
+
+        public static SelectionHost instance() {
+            return INSTANCE;
+        }
+
+        public SelectionHost currentDocument() {
+            return this;
+        }
+
+        public SelectionHost updateManager() {
+            return this;
+        }
+
+        public SelectionHost modelSource() {
+            return this;
+        }
+
+        public List<SelectionHost> selectionGuidList() {
+            return OBJECTS.stream()
+                    .filter(object -> object.value.equals(selectedId))
+                    .toList();
+        }
+
+        public List<SelectionHost> allObjects() {
+            return OBJECTS;
+        }
+
+        public List<SelectionHost> allParameters() {
+            return List.of();
+        }
+
+        public SelectionHost guid() {
+            return this;
+        }
+
+        public SelectionHost id() {
+            return this;
+        }
+
+        public String value() {
+            return value;
+        }
     }
 
     private static RuntimeHostAdapters adapters(final String projectId) {

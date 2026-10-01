@@ -482,7 +482,8 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--graphics-device", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python"})
+    "--remote-pre-launch-arg", "--aux-agent-before-main", "--client-python",
+    "--editor-window-niri", "--editor-window-python"})
 
 # Job-local Linux launch environment: only reviewed Mesa/Proton debug names may
 # be snapshotted into a prepared job. The snapshotted Runner re-validates the
@@ -830,6 +831,23 @@ class PreparedStore:
                 item for item in (memory_dependency, mcp_dependency, edit_protocol_dependency)
                 if item is not None
             ]
+            if "--focus-editor-window" in argv:
+                if not (tool_dir / "focus-cubism-validation-window.py").is_file():
+                    raise QueueError("missing canonical editor window helper")
+                for flag, installed in (("--editor-window-niri", shutil.which("niri")),
+                                        ("--editor-window-python", sys.executable)):
+                    if not installed or flag not in argv or argv.count(flag) != 1:
+                        raise QueueError("window helper requires exact installed dependencies")
+                    position = argv.index(flag)
+                    if position + 1 >= len(argv):
+                        raise QueueError("window helper dependency path is missing")
+                    actual = Path(argv[position + 1]).resolve()
+                    if actual != Path(installed).resolve() or not actual.is_file():
+                        raise QueueError("window helper dependency must match the preparing host")
+                    host_dependencies.append({"option": flag, "path": str(actual),
+                                              "sha256": runtime_digest(actual)})
+            elif "--editor-window-niri" in argv or "--editor-window-python" in argv:
+                raise QueueError("window helper dependencies require --focus-editor-window")
             index = 0
             while index < len(argv):
                 flag = argv[index]
@@ -841,6 +859,8 @@ class PreparedStore:
                     raise QueueError(f"unsupported normalized runner option: {flag}")
                 value = argv[index + 1]
                 index += 2
+                if flag in {"--editor-window-niri", "--editor-window-python"}:
+                    value = next(item["path"] for item in host_dependencies if item["option"] == flag)
                 if flag == "--transport" and value != "local":
                     raise QueueError("only local host execution is supported")
                 if flag == "--graphics-device" and value not in {"inherit", "nvidia"}:

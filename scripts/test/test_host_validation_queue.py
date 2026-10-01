@@ -509,6 +509,43 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
             self.prepared.command(prepared["digest"], self.base / "evidence")
 
+    def test_window_helper_and_installed_dependencies_are_snapshotted_and_rechecked(self):
+        helper = self.preview / "focus-cubism-validation-window.py"
+        helper.write_text("# task-owned window helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# installed niri fixture\n")
+        alias = self.base / "niri-alias"
+        alias.symlink_to(niri)
+        argv = [*self.request["argv"], "--focus-editor-window", "--editor-window-niri", str(alias),
+                "--editor-window-python", sys.executable]
+        with mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+            prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "test:5302")
+        snapshot = self.store.root / "prepared" / prepared["digest"] / "tool/scripts/preview" / helper.name
+        self.assertEqual(helper.read_bytes(), snapshot.read_bytes())
+        self.assertEqual({"--editor-window-niri", "--editor-window-python"},
+                         {item["option"] for item in prepared["hostDependencies"]})
+        helper.unlink()
+        alias.unlink()
+        alias.symlink_to(self.input)
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        self.assertEqual(str(niri.resolve()), command[command.index("--editor-window-niri") + 1])
+        niri.write_text("# changed installed binary\n")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(prepared["digest"], self.base / "evidence")
+
+    def test_window_helper_rejects_missing_or_substituted_dependencies(self):
+        (self.preview / "focus-cubism-validation-window.py").write_text("# helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# niri fixture\n")
+        valid = ["--focus-editor-window", "--editor-window-niri", str(niri),
+                 "--editor-window-python", sys.executable]
+        for flags in (["--focus-editor-window"], valid[:-1],
+                      [*valid[:-1], str(self.input)], ["--editor-window-niri", str(niri)]):
+            with self.subTest(flags=flags), mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+                with self.assertRaises(queue.QueueError):
+                    self.prepared.capture({**self.request, "argv": [*self.request["argv"], *flags]},
+                                          self.source, "test:5302")
+
     def test_only_enumerated_fps_hook_is_allowed(self) -> None:
         for flag, name in (("--remote-pre-launch", "fx-validation-remote-pre-launch.sh"),
                            ("--remote-post-launch", "fps-resize-driver.sh"),

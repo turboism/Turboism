@@ -117,6 +117,32 @@ class WindowsMeshEditValidationProbeTest {
     }
 
     @Test
+    void partsClickUsesTheTreeNameColumnAndRejectsIconOnlyTables() {
+        final javax.swing.JTable table = new javax.swing.JTable(
+                new Object[][] {{"visible", "Body", "locked"}}, new Object[] {"Visibility", "Name", "Lock"});
+        final RendererTree tree = new RendererTree();
+        table.getColumnModel().getColumn(1).setCellRenderer(tree);
+
+        assertEquals(1, WindowsMeshEditValidationProbe.renderedTreeColumn(table, tree, 0));
+        table.getColumnModel().getColumn(1).setCellRenderer(new javax.swing.table.DefaultTableCellRenderer());
+        assertThrows(
+                IllegalStateException.class, () -> WindowsMeshEditValidationProbe.renderedTreeColumn(table, tree, 0));
+    }
+
+    private static final class RendererTree extends JTree implements javax.swing.table.TableCellRenderer {
+        @Override
+        public java.awt.Component getTableCellRendererComponent(
+                final javax.swing.JTable table,
+                final Object value,
+                final boolean selected,
+                final boolean focus,
+                final int row,
+                final int column) {
+            return this;
+        }
+    }
+
+    @Test
     void exactMutationPredicatesRejectCollateralChanges() {
         final MeshSnapshot original =
                 mesh(List.of(point(2, 0.0F, 0.0F), point(7, 1.0F, 1.0F), point(9, 2.0F, 2.0F)), List.of(edge(2, 7)));
@@ -200,6 +226,22 @@ class WindowsMeshEditValidationProbeTest {
         assertThrows(IllegalArgumentException.class, WindowsMeshEditValidationProbe::fixturePath);
         System.setProperty("turboism.validation.fixture", temporary.toString());
         assertEquals(temporary, WindowsMeshEditValidationProbe.fixturePath());
+    }
+
+    @Test
+    void robotOriginUsesTheReceivedViewCoordinatesInsteadOfFrameDecorations() {
+        assertEquals(
+                new java.awt.Point(1388, 160),
+                WindowsMeshEditValidationProbe.robotOriginFromMovement(
+                        new java.awt.Point(1653, 609), new java.awt.Point(265, 449)));
+    }
+
+    @Test
+    void uniformRobotScreenshotsCannotSatisfyPreviewEvidence() {
+        final var image = new java.awt.image.BufferedImage(4, 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        assertFalse(WindowsMeshEditValidationProbe.imageHasVariation(image));
+        image.setRGB(2, 2, 0x191996);
+        assertTrue(WindowsMeshEditValidationProbe.imageHasVariation(image));
     }
 
     private static MeshSnapshot mesh(final List<MeshPointRef> points, final List<MeshEdgeRef> edges) {

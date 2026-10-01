@@ -153,6 +153,9 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
      */
     RuntimeMeshEditUiService meshEditUiService();
 
+    /** Owns plugin tools, native mesh sessions and exact custom-tool activation leases. */
+    dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator();
+
     /**
      * @return the editor UI host lifecycle surface; never null
      */
@@ -266,6 +269,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     private final PhysicsEditorCoordinator physicsEditorCoordinator;
     private final RuntimeMeshMirrorAxisService meshMirrorAxisService;
     private final RuntimeMeshEditUiService meshEditUiService;
+    private final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator;
     private final EditorUiHostLifecycle editorUiLifecycle;
     private final EditorUiContributionAuthority editorUiContributions;
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation;
@@ -310,6 +314,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
             final PhysicsEditorCoordinator physicsEditorCoordinator,
             final RuntimeMeshMirrorAxisService meshMirrorAxisService,
             final RuntimeMeshEditUiService meshEditUiService,
+            final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator,
             final EditorUiHostLifecycle editorUiLifecycle,
             final EditorUiContributionAuthority editorUiContributions,
             final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
@@ -355,6 +360,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
                 java.util.Objects.requireNonNull(physicsEditorCoordinator, "physicsEditorCoordinator");
         this.meshMirrorAxisService = java.util.Objects.requireNonNull(meshMirrorAxisService, "meshMirrorAxisService");
         this.meshEditUiService = java.util.Objects.requireNonNull(meshEditUiService, "meshEditUiService");
+        this.meshToolCoordinator = java.util.Objects.requireNonNull(meshToolCoordinator, "meshToolCoordinator");
         this.editorUiLifecycle = java.util.Objects.requireNonNull(editorUiLifecycle, "editorUiLifecycle");
         this.editorUiContributions = java.util.Objects.requireNonNull(editorUiContributions, "editorUiContributions");
         this.embeddedPanelActivation =
@@ -487,6 +493,11 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     @Override
     public RuntimeMeshEditUiService meshEditUiService() {
         return meshEditUiService;
+    }
+
+    @Override
+    public dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator() {
+        return meshToolCoordinator;
     }
 
     @Override

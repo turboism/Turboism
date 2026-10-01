@@ -17116,6 +17116,858 @@
         "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
         "provenance": "exact 5.2.03 classfile superName/interface verification; generic-compatibility type-relation contract"
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.last_view",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.modeling-document.last-active-view",
+      "runtime": "getLastActiveViewContext",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.modeling-document.last-active-view",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.last_view",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.view_complete_pack",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.view.complete-pack",
+      "runtime": "getCompletePack",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.view.complete-pack",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.view_complete_pack",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.complete_pack_main_view",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.complete-pack.main-view",
+      "runtime": "getMainViewPanel",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics3d/view/glWrapper/GLJPanelWrapper;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.complete-pack.main-view",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.complete_pack_main_view",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.widget_jcomponent",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.widget.jcomponent",
+      "runtime": "getJComponent",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljavax/swing/JComponent;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.widget.jcomponent",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.widget_jcomponent",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.modeling_view_camera",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.modeling-view.camera",
+      "runtime": "getCameraManager",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CECameraManager;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.modeling-view.camera",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.modeling_view_camera",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.camera_document_to_component",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.camera.document-to-component",
+      "runtime": "documentToComponent",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GCameraManager",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.camera.document-to-component",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.camera_document_to_component",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
+      "kind": "constructor",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.vector.create",
+      "runtime": "<init>",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(FF)V",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.vector.create",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.constructor.vector_create",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.vector_x",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.vector.x",
+      "runtime": "getX",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()F",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.vector.x",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_x",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5.2.editor_model.method.vector_y",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.vector.y",
+      "runtime": "getY",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()F",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.vector.y",
+        "recordMappingId": "cubism.mapping.v5.2.editor_model.method.vector_y",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.mesh_editor",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-editor.class",
+      "runtime": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-editor.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_editor",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_start_mode",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-editor.start-mode",
+      "runtime": "startMode",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Ljava/util/List;)V",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-editor.start-mode",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_start_mode",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_end_mode",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-editor.end-mode",
+      "runtime": "endMode",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-editor.end-mode",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_end_mode",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_document",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-editor.document",
+      "runtime": "getDoc",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-editor.document",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_document",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_edit_data_for",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-editor.edit-data-for",
+      "runtime": "getEditDataFor",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)Lcom/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-editor.edit-data-for",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_editor_edit_data_for",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.mesh_edit_data",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-edit-data.class",
+      "runtime": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-edit-data.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_edit_data",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_art_mesh_source",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-edit-data.art-mesh-source",
+      "runtime": "a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-edit-data.art-mesh-source",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_art_mesh_source",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_editable_mesh",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-edit-data.editable-mesh",
+      "runtime": "b",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-edit-data.editable-mesh",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_edit_data_editable_mesh",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.editable_mesh",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.class",
+      "runtime": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.editable_mesh",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_selection",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.selection",
+      "runtime": "getSelection",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.selection",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_selection",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.mesh_selection",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-selection.class",
+      "runtime": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-selection.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.mesh_selection",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.mesh_selection_point_selector",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.mesh-selection.point-selector",
+      "runtime": "getPointSelector",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/doc/selection/PointSelector;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.mesh-selection.point-selector",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.mesh_selection_point_selector",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.point_selector",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-selector.class",
+      "runtime": "com/live2d/doc/selection/PointSelector",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-selector.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_selector",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_selected_points",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-selector.selected-points",
+      "runtime": "getSelectedPoints",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-selector.selected-points",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_selected_points",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_clear",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-selector.clear",
+      "runtime": "clear",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-selector.clear",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_clear",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_selector_add",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-selector.add",
+      "runtime": "add",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/doc/selection/IPointRef;)Z",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-selector.add",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_selector_add",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_ref",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.point-ref",
+      "runtime": "getPointRef",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(I)Lcom/live2d/graphics3d/editableMesh/a;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.point-ref",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_ref",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.class.point_ref",
+      "kind": "class",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-ref.class",
+      "runtime": "com/live2d/graphics3d/editableMesh/a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      },
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-ref.class",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.class.point_ref",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_ref_mesh",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-ref.mesh",
+      "runtime": "a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-ref.mesh",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_mesh",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.point_ref_index",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.point-ref.index",
+      "runtime": "b",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.point-ref.index",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.point_ref_index",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_coord_type",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.coord-type",
+      "runtime": "getCoordType",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/doc/CoordType;",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.coord-type",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_coord_type",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_count",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.point-count",
+      "runtime": "getPointCount",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.point-count",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_point_count",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_gl_positions",
+      "kind": "method",
+      "owner": "editor-model-readwrite",
+      "name": "cubism.editor-model.editable-mesh.gl-positions",
+      "runtime": "getGlPositions",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.2.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()[F",
+      "x.review": {
+        "recordAlias": "cubism.editor-model.editable-mesh.gl-positions",
+        "recordMappingId": "cubism.mapping.v5_2_03.editor_model.method.editable_mesh_gl_positions",
+        "exactArtifactSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "provenance": "independent read-only exact classfile verification for Selection Brush main port T005/T016"
+      }
     }
   ],
   "metadata": {
@@ -17127,8 +17979,8 @@
       "main": "b8c09b5a",
       "entryUnionCount": 384
     },
-    "selectorCount": 820,
-    "capabilityCount": 104,
+    "selectorCount": 852,
+    "capabilityCount": 106,
     "capabilityIds": [
       "cubism.editor-history.move",
       "cubism.editor-history.read",
@@ -17218,6 +18070,7 @@
       "cubism.editor-model.read",
       "cubism.editor-model.rotation-deformer.parameter-bindings.write",
       "cubism.editor-model.rotation-deformer.write",
+      "cubism.editor-model.selection.read",
       "cubism.editor-model.statistics.read",
       "cubism.editor-model.texture.read",
       "cubism.editor-model.texture.write",
@@ -17228,6 +18081,7 @@
       "cubism.editor-model.write",
       "cubism.integration.edit-api-bridge.dispatch",
       "cubism.integration.external-app-settings.edit-toggle",
+      "cubism.mesh-tool.session",
       "cubism.texture-atlas.auto-layout-hook",
       "cubism.texture-atlas.data-model-hook",
       "cubism.texture-atlas.dialog-injection",
@@ -17235,6 +18089,6 @@
       "cubism.texture-atlas.native-layout-invocation",
       "ui.object-context-menu.contribute"
     ],
-    "verificationRecordSha256": "035692e4d28e934a209f28516dbf43dabe816dd9f1c93648ded7443ef99122bb"
+    "verificationRecordSha256": "2cd69b43405206a39887482a6ffa2b90bd62f513cdf08343cbdda43bcff99072"
   }
 }

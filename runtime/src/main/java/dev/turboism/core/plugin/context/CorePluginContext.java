@@ -30,6 +30,7 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshToolRegistry;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
@@ -50,6 +51,8 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
+import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.task.PluginTaskScheduler;
@@ -134,6 +137,24 @@ public final class CorePluginContext implements PluginContext {
 
     private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
+    private volatile MeshToolRegistry meshTools;
+    private boolean meshToolsInstalled;
+    private final PluginServiceDirectory legacyServices = PluginServices.of(this);
+    private final PluginServiceDirectory serviceDirectory = new PluginServiceDirectory() {
+        @Override
+        public Set<PluginService> installed() {
+            return availableServices();
+        }
+
+        @Override
+        public <T> T get(final Class<T> serviceType) {
+            Objects.requireNonNull(serviceType, "serviceType");
+            if (serviceType == MeshToolRegistry.class) {
+                return serviceType.cast(disposableScope().isSealed() ? null : meshTools);
+            }
+            return legacyServices.get(serviceType);
+        }
+    };
 
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, PluginContextEnvironment.safeMode().build());
@@ -693,6 +714,25 @@ public final class CorePluginContext implements PluginContext {
         this.scriptService = Objects.requireNonNull(service, "service");
     }
 
+    /** Installs and owns this generation's directory-only mesh-tool service exactly once. */
+    public synchronized void installMeshTools(final MeshToolRegistry service) {
+        Objects.requireNonNull(service, "service");
+        if (meshToolsInstalled) throw new IllegalStateException("mesh tools already installed");
+        disposableScope().register(() -> {
+            synchronized (CorePluginContext.this) {
+                meshTools = null;
+            }
+            service.close();
+        });
+        meshTools = service;
+        meshToolsInstalled = true;
+    }
+
+    @Override
+    public PluginServiceDirectory services() {
+        return serviceDirectory;
+    }
+
     /** Runtime composition seam; plugins cannot replace their permission-scoped MCP view. */
     public void installMcpConnectionService(final McpConnectionService service) {
         this.mcpConnectionService = Objects.requireNonNull(service, "service");
@@ -839,6 +879,9 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public Set<PluginService> availableServices() {
         final EnumSet<PluginService> available = EnumSet.noneOf(PluginService.class);
+        if (meshTools != null && !disposableScope().isSealed()) {
+            available.add(PluginService.MESH_TOOLS);
+        }
         if (installed(localization, PluginLocalization.unavailable())) {
             available.add(PluginService.LOCALIZATION);
         }

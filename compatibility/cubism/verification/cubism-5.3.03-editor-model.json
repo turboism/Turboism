@@ -103,6 +103,7 @@
     "cubism.editor-model.write",
     "cubism.integration.edit-api-bridge.dispatch",
     "cubism.integration.external-app-settings.edit-toggle",
+    "cubism.mesh-tool.session",
     "cubism.texture-atlas.auto-layout-hook",
     "cubism.texture-atlas.data-model-hook",
     "cubism.texture-atlas.dialog-injection",
@@ -9562,6 +9563,347 @@
       "requiredAccessFlags": 0,
       "forbiddenAccessFlags": 0,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.view_complete_pack",
+      "alias": "cubism.editor-model.view.complete-pack",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "getCompletePack",
+      "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.complete_pack_main_view",
+      "alias": "cubism.editor-model.complete-pack.main-view",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+      "memberName": "getMainViewPanel",
+      "descriptor": "()Lcom/live2d/graphics3d/view/glWrapper/GLJPanelWrapper;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.widget_jcomponent",
+      "alias": "cubism.editor-model.widget.jcomponent",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": "getJComponent",
+      "descriptor": "()Ljavax/swing/JComponent;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.modeling_view_camera",
+      "alias": "cubism.editor-model.modeling-view.camera",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "memberName": "getCameraManager",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CECameraManager;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.camera_document_to_component",
+      "alias": "cubism.editor-model.camera.document-to-component",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GCameraManager",
+      "memberName": "documentToComponent",
+      "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.constructor.vector_create",
+      "alias": "cubism.editor-model.vector.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": "<init>",
+      "descriptor": "(FF)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.vector_x",
+      "alias": "cubism.editor-model.vector.x",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": "getX",
+      "descriptor": "()F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.3.02.editor_model.method.vector_y",
+      "alias": "cubism.editor-model.vector.y",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": "getY",
+      "descriptor": "()F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.mesh_editor",
+      "alias": "cubism.editor-model.mesh-editor.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_editor_start_mode",
+      "alias": "cubism.editor-model.mesh-editor.start-mode",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "memberName": "startMode",
+      "descriptor": "(Ljava/util/List;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_editor_end_mode",
+      "alias": "cubism.editor-model.mesh-editor.end-mode",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "memberName": "endMode",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_editor_document",
+      "alias": "cubism.editor-model.mesh-editor.document",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "memberName": "getDoc",
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_editor_edit_data_for",
+      "alias": "cubism.editor-model.mesh-editor.edit-data-for",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor",
+      "memberName": "getEditDataFor",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;)Lcom/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.mesh_edit_data",
+      "alias": "cubism.editor-model.mesh-edit-data.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_edit_data_art_mesh_source",
+      "alias": "cubism.editor-model.mesh-edit-data.art-mesh-source",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+      "memberName": "a",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_edit_data_editable_mesh",
+      "alias": "cubism.editor-model.mesh-edit-data.editable-mesh",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor$b",
+      "memberName": "b",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.editable_mesh",
+      "alias": "cubism.editor-model.editable-mesh.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_selection",
+      "alias": "cubism.editor-model.editable-mesh.selection",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getSelection",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMeshSelection;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.mesh_selection",
+      "alias": "cubism.editor-model.mesh-selection.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.mesh_selection_point_selector",
+      "alias": "cubism.editor-model.mesh-selection.point-selector",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMeshSelection",
+      "memberName": "getPointSelector",
+      "descriptor": "()Lcom/live2d/doc/selection/PointSelector;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.point_selector",
+      "alias": "cubism.editor-model.point-selector.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.point_selector_selected_points",
+      "alias": "cubism.editor-model.point-selector.selected-points",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+      "memberName": "getSelectedPoints",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.point_selector_clear",
+      "alias": "cubism.editor-model.point-selector.clear",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+      "memberName": "clear",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.point_selector_add",
+      "alias": "cubism.editor-model.point-selector.add",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/doc/selection/PointSelector",
+      "memberName": "add",
+      "descriptor": "(Lcom/live2d/doc/selection/IPointRef;)Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_point_ref",
+      "alias": "cubism.editor-model.editable-mesh.point-ref",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getPointRef",
+      "descriptor": "(I)Lcom/live2d/graphics3d/editableMesh/a;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.class.point_ref",
+      "alias": "cubism.editor-model.point-ref.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.point_ref_mesh",
+      "alias": "cubism.editor-model.point-ref.mesh",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+      "memberName": "a",
+      "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.point_ref_index",
+      "alias": "cubism.editor-model.point-ref.index",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/a",
+      "memberName": "b",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_coord_type",
+      "alias": "cubism.editor-model.editable-mesh.coord-type",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getCoordType",
+      "descriptor": "()Lcom/live2d/doc/CoordType;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_point_count",
+      "alias": "cubism.editor-model.editable-mesh.point-count",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getPointCount",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.editor_model.method.editable_mesh_gl_positions",
+      "alias": "cubism.editor-model.editable-mesh.gl-positions",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+      "memberName": "getGlPositions",
+      "descriptor": "()[F",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {
@@ -9879,6 +10221,9 @@
     ],
     "ui.object-context-menu.contribute": [
       "hook:object-context-menu"
+    ],
+    "cubism.mesh-tool.session": [
+      "hook:mesh-tool-session"
     ]
   }
 }

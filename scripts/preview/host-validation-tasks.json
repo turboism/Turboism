@@ -1085,6 +1085,24 @@
     "host-slot": 1,
     "display-input": 1
    }
+  },
+  "selection-brush": {
+   "description": "Selection Brush gestures, native selection, real input, lifecycle and invariant verification.",
+   "command": "scripts/preview/run-mesh-edit-host-validation.sh",
+   "versions": [
+    "5203",
+    "5302",
+    "5303"
+   ],
+   "arguments": [
+    "selection-brush",
+    "{version}",
+    "{runLabel}"
+   ],
+   "resources": {
+    "host-slot": 1,
+    "display-input": 1
+   }
   }
  }
 }
