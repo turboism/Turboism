@@ -1033,3 +1033,23 @@ This supports fixing repeated filesystem canonicalization on the EDT, not increa
 the deadline or blaming array hashing without evidence. No native outputs completed;
 no repeated-target, equivalence or retention acceptance is claimed. Partial artifacts
 are under auto-connect5203-r2; the failed outcome is preserved.
+
+### Packaged candidate checked and fresh-edge5302 queued
+
+The actual frozen0de3cf6c JAR was used as the classpath for the production transformer
+check, with its CodeSource recorded. All3 outputs match d0fac0cd/40d07540 and both
+independent receipts bind the final bytes; other normalized methods remain equal.
+Evidence: fresh-edge-packaged-pins/review.log. No official class was instantiated.
+
+New resource5302 prepared off2a3229f0e846e0c764f5256e92b4ad199b41ee879cc11c290db2074f7f31bf13,
+on8ffd2e5c69d6ed93dd210c3eca41a6bc48b50ed1d2a79669ed4c93220ea4758d.
+Full input inventories, frozen Agent0de3cf6c, driver3bee41a3 and UI config hashes
+passed checks. Off seq2322/job3299eb57-74eb-40dc-a76a-bfee15d06df0 queued; the serial
+client submits on after off succeeds, then checks edges, both transformation receipts,
+execution and resource windows. No speedup is claimed from preparation or submission.
+
+Auto-connect r3 replaces repeated canonicalization with per-driver document binding,
+one off-EDT canonical fixture check and subsequent EDT identity/path checks.25 guard
+checks and generated-driver compilation passed; driverfc7a5d2c is built separately.
+The r3 queue workflow waits for fresh-edge5302 terminal gates/report hashes before
+preparing/submitting with unchanged original Agent2f6dd5ba. Failed r2 is retained.
