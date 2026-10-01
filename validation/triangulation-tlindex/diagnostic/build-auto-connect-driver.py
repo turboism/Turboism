@@ -66,9 +66,13 @@ replace('        private void resourceMarker(final String phase, final int opera
             Files.writeString(run.resolve("auto-connect-protocol.properties"),
                 "scope=DIAGNOSTIC_ONLY\\nrebuild=true\\npreserveBorder=true\\ncycles=3\\n",
                 StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+            final NativeAutoConnect.Binding binding = FixedEdt.callWithin(
+                () -> NativeAutoConnect.binding(meshController()),
+                FixedEdt.Operation.MESH_BIND, evidence, remainingMillis(runDeadlineNanos));
+            binding.verifyFixture(config.fixture.toFile());
             resourceMarker("mesh-enter-start", 0);
             final java.util.List<String> ids = FixedEdt.callWithin(
-                () -> NativeAutoConnect.enter(meshController(), config.fixture.toFile()),
+                () -> NativeAutoConnect.enter(meshController(), binding),
                 FixedEdt.Operation.MESH_ENTER, evidence, remainingMillis(runDeadlineNanos));
             resourceMarker("mesh-enter-end", 0);
             Files.writeString(run.resolve("auto-connect-selected.txt"),
@@ -80,7 +84,7 @@ replace('        private void resourceMarker(final String phase, final int opera
                 verifyMeshFixture();
                 resourceMarker("auto-connect-start", cycle);
                 FixedEdt.callWithin(() -> {
-                    NativeAutoConnect.connect(meshController(), config.fixture.toFile(), true, true);
+                    NativeAutoConnect.connect(meshController(), binding, true, true);
                     return null;
                 }, FixedEdt.Operation.MESH_CONNECT, evidence, remainingMillis(runDeadlineNanos));
                 resourceMarker("auto-connect-returned", cycle);
@@ -90,7 +94,7 @@ replace('        private void resourceMarker(final String phase, final int opera
                 while (true) {
                     try {
                         results = FixedEdt.callWithin(() -> NativeAutoConnect.capture(
-                            meshController(), config.fixture.toFile(), ids),
+                            meshController(), binding, ids),
                             FixedEdt.Operation.MESH_CAPTURE, evidence, remainingMillis(readyDeadline));
                         break;
                     } catch (MeshResultSnapshot.CacheNotReady pending) {
@@ -115,7 +119,7 @@ replace('        private void resourceMarker(final String phase, final int opera
             }
             resourceMarker("mesh-cancel-start", 0);
             FixedEdt.callWithin(() -> {
-                NativeAutoConnect.leave(meshController(), config.fixture.toFile());
+                NativeAutoConnect.leave(meshController(), binding);
                 return null;
             }, FixedEdt.Operation.MESH_LEAVE, evidence, remainingMillis(runDeadlineNanos));
             resourceMarker("mesh-cancel-end", 0);
@@ -127,7 +131,7 @@ driver.write_text(text)
 edt = src / 'FixedEdt.java'
 text = edt.read_text()
 assert text.count('        MAIN_LOOKUP,') == 1
-edt.write_text(text.replace('        MAIN_LOOKUP,', '        MESH_ENTER,\n        MESH_CONNECT,\n        MESH_CAPTURE,\n        MESH_LEAVE,\n        MAIN_LOOKUP,'))
+edt.write_text(text.replace('        MAIN_LOOKUP,', '        MESH_BIND,\n        MESH_ENTER,\n        MESH_CONNECT,\n        MESH_CAPTURE,\n        MESH_LEAVE,\n        MAIN_LOOKUP,'))
 for name in ('MeshResultSnapshot.java', 'NativeAutoConnect.java'):
     raw = (diag / name).read_bytes()
     inputs[str((diag / name).relative_to(root))] = hashlib.sha256(raw).hexdigest()

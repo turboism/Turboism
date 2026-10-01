@@ -14,8 +14,8 @@ final class NativeAutoConnect {
 
     record MeshResult(String sourceId, MeshResultSnapshot.Result result) {}
 
-    static List<String> enter(Object controller, File fixture) throws Exception {
-        Object doc = boundDocument(controller, fixture);
+    static List<String> enter(Object controller, Binding binding) throws Exception {
+        Object doc = boundDocument(controller, binding);
         Object mode = call(doc, "getCurrentEditMode");
         require(mode.getClass().getName().equals(MAIN), "requires main modeling mode");
         Object selector = call(mode, "getSelector");
@@ -38,7 +38,7 @@ final class NativeAutoConnect {
         require(sameIdentities(eligible, list(call(selector, "getSelectedArtMeshes"))), "selection mismatch");
         Object started = invokeNamed(controller, "command_startMeshEditor", doc, false);
         require(Boolean.TRUE.equals(started), "native mesh editor did not start");
-        require(boundDocument(controller, fixture) == doc, "document switched during entry");
+        require(boundDocument(controller, binding) == doc, "document switched during entry");
         Object edit = call(doc, "getCurrentEditMode");
         require(edit.getClass().getName().equals(EDIT), "native mesh mode absent");
         List<Object> editedSources = new ArrayList<>();
@@ -47,9 +47,9 @@ final class NativeAutoConnect {
         return List.copyOf(ids);
     }
 
-    static void connect(Object controller, File fixture, boolean rebuild, boolean preserveBorder)
+    static void connect(Object controller, Binding binding, boolean rebuild, boolean preserveBorder)
             throws Exception {
-        Object doc = boundDocument(controller, fixture);
+        Object doc = boundDocument(controller, binding);
         Object mode = call(doc, "getCurrentEditMode");
         require(mode.getClass().getName().equals(EDIT), "requires native mesh mode");
         require(!list(call(mode, "getEditDataList")).isEmpty(), "empty native edit data");
@@ -65,14 +65,14 @@ final class NativeAutoConnect {
         require(Boolean.valueOf(rebuild).equals(call(rebuildBox, "isSelected")), "rebuild option mismatch");
         require(Boolean.valueOf(preserveBorder).equals(call(borderBox, "isSelected")), "border option mismatch");
         invokeNamed(controller, "command_meshEditConnectAuto", doc);
-        require(boundDocument(controller, fixture) == doc && call(doc, "getCurrentEditMode") == mode,
+        require(boundDocument(controller, binding) == doc && call(doc, "getCurrentEditMode") == mode,
             "native context changed during auto-connect");
     }
 
     /** Call in a later EDT observation after native repaint, not by forcing cache generation. */
-    static List<MeshResult> capture(Object controller, File fixture, List<String> expectedIds)
+    static List<MeshResult> capture(Object controller, Binding binding, List<String> expectedIds)
             throws Exception {
-        Object mode = call(boundDocument(controller, fixture), "getCurrentEditMode");
+        Object mode = call(boundDocument(controller, binding), "getCurrentEditMode");
         require(mode.getClass().getName().equals(EDIT), "mesh mode ended before capture");
         List<MeshResult> results = new ArrayList<>();
         for (Object data : list(call(mode, "getEditDataList"))) {
@@ -84,22 +84,52 @@ final class NativeAutoConnect {
         return List.copyOf(results);
     }
 
-    static void leave(Object controller, File fixture) throws Exception {
-        Object doc = boundDocument(controller, fixture);
+    static void leave(Object controller, Binding binding) throws Exception {
+        Object doc = boundDocument(controller, binding);
         require(call(doc, "getCurrentEditMode").getClass().getName().equals(EDIT),
             "native mesh mode missing before cancel");
         invokeNamed(controller, "command_cancelMeshEditor", doc);
-        require(boundDocument(controller, fixture) == doc
+        require(boundDocument(controller, binding) == doc
                 && call(doc, "getCurrentEditMode").getClass().getName().equals(MAIN),
             "native mesh cancel did not restore main mode");
     }
 
-    private static Object boundDocument(Object controller, File fixture) throws Exception {
-        require(SwingUtilities.isEventDispatchThread(), "native command requires EDT");
+    /** Per-driver binding, never stored globally. Filesystem I/O is prohibited on the EDT. */
+    static final class Binding {
+        private final Object document;
+        private final File capturedFile;
+        private final String path;
+        private volatile boolean verified;
+        private Binding(Object document, File file) {
+            this.document = document;
+            capturedFile = file;
+            path = file.getPath();
+        }
+        void verifyFixture(File fixture) throws Exception {
+            require(!SwingUtilities.isEventDispatchThread(), "fixture canonicalization must run off EDT");
+            require(!verified, "binding already verified");
+            require(capturedFile.getCanonicalFile().equals(fixture.getCanonicalFile()),
+                "active document is not task fixture");
+            verified = true;
+        }
+    }
+
+    static Binding binding(Object controller) throws Exception {
+        require(SwingUtilities.isEventDispatchThread(), "document binding requires EDT");
         Object doc = call(controller, "getCurrentDoc");
         Object file = call(call(doc, "getFileContent"), "getFile");
-        require(file instanceof File && ((File) file).getCanonicalFile().equals(fixture.getCanonicalFile()),
-            "active document is not task fixture");
+        require(file instanceof File, "missing native document file");
+        return new Binding(doc, (File) file);
+    }
+
+    static Object boundDocument(Object controller, Binding binding) throws Exception {
+        require(SwingUtilities.isEventDispatchThread(), "native command requires EDT");
+        require(binding != null && binding.verified, "unverified task binding");
+        Object doc = call(controller, "getCurrentDoc");
+        require(doc == binding.document, "active document identity changed");
+        Object file = call(call(doc, "getFileContent"), "getFile");
+        require(file instanceof File && ((File) file).getPath().equals(binding.path),
+            "active document path changed");
         return doc;
     }
 
