@@ -1442,3 +1442,70 @@ adoption/merge; no further host task is automatically submitted. T044/T046 and
 the stable-optimization goal remain unfulfilled: final5203/5303, final-candidate
 UI/startup linkage, actual repeated-target outputs, guard/scan proof and resource
 bounds are still missing. No theoretical bottleneck has been established.
+
+
+### T048 retained-pair attribution and cold-guard diagnostic preparation
+
+Previous goal turn made progress: the new bounded5302 pair and independent
+resource review ended and were committed as35a8e19ea. The goal remains active;
+no stable net benefit or theoretical bottleneck has been established. A fresh
+read-only queue inspection confirmed idle before retained-recording analysis.
+No new host task was submitted.
+
+Streaming analysis binds both raw JFRs, execution exports and explicit operation
+windows, and agrees with the strict analysis sample totals. Exact runtime-method
+prefixes exclude installer/transformer/patcher attribution. On's first window has
+2054 triangulation samples and108 production bridge samples. Settle has96
+inclusive/91 leaf samples: BCI92 has19 frames and BCI163 has72; these correspond
+to the one/two-pending survivor loops in the frozen bridge dump. Registration st
+has2 frames. The actual SetKey class's allocation weight estimate is76,928,456
+bytes; this is sampled allocation, not retained memory. None of these counts
+proves causal time or makes registration the dominant CPU cause.
+
+Native h.c remains the largest triangulation leaf at1150 samples. Its innermost
+BCI438 has921 samples on vs879 off. The preserved transformed h.class SHA
+40d0754026a7a2fb7c491e95144b9d8a1a605d7aee44579cb20bb2363962f8e6 matches the
+returned-byte SHA in both on receipts; javap maps438 to containsFresh rather
+than off's ArrayList.contains. This does not prove actual runtime guard
+admission/fallback. JIT/inlining can move BCI attribution. First-window j-object
+allocation weights are about13.12GB on/13.03GB off; weights are estimates, not
+exact byte totals. First-window recorded GC events30 on/37 off report pause-sum
+fields totaling0.739/0.595 seconds; these fields are not GC CPU measurement or
+proof that GC explains the first-operation CPU increase. Rendering leaves also
+differ, so no exclusive cause is established.
+
+Attribution report under removal-batch-resource5302-r1/hotspot-review.json SHA
+13599af17d62f98104eb52daf052d81106ff8f06c9ac2d26f592c1f44ae3bc87. Keep the
+bounded performance verdict unchanged. Next evidence should distinguish actual
+fresh-guard type admission before choosing registry or geometry changes.
+
+The new source-only guard diagnostic uses the exact fixed validation token
+FRESH_EDGE_GUARD_METADATA_V1 at turboism.validation.triangulationEdgeGuard.
+Each cold ClassValue computation can report actual type/loader/equality-owner
+metadata and reason; ordinary calls stay silent, and cached calls retain the
+same bytecode instructions. Concurrent cold computations may repeat; records
+are neither query counts nor cache-publication receipts. Loader hash labels
+are not unique identity proof. No strong class/loader registry is added. The
+original equality decision, fallback result/exception and JDK-only dependency
+contract remain; nonfatal logging failures are contained, fatal JVM failures
+retain propagation policy. No mathematical, sorting, weaving or public bridge
+signature changes are made.
+
+Before implementation, nine owned-type tests ran with two expected missing-
+receipt failures; the red log is retained. Final focused59/59 and devCheck pass,
+including six added cases: sequential cold/cache behavior, same-name distinct
+loaders and native equality, wrong/default token silence, exact receiver/null
+boundaries, nonfatal sink containment and fatal retry behavior. Only generated
+self-owned types execute. Frozen vs tested containsFresh instructions agree
+after numeric-pool-index/comment-spacing normalization, preserving offsets,
+opcodes, descriptors, symbols and branches; whole class bytes differ. CodeGraph
+is synchronized after the final edit.
+
+Offline-review.json under build/t048-offline SHA
+56c0e803c48071db956f5a4dfbebbf9e7c28fbced2e24172b5827157c832c994 binds source,
+XML, final devCheck/red logs and instruction checks. Frozen production Agent
+still hashes ee244d0f0be9acc3ca9c812420ebea8bf034742fd75010c6f817987f8ddc1ad0;
+no previewBundle, new packaged candidate or new host run occurred. This prepares
+a diagnostic only. Actual host guard proof, performance improvement, final
+three-version comparisons and T044/T046/stable-optimization completion remain
+unproven. No main merge/push or theoretical-limit claim is made.
