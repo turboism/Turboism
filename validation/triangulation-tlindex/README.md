@@ -85,9 +85,10 @@ before enabling the option may emit no record. Missing records cannot prove
 rejection or absence of execution. Nonfatal diagnostic failures leave the
 original decision and native fallback unchanged; fatal JVM failures propagate.
 No new strong class/loader registry is introduced. Cached-query instructions
-remain unchanged. This source slice has offline evidence only; it supplies no
-new host admission, eliminated-scan rate or performance acceptance. Frozen
-Agent `ee244d0f…` is unchanged. See the dated host evidence and
+remain unchanged. The independent seq2373 diagnostic admitted the actual 5302
+edge type and passed the standard host gates plus first-four ordered output
+checks. It supplies no eliminated-scan rate or performance acceptance. Frozen
+performance Agent `ee244d0f…` is unchanged. See the dated host evidence and
 `build/t048-offline/offline-review.json` for tests and hashes.
 
 The managed shadow wrapper accepts `--tri-fresh-edge-guard-metadata` only for
