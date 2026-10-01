@@ -120,3 +120,74 @@ each has original/patched pins. No production integration or real-host fusion
 result exists. Production integration requires the normal admission, lifecycle,
 configuration and semantic gates plus new artifact A/B; queued branch diagnosis
 remains independent and must be preserved.
+
+### Repeated-target undo guard (not yet host-integrated)
+
+`AtlasUndoGuard.java` checks snapshots of the **current edit mode's** native undo
+manager, as used by CEAppCtrl.command_undo. Require one new entry, preserve the
+applied history prefix by object identity, recheck immediately before dispatch,
+and verify the native cursor moved back while retaining the redo entry. It
+rejects no-op/redo, extra edits, document/manager changes and history replacement.
+These checks do not identify the semantic content of an edit: the integrating
+probe must bind snapshots to its specific atlas operation and exclude unrelated
+UI actions. They do not prove that undo restores untriangulated model state.
+
+Run the offline negative cases with:
+
+```sh
+mkdir -p /tmp/t029-undo-guard
+javac --release 17 -d /tmp/t029-undo-guard validation/triangulation-tlindex/diagnostic/AtlasUndoGuard*.java
+java -cp /tmp/t029-undo-guard AtlasUndoGuardSelfCheck
+```
+
+All host snapshots/dispatch must occur on the EDT. Snapshot objects intentionally
+hold history identities for verification; release them before resource retention
+windows. No global registry, saved-timestamp changes, forced GC or cache clearing
+is introduced. This helper is not packaged into the frozen performance candidate.
+
+`AtlasNativeUndo.java` is the corresponding reflective native adapter. It requires
+EDT access, exact canonical task-fixture binding, current-edit-mode manager
+identity, an unchanged history immediately before dispatch and native canUndo.
+It invokes exactly one matching public command_undo(document), then checks the
+restored cursor/history. Native exceptions propagate; no direct undo-manager
+mutation is used. The caller still owns fixture SHA validation, operation timing,
+EDT timeout/cancellation, exclusive task UI ownership and releasing snapshots.
+
+Compile both AtlasUndoGuard*.java and AtlasNativeUndo*.java into the temporary
+classes directory; run AtlasNativeUndoSelfCheck with -Djava.awt.headless=true.
+Seven synthetic adapter checks and fourteen guard checks pass. This adapter is
+not wired into the driver yet and has no host execution evidence.
+
+### Standalone undo-trigger driver build
+
+`python3 validation/triangulation-tlindex/diagnostic/build-undo-driver.py /path/to/new-output`
+creates a separate jar from the SHA-pinned current driver source plus the two undo
+helpers. It compiles with Java17, all lint warnings treated as errors, and records
+all input/generated source hashes plus jar SHA in build.json. It does not publish,
+prepare, submit or launch anything. Existing frozen bundles remain unchanged.
+
+The generated driver admits only 5203 production resource-observation scenes,
+without export or shadow profiling. It snapshots before each editor action,
+performs guarded native undo after that action, checks fixture SHA before/after,
+releases snapshots, then enters the retained window. New diagnostic-undo markers
+intentionally make the standard performance-window parser reject this protocol.
+The result is trigger-feasibility evidence only; not performance acceptance.
+Operation output and repeated execution still require independent host/JFR checks.
+`undo-diagnostic.tsv` records completed undo operations and restored positions.
+No host outcome exists yet. The native command may fail to produce a single undo
+record or may restore cached triangulation; either outcome must remain a failed
+trigger hypothesis, not be bypassed by weakening the guard.
+
+After a successful undo diagnostic, export its JFR at stack depth64 and run:
+
+```sh
+python3 validation/triangulation-tlindex/diagnostic/analyze-undo-trigger.py \
+  resource-windows.tsv undo-diagnostic.tsv execution.json outcome.json new-report.json
+```
+
+The analyzer requires all native host gates, exact diagnostic phase order, three
+undo receipts and a stable restored cursor. It streams JFR and counts native
+triangulation separately in each operation (excluding undo/retained phases).
+REPEATED_TARGET_OBSERVED still does not establish per-cycle output equivalence,
+retention safety or performance acceptance. Five deterministic negative/boundary
+checks run via `python3 -B validation/triangulation-tlindex/diagnostic/test-undo-trigger-analysis.py`.
