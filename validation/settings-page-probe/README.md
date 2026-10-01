@@ -117,3 +117,20 @@ or widen exact-version admission. Existing user opt-outs are preserved.
 None of these records establish complete real-host settings acceptance. Remaining
 checks include real focus, Apply/reopen, restart/managed-launch preferences and
 older-version/Windows UI execution. The test plugin is not a release artifact.
+
+## Read-only startup mode for the single-Agent triangulation scene
+
+`settingsStartupReadOnly=true` requires edge-index mode and an explicit Boolean
+`settingsStartupExpectedEdgeIndex`. It checks the real menu, SDK active model,
+completed native frames, persisted startup preference and unchanged config bytes.
+The report includes `mode=startup-read-only`, config SHA and PASS/FAIL; a result-write
+failure cannot log PASS. It does not open settings, save or exit the Editor. The
+existing T040 scene driver owns operations and exit.
+
+This uses the shared Runner's supported plugin route for explicit 5203/5302
+single-Agent TLPROD validation. It does not replace the real toggle/persistence
+scenario or establish three-version restart acceptance. The legacy
+`reviewedHostVersion=5.3.03` field describes the original settings scenario;
+`hostVersion` and the Runner's exact-JAR identity describe the actual run.
+5302 job 2395 passed these checks and safe normal exit; details are in
+[triangulation host evidence](../triangulation-tlindex/host-evidence-20261002.md).

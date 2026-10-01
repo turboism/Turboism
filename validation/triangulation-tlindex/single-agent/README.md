@@ -38,11 +38,29 @@ accepts exactly pristine `l` or the reviewed existing hash-patched definition;
 additional getter/hash/field changes still refuse admission. All remaining
 dependency, origin, ownership and lease requirements remain enforced.
 
-The optional `scene` builder/hook path is preparation only and has no host
-PASS. In particular, 5303's T039 callback removes its transformer, which the
-owned gateway correctly refuses. The current shared Runner also requires a
-plugin or auxiliary Agent, so home-file-only single-Agent host integration is
-not yet supported. Continue through the shared FIFO and official BAT once
-a supported composition is ready. These metadata checks grant no production
-acceptance; final native/repeated output and three-version performance,
-resources, UI and independent startup-setting linkage remain open.
+The `scene` builder/hook path uses the supported plugin route for 5203/5302
+TLPROD capture legs. Pass `--scene` and `--scene-sha256` to the builder, then
+use the wrapper's `--tri-single-agent-startup-probe` with an explicit leg-matching
+UI-saved configuration. The settings plugin verifies the real menu, SDK active
+model, completed native frames, startup preference and unchanged config bytes
+without opening settings, saving or exiting. The T040 driver owns Editor
+operations and normal exit. Capture and driver sidecars are managed home files;
+only Turboism supplies premain. The shared Runner, official BAT, exact identity
+and cleanup gates remain in use.
+
+5302 job 2395 passed the real host lifecycle. Independent checks bind its prepared
+inventory, actual artifacts/config, startup report, lazy patch/admission, terminal
+payload and cleanup. Its first four complete ordered endpoint-index digests match
+explicitly bound off baseline job 2365. See [dated evidence](../host-evidence-20261002.md).
+This covers those four normal returns, not all mesh returns or repeated cycles;
+job 2395 has no resource measurement and establishes no performance gain.
+
+Companion SHA `dd4b21a5d0851c43854a2e773ec19ad07cf8607c8216ef1354b984df81e87072`
+uses production base `b47f6f47928f46d7fc2acd94223d66e89c80c903a4bd8d2878d5f6cc92e425cb`.
+All base entries are unchanged except `META-INF/turboism/hooks`, plus added
+validation Hook classes. The companion is absent from release packaging.
+
+5303 T039 callback self-unregistration is correctly refused by the owned gateway;
+that composition remains unadmitted. Final native/repeated outputs and three-version
+stable performance, resources, UI and independent startup-setting linkage remain
+open. Production acceptance stays on hold.
