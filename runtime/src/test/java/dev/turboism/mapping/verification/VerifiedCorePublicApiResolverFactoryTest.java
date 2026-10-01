@@ -17,23 +17,57 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void exactLegacyHostResolvesTheOwnedMocSliceThroughStartupValidation() {
-        final Path editor = EditorSelectorContractTestPaths.artifact("5.1.03");
-        final var resolution =
-                CubismHostCompatibilityResolver.resolve(editor, editor.resolveSibling("Live2DCubismCore.jar"), name -> {
-                    final Path path = PROJECT_ROOT
-                            .resolve("compatibility/cubism/verification")
-                            .resolve(name);
-                    try {
-                        return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
-                    } catch (java.io.IOException failure) {
-                        throw new java.io.UncheckedIOException(failure);
-                    }
-                });
+        final var resolution = resolveHost("5.1.03");
         final var slice = resolution.slice("core-model-read");
         assertTrue(slice.admitted(), slice.detail());
         assertEquals(
                 java.util.Set.of("cubism.core.owned-moc.read"),
                 slice.contract().orElseThrow().capabilities());
+    }
+
+    @Test
+    void otherObservedLegacyHostsAdmitOnlyTheStructurallyVerifiedBasicProfile() throws Exception {
+        for (String version :
+                java.util.List.of("5.0.02", "5.0.03", "5.0.04", "5.0.05", "5.0.06", "5.1.00", "5.1.01", "5.1.02")) {
+            final var slice = resolveHost(version).slice("core-model-read");
+            assertTrue(slice.admitted(), version + ": " + slice.detail());
+            final var contract = slice.contract().orElseThrow();
+            assertTrue(contract.compatible());
+            assertEquals("5.1.03", contract.sourceVersion());
+            assertEquals(version, contract.declaredVersion());
+            assertEquals(java.util.Set.of("cubism.core.owned-moc.read"), contract.capabilities());
+            final Path artifact = coreArtifact(version);
+            assertEquals(HostArtifactDigest.from(artifact), contract.probedArtifact());
+            try (URLClassLoader loader = loader(artifact)) {
+                final var resolver = factory.createCompatible(record("5.1.03"), artifact, loader, contract);
+                assertEquals("5.1.03", resolver.admittedCubismVersion());
+                assertTrue(resolver.authorizesFeature(
+                        "adapter.core-model.readonly",
+                        "cubism.core.owned-moc.read",
+                        dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
+                                        "5.1.03")
+                                .orElseThrow()));
+                org.junit.jupiter.api.Assertions.assertFalse(resolver.authorizesFeature(
+                        "adapter.core-model.readonly",
+                        "cubism.geometry.read",
+                        dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.requiredAliasesFor(
+                                        "5.1.03")
+                                .orElseThrow()));
+            }
+        }
+    }
+
+    private static CompatibilityResolution resolveHost(final String version) {
+        final Path editor = EditorSelectorContractTestPaths.artifact(version);
+        return CubismHostCompatibilityResolver.resolve(editor, editor.resolveSibling("Live2DCubismCore.jar"), name -> {
+            final Path path =
+                    PROJECT_ROOT.resolve("compatibility/cubism/verification").resolve(name);
+            try {
+                return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
+            } catch (java.io.IOException failure) {
+                throw new java.io.UncheckedIOException(failure);
+            }
+        });
     }
 
     @Test
