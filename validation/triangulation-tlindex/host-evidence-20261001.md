@@ -1571,3 +1571,76 @@ change the retained pair's performance verdict: first wall -4.31%, first CPU
 +3.46%, three-operation wall +0.65%, observed RSS peak -13.89%. T044/T046,
 final three-version stable benefit and resource bounds remain open. This round
 adds no retry or performance pair; no main merge/push occurred.
+
+### T049 endpoint-forwarding audit and owned lazy-edge experiment
+
+The previous goal turn made progress by closing seq2373 with actual guard
+admission. The stable-optimization goal remains active. Fresh checks found a
+clean2869665 worktree and an idle FIFO before the owned benchmarks; no new host
+task was submitted. Saved first-operation allocation weights (~13GB for j in
+each leg) motivated a candidate, not a claim of precise allocation or causal
+time. Its allocation-site share within the full workload remains unmeasured.
+
+Three pinned official JARs were inspected as data through javap; no official
+class executed. j/r/TriPoint/l are final, j's point getters and l's three
+getters are pure field returns, and TriPoint.getIndex is a pure field return.
+The edge-overload of r.a performs two null checks, four endpoint getters and a
+call to the existing four-point overload. The latter's floating-point algorithm
+would remain untouched. j's constructor checks nulls and index distinctness
+behind Kotlin's assertion gate; these checks must remain before intersections.
+
+The complete c site inventory has four constructions and four intersections
+in every version. Only its initial three are the proposed stencil. In5203 they
+occur at constructor BCIs316/335/354 and intersection366/386/406; the separate
+1053/1162 sites stay untouched. In5302/5303 the primary sites are315/334/353 and
+365/385/405; separate657/766 sites stay untouched. Initial count assumptions
+rejected the additional native site; the initial and reviewed partial dumps
+are retained. Final static-review.json SHA
+addd5d02b7ddbc8beb799f7bf3b41a298fa001dbe788b5d75488764697e15f40 binds all
+official JAR/class hashes and final dumps. This is feasibility, not a runtime
+dependency-definition or transformation proof.
+
+The owned Java stencil calls the same owned endpoint primitive in both legs.
+Its lazy leg validates all three pairs first, computes all three intersections
+in original order, then constructs a distinct edge before each subsequent edge
+use. No pool/cache, reorder, new numerical shortcut or persistent state is used.
+Native private predicates are represented by an owned stand-in, so differential
+checks do not prove full native correctness. Java17 release/lint/Werror compile
+and1177 owned checks pass: endpoint identities/order, duplicates, call ordering,
+null/assertion failures before intersections, later coordinate mutation, empty
+inputs, negative indices, NaN/infinities/subnormals/signed zero and500 seeded
+inputs. Native exception stack/handler and transformed-class verification remain
+open; this experiment is not production integration.
+
+The initial four-warmup-pair measurement showed within-run compilation drift,
+and all raw samples are retained. Final measurements use separate fresh Java17
+JVMs per density, no extra JVM flags or inherited option variables,24 alternating
+warmup pairs, then seven alternating samples. Each sample covers12 owned
+operations with64 constraints/512 triangles. Sparse/dense controls append7 and
+14002 fresh edges per operation. ThreadMXBean measures actual main-thread CPU
+and allocated bytes. Input/setup/warmup, GC-thread CPU, RSS and retained memory
+are excluded; output lists/checksums and result-vector allocation are included.
+
+Sparse median CPU18,114,982→12,719,268ns (-29.79%), wall18,487,933→12,773,764ns
+(-30.91%), allocated28,314,912→5,376bytes (-99.98%). Dense CPU19,903,977→
+15,518,102ns (-22.04%), wall20,112,952→15,631,121ns (-22.28%), allocated
+24,934,560→10,092,768bytes (-59.52%). Measured eager GC counts are2/1 and lazy0/0;
+these are observed counts, not GC CPU or a promise to eliminate GC. Own stencils
+are not native-host benchmarks or proof of broad stable gains.
+
+Offline-review.json under build/t049-lazy-edge-offline SHA
+1935766b09202966bc6f894c04bbad41d32e9dad484658b525af7d85d554c81e binds final
+source/log/audit/raw measurement hashes and limitations. Old performance Agent
+ee244d0f… and diagnostic Agent0dc30889… retain their exact hashes. No runtime
+production source, previewBundle or new host run changed. The evidence supports
+an offline bytecode prototype as the next step, with original fourth-site,
+private-predicate, runtime-definition, control-flow/exception and full-output
+gates. T044/T046, final three-version performance/resource acceptance and the
+continuous goal remain open; hold production adoption and main merge/push.
+
+The commit path check rejected a hardcoded machine-home path in the initial
+audit script. The final script instead requires explicit --jar-5203/5302/5303
+inputs and retains the fixed per-version SHA gate. Re-audit yields the identical
+static verdict/digests. Final offline-review-cli.json SHA
+423566d10862aadace44efb090c8d8c6559e7eaf57c7a6789c1934b8dd215f23 binds the
+final CLI source and unchanged measurements; the initial review remains saved.
