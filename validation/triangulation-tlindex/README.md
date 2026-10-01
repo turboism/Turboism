@@ -154,3 +154,37 @@ open. Current recommendation is to hold production adoption and merging. Further
 work comprises production integration with native fallback, complete correctness
 verification, and final three-version performance/resource acceptance. Existing
 host measurements have not established stable net benefit or a theoretical limit.
+
+### ASM-core lazy-edge port and existing-transform composition (2026-10-02)
+
+`diagnostic/CoreLazyEdgeBytecodePrototype.java` replays the selected c method
+through core ASM visitors, adding the same eight locals and lazy construction
+branches as the tree prototype. Its compilation classpath contains only ASM
+core9.7.1; jdeps confirms no tree/commons dependency. It remains diagnostic code,
+with no runtime installer registration or packaged production candidate.
+
+The public CLI accepts a reviewed official JAR and a new output directory, with
+optional `--compose <frozen-agent>`. The optional Agent must have the fixed
+ee244d0f… digest. `FrozenEdgeTransforms` loads its own reviewed patchers in an
+isolated loader and rejects parent shadowing. Composition is fresh, then
+membership, then core lazy materialization. Official bytes remain data.
+
+The expanded owned selfcheck accepts `--core` or `--compose <frozen-agent>` before
+its optional new fixture directory. Each of tree, core and composed modes passes
+3533 checks under `-Xverify:all`, including explicit membership debug/order and
+repeat controls. Remapped owned edges use the existing fresh guard's native
+fallback; these checks do not establish its fast guard execution on native types.
+
+All three official-version composed outputs are byte-identical to the tree
+oracle. Static preservation compares against the reviewed post-membership
+baseline, retaining its non-c methods and original c executable order/fourth
+path. `verify-lazy-edge-static-output.py --baseline` requires the baseline digest
+from candidate pins; its report distinguishes baseline pool preservation from
+the pristine official pool. Wrong baselines and unreviewed Agents are refused.
+
+Evidence is under `build/t050-lazy-edge-bytecode/core-composition/`; final
+offline-review.json SHA
+`95e3e6d247d0c9b7802a7ec188bd2fcde9fc31f40bd1ce7c0c5fde30a462b2d3`
+binds184 inputs. The definition collector ordering gap is still unresolved.
+Official output class definition/native execution, production integration and
+final host acceptance remain open; no new host job or performance result was added.
