@@ -2047,3 +2047,48 @@ T044/T046 and the continuous optimization goal remain unfulfilled. The old pair'
 first wall-4.31%, CPU+3.46%, aggregate wall+0.65% is still insufficient stable
 benefit. HOLD_PRODUCTION_ACCEPTANCE persists; no merge/push or theoretical-limit
 claim is justified by this slice.
+
+
+### T050 actual Turboism premain and hash composition (2026-10-02)
+
+Real single-Agent Turboism premain now admits all three reviewed versions with
+the existing hash optimization enabled and disabled. The initial5302 rejection
+was caused by pristine-only l admission; its default production hash patch has
+whole runtime fingerprint24a55d75… instead of pristine91963e17…. The correction
+accepts precisely that reviewed whole-definition alternative. Additional getter,
+hash and field tampering refuse; the exact official-byte regression also confirms
+all non-hash runtime members remain identical. Other origins, seven dependencies,
+metadata links, ownership and operation leases remain required.
+
+The validation-only companion keeps TurboismAgent as the sole premain and
+appends the pinned TLPROD probe to the system loader. Its builder changes only
+the hooks resource and adds validation contributor classes; production class
+entries remain unchanged. Six version/hash-preference cases plus wrong-SHA,
+attach-enabled and unreviewed-ANGLE-origin controls pass96 checks. These define
+and inspect official metadata only: officialCodeInvoked=false and
+fullHostRuntimeStarted=false. No Editor/native geometry or performance was run.
+
+187 affected JUnit tests (runtime171, exact official-byte3, bootstrap13) and
+devCheck PASS. The production candidate is b47f6f47928f46d7fc2acd94223d66e89c80c903a4bd8d2878d5f6cc92e425cb;
+the companion is15e9502dc215cc6f74761aa83774fe83101c0223febbce8ff427a8daeff39244.
+Both are independent new candidates under build/t050-lazy-edge-bytecode/hash-composition/.
+The new production ZIP changes only Preparation/Plan and framework-version.properties
+relative to0e5bb77f…. The initial packaging allowlist used the wrong metadata suffix
+and refused; corrected explicit comparison passes. Initial premain failures and
+old candidates are retained. ee244/0dc308/0e5bb77f hashes remain unchanged.
+
+Final offline-review.json SHA71080ab8420ca2a9750aae52602e37bfefad2942a0ffa16df62cd105e4d2a85f
+binds219 inputs, case commands/configurations/logs, classpath JARs, source and
+compiled helpers, JUnit XML and both build logs. No previewBundle, host submission,
+Runner/official BAT/model/golden mutation, merge or push occurred.
+
+This closes the actual-premain metadata/hash-compatibility slice. It does not
+close production acceptance. The shared Runner still requires a plugin or
+auxiliary Agent; home-files alone cannot launch the required single-Agent
+composition. The optional scene path has no host PASS, and5303's T039 callback
+self-removal is refused by the owned gateway. These remain concrete integration
+gaps before complete host startup/native/repeated output and the final three-version
+performance/resources/UI/startup linkage. T050 remains partial, T044/T046 and
+the continuous goal remain unfulfilled. HOLD_PRODUCTION_ACCEPTANCE persists:
+old first wall-4.31%, CPU+3.46%, aggregate wall+0.65% do not show stable net
+benefit; no theoretical bottleneck has been proved.

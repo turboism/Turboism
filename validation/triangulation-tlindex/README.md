@@ -324,3 +324,12 @@ initialization/geometry/full repeated outputs, and final three-version stable
 performance/resources/UI/startup linkage. Current multi-Agent host validation
 cannot enable this new weave; default launch flags have not changed. No new host
 job was submitted, stable benefit is unproved, and no theoretical limit is claimed.
+
+
+Actual-premain metadata validation is described in [single-agent/README.md](single-agent/README.md).
+The2026-10-02 hash-composition slice passes all three versions with the existing
+hash optimization on/off, plus three negative controls (96 checks);187 affected
+JUnit tests and devCheck pass. These checks invoke no official initializer or
+geometry and start no full Editor runtime. Production remains
+HOLD_PRODUCTION_ACCEPTANCE; full host scene/repeated outputs and final
+three-version stable performance/resources/UI/startup linkage remain open.
