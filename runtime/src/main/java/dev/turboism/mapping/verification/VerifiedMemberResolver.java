@@ -565,7 +565,7 @@ public final class VerifiedMemberResolver {
                 throw resolutionFailure(selector.alias(), "Verified host classloader attestation no longer matches.");
             }
             final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
-            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
+            final Method method = declaredMethodFor(owner, selector, type);
             if (!method.getDeclaringClass().equals(owner)
                     || !method.getReturnType().equals(type.returnType())
                     || !matchesAccess(method, selector)) {
@@ -589,7 +589,7 @@ public final class VerifiedMemberResolver {
             final Class<?> owner =
                     Class.forName(selector.ownerInternalName().replace('/', '.'), false, hostClassLoader);
             final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
-            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
+            final Method method = declaredMethodFor(owner, selector, type);
             if (!method.getDeclaringClass().equals(owner)
                     || !method.getReturnType().equals(type.returnType())
                     || !matchesAccess(method, selector)) {
@@ -604,6 +604,19 @@ public final class VerifiedMemberResolver {
                 | SecurityException failure) {
             throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
         }
+    }
+
+    /** Resolves full JVM identity, including covariant returns and compiler bridges. */
+    private static Method declaredMethodFor(final Class<?> owner, final StaticSelector selector, final MethodType type)
+            throws NoSuchMethodException {
+        for (final Method method : owner.getDeclaredMethods()) {
+            if (method.getName().equals(selector.memberName())
+                    && Arrays.equals(method.getParameterTypes(), type.parameterArray())
+                    && method.getReturnType().equals(type.returnType())) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException("no declared member matches the verified descriptor");
     }
 
     private Field resolveField(final StaticSelector selector) {
