@@ -1053,3 +1053,52 @@ one off-EDT canonical fixture check and subsequent EDT identity/path checks.25 g
 checks and generated-driver compilation passed; driverfc7a5d2c is built separately.
 The r3 queue workflow waits for fresh-edge5302 terminal gates/report hashes before
 preparing/submitting with unchanged original Agent2f6dd5ba. Failed r2 is retained.
+
+### Fresh-edge5302 completed, with missing default-log receipt
+
+Off2322 and on2327 both passed host identity, normal exit, unchanged fixture and
+safe cleanup. Payload binding, all four ordered edge digests, TriangleList hashes,
+membership final-output SHA40d07540 and production-index execution agree. The
+strict analyzer failed because bootstrap routes only membership success to INFO;
+fresh-edge success is DEBUG and the default INFO sink omits it. Original failed
+analyzer/log/partial report remain unchanged. The separate observational review
+explicitly labels this receipt gate MISSING_DEBUG_FILTERED, not acceptance PASS.
+
+| Observation | Off | On |
+| --- | ---: | ---: |
+| First explicit operation wall seconds | 93.8119 | 87.4409 |
+| First operation Java CPU seconds | 125.58 | 121.73 |
+| Whole CSV observed wall seconds | 305.939 | 286.540 |
+| Whole CSV Java CPU seconds | 316.06 | 315.21 |
+| CSV peak RSS MiB | 5147.16 | 6228.10 |
+| Third retained median RSS MiB | 4978.79 | 5524.55 |
+
+First wall decreases6.79%, first CPU3.07%, whole CPU0.27%; RSS peak increases21.00%.
+This is one observational pair, not stable resource/performance acceptance. Both
+legs' operation2/3 target samples remain zero. Per-window observed heap maxima
+combine direct boundary readings with GCHeapSummary events; they are sampled,
+not continuous peaks. Exact h.c()V first-operation BCI438 leaf samples remain
+888 off/909 on. No separate fresh helper frames were observed. BCI attribution
+does not establish the cost of a source operation or actual guard admission;
+further attribution is required before claiming fresh-edge elimination worked.
+
+The minimal bootstrap fix additionally routes fresh-edge success to INFO. Five
+existing contributor tests, bootstrap JAR and license checks pass. Frozen Agent
+021e49085daf68d02d2ab76d638f61403b6d1ece27d95050ed835aa1b0df3181 differs from0de3cf6c
+only in HookContributor.class and generated sourceRevision metadata; all algorithm
+entries compare byte-for-byte equal. It has not been host-validated. Final three
+versions, default-log dual receipts, UI/startup linkage and stable resource bounds
+remain open; no main merge or theoretical-bottleneck claim.
+
+Resource-only completion deliberately records
+performanceAcceptance=BLOCKED_MISSING_FRESH_EDGE_RECEIPT. This releases the
+independent old-Agent2f6dd5ba diagnostic after performance legs/analysis end,
+without granting acceptance. R3 prepared631a151f, seq2330,
+job572d4b60-9ec2-478c-bf89-4eaf9836a08a is running with driverfc7a5d2c.
+The terminal-bound analyzer uses a64-frame streaming export and preserves failure.
+The new0de settings UI snapshot92195223 was prepared but never submitted; a final
+receipt-fixed candidate will need its own frozen UI inputs.
+
+Evidence: fresh-edge-resource5302/{analysis-failure-review.json,
+observational-review,completion.json,fresh-edge-attribution.json},
+fresh-edge-receipt-candidate/artifact-pin.json and auto-connect5203-r3.
