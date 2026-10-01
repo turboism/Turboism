@@ -377,3 +377,74 @@ samples omit small boundary intervals documented in each report. No numeric
 resource tolerance has been approved; stable effectiveness remains unproven in
 light of the three earlier pairs' inconsistent direction. `pair-verdict.json`
 records these limits; no main merge or theoretical-bottleneck claim.
+
+
+## Contains candidate explicit-window pair (seq2219 on / seq2226 off)
+
+Candidate agent `77ce425567f8a4fb1ef1c5055fe5015a33c1cf1dcefbc90dcfff9c0bbeebd17c`
+(commit `e3df8865b`), resource driver `3bee41a3`. Both legs succeeded with normal
+exit, safe cleanup and unchanged fixture. Full analysis verifies the first four
+ordered edge digests, class identity and production-index execution. Evidence:
+`build/t029-real-host-acceptance/contains-resource5203/{completion.json,final-ab-analysis.json}`
+and each `*-window-analysis.json`; these pin the raw inputs.
+
+| Window | Off/on wall s | Off/on sampled Java CPU s | Off/on Java RSS median MiB |
+| --- | ---: | ---: | ---: |
+| baseline | 30.013 / 30.005 | 1.65 / 0.71 | 2870.26 / 4510.27 |
+| operation 1 | 131.958 / 136.850 | 158.78 / 167.45 | 3053.94 / 4352.03 |
+| retained 1 | 30.001 / 30.001 | 1.05 / 1.40 | 4697.04 / 3552.11 |
+| operation 2 | 12.943 / 31.517 | 19.21 / 27.58 | 4959.29 / 3583.15 |
+| retained 2 | 30.002 / 30.003 | 0.62 / 2.01 | 5403.09 / 3130.79 |
+| operation 3 | 17.545 / 28.674 | 21.30 / 21.63 | 5481.66 / 3849.96 |
+| retained 3 | 30.001 / 30.001 | 2.44 / 21.11 | 4817.56 / 4899.22 |
+
+First operation is about 3.71% slower with 5.46% more sampled Java CPU on.
+This pair does not demonstrate a benefit. Baseline RSS differs substantially;
+first-to-third retained RSS grows 120.52 MiB off / 1347.11 MiB on, while final
+retained medians differ by only 81.66 MiB. Do not infer an index leak or a causal
+memory regression from growth alone. Neither later UI operation has target JFR
+samples on either leg. Operation 1 has 4361 off / 4717 on target samples, with
+2824 production-index samples on; these are samples, not invocation counts.
+
+Stable effectiveness remains unproven. Full caller attribution is being analyzed
+before selecting the next change; the sampled `HashSet.contains` hotspot alone
+does not establish that the woven `TriangleList.c` entry is its caller. This pair
+is retained as measured, not replaced by a favorable historical result.
+
+
+Caller attribution completed: `contains-membership-attribution.json` streams all
+four first-operation recordings with 64-frame stacks and pins each exported JSON.
+All 1173 sampled native contains stacks on the older on leg go through
+`TriangleList.c`; all 690 on the new on leg go through both `TriangleList.c` and
+`TriangulationEdgeIndex.contains`. Thus the chosen entry is on the actual hot
+path, rather than an unrelated contains caller. Of 694 samples containing the
+helper, 690 also contain native contains. This is time-biased sampling, **not**
+a 99.4% fallback invocation rate; a cheap successful shortcut is less likely to
+be sampled. New on first-operation sampled native add/contains/remove counts are
+1093/690/507, versus 898/776/442 off. Counts across runs do not establish cost
+reduction. Equality leaf differences may reflect JIT inlining and attribution,
+not a corresponding change in equality invocation count.
+
+Next diagnostic must distinguish clean identity hits from unknown identities,
+dirty/cardinality fallback and dead states with bounded observation in a separate
+diagnostic artifact. Keep the production candidate frozen; do not reinterpret
+instrumented timings as its acceptance result. No further optimization is justified
+solely by the 694/690 sample ratio.
+
+
+## Contains branch diagnostic queued (not acceptance)
+
+The standalone builder under `diagnostic/` pins the production source and base
+agent, adds fixed-size reason/outcome counters in a generated copy, and leaves
+production source unchanged. Both generated-class and packaged-jar selfchecks
+pass 36 assertions and exact shutdown JSON counts. Only the outer helper class is
+replaced; all original remaining jar entries are byte-identical.
+
+Diagnostic agent SHA: `42a4282bc67cd70183e95d4dd4d988da6726de53b03974f039785aa8d37b5528`.
+Prepared: `bcb382bd89875b592ca6d4e2e57438d147d72906a218ea7a8ab8e9dd1b087cb1`.
+Queue seq2234, job `caba0c55-e949-4d5c-bd5e-b7c601964be5`, request
+`t029-contains-branch-diagnostic5203-v1`. Specific status confirms queued with
+worker online. Output root: `build/t029-real-host-acceptance/contains-diagnostic5203`.
+No real diagnostic counters are available yet. Preserve normal exit, fixture and
+capture checks before interpreting aggregate counts. This instrumented artifact
+and its timing cannot substitute for final production performance acceptance.
