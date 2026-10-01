@@ -1697,3 +1697,69 @@ identity, null/assertion/exception stacks, class initialization, dependency
 definitions and frame/control-flow verification remain required. Neither stable
 host benefit nor a theoretical bottleneck follows. Production acceptance remains
 HOLD_PRODUCTION_ACCEPTANCE, and T044/T046/the overall goal remain open.
+
+### T050 offline lazy-edge bytecode prototype (production gate pending)
+
+The preceding turn was progress:329fd2f bound the retained allocation samples to
+the three construction sites. This turn implemented the offline prototype on the
+clean329fd2f source. No production runtime source, frozen Agent, previewBundle,
+host task, main merge or push changed. The ongoing goal remains unachieved.
+
+Whole reviewed5203/5302/5303 JAR hashes admit official class bytes only as data.
+The prototype adds eight method-local slots, retaining the original first three
+constructions and pair computations in each c()V call. Its local ready flag only
+changes after all three calculations complete. Later iterations capture six
+separate triangle getter observations, preserve original pair validation before
+any calculation, and call the existing four-point native overload with identical
+endpoint order. A successful-intersection branch constructs its distinct edge
+before the original private/inlined predicate. No pool, state registry, ordering
+change or geometry shortcut is introduced. The separate fourth path remains.
+
+Null/index/assertion screening calls the untouched constructor when it must fail,
+retaining its native failure site and original c caller line. The cold path keeps
+original class initialization work before warm screening; actual official class-
+initialization failures were not executed here. Warm eligibility still requires
+actual admitted pure getters, immutable indices and exact dependency definitions.
+No such production gate is implemented in this research source.
+
+Java17 release/lint/Werror compilation and -Xverify:all pass3505 generated-own-
+bytecode checks. Both53-style private and5203-style inlined stencils are generated
+independently, remapped away official names before execution. Checks cover all64
+hit/block masks, stored endpoint identity/order and fresh duplicates, cold/later
+constructor and pair counts, nulls/duplicate indices before calculations, assert
+on/off, exact algorithm failure-stack prefixes through c and source lines, cold
+constructor/compute probes, predicate/fourth-path failures, empty/single/repeated
+inputs, later endpoint mutation and100 seeded inputs. A three-face control has
+10 original constructions versus4+2*bitCount(hitMask) lazy constructions; original
+10 pair calls become4, retaining three cold and one fourth call. These counts
+describe owned fixtures, not native allocation or CPU gains. The shared owned
+primitive and predicate are stand-ins; no native geometry body executes.
+
+All original executable ASM nodes are retained in order. The independent byte-
+data verifier confirms unchanged original constant-pool entries, fields, class
+metadata and raw non-c method attributes/code:16 methods in5203,27 in each53
+version. c remains public/final without handlers, maxStack6; its maxLocals are
+22→30 and18→26, code lengths1308→1673 and944→1309. Official c frames are computed
+using header bytes, not official class loading; JVM definition of those official
+outputs is still untested. Four owned verifier cases accept valid bytes and
+reject wrong JAR binding, changed private-predicate bytes and truncation.
+
+Static output h SHA5203
+cf6aa58c4a70c7259555938af7c91fe8cad483a7e0de96e9a0d2fd4957fd2a30;
+5302/5303
+41bfba9a898a92951e1cefb59e8151003b389c4846dc78d40b88542171b488da.
+Final proof under build/t050-lazy-edge-bytecode/prototype/offline-review-final.json
+SHAbe49ea56ab75dc9cec7347f58ea824017d35353e223dfe29fccce8f8a89ee7b4
+binds56 source/library/class/log/raw-fixture/preservation inputs, the prior
+allocation report and unchanged ee244/0dc308 frozen Agents. Earlier logs and
+reviews are retained. The initial2731 checks grew to2743 with fourth-failure
+controls and3505 with the inlined local-slot variant; these are separate retained
+logs, not multiple measurements of host stability.
+
+The allocation and owned-bytecode slices are complete; T050 remains partial.
+Next required work is composition with the existing fresh/membership transforms
+using admitted production ASM modules, actual dependency admission with native
+fallback, and repeated frame/exception/output checks on the composed packaged
+implementation. Complete native output, class initialization, UI/startup linkage,
+three-version stable benefit/resource acceptance and theoretical-limit evidence
+remain unproved. HOLD_PRODUCTION_ACCEPTANCE and T044/T046/goal remain open.
