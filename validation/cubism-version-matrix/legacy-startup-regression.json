@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "scope": "Synthetic host/Core lifecycle tests, shared production Editor composition for legacy profiles, plus separately executed licensed real-JAR startup/factory admission tests; live legacy native behavior still pending",
+  "result": "PASS",
+  "synthetic": {
+    "tests": 235,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "licensedFactory": {
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "redEvidence": {
+    "recordCondition": "One licensed startup test failed before removing stale geometry condition",
+    "hostComposition": "One production composition test failed with Complete Core geometry is unavailable before checking availability"
+  },
+  "productionChanges": [
+    "Remove stale geometry capabilityCondition; retain strict loader validation",
+    "Share Editor access composition across HostSession and connector constructors; only create evaluatedJoin with complete geometry evidence"
+  ],
+  "logs": {
+    "mundane-legacy-startup-real-red.log": "107b3b86fead1f137fd99631355287c9b767564acd881f63d5659368857e1fac",
+    "mundane-legacy-startup-green-build.log": "59064c349347dbac48a186289ae12b3ad800f720c7477c24444e61e0c8ade408",
+    "mundane-host-session-legacy-red.log": "e4fdfb6bbbf5acc3f74e1283881a8c1d5ef4a0855923fa3085c36e022e2b049d",
+    "mundane-host-session-legacy-green-build.log": "1e7990ecd8fa01ce3411db37f35af353edf4212bc9573ad6dd6d07f5746aac88"
+  },
+  "gates": [
+    "devCheck",
+    "checkCubismCoreApiInventory",
+    "checkCubismCoreMemberPolicy",
+    "checkCubismCoreSelectorPolicy"
+  ]
+}
