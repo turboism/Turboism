@@ -100,6 +100,20 @@ class WindowAccountingTest(unittest.TestCase):
         self.assertEqual([w["targetExecution"]["status"] for w in operations[1:]],
                          ["NOT_OBSERVED", "NOT_OBSERVED"])
 
+    def test_streaming_jfr_across_chunks(self):
+        path = Path(self.temp.name) / "large.json"
+        events = [{"text": "长字符串" * 40000}, {"type": "second"}]
+        path.write_text(json.dumps({"recording": {"events": events}}, ensure_ascii=False))
+        self.assertEqual(list(module.jfr_events(path)), events)
+
+    def test_streaming_jfr_rejects_truncation_and_trailing_data(self):
+        path = Path(self.temp.name) / "invalid.json"
+        for value in ('{"recording":{"events":[{"unfinished":',
+                      '{"recording":{"events":[]}} trailing'):
+            path.write_text(value)
+            with self.assertRaises(ValueError):
+                list(module.jfr_events(path))
+
 
 if __name__ == "__main__":
     unittest.main()
