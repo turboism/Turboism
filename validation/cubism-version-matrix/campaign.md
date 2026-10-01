@@ -120,3 +120,9 @@
 5.3.04 FREE MCP r2诊断明确：KEYFORM三个参数与BLEND_SHAPE一个参数共四个，旧planner仅将KEYFORM减到两个而留下总数三个。planner现先预留全部非KEYFORM参数额度，再按稳定顺序保留KEYFORM，总distinct参数不得超过二；非KEYFORM本身超过二仍拒绝，保留Morph。7项Java回归与实机r3证明最多参数4→2、解绑两个KEYFORM、BLEND_SHAPE保留、Undo/Redo与纹理未变断言通过。但r3后续原生保存调用超时，supervisor FAIL/cleanup safe，不记为unsupported或保存支持。r4保持全部原断言并加入只读弹窗、保存阶段及超时线程栈诊断，已冻结入队。
 
 5.1.00/.01/.02 owned-r1已各自supervisor PASS，身份/夹具/正常退出true、cleanup safe，实测Core5.0.0，基础42参数/19部件与update、独立实例、不可变副本、显式/父级联释放、关闭后拒绝均PASS；扩展三族明确拒绝。现在13版owned-MOC验收：九版完整结构getter、四版基础family。5.0.02 owned-r1在原生加载5.2.03夹具时返回File load interrupted，Load与更新Cancel均实际执行，后续readiness超时、nativeAssertions=NOT_STARTED；预检PASS不替代本轮SDK验收，不作unsupported结论。
+
+5.0.03/.04/.05 owned-r1与5.0.02/.06 owned-r2现均确认supervisor PASS，基础Canvas/42参数/19部件与update、独立实例、不可变副本、显式/父级联释放及关闭后拒绝通过；缺失完整Drawable/Glue/Deformer明确UOE。现在18版owned-MOC：九版完整结构getter、九版基础family；5.0.00/.01仍需适用夹具与实测tuple。首轮加载中断证据保留。
+
+5.3.04 FREE MCP r4保存失败原因明确为PRO-only Screen Color，原生modal观察与runtime log摘要见mcp-evidence/5.3.04-allversions-free-r4/dialog-observations.json。r5通过公开SDK将任务副本全部存储关键形Screen Color归零（非黑RGB 6→0），核对SDK写入Undo/Redo、纹理未变；五类纹理操作原生保存、重开、参数/颜色投影一致及原始文件重开恢复全部PASS。但随后完整MCP因夹具没有非空Glue关系而FAIL；supervisor failed/FAIL、cleanup safe，三个整体最终门禁false。只保留保存单项通过证据，不提升为整体能力支持。client status与nativeTextureStatus已分开记录，防止后读的PASS覆盖整体FAIL。
+
+只读官方ArchiveReader检查发现Downloads同名模型的SHA为2980dc8c695b13eeb54e37c02832edf80607979f2cc721ea9ca7b671f8bbac10，与原夹具不同；含21 ArtMesh、12 Deformer、9 Part、一个Glue及不同ArtMesh端点，结构证据见mcp-glue-fixture-audit.json。已以这个原始文件的不可变任务副本提交5.3.04 free-r6、5.3.01/5.2.02 free-r1；全部完整断言保留，终态尚待。新probe按精确版本审核全部Drawable/Deformer存储颜色，5.3额外审核Part；5.0–5.2实际没有Part Screen Color字段，不伪造读取。增加原生containScreenColor独立只读guard，稳定ID使用序列化getIdString；九项Java回归/devCheck/探针编译自检通过。

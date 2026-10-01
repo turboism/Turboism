@@ -144,6 +144,56 @@
   ],
   "liveResults": [
     {
+      "version": "5.0.02",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "42aab530-9b5b-4460-91f6-156652d52506",
+      "preparedDigest": "cbec4e8b47b16189769124c2e38d2832f5e482bb96187f2a632bab0508d21dd0",
+      "evidenceDirectory": "mcp-evidence/5.0.02-allversions-owned-r2",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.0.03",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "c4b44dc5-90bb-45d0-87e7-dc408490153b",
+      "preparedDigest": "73d082b594d5e86a35f8c95af754d8ab1a4c1f9840fa25dafd13eee0f3c30785",
+      "evidenceDirectory": "mcp-evidence/5.0.03-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.0.04",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "f254ebd3-54fa-4f39-852e-8c7c8d7bc7ad",
+      "preparedDigest": "95e6070b2cb299f6878743dec77e63662735e4e8ced20785c31379f554eca953",
+      "evidenceDirectory": "mcp-evidence/5.0.04-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.0.05",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "d4e456c7-0150-4de6-b3fd-1e4adba83910",
+      "preparedDigest": "d9c34214172bd10e5064c84b45ad58ac99c5ee21894084a2f0add61b628fbc29",
+      "evidenceDirectory": "mcp-evidence/5.0.05-allversions-owned-r1",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
+      "version": "5.0.06",
+      "nativeCoreVersion": "5.0.0",
+      "jobId": "3b47b96e-2c23-4906-b694-0c3ea7a08a1a",
+      "preparedDigest": "4a0ff4a50640f63233b6c00b169a92cee3d3c49198a4f28ac1ded076e37751e6",
+      "evidenceDirectory": "mcp-evidence/5.0.06-allversions-owned-r2",
+      "structuralReadMethods": "PARTIAL_EXPECTED",
+      "glueScope": "UNAVAILABLE_EXPECTED",
+      "verdict": "PASS_BASIC_FAMILIES_AND_NEGATIVE_ASSERTIONS"
+    },
+    {
       "version": "5.1.00",
       "nativeCoreVersion": "5.0.0",
       "jobId": "d0a21c17-a245-433d-a6f1-e50c1a74a243",

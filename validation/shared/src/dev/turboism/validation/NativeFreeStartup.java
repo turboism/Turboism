@@ -44,6 +44,12 @@ public final class NativeFreeStartup {
 
     public static String promptAction(final String title, final String text, final String button) {
         if (("Information Dialog Box".equals(title) || "Information".equals(title))
+                && "OK".equals(button) && text != null
+                && text.contains("Screen Color is only available in the PRO version.")
+                && text.contains("Save failed. Please try again meeting the restrictions.")) {
+            return "FREE_SCREEN_COLOR_SAVE_FAILURE_ACKNOWLEDGED";
+        }
+        if (("Information Dialog Box".equals(title) || "Information".equals(title))
                 && text != null && "OK".equals(button)
                 && text.contains("FREE version - The max number of Parameters allowed per object: 2")
                 && text.contains("This operation is cancelled as 3 parameters are set.")) {
