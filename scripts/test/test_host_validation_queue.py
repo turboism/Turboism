@@ -560,6 +560,33 @@ class PreparedStoreTest(unittest.TestCase):
             with self.subTest(version=version), self.assertRaises(queue.QueueError):
                 self.prepared.capture(request, self.source, "mcp:" + version)
 
+    def test_mcp_free_fixture_requires_reviewed_variant_and_preparation(self):
+        request = self.mcp_request()
+        self.prepared.capture(request, self.source, "mcp:5302@standard")
+        required = [
+            "--jvm-option", "-Dturboism.validation.startFree=true",
+            "--jvm-option", "-Dturboism.validation.freeFixture=true",
+            "--jvm-option", "-Dturboism.optimization.mesaGlThread=false",
+            "--linux-env", "mesa_glthread=false",
+        ]
+        request["argv"] += required
+        self.prepared.capture(request, self.source, "mcp:5302@free-fixture")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture(request, self.source, "mcp:5302@unknown")
+        for index in range(0, len(required), 2):
+            broken = self.mcp_request()
+            broken["argv"] += required[:index] + required[index + 2:]
+            with self.subTest(index=index), self.assertRaisesRegex(queue.QueueError, "requires exact SDK"):
+                self.prepared.capture(broken, self.source, "mcp:5302@free-fixture")
+        wrong = self.mcp_request()
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture(wrong, self.source, "mcp:5304@free-fixture")
+        for value in ("-Dturboism.validation.freeFixture=false", "-Dturboism.validation.startFree=true"):
+            shadowed = self.mcp_request()
+            shadowed["argv"] += required + ["--jvm-option", value]
+            with self.subTest(value=value), self.assertRaisesRegex(queue.QueueError, "requires exact SDK"):
+                self.prepared.capture(shadowed, self.source, "mcp:5302@free-fixture")
+
     def test_mcp_missing_duplicate_substituted_or_cross_task_inputs_are_rejected(self):
         original = self.mcp_request()["argv"]
         cases = []

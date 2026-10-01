@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "scope": "Offline validation-only FREE fixture plan and unchanged native persistence protocol; live save/reopen not yet verified",
+  "result": "PASS",
+  "java": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "pythonQueueTests": 115,
+  "schedulerTests": 29,
+  "gates": [
+    "devCheck",
+    "Python lint",
+    "probe build",
+    "probe startup-failure selftest"
+  ],
+  "liveTask": "mcp:5304@free-fixture",
+  "invariants": [
+    "Only exact task-owned documents; original bytes are never overwritten",
+    "Use production SDK unbind to retain at most two keyform parameters per target",
+    "Preserve non-keyform families; remaining excessive binding count fails closed",
+    "Every SDK unbind creates exactly one Undo entry; full binding projection restored by Undo and prepared by Redo",
+    "Native texture baseline stays unchanged during fixture preparation",
+    "Native save/reopen must match complete texture snapshot and prepared parameter binding projection",
+    "Reopen original fixture restores texture snapshot and original parameter bindings",
+    "No client assertions or native save failures are relaxed"
+  ],
+  "logs": {
+    "mundane-free-fixture-regression.log": "55f18d6bb87c84e2ef8ab1178207d3cd693759b6827f6a409c2b99c6c40aa666",
+    "mundane-free-fixture-scheduler.log": "3874ffcf09f5f32d5516a22c9c0130008d035d3cac49e49105241203fc7279a9",
+    "mundane-free-fixture-devcheck.log": "cd17e09d1c342214507f49d179cb87756b858ff17f745f48964b2411c5f4e6ef",
+    "mundane-free-fixture-probe-build.log": "50f485c15eed2a1cf4503a39f720cbe768db8b8bea3b22e3a4f9c95f8f6bd27d",
+    "mundane-free-fixture-probe-selftest.log": "6ad3b6345ecdc38302a40dc57ee7e077e241c459aac0102fcf0b5384428c73da",
+    "mundane-free-fixture-queue-regression.log": "ddbbf212c435a6686a7e47d56e64404509662946c811c2a29e3493d68b3bdd41"
+  }
+}
