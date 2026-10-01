@@ -2,6 +2,9 @@ package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
@@ -84,5 +87,124 @@ final class FreshTriangulationEdgeSearchTest implements Opcodes {
         assertTrue(FreshTriangulationEdgeSearch.containsFresh(list, null));
         assertThrows(NullPointerException.class,
                 () -> FreshTriangulationEdgeSearch.containsFresh(null, new Object()));
+    }
+
+    private static final String DIAGNOSTIC_PROPERTY = "turboism.validation.triangulationEdgeGuard";
+    private static final String DIAGNOSTIC_TOKEN = "FRESH_EDGE_GUARD_METADATA_V1";
+
+    private static String captureDiagnostics(String token, Runnable action) {
+        final String previous = System.getProperty(DIAGNOSTIC_PROPERTY);
+        final PrintStream previousError = System.err;
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (PrintStream output = new PrintStream(bytes, true, StandardCharsets.UTF_8)) {
+            if (token == null) System.clearProperty(DIAGNOSTIC_PROPERTY);
+            else System.setProperty(DIAGNOSTIC_PROPERTY, token);
+            System.setErr(output);
+            action.run();
+        } finally {
+            System.setErr(previousError);
+            if (previous == null) System.clearProperty(DIAGNOSTIC_PROPERTY);
+            else System.setProperty(DIAGNOSTIC_PROPERTY, previous);
+        }
+        return bytes.toString(StandardCharsets.UTF_8);
+    }
+
+    @Test void validationReceiptReportsOneColdAdmissionAndKeepsFreshResults() throws Exception {
+        final Object first = edge(true, true, false);
+        final Object second = first.getClass().getConstructor().newInstance();
+        final ArrayList<Object> list = new ArrayList<>();
+        list.add(new Object());
+        final String output = captureDiagnostics(DIAGNOSTIC_TOKEN, () -> {
+            assertFalse(FreshTriangulationEdgeSearch.containsFresh(list, first));
+            assertFalse(FreshTriangulationEdgeSearch.containsFresh(list, second));
+        });
+        assertEquals(1, output.lines().count(), "sequential queries reuse the cached cold decision");
+        assertTrue(output.contains("TRIANGULATION_FRESH_EDGE_GUARD type=" + first.getClass().getName()));
+        assertTrue(output.contains("admitted=true"));
+        assertTrue(output.contains("reason=IDENTITY_EQUALITY"));
+        assertTrue(output.contains("equalsOwner=java.lang.Object"));
+        assertTrue(output.contains("coldComputation=true"));
+        assertEquals(1, list.size());
+    }
+
+    @Test void validationReceiptDistinguishesSameNamedLoadedTypesAndNativeFallback() throws Exception {
+        final Object identity = edge(true, true, false);
+        final Object value = edge(false, true, false);
+        final ArrayList<Object> list = new ArrayList<>();
+        list.add(new Object());
+        final String output = captureDiagnostics(DIAGNOSTIC_TOKEN, () -> {
+            assertFalse(FreshTriangulationEdgeSearch.containsFresh(list, identity));
+            assertTrue(FreshTriangulationEdgeSearch.containsFresh(list, value));
+            assertFalse(FreshTriangulationEdgeSearch.containsFresh(list, identity));
+        });
+        assertEquals(2, output.lines().count());
+        assertTrue(output.contains("admitted=true reason=IDENTITY_EQUALITY"));
+        assertTrue(output.contains("admitted=false reason=EQUALS_OVERRIDE"));
+        assertTrue(output.contains("equalsOwner=" + value.getClass().getName()));
+    }
+
+    @Test void noTokenOrWrongTokenRemainsSilent() throws Exception {
+        for (final String token : new String[] {null, "true", "FRESH_EDGE_GUARD_METADATA"}) {
+            final Object identity = edge(true, true, false);
+            assertEquals("", captureDiagnostics(token, () ->
+                    assertFalse(FreshTriangulationEdgeSearch.containsFresh(new ArrayList<>(), identity))));
+        }
+    }
+
+    @Test void receiptRequiresTheActualExactListAndNonNullEdgeGuard() throws Exception {
+        final Object identity = edge(true, true, false);
+        final CustomList custom = new CustomList();
+        final ArrayList<Object> exact = new ArrayList<>();
+        exact.add(null);
+        assertEquals("", captureDiagnostics(DIAGNOSTIC_TOKEN, () -> {
+            assertTrue(FreshTriangulationEdgeSearch.containsFresh(custom, identity));
+            assertTrue(FreshTriangulationEdgeSearch.containsFresh(exact, null));
+        }));
+        assertEquals(1, captureDiagnostics(DIAGNOSTIC_TOKEN, () ->
+                assertFalse(FreshTriangulationEdgeSearch.containsFresh(exact, identity))).lines().count());
+    }
+
+    @Test void diagnosticFailureCannotChangeAdmissionOrNativeException() throws Exception {
+        final Object identity = edge(true, true, false);
+        final Object throwing = edge(false, true, true);
+        final ArrayList<Object> list = new ArrayList<>();
+        list.add(new Object());
+        final String previous = System.getProperty(DIAGNOSTIC_PROPERTY);
+        final PrintStream previousError = System.err;
+        try (PrintStream failing = new PrintStream(new ByteArrayOutputStream()) {
+            @Override public void println(String line) { throw new IllegalStateException("diagnostic sink failed"); }
+        }) {
+            System.setProperty(DIAGNOSTIC_PROPERTY, DIAGNOSTIC_TOKEN);
+            System.setErr(failing);
+            assertFalse(FreshTriangulationEdgeSearch.containsFresh(list, identity));
+            assertNull(assertThrows(IllegalStateException.class,
+                    () -> FreshTriangulationEdgeSearch.containsFresh(list, throwing)).getMessage(),
+                    "the exception must come from native equals, not the failing diagnostic sink");
+        } finally {
+            System.setErr(previousError);
+            if (previous == null) System.clearProperty(DIAGNOSTIC_PROPERTY);
+            else System.setProperty(DIAGNOSTIC_PROPERTY, previous);
+        }
+    }
+
+    @Test void fatalDiagnosticFailurePropagatesWithoutPoisoningTheTypeDecision() throws Exception {
+        final Object identity = edge(true, true, false);
+        final InternalError fatal = new InternalError("fatal diagnostic sink");
+        final String previous = System.getProperty(DIAGNOSTIC_PROPERTY);
+        final PrintStream previousError = System.err;
+        try (PrintStream failing = new PrintStream(new ByteArrayOutputStream()) {
+            @Override public void println(String line) { throw fatal; }
+        }) {
+            System.setProperty(DIAGNOSTIC_PROPERTY, DIAGNOSTIC_TOKEN);
+            System.setErr(failing);
+            assertSame(fatal, assertThrows(InternalError.class,
+                    () -> FreshTriangulationEdgeSearch.containsFresh(new ArrayList<>(), identity)));
+        } finally {
+            System.setErr(previousError);
+            if (previous == null) System.clearProperty(DIAGNOSTIC_PROPERTY);
+            else System.setProperty(DIAGNOSTIC_PROPERTY, previous);
+        }
+        assertEquals("", captureDiagnostics(null, () ->
+                assertFalse(FreshTriangulationEdgeSearch.containsFresh(new ArrayList<>(), identity))));
     }
 }

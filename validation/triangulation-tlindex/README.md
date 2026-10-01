@@ -65,3 +65,27 @@ showed lower observed CPU/wall time, the third regressed, and all three RSS peak
 increased. Stable performance is **not established**. See the dated report for
 exact evidence and the [resource acceptance plan](resource-acceptance-plan.md)
 for the fixed-window A/B now submitted with the same production agent.
+
+
+### Validation-only fresh-edge guard metadata (2026-10-02)
+
+The opt-in JVM option
+`-Dturboism.validation.triangulationEdgeGuard=FRESH_EDGE_GUARD_METADATA_V1`
+enables `TRIANGULATION_FRESH_EDGE_GUARD` stderr records when the guard computes a
+cold type decision. Set it before the first guard use through the managed
+Runner/prepared input; it does not activate a disabled production hook. Each
+record includes actual type/loader metadata, the equality method owner,
+admission/rejection reason, final/Object-superclass checks and
+`coldComputation=true`. Loader hash labels are diagnostic labels, not unique
+process/class identity proof. An absent or wrong token stays silent.
+
+These are cold computations, not query counts or cache-publication receipts.
+Concurrent first uses may compute more than once, and a type already cached
+before enabling the option may emit no record. Missing records cannot prove
+rejection or absence of execution. Nonfatal diagnostic failures leave the
+original decision and native fallback unchanged; fatal JVM failures propagate.
+No new strong class/loader registry is introduced. Cached-query instructions
+remain unchanged. This source slice has offline evidence only; it supplies no
+new host admission, eliminated-scan rate or performance acceptance. Frozen
+Agent `ee244d0f…` is unchanged. See the dated host evidence and
+`build/t048-offline/offline-review.json` for tests and hashes.
