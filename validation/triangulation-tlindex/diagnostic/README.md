@@ -343,6 +343,57 @@ are neither exact allocations nor CPU savings. This evidence supports an offline
 prototype; original failure/class-initialization semantics, runtime dependency
 admission, full native outputs and stable real-host benefit remain unproved.
 
+### Offline delayed-construction bytecode prototype
+
+`LazyEdgeBytecodePrototype` admits the three reviewed whole-JAR hashes and reads
+official bodies only as bytes. It retains the first original three constructions
+and pair computations in each c()V invocation. Subsequent iterations capture six
+endpoint observations in their original order, validate all three pairs before
+any computation, call the existing four-point overload, then construct a distinct
+edge only before a successful-intersection branch first uses it. Failed null or
+index/assertion preflight calls the unchanged constructor, preserving its error
+and caller line. Original predicates, contains/add, fourth construction and fourth
+pair computation remain. Every original executable instruction stays in order.
+
+Only c frames are recomputed, using class-file hierarchy data rather than loading
+official types. The checker verifies the original constant pool, fields and class
+metadata, every non-c method's raw attributes/code, c's access/other metadata,
+empty handlers and exactly eight added local slots. All three outputs pass.
+
+Compile the two Java sources with Java17 and local ASM9.7.1 core/tree/commons:
+
+```sh
+rtk proxy javac --release 17 -Xlint:all -Werror \
+  -cp ASM_CORE:ASM_TREE:ASM_COMMONS -d /tmp/lazy-edge-check \
+  validation/triangulation-tlindex/diagnostic/LazyEdgeBytecodePrototype.java \
+  validation/triangulation-tlindex/diagnostic/LazyEdgeBytecodeSelfCheck.java
+rtk proxy java -Xverify:all -cp /tmp/lazy-edge-check:ASM_CORE:ASM_TREE:ASM_COMMONS \
+  dev.turboism.validation.tlindex.diagnostic.LazyEdgeBytecodeSelfCheck
+rtk proxy java -cp /tmp/lazy-edge-check:ASM_CORE:ASM_TREE:ASM_COMMONS \
+  dev.turboism.validation.tlindex.diagnostic.LazyEdgeBytecodePrototype \
+  /path/to/pinned/official.jar /path/to/new-candidate-directory
+rtk proxy python3 -B validation/triangulation-tlindex/diagnostic/verify-lazy-edge-static-output.py \
+  --jar /path/to/pinned/official.jar --candidate /path/to/new-candidate-directory \
+  --out /path/to/new-preservation-report.json
+```
+
+The3505 owned checks execute independently generated private and inlined stencils
+after remapping away official names. They cover all64 hit/block masks, ordered
+fresh duplicates, cold versus later constructor/pair counts, constructor/compute
+and predicate errors, empty/single/repeated inputs, nulls, assertions on/off,
+algorithm exception stacks/source lines, later endpoint mutation,100 seeded
+inputs, fourth-path failures and unknown-JAR/shape refusal. The primitive and
+predicate are owned stand-ins; this does not execute complete native geometry.
+Four checker controls accept the owned valid output and reject a wrong JAR pin,
+changed private-predicate bytes and truncated class data.
+
+Evidence: `build/t050-lazy-edge-bytecode/prototype/offline-review-final.json`.
+Production composition must use admitted ASM modules and actual dependency
+definition gates before enabling warm laziness. Official JVM definition,
+class-initialization failures, combined weaving, complete native outputs and
+stable host performance remain open. T050 remains partial and production
+acceptance stays HOLD_PRODUCTION_ACCEPTANCE.
+
 ### Auto-connect r4: cancelled capture queries
 
 R3 failed before its capture callback started: FixedEdt atomically transitioned
