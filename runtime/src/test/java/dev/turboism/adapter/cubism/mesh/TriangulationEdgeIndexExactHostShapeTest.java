@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -140,6 +141,71 @@ final class TriangulationEdgeIndexExactHostShapeTest {
                 InputStream stream = file.getInputStream(file.getEntry(entry))) {
             return stream.readAllBytes();
         }
+    }
+
+    @Test
+    void lazyAdmissionAcceptsOnlyTheReviewedHashComposition() throws Exception {
+        byte[] original = readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
+                MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME + ".class");
+        assertEquals(MeshTriangulationHashTransformer.REVIEWED_CLASS_SHA256,
+                MeshTriangulationHashTransformer.sha256(original));
+        byte[] patched = new MeshTriangulationHashTransformer().transform(null,
+                MeshTriangulationHashTransformer.TARGET_INTERNAL_NAME, null, null, original);
+        assertNotNull(patched);
+        String pristine = TriangulationDefinitionFingerprint.runtimeOf(original);
+        assertNotEquals(pristine, TriangulationDefinitionFingerprint.runtimeOf(patched));
+        assertEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(original));
+        assertEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(patched));
+        assertEquals(withoutHashFingerprint(original), withoutHashFingerprint(patched),
+                "the existing hash patch must preserve every other runtime member");
+        for (String change : List.of("getter", "hash", "field")) {
+            byte[] tampered = tamperHashComposition(patched, change);
+            String observed = TriangulationDefinitionFingerprint.runtimeOf(tampered);
+            assertNotEquals(TriangulationDefinitionFingerprint.runtimeOf(patched), observed, change);
+            assertEquals(observed, LazyTriangulationEdgePreparation.dependencyFingerprint(tampered),
+                    change + " must not be normalized to an admitted definition");
+            assertNotEquals(pristine, LazyTriangulationEdgePreparation.dependencyFingerprint(tampered), change);
+        }
+    }
+
+    private static String withoutHashFingerprint(byte[] bytes) {
+        var writer = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(bytes).accept(new org.objectweb.asm.ClassVisitor(
+                org.objectweb.asm.Opcodes.ASM9, writer) {
+            @Override public org.objectweb.asm.MethodVisitor visitMethod(int access, String name,
+                    String descriptor, String signature, String[] exceptions) {
+                return name.equals("hashCode") && descriptor.equals("()I") ? null
+                        : super.visitMethod(access, name, descriptor, signature, exceptions);
+            }
+        }, 0);
+        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+    }
+
+    private static byte[] tamperHashComposition(byte[] bytes, String change) {
+        var writer = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(bytes).accept(new org.objectweb.asm.ClassVisitor(
+                org.objectweb.asm.Opcodes.ASM9, writer) {
+            @Override public org.objectweb.asm.FieldVisitor visitField(int access, String name,
+                    String descriptor, String signature, Object value) {
+                if (change.equals("field") && name.equals("a")) access ^= org.objectweb.asm.Opcodes.ACC_FINAL;
+                return super.visitField(access, name, descriptor, signature, value);
+            }
+            @Override public org.objectweb.asm.MethodVisitor visitMethod(int access, String name,
+                    String descriptor, String signature, String[] exceptions) {
+                return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9,
+                        super.visitMethod(access, name, descriptor, signature, exceptions)) {
+                    @Override public void visitFieldInsn(int opcode, String owner, String field, String type) {
+                        super.visitFieldInsn(opcode, owner,
+                                change.equals("getter") && name.equals("a") && field.equals("a") ? "b" : field, type);
+                    }
+                    @Override public void visitIntInsn(int opcode, int operand) {
+                        super.visitIntInsn(opcode, change.equals("hash") && name.equals("hashCode")
+                                && opcode == org.objectweb.asm.Opcodes.BIPUSH && operand == 31 ? 30 : operand);
+                    }
+                };
+            }
+        }, 0);
+        return writer.toByteArray();
     }
 
     private static Path legacyEvidence() {
