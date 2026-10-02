@@ -1,0 +1,87 @@
+{
+  "task": "T069",
+  "status": "FROZEN_BEFORE_ANY_SUBMISSION",
+  "purpose": "FIXED_BALANCED_COMPARISON_WITH_NEW_DIRECT_PROCESS_CPU_METRIC",
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "pairs": [
+    [
+      "baseline1",
+      "candidate1"
+    ],
+    [
+      "baseline2",
+      "candidate2"
+    ]
+  ],
+  "legCount": 4,
+  "replacementsAllowed": false,
+  "abortOnInvalidEvidence": true,
+  "performanceFailureStopsEarly": false,
+  "aggregateCanOverrideFailedPair": false,
+  "primaryCpu": "sum_3_command_start_return_process_cpu_nanoseconds",
+  "cpuCapPercent": 0,
+  "wallRequirement": "strictly_less_in_each_pair",
+  "peakRssCapPercent": 20,
+  "ownBaselineRssCapMiB": 80,
+  "retainedGrowthCapMiB": 64,
+  "baselineProductionSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "withdrawnCandidateProductionSha256": "4b6145a7ada0eb77c4df72e813897f423bb4da418da788befcc4a6aab33e6b88",
+  "preparedIds": {
+    "baseline1": "b004c0e9f29826152d73bec059f02004e095c53a7cd023ab7ef5469f7c5d03f3",
+    "candidate1": "f9b11c08786d8ba475a830ad382d57350ec070f57ca33049a42ad9211a81341d",
+    "candidate2": "0ff3ed5c4d71ef2a0f358110cd2f408b0bc1a04e15bc475972778f7aa2f07166",
+    "baseline2": "9048b45b010777ef5d599808f56e607b448097aa8cdeb5ded7ec0e1d5499eead"
+  },
+  "requestOnlyDifferences": [
+    "arm_bundle_paths",
+    "leg_evidence_path",
+    "run_label",
+    "capture_run_id"
+  ],
+  "offlineGateRegressionTests": 5,
+  "productionAcceptance": "NOT_GRANTED",
+  "historicalT066Decision": "WITHDRAWN_ORIGINAL_CPU_GATE_FAIL_UNCHANGED",
+  "frozenInputPins": {
+    "validation/triangulation-tlindex/balanced-cpu-protocol-20261003.md": "e72c157bb266fe05a2e772d2241a27b45424d455480928b3550bab63b4007fa4",
+    "validation/triangulation-tlindex/diagnostic/balanced-cpu-gates.py": "40d6ce54085fbb52be3041ea2c1f95c31bf8ef9621d235699faf10ef1255e548",
+    "validation/triangulation-tlindex/diagnostic/test-balanced-cpu-gates.py": "5480948d863539d7118d1d34dc2cc970f361eea5a397b62a77d6adbd6123e5f8",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "build/t069-balanced-cpu-r1/offline-review.json": "caf4fa05d8abf3707726fca5f8700895a462b6df6e0754a977adc45d526bec95",
+    "build/t069-balanced-cpu-r1/native5303-abba1/prepare-all.py": "742b245537eb0d14c4002c1de34cedf81f3684468b787ab669ddc85c91316e89",
+    "build/t069-balanced-cpu-r1/native5303-abba1/run-one.py": "f4e1f14701d67da6c123402393f3ddb99d5ed972c6d18ebc1885c5630c6b252f",
+    "build/t069-balanced-cpu-r1/native5303-abba1/review-native.py": "24095e1231e6e9156e702db2e98727573ebe44389a5aac1c1293c05d81257f6f",
+    "build/t069-balanced-cpu-r1/native5303-abba1/analyze-all.py": "b151fdcf2cab51a3286cf784823037ed0f5fa92e78dd83fb018b45bab250a582",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/baseline/turboism-agent.jar": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/baseline/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/baseline/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/baseline/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/baseline/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/candidate/turboism-agent.jar": "a111ba81e518882146b008682346ab54188447e40d368df247f783d0cafd2a07",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/candidate/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/candidate/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/candidate/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t069-balanced-cpu-r1/native5303-abba1/bundles/candidate/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/runner-input.json": "2b9aaeab8dd70fe36173f49440811f83e24c967763495f81c82c5f4e7680dfab",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/prepared.json": "0c05544c66c920c063c8d0fbbf6422836182e19f63070c51e92d3f8c3c1e7b32",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/request/runner-request.json": "542bdc549fa973ee22522dce752683236bd809aa699c35322115fbaffbebbae7",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/runner-input.json": "8b005defd5fd4783dca3988dd498fde8f0e2f8fd42909ec1a937107df85c44e9",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/prepared.json": "010a4901e893da514e7c72f30378f92622ed011676f7bdca7dcf8b302c38b5a1",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/request/runner-request.json": "8572706ccc7e7aa8e63676a4d98f2ad1b236eb4c2dffcd7aaf25bf10c56f5112",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/runner-input.json": "a311791681f68770a9723861ed0e675233ede2bfe427ddc8ca43955173db3f85",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/prepared.json": "29f5d13c5ab2258383efb246b49ff888b6e341889168ec2aca704f9875bab631",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/request/runner-request.json": "55a398a194108010d292df38098f20744084b41024fc89c4157ce902e7b75292",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/runner-input.json": "723b212a87280c87ae3ffef67fd019b36ce7f28ba135ae0ad151953f2748f1bd",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/prepared.json": "3f589e84d061475b5cea38fd1324874133f16ce49b83f36b96a91ae3604e84ac",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/request/runner-request.json": "9ad367e164bfa3a552d5f6450042165b4e7757f6157eb274734f8df1db574e07",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060"
+  }
+}

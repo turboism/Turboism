@@ -1,0 +1,19 @@
+# T069 fixed balanced compact-bucket comparison
+
+Freeze this protocol before the first submission. T068 established that the direct process CPU counter is available with independently verified nanosecond units on Windows/Wine Cubism 5.3.03. T067 showed that the previous sampled boundaries cannot resolve the historical 0.31-second CPU difference. This experiment answers a new, declared measurement question with reversed order; it does not change T066's failed historical gate or restore its withdrawn production integration.
+
+Run exactly four fresh isolated host sessions in this order: `baseline1`, `candidate1`, `candidate2`, `baseline2`. Baseline is the frozen T057 capture companion; candidate is the frozen T066 compact-bucket capture companion. Use the same T068 scene driver, official BAT/FIFO path, heavy fixture SHA, settings snapshot, three native commands, 711 sources per command, 30-second idle/retained windows, JFR settings and one-second resource observer for every leg. All other bundle files must be identical between arms. Do not rebuild or perform heavy analysis while any performance leg is live.
+
+Compare `baseline1` with `candidate1`, and `baseline2` with `candidate2`. Each leg's primary CPU metric is the sum of the three command-start/return process CPU counter differences, including all Java threads. Require independent same-process kernel unit verification in every leg. Keep sampled user/system CPU, average/peak occupancy, auxiliary CPU, RSS/PSS, idle baselines and retained windows as separate resource evidence; sampled CPU is not substituted for the declared primary counter. Native command wall time remains the existing resource-marker duration, summed across three commands. Report each cycle and both pair directions without selecting favorable cycles or pairs.
+
+Every pair must satisfy all of these requirements:
+
+- Exact equality of all 2,133 producer rows across 11 semantic fields and four ordered edge captures, alongside native lifecycle, configuration, identity, unchanged fixture and cleanup PASS.
+- Candidate total command wall time strictly below its paired baseline; candidate total direct Java CPU time no higher than its paired baseline (original zero-regression cap).
+- Candidate operation peak RSS no more than 120% of its paired baseline; peak above its own idle baseline no more than 80 MiB; retained cycle 3 minus cycle 1 median RSS no more than 64 MiB.
+
+Aggregate the two baseline totals and two candidate totals only as descriptive sums. Aggregate gains cannot override a failed pair or memory gate. Exactly two reversed pairs provide order checks, not confidence intervals, statistical proof or uninstrumented production acceptance. Provider granularity and sampled memory limitations remain explicit. No rounding or tolerance is added to CPU/performance gates. The kernel's 2/HZ unit-check allowance is solely a cumulative counter cross-validation allowance.
+
+Before starting each later leg, require the preceding legs to have authoritative terminal success and independent output, lifecycle and CPU-unit reviews. A lifecycle, identity, output, counter or cleanup failure aborts this protocol with incomplete evidence and no replacement leg. A performance gate failure is retained; complete all four valid legs to avoid outcome-based stopping. No fifth leg, favorable retry, changed ordering, changed caps or retrospective T066 acceptance. Subsequent work requires a new justified hypothesis and independently declared protocol.
+
+The accompanying JSON pins artifacts, requests, prepared descriptors, inherited offline evidence, observers and execution/review/calculation scripts. Its SHA is separately frozen for the runner. Production source remains T057 while the withdrawn candidate is tested. Main merge, push, release and Lane C human acceptance are outside this experiment.
