@@ -312,7 +312,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 dependencies.clock(),
                 AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
                 reason -> dependencies.logger().warn("auto-backup " + reason),
-                pluginTasks);
+                pluginTasks,
+                permissionChecker);
         dependencies.disposableScope().register(backupCoordinator::close);
         final CubismContextServices services = new CubismContextServices(
                 facade,
