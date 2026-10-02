@@ -103,6 +103,7 @@ public interface PluginContext {
     }
 
     /** Returns the script discovery and execution service. */
+    @Incubating
     default ScriptService scripts() {
         return ScriptService.unavailable();
     }

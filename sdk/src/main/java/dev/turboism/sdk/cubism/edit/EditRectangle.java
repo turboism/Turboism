@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.model.Point2;
 import java.util.Objects;
 
@@ -15,6 +16,7 @@ import java.util.Objects;
  * @param topRight top-right corner position
  * @param bottomRight bottom-right corner position
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditRectangle(Point2 topLeft, Point2 bottomLeft, Point2 topRight, Point2 bottomRight) {
 
