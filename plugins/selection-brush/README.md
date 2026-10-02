@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.selection-brush
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: modeling
 tags: mesh, selection, brush
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # Selection Brush
 
-The official Selection Brush contributes tools for ordinary modeling and mesh editing to the Developer Preview. Its production code uses only Turboism's public SDK.
+The official Selection Brush contributes tools for ordinary modeling and mesh editing. It is included in Turboism release packages and uses only Turboism's public SDK.
 
 ## What it does
 
@@ -35,7 +35,7 @@ The official Selection Brush contributes tools for ordinary modeling and mesh ed
 
 ## Install and enable
 
-Use the Developer Preview bundle and enable Selection Brush in Plugin Management. Restart the Editor after changing plugin enabled state; the current manager applies these changes on the next launch.
+Install the plugin through Turboism's official Full or Thin installer, or use the Full archive. Select Selection Brush in the installer or enable it in Plugin Management. Restart the Editor after changing plugin enabled state; the current manager applies these changes on the next launch. Its delivery status is store candidate.
 
 ## How to use
 
@@ -72,13 +72,13 @@ The plugin makes no network connections and sends no telemetry. It reads active 
 
 ## Status and limitations
 
-This is a development plugin with Preview SDK contracts. Deactivation, Escape, native-tool switching, mode/document changes, plugin disposal, host replacement, and runtime close invalidate stale handles and remove the owned overlay and listeners. Toolbar reconciliation replaces widgets while retaining an otherwise valid activation. Plugin changes require an Editor restart. The basic ordinary-mode and mesh matrix, including Select/Move exclusivity, border/focus behavior and bounding-box refresh, passed exact-host validation on reviewed 5.2.03, 5.3.02 and 5.3.03 on 2026-10-02. Manual acceptance of the same production build passed on 5.2.03 that day. Non-default parameter forms, the nested-parent matrix, native menu/shortcut switching and complex document/owner/toolbar lifecycle scenarios still need broader host evidence. See [validation results](../../scripts/preview/README-mesh-edit-validation.md).
+The plugin has Preview status and is included in official release packages. Its tool services use Preview SDK contracts. Deactivation, Escape, native-tool switching, mode/document changes, plugin disposal, host replacement, and runtime close invalidate stale handles and remove the owned overlay and listeners. Toolbar reconciliation replaces widgets while retaining an otherwise valid activation. Plugin changes require an Editor restart. The basic ordinary-mode and mesh matrix, including Select/Move exclusivity, border/focus behavior and bounding-box refresh, passed exact-host validation on reviewed 5.2.03, 5.3.02 and 5.3.03 on 2026-10-02. Manual acceptance of the same production build passed on 5.2.03 that day. Non-default parameter forms, the nested-parent matrix, native menu/shortcut switching and complex document/owner/toolbar lifecycle scenarios still need broader host evidence. See [validation results](../../scripts/preview/README-mesh-edit-validation.md).
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Tool is missing | Enable the plugin, restart the Editor, and enter ArtMesh mesh-edit mode on a reviewed host. |
+| Tool is missing | Enable the plugin, restart a reviewed Editor, and select editable ArtMeshes/Warp Deformers or enter ArtMesh mesh-edit mode. |
 | Selection is unchanged | Confirm the stroke hits vertices and inspect the runtime log for rejected-session or projection diagnostics. |
 | Radius change takes effect later | Radius is locked when the stroke starts; the new value applies to the next stroke. |
 
