@@ -45,7 +45,16 @@ class MeshToolHookCompositionTest {
                                 .formatHex(MessageDigest.getInstance("SHA-256").digest(original))),
                 ignored -> {});
         final var sessions = new MeshEditorLifecycleTransformer(
-                new MeshToolSessionHostProfile("5.3.03", owner, "startMode", "(Ljava/util/List;)V", "endMode", "()V"),
+                new MeshToolSessionHostProfile(
+                        "5.3.03",
+                        owner,
+                        "startMode",
+                        "(Ljava/util/List;)V",
+                        "endMode",
+                        "()V",
+                        "example/ModelingDocument",
+                        "internal_setEditMode",
+                        "(Ljava/lang/Object;)V"),
                 loader,
                 artifact,
                 ignored -> {});

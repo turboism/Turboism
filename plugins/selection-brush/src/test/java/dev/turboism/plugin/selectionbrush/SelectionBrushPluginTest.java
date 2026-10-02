@@ -23,6 +23,53 @@ import org.junit.jupiter.api.Test;
 
 class SelectionBrushPluginTest {
     @Test
+    void registersOrdinaryToolAfterNativeBrushAndSharesRadiusAndGesturesAcrossModes() throws Exception {
+        final RecordingRegistry mesh = new RecordingRegistry();
+        final List<dev.turboism.sdk.cubism.modeling.ModelingTool> tools = new ArrayList<>();
+        final List<dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement> placements = new ArrayList<>();
+        final AtomicInteger closes = new AtomicInteger();
+        final var ordinary = new dev.turboism.sdk.cubism.modeling.ModelingToolRegistry() {
+            public Registration register(
+                    dev.turboism.sdk.cubism.modeling.ModelingTool tool,
+                    dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement placement) {
+                tools.add(tool);
+                placements.add(placement);
+                return RecordingRegistry.once(closes);
+            }
+
+            public void close() {}
+        };
+        final DisposableScope scope = new DisposableScope();
+        final SelectionBrushPlugin plugin = new SelectionBrushPlugin();
+        plugin.init(context(mesh, scope, ordinary));
+        plugin.enable();
+        assertEquals(1, tools.size());
+        assertEquals(
+                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement.after(
+                        dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL),
+                placements.get(0));
+        final RecordingBrush brush = new RecordingBrush();
+        mesh.sliders.get(0).setValue(64);
+        tools.get(0).activate(() -> brush);
+        assertEquals(List.of(64), brush.values);
+        mesh.sliders.get(0).setValue(8);
+        assertEquals(List.of(64, 8), brush.values);
+        assertEquals(SelectionMode.REPLACE, tools.get(0).strokeSelectionMode(false, false, false));
+        assertEquals(SelectionMode.ADD, tools.get(0).strokeSelectionMode(true, false, false));
+        assertEquals(SelectionMode.REMOVE, tools.get(0).strokeSelectionMode(true, true, false));
+        assertEquals(mesh.tools.get(0).selectedIconResourcePath(), tools.get(0).selectedIconResourcePath());
+        tools.get(0).deactivate();
+        assertEquals(1, brush.closes.get());
+        final RecordingBrush next = new RecordingBrush();
+        mesh.tools.get(0).activate(toolContext(next));
+        assertEquals(List.of(8), next.values);
+        plugin.disable();
+        assertEquals(1, next.closes.get());
+        scope.close();
+        assertEquals(1, closes.get());
+    }
+
+    @Test
     void contributesExactlyOneToolAndSliderWithFrozenMetadataAndScopeCleanup() throws Exception {
         RecordingRegistry registry = new RecordingRegistry();
         DisposableScope scope = new DisposableScope();
@@ -143,6 +190,13 @@ class SelectionBrushPluginTest {
     }
 
     private static PluginContext context(RecordingRegistry registry, DisposableScope scope) {
+        return context(registry, scope, null);
+    }
+
+    private static PluginContext context(
+            RecordingRegistry registry,
+            DisposableScope scope,
+            dev.turboism.sdk.cubism.modeling.ModelingToolRegistry ordinary) {
         return (PluginContext) Proxy.newProxyInstance(
                 SelectionBrushPluginTest.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
@@ -156,6 +210,8 @@ class SelectionBrushPluginTest {
 
                             @Override
                             public <T> T get(Class<T> type) {
+                                if (type == dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                                    return type.cast(ordinary);
                                 return type == dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class
                                         ? type.cast(registry)
                                         : null;
@@ -210,7 +266,7 @@ class SelectionBrushPluginTest {
         }
     }
 
-    private static final class RecordingBrush implements MeshBrush {
+    private static final class RecordingBrush implements MeshBrush, dev.turboism.sdk.cubism.modeling.ModelingBrush {
         final List<Integer> values = new ArrayList<>();
         final AtomicInteger closes = new AtomicInteger();
         int radius = 32;

@@ -24,9 +24,10 @@ test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/j
 class_dir="dev/turboism/tests/plugin"
 main_class="WindowsMeshEditValidationProbe"
 host_close_class="WindowsHistoryNativeUiHostClose"
+modeling_class="WindowsModelingSelectionBrushProbe"
 descriptor="$repo_root/scripts/preview/mesh-edit-validation-plugin.json"
 
-for required in "$agent_jar" "$mesh_enhance_jar" "$selection_brush_jar" "$test_classes/$class_dir/$main_class.class" "$test_classes/$class_dir/$host_close_class.class" "$descriptor"; do
+for required in "$agent_jar" "$mesh_enhance_jar" "$selection_brush_jar" "$test_classes/$class_dir/$main_class.class" "$test_classes/$class_dir/$host_close_class.class" "$test_classes/$class_dir/$modeling_class.class" "$descriptor"; do
   [ -f "$required" ] || { printf 'error: required artifact not found: %s\n' "$required" >&2; exit 1; }
 done
 
@@ -55,7 +56,7 @@ JSON
 probe_tmp="$(mktemp -d "$repo_root/build/.mesh-edit-probe.XXXXXX")"
 trap 'rm -rf "$probe_tmp"' EXIT
 mkdir -p "$probe_tmp/$class_dir" "$probe_tmp/META-INF/turboism/i18n"
-for class_family in "$main_class" "$host_close_class"; do
+for class_family in "$main_class" "$host_close_class" "$modeling_class"; do
   find "$test_classes/$class_dir" -maxdepth 1 -type f \
     \( -name "$class_family.class" -o -name "$class_family\$*.class" \) \
     -exec cp {} "$probe_tmp/$class_dir/" \;
@@ -68,7 +69,7 @@ printf '%s\n' \
 (
   cd "$probe_tmp"
   mapfile -t classes < <(find "$class_dir" -maxdepth 1 -type f \
-    \( -name "$main_class*.class" -o -name "$host_close_class*.class" \) -printf '%p\n' | LC_ALL=C sort)
+    \( -name "$main_class*.class" -o -name "$host_close_class*.class" -o -name "$modeling_class*.class" \) -printf '%p\n' | LC_ALL=C sort)
   [ "${#classes[@]}" -gt 1 ] || { printf 'error: validation probe nested classes were not packaged\n' >&2; exit 1; }
   jar --create --file "$bundle_root/plugins/mesh-edit-validation-probe.jar" \
     "${classes[@]}" META-INF/turboism/plugin.json META-INF/turboism/i18n/messages.properties
