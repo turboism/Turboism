@@ -15,6 +15,7 @@ import java.util.Objects;
  * @param bounds the allowed range and rest value declared for the parameter
  * @param visible whether the Editor shows the parameter in the parameter panel
  * @param editable whether the Editor permits the user to change the value
+ * @see dev.turboism.sdk.cubism.model.Parameter the live object-API handle for reads and writes
  */
 public record ParameterSummary(
         ParameterId id, String name, double currentValue, ParameterBounds bounds, boolean visible, boolean editable) {

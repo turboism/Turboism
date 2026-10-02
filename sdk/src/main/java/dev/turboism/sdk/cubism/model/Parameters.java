@@ -8,7 +8,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-/** Parameters in one Cubism model. */
+/**
+ * Parameters in one Cubism model.
+ *
+ * <p>Value writes go through {@link Parameter#setValue(float)} on the objects returned here.
+ * Structural operations — {@link #create}, {@link #copy}, {@link #remove}, {@link #createMany} —
+ * are Editor authoring writes and join an ambient authoring transaction when one is open.
+ */
 public interface Parameters {
 
     /** Returns all parameters in stable model order. */
