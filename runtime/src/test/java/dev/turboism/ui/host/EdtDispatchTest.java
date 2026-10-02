@@ -348,9 +348,7 @@ class EdtDispatchTest {
                     EdtDispatchException.class,
                     () -> EdtDispatch.call("short-bound-timeout", SHORT_ACCEPT, () -> null));
             assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, first.reason());
-            assertFalse(
-                    EdtDispatch.edtUnresponsiveForTesting(),
-                    "a short-bounded timeout must not trip the breaker");
+            assertFalse(EdtDispatch.edtUnresponsiveForTesting(), "a short-bounded timeout must not trip the breaker");
 
             final AtomicBoolean cleanupRan = new AtomicBoolean();
             EdtDispatch.runEventually("short-bound-cleanup", SHORT_ACCEPT, () -> cleanupRan.set(true));
@@ -360,8 +358,7 @@ class EdtDispatchTest {
 
             // Later dispatches keep their own bounds instead of the unresponsive bound.
             final EdtDispatchException second = assertThrows(
-                    EdtDispatchException.class,
-                    () -> EdtDispatch.call("still-bounded", SHORT_ACCEPT, () -> null));
+                    EdtDispatchException.class, () -> EdtDispatch.call("still-bounded", SHORT_ACCEPT, () -> null));
             assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, second.reason());
 
             release.countDown();

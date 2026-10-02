@@ -67,8 +67,7 @@ class RuntimeSelectionBrushTest {
         final InspectableKeyboard keyboard = new InspectableKeyboard();
         final RecordingHost host = new RecordingHost(List.of());
         final SelectionBrushRoute route = new SelectionBrushRoute(host);
-        javax.swing.SwingUtilities.invokeAndWait(
-                () -> KeyboardFocusManager.setCurrentKeyboardFocusManager(keyboard));
+        javax.swing.SwingUtilities.invokeAndWait(() -> KeyboardFocusManager.setCurrentKeyboardFocusManager(keyboard));
         route.install();
         final CountDownLatch wedged = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
@@ -98,8 +97,7 @@ class RuntimeSelectionBrushTest {
             caller.interrupt();
             assertTrue(callerDone.await(5, TimeUnit.SECONDS), "an interrupted close must not keep waiting");
             assertNull(outcome.get(), "an interrupted close defers the cleanup instead of failing");
-            assertEquals(
-                    1, keyboard.dispatchers().size(), "the dispatcher stays while the EDT is wedged");
+            assertEquals(1, keyboard.dispatchers().size(), "the dispatcher stays while the EDT is wedged");
             route.close(); // a repeat close is a no-op; the queued cleanup must still run exactly once
             release.countDown();
             drainEdt();

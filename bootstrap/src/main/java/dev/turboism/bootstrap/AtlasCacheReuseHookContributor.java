@@ -47,12 +47,11 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         try {
             final VerifiedAtlasCacheReuseInstaller.Installation installation = VerifiedAtlasCacheReuseInstaller.install(
-                    environment.instrumentation(),
-                    code -> RuntimeDiagnostics.debug("atlas-cache-reuse", code));
+                    environment.instrumentation(), code -> RuntimeDiagnostics.debug("atlas-cache-reuse", code));
             RuntimeDiagnostics.debug(
                     "bootstrap",
-                    "Atlas cache-reuse status=" + installation.status()
-                            + ", transformOutcome=" + installation.transformOutcome());
+                    "Atlas cache-reuse status=" + installation.status() + ", transformOutcome="
+                            + installation.transformOutcome());
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error("atlas-cache-reuse", "Atlas cache-reuse optimization disabled safely", failure);

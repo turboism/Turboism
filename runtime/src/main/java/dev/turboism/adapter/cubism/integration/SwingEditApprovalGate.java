@@ -61,8 +61,9 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
                     .filter(Window.class::isInstance)
                     .map(Window.class::cast)
                     .orElse(null);
-            final int choice =
-                    SwingUtilities.isEventDispatchThread() ? prompt(owner, connection, null) : promptOnEdt(owner, connection);
+            final int choice = SwingUtilities.isEventDispatchThread()
+                    ? prompt(owner, connection, null)
+                    : promptOnEdt(owner, connection);
             return choice == JOptionPane.YES_OPTION;
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
@@ -70,8 +71,7 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
         }
     }
 
-    private int prompt(
-            final Window owner, final EditConnectionInfo connection, final AtomicReference<JDialog> active) {
+    private int prompt(final Window owner, final EditConnectionInfo connection, final AtomicReference<JDialog> active) {
         final String plugin = connection.pluginName().isEmpty()
                 ? "An external plugin"
                 : "The plugin \"" + connection.pluginName() + "\"";
