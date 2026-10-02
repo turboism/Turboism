@@ -76,6 +76,35 @@ interface HookContributor {
     AutoCloseable install(HookEnvironment environment) throws Exception;
 
     /**
+     * The operator-facing hook identifier the startup policy's kill switch
+     * ({@code hooks.disabledIds}) matches. It is deliberately separate from
+     * {@link #id()}, which is a report label: contributors that already carry a
+     * catalog-style policy id ({@code HOOK_ID}/{@code HOOK_POLICY_ID}, or the
+     * verified installer's {@code HOOK_ID}) return that id here so a single
+     * documented identifier disables the hook.
+     *
+     * @return the hook id {@code hooks.disabledIds} entries are compared
+     *     against; defaults to {@link #id()}
+     */
+    default String policyId() {
+        return id();
+    }
+
+    /**
+     * Whether this hook must still install while safe mode is active. Safe
+     * mode exists to run the host with the smallest possible instrumentation
+     * surface, so the default is {@code false}; only framework plumbing the
+     * runtime cannot degrade without (none today — the runtime already runs
+     * hook-free on non-admitted hosts) should override this. The explicit
+     * {@code hooks.disabledIds} kill switch still applies to required hooks.
+     *
+     * @return {@code true} when safe mode must not skip this hook
+     */
+    default boolean requiredInSafeMode() {
+        return false;
+    }
+
+    /**
      * @return catalog hook contracts this contributor owns; failure or cleanup withdraws
      *     dependent Editor capabilities before subsequent SDK calls
      */
