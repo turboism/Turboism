@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -46,6 +45,7 @@ import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -104,15 +104,14 @@ final class McpHttpServerIntegrationTest {
         final McpHttpServer server =
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
         try {
-            final Map<String, Object> connection =
-                    object(StrictJson.parse(Files.readAllBytes(server.connectionFile())));
+            final Map<String, Object> connection = object(Json.parse(Files.readAllBytes(server.connectionFile())));
             assertFalse(connection.containsKey("authorization"));
 
             final HttpRequest request = HttpRequest.newBuilder(server.endpoint())
                     .timeout(Duration.ofSeconds(10))
                     .header("Accept", "application/json, text/event-stream")
                     .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(Map.of(
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(Map.of(
                             "jsonrpc",
                             "2.0",
                             "id",
@@ -146,7 +145,7 @@ final class McpHttpServerIntegrationTest {
         try {
             assertEquals("127.0.0.1", server.endpoint().getHost());
             assertTrue(Files.isRegularFile(connectionFile));
-            final Map<String, Object> connection = object(StrictJson.parse(Files.readAllBytes(connectionFile)));
+            final Map<String, Object> connection = object(Json.parse(Files.readAllBytes(connectionFile)));
             assertEquals(server.endpoint().toString(), connection.get("endpoint"));
             assertFalse(connection.containsKey("authorization"));
             assertEquals(McpProtocol.VERSION, connection.get("protocolVersion"));
@@ -361,7 +360,7 @@ final class McpHttpServerIntegrationTest {
                                     Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"),
                                     7)));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            final Map<String, Object> body = object(Json.parse(response.body()));
             assertEquals(-32602L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -405,7 +404,7 @@ final class McpHttpServerIntegrationTest {
                                                     "name",
                                                     "Changed"))))));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(StrictJson.parse(response.body()));
+            final Map<String, Object> body = object(Json.parse(response.body()));
             assertEquals(-32600L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -562,7 +561,7 @@ final class McpHttpServerIntegrationTest {
             assertEquals(
                     "application/json; charset=utf-8",
                     response.headers().firstValue("Content-Type").orElse(null));
-            final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
+            final Map<String, Object> envelope = object(Json.parse(response.body()));
             assertEquals(null, envelope.get("id"));
             final Map<String, Object> error = object(envelope.get("error"));
             assertEquals(-32022L, integer(error.get("code")));
@@ -1302,7 +1301,7 @@ final class McpHttpServerIntegrationTest {
                 .timeout(Duration.ofSeconds(10))
                 .header("Accept", "application/json, text/event-stream")
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)));
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)));
         if (origin != null) builder.header("Origin", origin);
         if (protocolVersion != null) {
             builder.header("MCP-Protocol-Version", protocolVersion);
@@ -1321,13 +1320,13 @@ final class McpHttpServerIntegrationTest {
                 .header("Authorization", authorization)
                 .header("MCP-Protocol-Version", McpProtocol.VERSION)
                 .header("MCP-Session-Id", sessionId)
-                .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)))
                 .build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
     }
 
     private static Map<String, Object> result(final HttpResponse<byte[]> response) {
-        final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
+        final Map<String, Object> envelope = object(Json.parse(response.body()));
         assertFalse(envelope.containsKey("error"), () -> new String(response.body(), StandardCharsets.UTF_8));
         return object(envelope.get("result"));
     }
