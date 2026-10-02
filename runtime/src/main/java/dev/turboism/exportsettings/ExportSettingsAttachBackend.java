@@ -424,7 +424,8 @@ public final class ExportSettingsAttachBackend {
                     dispatch);
         } catch (ExportSettingsAttachException typed) {
             throw typed;
-        } catch (RuntimeException failure) {
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new ExportSettingsAttachException(BOUNDARY_FAILURE_KEY, failure);
         }
     }
