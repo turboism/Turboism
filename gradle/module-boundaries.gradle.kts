@@ -927,6 +927,8 @@ private val pluginFileReadMembers = mapOf(
     ),
     // Constructing a ZipFile opens the archive for reading.
     "java/util/zip/ZipFile" to setOf("<init>"),
+    // Constructing a JarFile over a File or String path opens the archive for reading.
+    "java/util/jar/JarFile" to setOf("<init>"),
     // Only the File overloads of ImageIO.read cross the file boundary.
     "javax/imageio/ImageIO" to setOf("read")
 )
@@ -1131,10 +1133,11 @@ private fun requiredPermissionsFor(owner: String, name: String, descriptor: Stri
  * Some owners only cross the file boundary for a subset of their tracked members'
  * signatures: PrintWriter/PrintStream write a file only when constructed over a
  * File or a String path (Writer/OutputStream delegates stay off the boundary),
- * and ImageIO.read/write only touch files for the File overloads.
+ * JarFile opens an archive only for its File/String-first constructors, and
+ * ImageIO.read/write only touch files for the File overloads.
  */
 private fun descriptorTargetsFile(owner: String, descriptor: String): Boolean = when (owner) {
-    "java/io/PrintWriter", "java/io/PrintStream" ->
+    "java/io/PrintWriter", "java/io/PrintStream", "java/util/jar/JarFile" ->
         descriptor.startsWith("(Ljava/io/File;") || descriptor.startsWith("(Ljava/lang/String;")
     "javax/imageio/ImageIO" -> descriptor.contains("java/io/File")
     else -> true
