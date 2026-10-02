@@ -48,8 +48,8 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 17 approved
-      projects; runtime-owned core is never a payload plugin), and the seven
+      `packaging/release-plugins.txt` exactly (the frozen 18 approved
+      projects; runtime-owned core is never a payload plugin), and the eight
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
   9.  Windows x64 Full installs the complete release roster without any
@@ -224,7 +224,7 @@ def assert_automated_eula_gate(jar):
 
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 16-project list plus the eight excluded public module names is the regression
+# This exact 18-project list plus the eight excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
@@ -243,6 +243,7 @@ MANIFEST_EXPECTED = [
     ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
+    ":plugins:selection-brush",
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
     ":plugins:webdav-backup",
@@ -397,7 +398,7 @@ def load_plugin_inventory(payload):
 def load_release_manifest(path):
     """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
     fail-closed: blank/comment lines, malformed or non-plugin entries,
-    duplicates, unsorted order, or drift from the frozen 17-project allowlist
+    duplicates, unsorted order, or drift from the frozen 18-project allowlist
     are fatal. Returns the allowlisted plugin module names (manifest entries
     minus the runtime-owned core)."""
     check("release manifest exists", os.path.isfile(path), path)
@@ -412,7 +413,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 17-project allowlist",
+    check("release manifest matches the frozen 18-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines]
 

@@ -12,7 +12,7 @@
   - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-17 项目 / 8 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+18 项目 / 8 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -29,7 +29,7 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），项目数不变。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
@@ -46,6 +46,7 @@ EXPECTED_PATHS = [
     ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
+    ":plugins:selection-brush",
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
     ":plugins:webdav-backup",
@@ -65,7 +66,7 @@ def check(name, cond, detail=""):
 
 def load_manifest():
     """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
-    重复/未排序/偏离冻结 17 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
+    重复/未排序/偏离冻结 18 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
     不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
@@ -76,7 +77,7 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 17 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    check("清单与冻结 18 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
