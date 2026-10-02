@@ -1,0 +1,26 @@
+MODE adaptive=false
+ROUND distribution=uniformFinite round=0 evaluations=262144 nativeNs=21769124 guardedNs=2552762
+ROUND distribution=uniformFinite round=1 evaluations=262144 nativeNs=22099469 guardedNs=2618909
+ROUND distribution=uniformFinite round=2 evaluations=262144 nativeNs=22569688 guardedNs=2605051
+ROUND distribution=uniformFinite round=3 evaluations=262144 nativeNs=22473023 guardedNs=2644692
+ROUND distribution=uniformFinite round=4 evaluations=262144 nativeNs=22179402 guardedNs=1844632
+MEDIAN distribution=uniformFinite inputs=4096 bypasses=4096 nativeNs=22179402 guardedNs=2605051 changePercent=-88.255
+ROUND distribution=halfNearRay round=0 evaluations=262144 nativeNs=18690284 guardedNs=9763375
+ROUND distribution=halfNearRay round=1 evaluations=262144 nativeNs=18672046 guardedNs=9606144
+ROUND distribution=halfNearRay round=2 evaluations=262144 nativeNs=18689590 guardedNs=9713851
+ROUND distribution=halfNearRay round=3 evaluations=262144 nativeNs=18623000 guardedNs=9723608
+ROUND distribution=halfNearRay round=4 evaluations=262144 nativeNs=22683301 guardedNs=9887344
+MEDIAN distribution=halfNearRay inputs=4096 bypasses=2048 nativeNs=18689590 guardedNs=9723608 changePercent=-47.973
+ROUND distribution=allFallbackNearRay round=0 evaluations=262144 nativeNs=12139360 guardedNs=16191504
+ROUND distribution=allFallbackNearRay round=1 evaluations=262144 nativeNs=12614236 guardedNs=15804104
+ROUND distribution=allFallbackNearRay round=2 evaluations=262144 nativeNs=13352108 guardedNs=16830663
+ROUND distribution=allFallbackNearRay round=3 evaluations=262144 nativeNs=12307295 guardedNs=16734822
+ROUND distribution=allFallbackNearRay round=4 evaluations=262144 nativeNs=9602716 guardedNs=12280085
+MEDIAN distribution=allFallbackNearRay inputs=4096 bypasses=0 nativeNs=12307295 guardedNs=16191504 changePercent=31.560
+ROUND distribution=allFallbackZeroCross round=0 evaluations=262144 nativeNs=7053878 guardedNs=6545216
+ROUND distribution=allFallbackZeroCross round=1 evaluations=262144 nativeNs=6212650 guardedNs=8712331
+ROUND distribution=allFallbackZeroCross round=2 evaluations=262144 nativeNs=5449167 guardedNs=6155223
+ROUND distribution=allFallbackZeroCross round=3 evaluations=262144 nativeNs=6647552 guardedNs=7527109
+ROUND distribution=allFallbackZeroCross round=4 evaluations=262144 nativeNs=6713993 guardedNs=8589265
+MEDIAN distribution=allFallbackZeroCross inputs=4096 bypasses=0 nativeNs=6647552 guardedNs=7527109 changePercent=13.231
+ANGLE_GUARD_COST_FINISHED consumed=0 scope=SCALAR_ONLY hostGain=UNPROVEN
