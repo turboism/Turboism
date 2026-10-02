@@ -59,14 +59,19 @@
       "reason": "Renames, creates, and deletes active Cubism model objects requested through MCP."
     },
     {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint."
+    },
+    {
       "id": "turboism.file.write",
       "scope": "application",
-      "reason": "Allows the direct Editor SAVE command requested through MCP."
+      "reason": "Allows the direct Editor SAVE command requested through MCP and writes the owner-only loopback connection file under the MCP state directory."
     },
     {
       "id": "turboism.network.fetch",
       "scope": "application",
-      "reason": "Allows the typed external-application settings command requested through MCP."
+      "reason": "Allows the typed external-application settings command requested through MCP and binds the Origin-guarded loopback HTTP transport."
     },
     {
       "id": "turboism.process.run",
