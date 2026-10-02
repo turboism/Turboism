@@ -93,9 +93,9 @@ interface HookContributor {
     /**
      * Whether this hook must still install while safe mode is active. Safe
      * mode exists to run the host with the smallest possible instrumentation
-     * surface, so the default is {@code false}; only framework plumbing the
-     * runtime cannot degrade without (none today — the runtime already runs
-     * hook-free on non-admitted hosts) should override this. The explicit
+     * surface, so the default is {@code false}; only lifecycle plumbing whose
+     * absence would leave plugin callbacks silent or document-bound state
+     * uncleaned (today: project lifecycle) should override this. The explicit
      * {@code hooks.disabledIds} kill switch still applies to required hooks.
      *
      * @return {@code true} when safe mode must not skip this hook
