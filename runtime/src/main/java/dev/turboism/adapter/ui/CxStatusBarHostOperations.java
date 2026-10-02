@@ -91,18 +91,17 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     @SuppressWarnings("ReferenceEquality")
     private Registration closeCanvasHint(final CanvasHintEntry entry) {
         final AtomicBoolean closed = new AtomicBoolean();
-        return () -> onEdt(() -> {
+        return () -> onEdtEventually(() -> {
             if (closed.get()) {
-                return null;
+                return;
             }
             if (canvasHintEntries.get(entry.id()) != entry) {
                 closed.set(true);
-                return null;
+                return;
             }
             entry.nativeRegistration().close();
             canvasHintEntries.remove(entry.id(), entry);
             closed.set(true);
-            return null;
         });
     }
 
@@ -194,14 +193,14 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     private Registration closeRegistration(final Entry entry) {
         final AtomicBoolean closed = new AtomicBoolean();
         final AtomicBoolean removed = new AtomicBoolean();
-        return () -> onEdt(() -> {
+        return () -> onEdtEventually(() -> {
             if (closed.get()) {
-                return null;
+                return;
             }
             if (!removed.get()) {
                 if (entries.get(entry.slot()) != entry) {
                     closed.set(true);
-                    return null;
+                    return;
                 }
                 // Native remove first: a failure must leave the entry in the map
                 // so a later notify of the same ID reuses the existing widget
@@ -213,7 +212,6 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
             // A failed refresh is retried without repeating native removal.
             access.refresh(entry.parent());
             closed.set(true);
-            return null;
         });
     }
 
@@ -319,6 +317,15 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
 
     private static <T> T onEdt(final Supplier<T> operation) {
         return EdtDispatch.call("CX status-region EDT operation", operation::get);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed notification is never orphaned on the
+     * status region.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("CX status-region EDT removal", operation);
     }
 
     private static String requireText(final String value, final String name) {
