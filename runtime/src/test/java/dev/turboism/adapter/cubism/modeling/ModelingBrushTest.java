@@ -16,6 +16,9 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.lang.invoke.MethodType;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -355,6 +358,69 @@ class ModelingBrushTest {
                 coordinator.close();
             }
         });
+    }
+
+    @Test
+    void lifecycleRevocationInterruptedWhileEdtWedgedStillRunsExactlyOnce() throws Exception {
+        Fixture f = new Fixture();
+        ModelingToolCoordinator coordinator = new ModelingToolCoordinator();
+        var registration = coordinator.register("plugin", 1, new Tool(), PermissionChecker.allowAll());
+        final CountDownLatch release = new CountDownLatch(1);
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                coordinator.connect(f.resolver, 7);
+                coordinator.lifecycleReady(7, true);
+                coordinator.toggle("plugin", 1, "brush");
+            });
+            assertTrue(coordinator.isActive("plugin", 1, "brush"));
+            final CountDownLatch wedged = new CountDownLatch(1);
+            SwingUtilities.invokeLater(() -> {
+                wedged.countDown();
+                await(release);
+            });
+            assertTrue(wedged.await(5, TimeUnit.SECONDS));
+            final CountDownLatch callerDone = new CountDownLatch(1);
+            final AtomicReference<Throwable> outcome = new AtomicReference<>();
+            Thread caller = new Thread(
+                    () -> {
+                        try {
+                            coordinator.lifecycleReady(7, false);
+                        } catch (Throwable failure) {
+                            outcome.set(failure);
+                        } finally {
+                            callerDone.countDown();
+                        }
+                    },
+                    "modeling-lifecycle-revocation");
+            caller.setDaemon(true);
+            caller.start();
+            caller.interrupt();
+            assertTrue(callerDone.await(5, TimeUnit.SECONDS), "an interrupted revocation must not keep waiting");
+            assertNull(outcome.get(), "an interrupted revocation defers the transition instead of failing");
+            assertEquals(
+                    1,
+                    f.pack.component.getComponentCount(),
+                    "the activation survives while the revocation is still queued");
+            release.countDown();
+            SwingUtilities.invokeAndWait(() -> {});
+            assertEquals(
+                    0,
+                    f.pack.component.getComponentCount(),
+                    "the deferred revocation must deactivate the tool once the EDT drains");
+            assertFalse(coordinator.isAvailable(), "the deferred revocation must clear lifecycle readiness");
+        } finally {
+            release.countDown();
+            registration.close();
+            coordinator.close();
+        }
+    }
+
+    private static void await(final CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void event(JComponent overlay, int type, int x, int y, int mask) {
