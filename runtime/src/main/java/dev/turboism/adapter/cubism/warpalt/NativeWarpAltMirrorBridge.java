@@ -702,12 +702,11 @@ public final class NativeWarpAltMirrorBridge {
     }
 
     /**
-     * Injected at the tail of the strip's layout dispatch (a(N, GEntity) RETURN);
-     * records where the native flow layout seated each contributed button. The
-     * button is a member of the strip's H list, so the same pass already assigns
-     * its bounds — this hook observes only, it never writes coordinates.
-     * Missing from the bridge until now — the injected call must resolve or
-     * every strip dispatch throws NoSuchMethodError.
+     * Injected at the tail of the strip's layout dispatch (a(N, GEntity) RETURN).
+     * The contributed button is a member of the strip's H list, so the native
+     * flow layout already seats it and the registry target does no work; the
+     * method stays because the injected call must resolve or every strip
+     * dispatch throws NoSuchMethodError.
      */
     public static void positionStripButton(final Object strip) {
         try {
