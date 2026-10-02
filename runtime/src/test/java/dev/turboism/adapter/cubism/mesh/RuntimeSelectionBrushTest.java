@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -20,7 +21,10 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
@@ -55,6 +59,59 @@ class RuntimeSelectionBrushTest {
                 KeyboardFocusManager.setCurrentKeyboardFocusManager(previous);
             }
         });
+    }
+
+    @Test
+    void closeInterruptedWhileEdtWedgedStillRunsCleanupExactlyOnce() throws Exception {
+        final KeyboardFocusManager previous = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+        final InspectableKeyboard keyboard = new InspectableKeyboard();
+        final RecordingHost host = new RecordingHost(List.of());
+        final SelectionBrushRoute route = new SelectionBrushRoute(host);
+        javax.swing.SwingUtilities.invokeAndWait(
+                () -> KeyboardFocusManager.setCurrentKeyboardFocusManager(keyboard));
+        route.install();
+        final CountDownLatch wedged = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            wedged.countDown();
+            await(release);
+        });
+        try {
+            assertTrue(wedged.await(5, TimeUnit.SECONDS));
+            assertEquals(1, keyboard.dispatchers().size(), "install must register the key dispatcher");
+
+            final CountDownLatch callerDone = new CountDownLatch(1);
+            final AtomicReference<Throwable> outcome = new AtomicReference<>();
+            final Thread caller = new Thread(
+                    () -> {
+                        try {
+                            route.close();
+                        } catch (Throwable failure) {
+                            outcome.set(failure);
+                        } finally {
+                            callerDone.countDown();
+                        }
+                    },
+                    "selection-brush-close-caller");
+            caller.setDaemon(true);
+            caller.start();
+            caller.interrupt();
+            assertTrue(callerDone.await(5, TimeUnit.SECONDS), "an interrupted close must not keep waiting");
+            assertNull(outcome.get(), "an interrupted close defers the cleanup instead of failing");
+            assertEquals(
+                    1, keyboard.dispatchers().size(), "the dispatcher stays while the EDT is wedged");
+            route.close(); // a repeat close is a no-op; the queued cleanup must still run exactly once
+            release.countDown();
+            drainEdt();
+            assertEquals(List.of(), keyboard.dispatchers(), "cleanup removes the key dispatcher");
+            assertEquals(0, host.view.getComponentCount(), "cleanup removes the overlay");
+            assertEquals(1, host.endStrokes.get(), "cleanup must run exactly once");
+        } finally {
+            release.countDown();
+            route.close();
+            javax.swing.SwingUtilities.invokeAndWait(
+                    () -> KeyboardFocusManager.setCurrentKeyboardFocusManager(previous));
+        }
     }
 
     @Test
@@ -512,6 +569,18 @@ class RuntimeSelectionBrushTest {
         return new MouseEvent(source, id, 1L, modifiers, x, y, 1, false, button);
     }
 
+    private static void drainEdt() throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> {});
+    }
+
+    private static void await(final CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private record Commit(List<Integer> indices, SelectionMode mode) {}
 
     private static final class InspectableKeyboard extends DefaultKeyboardFocusManager {
@@ -525,6 +594,7 @@ class RuntimeSelectionBrushTest {
         final JPanel view = new JPanel(null);
         final List<Commit> commits = new ArrayList<>();
         final AtomicInteger deactivations = new AtomicInteger();
+        final AtomicInteger endStrokes = new AtomicInteger();
         MeshTool tool = legacyTool();
         List<Point2> vertices;
         RuntimeException failure;
@@ -561,6 +631,11 @@ class RuntimeSelectionBrushTest {
         @Override
         public SelectionMode selectionMode(boolean shiftDown, boolean controlDown, boolean altDown) {
             return tool.strokeSelectionMode(shiftDown, controlDown, altDown);
+        }
+
+        @Override
+        public void endStroke() {
+            endStrokes.incrementAndGet();
         }
 
         @Override
