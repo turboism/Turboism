@@ -35,6 +35,11 @@
       "id": "turboism.event.publish",
       "scope": "application",
       "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+    },
+    {
+      "id": "turboism.cubism.backup.observe",
+      "scope": "application",
+      "reason": "Reads command-owned backup artifact bytes through BackupArtifactHandle.openStream so the WebDAV sync target can upload them."
     }
   ],
   "capabilities": [],
