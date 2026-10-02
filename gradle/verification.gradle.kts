@@ -831,7 +831,7 @@ tasks.register<Exec>("checkPythonLint") {
 }
 
 val devCheck by tasks.registering {
-    dependsOn(":plugins:selection-brush:verifySdkOnlyProduction", ":plugins:selection-brush:verifySelectionBrushJar")
+    dependsOn("checkPluginBoundaries", "checkPluginPermissionAudit")
     group = "verification"
     description = "Fast production compilation and permanent structural boundaries for an implementation slice."
     dependsOn(
