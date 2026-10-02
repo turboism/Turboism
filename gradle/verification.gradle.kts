@@ -42,7 +42,7 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
         "scripts/test/test_mapping_review_wrapper_args.sh",
         "scripts/dev/mapping-review.sh",
         "scripts/dev/worktree-id.sh",
-        fileTree("gradle/internal") { include("*.java") }
+        fileTree("buildSrc/src/main/java/dev/turboism/gradle/internal") { include("*.java") }
     )
     verificationStamp()
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
