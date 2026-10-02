@@ -125,6 +125,20 @@ public final class T039ShadowAgent {
         current.completeOwnerColdRemoval(expectedRunId);
     }
 
+    /**
+     * Startup-failure cleanup, including before any target is observed. A still
+     * registered session becomes BLOCKED before one bounded cleanup attempt.
+     * An already removed session needs no mutation; cleanup never authorizes freeze.
+     */
+    public static void abortOwnerColdRemoval(final String expectedRunId) {
+        requireOutsideCallback();
+        final Session current = session;
+        if (current == null) {
+            throw new IllegalStateException("T039 owner-cold session not installed");
+        }
+        current.abortOwnerColdRemoval(expectedRunId);
+    }
+
     private static void requireOwnedPremain(final Instrumentation instrumentation) {
         try {
             final Class<?> type = Class.forName(
@@ -737,6 +751,7 @@ public final class T039ShadowAgent {
     private static final class Session {
         private final boolean ownerColdRemoval;
         private String pendingRemovalReason;
+        private boolean abortAttempted;
         private final AtomicInteger activeTargetCallbacks = new AtomicInteger();
 
         private Session() {
@@ -1087,6 +1102,34 @@ public final class T039ShadowAgent {
                     throw new IllegalStateException("T039 owner-cold completion unavailable or already attempted");
                 }
                 removeRegistered(pendingRemovalReason + ":owner-cold-removal");
+                if (!transformerRegistered) {
+                    instrumentation = null;
+                    transformer = null;
+                    transformerRemover = DEFAULT_REMOVER;
+                }
+            }
+        }
+
+        private void abortOwnerColdRemoval(final String expectedRunId) {
+            synchronized (lifecycleLock) {
+                if (!ownerColdRemoval) {
+                    throw new IllegalStateException("T039 session is not owner-cold");
+                }
+                if (expectedRunId == null || !expectedRunId.equals(runId)) {
+                    throw new IllegalArgumentException("T039 owner-cold runId mismatch");
+                }
+                if (activeTargetCallbacks.get() != 0) {
+                    throw new IllegalStateException("T039 target callback still active");
+                }
+                if (!transformerRegistered) {
+                    return;
+                }
+                if (abortAttempted) {
+                    throw new IllegalStateException("T039 owner-cold abort already attempted");
+                }
+                abortAttempted = true;
+                state = State.BLOCKED;
+                removeRegistered("owner-cold-abandoned");
                 if (!transformerRegistered) {
                     instrumentation = null;
                     transformer = null;

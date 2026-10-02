@@ -19,6 +19,7 @@ def main():
     parser.add_argument("--production", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--expect-missing-api", action="store_true")
+    parser.add_argument("--expect-missing-abort-api", action="store_true")
     args = parser.parse_args()
     production_sha = "ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2"
     if sha(args.production) != production_sha or sha(args.sidecar) != args.sidecar_sha256:
@@ -64,16 +65,20 @@ def main():
     run("fixture", ["java", "-Xverify:all", "-cp", cp,
                     "dev.turboism.validation.atlasimage.t039.T039FixtureArtifact", str(fixture), str(metadata)])
     results = []
-    modes = ["default", "cold"] if args.expect_missing_api else ["default", "cold", "raw", "missing-token",
-                                                                 "false", "throws", "late", "wrong-hash"]
+    if args.expect_missing_api and args.expect_missing_abort_api:
+        parser.error("select one expected-red regression")
+    modes = (["cold", "abort-before-target"] if args.expect_missing_abort_api else
+             ["default", "cold"] if args.expect_missing_api else
+             ["default", "cold", "raw", "missing-token", "false", "throws", "late", "wrong-hash", "abort-before-target"])
     for mode in modes:
         command = ["java", "-Xverify:all", "-XX:+DisableAttachMechanism", "-XX:-CreateCoredumpOnCrash",
                    "-Djava.awt.headless=true", "-Dt039.ownerColdTest.mode=" + mode,
                    "-javaagent:" + str(harness) + "=" + str(metadata), "-cp", str(harness) + ":" + cp, entry]
-        expected = 1 if args.expect_missing_api and mode == "cold" else 0
+        expected = 1 if (args.expect_missing_api and mode == "cold") or (args.expect_missing_abort_api and mode == "abort-before-target") else 0
         log = run(mode, command, expected)
         if expected:
-            if "NoSuchMethodException" not in log or "premainForOwnerColdRemoval" not in log:
+            missing = "abortOwnerColdRemoval" if args.expect_missing_abort_api else "premainForOwnerColdRemoval"
+            if "NoSuchMethodException" not in log or missing not in log:
                 raise AssertionError("red regression failed for an unrelated reason")
         elif "T039_OWNER_COLD_GATEWAY_PASS mode=" + mode not in log:
             raise AssertionError("missing acceptance marker: " + mode)
@@ -81,7 +86,8 @@ def main():
     mismatches = [p for p, digest in pins.items() if sha(Path(p)) != digest]
     if mismatches:
         raise AssertionError("input changed: " + str(mismatches))
-    report = {"status": "OLD_CALLBACK_FAILURE_AND_NEW_API_RED_REPRODUCED" if args.expect_missing_api else "OWNED_COLD_LIFECYCLE_PASS",
+    report = {"status": "MISSING_ABORT_API_RED_REPRODUCED" if args.expect_missing_abort_api else
+                        "OLD_CALLBACK_FAILURE_AND_NEW_API_RED_REPRODUCED" if args.expect_missing_api else "OWNED_COLD_LIFECYCLE_PASS",
               "cases": results, "inputPins": pins, "postWriterInputMismatches": 0,
               "officialInitialized": False, "geometryExecuted": False, "EditorStarted": False,
               "actualTurboismPremain": False, "native5303Acceptance": "NOT_VERIFIED", "productionAcceptance": "NOT_PASSED"}

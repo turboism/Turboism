@@ -90,6 +90,10 @@ public final class T039OwnerColdRemovalSelfCheck {
         invoke("completeOwnerColdRemoval", new Class<?>[] {String.class}, runId);
     }
 
+    private static void abort(String runId) throws Exception {
+        invoke("abortOwnerColdRemoval", new Class<?>[] {String.class}, runId);
+    }
+
     private static void invoke(String name, Class<?>[] parameters, Object... arguments) throws Exception {
         try { T039ShadowAgent.class.getMethod(name, parameters).invoke(null, arguments); }
         catch (InvocationTargetException invocation) {
@@ -137,6 +141,23 @@ public final class T039OwnerColdRemovalSelfCheck {
         if (startupFailure != null) throw new AssertionError("owned regression startup failed", startupFailure);
         if (mode.equals("raw") || mode.equals("missing-token")) { finish(); return; }
         require(T039ShadowAgent.snapshot().state().equals("ARMED"), "entry did not arm");
+        if (mode.equals("abort-before-target")) {
+            rejected(() -> abort("wrong-run"), "wrong run abort");
+            var before = capture(T039OwnerColdRemovalSelfCheck.class);
+            require(admitted(before), "owned capture before abort refused");
+            abort("t050-owner-cold");
+            var aborted = T039ShadowAgent.snapshot();
+            require(aborted.state().equals("BLOCKED") && aborted.removalStatus().equals("REMOVED")
+                    && !aborted.transformerRegistered() && aborted.targetEvents() == 0
+                    && aborted.candidateReturnedCount() == 0, "unobserved abort did not release and block");
+            require(!admitted(before), "abort left old gate admitted");
+            rejected(() -> T039ShadowAgent.freezeCapture("t050-owner-cold"), "abandoned freeze");
+            var after = capture(T039OwnerColdRemovalSelfCheck.class);
+            require(admitted(after), "new capture after abort refused");
+            abort("t050-owner-cold");
+            require(admitted(after), "already-removed abort performed an extra mutation");
+            finish(); return;
+        }
         if (!mode.equals("default")) {
             rejected(() -> complete("wrong-run"), "wrong run completion");
             rejected(() -> complete("t050-owner-cold"), "completion before target");
