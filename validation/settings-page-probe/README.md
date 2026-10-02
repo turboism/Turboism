@@ -53,6 +53,20 @@ reopening on. The two actual UI configuration SHA-256 values are
 The final production A/B inputs bind those exact bytes; restart and resource
 acceptance are recorded separately from this settings UI result.
 
+## Read-only task config preparation
+
+For a full edge-index UI restart with a read-only queue snapshot, opt in with
+`settingsPrepareTaskConfig=true`, `settingsTaskConfigExpectedRun={TASK_ID}` and
+`settingsTaskConfigExpectedSha=<verified UI config SHA>` (all prefixed by
+`turboism.validation.`). The probe checks the exact queue directory, isolated
+`turboism-home`, regular non-symlink config and its digest before enabling only
+that task config's owner write permission. It records unchanged before/after
+digests and then exercises the real Apply/Cancel/OK saves. This is forbidden in
+performance or read-only startup mode. It never edits source/prepared snapshots.
+Defaults are unchanged; build a separate validation jar with `build.sh <output>`
+to preserve frozen probes. `bash validation/settings-page-probe/selfcheck.sh`
+verifies file boundaries without a host.
+
 ## Performance settings mode
 
 Pass `-Dturboism.validation.settingsPerformance=true` through the common Runner.

@@ -53,6 +53,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
     private static final boolean PERFORMANCE = Boolean.getBoolean("turboism.validation.settingsPerformance");
     private static final boolean EDGE_INDEX = Boolean.getBoolean("turboism.validation.settingsEdgeIndex");
     private static final boolean STARTUP_ONLY = Boolean.getBoolean("turboism.validation.settingsStartupReadOnly");
+    private static final boolean PREPARE_TASK_CONFIG = Boolean.getBoolean("turboism.validation.settingsPrepareTaskConfig");
     private static final String PREF_KEY = EDGE_INDEX ? "meshTriangulationEdgeIndex"
         : PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
     private static final String REVIEWED_VERSION = "5.3.03";
@@ -139,6 +140,17 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
             if (PERFORMANCE && EDGE_INDEX) throw new IllegalArgumentException("settings modes are mutually exclusive");
             if (STARTUP_ONLY && (!EDGE_INDEX || PERFORMANCE)) {
                 throw new IllegalArgumentException("read-only startup requires edge-index mode");
+            }
+            if (PREPARE_TASK_CONFIG) {
+                final TaskConfigFixture.Prepared prepared = TaskConfigFixture.prepare(turboismHome,
+                    System.getProperty("turboism.validation.settingsTaskConfigExpectedRun"),
+                    System.getProperty("turboism.validation.settingsTaskConfigExpectedSha"),
+                    EDGE_INDEX, PERFORMANCE, STARTUP_ONLY);
+                evidence.put("taskConfigInitiallyWritable", Boolean.toString(prepared.initiallyWritable()));
+                evidence.put("taskConfigPrepared", "true");
+                evidence.put("taskConfigBeforeSha256", prepared.beforeSha256());
+                evidence.put("taskConfigAfterSha256", prepared.afterSha256());
+                step("taskConfigFixture", "owner-write-enabled-bytes-unchanged");
             }
             final byte[] startupConfig = STARTUP_ONLY ? Files.readAllBytes(turboismHome.resolve("config.json")) : null;
             evidence.put("preferenceKey", PREF_KEY);
