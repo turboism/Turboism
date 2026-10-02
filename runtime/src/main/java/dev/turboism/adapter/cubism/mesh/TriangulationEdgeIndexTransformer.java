@@ -74,6 +74,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     private final AtomicReference<String> freshEdgeDiagnostic = new AtomicReference<>("");
     private final AtomicReference<Outcome> lazyEdgeOutcome = new AtomicReference<>(Outcome.NONE);
     private final AtomicReference<String> lazyEdgeDiagnostic = new AtomicReference<>("");
+    private final AtomicReference<Outcome> builderOutcome = new AtomicReference<>(Outcome.NONE);
+    private final AtomicReference<String> builderDiagnostic = new AtomicReference<>("");
 
     public TriangulationEdgeIndexTransformer() {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), ignored -> {});
@@ -134,6 +136,12 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
 
     /** Why the guarded construction weave declined; ordinary unsupported starts do not attempt it. */
     public String lazyEdgeDiagnostic() { return lazyEdgeDiagnostic.get(); }
+
+    /** Outcome for leased local edge-list construction, independent of indexed triangle queries. */
+    public Outcome builderOutcome() { return builderOutcome.get(); }
+
+    /** Why the local edge-list construction weave declined, or empty if it was not attempted. */
+    public String builderDiagnostic() { return builderDiagnostic.get(); }
 
     @Override
     public byte[] transform(final Module module, final ClassLoader loader, final String name,
@@ -212,7 +220,20 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             return null;
         }
         try {
-            final byte[] patched = patcher.patch(classfileBuffer);
+            byte[] patched = patcher.patch(classfileBuffer);
+            if (lifecycle != null && unnamedModule
+                    && lifecycle.startupReason().equals("SUPPORTED_OWNED_PREMAIN")) {
+                try {
+                    patched = TriangleListEdgeBuilderPatcher.patch(patched);
+                    builderOutcome.set(Outcome.PATCHED);
+                    reportMembership("TRIANGULATION_LOCAL_BUILDER_PATCHED inputSha256=" + observed
+                            + " outputSha256=" + sha256(patched));
+                } catch (IllegalArgumentException rejected) {
+                    builderOutcome.set(Outcome.SHAPE_REJECTED);
+                    builderDiagnostic.set(rejected.getMessage());
+                    reportMembership("TRIANGULATION_LOCAL_BUILDER_DECLINED reason=" + rejected.getMessage());
+                }
+            }
             outcome.set(Outcome.PATCHED);
             return patched;
         } catch (TriangulationEdgeIndexPatcher.NotApplicable rejected) {

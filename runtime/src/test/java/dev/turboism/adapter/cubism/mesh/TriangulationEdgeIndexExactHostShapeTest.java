@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -104,6 +105,117 @@ final class TriangulationEdgeIndexExactHostShapeTest {
 
     private static byte[] readEntry(final Path jar) throws IOException {
         return readEntry(jar, ENTRY);
+    }
+
+    @Test
+    void localBuilderWeavePreservesOtherMethodsAndRejectsChangedOrientation() throws Exception {
+        for (final Path jar : reviewedArtifacts(legacyEvidence()).values()) {
+            final byte[] original = new TriangulationEdgeIndexPatcher().patch(readEntry(jar));
+            final byte[] patched = TriangleListEdgeBuilderPatcher.patch(original);
+            assertEquals(withoutBuilderFingerprint(original), withoutBuilderFingerprint(patched),
+                    "the local-builder weave must not change any other runtime member");
+            final List<String> calls = new java.util.ArrayList<>();
+            new org.objectweb.asm.ClassReader(patched).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access,
+                        final String name, final String desc, final String signature, final String[] exceptions) {
+                    if (!name.equals("b") || !desc.endsWith("/k;")) return null;
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                        @Override public void visitMethodInsn(final int opcode, final String owner,
+                                final String method, final String descriptor, final boolean itf) {
+                            calls.add(owner + "." + method + descriptor);
+                        }
+                    };
+                }
+            }, 0);
+            final String prefix = "com/live2d/graphics3d/editableMesh/triangulation/";
+            assertEquals(List.of(prefix + "l.d()L" + prefix + "j;",
+                    prefix + "l.e()L" + prefix + "j;", prefix + "l.f()L" + prefix + "j;"),
+                    calls.stream().filter(call -> call.startsWith(prefix + "l.")).toList(),
+                    "all three original edge getters retain their ordering");
+            assertEquals(3, calls.stream().filter(call -> call.equals(prefix + "k.a(L"
+                    + prefix + "j;Z)Z")).count(), "native membership fallback remains at every site");
+            assertEquals(3, calls.stream().filter(call -> call.startsWith(
+                    "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(")).count());
+            assertEquals(3, calls.stream().filter(call -> call.equals(prefix + "k.a(L"
+                    + prefix + "j;)Z")).count(), "native appends retain the original branches");
+            assertEquals(2, calls.stream().filter(call -> call.startsWith(
+                    "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.leave(")).count());
+
+            final var writer = new org.objectweb.asm.ClassWriter(0);
+            new org.objectweb.asm.ClassReader(original).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9, writer) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access,
+                        final String name, final String desc, final String signature, final String[] exceptions) {
+                    final var visitor = super.visitMethod(access, name, desc, signature, exceptions);
+                    if (!name.equals("b") || !desc.endsWith("/k;")) return visitor;
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9, visitor) {
+                        @Override public void visitInsn(final int opcode) {
+                            super.visitInsn(opcode == org.objectweb.asm.Opcodes.ICONST_0
+                                    ? org.objectweb.asm.Opcodes.ICONST_1 : opcode);
+                        }
+                    };
+                }
+            }, 0);
+            assertThrows(IllegalArgumentException.class,
+                    () -> TriangleListEdgeBuilderPatcher.patch(writer.toByteArray()));
+            assertThrows(IllegalArgumentException.class, () -> TriangleListEdgeBuilderPatcher.patch(patched),
+                    "an already woven builder must not be woven again");
+        }
+    }
+
+    private static String withoutBuilderFingerprint(final byte[] bytes) {
+        final var writer = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(bytes).accept(new org.objectweb.asm.ClassVisitor(
+                org.objectweb.asm.Opcodes.ASM9, writer) {
+            @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access, final String name,
+                    final String desc, final String signature, final String[] exceptions) {
+                return name.equals("b") && desc.endsWith("/k;") ? null
+                        : super.visitMethod(access, name, desc, signature, exceptions);
+            }
+        }, 0);
+        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+    }
+
+    @Test
+    void builderDependencyContractRejectsFieldAndBuilderChangesButAllowsQueryRecording() throws Exception {
+        final byte[] original = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(
+                readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"))));
+        final String expected = TriangleListEdgeBuilderPatcher.dependencyFingerprint(original);
+        for (final String change : List.of("query", "builder", "field")) {
+            final var writer = new org.objectweb.asm.ClassWriter(0);
+            new org.objectweb.asm.ClassReader(original).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9, writer) {
+                @Override public org.objectweb.asm.FieldVisitor visitField(final int access, final String name,
+                        final String descriptor, final String signature, final Object value) {
+                    return super.visitField(change.equals("field") && name.equals("b")
+                            ? access ^ org.objectweb.asm.Opcodes.ACC_FINAL : access,
+                            name, descriptor, signature, value);
+                }
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access, final String name,
+                        final String descriptor, final String signature, final String[] exceptions) {
+                    final var visitor = super.visitMethod(access, name, descriptor, signature, exceptions);
+                    final boolean mutate = change.equals("builder") && name.equals("b") && descriptor.endsWith("/k;")
+                            || change.equals("query") && name.equals("a") && descriptor.endsWith("Ljava/util/List;");
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9, visitor) {
+                        @Override public void visitCode() {
+                            super.visitCode();
+                            if (mutate) super.visitInsn(org.objectweb.asm.Opcodes.NOP);
+                        }
+                    };
+                }
+            }, 0);
+            final byte[] changed = writer.toByteArray();
+            assertNotEquals(TriangulationDefinitionFingerprint.runtimeOf(original),
+                    TriangulationDefinitionFingerprint.runtimeOf(changed), "negative control really changed the class");
+            if (change.equals("query")) {
+                assertEquals(expected, LazyTriangulationEdgePreparation.dependencyFingerprint(changed),
+                        "query recording is outside the local-builder dependency contract");
+            } else {
+                assertNotEquals(expected, LazyTriangulationEdgePreparation.dependencyFingerprint(changed),
+                        "all relevant field/builder runtime instructions remain bound");
+            }
+        }
     }
 
     @Test

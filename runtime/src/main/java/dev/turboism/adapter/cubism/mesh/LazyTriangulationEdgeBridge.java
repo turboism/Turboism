@@ -81,6 +81,18 @@ public final class LazyTriangulationEdgeBridge {
         }
     }
 
+    /**
+     * Acquire the same captured dependency lease for a local TriangleList builder.
+     * Resolving the operation owner here keeps missing or invalid host dependencies
+     * inside the guarded fallback rather than a woven class-literal linkage failure.
+     */
+    public static AutoCloseable enterBuilder(Class<?> owner) {
+        if (owner == null || !owner.getName().equals(TriangulationEdgeIndexTransformer.TARGET_CLASS_NAME)
+                || owner.getClassLoader() == null || TriangulationDefinitionLifecycle.inTransformerCallback()) return null;
+        try { return enter(Class.forName(HOST, false, owner.getClassLoader())); }
+        catch (ClassNotFoundException | RuntimeException | LinkageError unavailable) { return null; }
+    }
+
     /** Release the method's lease; the woven finally path also calls this on failure. */
     public static void leave(AutoCloseable lease) {
         if (lease == null) return;
