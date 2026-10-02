@@ -1,0 +1,102 @@
+{
+  "status": "REJECTED_RESOURCE_GATES",
+  "resourceGates": {
+    "javaCpuTotalNoRegression": true,
+    "absoluteRssGrowthWithin20Percent": false,
+    "rssAboveOwnBaselineWithin80MiB": false,
+    "retained3Minus1Within64MiB": true
+  },
+  "allOriginalResourceGatesPass": false,
+  "orderedEdgeCapturesMatch": true,
+  "semanticFields": 11,
+  "matchedRows": 2133,
+  "differences": {
+    "cycle": 0,
+    "invocation": 0,
+    "sourceIdBase64": 0,
+    "status": 0,
+    "failureBase64": 0,
+    "pointCount": 0,
+    "edgeVersion": 0,
+    "positionValues": 0,
+    "indexValues": 0,
+    "positionsSha256": 0,
+    "indicesSha256": 0
+  },
+  "summary": {
+    "baseline": {
+      "wallSeconds": 38.3193692,
+      "producerSeconds": 34.7975371,
+      "sampledCpuSeconds": 48.83,
+      "operationPeakRssBytes": 3238604800,
+      "peakAboveBaselineBytes": 32591872.0,
+      "retained3Minus1Bytes": 7884800.0,
+      "maximumSampleGapMillis": 1039
+    },
+    "candidate": {
+      "wallSeconds": 37.9772043,
+      "producerSeconds": 34.4610857,
+      "sampledCpuSeconds": 46.1,
+      "operationPeakRssBytes": 4660830208,
+      "peakAboveBaselineBytes": 380989440.0,
+      "retained3Minus1Bytes": 66469888.0,
+      "maximumSampleGapMillis": 1070
+    }
+  },
+  "candidateChangePercent": {
+    "wallSeconds": -0.8929293648184622,
+    "producerSeconds": -0.9668827970011784,
+    "sampledCpuSeconds": -5.5908253123080005,
+    "operationPeakRssBytes": 43.914756379043226
+  },
+  "productionPerformanceClaim": "NOT_ESTABLISHED_DIAGNOSTIC_COMPANION",
+  "inputPins": {
+    "build/t063-vector-copy-integration-r1/native5303-pair1/review-native-r3.py": "faf7f1e7439b58a8222db368b41f40d86262cc77f1771025ca2f6f34abea5001",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/analyze-pair-r3.py": "7a8c81f4d7f6973c237a1f8ab361baa9a7fd7146087c043ac0a73fb9437f2ebd",
+    "build/t063-vector-copy-integration-r1/offline-review.json": "9cd2e503b740cc573e9e183286ed31f5889c47e24d4e6575339e66554fbed7b5",
+    "build/t063-vector-copy-integration-r1/artifact-review.json": "cc62188584e4e2b66af172f8b46ff13784fc1a155e24972719b42d2db9ca1749",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/baseline/native-review.json": "65d69aed45ed2fb96de2973fba9842e39f4bc2f363115a29e1be005457d6c183",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/candidate/native-review.json": "92d93fc52a1bde3b4d504b7891e06c4a9a5cc782c36122348cdcad5e6d97658a",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/baseline/resource-review.json": "8e6d9afc82916a32cfc50d1b4499e90997adc40bdca80b9277937b081e7f2367",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/candidate/resource-review.json": "46e636339a4054bdb38f403db28f1541b0c7c2adb086b1dc578542e8dff213a2",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/pair-review.json": "cc736a6d042fd299d18ed1e6e085ca008fa4899b3383d3d86a91ba1d9cd9ede7",
+    "build/t063-vector-copy-integration-r1/rejected-integration-snapshot-r1/pins.json": "9ccd02ac9a13f4d9ed5cd7b1b6c045bcaf5c6fb7850e3de5496a4e41edea19c1",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/baseline/outcome.json": "b0404ff17ac4c8eb91cc6c60ed2add43d1c137b07532211317f5b122ff89ed9a",
+    "build/t063-vector-copy-integration-r1/native5303-pair1/candidate/outcome.json": "77341cc3d45530db7addbedc10e453ce4ef334a3cf34fe11df34d37b24da61e1"
+  },
+  "limitations": [
+    "Single sequential pair; no statistically established speed improvement.",
+    "CPU excludes unsampled boundaries; RSS/PSS are sampled, not continuous maxima.",
+    "Companion-only return-capture admission is different from production; instrumented pair does not establish direct production performance or long-run stability.",
+    "This new SHA has separate review status from the previously approved candidate.",
+    "RSS difference does not by itself prove causation or a leak; no favorable retry or threshold exception applied."
+  ],
+  "decision": "WITHDRAW_T063_PRODUCTION_RETAIN_T057",
+  "sourceSnapshot": "build/t063-vector-copy-integration-r1/rejected-integration-snapshot-r1",
+  "lifecycle": {
+    "baseline": {
+      "sequence": 2540,
+      "jobId": "4568e108-1e75-42c8-a679-6a2a7a01b32d",
+      "preparedDigest": "df524369b0a01a506ec684401e781867ba0a5caae25b86b4e7e44b221268c755",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "prefixRemoved": true,
+      "cgroupCleanup": "cgroup-destroyed"
+    },
+    "candidate": {
+      "sequence": 2541,
+      "jobId": "0bbd881a-972b-44b5-b186-4c74f69f02f2",
+      "preparedDigest": "53e737a1cbd2bf51334dcc9db8506810096e6c37f9ab88510dee9f0ac5a4ef31",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "prefixRemoved": true,
+      "cgroupCleanup": "cgroup-destroyed"
+    }
+  }
+}
