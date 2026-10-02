@@ -20,6 +20,11 @@ final class AtlasTileBboxHookContributor implements HookContributor {
     }
 
     @Override
+    public String policyId() {
+        return HOOK_POLICY_ID;
+    }
+
+    @Override
     public Phase phase() {
         return Phase.PREMAIN;
     }

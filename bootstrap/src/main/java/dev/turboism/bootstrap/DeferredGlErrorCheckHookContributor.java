@@ -27,7 +27,7 @@ final class DeferredGlErrorCheckHookContributor extends NativeOptimizationHookCo
             UniformLocationHookBridge.DEFER_REPORT_PROPERTY, MethodType.methodType(Object.class));
 
     DeferredGlErrorCheckHookContributor() {
-        super("TURBOISM_DEFERRED_GL_ERROR_CHECK");
+        super("TURBOISM_DEFERRED_GL_ERROR_CHECK", VerifiedDeferredGlErrorCheckInstaller.HOOK_ID);
     }
 
     @Override
