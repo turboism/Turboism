@@ -757,3 +757,79 @@ HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED. Final corrected-candidate native
 CPU/memory/complete output/retention, 5303 lifecycle, measured numerical limits
 for review and formal native startup/settings/independent-restart linkage remain
 required; T050 stays partial and T044/T046/full continuous goal stay open.
+
+### Corrected candidate 5302 pair: bounded native report closed
+
+After allocation commit dd653f505, corrected companion 41db074a and production
+candidate ddb1ba0c complete one new official-BAT/FIFO off→on pair. The unchanged
+driver 6cf72bdb, capture f0b11990, startup probe 30f5203e, heavy fixture 029e9a4e,
+UI-saved Boolean configs and complete three-cycle protocol are retained. No
+build runs during measurement, no shared Runner or gateway changes, no old
+artifact overwrite, merge/push or unchanged native retry.
+
+Off seq2433/job8b5a71bd-d26d-463a-91a3-aeeeb604f835/prepared9e432051dcf99e0930fff710c4f0fc46e9ee0ad8f2544c826860a803d4342908
+and on seq2434/job47466cab-9721-4fd7-aa2c-c250bd197232/preparedb1998e6c1f2792c6d627475d7e9d3b5b6cb2139976de4a740c0abbe3a78e39ff
+are authoritative succeeded/PASS with normalExit/identityVerified/fixtureUnchanged
+true, safe cleanup, bound kernel-scope destruction and both observers exit0.
+Each inventory verifies 138 files and 12 directories. Startup settings remain
+read-only and match the saved off/on config; this is not real settings-UI/restart
+acceptance. The native CUB3-4362 responder answers once after all measurement
+windows in 0.610/off and 0.602/on seconds, without external window actions.
+
+Both legs cover all 711 sources in each of three cycles. All 2133 semantic
+projections match exactly, including ordered source/cycle/invocation, positions,
+indices, counts, version and result digests. First-four ordered edge summaries
+also match. Off/on native cross-cycle variations remain identical: cycle2 has
+8 index-digest/4 index-length changes and cycle3 has 5/2 relative to cycle1;
+positions and point counts remain unchanged. Complete digests, not raw arrays,
+are persisted. Actual native targets occur in all three windows; on index
+samples are 115/139/106, with zero unknown frames.
+
+| Metric | Off | On | On change |
+| --- | ---: | ---: | ---: |
+| Three command windows, seconds | 103.984 | 72.907 | −29.89% |
+| Sampled Java command CPU, seconds | 107.85 | 78.57 | −27.15% |
+| Sampled auxiliary command CPU, seconds | 8.31 | 5.86 | −29.48% |
+| Initial median RSS, MiB | 2548.07 | 2761.44 | +213.37 MiB |
+| Largest operation RSS peak, MiB | 2567.97 | 2789.23 | +221.25 MiB / +8.62% |
+| Largest operation peak above own baseline, MiB | 19.90 | 27.79 | +7.89 MiB |
+| Whole observed RSS peak, MiB | 4552.27 | 3671.37 | Includes startup/exit |
+| Whole recording heap maximum, MiB | 3646.14 | 2698.31 | Includes startup/exit |
+| Whole observed Java CPU, seconds | 276.04 | 264.33 | Not command-only CPU |
+
+Fixed 30-second retained RSS medians are 2565.87/2567.16/2568.52/off and
+2787.41/2788.48/2789.61/on MiB. Third-minus-first is +2.64/off and +2.21/on MiB;
+on absolute medians stay about 221 MiB higher. No retained target/index/native
+serialization samples occur; sampled Java CPU is 1.31/0.61/0.57/off and
+0.99/0.54/1.05/on seconds. Short sampled plateaus and baseline-relative figures
+do not prove no leak or erase the absolute on cost. All measured PSS is present;
+whole-run off has one observer record before Java appears, preserved explicitly.
+
+Command edge allocation sample weights sum to 1,228,851,832/off versus
+257,238,032/on bytes (−79.07%, a statistical estimate). The three previously
+dominant SetKey/boxed Long/reflection Type-array classes have no sampled command
+allocations in this corrected pair. Stored EdgeKey objects and independent
+ArrayList snapshots remain sampled. Source/owned-loop corrections are supported
+by native observations; absence of samples is not proof of zero allocation.
+The prior candidate's on operation maximum was 3825.05 MiB and its largest
+baseline-relative increase 1264.89 MiB, compared with 2789.23/27.79 now. Baselines
+and runs differ, so this history is reported without claiming a matched causal
+memory percentage or a finalized numerical acceptance threshold.
+
+Independent recomputation verifies all 14 resource windows, complete outputs,
+CPU/RSS/PSS/heap/allocation/target attribution and exact JDK CLI parity for all
+262 heap events (128/off, 134/on). Post-writer rehash checks 847 inputs with zero
+mismatches. Evidence: build/t050-lazy-edge-bytecode/memory-registry-r1/native5302-pair1;
+independent-pair-review SHA a58c46b506147567f7637b1c9a07532c865d260a6d417746ff4d296e905c5d84.
+Preparation's output/runId normalization refusal, audit's old20-vs-new21 capture
+filename refusal and the missing JFR projection dependency are all preserved.
+Only preparation/audit was corrected; native jobs were not rerun and authoritative
+gates were not modified.
+
+This allocation implementation and corrected 5302 diagnostic report can close.
+It is native auto-connect evidence, not Atlas A/B or full production acceptance.
+Final corrected-candidate 5203/5303 outputs/resources, 5303 cold lifecycle,
+formal managed startup/real settings/independent restart, memory stability and
+measured numerical limits for review remain required. Production stays
+HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED; T050 remains partial and T044/T046/full
+continuous goal remain active.

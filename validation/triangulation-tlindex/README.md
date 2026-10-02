@@ -439,5 +439,15 @@ Independent review checks 69 input pins after writing the report. Separate
 candidates include all six helper classes and preserve every unrelated JAR entry.
 The packaged Gradle helper preserves those results under -Xverify:all. Real
 companion premain metadata passes on/off plus cross-profile refusal without
-official initialization or Editor startup. Corrected-candidate native pairing
-and actual RSS/retention acceptance remain open. See the current host evidence.
+official initialization or Editor startup. The corrected 5302 off/on pair
+(seq2433/2434) subsequently passes all standard native gates, matches all 2133
+complete producer projections and passes independent recomputation plus 847
+post-writer pin checks. Command wall falls 29.89% and sampled Java CPU 27.15%.
+Operation RSS peak maxima are 2567.97/off versus 2789.23/on MiB (+8.62%);
+on retained medians rise only 2.21 MiB across the three fixed 30-second windows.
+The previous candidate's on peak was 3825.05 MiB, with different baselines;
+that historical comparison alone is not a matched causal estimate. No hot
+SetKey/Long/Type-array allocations are sampled in the new command windows.
+This closes the corrected 5302 report, not production memory or three-version
+acceptance. Final 5203/5303, formal startup/settings/restart and reviewed memory
+limits remain open. See the current host evidence.
