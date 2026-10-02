@@ -64,7 +64,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     /** Hook installation is an additional runtime prerequisite, separate from static admission. */
     public void lifecycleReady(long hostGeneration, boolean ready) {
-        edt(() -> {
+        edtEventually(() -> {
             if (generation != hostGeneration || closed) return;
             lifecycleReady = ready;
             if (!ready) deactivateOnEdt();
