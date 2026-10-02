@@ -67,6 +67,9 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 | `turboism.action.register` | `application` | Turboism メニュー項目の背後にある backup.webdav.settings.open アクションを登録します。 |
 | `turboism.ui.menu.contribute` | `application` | Turboism メニューを通じて WebDAV バックアップ設定 ダイアログを公開します。 |
 | `turboism.cubism.model.observe` | `application` | 保存トリガー型バックアップを開始するため、モデルとアニメーションの保存ライフサイクルを監視します。 |
+| `turboism.network.fetch` | `application` | JDK HttpClient（MKCOL/PROPFIND/PUT/DELETE）でバックアップ成果物をユーザー設定の WebDAV エンドポイントへアップロードします。リダイレクトは一切追随しません。 |
+| `turboism.file.read` | `application` | アップロード用にランタイム発行のバックアップ成果物を読み取り、設定されたホスト自動バックアップディレクトリをスキャンして新しい `_backup*.cmo3` ファイルを検出します。 |
+| `turboism.file.write` | `application` | アップロード完了後、プラグイン所有の保存トリガー型一時バックアップファイルとその空ディレクトリを削除します。 |
 
 ## プライバシーとデータ
 
