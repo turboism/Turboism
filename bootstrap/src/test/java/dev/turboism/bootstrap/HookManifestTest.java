@@ -18,6 +18,7 @@ final class HookManifestTest {
                 List.of(
                         MeshMirrorHookContributor.class,
                         MeshToolSessionHookContributor.class,
+                        ModelingToolHookContributor.class,
                         WarpAltMirrorHookContributor.class,
                         MeshTriangulationHashHookContributor.class,
                         AtlasTileBboxHookContributor.class,

@@ -101,6 +101,51 @@ class CorePluginContextMeshToolsTest {
                 CLOCK);
     }
 
+    @Test
+    void ordinaryToolsAreAnIndependentDirectoryServiceWithScopeOwnedCleanup() throws Exception {
+        RuntimeScheduler scheduler = scheduler();
+        CorePluginContext context = new CorePluginContext(dependencies(scheduler));
+        AtomicInteger meshCloses = new AtomicInteger();
+        AtomicInteger modelingCloses = new AtomicInteger();
+        var ordinary = new dev.turboism.sdk.cubism.modeling.ModelingToolRegistry() {
+            @Override
+            public Registration register(
+                    dev.turboism.sdk.cubism.modeling.ModelingTool tool,
+                    dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement placement) {
+                return () -> {};
+            }
+
+            @Override
+            public void close() {
+                modelingCloses.incrementAndGet();
+            }
+        };
+        try {
+            assertThrows(
+                    dev.turboism.sdk.plugin.PluginServiceUnavailableException.class,
+                    () -> context.services().require(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            context.installMeshTools(service(new AtomicInteger(), meshCloses));
+            org.junit.jupiter.api.Assertions.assertNull(
+                    context.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            context.installModelingTools(ordinary);
+            assertSame(
+                    ordinary, context.services().require(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    context.services().installed().contains(dev.turboism.sdk.plugin.PluginService.MODELING_TOOLS));
+            assertThrows(IllegalStateException.class, () -> context.installModelingTools(ordinary));
+            context.disposableScope().seal();
+            org.junit.jupiter.api.Assertions.assertNull(
+                    context.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            context.disposableScope().close();
+            context.disposableScope().close();
+            assertEquals(1, meshCloses.get());
+            assertEquals(1, modelingCloses.get());
+        } finally {
+            context.disposableScope().close();
+            scheduler.shutdown();
+        }
+    }
+
     private static MeshToolRegistry service(final AtomicInteger registrations, final AtomicInteger closes) {
         return new MeshToolRegistry() {
             @Override

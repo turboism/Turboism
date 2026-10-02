@@ -12,11 +12,14 @@ import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.cubism.model.Drawable;
+import java.awt.Point;
+import java.awt.event.InputEvent;
 import java.lang.reflect.Proxy;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.Set;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
@@ -80,6 +83,65 @@ class WindowsMeshEditValidationProbeTest {
         final MeshSnapshot duplicate = mesh(List.of(point(4, 0.0F, 0.0F), point(4, 1.0F, 1.0F)), List.of());
 
         assertThrows(IllegalArgumentException.class, () -> WindowsMeshEditValidationProbe.pointsById(duplicate));
+    }
+
+    @Test
+    void ordinaryOracleRetainsBothOwnersAtTheSameLocalIndexAndCapsuleBoundary() {
+        final var points = List.of(
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:0", 50, 0),
+                new WindowsModelingSelectionBrushProbe.NativePoint("warp:WarpPointRef:0", 50, 32),
+                new WindowsModelingSelectionBrushProbe.NativePoint("warp:WarpPointRef:1", 50, 32.25f),
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:1", -32, 0),
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:2", 132, 0));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0", "mesh:MeshPointRef:1", "mesh:MeshPointRef:2"),
+                WindowsModelingSelectionBrushProbe.hits(points, List.of(new Point(0, 0), new Point(100, 0)), 32));
+    }
+
+    @Test
+    void nativeLassoOracleDetectsTheObservedTranslatedDragFootprint() {
+        final var points = List.of(
+                new WindowsModelingSelectionBrushProbe.NativePoint("mesh:MeshPointRef:0", 200.08083f, 408.2952f));
+        for (int extent : new int[] {16, 64}) {
+            final var requested = List.of(
+                    new Point(200 - extent, 408 - extent),
+                    new Point(200 + extent, 408 - extent),
+                    new Point(200 + extent, 408 + extent),
+                    new Point(200 - extent, 408 + extent),
+                    new Point(200 - extent, 408 - extent));
+            final var delivered = new java.util.ArrayList<Point>();
+            delivered.add(requested.get(0));
+            for (int i = 1; i < requested.size(); i++) {
+                final Point from = requested.get(i - 1), to = requested.get(i);
+                for (int step = 1; step <= 2 * extent / 4; step++) {
+                    final Point position = new Point(
+                            from.x + Integer.signum(to.x - from.x) * 4 * step,
+                            from.y + Integer.signum(to.y - from.y) * 4 * step);
+                    delivered.add(new Point(position.x, position.y - 20));
+                    delivered.add(position);
+                }
+            }
+            assertEquals(
+                    Set.of("mesh:MeshPointRef:0"), WindowsModelingSelectionBrushProbe.lassoHits(points, requested));
+            assertEquals(
+                    extent == 16 ? Set.of() : Set.of("mesh:MeshPointRef:0"),
+                    WindowsModelingSelectionBrushProbe.lassoHits(points, delivered));
+        }
+    }
+
+    @Test
+    void ordinaryOracleUsesControlPrecedenceAndLeavesZeroHitSelectionIntact() {
+        final Set<String> before = Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0");
+        final Set<String> hit = Set.of("warp:WarpPointRef:0", "warp:WarpPointRef:1");
+        assertEquals(hit, WindowsModelingSelectionBrushProbe.apply(before, hit, 0));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0", "warp:WarpPointRef:0", "warp:WarpPointRef:1"),
+                WindowsModelingSelectionBrushProbe.apply(before, hit, InputEvent.SHIFT_DOWN_MASK));
+        assertEquals(
+                Set.of("mesh:MeshPointRef:0"),
+                WindowsModelingSelectionBrushProbe.apply(
+                        before, hit, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+        assertEquals(before, WindowsModelingSelectionBrushProbe.apply(before, Set.of(), 0));
     }
 
     @Test

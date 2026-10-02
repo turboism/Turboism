@@ -4,6 +4,7 @@
 # adding a contributor class plus one line here — TurboismAgent stays unchanged.
 dev.turboism.bootstrap.MeshMirrorHookContributor
 dev.turboism.bootstrap.MeshToolSessionHookContributor
+dev.turboism.bootstrap.ModelingToolHookContributor
 dev.turboism.bootstrap.WarpAltMirrorHookContributor
 dev.turboism.bootstrap.MeshTriangulationHashHookContributor
 dev.turboism.bootstrap.AtlasTileBboxHookContributor

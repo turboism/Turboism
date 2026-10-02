@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /** Non-throwing static ingress called only by the exact transformed mesh-editor lifecycle methods. */
 public final class NativeMeshToolSessionBridge {
@@ -120,23 +121,34 @@ public final class NativeMeshToolSessionBridge {
 
     /** Revokes the matching session before native {@code endMode()} executes. */
     public static void beforeEnd(final Object mode) {
+        revoke("beforeEnd", session -> mode != null && session.identity().mode() == mode);
+    }
+
+    /**
+     * Revokes after a successful document mode switch, including native confirmation/cancel paths
+     * that bypass {@code endMode()}. Re-entering the same mode or switching another document is a no-op.
+     */
+    public static void afterEditModeChanged(final Object document, final Object nextMode) {
+        dev.turboism.adapter.cubism.modeling.NativeModelingToolBridge.afterModeChanged(document, nextMode);
+        revoke(
+                "afterEditModeChanged",
+                session -> document != null
+                        && nextMode != null
+                        && session.identity().document() == document
+                        && session.identity().mode() != nextMode);
+    }
+
+    private static void revoke(final String phase, final Predicate<NativeMeshToolSession> matches) {
         final long started = System.nanoTime();
         String outcome = "skipped";
         Throwable failure = null;
         try {
-            if (mode == null) {
-                report("beforeEnd", outcome, started, null);
-                return;
-            }
             final NativeMeshToolSession stale;
             final SessionListener listener;
             synchronized (LOCK) {
-                if (binding == null
-                        || transitioning
-                        || current == null
-                        || current.identity().mode() != mode) {
+                if (binding == null || transitioning || current == null || !matches.test(current)) {
                     outcome = binding == null ? "unbound" : "no-match";
-                    report("beforeEnd", outcome, started, null);
+                    report(phase, outcome, started, null);
                     return;
                 }
                 transitioning = true;
@@ -162,7 +174,7 @@ public final class NativeMeshToolSessionBridge {
             failure = ignored;
             // Host lifecycle ingress must never throw into Cubism.
         }
-        report("beforeEnd", outcome, started, failure);
+        report(phase, outcome, started, failure);
     }
 
     /**

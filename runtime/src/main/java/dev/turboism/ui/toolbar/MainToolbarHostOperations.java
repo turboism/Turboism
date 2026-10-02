@@ -27,6 +27,11 @@ public interface MainToolbarHostOperations {
     Registration addButton(
             MainToolbarContributionDescriptor contribution, Optional<AnchorHandle> anchor, Runnable action);
 
+    /** Adds an independently admitted ordinary modeling tool; unsupported hosts skip only this tool. */
+    default Optional<Registration> addModelingButton(final ModelingToolbarContributionDescriptor contribution) {
+        return Optional.empty();
+    }
+
     /**
      * Registers a callback fired when the host rebuilds the main toolbar.
      *
