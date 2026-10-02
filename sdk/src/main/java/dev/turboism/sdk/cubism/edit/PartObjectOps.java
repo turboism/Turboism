@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
@@ -25,6 +26,7 @@ import java.util.Optional;
  * the host's glue enumeration by id alone, so the declared kind is not consulted on that
  * route. {@link EditObjectKind#ART_PATH} has no official data payload and fails closed.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface PartObjectOps {
 
