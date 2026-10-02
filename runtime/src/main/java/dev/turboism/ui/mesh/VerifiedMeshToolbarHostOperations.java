@@ -177,10 +177,9 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
-                onEdt(() -> {
+                onEdtEventually(() -> {
                     resolver.invoke(CONTAINER_REMOVE, panel, slider);
                     refresh(panel);
-                    return null;
                 });
             }
         };
@@ -343,7 +342,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
-                onEdt(() -> {
+                onEdtEventually(() -> {
                     // The session-observer bookkeeping must run even when the contribution
                     // removal fails: a throwing removal must never leak the listener binding.
                     // The primary removal/refresh failure (RuntimeException or Error) is held
@@ -379,7 +378,6 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                     if (primary != null) {
                         throw new RuntimeException("mesh-toolbar contribution removal failed", primary);
                     }
-                    return null;
                 });
             }
         };
@@ -618,6 +616,15 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
 
     private static <T> T onEdt(final Operation<T> operation) {
         return EdtDispatch.call("mesh-toolbar EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed contribution is never orphaned and the
+     * session observer is never leaked.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("mesh-toolbar EDT removal", operation);
     }
 
     @FunctionalInterface

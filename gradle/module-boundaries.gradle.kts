@@ -662,6 +662,12 @@ tasks.register("checkPluginBoundaries") {
     )
     inputs.file("gradle/module-boundaries.gradle.kts")
     inputs.file("settings.gradle.kts")
+    inputs.file("build.gradle.kts")
+    // The forbidden dotted roots are derived from the :runtime top-level package listing,
+    // so the directory entries themselves are an input of this gate.
+    inputs.files(
+        fileTree("runtime/src/main/java/dev/turboism") { include("*/") }
+    )
     pluginBoundaryProjects.forEach { plugin ->
         inputs.file(plugin.file("build.gradle.kts"))
         inputs.files(
@@ -897,7 +903,9 @@ private val pluginFileWriteMembers = mapOf(
         "setReadable", "setExecutable", "setLastModified", "deleteOnExit"
     ),
     "java/io/PrintWriter" to setOf("<init>"),
-    "java/io/PrintStream" to setOf("<init>")
+    "java/io/PrintStream" to setOf("<init>"),
+    // Only the File overloads of ImageIO.write cross the file boundary.
+    "javax/imageio/ImageIO" to setOf("write")
 )
 
 private val pluginFileReadMembers = mapOf(
@@ -916,7 +924,11 @@ private val pluginFileReadMembers = mapOf(
         "exists", "isFile", "isDirectory", "isHidden", "isAbsolute", "canRead",
         "canWrite", "canExecute", "length", "lastModified", "list", "listFiles",
         "listRoots", "getFreeSpace", "getTotalSpace", "getUsableSpace"
-    )
+    ),
+    // Constructing a ZipFile opens the archive for reading.
+    "java/util/zip/ZipFile" to setOf("<init>"),
+    // Only the File overloads of ImageIO.read cross the file boundary.
+    "javax/imageio/ImageIO" to setOf("read")
 )
 
 /* Channel open modes and RandomAccessFile "r"/"rw" flags are runtime arguments:
@@ -1007,9 +1019,13 @@ private fun declaredPermissionIds(descriptor: java.io.File): Set<String> {
 /** Constant-pool member reference: owner binary name, member name, type descriptor. */
 private class MemberRef(val owner: String, val name: String, val descriptor: String)
 
-private fun parseConstantPoolMembers(bytes: ByteArray): List<MemberRef> {
+private fun parseConstantPoolMembers(classFile: java.io.File, bytes: ByteArray): List<MemberRef> {
+    // Fail closed: a .class file that cannot be parsed must break the audit rather than
+    // silently contribute zero member references to it.
     if (bytes.size < 10 || bytes.copyOfRange(0, 4).contentEquals(byteArrayOf(-54, -2, -70, -66)).not()) {
-        return emptyList()
+        throw GradleException(
+            "Plugin permission audit cannot parse $classFile: not a valid class file header"
+        )
     }
     fun u2(offset: Int) = (bytes[offset].toInt() and 0xFF shl 8) or (bytes[offset + 1].toInt() and 0xFF)
     val count = u2(8)
@@ -1021,40 +1037,49 @@ private fun parseConstantPoolMembers(bytes: ByteArray): List<MemberRef> {
     val memberRefNameAndType = IntArray(count)
     var position = 10
     var index = 1
-    while (index < count) {
-        when (bytes[position].toInt() and 0xFF) {
-            1 -> {
-                val length = u2(position + 1)
-                utf8[index] = String(bytes, position + 3, length, Charsets.ISO_8859_1)
-                position += 3 + length
+    try {
+        while (index < count) {
+            when (bytes[position].toInt() and 0xFF) {
+                1 -> {
+                    val length = u2(position + 1)
+                    utf8[index] = String(bytes, position + 3, length, Charsets.ISO_8859_1)
+                    position += 3 + length
+                }
+                3, 4 -> position += 5
+                5, 6 -> {
+                    position += 9
+                    index++
+                }
+                7 -> {
+                    classNameIndex[index] = u2(position + 1)
+                    position += 3
+                }
+                8 -> position += 3
+                9, 10, 11 -> {
+                    memberRefOwner[index] = u2(position + 1)
+                    memberRefNameAndType[index] = u2(position + 3)
+                    position += 5
+                }
+                12 -> {
+                    nameAndTypeName[index] = u2(position + 1)
+                    nameAndTypeDescriptor[index] = u2(position + 3)
+                    position += 5
+                }
+                15 -> position += 4
+                16 -> position += 3
+                17, 18 -> position += 5
+                19, 20 -> position += 3
+                else -> throw GradleException(
+                    "Plugin permission audit cannot parse $classFile: " +
+                        "unknown constant-pool tag ${bytes[position].toInt() and 0xFF} at entry $index"
+                )
             }
-            3, 4 -> position += 5
-            5, 6 -> {
-                position += 9
-                index++
-            }
-            7 -> {
-                classNameIndex[index] = u2(position + 1)
-                position += 3
-            }
-            8 -> position += 3
-            9, 10, 11 -> {
-                memberRefOwner[index] = u2(position + 1)
-                memberRefNameAndType[index] = u2(position + 3)
-                position += 5
-            }
-            12 -> {
-                nameAndTypeName[index] = u2(position + 1)
-                nameAndTypeDescriptor[index] = u2(position + 3)
-                position += 5
-            }
-            15 -> position += 4
-            16 -> position += 3
-            17, 18 -> position += 5
-            19, 20 -> position += 3
-            else -> return emptyList()
+            index++
         }
-        index++
+    } catch (truncated: IndexOutOfBoundsException) {
+        throw GradleException(
+            "Plugin permission audit cannot parse $classFile: truncated constant pool", truncated
+        )
     }
     val members = mutableListOf<MemberRef>()
     for (entry in 1 until count) {
@@ -1083,16 +1108,15 @@ private fun requiredPermissionsFor(owner: String, name: String, descriptor: Stri
         required += "turboism.process.run"
     }
     val writeNames = pluginFileWriteMembers[owner]
-    if (pluginFileWriteMembers.containsKey(owner) && (writeNames == null || name in writeNames)) {
-        // PrintWriter/PrintStream only write files when constructed over one.
-        if ((owner != "java/io/PrintWriter" && owner != "java/io/PrintStream") ||
-            descriptor.contains("java/io/File")
-        ) {
-            required += "turboism.file.write"
-        }
+    if (pluginFileWriteMembers.containsKey(owner) && (writeNames == null || name in writeNames) &&
+        descriptorTargetsFile(owner, descriptor)
+    ) {
+        required += "turboism.file.write"
     }
     val readNames = pluginFileReadMembers[owner]
-    if (pluginFileReadMembers.containsKey(owner) && (readNames == null || name in readNames)) {
+    if (pluginFileReadMembers.containsKey(owner) && (readNames == null || name in readNames) &&
+        descriptorTargetsFile(owner, descriptor)
+    ) {
         required += "turboism.file.read"
     }
     val channelNames = pluginFileReadWriteMembers[owner]
@@ -1101,6 +1125,19 @@ private fun requiredPermissionsFor(owner: String, name: String, descriptor: Stri
         required += "turboism.file.write"
     }
     return required
+}
+
+/*
+ * Some owners only cross the file boundary for a subset of their tracked members'
+ * signatures: PrintWriter/PrintStream write a file only when constructed over a
+ * File or a String path (Writer/OutputStream delegates stay off the boundary),
+ * and ImageIO.read/write only touch files for the File overloads.
+ */
+private fun descriptorTargetsFile(owner: String, descriptor: String): Boolean = when (owner) {
+    "java/io/PrintWriter", "java/io/PrintStream" ->
+        descriptor.startsWith("(Ljava/io/File;") || descriptor.startsWith("(Ljava/lang/String;")
+    "javax/imageio/ImageIO" -> descriptor.contains("java/io/File")
+    else -> true
 }
 
 private fun auditPluginClassFile(
@@ -1112,7 +1149,7 @@ private fun auditPluginClassFile(
     state: BoundaryState
 ) {
     val bytes = classFile.readBytes()
-    val members = parseConstantPoolMembers(bytes)
+    val members = parseConstantPoolMembers(classFile, bytes)
     members.forEach { member ->
         requiredPermissionsFor(member.owner, member.name, member.descriptor).forEach { permission ->
             val evidence = "${member.owner}.${member.name}"
