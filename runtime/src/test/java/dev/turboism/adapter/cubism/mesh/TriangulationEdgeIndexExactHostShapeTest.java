@@ -178,6 +178,107 @@ final class TriangulationEdgeIndexExactHostShapeTest {
     }
 
     @Test
+    void angleGuardPreservesOtherMembersAndRejectsChangedBoundaryOrRepeatedWeave() throws Exception {
+        for (final Path jar : reviewedArtifacts(legacyEvidence()).values()) {
+            final byte[] original = readEntry(jar,
+                    TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME + ".class");
+            final byte[] patched = TriangulationAngleGuardPatcher.patch(original);
+            assertEquals(withoutAngleFingerprint(original), withoutAngleFingerprint(patched));
+            final List<String> calls = new java.util.ArrayList<>();
+            new org.objectweb.asm.ClassReader(patched).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access,
+                        final String name, final String descriptor, final String signature, final String[] exceptions) {
+                    if (!name.equals("d") || !descriptor.equals("()V")) return null;
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9) {
+                        @Override public void visitMethodInsn(final int opcode, final String owner,
+                                final String method, final String desc, final boolean itf) {
+                            calls.add(owner + "." + method + desc);
+                        }
+                    };
+                }
+            }, 0);
+            final String bridge = "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.";
+            assertEquals(1, calls.stream().filter(call -> call.startsWith(bridge + "enter(")).count());
+            assertEquals(2, calls.stream().filter(call -> call.startsWith(bridge + "leave(")).count());
+            assertEquals(1, calls.stream().filter(call -> call.equals(
+                    "dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard.reject(FF)Z")).count());
+            final String prefix = "com/live2d/graphics3d/editableMesh/triangulation/";
+            assertEquals(1, calls.stream().filter(call -> call.equals(prefix
+                    + "r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F")).count(),
+                    "the original angle call remains for cold and declined inputs");
+            assertEquals(List.of("getX", "getY", "getY", "getX", "getX", "getX", "getY", "getY"),
+                    calls.stream().filter(call -> call.startsWith("com/live2d/graphics3d/type/GVector2.get"))
+                            .map(call -> call.contains("getX") ? "getX" : "getY").toList());
+            final var writer = new org.objectweb.asm.ClassWriter(0);
+            new org.objectweb.asm.ClassReader(original).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9, writer) {
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access,
+                        final String name, final String descriptor, final String signature, final String[] exceptions) {
+                    final var output = super.visitMethod(access, name, descriptor, signature, exceptions);
+                    if (!name.equals("d") || !descriptor.equals("()V")) return output;
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9, output) {
+                        @Override public void visitJumpInsn(final int opcode, final org.objectweb.asm.Label target) {
+                            super.visitJumpInsn(opcode == org.objectweb.asm.Opcodes.IFGT
+                                    ? org.objectweb.asm.Opcodes.IFGE : opcode, target);
+                        }
+                    };
+                }
+            }, 0);
+            assertThrows(IllegalArgumentException.class, () -> TriangulationAngleGuardPatcher.patch(writer.toByteArray()));
+            assertThrows(IllegalArgumentException.class, () -> TriangulationAngleGuardPatcher.patch(patched));
+        }
+    }
+
+    private static String withoutAngleFingerprint(final byte[] bytes) {
+        final var writer = new org.objectweb.asm.ClassWriter(0);
+        new org.objectweb.asm.ClassReader(bytes).accept(new org.objectweb.asm.ClassVisitor(
+                org.objectweb.asm.Opcodes.ASM9, writer) {
+            @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access, final String name,
+                    final String descriptor, final String signature, final String[] exceptions) {
+                return name.equals("d") && descriptor.equals("()V") ? null
+                        : super.visitMethod(access, name, descriptor, signature, exceptions);
+            }
+        }, 0);
+        return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
+    }
+
+    @Test
+    void angleThresholdDependencyRetainsAllFieldsMethodsAndInitialization() throws Exception {
+        final byte[] original = readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
+                "com/live2d/util/L.class");
+        final String expected = LazyTriangulationEdgePreparation.dependencyFingerprint(original);
+        assertEquals(TriangulationDefinitionFingerprint.runtimeOf(original), expected);
+        for (final String change : List.of("field", "getter", "initializer")) {
+            final var writer = new org.objectweb.asm.ClassWriter(0);
+            new org.objectweb.asm.ClassReader(original).accept(new org.objectweb.asm.ClassVisitor(
+                    org.objectweb.asm.Opcodes.ASM9, writer) {
+                @Override public org.objectweb.asm.FieldVisitor visitField(final int access, final String name,
+                        final String descriptor, final String signature, final Object value) {
+                    return super.visitField(change.equals("field") && name.equals("i")
+                            ? access ^ org.objectweb.asm.Opcodes.ACC_FINAL : access, name, descriptor, signature, value);
+                }
+                @Override public org.objectweb.asm.MethodVisitor visitMethod(final int access, final String name,
+                        final String descriptor, final String signature, final String[] exceptions) {
+                    return new org.objectweb.asm.MethodVisitor(org.objectweb.asm.Opcodes.ASM9,
+                            super.visitMethod(access, name, descriptor, signature, exceptions)) {
+                        @Override public void visitCode() {
+                            super.visitCode();
+                            if (change.equals("getter") && name.equals("f")) super.visitInsn(org.objectweb.asm.Opcodes.NOP);
+                        }
+                        @Override public void visitLdcInsn(final Object value) {
+                            super.visitLdcInsn(change.equals("initializer") && name.equals("<clinit>")
+                                    && value instanceof Float scalar && scalar == 1.0e-6f ? 1.0e-5f : value);
+                        }
+                    };
+                }
+            }, 0);
+            final String observed = LazyTriangulationEdgePreparation.dependencyFingerprint(writer.toByteArray());
+            assertNotEquals(expected, observed, change + " must invalidate the complete threshold dependency");
+        }
+    }
+
+    @Test
     void builderDependencyContractRejectsFieldAndBuilderChangesButAllowsQueryRecording() throws Exception {
         final byte[] original = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(
                 readEntry(legacyEvidence().resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"))));

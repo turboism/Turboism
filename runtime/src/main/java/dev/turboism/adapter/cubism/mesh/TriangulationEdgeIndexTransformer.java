@@ -210,6 +210,8 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
                     + " outputSha256=" + sha256(patched));
             if (lazyPatched) reportMembership("TRIANGULATION_LAZY_EDGE_PATCHED inputSha256=" + observed
                     + " outputSha256=" + sha256(patched));
+            if (lazyPatched) reportMembership("TRIANGULATION_ANGLE_GUARD_PATCHED inputSha256=" + observed
+                    + " outputSha256=" + sha256(patched));
             return freshPatched || membershipPatched ? patched : null;
         }
         if (!TARGET_INTERNAL_NAME.equals(className)) return null;

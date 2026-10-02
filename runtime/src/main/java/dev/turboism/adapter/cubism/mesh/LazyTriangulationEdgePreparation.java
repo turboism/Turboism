@@ -23,6 +23,7 @@ final class LazyTriangulationEdgePreparation {
     private static final String H = P + "h", J = P + "j", T = P + "TriPoint", L = P + "l", R = P + "r";
     private static final String K = P + "k", TL = P + "TriangleList";
     private static final String V = "com.live2d.graphics3d.type.GVector2";
+    private static final String MATH = "com.live2d.util.L";
     private static final String ASSERTIONS = "kotlin._Assertions", INTRINSICS = "kotlin.jvm.internal.Intrinsics";
     private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
     private static final String KOTLIN_SHA = "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19";
@@ -48,6 +49,8 @@ final class LazyTriangulationEdgePreparation {
                 "bridge identity rejected");
         require(Class.forName(TriangulationBuilderEdges.class.getName(), false, loader) == TriangulationBuilderEdges.class,
                 "builder helper identity rejected");
+        require(Class.forName(TriangulationAngleGuard.class.getName(), false, loader) == TriangulationAngleGuard.class,
+                "angle helper identity rejected");
         URI hostOrigin = origin(domain); require(hostOrigin != null && hostOrigin.getScheme().equalsIgnoreCase("file"), "host origin rejected");
         Path hostPath = Path.of(hostOrigin), kotlinPath = hostPath.getParent().resolve(KOTLIN_JAR);
         HostArtifactDigest hostArtifact = HostArtifactDigest.from(hostPath);
@@ -61,12 +64,16 @@ final class LazyTriangulationEdgePreparation {
             Map<String, byte[]> metadata = new HashMap<>();
             output = LazyTriangulationEdgePatcher.patch(baseline, name -> metadata.computeIfAbsent(name,
                     key -> definition(host, kotlin, key)));
+            output = TriangulationAngleGuardPatcher.patch(output);
             byte[] list = definition(host, kotlin, TL.replace('.', '/'));
             byte[] collection = definition(host, kotlin, K.replace('.', '/'));
             require(list != null && collection != null, "builder dependencies missing");
             byte[] builtList = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(list));
             expected.put(TL, TriangleListEdgeBuilderPatcher.dependencyFingerprint(builtList));
             expected.put(K, TriangulationDefinitionFingerprint.runtimeOf(collection));
+            byte[] math = definition(host, kotlin, MATH.replace('.', '/'));
+            require(math != null, "angle threshold dependency missing");
+            expected.put(MATH, TriangulationDefinitionFingerprint.runtimeOf(math));
         }
         // Managed host inventories are immutable; also refuse a changed input during preparation.
         require(HostArtifactDigest.from(hostPath).equals(hostArtifact) && sha(kotlinPath).equals(KOTLIN_SHA), "input changed during preparation");
@@ -144,6 +151,23 @@ final class LazyTriangulationEdgePreparation {
         require(geometry.getDeclaredField("a").getType() == geometry, "geometry singleton link");
         require(geometry.getDeclaredMethod("a", edge, edge).getReturnType() == vector, "edge intersection link");
         require(geometry.getDeclaredMethod("a", vector, vector, vector, vector).getReturnType() == vector, "endpoint intersection link");
+        var angle = geometry.getDeclaredMethod("a", vector, vector);
+        require(angle.getReturnType() == float.class && Modifier.isFinal(angle.getModifiers()), "native angle link");
+        for (String name : new String[] {"getX", "getY"}) {
+            var getter = vector.getDeclaredMethod(name);
+            require(getter.getReturnType() == float.class && Modifier.isFinal(getter.getModifiers()), "angle scalar getter link");
+        }
+        Class<?> math = types.get(MATH);
+        require(Modifier.isFinal(math.getModifiers()) && math.getSuperclass() == Object.class, "angle threshold hierarchy");
+        var threshold = math.getDeclaredMethod("f");
+        require(threshold.getReturnType() == float.class && Modifier.isFinal(threshold.getModifiers()), "angle threshold method link");
+        var epsilon = math.getDeclaredField("i");
+        require(epsilon.getType() == float.class && Modifier.isPrivate(epsilon.getModifiers())
+                && Modifier.isStatic(epsilon.getModifiers()) && Modifier.isFinal(epsilon.getModifiers()), "immutable angle threshold field");
+        var mathSingleton = math.getDeclaredField("a");
+        require(mathSingleton.getType() == math && Modifier.isStatic(mathSingleton.getModifiers())
+                && Modifier.isFinal(mathSingleton.getModifiers()), "angle threshold singleton link");
+        require(host.getDeclaredMethod("d").getReturnType() == void.class, "native angle operation link");
         require(host.getDeclaredMethod("c").getReturnType() == void.class, "host operation link");
         Class<?> collection = types.get(K), list = types.get(TL);
         require(Modifier.isFinal(collection.getModifiers()) && Modifier.isFinal(list.getModifiers()), "builder finality");
