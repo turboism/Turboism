@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.integration;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorIntegrationSettingsDialogSelectorContract;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.ItemEvent;
@@ -193,16 +194,11 @@ public final class NativeEditToggleInjector {
      * the dialog is never left half-mutated.
      */
     public boolean ensureInjectedOnEdt() {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return ensureInjected();
-        }
-        final boolean[] result = {false};
         try {
-            SwingUtilities.invokeAndWait(() -> result[0] = ensureInjected());
-        } catch (Exception failure) {
+            return EdtDispatch.call("native edit toggle injection", this::ensureInjected);
+        } catch (RuntimeException failure) {
             return false;
         }
-        return result[0];
     }
 
     /**
