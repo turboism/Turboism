@@ -73,7 +73,7 @@ public final class NativeObjectContextMenuBridge {
      *
      * <p>Fail-closed - if no handler is installed, any argument is null, the location name is
      * not a known {@code Location}, or the handler throws anything at all, the host's original
-     * menu is returned unchanged and the failure is reported to {@code System.err} without
+     * menu is returned unchanged and the failure is reported to {@code RuntimeDiagnostics} without
      * propagating into host code. A handler returning null is treated the same way.
      *
      * @param menu the host menu object being built
