@@ -1,6 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,12 +25,12 @@ final class FxProviderProfileCodec {
             value.put("manualModels", profile.manualModels());
             values.add(value);
         }
-        return StrictJson.stringify(values);
+        return Json.stringify(values);
     }
 
     static List<FxProviderProfile> decode(final String value) {
         if (value == null || value.isBlank()) return List.of();
-        final Object parsed = StrictJson.parse(value.getBytes(StandardCharsets.UTF_8));
+        final Object parsed = Json.parse(value.getBytes(StandardCharsets.UTF_8));
         if (!(parsed instanceof List<?> raw)) {
             throw new IllegalArgumentException("provider profile JSON must be an array");
         }
