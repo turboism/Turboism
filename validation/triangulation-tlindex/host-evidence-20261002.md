@@ -693,3 +693,67 @@ complete outputs/resources, memory stability and reviewed numerical limits,
 formal native managed startup and real-settings/independent-restart linkage
 remain required. No theoretical bottleneck is established. No frozen production
 artifact or shared Runner changed, and no merge/push was performed.
+### Index allocation correction: bounded offline slice closed
+
+The 5302 pair's higher on operation/retained RSS remains an unresolved native
+finding. Readonly allocation-stack review attributes sample weights of
+284,612,112 bytes to registry SetKey, 422,360,720 to boxed Long and 318,051,408 to
+reflection Type arrays in the on command windows. These are statistical weights,
+not retained bytes. The Type-array stacks arise from HashMap.comparableClassFor
+and TreeNode lookup on Long edge keys, not the lazy bridge's reflection.
+Adjacent endpoint keys reproduce the hash issue: 2049 keys yield only 21 original
+Long hash values, with a largest same-hash group of 513.
+
+Only TriangulationEdgeIndex changes: a finally-cleared identity lookup probe
+under the existing registry monitor; mixed exact 64-bit immutable edge keys with
+a protected reusable per-state lookup probe; and a fresh ArrayList snapshot
+using one private array. Queued weak stored keys, native mutation/victim behavior,
+ordered buckets, dirty/dead/scan fallback and independent-set behavior remain.
+Clean-set concurrent readers are covered; the mutable probes are never stored.
+
+The real frozen helper and each single-variable correction run on owned sets in
+Java 17.0.20. No official initializer, geometry or Editor is executed. Each row
+is three rounds of 200,000 queries after 400,000 warmups; all rounds validate
+399,804 ordered hits.
+
+| Helper stage | Allocated bytes per ordered edge query |
+| --- | ---: |
+| Frozen original | 182.77304 |
+| Registry probe only | 150.77304 |
+| Mixed exact keys, original snapshot | 72.0 |
+| Single private snapshot array | 48.0 |
+
+Hot registry allocation separately falls from 32 bytes per access in two frozen
+JVMs/six rounds to zero in all corrected rounds. Retained pre-fix failing tests
+record 6,400,000, 30,154,608 and 14,400,000 allocated bytes respectively. The final
+50 affected tests pass with zero failures/errors/skips: index 29, transformer 12,
+installer 6 and exact-host-shape 3. One devCheck passes. An owned correctness JVM
+retains St while observing owner collection and next-access registry expunging
+for both frozen and corrected helpers. Explicit GC is confined to that check;
+it is never used in host resource measurement and is not a native leak proof.
+
+Evidence: build/t050-lazy-edge-bytecode/memory-registry-r1. Offline review SHA
+db8162ca8a45e1b803f62fbb9e132a097ab9e94cea9f324747703538cac70620;
+69 input pins rehash after writing with zero mismatches. The initial mixed-stage
+compile/measurement ordering refusal is preserved; only final rounds run after
+compiler terminal success are accepted. Allocation percentages and micro-loop
+elapsed times do not establish native speed or RSS improvements.
+
+Distinct production candidate ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2
+and validation companion 41db074a05dffdff221b9ee31da336ef34471f93d53180b87e63e855dc2bce7b
+overlay the verified Gradle helper and all nested classes. Exactly three prior
+helper entries change and three nested classes are added; all other JAR entry
+contents, hooks, manifests and old frozen artifacts are preserved. Packaged
+Gradle-helper checks under -Xverify:all retain zero registry/48 query allocation
+and pass the owned lifecycle check. Actual corrected-companion premain metadata
+passes on5302/off5302 and rejects the wrong5203 profile: ownership, producer
+initial-definition weave and lazy lease true/false are verified without official
+initialization, geometry or Editor. Native acceptance is still open. The existing
+producer driver's b47f6f47 compile dependency is not relaxed; its entry content
+and owned lifecycle contract are unchanged.
+
+The allocation implementation/report slice is closed. Production remains
+HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED. Final corrected-candidate native
+CPU/memory/complete output/retention, 5303 lifecycle, measured numerical limits
+for review and formal native startup/settings/independent-restart linkage remain
+required; T050 stays partial and T044/T046/full continuous goal stay open.
