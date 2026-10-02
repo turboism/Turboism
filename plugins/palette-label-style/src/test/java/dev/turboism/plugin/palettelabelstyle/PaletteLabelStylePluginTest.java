@@ -32,7 +32,6 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -697,11 +696,6 @@ class PaletteLabelStylePluginTest {
                 }
                 return model;
             };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
     }
 

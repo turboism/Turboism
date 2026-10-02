@@ -34,7 +34,6 @@ import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -2382,11 +2381,6 @@ class ExternalPsdEditPluginTest {
                 @Override
                 public void update() {}
             };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            throw unsupported();
         }
 
         private static UnsupportedOperationException unsupported() {

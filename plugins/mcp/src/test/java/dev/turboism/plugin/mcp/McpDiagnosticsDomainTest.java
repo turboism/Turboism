@@ -32,7 +32,6 @@ import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RawTexture;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -398,11 +397,6 @@ final class McpDiagnosticsDomainTest {
                     throw new IllegalStateException("No active Cubism model");
                 };
             }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw unavailable();
-            }
         };
     }
 
@@ -440,11 +434,6 @@ final class McpDiagnosticsDomainTest {
 
             @Override
             public CubismModelAccess model() {
-                throw failure;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
                 throw failure;
             }
         };
@@ -619,11 +608,6 @@ final class McpDiagnosticsDomainTest {
             @Override
             public CubismModelAccess model() {
                 return () -> model;
-            }
-
-            @Override
-            public TransactionManager transactionManager() {
-                throw unavailable();
             }
         };
     }
