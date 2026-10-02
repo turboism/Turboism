@@ -13,6 +13,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.json.Json;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

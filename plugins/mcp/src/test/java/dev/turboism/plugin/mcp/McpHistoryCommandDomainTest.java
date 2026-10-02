@@ -23,6 +23,7 @@ import dev.turboism.sdk.cubism.history.HistoryParameterCoordinate;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
