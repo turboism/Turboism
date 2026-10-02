@@ -226,8 +226,9 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.cubism.parameter.read` | `application` | アクティブな Cubism モデルパラメーターを読み取ります。 |
 | `turboism.cubism.project.read` | `application` | アクティブなプロジェクト、ワークスペース、レイアウト、テーマ状態を読み取ります。 |
 | `turboism.cubism.model.write` | `application` | 型付きのモデル、パラメーター、バインディング、履歴、モデル設定の書き込みを適用します。 |
-| `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可します。 |
-| `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
+| `turboism.file.read` | `application` | loopback エンドポイントを公開する前に MCP 接続ファイルのメタデータ（存在、所有者、シンボリックリンク検査）を検証します。 |
+| `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可し、MCP 状態ディレクトリに所有者専用の loopback 接続ファイルを書き込みます。 |
+| `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可し、Origin 保護付きの loopback HTTP トランスポートをバインドします。 |
 | `turboism.process.run` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
 | `turboism.mcp.connection.publish` | `application` | 権限が承認された自動化プラグインに、ループバックエンドポイントをプロセス内ランタイム交換経由で公開します。 |
 | `turboism.action.register` | `application` | ローカルの MCP 接続ウィンドウを開くアクションを登録します。 |
