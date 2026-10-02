@@ -8,7 +8,14 @@ import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--producer-recorder', action='store_true', help='Bind raw results at the reviewed native producer return boundary')
+parser.add_argument('--base-agent', type=Path, help='Pinned production b47f6f47 Agent, shaded ASM/ownership compile dependency only')
 args = parser.parse_args()
+if args.producer_recorder:
+    if args.base_agent is None or hashlib.sha256(args.base_agent.read_bytes()).hexdigest() != 'b47f6f47928f46d7fc2acd94223d66e89c80c903a4bd8d2878d5f6cc92e425cb':
+        raise ValueError('producer recorder requires the reviewed frozen base')
+elif args.base_agent is not None:
+    raise ValueError('--base-agent requires --producer-recorder')
 root = Path(__file__).resolve().parents[3]
 source = root / 'validation/atlas-image-shadow-scene/src/dev/turboism/validation/atlasimage/shadow'
 diag = Path(__file__).resolve().parent
@@ -161,19 +168,96 @@ replace('        private void resourceMarker(final String phase, final int opera
         }
 
         private void resourceMarker(final String phase, final int operation) throws Exception {''')
+if args.producer_recorder:
+    replace('() -> NativeAutoConnect.enter(meshController(), binding),',
+            '() -> NativeProducerAutoConnect.enter(meshController(), binding),')
+    replace('    private static Instrumentation meshInstrumentation;', '''    private static Instrumentation meshInstrumentation;
+    private static MeshProducerWeave producerWeave;''')
+    replace('            meshInstrumentation = ignoredInstrumentation;', '''            meshInstrumentation = ignoredInstrumentation;
+            producerWeave = MeshProducerWeave.install(meshInstrumentation, config.version);
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> producerWeave.close(),
+                "native-producer-recorder-shutdown"));''')
+    replace('''            System.err.println("ATLAS_IMAGE_SHADOW_DRIVER_BLOCKED "
+                + failure.getClass().getSimpleName());''', '''            System.err.println("ATLAS_IMAGE_SHADOW_DRIVER_BLOCKED "
+                + failure.getClass().getSimpleName() + ":" + failure.getMessage());
+            failure.printStackTrace(System.err);''')
+    replace('"scope=DIAGNOSTIC_ONLY\\nrebuild=true\\npreserveBorder=true\\ncycles=3\\n",',
+            '"scope=DIAGNOSTIC_ONLY\\nrecorder=PRODUCER_ENTRY_RETURN_V1\\nrebuild=true\\npreserveBorder=true\\ncycles=3\\n",')
+    replace('            observeResources("mesh-baseline", 0);', '''            Files.writeString(run.resolve("auto-connect-producer-results.tsv"),
+                "cycle\\tinvocation\\tsourceIdBase64\\tthreadId\\tstartedNanos\\treturnedNanos\\tstatus\\tpointCount\\tedgeVersion\\tpositionValues\\tindexValues\\tpositionsSha256\\tindicesSha256\\tfailureBase64\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+            Files.writeString(run.resolve("auto-connect-producer-status.properties"),
+                "recorder=PRODUCER_ENTRY_RETURN_V1\\ninitialHookStatus=" + producerWeave.status() + "\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+            observeResources("mesh-baseline", 0);''')
+    first = text.index('                FixedEdt.callWithin(() -> {\n                    NativeAutoConnect.connect(')
+    last = text.index('                verifyMeshFixture();\n                observeResources("mesh-retained", cycle);', first)
+    text = text[:first] + '''                final int boundCycle = cycle;
+                final NativeProducerAutoConnect.Observation observation = FixedEdt.callWithin(
+                    () -> NativeProducerAutoConnect.connect(meshController(), binding, ids, boundCycle),
+                    FixedEdt.Operation.MESH_CONNECT, evidence, remainingMillis(runDeadlineNanos));
+                resourceMarker("auto-connect-returned", cycle);
+                final StringBuilder output = new StringBuilder();
+                for (MeshProducerRecorder.Event event : observation.events()) {
+                    output.append(event.cycle()).append('\\t').append(event.invocation()).append('\\t')
+                        .append(java.util.Base64.getEncoder().encodeToString(event.sourceId().getBytes(StandardCharsets.UTF_8)))
+                        .append('\\t').append(event.threadId()).append('\\t').append(event.startedNanos())
+                        .append('\\t').append(event.returnedNanos()).append('\\t');
+                    MeshResultSnapshot.Result snapshot = event.result();
+                    if (snapshot != null) {
+                        output.append("PASS").append('\\t').append(snapshot.pointCount()).append('\\t')
+                            .append(snapshot.edgeVersion()).append('\\t').append(snapshot.positionValues()).append('\\t')
+                            .append(snapshot.indexValues()).append('\\t').append(snapshot.positionsSha256()).append('\\t')
+                            .append(snapshot.indicesSha256()).append('\\t');
+                    } else {
+                        output.append("FAIL\\t-1\\t-1\\t-1\\t-1\\t\\t\\t")
+                            .append(java.util.Base64.getEncoder().encodeToString(event.failure().getBytes(StandardCharsets.UTF_8)));
+                    }
+                    output.append('\\n');
+                }
+                Files.writeString(run.resolve("auto-connect-producer-results.tsv"), output.toString(),
+                    StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+                Files.writeString(run.resolve("auto-connect-producer-status.properties"),
+                    "cycle." + cycle + ".status=" + (observation.complete() ? "PASS" : "FAIL") + "\\n"
+                    + "cycle." + cycle + ".nativeCommandReturned=" + observation.nativeCommandReturned() + "\\n"
+                    + "cycle." + cycle + ".hookStatus=" + producerWeave.status() + "\\n"
+                    + "cycle." + cycle + ".failureBase64=" + java.util.Base64.getEncoder().encodeToString(
+                        observation.failure().getBytes(StandardCharsets.UTF_8)) + "\\n",
+                    StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+                if (!observation.complete()) throw new IllegalStateException("native producer observation failed: " + observation.failure());
+                producerWeave.requireInstalled();
+                resourceMarker("auto-connect-end", cycle);
+''' + text[last:]
+    first = text.index('                final StringBuilder output = new StringBuilder();\n                for (MeshProducerRecorder.Event')
+    last = text.index('                if (!observation.complete())', first)
+    writer = text[first:last].replace('producerWeave.status()', 'hookStatus')
+    text = text[:first] + '                persistProducerObservation(run, observation, cycle, producerWeave.status());\n' + text[last:]
+    writer = '\n'.join(line[8:] if line.startswith('        ') else line for line in writer.splitlines())
+    replace('    static boolean mayRetryCaptureWait(', '''    static void persistProducerObservation(Path run, NativeProducerAutoConnect.Observation observation,
+            int cycle, String hookStatus) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) throw new IllegalStateException("producer evidence I/O requires driver thread");
+''' + writer + '''
+    }
+
+    static boolean mayRetryCaptureWait(''')
 driver.write_text(text)
 edt = src / 'FixedEdt.java'
 text = edt.read_text()
 assert text.count('        MAIN_LOOKUP,') == 1
 edt.write_text(text.replace('        MAIN_LOOKUP,', '        MESH_BIND,\n        MESH_ENTER,\n        MESH_CONNECT,\n        MESH_CAPTURE,\n        MESH_LEAVE,\n        MAIN_LOOKUP,'))
-for name in ('MeshResultSnapshot.java', 'NativeAutoConnect.java'):
+helpers = ['MeshResultSnapshot.java', 'NativeAutoConnect.java']
+if args.producer_recorder:
+    helpers += ['MeshProducerRecorder.java', 'MeshProducerWeave.java', 'NativeProducerAutoConnect.java']
+    inputs[str(args.base_agent.resolve())] = hashlib.sha256(args.base_agent.read_bytes()).hexdigest()
+for name in helpers:
     raw = (diag / name).read_bytes()
     inputs[str((diag / name).relative_to(root))] = hashlib.sha256(raw).hexdigest()
     (src / name).write_text('package dev.turboism.validation.atlasimage.shadow;\n' + raw.decode())
 env = dict(os.environ)
 for name in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVAC_OPTIONS', 'CLASSPATH'):
     env.pop(name, None)
-subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+dependency = ['-cp', str(args.base_agent.resolve())] if args.producer_recorder else []
+subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror', *dependency,
                 '-d', str(classes), *map(str, sorted(src.glob('*.java')))], env=env, check=True)
 check_source = diag / 'CaptureWaitSelfCheck.java'
 inputs[str(check_source.relative_to(root))] = hashlib.sha256(check_source.read_bytes()).hexdigest()
@@ -191,9 +275,24 @@ check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp
 (out / 'capture-wait-selfcheck.log').write_text(check.stdout + check.stderr)
 check.check_returncode()
 print(check.stdout, end='')
+if args.producer_recorder:
+    writer_check = diag / 'ProducerDriverSelfCheck.java'
+    inputs[str(writer_check.relative_to(root))] = hashlib.sha256(writer_check.read_bytes()).hexdigest()
+    check_java = check_src / writer_check.name
+    check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + writer_check.read_text())
+    cp = str(classes) + os.pathsep + str(args.base_agent.resolve())
+    subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                    '-cp', cp, '-d', str(check_classes), str(check_java)], env=env, check=True)
+    check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                            cp + os.pathsep + str(check_classes),
+                            'dev.turboism.validation.atlasimage.shadow.ProducerDriverSelfCheck', str(out / 'writer-selfcheck-run')],
+                           env=env, capture_output=True, text=True)
+    (out / 'writer-selfcheck.log').write_text(check.stdout + check.stderr)
+    check.check_returncode()
+    print(check.stdout, end='')
 manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'
 subprocess.run(['jar', '--create', '--file', str(jar), '--manifest', str(manifest), '-C', str(classes), '.'], env=env, check=True)
-(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
+(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
 print(jar)

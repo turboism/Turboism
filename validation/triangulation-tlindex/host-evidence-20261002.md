@@ -300,3 +300,84 @@ changes, previewBundle, frozen artifact replacement, merge or push occurred.
 The generated-driver integration and one bounded5203 diagnostic are next;
 three-version resources, full repeated output and final UI/managed-startup
 acceptance remain open. T050 is partial; production is NOT_PASSED.
+
+## Producer driver integration and one bounded 5203 diagnostic
+
+The generated driver now binds real edit-data mesh identities to the entire
+selected-source sequence. It persists all ordered producer events, including
+partial failures, before stopping a failed cycle. Native command and observation
+status remain distinct. There is no cache refresh, version write, forced GC or
+selection reduction. Selfcheck classes stay outside the diagnostic JAR.
+
+Real metadata preflight exposed two failures before any new Editor launch:
+the owned gateway rejects registration from transformer-class frames, and the
+official Kotlin producer discards original arguments in its StackMapTable.
+Separate owner/callback classes and preserved mesh/ticket locals fix these
+validation-hook issues without changing the production gateway. A dead-argument
+own-fixture regression and all three official byte-data shape checks pass.
+Prior registration/VerifyError and compile-dependency failures remain preserved
+under producer-driver-r1/r2. The r3 actual companion premain confirms owned=true,
+producer=INITIAL_DEFINITION_WOVEN and lazyLease=true with official 5203 metadata;
+official initialization, geometry and Editor execution are absent in that check.
+The headless scene worker's refusal is expected and is not a native PASS.
+
+148 focused checks and devCheck (50 seconds) pass. Offline review SHA is
+85425c95698aaf7d21c15dce48228b249e712ee511e828570b71a2c8065009e5;
+36 source/tool/config/artifact/command/log pins were independently rehashed with
+zero mismatches. Driver SHA is
+6fff29ad096257f53e77aae1737b22604c622f5e9b3af926e88dfd20f29788c6.
+Base b47f6f47, companion dd4b21a5, capture f0b11990, startup plugin 30f5203e,
+heavy fixture and UI-saved on config retain their earlier full pins.
+
+Exactly one 5203 diagnostic was submitted through the FIFO: seq2406, job
+1ceb3329-3b9d-414e-8402-4f1c2f17db1c, prepared
+46142c997f5c2be97921bf46b5e25a9b876a30936920eba6ecac89ff40690dd7.
+Its execution budget is 1800 seconds. Identity-before passes; native output,
+normal exit and final cleanup are still pending at this entry. Read-only CPU/RSS
+and task-cgroup observations bind the recorded Java PID/start identity. This
+diagnostic cannot substitute for Atlas A/B, retention, final three-version
+resources or full managed-startup/UI linkage. Production remains NOT_PASSED.
+
+### Terminal result of the bounded run
+
+Seq2406 is failed. The driver selected all 711 sources and reached the first
+MESH_CONNECT dispatch, then refused with
+`native edit data order/source differs from selected IDs`. Its final stage marks
+MESH_CONNECT COMPLETED/EXCEPTION; elapsed driver time is 91,786 ms. The producer
+hook was still REGISTERED_NOT_OBSERVED. There are zero producer event rows,
+zero completed cycles and a zero-byte JFR. These facts give no new optimization
+performance, topology or retention evidence. The readonly startup plugin passed
+and its UI-saved config bytes stayed unchanged.
+
+Authoritative outcome: validationStatus=FAIL, cleanup=safe, normalExit=false,
+identityVerified=false, fixtureUnchanged=false. The supervisor separately records
+matching post-containment golden/clone/fixture hashes. Independent staged
+driver/capture/plugin/config hashes match their pins. Those comparisons do not
+rewrite failed authoritative gates. Containment proof binds this attempt's
+cgroup and records safe destruction; failed prefix/evidence are retained.
+Both identity-bound readonly observers exited 0. Native review SHA is
+16b3d22dc2092586e4e0613c5f915b7d3cd816e1a47904f416bfed5f18ee882c,
+under producer-driver-r3/native-review.json with copied structured evidence.
+
+The initial recorder assumed model-list order equals native edit-data order.
+Native entry already proves exact selected-object identity membership; the
+corrected validation-only driver freezes the complete native source order on that
+same EDT dispatch. It preserves all sources, rejects duplicate IDs/mesh identities
+and changed membership, then still rejects order changes within subsequent
+command scopes. Five new permutation/omission/duplicate negative controls make
+the native-binding selfcheck 17 PASS. A distinct producer-driver-r4 build passes
+CaptureWait17 and the generated writer11. This correction remains offline-only;
+it was not resubmitted. Production still HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED,
+T050 partial. This bounded diagnostic round is closed; complete 5203 output,
+final 5203/5303 performance/resources/retention and native managed-startup/UI
+linkage are still required. No theoretical bottleneck is established.
+
+The corrected r4 actual-premain metadata check also passes with the producer
+weave and lazy lease admitted, without official initialization or geometry.
+Corrected driver SHA is
+5e34ad58afaa5064616e819e8ed61dbcf9549186f4d6d728d36019269c4ee3ae;
+offline-review SHA is
+11b626bad056056042209e7632e4b9b5fcdfd6d5b6a4c4140dc38e17a9169244.
+All 135 report-bound inputs/artifacts were independently rehashed after the
+report writer completed with zero mismatches. This remains an offline correction,
+not a native acceptance result.

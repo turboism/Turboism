@@ -346,3 +346,40 @@ JFR estimated edge-allocation weight fell 98.82%, with actual lazy-path samples;
 this is an allocation estimate, not a speedup percentage. One pair and no later
 target samples leave stable/repeated-target acceptance open. 5303 composition
 and the remaining three-version gates stay open.
+
+### Native producer diagnostic driver (2026-10-02)
+
+`diagnostic/build-auto-connect-driver.py OUTPUT --producer-recorder --base-agent
+PINNED_BASE` builds an independent, validation-only 5203 driver using the reviewed
+b47f6f47 production dependency. Its native command scope binds every selected
+source to the actual edit-data mesh identity. It writes ordered 14-column
+`auto-connect-producer-results.tsv` and per-cycle
+`auto-connect-producer-status.properties`, including partial failed evidence
+before stopping. Legacy delayed-cache capture remains a separate default mode.
+
+Registration and removal run in an ordinary owner class; a separate transformer
+class implements the callback so owned callback rejection remains effective.
+The weave preserves mesh and ticket in new locals because official Kotlin frames
+discard dead original arguments before return. Its catch frame assumes only those
+new locals remain live. Own dead-argument bytecode executes under -Xverify:all;
+official 5203 metadata passes the real companion premain with an admitted lazy
+lease. Metadata checks start no Editor and execute no official geometry.
+
+148 focused checks and devCheck pass. The initial frozen driver SHA is
+6fff29ad096257f53e77aae1737b22604c622f5e9b3af926e88dfd20f29788c6.
+Evidence is under `build/t050-lazy-edge-bytecode/producer-driver-r3/` and the
+[host evidence record](host-evidence-20261002.md). One FIFO diagnostic is allowed;
+it is distinct from Atlas A/B performance acceptance. Frozen production artifacts,
+the shared Runner and the original stale-cache refusal remain unchanged.
+
+The one 5203 run (seq2406) failed at the first MESH_CONNECT source-binding gate:
+711 sources selected, zero producer events and zero complete cycles. The recorded
+message is `native edit data order/source differs from selected IDs`. Normal exit
+and production gates did not pass; task-owned cleanup is safe. This is a
+diagnostic failure before measured production work, not evidence of no speedup.
+The offline correction obtains the complete native edit-data order immediately
+after native entry's exact selected-object identity check. It rejects omissions,
+additions, duplicate identities/IDs and later order changes. The native-binding
+selfcheck passes 17 cases. No second host run was submitted. The corrected driver
+SHA is 5e34ad58afaa5064616e819e8ed61dbcf9549186f4d6d728d36019269c4ee3ae;
+its offline report is under `build/t050-lazy-edge-bytecode/producer-driver-r4/`.
