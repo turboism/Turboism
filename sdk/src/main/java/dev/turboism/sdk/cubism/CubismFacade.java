@@ -99,6 +99,7 @@ public interface CubismFacade {
      *
      * @return the editing session service
      */
+    @dev.turboism.sdk.Incubating
     @dev.turboism.sdk.CubismEditor(from = "5.2.03", to = "5.3.99")
     default dev.turboism.sdk.cubism.edit.EditSessionService edit() {
         return dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();

@@ -32,6 +32,7 @@ public enum PluginService {
     STORAGE(dev.turboism.sdk.storage.PluginStorage.class),
 
     /** {@link PluginContext#scripts()} */
+    @Incubating
     SCRIPTS(dev.turboism.sdk.script.ScriptService.class),
 
     /** {@link PluginContext#userFiles()} */

@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.model.PartId;
@@ -12,6 +13,7 @@ import java.util.Optional;
  * Typed operations of the deformer family of the editing surface: reading the deformer tree and
  * creating or editing warp and rotation deformers.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface DeformerOps {
 
