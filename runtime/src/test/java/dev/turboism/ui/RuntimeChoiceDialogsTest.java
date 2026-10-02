@@ -22,8 +22,7 @@ class RuntimeChoiceDialogsTest {
 
     @Test
     void nonWebUrlRendersPlainTextWithDiagnostic() {
-        RuntimeDiagnostics.install(
-                (level, component, message, failure) -> warnings.add(component + ":" + message));
+        RuntimeDiagnostics.install((level, component, message, failure) -> warnings.add(component + ":" + message));
         final JLabel label = RuntimeChoiceDialogs.urlLabel("release notes", "file:///etc/passwd");
         assertEquals("release notes", label.getText());
         assertEquals(Boolean.TRUE, label.getClientProperty("html.disable"));
@@ -33,8 +32,7 @@ class RuntimeChoiceDialogsTest {
 
     @Test
     void webUrlRendersClickableEscapedLink() {
-        final JLabel label =
-                RuntimeChoiceDialogs.urlLabel("<b>notes</b>", "https://turboism.dev/releases");
+        final JLabel label = RuntimeChoiceDialogs.urlLabel("<b>notes</b>", "https://turboism.dev/releases");
         assertEquals("<html><a href=''>&lt;b&gt;notes&lt;/b&gt;</a></html>", label.getText());
         assertNull(label.getClientProperty("html.disable"));
         assertEquals(1, label.getMouseListeners().length);
@@ -42,8 +40,7 @@ class RuntimeChoiceDialogsTest {
 
     @Test
     void unparseableUrlIsRefused() {
-        RuntimeDiagnostics.install(
-                (level, component, message, failure) -> warnings.add(component + ":" + message));
+        RuntimeDiagnostics.install((level, component, message, failure) -> warnings.add(component + ":" + message));
         final JLabel label = RuntimeChoiceDialogs.urlLabel("", "custom-scheme://host");
         assertEquals("-", label.getText());
         assertEquals(0, label.getMouseListeners().length);

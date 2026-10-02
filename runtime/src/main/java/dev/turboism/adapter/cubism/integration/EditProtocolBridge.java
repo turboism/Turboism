@@ -226,8 +226,7 @@ public final class EditProtocolBridge {
         lastOutcome.set(outcome);
         passedThrough.incrementAndGet();
         if (traceCount.get() <= TRACE_LIMIT) {
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                    "edit-bridge", "onMessage outcome=" + outcome);
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug("edit-bridge", "onMessage outcome=" + outcome);
         }
         return false;
     }

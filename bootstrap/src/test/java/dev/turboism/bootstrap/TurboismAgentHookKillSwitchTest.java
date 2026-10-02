@@ -43,8 +43,8 @@ final class TurboismAgentHookKillSwitchTest {
     void disabledContributorNeverReachesInstall() throws Exception {
         // installPhaseHook refuses before admitted() and routes the skip through
         // the same capability-withdrawal path as an installation failure.
-        final var installPhaseHook = TurboismAgent.class.getDeclaredMethod(
-                "installPhaseHook", HookContributor.class, HookEnvironment.class);
+        final var installPhaseHook =
+                TurboismAgent.class.getDeclaredMethod("installPhaseHook", HookContributor.class, HookEnvironment.class);
         installPhaseHook.setAccessible(true);
         for (final HookContributor contributor : manifestContributors()) {
             final HookEnvironment environment = environment(policy(false, Set.of(contributor.policyId())));
