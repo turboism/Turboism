@@ -3,23 +3,21 @@ package dev.turboism.adapter.cubism.edit;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorEditSessionSelectorContract;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.host.EdtDispatchException;
+import java.time.Duration;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import javax.swing.SwingUtilities;
 
 /**
  * Verified Editor-model implementation of the edit-session host boundary (spec 046, T2).
@@ -263,41 +261,23 @@ public final class VerifiedEditorEditSessionHost implements EditorEditSessionHos
     public <T> T dispatch(final String label, final HostTask<T> task) throws EditSessionException {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
-        if (SwingUtilities.isEventDispatchThread()) {
-            return task.run();
-        }
-        final CountDownLatch done = new CountDownLatch(1);
-        final AtomicReference<Object> result = new AtomicReference<>();
-        final AtomicReference<Throwable> failure = new AtomicReference<>();
-        SwingUtilities.invokeLater(() -> {
-            try {
-                result.set(task.run());
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                failure.set(throwable);
-            } finally {
-                done.countDown();
-            }
-        });
         try {
-            if (!done.await(dispatchTimeoutMs, TimeUnit.MILLISECONDS)) {
-                throw new EditUnavailableException(
-                        "cubism.edit.dispatch-timeout", label + " timed out waiting for the Cubism host thread");
-            }
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
+            return EdtDispatch.callExact(label, Duration.ofMillis(dispatchTimeoutMs), task::run);
+        } catch (EdtDispatchException dispatch) {
+            final boolean interrupted = dispatch.reason() == EdtDispatchException.Reason.INTERRUPTED;
             throw new EditUnavailableException(
-                    "cubism.edit.dispatch-interrupted", label + " was interrupted waiting for the Cubism host thread");
+                    interrupted ? "cubism.edit.dispatch-interrupted" : "cubism.edit.dispatch-timeout",
+                    label
+                            + (interrupted
+                                    ? " was interrupted waiting for the Cubism host thread"
+                                    : " timed out waiting for the Cubism host thread"));
+        } catch (EditSessionException session) {
+            throw session;
+        } catch (RuntimeException | Error failure) {
+            throw failure;
+        } catch (Exception impossible) {
+            throw new IllegalStateException(label + " host operation failed", impossible);
         }
-        if (failure.get() instanceof EditSessionException exception) throw exception;
-        if (failure.get() instanceof RuntimeException exception) throw exception;
-        if (failure.get() instanceof Error error) throw error;
-        if (failure.get() != null) {
-            throw new IllegalStateException(label + " host operation failed", failure.get());
-        }
-        @SuppressWarnings("unchecked")
-        final T value = (T) result.get();
-        return value;
     }
 
     @Override

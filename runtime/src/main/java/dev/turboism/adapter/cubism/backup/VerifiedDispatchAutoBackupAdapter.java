@@ -1,11 +1,9 @@
 package dev.turboism.adapter.cubism.backup;
 
-import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.ui.host.EdtDispatch;
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
-import javax.swing.SwingUtilities;
 
 /**
  * EDT-dispatching {@link AutoBackupAdapter} wrapper: every host operation runs
@@ -52,38 +50,7 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    FatalErrors.rethrowIfFatal(throwable);
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("auto-backup dispatch was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("auto-backup dispatch failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("auto-backup dispatch failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked")
-        final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("auto-backup EDT operation", operation::run);
     }
 
     @FunctionalInterface

@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
@@ -13,19 +12,17 @@ import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.ui.host.EdtDispatch;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
-import javax.swing.SwingUtilities;
 
 /** Read-only Main-mode projection of the active document's verified native Undo manager. */
 public final class EditorHistorySnapshotProvider implements CubismHistory {
@@ -488,22 +485,6 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private static <T> T onEdt(final Callable<T> call) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) return call.call();
-        final AtomicReference<T> result = new AtomicReference<>();
-        final AtomicReference<Throwable> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                result.set(call.call());
-            } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
-                failure.set(throwable);
-            }
-        });
-        if (failure.get() != null) {
-            final Throwable throwable = failure.get();
-            if (throwable instanceof Exception exception) throw exception;
-            throw new InvocationTargetException(throwable);
-        }
-        return result.get();
+        return EdtDispatch.callExact("editor history EDT operation", EdtDispatch.DEFAULT_ACCEPT_TIMEOUT, call);
     }
 }

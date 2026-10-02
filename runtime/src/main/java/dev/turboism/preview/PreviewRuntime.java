@@ -1018,22 +1018,15 @@ public final class PreviewRuntime implements AutoCloseable {
                     new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
                         @Override
                         public <T> T call(final java.util.concurrent.Callable<T> action) throws Exception {
-                            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-                                return action.call();
-                            }
-                            final java.util.concurrent.FutureTask<T> task =
-                                    new java.util.concurrent.FutureTask<>(action);
-                            javax.swing.SwingUtilities.invokeAndWait(task);
-                            return task.get();
+                            return dev.turboism.ui.host.EdtDispatch.callExact(
+                                    "protected-export EDT operation",
+                                    dev.turboism.ui.host.EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                                    action);
                         }
 
                         @Override
                         public void submit(final Runnable task) {
-                            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-                                task.run();
-                                return;
-                            }
-                            javax.swing.SwingUtilities.invokeLater(task);
+                            dev.turboism.ui.host.EdtDispatch.post("protected-export EDT submission", task);
                         }
                     };
             final dev.turboism.sdk.cubism.core.MocLoader ownedMocLoader =
