@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.management.ManagementFactory;
+import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -283,6 +285,102 @@ final class TriangulationEdgeIndexTest {
         assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(second, 1, 2));
         TriangulationEdgeIndex.clear(first);
         TriangulationEdgeIndex.clear(second);
+    }
+
+    @Test
+    void registryHotLookupsDoNotAllocateKeys() {
+        final var management = ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                management instanceof com.sun.management.ThreadMXBean,
+                "JVM must expose per-thread allocation counters");
+        final var allocation = (com.sun.management.ThreadMXBean) management;
+        org.junit.jupiter.api.Assumptions.assumeTrue(allocation.isThreadAllocatedMemorySupported());
+        allocation.setThreadAllocatedMemoryEnabled(true);
+        final List<LinkedHashSet<Tri>> sets = new ArrayList<>();
+        final List<TriangulationEdgeIndex.St> states = new ArrayList<>();
+        for (int i = 0; i < 32; i++) {
+            final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+            sets.add(set);
+            states.add(TriangulationEdgeIndex.st(set));
+        }
+        TriangulationEdgeIndex.St last = null;
+        for (int i = 0; i < 400_000; i++) last = TriangulationEdgeIndex.st(sets.get(i & 31));
+        final long thread = Thread.currentThread().getId();
+        final long before = allocation.getThreadAllocatedBytes(thread);
+        for (int i = 0; i < 200_000; i++) last = TriangulationEdgeIndex.st(sets.get(i & 31));
+        final long allocated = allocation.getThreadAllocatedBytes(thread) - before;
+        assertSame(states.get(31), last);
+        assertTrue(allocated <= 4096, "hot lookup allocated " + allocated + " bytes");
+        Reference.reachabilityFence(sets);
+        for (final LinkedHashSet<Tri> set : sets) TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
+    void nearbyEdgeQueriesAvoidTransientKeysAndTreeReflection() {
+        final var management = ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(management instanceof com.sun.management.ThreadMXBean);
+        final var allocation = (com.sun.management.ThreadMXBean) management;
+        org.junit.jupiter.api.Assumptions.assumeTrue(allocation.isThreadAllocatedMemorySupported());
+        allocation.setThreadAllocatedMemoryEnabled(true);
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 1024; i++) {
+            final Tri t = tri(i, i, i + 1, i + 2);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        for (int i = 0; i < 1024; i++) {
+            assertEquals(i == 0 ? List.of(triangles.get(0))
+                            : List.of(triangles.get(i - 1), triangles.get(i)),
+                    TriangulationEdgeIndex.tryQuery(set, i, i + 1));
+        }
+        List<?> last = null;
+        for (int i = 0; i < 400_000; i++) {
+            final int edge = i & 1023;
+            last = TriangulationEdgeIndex.tryQuery(set, edge, edge + 1);
+        }
+        final long thread = Thread.currentThread().getId();
+        final long before = allocation.getThreadAllocatedBytes(thread);
+        for (int i = 0; i < 200_000; i++) {
+            final int edge = i & 1023;
+            last = TriangulationEdgeIndex.tryQuery(set, edge, edge + 1);
+        }
+        final long allocated = allocation.getThreadAllocatedBytes(thread) - before;
+        assertEquals(2, last.size());
+        // A fresh two-element result needs its own list and array, not boxed lookup
+        // keys or reflection arrays for collision-tree Comparable discovery.
+        assertTrue(allocated <= 200_000L * 56 + 4096,
+                "edge queries allocated " + allocated + " bytes");
+        TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
+    void cleanSetQueriesCanReadDifferentEdgesConcurrently() throws Exception {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        for (int i = 0; i < 32; i++) {
+            final Tri t = tri(i, i, i + 1, i + 2);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(set, 0, 1); // build once before starting read-only queries
+        final var executor = Executors.newFixedThreadPool(8);
+        final List<java.util.concurrent.Future<?>> work = new ArrayList<>();
+        try {
+            for (int worker = 0; worker < 8; worker++) {
+                final int offset = worker;
+                work.add(executor.submit(() -> {
+                    for (int i = 0; i < 5000; i++) {
+                        final int edge = (i + offset) & 31;
+                        assertEquals(scan(set, edge, edge + 1),
+                                TriangulationEdgeIndex.tryQuery(set, edge, edge + 1));
+                    }
+                }));
+            }
+            for (final var result : work) result.get(20, java.util.concurrent.TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(20, java.util.concurrent.TimeUnit.SECONDS));
+            TriangulationEdgeIndex.clear(set);
+        }
     }
 
     @Test

@@ -428,3 +428,16 @@ existing evidence taking priority over another performance run. Final 5303,
 memory stability/limits and formal native startup/real-settings/restart linkage
 remain open; production remains NOT_PASSED. See the current host evidence record
 for complete comparisons, hashes and limitations.
+
+The subsequent allocation correction eliminates hot weak-registry key creation,
+mixes exact 64-bit edge keys to avoid neighboring-index collision trees, and
+copies query snapshots through one private array. In matched owned-set loops,
+registry lookups fall from 32 to 0 allocated bytes and ordered edge queries from
+182.77304 to 48 bytes per query. All 50 affected tests, the owned lifecycle check
+and one devCheck pass; the three failing allocation controls are retained.
+Independent review checks 69 input pins after writing the report. Separate
+candidates include all six helper classes and preserve every unrelated JAR entry.
+The packaged Gradle helper preserves those results under -Xverify:all. Real
+companion premain metadata passes on/off plus cross-profile refusal without
+official initialization or Editor startup. Corrected-candidate native pairing
+and actual RSS/retention acceptance remain open. See the current host evidence.
