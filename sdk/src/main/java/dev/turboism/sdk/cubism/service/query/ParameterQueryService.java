@@ -11,6 +11,13 @@ import java.util.Optional;
  * <p>Results are snapshots taken at call time and do not track later parameter changes.
  * Implementations bridge to the Cubism host, so calls may need to be made from the host thread and
  * fail with {@link CubismServiceException} when the host is unavailable.
+ *
+ * <p>This service is a snapshot listing: {@link ParameterSummary} additionally carries the
+ * palette {@code visible}/{@code editable} state that the object API does not project. For live
+ * reads and any writes, prefer the unified object API — {@code
+ * context.cubism().model().active().parameters()} yields {@link
+ * dev.turboism.sdk.cubism.model.Parameter} handles whose {@code getValue}/{@code setValue}
+ * accessors are the recommended value path.
  */
 public interface ParameterQueryService {
 
