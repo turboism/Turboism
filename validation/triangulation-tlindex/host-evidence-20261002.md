@@ -274,3 +274,29 @@ seq2340/r4 returns its first native command but its GL index-cache version stays
 stale, producing no result rows. Its delayed recorder must not be rerun unchanged;
 result production needs binding to the actual command/cycle/source. No theoretical
 bottleneck or stable net gain is claimed; no merge to main or push occurred.
+
+
+## Scoped producer recorder: offline evidence only
+
+The next result recorder is implemented independently of frozen production
+artifacts. It binds method entry/normal return/exception tickets to a single
+cycle and identity-bound source list, preserves ordered events and rejects
+incomplete coverage, duplicate completion and abandoned/concurrent scopes.
+Finally releases all mesh keys; per-event values retain no native arrays or
+objects. The old delayed reader and its stale-cache refusal remain unchanged.
+
+Exact producer class/JAR digests, expected code origin, system loader, initial
+definition and owned Instrumentation guard the validation weave. It uses the
+base shaded ASM core with no new host-visible dependency. Synthetic normal,
+in-place-write, exception-identity and observation-failure paths run under
+-Xverify:all. All three official producers are woven as byte data; unchanged
+methods/member metadata are compared independently. This is not official
+initialization, geometry or full Editor verification.
+
+Evidence: build/t050-lazy-edge-bytecode/producer-recorder-final/offline-review.json.
+The initial unsupported ASM tree build failure remains saved at r2; the final
+implementation uses the core visitor API. No new native jobs, common Runner
+changes, previewBundle, frozen artifact replacement, merge or push occurred.
+The generated-driver integration and one bounded5203 diagnostic are next;
+three-version resources, full repeated output and final UI/managed-startup
+acceptance remain open. T050 is partial; production is NOT_PASSED.
