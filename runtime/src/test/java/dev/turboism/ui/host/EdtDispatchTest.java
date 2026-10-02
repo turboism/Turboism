@@ -393,6 +393,58 @@ class EdtDispatchTest {
     }
 
     @Test
+    void callExactRethrowsCheckedTaskFailuresUnwrapped() throws Exception {
+        final Exception checked = new java.io.IOException("checked-boom");
+        final Exception thrown = assertThrows(
+                java.io.IOException.class,
+                () -> EdtDispatch.callExact("exact-checked", SHORT_ACCEPT, () -> {
+                    throw checked;
+                }));
+        assertSame(checked, thrown, "callExact must deliver the task's checked failure unchanged");
+    }
+
+    @Test
+    void callExactRunsInlineOnTheEdtAndStillRethrowsChecked() throws Exception {
+        final AtomicReference<Throwable> thrown = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                EdtDispatch.callExact("exact-inline", SHORT_ACCEPT, () -> {
+                    throw new java.io.IOException("inline-checked");
+                });
+            } catch (Throwable failure) {
+                thrown.set(failure);
+            }
+        });
+        assertTrue(thrown.get() instanceof java.io.IOException);
+    }
+
+    @Test
+    void postRunsInlineOnTheEdtAndQueuesWithoutBlocking() throws Exception {
+        final AtomicBoolean inlineRan = new AtomicBoolean();
+        SwingUtilities.invokeAndWait(() -> EdtDispatch.post("inline-post", () -> inlineRan.set(true)));
+        assertTrue(inlineRan.get(), "post on the EDT must run inline");
+
+        final CountDownLatch wedged = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            wedged.countDown();
+            await(release);
+        });
+        assertTrue(wedged.await(5, TimeUnit.SECONDS));
+        try {
+            final AtomicBoolean ran = new AtomicBoolean();
+            // The EDT is wedged; post must return immediately and still deliver the task.
+            EdtDispatch.post("deferred-post", () -> ran.set(true));
+            assertFalse(ran.get());
+            release.countDown();
+            drainEdt();
+            assertTrue(ran.get(), "a posted task must run when the EDT drains");
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
     void abandonedTransitionOnlyAppliesToQueuedTasks() {
         final java.util.concurrent.atomic.AtomicInteger state =
                 new java.util.concurrent.atomic.AtomicInteger(EdtDispatch.QUEUED);
