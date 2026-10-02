@@ -12,6 +12,7 @@
 :plugins:psd-clip-mask-import
 :plugins:recent-preview
 :plugins:scene-palette-enhancer
+:plugins:selection-brush
 :plugins:texture-atlas-stats
 :plugins:ui-theme
 :plugins:webdav-backup
