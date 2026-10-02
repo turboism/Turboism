@@ -32,7 +32,6 @@ tasks.test {
     dependsOn(":plugins:project-inspector:jar")
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     systemProperty("sdkBuildDir", project(":sdk").buildDir.absolutePath)
-    systemProperty("demoBuildDir", project(":plugins:demo").buildDir.absolutePath)
     systemProperty("projectInspectorBuildDir", project(":plugins:project-inspector").buildDir.absolutePath)
 }
 
