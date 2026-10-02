@@ -47,7 +47,7 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         final WeakReference<Object> previous = currentView;
         final Object previousView = previous == null ? null : previous.get();
         if (previousView != null && previousView != view) {
-            onEdt(() -> detachPanels(previousView));
+            onEdtEventually(() -> detachPanels(previousView));
         }
         currentView = new WeakReference<>(view);
         onEdt(() -> attachPanels(view));
@@ -140,7 +140,7 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         synchronized (this) {
             if (!panels.remove(panel)) return;
         }
-        onEdt(() -> {
+        onEdtEventually(() -> {
             final javax.swing.JLabel label = panel.label();
             final Container parent = label.getParent();
             if (parent != null) {
@@ -214,7 +214,7 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         boundResolver = null;
         currentView = null;
         if (current != null) {
-            onEdt(() -> detachPanels(current));
+            onEdtEventually(() -> detachPanels(current));
         }
     }
 
@@ -235,5 +235,14 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
             task.run();
             return null;
         });
+    }
+
+    /**
+     * Idempotent detach/removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a detached or closed panel is never orphaned on a
+     * stale editor view.
+     */
+    private static void onEdtEventually(final Runnable task) {
+        EdtDispatch.runEventually("texture-atlas editor UI removal", task);
     }
 }
