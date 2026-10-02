@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Reject undocumented public API, duplicated host digests, and retired naming.
+"""Reject undocumented public API, duplicated host digests, retired naming, and direct EDT waits.
 
-Four rules, all fail-closed:
+Five rules, all fail-closed:
 
 1. Every publicly reachable type and every non-``@Override`` public method in the production
    roots carries Javadoc, decided by the JDK compiler tree API (``JavacTask.parse`` +
@@ -15,6 +15,10 @@ Four rules, all fail-closed:
 3. No production type name encodes a Cubism version. Versions are declared as data so that no
    type can quietly mean "the other version".
 4. No retired governance token (``m14``/``m15``) survives in ``compatibility/cubism/`` asset filenames.
+5. Runtime production code never calls ``invokeAndWait`` directly: synchronous EDT handoffs go
+   through ``EdtDispatch`` so an interrupted or timed-out caller can never leave a queued
+   mutation behind to run after the caller already reported failure. The token is banned
+   outright (comments included) except inside ``EdtDispatch`` itself.
 
 Usage: check_code_quality.py [repo-root] [--rules RULE[,RULE...]] [--report]
 """
@@ -64,6 +68,13 @@ DIGEST_SCAN_ROOTS = PRODUCTION_ROOTS + (
 RETIRED_ASSET_TOKENS = ("m14", "m15")
 ASSET_ROOT = "compatibility/cubism"
 
+# Synchronous EDT dispatch is centralized in EdtDispatch so interrupt/timeout abandonment is
+# provable. The unqualified token is banned in runtime production sources (comments included)
+# outside the dispatcher itself; invokeLater posts do not block and stay legal.
+EDT_DISPATCH_SCAN_ROOT = "runtime/src/main/java"
+EDT_DISPATCH_EXEMPT = "runtime/src/main/java/dev/turboism/ui/host/EdtDispatch.java"
+EDT_DISPATCH_TOKEN = re.compile(r"\binvokeAndWait\b")
+
 # Grandfathered: these two names are frozen inside hash-anchored reviewed records. The retired
 # token also appears in each pack's `semanticName` values, which are bound bidirectionally to the
 # `mappingId` values in the reviewed verification records, whose bytes are pinned by SHA-256 in
@@ -82,7 +93,7 @@ GRANDFATHERED_ASSETS = (
 # Utf8PluginCatalog) do not start with 5 and stay legal.
 CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5\d{1,3}(?!\d)")
 
-ALL_RULES = ("javadoc", "digests", "naming", "assets")
+ALL_RULES = ("javadoc", "digests", "naming", "assets", "edt-dispatch")
 
 # The Javadoc backlog is closed. The ratchet that carried it down from 1253 is kept because it is
 # the mechanism that got here and is cheap to re-arm, but the maximum is now zero, so every rule
@@ -242,11 +253,27 @@ def check_assets(root: Path) -> list[str]:
     return failures
 
 
+def check_edt_dispatch(root: Path) -> list[str]:
+    failures = []
+    for source in java_sources(root, EDT_DISPATCH_SCAN_ROOT):
+        relative = source.relative_to(root).as_posix()
+        if relative == EDT_DISPATCH_EXEMPT:
+            continue
+        for lineno, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+            if EDT_DISPATCH_TOKEN.search(line):
+                failures.append(
+                    "direct invokeAndWait dispatch is forbidden; route through EdtDispatch: "
+                    f"{relative}:{lineno}"
+                )
+    return failures
+
+
 CHECKS = {
     "javadoc": check_javadoc,
     "digests": check_digests,
     "naming": check_naming,
     "assets": check_assets,
+    "edt-dispatch": check_edt_dispatch,
 }
 
 
