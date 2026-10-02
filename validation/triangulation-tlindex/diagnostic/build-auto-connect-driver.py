@@ -8,9 +8,13 @@ import subprocess
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
+parser.add_argument('--host-profile', choices=('5203', '5302'), default='5203',
+                    help='Freeze one reviewed host version; 5302 requires producer recorder')
 parser.add_argument('--producer-recorder', action='store_true', help='Bind raw results at the reviewed native producer return boundary')
 parser.add_argument('--base-agent', type=Path, help='Pinned production b47f6f47 Agent, shaded ASM/ownership compile dependency only')
 args = parser.parse_args()
+if args.host_profile == '5302' and not args.producer_recorder:
+    raise ValueError('5302 requires producer recorder; delayed-cache capture is not admitted')
 if args.producer_recorder:
     if args.base_agent is None or hashlib.sha256(args.base_agent.read_bytes()).hexdigest() != 'b47f6f47928f46d7fc2acd94223d66e89c80c903a4bd8d2878d5f6cc92e425cb':
         raise ValueError('producer recorder requires the reviewed frozen base')
@@ -243,6 +247,13 @@ if args.producer_recorder:
     }
 
     static boolean mayRetryCaptureWait(''')
+if args.host_profile == '5302':
+    # Preserve reviewed5203 generation. This separate build changes admission
+    # and its post-measurement cancel resource; commands/recorder/windows stay exact.
+    replace('!"5203".equals(config.version)', '!"5302".equals(config.version)')
+    replace('auto-connect diagnostic requires 5203 resource production scene',
+            'auto-connect diagnostic requires 5302 resource production scene')
+    replace('resource=CUB3-0009', 'resource=CUB3-4362')
 driver.write_text(text)
 edt = src / 'FixedEdt.java'
 text = edt.read_text()
@@ -255,7 +266,13 @@ if args.producer_recorder:
 for name in helpers:
     raw = (diag / name).read_bytes()
     inputs[str((diag / name).relative_to(root))] = hashlib.sha256(raw).hexdigest()
-    (src / name).write_text('package dev.turboism.validation.atlasimage.shadow;\n' + raw.decode())
+    helper_text = raw.decode()
+    if name == 'NativeAutoConnect.java' and args.host_profile == '5302':
+        # Pinned5302 editCancel uses this resource; its reviewed UUOption
+        # Yes/Cancel shape and all context/lifecycle guards remain unchanged.
+        assert helper_text.count('"CUB3-0009"') == 2
+        helper_text = helper_text.replace('"CUB3-0009"', '"CUB3-4362"')
+    (src / name).write_text('package dev.turboism.validation.atlasimage.shadow;\n' + helper_text)
 env = dict(os.environ)
 for name in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVAC_OPTIONS', 'CLASSPATH'):
     env.pop(name, None)
@@ -297,5 +314,5 @@ manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'
 subprocess.run(['jar', '--create', '--file', str(jar), '--manifest', str(manifest), '-C', str(classes), '.'], env=env, check=True)
-(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
+(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'hostProfile':args.host_profile, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
 print(jar)
