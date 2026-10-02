@@ -1647,7 +1647,9 @@ for control in wrong-version missing-config duplicate missing-plugin missing-com
     fail "single-Agent scene accepted $control"
   fi
 done
-grep -q 'currently admits only 5203/5302' "$test_root/single-wrong-version.log"
+# The 5302 manifest lacks the mandatory 5303 shadow keys; admission stops
+# at that exact boundary before comparing its scene identifier.
+grep -q 'manifest missing key: t039Agent' "$test_root/single-wrong-version.log"
 grep -q 'requires an explicit production home config' "$test_root/single-missing-config.log"
 grep -q 'startup probe supplied twice' "$test_root/single-duplicate.log"
 grep -q 'startup probe must be an absolute regular file' "$test_root/single-missing-plugin.log"
