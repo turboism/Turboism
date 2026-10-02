@@ -699,6 +699,47 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
+    void emptiedBucketsCanBeRecreatedAlongsideGrowingSharedEdges() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 16; i++) {
+            final Tri t = tri(i, -1, 2, i + 3);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        assertEquals(scan(set, -1, 2), TriangulationEdgeIndex.tryQuery(set, -1, 2));
+        for (final Tri victim : triangles) {
+            assertTrue(TriangulationEdgeIndex.remove(set, victim));
+            assertEquals(scan(set, -1, 2), TriangulationEdgeIndex.tryQuery(set, -1, 2));
+            assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 2, victim.ic));
+        }
+        assertTrue(TriangulationEdgeIndex.st(set).byKey.isEmpty());
+        final Tri degenerate = tri(100, -1, 2, -1);
+        TriangulationEdgeIndex.add(set, degenerate, -1, 2, -1);
+        assertEquals(List.of(degenerate), TriangulationEdgeIndex.tryQuery(set, 2, -1));
+        assertEquals(List.of(degenerate), TriangulationEdgeIndex.tryQuery(set, -1, -1));
+        TriangulationEdgeIndex.remove(set, degenerate);
+        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, -1, -1));
+        assertTrue(TriangulationEdgeIndex.st(set).byKey.isEmpty());
+        TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
+    void missingRemovalBucketRebuildsFromActualSurvivors() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri first = tri(1, 1, 2, 3);
+        final Tri second = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, first, 1, 2, 3);
+        TriangulationEdgeIndex.add(set, second, 1, 2, 4);
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        TriangulationEdgeIndex.st(set).byKey.clear();
+        assertTrue(TriangulationEdgeIndex.remove(set, first));
+        assertEquals(List.of(second), TriangulationEdgeIndex.tryQuery(set, 1, 2));
+        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 2, 3));
+        TriangulationEdgeIndex.clear(set);
+    }
+
+    @Test
     void removeReturnsFalseForMissingElements() {
         final LinkedHashSet<Tri> set = new LinkedHashSet<>();
         final Tri t = tri(1, 1, 2, 3);

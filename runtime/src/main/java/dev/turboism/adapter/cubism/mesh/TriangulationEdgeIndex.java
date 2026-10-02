@@ -343,24 +343,12 @@ public final class TriangulationEdgeIndex {
         return true;
     }
 
-    @SuppressWarnings("ReferenceEquality") // Only the proven physical victim is deindexed.
     private static boolean deindex(final St t, final Object victim) {
         final long[] ks = t.keys.remove(victim);
         if (ks == null) return false;
         for (int i = 0; i < 3; i++) {
             if (i > 0 && (ks[i] == ks[0] || (i == 2 && ks[2] == ks[1]))) continue;
-            final ArrayList<Object> bucket = bucket(t, ks[i]);
-            if (bucket == null) return false;
-            int at = -1;
-            for (int j = 0; j < bucket.size(); j++) {
-                if (bucket.get(j) == victim) {
-                    at = j;
-                    break;
-                }
-            }
-            if (at < 0) return false;
-            bucket.remove(at);
-            if (bucket.isEmpty()) removeBucket(t, ks[i]);
+            if (!removeFromBucket(t, ks[i], victim)) return false;
         }
         return true;
     }
@@ -444,11 +432,22 @@ public final class TriangulationEdgeIndex {
         }
     }
 
-    @SuppressWarnings("CollectionIncompatibleType") // Same exact-key equality as stored EdgeKey.
-    private static void removeBucket(final St t, final long k) {
+    @SuppressWarnings({"CollectionIncompatibleType", "ReferenceEquality"}) // Exact key/physical victim.
+    private static boolean removeFromBucket(final St t, final long k, final Object victim) {
         synchronized (t.lookup) {
             t.lookup.bind(k);
-            t.byKey.remove(t.lookup);
+            final ArrayList<Object> bucket = t.byKey.get(t.lookup);
+            if (bucket == null) return false;
+            for (int i = 0; i < bucket.size(); i++) {
+                if (bucket.get(i) == victim) {
+                    bucket.remove(i);
+                    // Keep the probe bound until empty-bucket deletion: no second
+                    // hash mix or monitor entry, and no reader can rebind it midway.
+                    if (bucket.isEmpty()) t.byKey.remove(t.lookup);
+                    return true;
+                }
+            }
+            return false;
         }
     }
 
@@ -459,7 +458,9 @@ public final class TriangulationEdgeIndex {
             lookup.bind(k);
             ArrayList<Object> bucket = map.get(lookup);
             if (bucket == null) {
-                bucket = new ArrayList<>();
+                // Most mesh edges have one or two incident triangles. Larger
+                // nonmanifold buckets still grow normally and preserve their order.
+                bucket = new ArrayList<>(2);
                 map.put(new EdgeKey(k), bucket);
             }
             bucket.add(tri);
