@@ -1,0 +1,50 @@
+{
+  "status": "PASS_OFFLINE",
+  "focusedJUnitTests": 59,
+  "bootstrapContributorTests": 5,
+  "devCheck": "PASS",
+  "ownedMethodAssertions": 50450,
+  "actualPremainCases": 42,
+  "composedFixtureGroups": 4,
+  "fixturesPerGroup": 128,
+  "companionProfiles": [
+    "5203",
+    "5302",
+    "5303"
+  ],
+  "companionPins": {
+    "baseline": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "candidate": "b10238ae4ae524603ca255550b2053c1128eaa2569dd7887999fb5cadf941b93"
+  },
+  "pins": {
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/premain-r2/review.json": "a966cbfd0ecdf6d6e7aab92e67e14144f66dfecc6f5aa7014a6c41a0e5af851f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/production-offline-r2/review.json": "a348ad3deebbb611da4900b6aded29166b24b44f4dedde3d61f63a4d42c96ff0",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/capture-premain-r1/review.json": "8eb0d75d81b39820df3b2236ac438fc28b490f47af71c45e67bce5b74ad726a7",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/artifact-review.json": "a3ffabc1e3964eb918183d6126c5e03b9182ff025fa73beda11aa0a7c9e1f467",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/capture-premain-run.py": "19de85f8ed6d2d77ad6ef1ea70816b8e1f81a3ab241d7c6d269061916717eca8",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/t060-focused-r1.txt": "f4033a6c41541c4073595f4ed6d7f71d0018aa56170bc2e23a1b7e5d485f1c73",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/t060-final-offline-r1.txt": "187b91d97d9361625136e8b4ab8d49169e016b27765574d7d8b986dbbce514c8",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTransformerTest.xml": "aba4c089a08d939f637b6dd4fa8bdd05909380a74945ea8fb8f8476ea2d5c165",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest.xml": "4f46bf0fcb3c809ccd49cd1a33468f9582a8f28657d25c2b398ef7621c9512e7",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/TEST-dev.turboism.adapter.cubism.mesh.VerifiedTriangulationEdgeIndexInstallerTest.xml": "dd04a1a5664429ec8aff54fe6f411461d5e39fd5767ca63d889151cef5e128aa",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest.xml": "5b65814d5cd74179fb960fdb304385287bc610e09c82cfa7a03be2bb722edc98",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/TEST-dev.turboism.bootstrap.TriangulationEdgeIndexHookContributorTest.xml": "0536b3cc0ca94f3fcf420426d2382524531a67fad82c7ac135f64d072d1da60f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-borrowed-edge-membership.py": "1d9a87f75c8a0798c24275d28151bd1fb452f5bd9236f8b1d667f5225bca6db1",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-borrowed-edge-method.py": "7e7029b0649f2f85f4b86d3fc70831f98068283806601093f881a6f3fa8df61e",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-borrowed-edge-production.py": "3cc858dfa70ed8697da8549b3efaa77bf4a18753bcb6e39eeed1a788b6851f61",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-borrowed-edge-premain.py": "b20474727d76af0918b8f899d5fb493e2e1bed6b75968de57abc5d2f87515f1c",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/rejected-production-sources/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationBorrowedEdgePatcher.java": "31e3299192a5a82e24948ac32017477c2bde395d2a0b4707b895550cae2782b6",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/rejected-production-sources/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java": "84286aa7d170471d4024f1681ce40f56c3ce43e7f61ad6abdef6e179812f1e23",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/verification/build-borrowed-edge-companion-executed.py": "4706ee823fda93bcb6be3043aa8a4724efeca4f744187d7a3dcaeea08f6d9acb",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/build-borrowed-edge-companion.py": "e782796e1fac2d6c6d7c725c806cdbe8f8dbffd16d8b349095e9aa5b470cc43a"
+  },
+  "limitations": [
+    "Actual geometry fixtures use production gate and composed transforms; mutation controls do not initialize Editor.",
+    "Historical premain-r1 failure was an invalid 5203 control targeting an absent coordinate method; r2 excludes that non-applicable control.",
+    "Native performance unproven; Lane C human review pending.",
+    "Production integration and its exact-host test were removed after failed native CPU gate; historical compiled classes/frozen JARs/source snapshots retained only for diagnosis.",
+    "Companion reproduction script now requires the exact archived rejected Preparation source; executed script is separately pinned. Use production-runtime-classes snapshot for the compiled patcher reproduction."
+  ],
+  "productionIntegration": "REJECTED_AFTER_NATIVE_CPU_REGRESSION",
+  "rejectedSourceArchive": "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/rejected-production-sources"
+}
