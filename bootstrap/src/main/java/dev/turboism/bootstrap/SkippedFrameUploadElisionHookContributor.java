@@ -23,7 +23,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 final class SkippedFrameUploadElisionHookContributor extends NativeOptimizationHookContributor {
 
     SkippedFrameUploadElisionHookContributor() {
-        super("TURBOISM_UPLOAD_ELISION");
+        super("TURBOISM_UPLOAD_ELISION", VerifiedSkippedFrameUploadElisionInstaller.HOOK_ID);
     }
 
     @Override

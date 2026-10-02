@@ -19,6 +19,11 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
     }
 
     @Override
+    public String policyId() {
+        return HOOK_POLICY_ID;
+    }
+
+    @Override
     public Phase phase() {
         return Phase.PREMAIN;
     }
@@ -43,16 +48,11 @@ final class AtlasCacheReuseHookContributor implements HookContributor {
         try {
             final VerifiedAtlasCacheReuseInstaller.Installation installation = VerifiedAtlasCacheReuseInstaller.install(
                     environment.instrumentation(),
-                    // Premain runs before the diagnostics sink exists; the console is the
-                    // only place the admission verdict survives on a real host.
-                    code -> {
-                        // System.err.println("[turboism] atlas-cache-reuse " + code);
-                    });
-            // RuntimeDiagnostics.debug(
-            //     "bootstrap",
-            //     "Atlas cache-reuse status=" + installation.status()
-            //         + ", transformOutcome=" + installation.transformOutcome()
-            // );
+                    code -> RuntimeDiagnostics.debug("atlas-cache-reuse", code));
+            RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Atlas cache-reuse status=" + installation.status()
+                            + ", transformOutcome=" + installation.transformOutcome());
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error("atlas-cache-reuse", "Atlas cache-reuse optimization disabled safely", failure);

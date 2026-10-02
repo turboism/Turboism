@@ -7,7 +7,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
 final class UniformLocationCacheHookContributor extends NativeOptimizationHookContributor {
 
     UniformLocationCacheHookContributor() {
-        super("TURBOISM_UNIFORM_LOCATION");
+        super("TURBOISM_UNIFORM_LOCATION", VerifiedUniformLocationInstaller.HOOK_ID);
     }
 
     @Override

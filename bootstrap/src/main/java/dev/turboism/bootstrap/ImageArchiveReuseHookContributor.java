@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.image.ImageArchiveReuseBridge;
 final class ImageArchiveReuseHookContributor extends NativeOptimizationHookContributor {
 
     ImageArchiveReuseHookContributor() {
-        super("TURBOISM_IMAGE_ARCHIVE_REUSE");
+        super("TURBOISM_IMAGE_ARCHIVE_REUSE", VerifiedImageArchiveReuseInstaller.HOOK_ID);
     }
 
     @Override
