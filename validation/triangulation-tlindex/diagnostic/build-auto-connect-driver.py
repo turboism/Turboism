@@ -12,7 +12,11 @@ parser.add_argument('--host-profile', choices=('5203', '5302', '5303'), default=
                     help='Freeze one reviewed host version; 53x requires producer recorder')
 parser.add_argument('--producer-recorder', action='store_true', help='Bind raw results at the reviewed native producer return boundary')
 parser.add_argument('--base-agent', type=Path, help='Pinned production b47f6f47 Agent, shaded ASM/ownership compile dependency only')
+parser.add_argument('--cycles', type=int, choices=range(3, 13), default=3,
+                    help='Bounded producer memory-stability commands; default protocol remains three')
 args = parser.parse_args()
+if args.cycles != 3 and not args.producer_recorder:
+    raise ValueError('extended cycles require producer recorder')
 if args.host_profile in ('5302', '5303') and not args.producer_recorder:
     raise ValueError('53x requires producer recorder; delayed-cache capture is not admitted')
 if args.producer_recorder:
@@ -262,6 +266,36 @@ elif args.host_profile == '5303':
     replace('auto-connect diagnostic requires 5203 resource production scene',
             'auto-connect diagnostic requires 5303 resource production scene with shadow')
     replace('resource=CUB3-0009', 'resource=CUB3-4362')
+if args.cycles != 3:
+    # A native backup can hold the EDT beyond its five-second queue barrier.
+    # Retrying only cancelled-before-start callbacks cannot duplicate a command.
+    replace('    static boolean mayRetryCaptureWait(', '''    static <T> T callExtendedMeshCommand(java.util.concurrent.Callable<T> action,
+            StageEvidence evidence, long completionMillis) throws Exception {
+        final long queueDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
+        while (true) {
+            try {
+                return FixedEdt.callWithin(action, FixedEdt.Operation.MESH_CONNECT, evidence, completionMillis);
+            } catch (FixedEdt.Timeout timeout) {
+                if (!mayRetryExtendedMeshWait(timeout, System.nanoTime(), queueDeadline)) throw timeout;
+                Thread.sleep(100L);
+            }
+        }
+    }
+    static boolean mayRetryExtendedMeshWait(FixedEdt.Timeout timeout, long now, long deadline) {
+        return timeout.operation == FixedEdt.Operation.MESH_CONNECT
+            && timeout.state == FixedEdt.State.TIMED_OUT && now < deadline
+            && !Thread.currentThread().isInterrupted();
+    }
+    static boolean mayRetryCaptureWait(''')
+    replace('final NativeProducerAutoConnect.Observation observation = FixedEdt.callWithin(',
+            'final NativeProducerAutoConnect.Observation observation = callExtendedMeshCommand(')
+    replace('FixedEdt.Operation.MESH_CONNECT, evidence, remainingMillis(runDeadlineNanos));',
+            'evidence, remainingMillis(runDeadlineNanos));')
+    assert text.count('for (int cycle = 1; cycle <= 3; cycle++)') == 1
+    assert text.count('cycles=3\\n') == 1
+    text = text.replace('for (int cycle = 1; cycle <= 3; cycle++)',
+                        f'for (int cycle = 1; cycle <= {args.cycles}; cycle++)')
+    text = text.replace('cycles=3\\n', f'cycles={args.cycles}\\n')
 driver.write_text(text)
 edt = src / 'FixedEdt.java'
 text = edt.read_text()
@@ -318,9 +352,23 @@ if args.producer_recorder:
     (out / 'writer-selfcheck.log').write_text(check.stdout + check.stderr)
     check.check_returncode()
     print(check.stdout, end='')
+if args.cycles != 3:
+    queue_check = diag / 'ExtendedMeshWaitSelfCheck.java'
+    inputs[str(queue_check.relative_to(root))] = hashlib.sha256(queue_check.read_bytes()).hexdigest()
+    check_java = check_src / queue_check.name
+    check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + queue_check.read_text())
+    subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                    '-cp', str(classes), '-d', str(check_classes), str(check_java)], env=env, check=True)
+    check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                            str(classes) + os.pathsep + str(check_classes),
+                            'dev.turboism.validation.atlasimage.shadow.ExtendedMeshWaitSelfCheck'],
+                           env=env, capture_output=True, text=True)
+    (out / 'extended-queue-selfcheck.log').write_text(check.stdout + check.stderr)
+    check.check_returncode()
+    print(check.stdout, end='')
 manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'
 subprocess.run(['jar', '--create', '--file', str(jar), '--manifest', str(manifest), '-C', str(classes), '.'], env=env, check=True)
-(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'hostProfile':args.host_profile, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
+(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'hostProfile':args.host_profile, 'cycles':args.cycles, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
 print(jar)

@@ -1150,3 +1150,8 @@ First aggregate/raw reports remain unchanged. Current summarySHA
 09e735763771ff648efd84d94e96d9c5f879a92bb8169d608af05e2baf7adbe9;
 post-writer1013 inputs/0mismatches. Production/HOLD and required human review
 remain unchanged; the full goal is not marked complete.
+
+
+## 十轮内存诊断续验
+
+见 [2026-10-02 十轮验证收尾](memory-stability-closeout-20261002.md)。seq2492 开启与 seq2497 关闭各10次/7110条结果，11字段逐条零差异及标准实机 gates PASS；seq2494 排队超时 FAIL 保留。原生自动备份在开/关均造成数 GiB 分配；长时间 RSS 平台与无泄漏未建立，关闭长 recording 的整体 affine 时钟归因失败。生产保持 HOLD / NOT_PASSED，原三轮性能数值不变，T044/T046/T050 partial。
