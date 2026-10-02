@@ -55,6 +55,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         V5_ALLOWED_FIELDS = Set.copyOf(v5);
     }
 
+    private static final char ROUTE_SEPARATOR = '\u0000';
     private static final int MAX_TAGS = 12;
     private static final int MIN_TOKEN_LENGTH = 2;
     private static final int MAX_TOKEN_LENGTH = 32;
@@ -412,7 +413,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
                 errors.add(
                         error("PLUGIN_META_BAD_EVENT_IMPORT", "required must be boolean", base + ".required", source));
             }
-            if (provider != null && eventId != null && !routes.add(provider + " " + eventId)) {
+            if (provider != null && eventId != null && !routes.add(provider + ROUTE_SEPARATOR + eventId)) {
                 errors.add(error(
                         "PLUGIN_META_DUPLICATE_EVENT_IMPORT", "Event import routes must be unique", base, source));
             }

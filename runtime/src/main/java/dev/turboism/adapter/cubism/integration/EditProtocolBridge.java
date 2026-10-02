@@ -114,8 +114,10 @@ public final class EditProtocolBridge {
             return pass(Outcome.PASSTHROUGH_DISABLED);
         }
         if (TRACE_LIMIT > 0 && traceCount.getAndIncrement() < TRACE_LIMIT) {
-            System.out.println("[turboism-edit-bridge] onMessage outcome=begin raw="
-                    + (raw == null ? "null" : raw.substring(0, Math.min(120, raw.length()))));
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "edit-bridge",
+                    "onMessage outcome=begin raw="
+                            + (raw == null ? "null" : raw.substring(0, Math.min(120, raw.length()))));
         }
         if (raw == null) {
             return pass(Outcome.PASSTHROUGH_UNPARSEABLE);
@@ -224,7 +226,8 @@ public final class EditProtocolBridge {
         lastOutcome.set(outcome);
         passedThrough.incrementAndGet();
         if (traceCount.get() <= TRACE_LIMIT) {
-            System.out.println("[turboism-edit-bridge] onMessage outcome=" + outcome);
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "edit-bridge", "onMessage outcome=" + outcome);
         }
         return false;
     }

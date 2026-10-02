@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Reject undocumented public API, duplicated host digests, retired naming, and direct EDT waits.
+"""Reject undocumented public API, duplicated host digests, retired naming, direct EDT waits, and
+literal control characters.
 
-Five rules, all fail-closed:
+Six rules, all fail-closed:
 
 1. Every publicly reachable type and every non-``@Override`` public method in the production
    roots carries Javadoc, decided by the JDK compiler tree API (``JavacTask.parse`` +
@@ -19,6 +20,9 @@ Five rules, all fail-closed:
    through ``EdtDispatch`` so an interrupted or timed-out caller can never leave a queued
    mutation behind to run after the caller already reported failure. The token is banned
    outright (comments included) except inside ``EdtDispatch`` itself.
+6. No literal C0 control character (bytes other than ``\\t``, ``\\n``, ``\\r``) appears in a
+   scanned source file. A raw control byte in a string literal is invisible in review and
+   diffs; spell it as an escape sequence instead.
 
 Usage: check_code_quality.py [repo-root] [--rules RULE[,RULE...]] [--report]
 """
@@ -93,7 +97,12 @@ GRANDFATHERED_ASSETS = (
 # Utf8PluginCatalog) do not start with 5 and stay legal.
 CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5\d{1,3}(?!\d)")
 
-ALL_RULES = ("javadoc", "digests", "naming", "assets", "edt-dispatch")
+ALL_RULES = ("javadoc", "digests", "naming", "assets", "edt-dispatch", "controlchars")
+
+# Tab, LF and CR are the only control bytes legitimate in text sources; the rest must be
+# written as escape sequences so they stay visible in review.
+CONTROL_CHAR_PATTERN = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+CONTROL_CHAR_JAVA_ROOTS = DIGEST_SCAN_ROOTS + ("buildSrc/src/main/java",)
 
 # The Javadoc backlog is closed. The ratchet that carried it down from 1253 is kept because it is
 # the mechanism that got here and is cheap to re-arm, but the maximum is now zero, so every rule
@@ -268,12 +277,39 @@ def check_edt_dispatch(root: Path) -> list[str]:
     return failures
 
 
+def check_controlchars(root: Path) -> list[str]:
+    candidates = [
+        source
+        for relative in CONTROL_CHAR_JAVA_ROOTS
+        for source in java_sources(root, relative)
+    ]
+    scripts = root / "scripts"
+    if scripts.exists():
+        candidates.extend(sorted(scripts.rglob("*.py")))
+    candidates.extend(sorted(root.glob("*.gradle.kts")))
+    for scope in (root / "gradle", root / "buildSrc"):
+        if scope.exists():
+            candidates.extend(sorted(scope.rglob("*.kts")))
+    failures = []
+    for source in candidates:
+        data = source.read_bytes()
+        match = CONTROL_CHAR_PATTERN.search(data)
+        if match:
+            line = data.count(b"\n", 0, match.start()) + 1
+            failures.append(
+                f"literal control character 0x{match.group()[0]:02x} in source: "
+                f"{source.relative_to(root).as_posix()}:{line}"
+            )
+    return failures
+
+
 CHECKS = {
     "javadoc": check_javadoc,
     "digests": check_digests,
     "naming": check_naming,
     "assets": check_assets,
     "edt-dispatch": check_edt_dispatch,
+    "controlchars": check_controlchars,
 }
 
 

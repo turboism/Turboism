@@ -42,7 +42,7 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
         "scripts/test/test_mapping_review_wrapper_args.sh",
         "scripts/dev/mapping-review.sh",
         "scripts/dev/worktree-id.sh",
-        fileTree("gradle/internal") { include("*.java") }
+        fileTree("buildSrc/src/main/java/dev/turboism/gradle/internal") { include("*.java") }
     )
     verificationStamp()
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
@@ -315,15 +315,26 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("plugins") { include("**/src/main/**/*.java") },
         fileTree("compatibility/cubism") { include("**/*.json") }
     )
+    // The controlchars rule also scans these roots for literal control bytes.
+    inputs.files(
+        fileTree("runtime/src/test/java") { include("**/*.java") },
+        fileTree("bootstrap/src/test/java") { include("**/*.java") },
+        fileTree("testing/integration-tests/src/test/java") { include("**/*.java") },
+        fileTree("buildSrc") { include("**/*.java", "**/*.kts") },
+        fileTree("scripts") { include("**/*.py") },
+        fileTree("gradle") { include("**/*.kts") },
+        "build.gradle.kts",
+        "settings.gradle.kts"
+    )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
-    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets"))
+    inputs.property("turboismCodeQualityRules", selectedRules.orElse("javadoc,digests,naming,assets,edt-dispatch,controlchars"))
     inputs.property("turboismCodeQualityStrict", strict.orElse("false"))
     inputs.property("turboismCodeQualityJavaHome", codeQualityJavaHome)
     verificationStamp()
     doFirst {
         environment("TURBOISM_QUALITY_JAVA_HOME", codeQualityJavaHome.get())
-        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
+        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets,edt-dispatch,controlchars")
         val command = mutableListOf(
             "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
             "--rules", rules
