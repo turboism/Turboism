@@ -934,3 +934,11 @@ is their combined maximum host budget, not a promised completion time.
 
 Offline integration review SHA `838940e826c711c276911dac3270d1671ded3a11f2db6a4de5bc7f164da47c63`;212 bound inputs rehashed after
 the writer,0 mismatches. Frozen requests are not submitted-native PASS.
+
+Code slice committed as `3770a5a64`. Within existing live-host authorization,
+5303 off22 submitted once as seq2451/job`c6871651-9e42-417f-bd1d-cbeac942c064`, prepared
+`4d218785c7e65e402cff85a16e216287e4853494a648ccaa8c59dac516a3c900`, budget1200seconds. At this
+checkpoint it is queued behind2448running and2449/2450queued; no measuring
+leg has begun and no native PASS is claimed. Existing worker is reused;
+there is no second worker or intervention in other sessions. On remains
+unsubmitted until off standard gates and full independent review pass.
