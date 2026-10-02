@@ -3,9 +3,9 @@ package dev.turboism.ui.mesh;
 import dev.turboism.adapter.cubism.mesh.MeshToolCoordinator;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
 import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
 import java.awt.event.ActionListener;
-import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
-import javax.swing.SwingUtilities;
 
 /** Exact-version mesh-toolbar operations restricted to verified aliases. */
 public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostOperations {
@@ -178,10 +177,9 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
-                onEdt(() -> {
+                onEdtEventually(() -> {
                     resolver.invoke(CONTAINER_REMOVE, panel, slider);
                     refresh(panel);
-                    return null;
                 });
             }
         };
@@ -344,7 +342,7 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                 if (!closed.compareAndSet(false, true)) {
                     return;
                 }
-                onEdt(() -> {
+                onEdtEventually(() -> {
                     // The session-observer bookkeeping must run even when the contribution
                     // removal fails: a throwing removal must never leak the listener binding.
                     // The primary removal/refresh failure (RuntimeException or Error) is held
@@ -380,7 +378,6 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
                     if (primary != null) {
                         throw new RuntimeException("mesh-toolbar contribution removal failed", primary);
                     }
-                    return null;
                 });
             }
         };
@@ -618,38 +615,16 @@ public final class VerifiedMeshToolbarHostOperations implements MeshToolbarHostO
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.run();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(throwable);
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("mesh-toolbar EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("mesh-toolbar EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("mesh-toolbar EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked")
-        final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("mesh-toolbar EDT operation", operation::run);
+    }
+
+    /**
+     * Idempotent removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a closed contribution is never orphaned and the
+     * session observer is never leaked.
+     */
+    private static void onEdtEventually(final Runnable operation) {
+        EdtDispatch.runEventually("mesh-toolbar EDT removal", operation);
     }
 
     @FunctionalInterface

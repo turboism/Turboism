@@ -21,6 +21,18 @@ final class ProjectLifecycleHookContributor implements HookContributor {
         return true;
     }
 
+    /**
+     * Safe mode still loads plugins, so the document/model open-close and
+     * editor-exit observations must keep flowing: they drive the plugin file
+     * and exit lifecycle callbacks plus the session's document-close cleanup
+     * and document-switch rebinding. Skipping them would leave stale
+     * document-bound state and lifecycle callbacks that never fire.
+     */
+    @Override
+    public boolean requiredInSafeMode() {
+        return true;
+    }
+
     @Override
     public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();

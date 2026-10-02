@@ -6,7 +6,7 @@ import dev.turboism.adapter.cubism.optimization.image.TextureUploadPreparationBr
 final class TextureUploadPreparationHookContributor extends NativeOptimizationHookContributor {
 
     TextureUploadPreparationHookContributor() {
-        super("TURBOISM_TEXTURE_UPLOAD_PREPARATION");
+        super("TURBOISM_TEXTURE_UPLOAD_PREPARATION", VerifiedTextureUploadPreparationInstaller.HOOK_ID);
     }
 
     @Override
