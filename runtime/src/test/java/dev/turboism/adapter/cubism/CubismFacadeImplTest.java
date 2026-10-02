@@ -270,9 +270,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> emptyModel("core-model"),
                 backend,
                 new ParameterLifecycleCoordinator(),
@@ -423,9 +420,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> {
                     activeCalls[0]++;
                     return backendModel;
@@ -485,9 +479,6 @@ class CubismFacadeImplTest {
                 emptySource(),
                 new CubismPermissionGate("plugin.demo", List.of(), ignored -> {}, FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> emptyModel("texture-model"),
                 new ParameterLifecycleCoordinator(),
                 new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
@@ -2317,9 +2308,6 @@ class CubismFacadeImplTest {
                         ignored -> {},
                         FIXED_CLOCK),
                 new ImmutableSnapshotFactory(),
-                (context, document) -> {
-                    throw new UnsupportedOperationException();
-                },
                 () -> animationGraphModel(calls),
                 new ParameterLifecycleCoordinator(),
                 new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
