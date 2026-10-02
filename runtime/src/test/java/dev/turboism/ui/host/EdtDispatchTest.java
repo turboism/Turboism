@@ -304,6 +304,9 @@ class EdtDispatchTest {
 
     @Test
     void acceptTimeoutTripsTheUnresponsiveCircuitUntilTheProbeRuns() throws Exception {
+        // The breaker only trips on caller bounds at or above the default; lowering the trip
+        // bound keeps this test deterministic instead of parking on the real 30s bound.
+        EdtDispatch.breakerTripBoundForTesting(SHORT_ACCEPT);
         final CountDownLatch wedged = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         SwingUtilities.invokeLater(() -> {
@@ -324,6 +327,46 @@ class EdtDispatchTest {
             drainEdt(); // lets the probe runnable execute and clear the circuit
             assertFalse(EdtDispatch.edtUnresponsiveForTesting(), "probe must restore normal bounds");
             assertEquals("back", EdtDispatch.call("recovered", () -> "back"));
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void shortAcceptTimeoutsNeverTripTheUnresponsiveCircuit() throws Exception {
+        // A caller racing its own short bound only proves the EDT was busy for that long;
+        // it must not degrade every other dispatch onto the unresponsive bound.
+        final CountDownLatch wedged = new CountDownLatch(1);
+        final CountDownLatch release = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            wedged.countDown();
+            await(release);
+        });
+        assertTrue(wedged.await(5, TimeUnit.SECONDS));
+        try {
+            final EdtDispatchException first = assertThrows(
+                    EdtDispatchException.class,
+                    () -> EdtDispatch.call("short-bound-timeout", SHORT_ACCEPT, () -> null));
+            assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, first.reason());
+            assertFalse(
+                    EdtDispatch.edtUnresponsiveForTesting(),
+                    "a short-bounded timeout must not trip the breaker");
+
+            final AtomicBoolean cleanupRan = new AtomicBoolean();
+            EdtDispatch.runEventually("short-bound-cleanup", SHORT_ACCEPT, () -> cleanupRan.set(true));
+            assertFalse(
+                    EdtDispatch.edtUnresponsiveForTesting(),
+                    "a short-bounded runEventually deferral must not trip the breaker");
+
+            // Later dispatches keep their own bounds instead of the unresponsive bound.
+            final EdtDispatchException second = assertThrows(
+                    EdtDispatchException.class,
+                    () -> EdtDispatch.call("still-bounded", SHORT_ACCEPT, () -> null));
+            assertEquals(EdtDispatchException.Reason.ACCEPT_TIMEOUT, second.reason());
+
+            release.countDown();
+            drainEdt();
+            assertTrue(cleanupRan.get(), "the deferred cleanup still runs when the EDT drains");
         } finally {
             release.countDown();
         }
