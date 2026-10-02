@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.motion3;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -38,7 +38,7 @@ public final class Motion3Validator {
         final List<Motion3Issue> issues = new ArrayList<>();
         final Object root;
         try {
-            root = StrictJson.parse(bytes);
+            root = Json.parse(bytes);
         } catch (IllegalArgumentException failure) {
             issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "invalid JSON: " + failure.getMessage()));
             return new Motion3Report(issues);

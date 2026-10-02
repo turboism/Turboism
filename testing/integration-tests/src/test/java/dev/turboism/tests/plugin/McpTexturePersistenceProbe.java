@@ -1,12 +1,12 @@
 package dev.turboism.tests.plugin;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.ModelTextures;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.awt.Frame;
 import java.awt.image.BufferedImage;
@@ -123,7 +123,7 @@ public final class McpTexturePersistenceProbe {
             require(stream != null, "Canonical host verification record is not packaged");
             final byte[] bytes = stream.readNBytes(2 * 1024 * 1024 + 1);
             require(bytes.length <= 2 * 1024 * 1024, "Host verification record is too large");
-            final Map<String, Object> record = StrictJson.parse(bytes);
+            final Map<String, Object> record = Json.parseObject(bytes);
             require(exact.equals(record.get("cubismVersion")), "Host record version mismatch");
             final Map<?, ?> artifact = (Map<?, ?>) record.get("artifact");
             require("Live2D_Cubism.jar".equals(artifact.get("name")), "Unexpected host artifact");
