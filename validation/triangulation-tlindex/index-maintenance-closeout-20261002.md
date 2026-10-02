@@ -1,8 +1,9 @@
 # T051 index maintenance — 2026-10-02
 
 Implementation and evidence collection are finished on `perf/cubism-edt-async`.
-Production acceptance is **HOLD_RESOURCE_ENVELOPE**, not inherited from the prior
-approved SHA. One new-candidate resource gate failed; no merge, push or release.
+Original measured decision was **HOLD_RESOURCE_ENVELOPE**. The user subsequently
+accepted this candidate’s 0.89 MiB RSS excess (see appended decision below). The
+numerical failure is preserved; no merge, push or release.
 
 The helper creates edge buckets with capacity 2 (larger/nonmanifold buckets still
 grow) and deindexes a proven physical victim under one bound-probe monitor.
@@ -65,3 +66,14 @@ zero mismatches). Raw evidence under `build/t051-index-maintenance-r1`, includin
 and `native5303-pair1/{baseline,candidate}/{native-review,resource-review}.json`.
 Next production decision requires resolving the resource gate and reviewing this
 new SHA; existing approved candidate remains the acceptance reference.
+
+## Subsequent user decision
+
+User: “忽略这个超限，不严重”. The 80.89 MiB observed increase is accepted as
+a scoped exception for production SHA `3a1666c11cb46fd26b34f914ca238f7bf0d80441175706a3f76c970fc39b4a86`
+and the seq2501/2502 native5303 pair. The excess is 937984 bytes (0.89 MiB).
+Resource-envelope HOLD is cleared by this explicit exception; no repeat is needed
+to investigate this excess. The 80 MiB default limit and original false gate remain
+unchanged. The preceding review records the original decision; the superseding
+resource decision is in `index-maintenance-rss-exception.json`. Separate Lane C
+production approval, broader host scope and long-run stability are not inferred.
