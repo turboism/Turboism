@@ -2,9 +2,10 @@
 
 Production acceptance remains **HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED**.
 The continuous optimization goal, T050, T044 and T046 remain unfinished.
-This continuation closes bounded native correctness/activation and two separate
-final-candidate 5302 resource comparisons in opposite orders. It does not close
-production acceptance.
+The final corrected candidate now has complete native command comparisons on
+5203, 5302 and 5303, with repeated targets and complete per-source output digests.
+Base-only default settings UI passed; independent restart verification and
+reviewed resource limits remain separate acceptance requirements.
 
 ## Supported scene and frozen inputs
 
@@ -1025,3 +1026,93 @@ at this checkpoint. Formal base-only native startup, real settings and independe
 restarts, memory stability and numerical resource limits still require evidence.
 The remaining two measuring legs have a combined maximum host budget of40minutes;
 FIFO waiting, UI/restarts and audit time are additional, not a completion promise.
+
+
+## Final corrected 5203 native pair and actual auto-backup attribution
+
+The production base is `ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2`;
+validation companion `892ce6eef0179ddbd65e551af667a5c059c31eacbffdc2e1be44aad647a1d928`.
+This pair uses the reviewed heavy fixture and the same verified real UI config
+bytes as the completed final 5302/5303 pairs. It measures native triangulation,
+not Atlas generation or all Editor operations.
+
+| Leg | Sequence | Job | Prepared |
+| --- | ---: | --- | --- |
+| off | 2461 | `5d082ae3-e7fe-4eff-adcf-6ad6bf7f389d` | `d59baad91d0ebe602da07b2baec0939b2053ca38792a4012d3f2bb62b21562e5` |
+| on | 2464 | `10089640-bbad-448b-97a8-1f64bb62d5ef` | `61d21eb4ca8c53404ee8fdf7a4291bbdcbf75f20342cc4b7f9d9984e123c6f2b` |
+
+Both authoritative outcomes are succeeded/PASS with normal exit, exact identity,
+unchanged fixture and safe kernel-bound cleanup. Each inventory has 138 files and
+12 directories. There are 711 sources in each of three actual native commands:
+2133 rows per leg match in all 11 semantic fields, complete geometry digests and
+first-four ordered edge digests. Raw geometry arrays were not retained. Actual
+native target/index samples support activation; counters alone are not used.
+
+| Observation | off | on | Change |
+| --- | ---: | ---: | ---: |
+| Three-command wall seconds | 229.0031944 | 154.2741360 | −32.6323% |
+| Sampled Java CPU seconds | 233.63 | 162.29 | −30.5355% |
+| Sampled auxiliary CPU seconds | 19.01 | 12.31 | −35.2446% |
+| Operation RSS peak MiB | 2570.914 | 3029.637 | +458.723 / +17.84% |
+| Baseline RSS median MiB | 2534.895 | 3009.676 | +474.781 |
+
+On operation peaks above its own baseline are 11.973/19.719/19.961 MiB.
+On retained medians are 3029.270/3029.637/3030.957 MiB, third-minus-first
++1.688 MiB. Absolute memory cost is reported even though baselines differ.
+CPU is sampled user+system, 100% means one logical CPU; omitted boundaries and
+sampling gaps remain in the structured report.
+
+Off retained medians are 2568.129/2569.496/5083.238 MiB. Its third observation
+contains confirmed native auto-backup:
+`com.live2d.cubism.util.c.run -> util.a.h -> UUSerialize.serializeToFile -> ArchiveWriter/XML`.
+Read-only javap of the exact 5203 JAR shows the backup manager checking modified
+state and elapsed auto-backup time, serializing the document and updating the last
+backup time. The on third window has no such samples. Thus the off +2515.109 MiB
+rise and whole-run off/on difference cannot establish quiet retention or index
+memory savings. This does not explain away the separate 5303 on +42.855 MiB.
+
+Independent sleep-bound JFR clock calibration corrects window attribution only.
+Corrected edge allocation weights are 1,314,344,448/off and 319,141,096/on bytes
+(−75.7186%), statistical estimates. Native wall/CPU/RSS/PSS are unchanged.
+The final pin review supersedes the original uncalibrated JFR figures and the
+original report limitation that incorrectly described serialization in both legs.
+All failed analysis scripts, refusals and original reports remain preserved;
+none of them is relabeled as a host failure or silently rewritten.
+
+Evidence: `build/t050-lazy-edge-bytecode/final5203-memory-r1/`.
+`final-pin-review.json` binds 663 distinct inputs with zero mismatches; SHA-256
+`ecdb878a9eeb56005fb1d001b9420466d8674072c2ba7fea843e248eba368319`.
+
+## Final base-only real default settings and restart fixture correction
+
+Sequence 2466, job `3477005d-4d32-46dc-9e5c-aeb77f5a2e44`, prepared
+`d77e8bdd7634bce88375fb8b4c0e3cb8763794a5d6842fdd90310a5c45bedf8b`,
+ran the final production base alone through official BAT, attach disabled,
+without companion, sidecars or auxiliary agents. All standard gates passed.
+It observed the actual menu/model and 13 native frames, default absent-to-on,
+Apply off, unsaved opposite-change Cancel, reopen off, OK on and reopen on,
+with the exact localized visible edge-index checkbox. Real saved config hashes
+are off `8945ee224b724641a5b468cf087be0287cb3908bca908c7abdc0c582bec9b846`
+and on `190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02`,
+matching all three native measurement inputs byte for byte.
+INFO logs do not expose DEBUG installation status; registration is explicitly
+NOT_OBSERVED_AT_INFO_LOG_LEVEL, with actual algorithm evidence in the native pairs.
+
+The original restart batch produced authoritative FAIL at sequences 2469–2473:
+prepared config was copied as mode 0400 into task home, so the correct initial
+UI value loaded but real Apply returned RUNTIME_CONFIG_WRITE_FAILED. Sequence
+2474 was cancelled while queued, avoiding another known failure. All five FAILs
+and the cancellation remain historical records; they are not waived.
+
+The correction is validation-only: an explicit full edge-index UI opt-in binds
+the exact queue run, task-home basename, regular non-symlink config and expected
+UI SHA before enabling owner write permission. It rechecks unchanged bytes and
+then runs the existing real Apply/Cancel/OK scenario. Performance/startup-read-only
+modes refuse this preparation. No Boolean is written directly and no shared
+Runner, production base, original/prepared config, official file or golden is
+modified. Thirteen file-boundary assertions, packaged probe compilation and one
+final devCheck passed. Frozen old probe `30f5203e…` is unchanged; the new isolated
+probe is `c3ae3bb61e92b802c747753df76c7520a43cb5ce813339c273fd2ee3eead010d`.
+Six fresh inputs under `final-owned-startup-ui-r2` are submitted one at a time;
+each must pass the full real UI/config/identity/cleanup audit before the next.
+At this checkpoint they are not claimed complete. Production remains NOT_PASSED.
