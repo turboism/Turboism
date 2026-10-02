@@ -333,7 +333,7 @@ def write(root: Path, relative: str, text: str) -> None:
 
 def case_clean_baseline(root: Path) -> None:
     write(root, "sdk/src/main/java/dev/turboism/sample/Sample.java", DOCUMENTED_TYPE)
-    result = run(root, "javadoc,digests,naming,assets")
+    result = run(root, "javadoc,digests,naming,assets,edt-dispatch")
     assert result.returncode == 0, f"clean tree must pass, got:\n{result.stdout}"
     assert "@Override" not in result.stdout
 
@@ -567,6 +567,46 @@ def case_unknown_rule(root: Path) -> None:
     assert result.returncode == 2, "unknown rule must fail closed"
 
 
+def case_direct_invoke_and_wait(root: Path) -> None:
+    """A bare invokeAndWait in runtime production code must fail, even inside a comment."""
+    write(
+        root,
+        "runtime/src/main/java/dev/turboism/sample/Dispatched.java",
+        "package dev.turboism.sample;\n\n/** Doc. */\npublic final class Dispatched {\n"
+        "    void run() {\n        javax.swing.SwingUtilities.invokeAndWait(() -> { });\n    }\n}\n",
+    )
+    result = run(root, "edt-dispatch")
+    assert result.returncode == 1, "direct invokeAndWait must fail"
+    assert "route through EdtDispatch" in result.stdout
+    assert "Dispatched.java:6" in result.stdout
+
+
+def case_invoke_and_wait_exemption_and_async_post(root: Path) -> None:
+    """EdtDispatch itself is exempt; invokeLater and non-runtime sources are not scanned."""
+    write(
+        root,
+        "runtime/src/main/java/dev/turboism/ui/host/EdtDispatch.java",
+        "package dev.turboism.ui.host;\n\n/** Doc. */\npublic final class EdtDispatch {\n"
+        "    static void blocked() throws Exception {\n"
+        "        javax.swing.SwingUtilities.invokeAndWait(() -> { });\n    }\n}\n",
+    )
+    write(
+        root,
+        "runtime/src/main/java/dev/turboism/sample/Posted.java",
+        "package dev.turboism.sample;\n\n/** Doc. */\npublic final class Posted {\n"
+        "    void run() {\n        javax.swing.SwingUtilities.invokeLater(() -> { });\n    }\n}\n",
+    )
+    write(
+        root,
+        "runtime/src/test/java/dev/turboism/sample/TestDispatch.java",
+        "package dev.turboism.sample;\n\nfinal class TestDispatch {\n"
+        "    void run() throws Exception {\n"
+        "        javax.swing.SwingUtilities.invokeAndWait(() -> { });\n    }\n}\n",
+    )
+    result = run(root, "edt-dispatch")
+    assert result.returncode == 0, f"exempt dispatch and async posts must pass, got:\n{result.stdout}"
+
+
 def run_ratchet(root: Path, maximum: int | None = None) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, str(CHECKER), str(root), "--ratchet"]
     if maximum is not None:
@@ -646,6 +686,8 @@ CASES = (
     case_non_version_digits_pass,
     case_retired_asset_token,
     case_unknown_rule,
+    case_direct_invoke_and_wait,
+    case_invoke_and_wait_exemption_and_async_post,
     case_ratchet_blocks_new_undocumented_api,
     case_ratchet_holds_when_backlog_matches,
     case_ratchet_demands_lowering_when_backlog_shrinks,
