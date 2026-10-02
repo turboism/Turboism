@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.ui.host.EdtDispatch;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
@@ -14,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.swing.SwingUtilities;
 
 /**
  * Runtime registry and lifecycle owner for the native-position mirror-angle control.
@@ -438,8 +438,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     }
 
     private static void runOnEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run();
-        else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("mesh edit UI update", action);
     }
 
     record Attachment(Object panel, Object mount, Object root) {}
