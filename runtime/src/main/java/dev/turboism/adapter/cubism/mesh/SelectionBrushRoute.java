@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.Point;
@@ -18,7 +19,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -211,7 +211,7 @@ public final class SelectionBrushRoute implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        runOnEdt(this::cleanupOnEdt);
+        runOnEdtEventually(this::cleanupOnEdt);
     }
 
     /** Exposes the runtime-owned overlay to adapter regression tests, never to plugins. */
@@ -576,21 +576,19 @@ public final class SelectionBrushRoute implements AutoCloseable {
     }
 
     private static void runOnEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) {
+        EdtDispatch.call("selection brush UI update", () -> {
             action.run();
-            return;
-        }
-        try {
-            SwingUtilities.invokeAndWait(action);
-        } catch (InterruptedException failure) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while updating the selection brush UI", failure);
-        } catch (InvocationTargetException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new IllegalStateException("Selection brush UI update failed", cause);
-        }
+            return null;
+        });
+    }
+
+    /**
+     * Idempotent cleanup work: on acceptance timeout (or caller interrupt, an unresponsive EDT,
+     * or JVM exit) the task stays queued and still runs exactly once when the EDT drains, so a
+     * closed brush never leaves its global key dispatcher or overlay behind.
+     */
+    private static void runOnEdtEventually(final Runnable action) {
+        EdtDispatch.runEventually("selection brush cleanup", action);
     }
 
     /** Internal target adapter shared by temporary mesh and ordinary modeling selections. */

@@ -64,7 +64,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     /** Hook installation is an additional runtime prerequisite, separate from static admission. */
     public void lifecycleReady(long hostGeneration, boolean ready) {
-        edt(() -> {
+        edtEventually(() -> {
             if (generation != hostGeneration || closed) return;
             lifecycleReady = ready;
             if (!ready) deactivateOnEdt();
@@ -118,7 +118,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
         final AtomicBoolean disposed = new AtomicBoolean();
         return () -> {
             if (!disposed.compareAndSet(false, true)) return;
-            edt(() -> {
+            edtEventually(() -> {
                 if (tools.remove(key, entry) && active != null && active.key.equals(key)) deactivateOnEdt();
                 if (tools.isEmpty() && lifetime != null) {
                     lifetime.stop();
@@ -196,21 +196,21 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     /** Stops the matching activation without touching another plugin generation. */
     public void deactivate(String pluginId, long pluginGeneration, String toolId) {
-        edt(() -> {
+        edtEventually(() -> {
             if (active != null && active.key.equals(new Key(pluginId, pluginGeneration, toolId))) deactivateOnEdt();
         });
     }
 
     /** Receives normal native tool requests, including re-selection of the existing tool. */
     public void nativeToolActivated(Object app) {
-        edt(() -> {
+        edtEventually(() -> {
             if (active != null && active.identity.app() == app) deactivateOnEdt();
         });
     }
 
     /** Revokes the activation only when its document moves to a different edit-mode identity. */
     public void modeChanged(Object document, Object mode) {
-        edt(() -> {
+        edtEventually(() -> {
             if (active != null && active.identity.document() == document && active.identity.mode() != mode)
                 deactivateOnEdt();
             changed();
@@ -225,7 +225,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     /** Removes native subscriptions, lifetime polling and the current activation. */
     public void disconnect() {
-        edt(this::disconnectOnEdt);
+        edtEventually(this::disconnectOnEdt);
     }
 
     private void disconnectOnEdt() {
@@ -309,7 +309,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     /** Restores host-owned toolbar highlights after an ordinary tool ends. */
     public void restoreNativeButtons() {
-        edt(() -> {
+        edtEventually(() -> {
             if (sessions == null || active != null) return;
             final var resolver = sessions.resolver();
             final Object app = resolver.invokeStatic(APP);
@@ -319,7 +319,7 @@ public final class ModelingToolCoordinator implements AutoCloseable {
 
     @Override
     public void close() {
-        edt(() -> {
+        edtEventually(() -> {
             if (closed) return;
             closed = true;
             disconnectOnEdt();
@@ -333,6 +333,15 @@ public final class ModelingToolCoordinator implements AutoCloseable {
             action.run();
             return null;
         });
+    }
+
+    /**
+     * Idempotent revocation/teardown work: on acceptance timeout the task stays queued and still
+     * runs exactly once when the EDT drains, so a stopped tool never keeps its activation,
+     * subscriptions, or native highlight cleanup from running.
+     */
+    private static void edtEventually(Runnable action) {
+        EdtDispatch.runEventually("modeling tool EDT cleanup", action);
     }
 
     private record Key(String pluginId, long pluginGeneration, String toolId) {}

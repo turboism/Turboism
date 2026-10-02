@@ -78,14 +78,16 @@ public final class RuntimeModelingToolRegistry implements ModelingToolRegistry {
                 @Override
                 public void close() {
                     if (!disposed.compareAndSet(false, true)) return;
-                    EdtDispatch.call("modeling registry removal", () -> {
+                    // Removal is idempotent cleanup: it must still run when the caller's
+                    // dispatch wait lapses, never be abandoned with the tools map and the
+                    // host contribution left registered.
+                    EdtDispatch.runEventually("modeling registry removal", () -> {
                         tools.remove(descriptor.toolId(), this);
                         try {
                             logic.close();
                         } finally {
                             ui.close();
                         }
-                        return null;
                     });
                 }
             };
@@ -96,8 +98,8 @@ public final class RuntimeModelingToolRegistry implements ModelingToolRegistry {
 
     @Override
     public void close() {
-        EdtDispatch.call("modeling registry cleanup", () -> {
-            if (closed) return null;
+        EdtDispatch.runEventually("modeling registry cleanup", () -> {
+            if (closed) return;
             closed = true;
             RuntimeException first = null;
             for (Registration registration : new ArrayList<>(tools.values())) {
@@ -110,7 +112,6 @@ public final class RuntimeModelingToolRegistry implements ModelingToolRegistry {
             }
             tools.clear();
             if (first != null) throw first;
-            return null;
         });
     }
 }

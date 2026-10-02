@@ -1,6 +1,7 @@
 package dev.turboism.ui.table;
 
 import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Point;
@@ -800,8 +801,7 @@ public final class SceneTableHostOperations
     }
 
     private static void onEdt(final Runnable operation) {
-        if (SwingUtilities.isEventDispatchThread()) operation.run();
-        else SwingUtilities.invokeLater(operation);
+        EdtDispatch.post("scene-table EDT update", operation);
     }
 
     @FunctionalInterface

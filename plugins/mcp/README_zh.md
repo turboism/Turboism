@@ -226,8 +226,9 @@ url = "http://127.0.0.1:43123/mcp"
 | `turboism.cubism.parameter.read` | `application` | 读取活动 Cubism 模型参数。 |
 | `turboism.cubism.project.read` | `application` | 读取活动项目、工作区、布局和主题状态。 |
 | `turboism.cubism.model.write` | `application` | 应用类型化的模型、参数、绑定、历史记录和模型设置写入。 |
-| `turboism.file.write` | `application` | 允许直接 Editor `SAVE` 命令。 |
-| `turboism.network.fetch` | `application` | 允许类型化的外部应用程序设置命令。 |
+| `turboism.file.read` | `application` | 在发布 loopback 端点前校验 MCP 连接文件元数据（存在性、所有者、符号链接检查）。 |
+| `turboism.file.write` | `application` | 允许直接 Editor `SAVE` 命令，并向 MCP 状态目录写入仅属主可读的 loopback 连接文件。 |
+| `turboism.network.fetch` | `application` | 允许类型化的外部应用程序设置命令，并绑定受 Origin 防护的 loopback HTTP 传输。 |
 | `turboism.process.run` | `application` | 允许类型化的外部应用程序设置命令。 |
 | `turboism.mcp.connection.publish` | `application` | 通过进程内运行时交换，将当前回环端点发布给已获权限批准的自动化插件。 |
 | `turboism.action.register` | `application` | 注册打开本地 MCP 连接窗口的操作。 |
