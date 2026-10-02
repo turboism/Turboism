@@ -333,7 +333,7 @@ def write(root: Path, relative: str, text: str) -> None:
 
 def case_clean_baseline(root: Path) -> None:
     write(root, "sdk/src/main/java/dev/turboism/sample/Sample.java", DOCUMENTED_TYPE)
-    result = run(root, "javadoc,digests,naming,assets")
+    result = run(root, "javadoc,digests,naming,assets,controlchars")
     assert result.returncode == 0, f"clean tree must pass, got:\n{result.stdout}"
     assert "@Override" not in result.stdout
 
@@ -562,6 +562,40 @@ def case_retired_asset_token(root: Path) -> None:
     assert "retired governance token" in result.stdout
 
 
+def case_literal_control_character(root: Path) -> None:
+    """A raw NUL byte in a Java source must fail; the escaped form must not."""
+    path = root / "runtime/src/main/java/dev/turboism/sample/Embedded.java"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        b'package dev.turboism.sample;\n\n/** Doc. */\npublic final class Embedded {\n'
+        b'    static final String X = "a\x00b";\n}\n'
+    )
+    result = run(root, "controlchars")
+    assert result.returncode == 1, "a literal NUL byte must fail"
+    assert "literal control character 0x00 in source: " in result.stdout
+    assert "Embedded.java:5" in result.stdout
+    path.write_bytes(
+        b'package dev.turboism.sample;\n\n/** Doc. */\npublic final class Embedded {\n'
+        b'    static final String X = "a\\u0000b";\n}\n'
+    )
+    result = run(root, "controlchars")
+    assert result.returncode == 0, f"an escaped NUL must pass, got:\n{result.stdout}"
+
+
+def case_control_character_in_script_and_kts(root: Path) -> None:
+    """Python and Gradle Kotlin sources are scanned too."""
+    script = root / "scripts/tool.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_bytes(b"MARKER = b'a\x07b'\n")
+    kts = root / "gradle/thing.gradle.kts"
+    kts.parent.mkdir(parents=True, exist_ok=True)
+    kts.write_bytes(b'val marker = "a\x0bb"\n')
+    result = run(root, "controlchars")
+    assert result.returncode == 1, "control bytes in scripts and kts must fail"
+    assert "scripts/tool.py" in result.stdout
+    assert "gradle/thing.gradle.kts" in result.stdout
+
+
 def case_unknown_rule(root: Path) -> None:
     result = run(root, "nonsense")
     assert result.returncode == 2, "unknown rule must fail closed"
@@ -645,6 +679,8 @@ CASES = (
     case_version_token_inside_type,
     case_non_version_digits_pass,
     case_retired_asset_token,
+    case_literal_control_character,
+    case_control_character_in_script_and_kts,
     case_unknown_rule,
     case_ratchet_blocks_new_undocumented_api,
     case_ratchet_holds_when_backlog_matches,
