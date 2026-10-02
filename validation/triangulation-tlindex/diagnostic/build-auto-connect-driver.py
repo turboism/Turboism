@@ -11,6 +11,8 @@ parser.add_argument('output', type=Path)
 parser.add_argument('--host-profile', choices=('5203', '5302', '5303'), default='5203',
                     help='Freeze one reviewed host version; 53x requires producer recorder')
 parser.add_argument('--producer-recorder', action='store_true', help='Bind raw results at the reviewed native producer return boundary')
+parser.add_argument('--command-cpu-boundaries', action='store_true',
+                    help='Separate process CPU evidence at resource markers; no acceptance claim')
 parser.add_argument('--base-agent', type=Path, help='Pinned production b47f6f47 Agent, shaded ASM/ownership compile dependency only')
 parser.add_argument('--cycles', type=int, choices=range(3, 13), default=3,
                     help='Bounded producer memory-stability commands; default protocol remains three')
@@ -296,12 +298,29 @@ if args.cycles != 3:
     text = text.replace('for (int cycle = 1; cycle <= 3; cycle++)',
                         f'for (int cycle = 1; cycle <= {args.cycles}; cycle++)')
     text = text.replace('cycles=3\\n', f'cycles={args.cycles}\\n')
+if args.command_cpu_boundaries:
+    replace('        private void resourceMarker(final String phase, final int operation) throws Exception {', '''        private CommandCpuBoundary commandCpu;
+        private void resourceMarker(final String phase, final int operation) throws Exception {
+            if (config.resourceObservationSeconds > 0) {
+                if (commandCpu == null) commandCpu = CommandCpuBoundary.system();
+                final CommandCpuBoundary.Sample cpu = commandCpu.read();
+                final Path cpuLog = run.resolve("command-cpu-boundaries.tsv");
+                if (!Files.exists(cpuLog, LinkOption.NOFOLLOW_LINKS))
+                    Files.writeString(cpuLog, CommandCpuBoundary.header(), StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                if (!Files.isRegularFile(cpuLog, LinkOption.NOFOLLOW_LINKS))
+                    throw new IllegalStateException("CPU boundary log is not a regular file");
+                Files.writeString(cpuLog, CommandCpuBoundary.row(phase, operation, cpu),
+                    StandardCharsets.UTF_8, StandardOpenOption.APPEND, StandardOpenOption.WRITE);
+            }''')
 driver.write_text(text)
 edt = src / 'FixedEdt.java'
 text = edt.read_text()
 assert text.count('        MAIN_LOOKUP,') == 1
 edt.write_text(text.replace('        MAIN_LOOKUP,', '        MESH_BIND,\n        MESH_ENTER,\n        MESH_CONNECT,\n        MESH_CAPTURE,\n        MESH_LEAVE,\n        MAIN_LOOKUP,'))
 helpers = ['MeshResultSnapshot.java', 'NativeAutoConnect.java', 'NativeCancelPrompt.java']
+if args.command_cpu_boundaries:
+    helpers += ['CommandCpuBoundary.java']
 if args.producer_recorder:
     helpers += ['MeshProducerRecorder.java', 'MeshProducerWeave.java', 'NativeProducerAutoConnect.java']
     inputs[str(args.base_agent.resolve())] = hashlib.sha256(args.base_agent.read_bytes()).hexdigest()
@@ -366,9 +385,23 @@ if args.cycles != 3:
     (out / 'extended-queue-selfcheck.log').write_text(check.stdout + check.stderr)
     check.check_returncode()
     print(check.stdout, end='')
+if args.command_cpu_boundaries:
+    check_source = diag / 'CommandCpuBoundarySelfCheck.java'
+    inputs[str(check_source.relative_to(root))] = hashlib.sha256(check_source.read_bytes()).hexdigest()
+    check_java = check_src / check_source.name
+    check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + check_source.read_text())
+    subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                    '-cp', str(classes), '-d', str(check_classes), str(check_java)], env=env, check=True)
+    check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                            str(classes) + os.pathsep + str(check_classes),
+                            'dev.turboism.validation.atlasimage.shadow.CommandCpuBoundarySelfCheck'],
+                           env=env, capture_output=True, text=True)
+    (out / 'command-cpu-selfcheck.log').write_text(check.stdout + check.stderr)
+    check.check_returncode()
+    print(check.stdout, end='')
 manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'
 subprocess.run(['jar', '--create', '--file', str(jar), '--manifest', str(manifest), '-C', str(classes), '.'], env=env, check=True)
-(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'hostProfile':args.host_profile, 'cycles':args.cycles, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
+(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'commandCpuBoundaries':args.command_cpu_boundaries, 'hostProfile':args.host_profile, 'cycles':args.cycles, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
 print(jar)
