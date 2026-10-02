@@ -7,9 +7,9 @@ import dev.turboism.plugin.webdavbackup.webdav.WebDavConfig;
 import dev.turboism.plugin.webdavbackup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
-import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
 import dev.turboism.sdk.event.SubscribeEvent;
@@ -23,9 +23,7 @@ import dev.turboism.sdk.task.PluginTaskPriority;
 import dev.turboism.sdk.task.PluginTaskRequest;
 import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -60,7 +58,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private volatile boolean enabled;
     private volatile WebDavConfig lastSavedConfig;
     private volatile WebDavConfig.RemoteTrigger triggerMode = WebDavConfig.RemoteTrigger.SAVE_TRIGGERED;
-    private final Set<File> pendingTempFiles = ConcurrentHashMap.newKeySet();
+    private final Set<BackupArtifactHandle> pendingTempArtifacts = ConcurrentHashMap.newKeySet();
     private final Set<String> scannedArtifacts = ConcurrentHashMap.newKeySet();
     private final AtomicLong uploadSequence = new AtomicLong();
     private volatile Thread scannerThread;
@@ -100,7 +98,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         lastSavedConfig = null;
         stopScanner();
         cancelTargetRetry();
-        cleanupPendingTempFiles();
+        cleanupPendingTempArtifacts();
         closeRegistrations();
     }
 
@@ -184,9 +182,6 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     /** Bounded target-rebuild retry backoff (ms); five attempts, ~15.5s total. */
     static final long[] TARGET_RETRY_BACKOFF_MILLIS = {500L, 1_000L, 2_000L, 4_000L, 8_000L};
-
-    /** Save-triggered temp artifact directory prefix (runtime convention). */
-    static final String TEMP_DIR_PREFIX = "turboism-backup-";
 
     /** AUTO_BACKUP_SYNC scan period. */
     static final long AUTO_BACKUP_SCAN_INTERVAL_MILLIS = 30_000L;
@@ -288,16 +283,16 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                                                     .orElse("")
                                             + " message=" + (cause.getMessage() == null ? "" : cause.getMessage()));
                         } else if (event != null) {
-                            for (File file : event.newBackupFiles()) {
-                                if (isTempBackupFile(file)) {
-                                    pendingTempFiles.add(file);
+                            for (BackupArtifactHandle artifact : event.artifacts()) {
+                                if (artifact.temporary()) {
+                                    pendingTempArtifacts.add(artifact);
                                 }
                             }
-                            submitUpload(callbackContext, event.newBackupFiles());
+                            submitUpload(callbackContext, event.artifacts());
                             callbackContext
                                     .logger()
                                     .info("BACKUP_AFTER_SAVE_OK files="
-                                            + event.newBackupFiles().size());
+                                            + event.artifacts().size());
                         }
                     });
         } catch (RuntimeException | Error failure) {
@@ -384,23 +379,23 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
      * Hands the upload to the long-task lane: the save completion callback runs on the
      * plugin's completion lane, whose 5s bound would interrupt ordinary WebDAV transfers.
      */
-    private void submitUpload(final PluginContext active, final List<File> files) {
-        final List<File> artifacts = List.copyOf(files);
+    private void submitUpload(final PluginContext active, final List<BackupArtifactHandle> artifacts) {
+        final List<BackupArtifactHandle> pending = List.copyOf(artifacts);
         final TaskSubmission submission = active.tasks()
                 .submit(new PluginTaskRequest(
                         new TaskId("webdav-upload-" + uploadSequence.incrementAndGet()),
                         PluginTaskKind.LONG_RUNNING,
                         PluginTaskPriority.NORMAL,
-                        token -> syncCompletedArtifacts(artifacts)));
+                        token -> syncCompletedArtifacts(pending)));
         if (!submission.accepted()) {
             active.logger()
                     .warn("WEBDAV_SYNC_REJECTED reason="
                             + submission.rejectionReason().map(Enum::name).orElse("UNKNOWN"));
-            cleanupTempFiles(artifacts);
+            cleanupTempArtifacts(pending);
         }
     }
 
-    private void syncCompletedArtifacts(final List<File> files) {
+    private void syncCompletedArtifacts(final List<BackupArtifactHandle> artifacts) {
         WebDavSyncTarget active = target;
         if (active == null && lastSavedConfig != null) {
             synchronized (this) {
@@ -418,59 +413,51 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         }
         if (active == null) {
             requireContext().logger().info("WEBDAV_SYNC_SKIPPED reason=target-unavailable");
-            cleanupTempFiles(files);
+            cleanupTempArtifacts(artifacts);
             return;
         }
         try {
-            for (File file : files) {
-                requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + file.getName());
+            for (BackupArtifactHandle artifact : artifacts) {
+                requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + artifact.fileName());
             }
-            active.sync(files);
-            requireContext().logger().info("WEBDAV_SYNC_COMPLETED files=" + files.size());
+            active.sync(artifacts);
+            requireContext().logger().info("WEBDAV_SYNC_COMPLETED files=" + artifacts.size());
         } catch (RuntimeException | Error failure) {
             requireContext()
                     .logger()
                     .warn("WEBDAV_SYNC_FAILED " + failure.getClass().getSimpleName());
         } finally {
-            cleanupTempFiles(files);
+            cleanupTempArtifacts(artifacts);
         }
     }
 
-    /** True when the artifact comes from the save-triggered temp flow. */
-    private static boolean isTempBackupFile(final File file) {
-        return file != null
-                && file.getParentFile() != null
-                && file.getParentFile().getName().startsWith(TEMP_DIR_PREFIX);
-    }
-
-    private void cleanupTempFiles(final List<File> files) {
-        for (File file : files) {
-            if (isTempBackupFile(file)) {
-                pendingTempFiles.remove(file);
-                deleteTempFile(file);
+    private void cleanupTempArtifacts(final List<BackupArtifactHandle> artifacts) {
+        for (BackupArtifactHandle artifact : artifacts) {
+            if (artifact.temporary()) {
+                pendingTempArtifacts.remove(artifact);
+                discardTempArtifact(artifact);
             }
         }
     }
 
-    private void cleanupPendingTempFiles() {
-        for (File file : List.copyOf(pendingTempFiles)) {
-            pendingTempFiles.remove(file);
-            deleteTempFile(file);
+    private void cleanupPendingTempArtifacts() {
+        for (BackupArtifactHandle artifact : List.copyOf(pendingTempArtifacts)) {
+            pendingTempArtifacts.remove(artifact);
+            discardTempArtifact(artifact);
         }
     }
 
-    private void deleteTempFile(final File file) {
+    /**
+     * Discards one runtime-created temporary artifact through the handle: the
+     * runtime performs the confined delete (and prunes the empty temp
+     * directory), so the plugin never touches the filesystem.
+     */
+    private void discardTempArtifact(final BackupArtifactHandle artifact) {
         try {
-            Files.deleteIfExists(file.toPath());
-            final Path dir = file.getParentFile().toPath();
-            try (var entries = Files.list(dir)) {
-                if (entries.findAny().isEmpty()) {
-                    Files.deleteIfExists(dir);
-                }
-            }
-            requireContext().logger().info("WEBDAV_TEMP_CLEANUP file=" + file.getName());
-        } catch (IOException failure) {
-            requireContext().logger().warn("WEBDAV_TEMP_CLEANUP_FAILED file=" + file.getName());
+            artifact.discard();
+            requireContext().logger().info("WEBDAV_TEMP_CLEANUP file=" + artifact.fileName());
+        } catch (IOException | RuntimeException failure) {
+            requireContext().logger().warn("WEBDAV_TEMP_CLEANUP_FAILED file=" + artifact.fileName());
         }
     }
 
@@ -526,41 +513,19 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         if (active == null || context == null) {
             return;
         }
-        final EditorAutoBackupSettings settings = requireContext()
-                .services()
-                .require(EditorAutoBackupService.class)
-                .settings();
-        final String backupDirPath = settings.backupDir();
-        if (backupDirPath == null) {
-            return;
+        final List<BackupArtifactHandle> fresh =
+                requireContext().services().require(EditorAutoBackupService.class).artifacts().stream()
+                        .filter(artifact -> artifact.fileName().contains("_backup"))
+                        .filter(artifact -> artifact.fileName().endsWith(".cmo3"))
+                        .filter(artifact -> artifact.sizeBytes() > 0
+                                && scannedArtifacts.add(artifact.fileName() + ":" + artifact.sizeBytes()))
+                        .sorted(java.util.Comparator.comparing(BackupArtifactHandle::fileName))
+                        .toList();
+        for (BackupArtifactHandle artifact : fresh) {
+            requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + artifact.fileName());
         }
-        final Path backupDir = Path.of(backupDirPath);
-        if (!Files.isDirectory(backupDir)) {
-            return;
-        }
-        try (var stream = Files.list(backupDir)) {
-            final List<File> fresh = stream.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().contains("_backup"))
-                    .filter(path -> path.getFileName().toString().endsWith(".cmo3"))
-                    .filter(path -> {
-                        try {
-                            return Files.size(path) > 0
-                                    && scannedArtifacts.add(path.getFileName() + ":" + Files.size(path));
-                        } catch (IOException failure) {
-                            return false;
-                        }
-                    })
-                    .map(Path::toFile)
-                    .sorted(java.util.Comparator.comparing(File::getName))
-                    .toList();
-            for (File file : fresh) {
-                requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + file.getName());
-            }
-            if (!fresh.isEmpty()) {
-                active.sync(fresh);
-            }
-        } catch (IOException failure) {
-            throw new IllegalStateException("webdav auto-backup scan failed", failure);
+        if (!fresh.isEmpty()) {
+            active.sync(fresh);
         }
     }
 
