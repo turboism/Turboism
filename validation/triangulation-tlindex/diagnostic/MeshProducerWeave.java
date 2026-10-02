@@ -17,12 +17,15 @@ import java.util.HexFormat;
 import java.util.List;
 
 /** Exact initial-definition, owned-Instrumentation validation hook. Never installed in release packaging. */
-final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
+final class MeshProducerWeave implements AutoCloseable {
     static final String TARGET = "com/live2d/graphics3d/editableMesh/b";
     static final String RECORDER = MeshProducerRecorder.class.getName().replace('.', '/');
     private final Instrumentation instrumentation;
     private final String version;
     private final java.net.URI expectedOrigin;
+    // Registration runs outside a transformer class's stack frames. The owned
+    // gateway conservatively treats every such frame as a callback context.
+    private final ClassFileTransformer transformer = new ProducerTransformer(this);
     private volatile String status = "REGISTERED_NOT_OBSERVED";
     private boolean closed;
 
@@ -44,14 +47,14 @@ final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
         }
         MeshProducerRecorder.requireIdle();
         MeshProducerWeave result = new MeshProducerWeave(instrumentation, version, origin);
-        instrumentation.addTransformer(result, false);
+        instrumentation.addTransformer(result.transformer, false);
         return result;
     }
 
     String status() { return status; }
     void requireInstalled() { require(status.equals("INITIAL_DEFINITION_WOVEN"), "producer hook: " + status); }
 
-    @Override public synchronized byte[] transform(ClassLoader loader, String name, Class<?> redefined,
+    private synchronized byte[] transform(ClassLoader loader, String name, Class<?> redefined,
             ProtectionDomain domain, byte[] bytes) {
         if (!TARGET.equals(name)) return null;
         try {
@@ -83,8 +86,17 @@ final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
             if (closed) return;
             closed = true;
         }
-        if (!instrumentation.removeTransformer(this)) throw new IllegalStateException("producer hook removal failed");
+        if (!instrumentation.removeTransformer(transformer)) throw new IllegalStateException("producer hook removal failed");
         status = "REMOVED_AFTER_COMMANDS";
+    }
+
+    private static final class ProducerTransformer implements ClassFileTransformer {
+        private final MeshProducerWeave owner;
+        ProducerTransformer(MeshProducerWeave owner) { this.owner = owner; }
+        @Override public byte[] transform(ClassLoader loader, String name, Class<?> redefined,
+                ProtectionDomain domain, byte[] bytes) {
+            return owner.transform(loader, name, redefined, domain, bytes);
+        }
     }
 
     static String descriptor(String version) {
@@ -135,6 +147,7 @@ final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
         }, 0);
         require(shape[0] == 1 && shape[1] >= 1 && (!singleReturn || shape[1] == 1), "producer method/return shape mismatch");
         int ticketSlot = shape[2];
+        int meshSlot = ticketSlot + 1;
         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_MAXS);
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
@@ -147,36 +160,31 @@ final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
                         super.visitVarInsn(Opcodes.ALOAD, 1);
                         super.visitMethodInsn(Opcodes.INVOKESTATIC, RECORDER, "started", "(Ljava/lang/Object;)Ljava/lang/Object;", false);
                         super.visitVarInsn(Opcodes.ASTORE, ticketSlot);
+                        super.visitVarInsn(Opcodes.ALOAD, 1);
+                        super.visitVarInsn(Opcodes.ASTORE, meshSlot);
                         super.visitLabel(start);
                     }
                     @Override public void visitFrame(int kind, int count, Object[] values, int stackCount, Object[] stack) {
                         require(kind == Opcodes.F_NEW, "producer frames must be expanded");
                         List<Object> locals = new ArrayList<>(List.of(java.util.Arrays.copyOf(values, count)));
-                        pad(locals, ticketSlot); locals.add("java/lang/Object");
+                        pad(locals, ticketSlot); locals.add("java/lang/Object"); locals.add("java/lang/Object");
                         super.visitFrame(Opcodes.F_NEW, locals.size(), locals.toArray(), stackCount, stack);
                     }
                     @Override public void visitInsn(int opcode) {
                         if (opcode == Opcodes.RETURN) {
                             super.visitVarInsn(Opcodes.ALOAD, ticketSlot);
-                            super.visitVarInsn(Opcodes.ALOAD, 1);
+                            super.visitVarInsn(Opcodes.ALOAD, meshSlot);
                             super.visitMethodInsn(Opcodes.INVOKESTATIC, RECORDER, "returned", "(Ljava/lang/Object;Ljava/lang/Object;)V", false);
                         }
                         super.visitInsn(opcode);
                     }
                     @Override public void visitMaxs(int stack, int localCount) {
                         super.visitLabel(end); super.visitLabel(handler);
-                        List<Object> locals = new ArrayList<>(); locals.add(reader.getClassName());
-                        for (Type argument : Type.getArgumentTypes(desc)) {
-                            locals.add(switch (argument.getSort()) {
-                                case Type.BOOLEAN, Type.BYTE, Type.CHAR, Type.SHORT, Type.INT -> Opcodes.INTEGER;
-                                case Type.FLOAT -> Opcodes.FLOAT;
-                                case Type.LONG -> Opcodes.LONG;
-                                case Type.DOUBLE -> Opcodes.DOUBLE;
-                                case Type.ARRAY -> argument.getDescriptor();
-                                default -> argument.getInternalName();
-                            });
-                        }
-                        pad(locals, ticketSlot); locals.add("java/lang/Object");
+                        // Official Kotlin frames discard dead original arguments,
+                        // including this and mesh. The handler uses only our stable
+                        // ticket; never require the original locals to stay live.
+                        List<Object> locals = new ArrayList<>();
+                        pad(locals, ticketSlot); locals.add("java/lang/Object"); locals.add("java/lang/Object");
                         super.visitFrame(Opcodes.F_NEW, locals.size(), locals.toArray(), 1, new Object[] {"java/lang/Throwable"});
                         super.visitInsn(Opcodes.DUP);
                         super.visitVarInsn(Opcodes.ALOAD, ticketSlot);
@@ -184,7 +192,7 @@ final class MeshProducerWeave implements ClassFileTransformer, AutoCloseable {
                         super.visitMethodInsn(Opcodes.INVOKESTATIC, RECORDER, "failed", "(Ljava/lang/Object;Ljava/lang/Throwable;)V", false);
                         super.visitInsn(Opcodes.ATHROW);
                         super.visitTryCatchBlock(start, end, handler, "java/lang/Throwable");
-                        super.visitMaxs(stack, ticketSlot + 1);
+                        super.visitMaxs(stack, meshSlot + 1);
                     }
                 };
             }

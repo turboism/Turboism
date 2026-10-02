@@ -50,6 +50,16 @@ public final class MeshProducerWeaveSelfCheck {
             require(invoke.invoke(producer, mesh, List.of(), false, null) == null);
             reject(scope::finish);
         }
+        // Kotlin's official producer marks original this/arguments TOP before
+        // return. Both the return hook and catch frame must use preserved locals.
+        mesh.vertexCache = 1;
+        Class<?> dead = new Loader().define(MeshProducerWeave.instrument(deadArguments(), "a",
+            "(Ljava/lang/Object;Ljava/util/List;ZLjava/lang/Object;)V", true));
+        try (var scope = MeshProducerRecorder.begin(4, List.of("source"), bindings)) {
+            dead.getMethod("a", Object.class, List.class, boolean.class, Object.class)
+                .invoke(dead.getConstructor().newInstance(), mesh, List.of(), false, null);
+            require(scope.finish().size() == 1);
+        }
         for (int index = 0; index < args.length; index += 3) {
             String version = args[index]; Path jar = Path.of(args[index + 1]); Path output = Path.of(args[index + 2]);
             require(MeshProducerWeave.jarSha(version).equals(sha(Files.readAllBytes(jar))));
@@ -64,7 +74,7 @@ public final class MeshProducerWeaveSelfCheck {
                 if (method[0].equals("a") && method[1].equals(MeshProducerWeave.descriptor(version))) {
                     int[] before = shape(input, method[0], method[1]), after = shape(patched, method[0], method[1]);
                     require(after[0] == 1 && after[1] == 1 && after[2] == 1);
-                    require(after[3] == before[3] + 1 && after[4] == before[4] + 1);
+                    require(after[3] == before[3] + 1 && after[4] == before[4] + 2);
                 } else {
                     require(methodBytes(input, method).equals(methodBytes(patched, method)));
                 }
@@ -89,6 +99,20 @@ public final class MeshProducerWeaveSelfCheck {
     private static final class Loader extends ClassLoader {
         Loader() { super(MeshProducerWeaveSelfCheck.class.getClassLoader()); }
         Class<?> define(byte[] bytes) { return defineClass(null, bytes, 0, bytes.length); }
+    }
+    private static byte[] deadArguments() {
+        ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "ProducerDeadArguments", null, "java/lang/Object", null);
+        MethodVisitor init = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        init.visitCode(); init.visitVarInsn(Opcodes.ALOAD, 0);
+        init.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        init.visitInsn(Opcodes.RETURN); init.visitMaxs(0, 0); init.visitEnd();
+        MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "a",
+            "(Ljava/lang/Object;Ljava/util/List;ZLjava/lang/Object;)V", null, null);
+        method.visitCode(); Label done = new Label(); method.visitJumpInsn(Opcodes.GOTO, done);
+        method.visitLabel(done); method.visitFrame(Opcodes.F_FULL, 0, new Object[0], 0, new Object[0]);
+        method.visitInsn(Opcodes.RETURN); method.visitMaxs(0, 5); method.visitEnd();
+        writer.visitEnd(); return writer.toByteArray();
     }
     private static List<String> members(byte[] bytes) {
         List<String> result = new java.util.ArrayList<>();
