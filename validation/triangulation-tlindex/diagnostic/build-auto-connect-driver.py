@@ -152,11 +152,14 @@ replace('        private void resourceMarker(final String phase, final int opera
                 observeResources("mesh-retained", cycle);
             }
             resourceMarker("mesh-cancel-start", 0);
-            FixedEdt.callWithin(() -> {
-                NativeAutoConnect.leave(meshController(), binding);
-                return null;
-            }, FixedEdt.Operation.MESH_LEAVE, evidence, remainingMillis(runDeadlineNanos));
+            final int cancelAnswers = FixedEdt.callWithin(
+                () -> NativeAutoConnect.leave(meshController(), binding, main),
+                FixedEdt.Operation.MESH_LEAVE, evidence,
+                Math.min(remainingMillis(runDeadlineNanos), TimeUnit.SECONDS.toMillis(30)));
             resourceMarker("mesh-cancel-end", 0);
+            Files.writeString(run.resolve("auto-connect-cancel.properties"),
+                "status=PASS\\nresource=CUB3-0009\\nanswer=YES_CANCEL_MESH_EDIT\\nanswers=" + cancelAnswers + "\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
             verifyMeshFixture();
         }
 
@@ -245,7 +248,7 @@ edt = src / 'FixedEdt.java'
 text = edt.read_text()
 assert text.count('        MAIN_LOOKUP,') == 1
 edt.write_text(text.replace('        MAIN_LOOKUP,', '        MESH_BIND,\n        MESH_ENTER,\n        MESH_CONNECT,\n        MESH_CAPTURE,\n        MESH_LEAVE,\n        MAIN_LOOKUP,'))
-helpers = ['MeshResultSnapshot.java', 'NativeAutoConnect.java']
+helpers = ['MeshResultSnapshot.java', 'NativeAutoConnect.java', 'NativeCancelPrompt.java']
 if args.producer_recorder:
     helpers += ['MeshProducerRecorder.java', 'MeshProducerWeave.java', 'NativeProducerAutoConnect.java']
     inputs[str(args.base_agent.resolve())] = hashlib.sha256(args.base_agent.read_bytes()).hexdigest()

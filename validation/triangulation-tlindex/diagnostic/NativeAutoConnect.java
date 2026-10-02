@@ -84,14 +84,27 @@ final class NativeAutoConnect {
         return List.copyOf(results);
     }
 
-    static void leave(Object controller, Binding binding) throws Exception {
+    static int leave(Object controller, Binding binding, java.awt.Window main) throws Exception {
         Object doc = boundDocument(controller, binding);
         require(call(doc, "getCurrentEditMode").getClass().getName().equals(EDIT),
             "native mesh mode missing before cancel");
-        invokeNamed(controller, "command_cancelMeshEditor", doc);
+        // Exact reviewed native cancel resource, resolved from the same locale source as editCancel.
+        Class<?> locale = Class.forName("b.c", false, controller.getClass().getClassLoader());
+        Object message = invokeNamed(locale.getField("a").get(null), "a", "CUB3-0009", (Object) new String[0]);
+        require(message instanceof String && !message.equals("CUB3-0009"), "native cancel resource unavailable");
+        int answers;
+        try (NativeCancelPrompt prompt = new NativeCancelPrompt(main, (String) message, () -> {
+            require(boundDocument(controller, binding) == doc
+                    && call(doc, "getCurrentEditMode").getClass().getName().equals(EDIT),
+                "task context changed during cancel prompt");
+        }, 10_000)) {
+            invokeNamed(controller, "command_cancelMeshEditor", doc);
+            answers = prompt.requireSuccess();
+        }
         require(boundDocument(controller, binding) == doc
                 && call(doc, "getCurrentEditMode").getClass().getName().equals(MAIN),
             "native mesh cancel did not restore main mode");
+        return answers;
     }
 
     /** Per-driver binding, never stored globally. Filesystem I/O is prohibited on the EDT. */
