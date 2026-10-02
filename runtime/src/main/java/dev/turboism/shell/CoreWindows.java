@@ -1,5 +1,6 @@
 package dev.turboism.shell;
 
+import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
@@ -997,13 +998,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     static boolean httpLinkAllowed(final String value) {
-        try {
-            final URI uri = URI.create(value);
-            return ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
-                    && uri.getHost() != null;
-        } catch (IllegalArgumentException invalid) {
-            return false;
-        }
+        return HttpLinks.isAllowed(value);
     }
 
     private static boolean openHttpLink(final String value) {
