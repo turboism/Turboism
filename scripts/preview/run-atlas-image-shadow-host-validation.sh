@@ -527,7 +527,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$tri_single_agent_flag" == 1 ]]; then
-  [[ "$version" == 5203 || "$version" == 5302 ]] || fail 'single-agent scene currently admits only 5203/5302'
+  [[ "$version" == 5203 || "$version" == 5302 || "$version" == 5303 ]] || fail 'single-agent scene admits only reviewed versions'
   [[ -n "$tri_tlprod_leg" && "$tri_tlindex" == tl-dump-only ]] \
     || fail 'single-agent scene requires a production tl-dump-only capture leg'
   [[ -n "$tri_tlprod_home_config" ]] || fail 'single-agent scene requires an explicit production home config'
@@ -748,11 +748,20 @@ fi
 # is gated on the pinned agent hash. The 5203 profile ships no T039 agent, so the
 # production transformer sees the pristine e/g bytes and the reviewed digest admits them.
 if [[ "$version" == 5303 && "$atlas_pref_off" == 0 ]]; then
-  [[ "${values[t039AgentSha256]}" == "725920f9c008a1c86d6a9ac99fa89e3cbcc55b35221462be247d2844c35f3fad" ]] \
-    || fail 'production-on runs require the pinned T039 build that produced the admitted woven digest'
-  t039_before_main=1
+  if [[ "$tri_single_agent_flag" == 1 ]]; then
+    [[ "${values[t039AgentSha256]}" == "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680" ]] \
+      || fail 'single-agent 5303 requires the pinned owner-cold shadow sidecar'
+    jar tf "$production_agent" | grep -qx 'dev/turboism/bootstrap/TriangulationSingleAgentShadowPreHook.class' \
+      || fail 'single-agent 5303 requires the shadow pre-contributor'
+  else
+    [[ "${values[t039AgentSha256]}" == "725920f9c008a1c86d6a9ac99fa89e3cbcc55b35221462be247d2844c35f3fad" ]] \
+      || fail 'production-on runs require the pinned T039 build that produced the admitted woven digest'
+    t039_before_main=1
+  fi
   atlas_admit_sha256=800e3f6758e47bb1d8d974e72dcfed220f8773e15a5f05cac101ae2b56c1d160
 fi
+[[ "$version" != 5303 || "$tri_single_agent_flag" == 0 || "$atlas_pref_off" == 0 ]] \
+  || fail 'single-agent 5303 requires the reviewed production Atlas composition'
 
 t039_agent=''
 if [[ "$version" == 5303 ]]; then
@@ -771,7 +780,7 @@ runner_args=(
   --agent "$production_agent"
 )
 # Keep the 5303 agent order identical to the reviewed profile: T039 before the driver.
-if [[ "$version" == 5303 ]]; then
+if [[ "$version" == 5303 && "$tri_single_agent_flag" == 0 ]]; then
   runner_args+=(--aux-agent "$t039_agent:t039-shadow-agent.jar")
 fi
 # T029-IDENTITY: probe premains after production and before the scene driver.
@@ -834,6 +843,15 @@ if [[ "$tri_single_agent_flag" == 1 ]]; then
     --jvm-option "-Dturboism.validation.settingsStartupExpectedEdgeIndex=$startup_expected_edge"
     --jvm-option "-Dturboism.validation.hostVersion=$version"
   )
+  if [[ "$version" == 5303 ]]; then
+    runner_args+=(
+      --home-file "$t039_agent:validation/t039-shadow-agent.jar"
+      --jvm-option '-Dturboism.validation.triSingleAgent.shadowPath={HOME}/validation/t039-shadow-agent.jar'
+      --jvm-option "-Dturboism.validation.triSingleAgent.shadowSha256=${values[t039AgentSha256]}"
+      --jvm-option '-Dturboism.validation.t039.ownerColdRemovalOptIn=T039_OWNED_COLD_REMOVAL_V1'
+      --jvm-option "-Dturboism.atlasTileBbox.admitClassSha256=$atlas_admit_sha256"
+    )
+  fi
 else
   runner_args+=(--aux-agent "$driver:atlas-image-shadow-scene-driver.jar")
 fi

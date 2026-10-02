@@ -45,10 +45,10 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
         return TOKEN.equals(System.getProperty(PREFIX + "optIn"));
     }
 
-    private record Sidecar(Path path, String sha256, String premain, JarFile jar) implements AutoCloseable {
+    static record Sidecar(Path path, String sha256, String premain, JarFile jar) implements AutoCloseable {
         @Override public void close() throws java.io.IOException { jar.close(); }
     }
-    private static Sidecar sidecar(String kind, String fileName, String premain) throws Exception {
+    static Sidecar sidecar(String kind, String fileName, String premain) throws Exception {
         String file = System.getProperty(PREFIX + kind + "Path", "");
         String sha = System.getProperty(PREFIX + kind + "Sha256", "");
         if (file.isEmpty() || !sha.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("missing pinned " + kind);
@@ -67,7 +67,7 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
         }
         return new Sidecar(path, sha, premain, jar);
     }
-    private static Class<?> append(Instrumentation instrumentation, Sidecar sidecar) throws Exception {
+    static Class<?> append(Instrumentation instrumentation, Sidecar sidecar) throws Exception {
         for (Class<?> type : instrumentation.getAllLoadedClasses()) {
             if (type.getName().equals(sidecar.premain)) throw new IllegalArgumentException("sidecar already loaded");
         }
@@ -110,7 +110,17 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
             files.add(sidecar("probe", "tri-weave-agent.jar", PROBE));
             if (mode.equals("scene")) {
                 String version = System.getProperty("turboism.validation.atlasImageShadow.version", "");
-                if (!version.equals("5203") && !version.equals("5302")) throw new IllegalArgumentException("5303 shadow lifecycle not admitted");
+                if (!version.equals("5203") && !version.equals("5302") && !version.equals("5303")) {
+                    throw new IllegalArgumentException("unknown reviewed scene version");
+                }
+                if (version.equals("5303")) {
+                    if (!TriangulationSingleAgentShadowPreHook.status().equals("ARMED")) {
+                        throw new IllegalArgumentException("5303 shadow pre-contributor not armed");
+                    }
+                } else if (System.getProperty(PREFIX + "shadowPath") != null
+                        || System.getProperty(PREFIX + "shadowSha256") != null) {
+                    throw new IllegalArgumentException("shadow sidecar is 5303-only");
+                }
                 files.add(sidecar("scene", "atlas-image-shadow-scene-driver.jar", SCENE));
             }
             Instrumentation tracked = (Instrumentation) Proxy.newProxyInstance(ClassLoader.getSystemClassLoader(),
@@ -147,7 +157,32 @@ public final class TriangulationSingleAgentValidationHook implements HookContrib
                 Class<?> scene = append(instrumentation, files.get(1));
                 Class<?> configClass = Class.forName(SCENE + "$DriverConfig", true, scene.getClassLoader());
                 var from = configClass.getDeclaredMethod("fromSystemProperties"); from.setAccessible(true); from.invoke(null);
+                if (System.getProperty("turboism.validation.atlasImageShadow.version", "").equals("5303")) {
+                    ClassFileTransformer observer = new ClassFileTransformer() {
+                        @Override public byte[] transform(ClassLoader loader, String name, Class<?> type,
+                                java.security.ProtectionDomain domain, byte[] bytes) {
+                            if (name != null && name.equals("com/live2d/util/f/g") && type == null) {
+                                INITIAL.put(name.replace('/', '.'), bytes.clone());
+                            }
+                            return null;
+                        }
+                    };
+                    instrumentation.addTransformer(observer, true); transforms.add(observer);
+                    TriangulationSingleAgentShadowPreHook.completeAfterProductionRegistration();
+                    byte[] composed = INITIAL.get("com.live2d.util.f.g");
+                    if (composed == null || !HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(composed))
+                            .equals("e1bd5eaa49d1114dc38912a094daf5fd66c737582c96aa16681e748c4a9f198e")) {
+                        throw new IllegalArgumentException("5303 production/shadow composed initial definition rejected");
+                    }
+                }
                 start(scene, instrumentation);
+                if (System.getProperty("turboism.validation.atlasImageShadow.version", "").equals("5303")) {
+                    var producer = scene.getDeclaredField("producerWeave"); producer.setAccessible(true);
+                    if (producer.get(null) == null || Thread.getAllStackTraces().keySet().stream()
+                            .filter(thread -> thread.getName().equals("atlas-image-shadow-fixed-driver")).count() != 1) {
+                        throw new IllegalArgumentException("5303 producer scene did not start");
+                    }
+                }
             }
             status = "INSTALLED";
             System.out.println("TRI_SINGLE_AGENT_VALIDATION status=" + status + " owned=true mode=" + mode

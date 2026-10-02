@@ -60,7 +60,25 @@ uses production base `b47f6f47928f46d7fc2acd94223d66e89c80c903a4bd8d2878d5f6cc92
 All base entries are unchanged except `META-INF/turboism/hooks`, plus added
 validation Hook classes. The companion is absent from release packaging.
 
-5303 T039 callback self-unregistration is correctly refused by the owned gateway;
-that composition remains unadmitted. Final native/repeated outputs and three-version
-stable performance, resources, UI and independent startup-setting linkage remain
-open. Production acceptance stays on hold.
+5303 T039 callback self-unregistration remains correctly refused by the owned gateway.
+The explicit validation-only owner-cold integration now uses a first manifest
+contributor to arm T039 without defining the official target. The last contributor
+defines it only after the production Atlas hooks are registered, verifies the
+composed initial bytes, performs real cold removal, and then installs the complete
+producer scene. A fresh lazy capture can admit after removal; an existing gate
+cannot survive removal. Startup-failure abort marks a registered session BLOCKED
+before bounded real cleanup and never makes it freeze-eligible.
+
+Build this distinct companion with `--scene`, `--scene-sha256`, `--shadow` and
+`--shadow-sha256`. The 5303 path pins sidecar `12d5fea3…`, the explicit token
+`T039_OWNED_COLD_REMOVAL_V1`, and actual Atlas-composed target bytes `e1bd5eaa…`.
+The wrapper stages three home sidecars with one attach-disabled canonical Agent;
+legacy multi-Agent 5303 retains its separate pinned artifact and order.
+
+`check-shadow-premain.py` verifies eight actual-premain positive/negative cases;
+the evidence at `build/t050-lazy-edge-bytecode/t039-shadow-integration-r1/` also
+covers unchanged 5203/5302 on/off behavior and exact generated driver differences.
+These checks define metadata only, with no official initialization, geometry or
+Editor. Final native/repeated outputs and three-version stable performance,
+resources, UI and independent startup-setting linkage remain open. Production
+acceptance stays on hold. See [dated evidence](../host-evidence-20261002.md).

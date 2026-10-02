@@ -873,3 +873,64 @@ corrected5203/5303 complete paired outputs/resources, formal managed native star
 real settings/independent restart, memory stability and numerical limits remain.
 No shared Runner/gateway/production algorithm change, new host task, immutable
 overwrite, previewBundle, merge or push occurs in this slice.
+
+
+## 5303 owner-cold actual-premain integration, final native pair still pending
+
+The validation-only pre contributor now registers T039 first without defining the
+official target. The post contributor runs after every production PREMAIN hook,
+defines `com.live2d.util.f.g` without initialization, observes the actual composed
+Atlas/shadow initial bytes `e1bd5eaa49d1114dc38912a094daf5fd66c737582c96aa16681e748c4a9f198e`,
+completes real cold removal, and only then starts the full producer scene. A later
+fresh lazy capture admits on and refuses off. No production gateway/algorithm,
+shared Runner, official file, frozen candidate or release packaging changed.
+
+Startup-failure abort handles a registered session before any target callback:
+it first becomes BLOCKED, then receives one bounded real cleanup attempt. Wrong
+runId/callback cleanup refuses, repeated cleanup cannot mutate a removed session,
+and cleanup cannot promote failure to freeze eligibility. The missing-abort red
+and nine-case green tests, original full kernel/T039/T040 checks, eight actual
+canonical-premain 5303 metadata cases and four 5203/5302 on/off compatibility cases
+pass. Existing 43-key freeze and default callback-removal failure controls remain.
+The new 5303 generated scene differs from the reviewed 5302 scene only in its
+explicit version/shadow guard and diagnostic text; all other generated sources,
+including producer recorder and native CUB3-4362 cancellation, are identical.
+
+Companion `892ce6eef0179ddbd65e551af667a5c059c31eacbffdc2e1be44aad647a1d928`
+uses unchanged production base `ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2`,
+capture `f0b11990…`, scene `fe920a1d1c3521b58a134e9af7864a0210fb109e56343f0ee5f77422d3ed3491`,
+and shadow `12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680`.
+Only the base hook resource changes, plus five validation classes. The pre hook
+is first and post hook last. Both wrapper requests have a single canonical Agent,
+three pinned home sidecars, real UI-saved leg Boolean and unchanged resource/JFR
+protocol. Their seven differences are restricted to labels/output paths/config
+and the corresponding expected Boolean/class/capture values.
+
+`devCheck` passes in47seconds. The complete wrapper execution passed through both
+single-Agent positive requests, then exited1 on an outdated final expected refusal
+message: missing mandatory T039 input is checked before scene mismatch. That exact
+test expectation was corrected; all five final controls were separately replayed
+and passed. The successful prefix and original exit1 remain preserved; no final
+whole-script exit0 is claimed. Earlier missing input/Xvfb attempts are retained.
+The metadata comparison's initial use of the production legacy five-argument
+transformer overload recursed; the actual JVM six-argument module-aware path and
+all final metadata checks pass. The production five-argument issue is not fixed
+or used as a valid execution result.
+
+Evidence root: `build/t050-lazy-edge-bytecode/t039-shadow-integration-r1/`.
+`integration-review.json` and `post-writer-pin-review.json` bind independent source,
+artifact, request and metadata pins. Full output/resource review scripts are staged
+for exactly one FIFO 5303 off→on pair, each budget1200seconds, on only after off
+standard gates and independent review. No build may run during measurement.
+Metadata does not initialize official classes, invoke geometry or start Editor;
+it cannot substitute for final native evidence.
+
+This integration slice can close. Production remains HOLD_PRODUCTION_ACCEPTANCE /
+NOT_PASSED; T050partial/T044/T046/full goalactive. Remaining work is the final
+corrected5203 and5303 complete paired output/resources, formal native managed
+startup/real settings/independent restart, memory stability and measured numerical
+CPU/memory limits for user review. At least four measuring legs remain;80minutes
+is their combined maximum host budget, not a promised completion time.
+
+Offline integration review SHA `838940e826c711c276911dac3270d1671ded3a11f2db6a4de5bc7f164da47c63`;212 bound inputs rehashed after
+the writer,0 mismatches. Frozen requests are not submitted-native PASS.
