@@ -1,5 +1,6 @@
 package dev.turboism.bootstrap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -16,6 +17,14 @@ import org.junit.jupiter.api.Test;
  * not marked {@link HookContributor#requiredInSafeMode()}.
  */
 final class TurboismAgentHookKillSwitchTest {
+
+    /**
+     * The manifest contributors permitted to install while safe mode is
+     * active. Explicit on purpose: a contributor joins this set only after a
+     * review concludes that skipping it would break plugin lifecycle
+     * correctness or cleanup, so growing or shrinking it must be deliberate.
+     */
+    private static final Set<String> EXPECTED_SAFE_MODE_REQUIRED = Set.of("TURBOISM_PROJECT_LIFECYCLE_HOOK");
 
     private static List<HookContributor> manifestContributors() throws Exception {
         return HookManifest.load(TurboismAgentHookKillSwitchTest.class.getClassLoader());
@@ -56,6 +65,14 @@ final class TurboismAgentHookKillSwitchTest {
 
     @Test
     void safeModeSkipsEveryNonEssentialContributor() throws Exception {
+        final Set<String> requiredIds = manifestContributors().stream()
+                .filter(HookContributor::requiredInSafeMode)
+                .map(HookContributor::id)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        assertEquals(
+                EXPECTED_SAFE_MODE_REQUIRED,
+                requiredIds,
+                "the safe-mode-required set changed; confirm the lifecycle justification before updating");
         for (final HookContributor contributor : manifestContributors()) {
             final HookEnvironment environment = environment(policy(true, Set.of()));
             if (contributor.requiredInSafeMode()) {
