@@ -20,7 +20,6 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -566,13 +565,6 @@ class ParameterPluginTest {
                 public void update() {
                     throw unsupported();
                 }
-            };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return (ctx, docId) -> {
-                throw new AssertionError("legacy transaction manager must not be used");
             };
         }
 

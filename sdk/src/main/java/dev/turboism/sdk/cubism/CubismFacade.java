@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
 /** View of the Cubism host exposed to plugins. */
@@ -116,15 +115,6 @@ public interface CubismFacade {
     default dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
         return dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
     }
-
-    /**
-     * Returns the legacy queued command transaction manager for Preview compatibility.
-     *
-     * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>
-     *
-     * @return legacy queued transaction manager
-     */
-    TransactionManager transactionManager();
 
     /** Returns complete texture-atlas authoring layout access when installed. */
     @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})

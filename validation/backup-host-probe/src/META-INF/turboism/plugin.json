@@ -29,7 +29,7 @@
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Dirtys the copied fixture through ModelTransaction + WriteParameterCommand to drive a native backup."
+      "reason": "Dirtys the copied fixture through Parameter.setValue to drive a native backup."
     },
     {
       "id": "turboism.event.publish",

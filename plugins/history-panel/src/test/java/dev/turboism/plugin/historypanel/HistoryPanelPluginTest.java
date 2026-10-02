@@ -137,11 +137,6 @@ class HistoryPanelPluginTest {
                 }
 
                 @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    return null;
-                }
-
-                @Override
                 public CubismHistory history() {
                     return new CubismHistory() {
                         @Override
