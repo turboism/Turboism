@@ -470,8 +470,10 @@ snapshots, its frozen driver and all production artifacts remain preserved.
 
 This native diagnostic report and cancellation-code slice are closed. Production
 remains HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED, T050 partial, T044/T046 open.
-Three acceptance blocks remain: matched 5203 outputs/resources and variation
-classification; final 5303 owned compatibility and verification; real settings
+Three acceptance blocks remain: final three-version repeated-target full outputs,
+paired resources/retention and variation classification (5203 still needs a
+matched off leg; the existing 5302 reopen/OK cycles 2/3 still do not prove repeated
+target execution); final 5303 owned compatibility and verification; real settings
 and full native managed-launch/independent-restart linkage. Resource acceptance
 limits still need measured proposal and user review. Existing 5302 gains are
 bounded evidence, not a final three-version verdict or theoretical bottleneck.
