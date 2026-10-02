@@ -477,3 +477,101 @@ target execution); final 5303 owned compatibility and verification; real setting
 and full native managed-launch/independent-restart linkage. Resource acceptance
 limits still need measured proposal and user review. Existing 5302 gains are
 bounded evidence, not a final three-version verdict or theoretical bottleneck.
+
+## Matched 5203 producer pair: bounded result closed
+
+The frozen r5 driver b6684c49 completed one off→on pair: off seq2413, job
+`bcb5282b-29a9-4165-bc6c-7022c67b0699`, prepared
+`680a0021d9bc6110fef61a951848e8cf60818562dea3042dee955a2bd1a85749`;
+on seq2414, job `c7ed7f12-8149-41ef-b371-97a4be1045d1`, prepared
+`d664f61bdf42c1e47931d7398533cdf315a056725ef93d67e43c39074dec3c2b`.
+Both authoritative states are succeeded/PASS, with normalExit,
+identityVerified and fixtureUnchanged true, cleanup safe and both observers
+exiting 0. Bound kernel scopes are destroyed. Each inventory has138 files and
+12 directories. Production base b47f6f47, companion dd4b21a5, capture f0b11990,
+startup plugin30f5203e, heavy fixture and measurement settings retain their
+full pins. No build ran during measurement.
+
+Prepared requests differ only in identifying labels/paths, the UI-saved
+edge-index Boolean and derived validation class-digest assertions. Each leg
+has711 sources per cycle,2133 complete producer records. All semantic fields
+match off/on in order, including point counts, edge versions, position/index
+lengths and both array digests. The separate first-four ordered edge digests
+also match. Complete array digests are persisted, not raw arrays.
+
+Cross-cycle variation exists in the native off leg and matches on exactly:
+cycle2 vs1 has eight changed index digests and five lengths; cycle3 has six
+digests and three lengths. Positions and point counts stay identical; all711
+edge versions change per cycle. These particular changes are not introduced
+by the optimization in this pair. Constant repeated native topology is not
+asserted.
+
+| Cycle | Off command seconds | On command seconds | Off sampled Java CPU seconds | On sampled Java CPU seconds |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 76.913 | 59.048 | 82.66 | 67.24 |
+| 2 | 75.353 | 59.806 | 74.80 | 62.42 |
+| 3 | 76.707 | 60.909 | 79.29 | 62.10 |
+| Total | 228.973 | 179.763 | 236.75 | 191.76 |
+
+Total command wall time falls21.49% (49.21 seconds), sampled Java CPU19.00%
+(44.99 seconds), and separately observed task-auxiliary CPU18.95→14.87 seconds
+(−21.53%). Every command contains actual triangulation samples:
+off3213/3027/3202, on2073/2041/2035, including1623/1621/1625 production-index
+samples. All resource windows have zero unknown frames. Summed edge-class JFR
+allocation weight is1,273,832,384→250,700,688 bytes (−80.32%): statistical weight,
+not exact allocation or a speedup percentage. Three cycles in one pair do not
+establish independent-run or three-version stability.
+
+Memory remains undecided. Before commands, baseline median RSS is
+2511.04/off vs3772.99/on MiB; median PSS2447.21 vs3713.72 MiB. Boundary heap
+is1180.48→1276.48/off vs1995.52→2091.52/on MiB. On command peaks are higher:
+
+| Window | Off RSS MiB | On RSS MiB | Off PSS MiB | On PSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Operation1 sampled peak | 2514.29 | 3865.71 | 2450.82 | 3806.92 |
+| Operation2 sampled peak | 2518.70 | 3880.45 | 2454.58 | 3821.58 |
+| Operation3 sampled peak | 2520.40 | 3727.74 | 2456.71 | 3669.02 |
+| Retained1 median | 2518.32 | 3870.30 | 2454.26 | 3811.24 |
+| Retained2 median | 2518.90 | 3726.74 | 2455.04 | 3668.15 |
+| Retained3 median | 5436.46 | 3345.09 | 5376.81 | 3286.99 |
+
+Relative to each baseline median, command RSS peaks change by
++3.25/+7.67/+9.36/off vs+92.72/+107.46/−45.25/on MiB. This does not erase the
+higher absolute on baseline or prove memory safety. Retained3 is not quiet:
+off45.15 vs on21.85 CPU seconds with22/10 heap events. Both JFR stacks show
+native XmlWriter/serializer and ArchiveWriter work, with no triangulation or
+production-index samples. Its initiating trigger is unknown. Do not label it
+autosave, subtract its cost or use the final median to assert leak freedom.
+
+Whole observations retain RSS peaks5601.45/off vs5506.59/on MiB, available PSS
+peaks5546.33 vs5452.06 MiB and JFR heap maxima4706.37 vs2771.52 MiB. All14
+resource windows have complete PSS; one on sample after all measurement windows
+lacks PSS and is explicitly counted. CPU boundary gaps, one-logical-core
+percentages, auxiliary lifetime omissions, GC and sampling gaps are preserved.
+Whole-run values include startup, serialization and cancellation and do not
+replace command-window comparisons.
+
+Native cancellation takes0.256/off and0.377/on seconds, answers the reviewed
+prompt once and restores main mode. No external window action is needed. This
+completes r5 native cancellation validation and removes the earlier482-second
+post-measurement wait.
+
+Evidence: `build/t050-lazy-edge-bytecode/performance5203-producer-r1/`.
+`independent-pair-review.json` SHA is
+`2e74d308d9d5e1a5f93288e66893778cd21f5c4d7876050a307a7171aef247e8`.
+Independent recomputation checks all14 windows, CPU/RSS/PSS, GC/heap/allocation/
+target fields, complete ordered output projections and ratios. All314 heap
+event times/values (172/off,142/on) exactly match the official JDK CLI. All639
+report-bound pins, including214 offline pins and both prepared inventories,
+also pass post-writer rehash. Initial on-only class-assertion refusals, absent
+legacy-cleanup-marker refusal and whole-recording missing-PSS audit refusal
+remain preserved. None caused a host rerun or changed an authoritative gate.
+
+This pair's report is closed. Production remains HOLD_PRODUCTION_ACCEPTANCE /
+NOT_PASSED; T050 partial, T044/T046 and the continuous goal remain open. Remaining
+acceptance covers final53x actual repeated-target complete outputs and paired
+resources, memory stability and measured numerical limits for review,5303 owned
+compatibility, and formal native managed-startup/real-settings/independent-restart
+linkage. Old5302 reopen/OK cycles2/3 are not reused as repeated-target evidence.
+This report submits no new native job, changes no production artifact and claims
+no theoretical bottleneck.

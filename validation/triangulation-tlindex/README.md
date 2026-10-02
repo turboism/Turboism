@@ -401,6 +401,12 @@ document's main mode. Unknown prompts are untouched; response/leave deadlines
 are 10/30 seconds. 56 real own-modal private-Xvfb checks, native binding17,
 writer11, CaptureWait17 and actual premain metadata admission pass. The driver
 contains no selfcheck classes, and measured source/recorder helpers are unchanged.
-The r5 driver is frozen separately as b6684c49; it has no native PASS yet.
+The r5 driver is frozen separately as b6684c49. Its later matched5203 off/on
+pair (seq2413/2414) passed all standard gates and matched all2133 complete
+producer result projections. Total native command wall time fell21.49%, sampled
+Java CPU19.00%; the cancel responder completed in0.256/0.377 seconds. Independent
+recomputation and639 post-writer pin checks passed. This closes that bounded
+pair. On baseline/operation RSS is higher and both third retained windows contain
+native serialization/archive work; retention safety remains undecided.
 See the [current host evidence](host-evidence-20261002.md) for hashes and remaining
 acceptance. Production remains NOT_PASSED.
