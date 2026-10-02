@@ -49,16 +49,11 @@ final class AtlasTileBboxHookContributor implements HookContributor {
         try {
             final VerifiedAtlasTileBboxInstaller.Installation installation = VerifiedAtlasTileBboxInstaller.install(
                     environment.instrumentation(),
-                    // Premain runs before the diagnostics sink exists; the console is the
-                    // only place the admission verdict survives on a real host.
-                    code -> {
-                        // System.err.println("[turboism] atlas-tile-bbox " + code);
-                    });
-            // RuntimeDiagnostics.debug(
-            //     "bootstrap",
-            //     "Atlas tile-bbox status=" + installation.status()
-            //         + ", transformOutcome=" + installation.transformOutcome()
-            // );
+                    code -> RuntimeDiagnostics.debug("atlas-tile-bbox", code));
+            RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Atlas tile-bbox status=" + installation.status()
+                            + ", transformOutcome=" + installation.transformOutcome());
             return installation;
         } catch (final Throwable failure) {
             RuntimeDiagnostics.error("atlas-tile-bbox", "Atlas tile-bbox optimization disabled safely", failure);
