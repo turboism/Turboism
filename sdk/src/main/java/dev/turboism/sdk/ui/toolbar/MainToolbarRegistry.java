@@ -264,7 +264,9 @@ public interface MainToolbarRegistry {
     /** Host toolbar entries a plugin may anchor against by name rather than by index. */
     enum Anchor {
         /** The host's home entry. */
-        HOST_HOME_ENTRY("host-home-entry");
+        HOST_HOME_ENTRY("host-home-entry"),
+        /** Native brush selection tool. AFTER inserts before its following separator. */
+        HOST_BRUSH_SELECTION_TOOL("host-brush-selection-tool");
 
         private final String id;
 

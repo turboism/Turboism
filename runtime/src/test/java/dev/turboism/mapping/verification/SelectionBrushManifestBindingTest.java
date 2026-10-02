@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract;
+import dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorSelectionReadSelectorContract;
 import dev.turboism.ui.mesh.MeshToolbarSelectorContract;
 import java.nio.file.Files;
@@ -39,6 +40,12 @@ class SelectionBrushManifestBindingTest {
                     "editor-model",
                     EditorSelectionReadSelectorContract.CAPABILITY_ID,
                     EditorSelectionReadSelectorContract.REQUIRED_ALIASES);
+            assertBinding(
+                    root,
+                    editor,
+                    "editor-model",
+                    ModelingSelectionSelectorContract.CAPABILITY_ID,
+                    ModelingSelectionSelectorContract.REQUIRED_ALIASES);
             var readerRecord = new StaticVerificationRecordLoader()
                     .load(root.resolve("compatibility/cubism/verification/cubism-" + editor.cubismVersion()
                             + "-editor-model.json"))
@@ -47,6 +54,9 @@ class SelectionBrushManifestBindingTest {
                     List.of("structure"),
                     readerRecord.capabilityConditions().get(EditorSelectionReadSelectorContract.CAPABILITY_ID),
                     editor.cubismVersion() + " selection reader conditions");
+            assertEquals(
+                    List.of("hook:mesh-tool-session", "hook:modeling-tool-lifecycle"),
+                    readerRecord.capabilityConditions().get(ModelingSelectionSelectorContract.CAPABILITY_ID));
             var packMetadata = new ObjectMapper()
                     .readTree(root.resolve("compatibility/cubism/mapping-packs/draft/cubism-" + editor.cubismVersion()
                                     + "-editor-model-read.json")
@@ -59,6 +69,14 @@ class SelectionBrushManifestBindingTest {
                     packCapabilities.size(),
                     packMetadata.path("capabilityCount").asInt(),
                     "pack count");
+            assertEquals(
+                    readerRecord.selectors().size(),
+                    packMetadata.path("selectorCount").asInt(),
+                    "pack selector count");
+            assertEquals(
+                    editor.recordSha256(),
+                    packMetadata.path("verificationRecordSha256").asText(),
+                    "pack digest");
             assertBinding(
                     root,
                     toolbar,

@@ -189,6 +189,28 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                     throw failure;
                 }
             }
+            if (requestedDescriptor
+                    .capabilities()
+                    .contains(dev.turboism.adapter.cubism.modeling.RuntimeModelingToolRegistry.REQUIRED_CAPABILITY)) {
+                final var modelingTools = new dev.turboism.adapter.cubism.modeling.RuntimeModelingToolRegistry(
+                        requestedDescriptor.id(),
+                        eventOwner.key().generation(),
+                        dev.turboism.permissions.PermissionChecker.from(
+                                new dev.turboism.permissions.CubismPermissionGate(
+                                        requestedDescriptor.id(),
+                                                services.dependencies().permissions(),
+                                        services.dependencies().cubismAuditSink(),
+                                                services.dependencies().clock())),
+                        true,
+                        hostAccess.modelingToolCoordinator(),
+                        hostAccess.editorUiContributions());
+                try {
+                    context.installModelingTools(modelingTools);
+                } catch (RuntimeException | Error failure) {
+                    modelingTools.close();
+                    throw failure;
+                }
+            }
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                     home,
                     context,

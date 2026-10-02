@@ -91,6 +91,11 @@ class PluginServiceDirectoryContractTest {
                 assertSame(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class, service.type());
                 continue;
             }
+            if (service == PluginService.MODELING_TOOLS) {
+                assertThrows(NoSuchMethodException.class, () -> PluginContext.class.getDeclaredMethod("modelingTools"));
+                assertSame(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class, service.type());
+                continue;
+            }
             final Method accessor = PluginContext.class.getDeclaredMethod(accessorName(service.name()));
             assertSame(
                     accessor.getReturnType(),

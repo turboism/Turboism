@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller.Attachmen
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -150,20 +151,24 @@ final class VerifiedMeshToolSessionHookInstaller implements AutoCloseable {
             dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException(TARGET_ENUMERATION_FAILED, failure);
         }
-        final String targetName = targetClassName().replace('/', '.');
+        final var targetNames = transformer.targetClassNames().stream()
+                .map(name -> name.replace('/', '.'))
+                .toList();
+        final var seen = new HashSet<String>();
         final List<Class<?>> exact = new ArrayList<>();
         for (final Class<?> type : loaded) {
-            if (type == null || !targetName.equals(type.getName())) continue;
+            if (type == null || !targetNames.contains(type.getName())) continue;
+            final String targetName = type.getName();
             if (type.getClassLoader() != hostClassLoader) {
                 throw new IllegalStateException(TARGET_LOADER_MISMATCH + ": " + targetName);
             }
             if (!instrumentation.isModifiableClass(type)) {
                 throw new IllegalStateException(TARGET_UNMODIFIABLE + ": " + targetName);
             }
+            if (!seen.add(targetName)) {
+                throw new IllegalStateException(TARGET_ALREADY_LOADED_TWICE + ": " + targetName);
+            }
             exact.add(type);
-        }
-        if (exact.size() > 1) {
-            throw new IllegalStateException(TARGET_ALREADY_LOADED_TWICE + ": " + exact.size());
         }
         return List.copyOf(exact);
     }
@@ -197,7 +202,10 @@ final class VerifiedMeshToolSessionHookInstaller implements AutoCloseable {
     private void restoreLoadedOwners() {
         try {
             for (final Class<?> type : instrumentation.getAllLoadedClasses()) {
-                if (type == null || !targetClassName().replace('/', '.').equals(type.getName())) continue;
+                if (type == null
+                        || !transformer
+                                .targetClassNames()
+                                .contains(type.getName().replace('.', '/'))) continue;
                 if (type.getClassLoader() != hostClassLoader) continue;
                 if (!instrumentation.isModifiableClass(type)) throw new IllegalStateException(TARGET_UNMODIFIABLE);
                 instrumentation.retransformClasses(type);

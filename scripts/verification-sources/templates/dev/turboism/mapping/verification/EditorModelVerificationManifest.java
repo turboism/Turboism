@@ -117,6 +117,7 @@ public final class EditorModelVerificationManifest {
 
     public static final String ADAPTER_SLICE_ID = "${record:cubism-5.2.03-editor-model.json:adapterSliceId}";
     public static final Set<String> CAPABILITY_IDS = Set.of(
+        dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.CAPABILITY_ID,
         dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.CAPABILITY_ID,
         "cubism.editor-model.read",
         EditorSelectionReadSelectorContract.CAPABILITY_ID,
@@ -348,7 +349,7 @@ public final class EditorModelVerificationManifest {
     );
 
     public static final Set<String> REQUIRED_ALIASES = union(
-        union(TYPE_RELATION_ALIASES, dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES), union(union(Set.of(
+        union(union(TYPE_RELATION_ALIASES, dev.turboism.adapter.cubism.mesh.MeshToolSessionSelectorContract.REQUIRED_ALIASES), dev.turboism.adapter.cubism.modeling.ModelingSelectionSelectorContract.REQUIRED_ALIASES), union(union(Set.of(
         "cubism.editor-model.app-controller.class",
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",

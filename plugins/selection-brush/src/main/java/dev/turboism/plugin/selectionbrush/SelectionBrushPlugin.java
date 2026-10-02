@@ -18,6 +18,7 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
     private final Object monitor = new Object();
     private PluginContext context;
     private MeshBrush activeBrush;
+    private dev.turboism.sdk.cubism.modeling.ModelingBrush activeModelingBrush;
     private int radius = DEFAULT_RADIUS;
     private boolean enabled;
 
@@ -104,6 +105,83 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
         }
     };
 
+    private final dev.turboism.sdk.cubism.modeling.ModelingTool modelingTool =
+            new dev.turboism.sdk.cubism.modeling.ModelingTool() {
+                @Override
+                public String id() {
+                    return tool.id();
+                }
+
+                @Override
+                public String label() {
+                    return tool.label();
+                }
+
+                @Override
+                public String iconResourcePath() {
+                    return tool.iconResourcePath();
+                }
+
+                @Override
+                public String activeIconResourcePath() {
+                    return tool.activeIconResourcePath();
+                }
+
+                @Override
+                public String rollOverIconResourcePath() {
+                    return tool.rollOverIconResourcePath();
+                }
+
+                @Override
+                public String selectedIconResourcePath() {
+                    return tool.selectedIconResourcePath();
+                }
+
+                @Override
+                public String disabledIconResourcePath() {
+                    return tool.disabledIconResourcePath();
+                }
+
+                @Override
+                public String disabledSelectedIconResourcePath() {
+                    return tool.disabledSelectedIconResourcePath();
+                }
+
+                @Override
+                public int order() {
+                    return tool.order();
+                }
+
+                @Override
+                public SelectionMode strokeSelectionMode(boolean shift, boolean control, boolean alt) {
+                    return tool.strokeSelectionMode(shift, control, alt);
+                }
+
+                @Override
+                public void activate(dev.turboism.sdk.cubism.modeling.ModelingToolContext toolContext) {
+                    final var candidate = Objects.requireNonNull(toolContext.selectionBrush(), "selectionBrush");
+                    closeActiveBrush();
+                    final int currentRadius;
+                    synchronized (monitor) {
+                        currentRadius = radius;
+                    }
+                    try {
+                        candidate.setRadiusPixels(currentRadius);
+                    } catch (RuntimeException | Error failure) {
+                        candidate.close();
+                        throw failure;
+                    }
+                    synchronized (monitor) {
+                        activeModelingBrush = candidate;
+                    }
+                }
+
+                @Override
+                public void deactivate() {
+                    closeActiveBrush();
+                }
+            };
+
     private final MeshToolbarSlider slider = new MeshToolbarSlider() {
         @Override
         public String id() {
@@ -138,11 +216,14 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
                 throw new IllegalArgumentException("value must be within [8, 128]");
             }
             final MeshBrush brush;
+            final dev.turboism.sdk.cubism.modeling.ModelingBrush modelingBrush;
             synchronized (monitor) {
                 radius = value;
                 brush = activeBrush;
+                modelingBrush = activeModelingBrush;
             }
             if (brush != null) brush.setRadiusPixels(value);
+            if (modelingBrush != null) modelingBrush.setRadiusPixels(value);
         }
 
         @Override
@@ -168,16 +249,26 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
         }
         Registration toolRegistration = null;
         Registration sliderRegistration = null;
+        Registration modelingRegistration = null;
         try {
             final MeshToolRegistry registry = current.services().require(MeshToolRegistry.class);
             toolRegistration = registry.register(tool);
             sliderRegistration = registry.contributeSlider(slider);
+            final var ordinary = current.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class);
+            if (ordinary != null && ordinary.isAvailable()) {
+                modelingRegistration = ordinary.register(
+                        modelingTool,
+                        dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement.after(
+                                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL));
+                current.disposableScope().register(modelingRegistration);
+            }
             current.disposableScope().register(toolRegistration);
             current.disposableScope().register(sliderRegistration);
             synchronized (monitor) {
                 enabled = true;
             }
         } catch (RuntimeException | Error failure) {
+            closeSuppressing(modelingRegistration, failure);
             closeSuppressing(sliderRegistration, failure);
             closeSuppressing(toolRegistration, failure);
             throw failure;
@@ -206,11 +297,18 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
 
     private void closeActiveBrush() {
         final MeshBrush brush;
+        final dev.turboism.sdk.cubism.modeling.ModelingBrush modelingBrush;
         synchronized (monitor) {
             brush = activeBrush;
+            modelingBrush = activeModelingBrush;
+            activeModelingBrush = null;
             activeBrush = null;
         }
-        if (brush != null) brush.close();
+        try {
+            if (brush != null) brush.close();
+        } finally {
+            if (modelingBrush != null) modelingBrush.close();
+        }
     }
 
     private static void closeSuppressing(final Registration registration, final Throwable failure) {

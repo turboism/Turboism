@@ -76,6 +76,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     private final CoreBackendFactory coreBackendFactory;
     private final java.util.function.Supplier<Locale> effectiveLocale;
     private final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator;
+    private final dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator;
 
     VerifiedHostAdapterConnector() {
         this(
@@ -403,6 +404,44 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             final CoreBackendFactory coreBackendFactory,
             final java.util.function.Supplier<Locale> effectiveLocale,
             final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator) {
+        this(
+                factory,
+                editorResolverFactory,
+                editorAccessFactory,
+                mainToolbarResolverFactory,
+                embeddedPanelResolverFactory,
+                boundingBoxOverlayResolverFactory,
+                editorUiPluginResources,
+                editorUiActionRouter,
+                embeddedPanelActivation,
+                topMenuResolverFactory,
+                dockMaintenance,
+                appearanceProviderFactory,
+                workspaceResolverFactory,
+                coreBackendFactory,
+                effectiveLocale,
+                meshToolCoordinator,
+                new dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator());
+    }
+
+    VerifiedHostAdapterConnector(
+            final VerifiedAdapterFactory factory,
+            final EditorResolverFactory editorResolverFactory,
+            final EditorAccessFactory editorAccessFactory,
+            final MainToolbarResolverFactory mainToolbarResolverFactory,
+            final EmbeddedPanelResolverFactory embeddedPanelResolverFactory,
+            final BoundingBoxOverlayResolverFactory boundingBoxOverlayResolverFactory,
+            final EditorUiPluginResourceRegistry editorUiPluginResources,
+            final dev.turboism.ui.action.RuntimeEditorUiActionRouter editorUiActionRouter,
+            final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation,
+            final TopMenuResolverFactory topMenuResolverFactory,
+            final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator dockMaintenance,
+            final AppearanceProviderFactory appearanceProviderFactory,
+            final WorkspaceResolverFactory workspaceResolverFactory,
+            final CoreBackendFactory coreBackendFactory,
+            final java.util.function.Supplier<Locale> effectiveLocale,
+            final dev.turboism.adapter.cubism.mesh.MeshToolCoordinator meshToolCoordinator,
+            final dev.turboism.adapter.cubism.modeling.ModelingToolCoordinator modelingToolCoordinator) {
         this.factory = Objects.requireNonNull(factory, "factory");
         this.editorResolverFactory = Objects.requireNonNull(editorResolverFactory, "editorResolverFactory");
         this.editorAccessFactory = Objects.requireNonNull(editorAccessFactory, "editorAccessFactory");
@@ -420,6 +459,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         this.coreBackendFactory = Objects.requireNonNull(coreBackendFactory, "coreBackendFactory");
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
         this.meshToolCoordinator = Objects.requireNonNull(meshToolCoordinator, "meshToolCoordinator");
+        this.modelingToolCoordinator = Objects.requireNonNull(modelingToolCoordinator, "modelingToolCoordinator");
     }
 
     @Override
@@ -959,7 +999,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                                         EditorUiFamily.MAIN_TOOLBAR,
                                         hostGeneration,
                                         verificationEvidence(toolbar.admission())),
-                                new VerifiedMainToolbarHostOperations(toolbar.resolver(), editorUiPluginResources),
+                                new VerifiedMainToolbarHostOperations(
+                                        toolbar.resolver(), editorUiPluginResources, resolver, modelingToolCoordinator),
                                 editorUiActionRouter));
                         providers.add(new VerticalToolbarContributionProvider(
                                 EditorUiProviderAdmission.admitted(

@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.objectweb.asm.ClassReader;
@@ -15,7 +16,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-/** Premain-only exact-owner transformer for mesh-editor startMode(List)/endMode lifecycle callbacks. */
+/** Exact-owner lifecycle callbacks for mesh-editor start/end and native document mode switches. */
 public final class MeshEditorLifecycleTransformer implements ClassFileTransformer {
     private static final String BRIDGE = "dev/turboism/adapter/cubism/mesh/NativeMeshToolSessionBridge";
 
@@ -45,6 +46,11 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
         return profile.meshEditorOwnerInternalName();
     }
 
+    /** Includes the document setter used by native confirmation, which bypasses mesh-editor endMode. */
+    public Set<String> targetClassNames() {
+        return Set.of(profile.meshEditorOwnerInternalName(), profile.modelingDocumentOwnerInternalName());
+    }
+
     /** Returns how many target classes were transformed since the last reset. */
     public int transformedCount() {
         return transformedCount.get();
@@ -65,7 +71,7 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
             final Class<?> classBeingRedefined,
             final ProtectionDomain protectionDomain,
             final byte[] classfileBuffer) {
-        if (!profile.meshEditorOwnerInternalName().equals(className) || classfileBuffer == null) return null;
+        if (className == null || !targetClassNames().contains(className) || classfileBuffer == null) return null;
         if (loader == null || loader != expectedClassLoader)
             return reject(Outcome.LOADER_MISMATCH, "MESH_TOOL_SESSION_LOADER_MISMATCH");
         if (!expectedArtifact.equals(codeSourcePath(protectionDomain))) {
@@ -76,6 +82,8 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
             final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             final int[] startCount = {0};
             final int[] endCount = {0};
+            final int[] setModeCount = {0};
+            final boolean document = profile.modelingDocumentOwnerInternalName().equals(className);
             reader.accept(
                     new ClassVisitor(Opcodes.ASM9, writer) {
                         @Override
@@ -87,6 +95,16 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
                                 final String[] exceptions) {
                             final MethodVisitor delegate =
                                     super.visitMethod(access, name, descriptor, signature, exceptions);
+                            if (document) {
+                                if (profile.setEditModeMethod().equals(name)
+                                        && profile.setEditModeDescriptor().equals(descriptor)
+                                        && (access & (Opcodes.ACC_STATIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE))
+                                                == 0) {
+                                    setModeCount[0]++;
+                                    return setModeVisitor(delegate);
+                                }
+                                return delegate;
+                            }
                             if (profile.startMethod().equals(name)
                                     && profile.startDescriptor().equals(descriptor)) {
                                 startCount[0]++;
@@ -101,7 +119,7 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
                         }
                     },
                     ClassReader.EXPAND_FRAMES);
-            if (startCount[0] != 1 || endCount[0] != 1) {
+            if (document ? setModeCount[0] != 1 : startCount[0] != 1 || endCount[0] != 1) {
                 return reject(Outcome.METHOD_SHAPE_MISMATCH, "MESH_TOOL_SESSION_METHOD_SHAPE_MISMATCH");
             }
             transformedCount.incrementAndGet();
@@ -140,6 +158,25 @@ public final class MeshEditorLifecycleTransformer implements ClassFileTransforme
                 super.visitCode();
                 visitVarInsn(Opcodes.ALOAD, 0);
                 visitMethodInsn(Opcodes.INVOKESTATIC, BRIDGE, "beforeEnd", "(Ljava/lang/Object;)V", false);
+            }
+        };
+    }
+
+    private static MethodVisitor setModeVisitor(final MethodVisitor delegate) {
+        return new MethodVisitor(Opcodes.ASM9, delegate) {
+            @Override
+            public void visitInsn(final int opcode) {
+                if (opcode == Opcodes.RETURN) {
+                    visitVarInsn(Opcodes.ALOAD, 0);
+                    visitVarInsn(Opcodes.ALOAD, 1);
+                    visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            BRIDGE,
+                            "afterEditModeChanged",
+                            "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                            false);
+                }
+                super.visitInsn(opcode);
             }
         };
     }

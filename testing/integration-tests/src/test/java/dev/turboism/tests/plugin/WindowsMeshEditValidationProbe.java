@@ -97,7 +97,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             switch (mode) {
                 case "matrix" -> runMatrix(report);
                 case "persistence" -> runPersistence(report);
-                case "selection-brush" -> runSelectionBrush(report);
+                case "selection-brush" -> {
+                    new WindowsModelingSelectionBrushProbe(this, context, report).run();
+                    runSelectionBrush(report);
+                }
                 default -> throw new IllegalArgumentException("unsupported mesh validation mode: " + mode);
             }
             passed = true;
@@ -233,6 +236,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final MeshSnapshot geometryBefore = awaitEditableMesh(report);
         failureBaseline.set(geometryBefore);
         final Object session = awaitNativeMeshSession();
+        reportNativeProjection(report, session);
         final JComponent view = onEdt(() -> (JComponent) invokeNoArgs(invokeNoArgs(session, "identity"), "component"));
         report.add("input.windowOrigin=" + awaitRobotWindowOrigin(view));
         final VertexSelection selectionBefore = awaitNativeSelection(session);
@@ -405,7 +409,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 "selectionBrush.redoUnchanged",
                 redoBefore == context.editorCommands().available().contains(EditorCommand.REDO),
                 "Redo availability changed");
-        finishMeshEditIfActive(report);
+        proveNativeConfirmationClick(session, awaitBrushControls().button(), report);
         final MeshSnapshot rebuiltGeometry = awaitEditableMesh(report);
         require(
                 report,
@@ -436,6 +440,122 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         report.add("cleanup.overlayCount=" + overlays);
         require(report, "selectionBrush.cleanup", overlays == 0, "overlays=" + overlays);
         failureBaseline.set(null);
+    }
+
+    private void proveNativeConfirmationClick(
+            final Object session, final AbstractButton brushButton, final List<String> report) throws Exception {
+        clickBrushTool(brushButton);
+        final JComponent overlay = awaitOverlay(1);
+        final JComponent view = onEdt(() -> (JComponent) invokeNoArgs(invokeNoArgs(session, "identity"), "component"));
+        final Point origin = awaitRobotWindowOrigin(view);
+        final Point target = onEdt(() -> nativeConfirmationCenter(session));
+        require(
+                report,
+                "selectionBrush.confirmationPassThrough",
+                onEdt(() -> SwingUtilities.getDeepestComponentAt(view, target.x, target.y) == view),
+                "the brush intercepts the native confirmation at " + target);
+        final int[] nativeReceipts = new int[2];
+        final int[] brushReceipts = new int[2];
+        final var nativeListener = confirmationReceipts(nativeReceipts);
+        final var brushListener = confirmationReceipts(brushReceipts);
+        onEdt(() -> {
+            view.addMouseListener(nativeListener);
+            overlay.addMouseListener(brushListener);
+            return null;
+        });
+        final var robot = new java.awt.Robot();
+        boolean pressed = false;
+        try {
+            robot.mouseMove(origin.x + target.x, origin.y + target.y);
+            robot.delay(100);
+            robot.waitForIdle();
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+            pressed = true;
+            robot.delay(100);
+            robot.waitForIdle();
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+            pressed = false;
+            robot.waitForIdle();
+            report.add("input.nativeConfirmation=" + target + " delivery=java.awt.Robot");
+            require(
+                    report,
+                    "selectionBrush.confirmationReceivesGesture",
+                    onEdt(() -> nativeReceipts[0] == 1
+                            && nativeReceipts[1] == 1
+                            && brushReceipts[0] == 0
+                            && brushReceipts[1] == 0),
+                    "native=" + java.util.Arrays.toString(nativeReceipts) + " brush="
+                            + java.util.Arrays.toString(brushReceipts));
+            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+            while (!context.meshEdit().snapshot().points().isEmpty() && System.nanoTime() < deadline) {
+                Thread.sleep(100);
+            }
+            require(
+                    report,
+                    "selectionBrush.confirmationEndsMeshEdit",
+                    context.meshEdit().snapshot().points().isEmpty(),
+                    "native check did not end mesh edit");
+            require(
+                    report,
+                    "selectionBrush.confirmationRemovesOverlay",
+                    awaitOverlay(0) == null,
+                    "native check retained the brush overlay");
+        } finally {
+            if (pressed) robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+            onEdt(() -> {
+                view.removeMouseListener(nativeListener);
+                overlay.removeMouseListener(brushListener);
+                return null;
+            });
+        }
+    }
+
+    private static java.awt.event.MouseAdapter confirmationReceipts(final int[] receipts) {
+        return new java.awt.event.MouseAdapter() {
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                receipts[0]++;
+            }
+
+            @Override
+            public void mouseReleased(final MouseEvent event) {
+                receipts[1]++;
+            }
+        };
+    }
+
+    /** Independent oracle: locate the exact native commit action, without calling it. */
+    private static Point nativeConfirmationCenter(final Object session) throws Exception {
+        final Object view = invokeNoArgs(invokeNoArgs(session, "identity"), "modelingView");
+        final Object scene = invokeNoArgs(view, "getSceneGraph");
+        final Iterable<?> entities =
+                (Iterable<?>) invokeNoArgs(invokeNoArgs(scene, "getObjectsOnComponent"), "traverseAll");
+        final List<Point> candidates = new ArrayList<>();
+        for (Object entity : entities) {
+            if (!entity.getClass().getName().equals("com.live2d.cubism.view.context.guiEntity.GIconButtonEntity")
+                    || !Boolean.TRUE.equals(invokeNoArgs(entity, "getEnabledInHierarchy"))
+                    || !Boolean.TRUE.equals(invokeNoArgs(entity, "isButtonEnabled"))) continue;
+            final Object action = invokeNoArgs(entity, "getFunc");
+            // In all three retained exact JARs, drawImpl.f commits endMeshEditMode(true,true);
+            // drawImpl.e is the cancellation action. Neither callback is invoked by the probe.
+            if (action == null || !action.getClass().getName().equals("com.live2d.cubism.view.context.drawImpl.f"))
+                continue;
+            final Object rect = invokeNoArgs(entity, "getRectOnComponent");
+            final float x = ((Number) invokeNoArgs(rect, "getX")).floatValue();
+            final float y = ((Number) invokeNoArgs(rect, "getY")).floatValue();
+            final float width = ((Number) invokeNoArgs(rect, "getWidth")).floatValue();
+            final float height = ((Number) invokeNoArgs(rect, "getHeight")).floatValue();
+            if (!Float.isFinite(x)
+                    || !Float.isFinite(y)
+                    || !Float.isFinite(width)
+                    || !Float.isFinite(height)
+                    || width <= 0
+                    || height <= 0) throw new IllegalStateException("native confirmation bounds are unavailable");
+            candidates.add(new Point(Math.round(x + width / 2), Math.round(y + height / 2)));
+        }
+        if (candidates.size() != 1)
+            throw new IllegalStateException("expected one native confirmation, found " + candidates.size());
+        return candidates.get(0);
     }
 
     private void runBrushInputAssertions(
@@ -670,7 +790,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return List.copyOf(sampled);
     }
 
-    private Point awaitRobotWindowOrigin(final JComponent component) throws Exception {
+    Point awaitRobotWindowOrigin(final JComponent component) throws Exception {
         final Path ready = context.paths().stateDir().resolve("editor-window-ready.properties");
         final String runId = System.getProperty("turboism.validation.runId", "");
         final long deadline = System.nanoTime() + 30_000_000_000L;
@@ -1035,7 +1155,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             final Object camera = invokeNoArgs(identity, "camera");
             final JComponent component = (JComponent) invokeNoArgs(identity, "component");
             final Point offset = SwingUtilities.convertPoint(component, 0, 0, overlay);
-            final float[] positions = editableMeshPositions(identity, resolver);
+            final float[] positions = nativeCanvasPositions(identity, resolver);
             final int count = ((Number) resolverInvoke(
                             resolver,
                             "cubism.editor-model.editable-mesh.point-count",
@@ -1272,6 +1392,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final List<AbstractButton> tools = components.stream()
                 .filter(AbstractButton.class::isInstance)
                 .map(AbstractButton.class::cast)
+                .filter(button -> button.getName() != null && button.getName().startsWith("turboism:mesh:"))
                 .filter(button -> matches(button, "selection-brush"))
                 .toList();
         final List<Component> sliders = components.stream()
@@ -1297,7 +1418,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 && widget.getToolTipText().contains(token);
     }
 
-    private static List<Component> showingComponents() {
+    static List<Component> showingComponents() {
         final List<Component> values = new ArrayList<>();
         for (Frame frame : Frame.getFrames()) {
             if (frame.isShowing()) collectComponents(frame, values);
@@ -1363,7 +1484,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         resolverMethod.setAccessible(true);
         final Object resolver = resolverMethod.invoke(session);
         if (resolver == null) throw new IllegalStateException("active native session has no exact resolver");
-        final float[] positions = editableMeshPositions(identity, resolver);
+        final float[] positions = nativeCanvasPositions(identity, resolver);
         for (int index = 0; index < positions.length / 2; index++) {
             if (selection.indices().contains(index)) continue;
             final Object documentPoint = resolverConstruct(
@@ -1394,7 +1515,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         resolverMethod.setAccessible(true);
         final Object resolver = resolverMethod.invoke(session);
         if (resolver == null) throw new IllegalStateException("active native session has no exact resolver");
-        final float[] positions = editableMeshPositions(identity, resolver);
+        final float[] positions = nativeCanvasPositions(identity, resolver);
         final Object documentPoint = resolverConstruct(
                 resolver, "cubism.editor-model.vector.create", positions[index * 2], positions[index * 2 + 1]);
         final Object componentPoint =
@@ -1409,7 +1530,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return overlay.contains(overlayPoint) ? overlayPoint : null;
     }
 
-    /** Returns the editable mesh's canvas-space vertex positions through the exact resolver. */
+    /** Returns raw staging-mesh positions; these are not necessarily displayed Canvas coordinates. */
     private static float[] editableMeshPositions(final Object identity, final Object resolver) throws Exception {
         final Object editableMesh = invokeNoArgs(identity, "editableMesh");
         final Object value = resolverInvoke(resolver, "cubism.editor-model.editable-mesh.gl-positions", editableMesh);
@@ -1417,6 +1538,81 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             throw new IllegalStateException("editable mesh vertex positions are unavailable");
         }
         return positions;
+    }
+
+    /**
+     * Independent expected coordinates: read the displayed native form directly when the staging
+     * mesh is unchanged, otherwise ask the native lasso's converter factory. Do not call the
+     * production brush projector or rebuild its triangle mapping here.
+     */
+    private static float[] nativeCanvasPositions(final Object identity, final Object resolver) throws Exception {
+        return onEdt(() -> {
+            final float[] raw = editableMeshPositions(identity, resolver);
+            final Object view = invokeNoArgs(identity, "modelingView");
+            final Object mode = resolverInvoke(resolver, "cubism.editor-model.modeling-view.current-view-mode", view);
+            final String modeClass = mode.getClass().getName();
+            final String modeOwner = "com.live2d.cubism.view.context.CEViewContext_ModelingView$c$";
+            if (modeClass.equals(modeOwner + "a") || modeClass.equals(modeOwner + "c")) return raw;
+            if (!modeClass.equals(modeOwner + "b"))
+                throw new IllegalStateException("unsupported native mesh view mode");
+            final Object model = resolverInvoke(resolver, "cubism.editor-model.modeling-view.model", view);
+            final Object source = invokeNoArgs(identity, "artMesh");
+            final Object id = resolverInvoke(resolver, "cubism.editor-model.parameter-controllable-source.id", source);
+            final Object artMesh = resolverInvoke(resolver, "cubism.editor-model.model.get-object", model, id);
+            if (invokeNoArgs(artMesh, "getSource") != source)
+                throw new IllegalStateException("native displayed ArtMesh source identity differs");
+            final float[] authored = (float[]) invokeNoArgs(source, "getPositions");
+            final float[] displayed =
+                    (float[]) invokeNoArgs(invokeNoArgs(artMesh, "getCalculatedForm"), "getPositions");
+            if (java.util.Arrays.equals(raw, authored)) {
+                if (displayed.length != raw.length) throw new IllegalStateException("displayed form count differs");
+                return displayed.clone();
+            }
+            final ClassLoader loader = view.getClass().getClassLoader();
+            final String helperName =
+                    switch ((String) invokeNoArgs(resolver, "cubismVersion")) {
+                        case "5.2.03" -> "j";
+                        case "5.3.02", "5.3.03" -> "p";
+                        default -> throw new IllegalStateException("unreviewed native lasso converter factory");
+                    };
+            final Class<?> helper = Class.forName(
+                    "com.live2d.cubism.view.context.action.action_meshEditor." + helperName, true, loader);
+            final Object converter = helper.getMethod(
+                            "b",
+                            Class.forName("com.live2d.cubism.doc.model.drawable.artMesh.CArtMesh", false, loader),
+                            Class.forName("com.live2d.graphics3d.editableMesh.GEditableMesh2", false, loader))
+                    .invoke(helper.getField("a").get(null), artMesh, invokeNoArgs(identity, "editableMesh"));
+            final float[] canvas = (float[]) converter
+                    .getClass()
+                    .getMethod("transform", float[].class, float[].class)
+                    .invoke(converter, raw, new float[raw.length]);
+            if (canvas.length != raw.length) throw new IllegalStateException("native lasso vertex count differs");
+            return canvas;
+        });
+    }
+
+    private static void reportNativeProjection(final List<String> report, final Object session) throws Exception {
+        onEdt(() -> {
+            final Object identity = invokeNoArgs(session, "identity");
+            final Object resolver = invokeNoArgs(session, "resolver");
+            final float[] raw = editableMeshPositions(identity, resolver);
+            final float[] canvas = nativeCanvasPositions(identity, resolver);
+            if (raw.length != canvas.length) throw new IllegalStateException("native projection count differs");
+            double maximum = 0;
+            for (int index = 0; index < raw.length; index += 2) {
+                if (!Float.isFinite(canvas[index]) || !Float.isFinite(canvas[index + 1]))
+                    throw new IllegalStateException("native projection is not finite");
+                maximum = Math.max(maximum, Math.hypot(canvas[index] - raw[index], canvas[index + 1] - raw[index + 1]));
+            }
+            report.add("projection.oracle=native-displayed-form-or-lasso-helper");
+            report.add("projection.sourceToCanvasMaxDistance=" + maximum);
+            report.add("projection.vertexCount=" + canvas.length / 2);
+            report.add("projection.viewMode="
+                    + invokeNoArgs(invokeNoArgs(identity, "modelingView"), "getCurrentViewMode")
+                            .getClass()
+                            .getName());
+            return null;
+        });
     }
 
     /**
@@ -1495,7 +1691,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         });
     }
 
-    private static JComponent awaitOverlay(final int expected) throws Exception {
+    static JComponent awaitOverlay(final int expected) throws Exception {
         final long deadline = System.nanoTime() + 10_000_000_000L;
         List<JComponent> overlays = List.of();
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
@@ -1512,15 +1708,18 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 "expected " + expected + " selection-brush overlays but found " + overlays.size());
     }
 
-    private static int overlayCount() throws Exception {
+    static int overlayCount() throws Exception {
         return onEdt(() -> (int) showingComponents().stream()
                 .filter(component -> "turboism:selection-brush-overlay".equals(component.getName()))
                 .count());
     }
 
-    private static void invokeEscape(final JComponent overlay) throws Exception {
+    static void invokeEscape(final JComponent overlay) throws Exception {
         onEdt(() -> {
-            final Action action = overlay.getActionMap().get("turboism:mesh-selection-brush-deactivate");
+            final Object binding = overlay.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                    .get(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0));
+            final Action action =
+                    binding == null ? null : overlay.getActionMap().get(binding);
             if (action == null) throw new IllegalStateException("Selection Brush Escape action is unavailable");
             action.actionPerformed(new ActionEvent(overlay, ActionEvent.ACTION_PERFORMED, "escape"));
             return null;
@@ -1678,7 +1877,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return awaitSnapshot(value -> !value.points().isEmpty(), "mesh editor entry");
     }
 
-    private void awaitVisibleModelWindow() throws Exception {
+    void awaitVisibleModelWindow() throws Exception {
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         Exception unavailable = null;
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
@@ -1708,7 +1907,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 : unavailable;
     }
 
-    private void awaitModelingDocument() throws Exception {
+    void awaitModelingDocument() throws Exception {
         Exception unavailable = null;
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline && !Thread.currentThread().isInterrupted()) {
@@ -1726,7 +1925,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         throw unavailable == null ? new IllegalStateException("modeling document did not become active") : unavailable;
     }
 
-    private SelectionTarget selectFirstArtMesh(final List<String> report) throws Exception {
+    SelectionTarget selectFirstArtMesh(final List<String> report) throws Exception {
         if (!onEdt(WindowsMeshEditValidationProbe::partsPaletteShowing)) {
             executeCommand(report, "selection.showPartsPalette", EditorCommand.SHOW_PARTS_PALETTE);
         } else {
@@ -2122,7 +2321,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         return "[" + String.join(",", labels) + (pending.isEmpty() ? "" : ",…") + "]";
     }
 
-    private static <T> T onEdt(final Callable<T> call) throws Exception {
+    static <T> T onEdt(final Callable<T> call) throws Exception {
         if (SwingUtilities.isEventDispatchThread()) return call.call();
         final FutureTask<T> task = new FutureTask<>(call);
         SwingUtilities.invokeLater(task);
@@ -2374,8 +2573,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, name, result.accepted() && result.rejected().isEmpty(), result.toString());
     }
 
-    private static void require(
-            final List<String> report, final String name, final boolean condition, final String detail) {
+    static void require(final List<String> report, final String name, final boolean condition, final String detail) {
         report.add("assertion." + name + "=" + (condition ? "PASS" : "FAIL"));
         report.add("detail." + name + "=" + safe(detail));
         if (!condition) throw new IllegalStateException(name + ": " + safe(detail));

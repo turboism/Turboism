@@ -10,6 +10,9 @@ import dev.turboism.sdk.cubism.mesh.MeshTool;
 import dev.turboism.sdk.cubism.mesh.MeshToolContext;
 import dev.turboism.sdk.cubism.mesh.SelectionMode;
 import dev.turboism.sdk.cubism.model.Point2;
+import java.awt.DefaultKeyboardFocusManager;
+import java.awt.KeyEventDispatcher;
+import java.awt.KeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
@@ -27,6 +30,32 @@ class RuntimeSelectionBrushTest {
     private static final int SHIFT = InputEvent.SHIFT_DOWN_MASK;
     private static final int CONTROL = InputEvent.CTRL_DOWN_MASK;
     private static final int ALT = InputEvent.ALT_DOWN_MASK;
+
+    @Test
+    void activationOwnsOneKeyboardDispatcherAndClosePreservesOtherDispatchers() throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final KeyboardFocusManager previous = KeyboardFocusManager.getCurrentKeyboardFocusManager();
+            final InspectableKeyboard keyboard = new InspectableKeyboard();
+            final KeyEventDispatcher unrelated = event -> false;
+            keyboard.addKeyEventDispatcher(unrelated);
+            final RecordingHost host = new RecordingHost(List.of());
+            final RuntimeSelectionBrush brush = new RuntimeSelectionBrush(host);
+            KeyboardFocusManager.setCurrentKeyboardFocusManager(keyboard);
+            try {
+                brush.install();
+                brush.install();
+                assertEquals(2, keyboard.dispatchers().size(), "one interceptor per activation");
+                assertTrue(keyboard.dispatchers().contains(unrelated));
+                brush.close();
+                brush.close();
+                assertEquals(List.of(unrelated), keyboard.dispatchers(), "close removes only its interceptor");
+                assertEquals(0, host.view.getComponentCount());
+            } finally {
+                brush.close();
+                KeyboardFocusManager.setCurrentKeyboardFocusManager(previous);
+            }
+        });
+    }
 
     @Test
     void pressSnapshotsRadiusDragUsesRoundCapsAndReleaseCommitsOneAdd() {
@@ -76,6 +105,117 @@ class RuntimeSelectionBrushTest {
         assertEquals(1, forwardedMouse.get());
         assertEquals(1, forwardedWheel.get());
         brush.close();
+    }
+
+    @Test
+    void nativeCanvasConfirmationReceivesClickWhileBrushIsActiveAndClosesTheOverlay() throws Exception {
+        RecordingHost host = new RecordingHost(List.of(new Point2(275, 20)));
+        host.view.setSize(320, 200);
+        host.nativeControlBounds = new java.awt.Rectangle(250, 8, 50, 30);
+        AtomicInteger confirmations = new AtomicInteger();
+        RuntimeSelectionBrush brush = new RuntimeSelectionBrush(host);
+        brush.install();
+        // Cubism draws its confirmation as a GL entity in the same component, not a JButton.
+        host.view.addMouseListener(new MouseAdapter() {
+            private boolean pressed;
+
+            @Override
+            public void mousePressed(MouseEvent event) {
+                pressed = host.nativeControlAt(event.getX(), event.getY());
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                if (pressed && host.nativeControlAt(event.getX(), event.getY())) {
+                    confirmations.incrementAndGet();
+                    host.current = false;
+                    brush.close();
+                }
+            }
+        });
+        try {
+            javax.swing.SwingUtilities.invokeAndWait(() -> {
+                JComponent target = (JComponent) javax.swing.SwingUtilities.getDeepestComponentAt(host.view, 275, 20);
+                target.dispatchEvent(mouse(
+                        target, MouseEvent.MOUSE_PRESSED, 275, 20, MouseEvent.BUTTON1, InputEvent.BUTTON1_DOWN_MASK));
+                target.dispatchEvent(mouse(target, MouseEvent.MOUSE_RELEASED, 275, 20, MouseEvent.BUTTON1, 0));
+            });
+            assertEquals(1, confirmations.get(), "the native check must receive the actual press/release");
+            assertTrue(host.commits.isEmpty(), "a native control click must never be a vertex-selection stroke");
+            assertFalse(host.current);
+            assertEquals(0, host.view.getComponentCount(), "ending mesh edit must remove the brush overlay");
+        } finally {
+            brush.close();
+        }
+    }
+
+    @Test
+    void nativeControlHitRegionIsReadAgainAfterLayoutChanges() {
+        RecordingHost host = new RecordingHost(List.of());
+        host.view.setSize(320, 200);
+        host.nativeControlBounds = new java.awt.Rectangle(250, 8, 50, 30);
+        RuntimeSelectionBrush brush = new RuntimeSelectionBrush(host);
+        brush.install();
+        try {
+            JComponent overlay = brush.overlayForTests();
+            assertFalse(overlay.contains(275, 20));
+            assertTrue(overlay.contains(80, 60));
+            host.nativeControlBounds = new java.awt.Rectangle(10, 150, 50, 30);
+            assertTrue(overlay.contains(275, 20), "old button coordinates must return to the brush");
+            assertFalse(overlay.contains(35, 165), "the moved native button must retain its input");
+            host.nativeControlBounds = null;
+            assertTrue(overlay.contains(35, 165), "a hidden native control must not reserve the canvas");
+        } finally {
+            brush.close();
+        }
+    }
+
+    @Test
+    void brushStrokeRetainsItsPressTargetWhenDraggedAcrossNativeConfirmation() {
+        RecordingHost host = new RecordingHost(List.of(new Point2(80, 60)));
+        host.view.setSize(320, 200);
+        host.nativeControlBounds = new java.awt.Rectangle(250, 8, 50, 30);
+        AtomicInteger forwarded = new AtomicInteger();
+        host.view.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                forwarded.incrementAndGet();
+            }
+        });
+        RuntimeSelectionBrush brush = new RuntimeSelectionBrush(host);
+        brush.install();
+        try {
+            JComponent overlay = brush.overlayForTests();
+            overlay.dispatchEvent(
+                    mouse(overlay, MouseEvent.MOUSE_PRESSED, 80, 60, MouseEvent.BUTTON1, InputEvent.BUTTON1_DOWN_MASK));
+            overlay.dispatchEvent(mouse(
+                    overlay, MouseEvent.MOUSE_DRAGGED, 275, 20, MouseEvent.NOBUTTON, InputEvent.BUTTON1_DOWN_MASK));
+            overlay.dispatchEvent(mouse(overlay, MouseEvent.MOUSE_RELEASED, 275, 20, MouseEvent.BUTTON1, 0));
+            assertEquals(0, forwarded.get(), "a stroke release must not click the native confirmation");
+            assertEquals(List.of(new Commit(List.of(0), SelectionMode.ADD)), host.commits);
+            assertFalse(brush.previewVisibleForTests());
+        } finally {
+            brush.close();
+        }
+    }
+
+    @Test
+    void failedNativeControlReadLeavesInputWithTheHost() {
+        RecordingHost host = new RecordingHost(List.of());
+        host.view.setSize(320, 200);
+        host.controlFailure = new IllegalStateException("native scene unavailable");
+        RuntimeSelectionBrush brush = new RuntimeSelectionBrush(host);
+        brush.install();
+        try {
+            JComponent overlay = brush.overlayForTests();
+            assertFalse(overlay.contains(80, 60));
+            assertFalse(overlay.contains(80, 60));
+            assertTrue(host.commits.isEmpty());
+            host.controlFailure = null;
+            assertTrue(overlay.contains(80, 60));
+        } finally {
+            brush.close();
+        }
     }
 
     @Test
@@ -374,6 +514,13 @@ class RuntimeSelectionBrushTest {
 
     private record Commit(List<Integer> indices, SelectionMode mode) {}
 
+    private static final class InspectableKeyboard extends DefaultKeyboardFocusManager {
+        List<KeyEventDispatcher> dispatchers() {
+            final List<KeyEventDispatcher> current = getKeyEventDispatchers();
+            return current == null ? List.of() : List.copyOf(current);
+        }
+    }
+
     private static final class RecordingHost implements RuntimeSelectionBrush.Host {
         final JPanel view = new JPanel(null);
         final List<Commit> commits = new ArrayList<>();
@@ -381,6 +528,8 @@ class RuntimeSelectionBrushTest {
         MeshTool tool = legacyTool();
         List<Point2> vertices;
         RuntimeException failure;
+        RuntimeException controlFailure;
+        java.awt.Rectangle nativeControlBounds;
         boolean current = true;
 
         RecordingHost(List<Point2> vertices) {
@@ -390,6 +539,12 @@ class RuntimeSelectionBrushTest {
         @Override
         public JComponent component() {
             return view;
+        }
+
+        @Override
+        public boolean nativeControlAt(int x, int y) {
+            if (controlFailure != null) throw controlFailure;
+            return nativeControlBounds != null && nativeControlBounds.contains(x, y);
         }
 
         @Override

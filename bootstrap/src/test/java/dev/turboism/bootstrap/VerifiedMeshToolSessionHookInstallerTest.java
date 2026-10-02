@@ -20,7 +20,15 @@ import org.junit.jupiter.api.Test;
 
 class VerifiedMeshToolSessionHookInstallerTest {
     private static final MeshToolSessionHostProfile PROFILE = new MeshToolSessionHostProfile(
-            "5.3.03", "example/ExactMeshEditor", "startMode", "(Ljava/util/List;)V", "endMode", "()V");
+            "5.3.03",
+            "example/ExactMeshEditor",
+            "startMode",
+            "(Ljava/util/List;)V",
+            "endMode",
+            "()V",
+            "example/ExactDocument",
+            "internal_setEditMode",
+            "(Ljava/lang/Object;)V");
 
     @Test
     void retransformsAnAlreadyLoadedExactOwnerInsteadOfFailing() {
@@ -35,7 +43,7 @@ class VerifiedMeshToolSessionHookInstallerTest {
                 added,
                 canRetransform,
                 new AtomicBoolean(),
-                new Class<?>[] {ExactMeshEditor.class},
+                new Class<?>[] {ExactMeshEditor.class, ExactDocument.class},
                 retransformed,
                 true);
 
@@ -45,12 +53,14 @@ class VerifiedMeshToolSessionHookInstallerTest {
         installer.install();
         assertTrue(added.get() instanceof MeshEditorLifecycleTransformer);
         assertTrue(canRetransform.get(), "the transformer must be registered with retransformation enabled");
-        assertEquals(List.of(ExactMeshEditor.class), retransformed);
+        assertEquals(List.of(ExactMeshEditor.class, ExactDocument.class), retransformed);
         assertEquals(MeshEditorLifecycleTransformer.Outcome.TARGET_TRANSFORMED, installer.transformOutcome());
 
         installer.close();
         // Teardown retransforms the owner again so the host keeps its original bytecode.
-        assertEquals(2, retransformed.size());
+        assertEquals(
+                List.of(ExactMeshEditor.class, ExactDocument.class, ExactMeshEditor.class, ExactDocument.class),
+                retransformed);
     }
 
     @Test
@@ -71,6 +81,38 @@ class VerifiedMeshToolSessionHookInstallerTest {
         assertTrue(failure.getMessage().contains("TRANSFORM_DELTA_MISMATCH"), failure.getMessage());
         // A failed install must not leave a transformer behind.
         assertNull(added.get());
+    }
+
+    @Test
+    void aRejectedDocumentModeSetterRollsBackBothOwnersAndTheBridge() {
+        final AtomicReference<ClassFileTransformer> added = new AtomicReference<>();
+        final List<Class<?>> retransformed = new ArrayList<>();
+        final var profile = new MeshToolSessionHostProfile(
+                "5.3.03",
+                ExactMeshEditor.class.getName().replace('.', '/'),
+                "startMode",
+                "(Ljava/util/List;)V",
+                "endMode",
+                "()V",
+                ExactDocument.class.getName().replace('.', '/'),
+                "wrongSetter",
+                "(Ljava/lang/Object;)V");
+        final var installer = installer(
+                instrumentation(
+                        added,
+                        new AtomicBoolean(),
+                        new AtomicBoolean(),
+                        new Class<?>[] {ExactMeshEditor.class, ExactDocument.class},
+                        retransformed,
+                        true),
+                AttachmentMode.PREMAIN,
+                profile);
+        final var failure = assertThrows(IllegalStateException.class, installer::install);
+        assertTrue(failure.getMessage().contains("TRANSFORM_DELTA_MISMATCH"));
+        assertNull(added.get());
+        assertEquals(
+                List.of(ExactMeshEditor.class, ExactDocument.class, ExactMeshEditor.class, ExactDocument.class),
+                retransformed);
     }
 
     @Test
@@ -199,7 +241,15 @@ class VerifiedMeshToolSessionHookInstallerTest {
 
     private static Profile profileFor(final Class<?> owner) {
         return new Profile(new MeshToolSessionHostProfile(
-                "5.3.03", owner.getName().replace('.', '/'), "startMode", "(Ljava/util/List;)V", "endMode", "()V"));
+                "5.3.03",
+                owner.getName().replace('.', '/'),
+                "startMode",
+                "(Ljava/util/List;)V",
+                "endMode",
+                "()V",
+                ExactDocument.class.getName().replace('.', '/'),
+                "internal_setEditMode",
+                "(Ljava/lang/Object;)V"));
     }
 
     private record Profile(MeshToolSessionHostProfile value) {}
@@ -290,5 +340,9 @@ class VerifiedMeshToolSessionHookInstallerTest {
         void startMode(List<?> entries) {}
 
         void endMode() {}
+    }
+
+    static final class ExactDocument {
+        void internal_setEditMode(Object mode) {}
     }
 }

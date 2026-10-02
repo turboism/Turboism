@@ -15,7 +15,32 @@ public final class MeshToolSessionSelectorContract {
     public static final String VIEW_COMPLETE_PACK = "cubism.editor-model.view.complete-pack";
     public static final String COMPLETE_PACK_MAIN_VIEW = "cubism.editor-model.complete-pack.main-view";
     public static final String WIDGET_JCOMPONENT = "cubism.editor-model.widget.jcomponent";
+    public static final String VIEW_SCENE_GRAPH = "cubism.editor-model.view.scene-graph";
+    public static final String SCENE_COMPONENT_OBJECTS = "cubism.editor-model.scene-graph.component-objects";
+    public static final String ENTITY_TRAVERSE_ALL = "cubism.editor-model.entity.traverse-all";
+    public static final String ENTITY_ENABLED_IN_HIERARCHY = "cubism.editor-model.entity.enabled-in-hierarchy";
+    public static final String GUI_BUTTON_CLASS = "cubism.editor-model.gui-button.class";
+    public static final String GUI_ICON_BUTTON_CLASS = "cubism.editor-model.gui-icon-button.class";
+    public static final String GUI_BUTTON_ON_COMPONENT = "cubism.editor-model.gui-button.on-component";
+    public static final String GUI_BUTTON_COMPONENT_BOUNDS = "cubism.editor-model.gui-button.component-bounds";
+    public static final String GUI_BOUNDS_CONTAINS = "cubism.editor-model.gui-bounds.contains";
     public static final String MODELING_VIEW_CAMERA = "cubism.editor-model.modeling-view.camera";
+    public static final String MODELING_VIEW_MODE = "cubism.editor-model.modeling-view.current-view-mode";
+    public static final String VIEW_MODE_CURRENT_FORM = "cubism.editor-model.modeling-view.mode-current-form";
+    public static final String VIEW_MODE_SOURCE = "cubism.editor-model.modeling-view.mode-source";
+    public static final String VIEW_MODE_IMAGE = "cubism.editor-model.modeling-view.mode-image";
+    public static final String MODELING_VIEW_MODEL = "cubism.editor-model.modeling-view.model";
+    public static final String MODEL_GET_OBJECT = "cubism.editor-model.model.get-object";
+    public static final String ARTMESH_CLASS = "cubism.editor-model.art-mesh.class";
+    public static final String ARTMESH_SOURCE = "cubism.editor-model.art-mesh.source";
+    public static final String ARTMESH_SOURCE_POSITIONS = "cubism.editor-model.art-mesh-source.positions";
+    public static final String ARTMESH_SOURCE_INDICES = "cubism.editor-model.art-mesh-source.indices";
+    public static final String ARTMESH_CALCULATED_FORM = "cubism.editor-model.parameter-controllable.calculated-form";
+    public static final String ARTMESH_FORM_POSITIONS = "cubism.editor-model.art-mesh-form.positions";
+    public static final String MESH_COORDINATE_CONVERTER_CREATE =
+            "cubism.editor-model.mesh-coordinate-converter.create";
+    public static final String MESH_COORDINATE_CONVERTER_TRANSFORM =
+            "cubism.editor-model.mesh-coordinate-converter.transform";
     public static final String CAMERA_DOCUMENT_TO_COMPONENT = "cubism.editor-model.camera.document-to-component";
     public static final String VECTOR_CREATE = "cubism.editor-model.vector.create";
     public static final String VECTOR_X = "cubism.editor-model.vector.x";
@@ -43,6 +68,7 @@ public final class MeshToolSessionSelectorContract {
     public static final String POINT_REF_MESH = "cubism.editor-model.point-ref.mesh";
     public static final String POINT_REF_INDEX = "cubism.editor-model.point-ref.index";
     public static final String MODELING_DOCUMENT_CLASS = "cubism.editor-model.modeling-document.class";
+    public static final String MODELING_DOCUMENT_SET_EDIT_MODE = "cubism.editor-model.modeling-document.set-edit-mode";
     public static final String MODELING_DOCUMENT_MODEL_SOURCE = "cubism.editor-model.modeling-document.model-source";
     public static final String MODEL_SOURCE_ALL_MESHES = "cubism.editor-model.model-source.all-art-meshes";
     public static final String ARTMESH_SOURCE_CLASS = "cubism.editor-model.art-mesh-source.class";
@@ -56,7 +82,30 @@ public final class MeshToolSessionSelectorContract {
             "cubism.editor-model.view.complete-pack",
             "cubism.editor-model.complete-pack.main-view",
             "cubism.editor-model.widget.jcomponent",
+            "cubism.editor-model.view.scene-graph",
+            "cubism.editor-model.scene-graph.component-objects",
+            "cubism.editor-model.entity.traverse-all",
+            "cubism.editor-model.entity.enabled-in-hierarchy",
+            "cubism.editor-model.gui-button.class",
+            "cubism.editor-model.gui-icon-button.class",
+            "cubism.editor-model.gui-button.on-component",
+            "cubism.editor-model.gui-button.component-bounds",
+            "cubism.editor-model.gui-bounds.contains",
             "cubism.editor-model.modeling-view.camera",
+            "cubism.editor-model.modeling-view.current-view-mode",
+            "cubism.editor-model.modeling-view.mode-current-form",
+            "cubism.editor-model.modeling-view.mode-source",
+            "cubism.editor-model.modeling-view.mode-image",
+            "cubism.editor-model.modeling-view.model",
+            "cubism.editor-model.model.get-object",
+            "cubism.editor-model.art-mesh.class",
+            "cubism.editor-model.art-mesh.source",
+            "cubism.editor-model.art-mesh-source.positions",
+            "cubism.editor-model.art-mesh-source.indices",
+            "cubism.editor-model.parameter-controllable.calculated-form",
+            "cubism.editor-model.art-mesh-form.positions",
+            "cubism.editor-model.mesh-coordinate-converter.create",
+            "cubism.editor-model.mesh-coordinate-converter.transform",
             "cubism.editor-model.camera.document-to-component",
             "cubism.editor-model.vector.create",
             "cubism.editor-model.vector.x",
@@ -84,6 +133,7 @@ public final class MeshToolSessionSelectorContract {
             "cubism.editor-model.point-ref.mesh",
             "cubism.editor-model.point-ref.index",
             "cubism.editor-model.modeling-document.class",
+            "cubism.editor-model.modeling-document.set-edit-mode",
             "cubism.editor-model.modeling-document.model-source",
             "cubism.editor-model.model-source.all-art-meshes",
             "cubism.editor-model.art-mesh-source.class",

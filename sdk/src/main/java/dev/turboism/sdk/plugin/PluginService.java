@@ -12,7 +12,8 @@ import dev.turboism.sdk.Incubating;
  * {@code permissions}, {@code eventBus}, {@code actions}, {@code menus}, {@code uiScheduler},
  * {@code diagnostics}, {@code disposableScope}) have no member because they cannot be absent.</p>
  *
- * <p>Presence means the getter returns a usable service object; it does not imply the plugin holds
+ * <p>New tool services are directory-only and have no legacy context getter. Presence means the
+ * directory returns a usable service object; it does not imply the plugin holds
  * the permissions that service's operations require, and it does not guarantee individual
  * version-routed members succeed on the active host.</p>
  */
@@ -92,6 +93,8 @@ public enum PluginService {
 
     /** Directory-only custom mesh tools; no legacy {@link PluginContext} accessor. */
     MESH_TOOLS(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class),
+    /** Directory-only ordinary modeling tools. */
+    MODELING_TOOLS(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class),
 
     /** {@link PluginContext#editorCommands()} */
     EDITOR_COMMANDS(dev.turboism.sdk.cubism.command.EditorCommandService.class),
@@ -197,7 +200,7 @@ public enum PluginService {
     @SuppressWarnings("deprecation") // Bridges the deprecated pre-directory accessors.
     Object resolve(final PluginContext context) {
         return switch (this) {
-            case MESH_TOOLS -> null; // Installed by runtime directories, never by a legacy accessor.
+            case MESH_TOOLS, MODELING_TOOLS -> null; // Installed by runtime directories, never by a legacy accessor.
             case LOCALIZATION ->
                 available(context.localization(), dev.turboism.sdk.i18n.PluginLocalization.unavailable());
             case TASKS -> available(context.tasks(), dev.turboism.sdk.task.PluginTaskScheduler.unavailable());

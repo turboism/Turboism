@@ -139,6 +139,8 @@ public final class CorePluginContext implements PluginContext {
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     private volatile MeshToolRegistry meshTools;
     private boolean meshToolsInstalled;
+    private volatile dev.turboism.sdk.cubism.modeling.ModelingToolRegistry modelingTools;
+    private boolean modelingToolsInstalled;
     private final PluginServiceDirectory legacyServices = PluginServices.of(this);
     private final PluginServiceDirectory serviceDirectory = new PluginServiceDirectory() {
         @Override
@@ -151,6 +153,9 @@ public final class CorePluginContext implements PluginContext {
             Objects.requireNonNull(serviceType, "serviceType");
             if (serviceType == MeshToolRegistry.class) {
                 return serviceType.cast(disposableScope().isSealed() ? null : meshTools);
+            }
+            if (serviceType == dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class) {
+                return serviceType.cast(disposableScope().isSealed() ? null : modelingTools);
             }
             return legacyServices.get(serviceType);
         }
@@ -728,6 +733,20 @@ public final class CorePluginContext implements PluginContext {
         meshToolsInstalled = true;
     }
 
+    /** Installs the independently verified, directory-only ordinary tool service once. */
+    public synchronized void installModelingTools(final dev.turboism.sdk.cubism.modeling.ModelingToolRegistry service) {
+        Objects.requireNonNull(service, "service");
+        if (modelingToolsInstalled) throw new IllegalStateException("modeling tools already installed");
+        disposableScope().register(() -> {
+            synchronized (CorePluginContext.this) {
+                modelingTools = null;
+            }
+            service.close();
+        });
+        modelingTools = service;
+        modelingToolsInstalled = true;
+    }
+
     @Override
     public PluginServiceDirectory services() {
         return serviceDirectory;
@@ -879,6 +898,7 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public Set<PluginService> availableServices() {
         final EnumSet<PluginService> available = EnumSet.noneOf(PluginService.class);
+        if (modelingTools != null && !disposableScope().isSealed()) available.add(PluginService.MODELING_TOOLS);
         if (meshTools != null && !disposableScope().isSealed()) {
             available.add(PluginService.MESH_TOOLS);
         }

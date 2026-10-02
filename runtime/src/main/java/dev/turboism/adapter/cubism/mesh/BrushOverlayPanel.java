@@ -17,17 +17,30 @@ import javax.swing.JPanel;
 final class BrushOverlayPanel extends JPanel {
     static final String COMPONENT_NAME = "turboism:selection-brush-overlay";
     static final String PREVIEW_VISIBLE_PROPERTY = "turboism:selection-brush-preview-visible";
-    private static final Color TRAIL_COLOR = new Color(0x19, 0x19, 0x96, 0xB4);
+    private static final Color TRAIL_COLOR = new Color(0x7B, 0x68, 0xEE, 0x8C);
 
+    private final InputRegion inputRegion;
     private final List<Point2> trail = new ArrayList<>();
     private float radius;
 
-    BrushOverlayPanel() {
+    BrushOverlayPanel(final InputRegion inputRegion) {
+        this.inputRegion = java.util.Objects.requireNonNull(inputRegion, "inputRegion");
         setOpaque(false);
         setFocusable(false);
         setEnabled(true);
         setName(COMPONENT_NAME);
         putClientProperty(PREVIEW_VISIBLE_PROPERTY, Boolean.FALSE);
+    }
+
+    /** Leaves native controls painted inside the GL canvas in the host's input path. */
+    @Override
+    public boolean contains(final int x, final int y) {
+        return super.contains(x, y) && inputRegion.contains(x, y);
+    }
+
+    @FunctionalInterface
+    interface InputRegion {
+        boolean contains(int x, int y);
     }
 
     /** Keeps hit-test coordinates valid even inside a native layout pass. */
