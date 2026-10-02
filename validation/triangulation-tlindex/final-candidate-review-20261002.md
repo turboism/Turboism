@@ -88,9 +88,16 @@ RSS/PSS/堆与 CPU 都是实际采样；100% CPU 指一个逻辑核。
 - 旧冻结 probe `30f5203e…` 保持不变。
 - UI off SHA256：`8945ee224b724641a5b468cf087be0287cb3908bca908c7abdc0c582bec9b846`
 - UI on SHA256：`190ea2fcf912c290a4db40ccd512becf4d3f032098f9cbeca339c2f0903cce02`
-- 汇总：`build/t050-lazy-edge-bytecode/final-owned-startup-ui-r2/final-candidate-review.json`
-- 汇总 SHA256：`259914f77ee94f826743382c9cde1406e41226e85e0c45b78078d56017fdcd8d`
-- 写后复核：1012 个独立输入再次重哈希，零差异。
+- 当前汇总：`build/t050-lazy-edge-bytecode/final-owned-startup-ui-r2/final-candidate-review-r2.json`
+- 当前汇总 SHA256：`09e735763771ff648efd84d94e96d9c5f879a92bb8169d608af05e2baf7adbe9`
+- 写后复核：1013 个独立输入再次重哈希，零差异。
+- 原汇总 `final-candidate-review.json` 及 SHA `259914f7…` 保留不变。
+
+汇总 r2 修正了原汇总沿用历史未校准 JFR 分配估计的口径。5203 和 5303
+现在分别引用各自已完成的时钟校准复核：边分配权重减少 75.7186% 和
+79.4476%。5302 的旧窗口估计明确标为未校准。分配权重仅为统计估计，
+不参与上述 CPU/内存验收界限；耗时、CPU、RSS/PSS/堆、UI、权威终态与
+资源边界提议均保持原值。这项报告修正未新增实机或修改生产代码。
 
 各版本完整历史、校准与归因限制见 [host evidence](host-evidence-20261002.md)。
 汇总绑定标准 outcome、prepared inventories、真实 UI 配置/结果、生产工件、

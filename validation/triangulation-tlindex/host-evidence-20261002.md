@@ -1136,3 +1136,17 @@ Original five FAILs/queued cancellation remain; five old terminal prefixes were
 removed using official safety checks, retaining config/results/logs/outcomes.
 No new performance A/B, production-base change, shared Runner change, previewBundle,
 immutable overwrite, merge or push was used to close this slice.
+
+## Summary allocation-attribution correction
+
+The frozen first aggregate copied the historical uncalibrated edge-allocation
+comparison from the pair reports. The new `final-candidate-review-r2.json`
+uses the existing calibrated final-pin values for5203 (−75.7186%) and5303
+(−79.4476%), and explicitly labels5302's legacy estimate uncalibrated.
+Allocation weights are statistical estimates and not acceptance metrics.
+All wall/CPU/RSS/PSS/heap,UI,outcome and proposed resource-limit values are
+asserted identical to the first aggregate. No host run or production code change.
+First aggregate/raw reports remain unchanged. Current summarySHA
+09e735763771ff648efd84d94e96d9c5f879a92bb8169d608af05e2baf7adbe9;
+post-writer1013 inputs/0mismatches. Production/HOLD and required human review
+remain unchanged; the full goal is not marked complete.
