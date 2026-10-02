@@ -238,8 +238,9 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `turboism.cubism.parameter.read` | `application` | Reads active Cubism model parameters. |
 | `turboism.cubism.project.read` | `application` | Reads active project, workspace, layout, and theme state. |
 | `turboism.cubism.model.write` | `application` | Applies typed model, parameter, binding, history, and model-setting writes. |
-| `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command. |
-| `turboism.network.fetch` | `application` | Allows the typed external-application settings command. |
+| `turboism.file.read` | `application` | Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint. |
+| `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command and writes the owner-only loopback connection file under the MCP state directory. |
+| `turboism.network.fetch` | `application` | Allows the typed external-application settings command and binds the Origin-guarded loopback HTTP transport. |
 | `turboism.process.run` | `application` | Allows the typed external-application settings command. |
 | `turboism.mcp.connection.publish` | `application` | Publishes the active loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
 | `turboism.action.register` | `application` | Registers the local MCP Connection window action. |
