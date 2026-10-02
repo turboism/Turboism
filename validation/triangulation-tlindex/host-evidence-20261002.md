@@ -575,3 +575,39 @@ compatibility, and formal native managed-startup/real-settings/independent-resta
 linkage. Old5302 reopen/OK cycles2/3 are not reused as repeated-target evidence.
 This report submits no new native job, changes no production artifact and claims
 no theoretical bottleneck.
+
+## Explicit 5302 producer profile: offline admission
+
+The diagnostic builder now accepts an explicit5302 profile only with the producer
+recorder and pinned production base. Unknown5303 and5302 delayed-cache requests
+are rejected before creating output. Default5203 generated sources and every
+JAR entry's content match frozen r5 exactly. For5302, only the version guard,
+diagnostic message and post-measurement native cancel resource/receipt change;
+native commands, full-source recorder and measurement windows remain unchanged.
+
+Exact official5302 JAR988ef6a8 static inspection confirms the command/edit-data/
+tool-panel descriptors. Native editCancel uses CUB3-4362. Its UUOption path retains
+OK_CANCEL=2, PLAIN=-1, custom Yes/Cancel, default Yes and confirmation-to-leave
+semantics, so the generic responder is unchanged. The initial guard-only5302
+driver retains CUB3-0009 and is explicitly not admitted; no host used it.
+
+CaptureWait17 and writer11 pass for both generated profiles; native binding17
+passes. Actual unique companion premain metadata passes5302 on and off with
+owned producer initial-definition weaving, lazy lease true/false respectively,
+and no official initializer, geometry or Editor. A5203 request to the5302 driver
+refuses before producer registration or driver-worker creation. Initial own-check
+Set/array compilation and placeholder-fixture hash refusals remain preserved.
+The final checks use the exact reviewed fixture copy; no admission gate is relaxed.
+One devCheck passes (1m42s); it ran before any new native measurement.
+
+The separate driver SHA is
+`6cf72bdbb79f393d910adcd414125da22559d0d4aba6b350eeeb0b4c7bf1785d`.
+Under `build/t050-lazy-edge-bytecode/producer-driver-5302-r2/`, offline-review SHA
+is `5ad2d5d559f2acf7b1d860585636bde428b16e69a60e831a4ffad9d67a1b3bb6`;
+315 source/tool/class/artifact/config/command/log pins pass post-writer rehash.
+Production base/companion/capture/startup plugin retain their existing pins.
+An independent5302 delivery and same-protocol off/on requests pass maintained
+wrapper dry-run/preparation and exact input-difference review. This is offline
+admission, not a full-native5302 result. Production remains NOT_PASSED; final
+repeated outputs/resources, memory stability,5303 compatibility and formal native
+startup/UI restart linkage remain required.
