@@ -22,6 +22,44 @@ import org.junit.jupiter.api.Test;
  */
 final class TriangulationEdgeIndexTest {
 
+    @Test
+    void localBuilderMembershipPreservesUndirectedPairsThroughGrowth() {
+        final TriangulationBuilderEdges state = TriangulationBuilderEdges.create();
+        final java.util.Set<List<Integer>> expected = new java.util.HashSet<>();
+        final Random random = new Random(5303);
+        for (int i = 0; i < 20_000; i++) {
+            final int a = i < 10_000 ? i : random.nextInt(10_000);
+            final int b = a + 1;
+            final List<Integer> pair = List.of(a, b);
+            assertEquals(expected.add(pair) ? 0 : 1, TriangulationBuilderEdges.seen(state, a, b));
+            assertEquals(1, TriangulationBuilderEdges.seen(state, b, a));
+        }
+        for (final List<Integer> pair : List.of(List.of(0, 0), List.of(-1, -1),
+                List.of(Integer.MIN_VALUE, Integer.MAX_VALUE), List.of(-7, 19))) {
+            assertEquals(0, TriangulationBuilderEdges.seen(state, pair.get(0), pair.get(1)));
+            assertEquals(1, TriangulationBuilderEdges.seen(state, pair.get(1), pair.get(0)));
+        }
+        final TriangulationBuilderEdges independent = TriangulationBuilderEdges.create();
+        assertEquals(0, TriangulationBuilderEdges.seen(independent, 1, 2));
+        assertEquals(1, TriangulationBuilderEdges.seen(state, 1, 2));
+        assertEquals(-1, TriangulationBuilderEdges.seen(null, 1, 2));
+    }
+
+    @Test
+    void localBuilderBudgetRefusalPermanentlyRestoresNativeMembership() throws Exception {
+        final TriangulationBuilderEdges state = TriangulationBuilderEdges.create();
+        final var table = TriangulationBuilderEdges.class.getDeclaredField("table");
+        final var size = TriangulationBuilderEdges.class.getDeclaredField("size");
+        table.setAccessible(true);
+        size.setAccessible(true);
+        table.set(state, new long[1 << 20]);
+        size.setInt(state, 1 << 19);
+        assertEquals(-1, TriangulationBuilderEdges.seen(state, 41, 42));
+        assertNull(table.get(state), "budget refusal releases the local table");
+        assertEquals(-1, TriangulationBuilderEdges.seen(state, 41, 42));
+        assertEquals(-1, TriangulationBuilderEdges.seen(state, 0, 0));
+    }
+
     /** Triangle double: index triple drives the index; coordinates drive equality. */
     private static final class Tri {
         final int ia, ib, ic;

@@ -21,6 +21,7 @@ import java.util.zip.ZipFile;
 final class LazyTriangulationEdgePreparation {
     private static final String P = "com.live2d.graphics3d.editableMesh.triangulation.";
     private static final String H = P + "h", J = P + "j", T = P + "TriPoint", L = P + "l", R = P + "r";
+    private static final String K = P + "k", TL = P + "TriangleList";
     private static final String V = "com.live2d.graphics3d.type.GVector2";
     private static final String ASSERTIONS = "kotlin._Assertions", INTRINSICS = "kotlin.jvm.internal.Intrinsics";
     private static final String KOTLIN_JAR = "kotlin-stdlib-1.7.21.jar";
@@ -45,6 +46,8 @@ final class LazyTriangulationEdgePreparation {
         require(loader != null, "bootstrap host rejected");
         require(Class.forName(LazyTriangulationEdgeBridge.class.getName(), false, loader) == LazyTriangulationEdgeBridge.class,
                 "bridge identity rejected");
+        require(Class.forName(TriangulationBuilderEdges.class.getName(), false, loader) == TriangulationBuilderEdges.class,
+                "builder helper identity rejected");
         URI hostOrigin = origin(domain); require(hostOrigin != null && hostOrigin.getScheme().equalsIgnoreCase("file"), "host origin rejected");
         Path hostPath = Path.of(hostOrigin), kotlinPath = hostPath.getParent().resolve(KOTLIN_JAR);
         HostArtifactDigest hostArtifact = HostArtifactDigest.from(hostPath);
@@ -53,14 +56,20 @@ final class LazyTriangulationEdgePreparation {
         require(sha(kotlinPath).equals(KOTLIN_SHA), "unreviewed complete Kotlin JAR");
         require(TriangulationEdgeIndexTransformer.sha256(baseline).equals(family52 ? BASELINE_52 : BASELINE_53), "unreviewed composed baseline");
         byte[] output;
+        Map<String, String> expected = fingerprints(family52);
         try (ZipFile host = new ZipFile(hostPath.toFile()); ZipFile kotlin = new ZipFile(kotlinPath.toFile())) {
             Map<String, byte[]> metadata = new HashMap<>();
             output = LazyTriangulationEdgePatcher.patch(baseline, name -> metadata.computeIfAbsent(name,
                     key -> definition(host, kotlin, key)));
+            byte[] list = definition(host, kotlin, TL.replace('.', '/'));
+            byte[] collection = definition(host, kotlin, K.replace('.', '/'));
+            require(list != null && collection != null, "builder dependencies missing");
+            byte[] builtList = TriangleListEdgeBuilderPatcher.patch(new TriangulationEdgeIndexPatcher().patch(list));
+            expected.put(TL, TriangleListEdgeBuilderPatcher.dependencyFingerprint(builtList));
+            expected.put(K, TriangulationDefinitionFingerprint.runtimeOf(collection));
         }
         // Managed host inventories are immutable; also refuse a changed input during preparation.
         require(HostArtifactDigest.from(hostPath).equals(hostArtifact) && sha(kotlinPath).equals(KOTLIN_SHA), "input changed during preparation");
-        Map<String, String> expected = fingerprints(family52);
         expected.put(H, TriangulationDefinitionFingerprint.runtimeOf(output));
         Plan plan = new Plan(lifecycle, Map.copyOf(expected), hostOrigin, kotlinPath.toUri().normalize(), receipt);
         require(LazyTriangulationEdgeBridge.register(loader, plan::capture), "loader already has a lazy plan");
@@ -83,6 +92,11 @@ final class LazyTriangulationEdgePreparation {
     }
 
     static String dependencyFingerprint(byte[] definition) {
+        if (new org.objectweb.asm.ClassReader(definition).getClassName().equals(TL.replace('.', '/'))) {
+            // The builder reads only the reviewed class/field shape and b() body.
+            // Other methods are outside this contract; return observation inside b() is rejected.
+            return TriangleListEdgeBuilderPatcher.dependencyFingerprint(definition);
+        }
         String observed = TriangulationDefinitionFingerprint.runtimeOf(definition);
         // Exact whole-definition alternative produced by the existing reviewed hash patch.
         // No member is omitted: further hash/getter/field changes still fail the comparison.
@@ -131,6 +145,12 @@ final class LazyTriangulationEdgePreparation {
         require(geometry.getDeclaredMethod("a", edge, edge).getReturnType() == vector, "edge intersection link");
         require(geometry.getDeclaredMethod("a", vector, vector, vector, vector).getReturnType() == vector, "endpoint intersection link");
         require(host.getDeclaredMethod("c").getReturnType() == void.class, "host operation link");
+        Class<?> collection = types.get(K), list = types.get(TL);
+        require(Modifier.isFinal(collection.getModifiers()) && Modifier.isFinal(list.getModifiers()), "builder finality");
+        require(list.getDeclaredMethod("b").getReturnType() == collection, "builder return link");
+        require(collection.getDeclaredMethod("a", edge, boolean.class).getReturnType() == boolean.class,
+                "builder membership link");
+        require(collection.getDeclaredMethod("a", edge).getReturnType() == boolean.class, "builder append link");
         require(host.getDeclaredMethod("a", face, face, edge).getReturnType() == java.util.List.class, "host membership link");
         require(types.get(ASSERTIONS).getDeclaredField("ENABLED").getType() == boolean.class, "assertion link");
         require(types.get(INTRINSICS).getDeclaredMethod("checkNotNullParameter", Object.class, String.class).getReturnType() == void.class,
