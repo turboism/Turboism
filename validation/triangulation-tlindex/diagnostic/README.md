@@ -417,3 +417,37 @@ frozen at SHA25358e39f4ff2819ca11b3dcd77163f1561c13895767ddf1257fb421d1c75e69,
 with selfchecks excluded from its JAR. Prepared input12256aef630c39e0283fe24240e16b82a420f5ff83a3d29ae29bdd9408a00f0e
 still uses production Agent2f6dd5ba. No r4 host result exists at preparation time;
 successful preparation cannot establish repeated execution or performance acceptance.
+
+
+### Scoped producer recorder (2026-10-02 offline slice)
+
+The r4 preparation note above is historical. Actual seq2340 failed: its native
+command returned, but GL index-cache publication stayed stale and it captured no
+result rows. Do not rerun that delayed reader unchanged.
+
+MeshProducerRecorder binds each entry ticket to one command cycle, source ID and
+mesh object identity. The producer return observer reads raw arrays only at the
+reviewed production boundary; the old MeshResultSnapshot delayed reader still
+refuses stale GL caches. It preserves all ordered producer events, including
+failed observations, checks full selected-source coverage and refuses duplicate
+completion, overlapping scopes and reuse after an abandoned in-flight command.
+Every scope must close in finally; its result events hold only scalars and digests,
+and close releases mesh identities. It never refreshes a cache or forces GC.
+
+MeshProducerWeave uses only the pinned base Agent shaded ASM core. It admits the
+exact three reviewed producer class/JAR digests and descriptor, expected origin,
+system loader and first definition through owned Instrumentation. Registration
+must precede measurement; removal is allowed after all commands or at shutdown,
+never inside a transformer callback. The catch/rethrow observer preserves native
+Throwable identity; observation failures remain diagnostic failures.
+
+Run verify-mesh-producer.py with a new output directory, --base-agent and explicit
+--jar-5203/--jar-5302/--jar-5303 paths. The base is frozen b47f6f47…; the script
+cleans inherited Java option variables, pins sources/dependencies/outputs, runs
+own producer behavior under -Xverify:all and checks official bytes as data.
+Current evidence: build/t050-lazy-edge-bytecode/producer-recorder-final/.
+This slice is not wired into a generated scene driver and has no native host
+result. Next bind actual editDataList identities, preserve partial events on
+failure, freeze an independent driver and submit one bounded5203 diagnostic
+through the existing single-Agent/FIFO route. No Atlas performance acceptance
+is inferred. Production remains HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED.
