@@ -1,11 +1,14 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.ui.host.EdtDispatch;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
@@ -59,25 +62,53 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
                     .map(Window.class::cast)
                     .orElse(null);
             final int choice =
-                    SwingUtilities.isEventDispatchThread() ? prompt(owner, connection) : promptOnEdt(owner, connection);
+                    SwingUtilities.isEventDispatchThread() ? prompt(owner, connection, null) : promptOnEdt(owner, connection);
             return choice == JOptionPane.YES_OPTION;
-        } catch (RuntimeException failure) {
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return false;
         }
     }
 
-    private int prompt(final Window owner, final EditConnectionInfo connection) {
+    private int prompt(
+            final Window owner, final EditConnectionInfo connection, final AtomicReference<JDialog> active) {
         final String plugin = connection.pluginName().isEmpty()
                 ? "An external plugin"
                 : "The plugin \"" + connection.pluginName() + "\"";
-        return JOptionPane.showConfirmDialog(
-                owner, plugin + " " + MESSAGE_TAIL, TITLE, JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        // The pane owns its dialog so the dispatch's abandon compensation can dispose it: a
+        // caller interrupted mid-prompt must not stay parked until the user answers.
+        final JOptionPane pane =
+                new JOptionPane(plugin + " " + MESSAGE_TAIL, JOptionPane.WARNING_MESSAGE, JOptionPane.YES_NO_OPTION);
+        final JDialog dialog = pane.createDialog(owner, TITLE);
+        if (active != null) {
+            active.set(dialog);
+        }
+        try {
+            dialog.setVisible(true);
+        } finally {
+            dialog.dispose();
+        }
+        final Object value = pane.getValue();
+        return value instanceof Integer choice ? choice : JOptionPane.NO_OPTION;
     }
 
     private int promptOnEdt(final Window owner, final EditConnectionInfo connection) {
+        final AtomicReference<JDialog> active = new AtomicReference<>();
         try {
-            return EdtDispatch.call("edit approval prompt", () -> prompt(owner, connection));
-        } catch (RuntimeException failure) {
+            return EdtDispatch.call(
+                    "edit approval prompt",
+                    EdtDispatch.DEFAULT_ACCEPT_TIMEOUT,
+                    () -> prompt(owner, connection, active),
+                    () -> {
+                        // Post-start interrupt: dispose releases the modal pump so the caller
+                        // stops waiting instead of blocking until the user answers.
+                        final JDialog dialog = active.get();
+                        if (dialog != null) {
+                            dialog.dispose();
+                        }
+                    });
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             return JOptionPane.NO_OPTION;
         }
     }

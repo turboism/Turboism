@@ -485,6 +485,14 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private static <T> T onEdt(final Callable<T> call) throws Exception {
-        return EdtDispatch.callExact("editor history EDT operation", EdtDispatch.DEFAULT_ACCEPT_TIMEOUT, call);
+        try {
+            return EdtDispatch.callExact("editor history EDT operation", EdtDispatch.DEFAULT_ACCEPT_TIMEOUT, call);
+        } catch (Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            if (failure instanceof Exception exception) throw exception;
+            // Callers catch Exception only; keep non-fatal Errors reachable behind the same
+            // checked wrapper the pre-dispatch handoff produced.
+            throw new java.lang.reflect.InvocationTargetException(failure);
+        }
     }
 }

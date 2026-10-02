@@ -40,10 +40,13 @@ import javax.swing.SwingUtilities;
  * compensation schedule it on the EDT instead — used by modal dialogs whose nested event pump
  * dispatches the compensation (e.g. {@code dialog.dispose()}) to release the caller.</p>
  *
- * <p>An acceptance timeout trips a circuit breaker: a probe runnable is queued behind the wedged
- * work, and until it executes all subsequent dispatches use {@link #UNRESPONSIVE_ACCEPT_TIMEOUT}
- * ({@code runEventually} returns without waiting). A JVM shutdown hook switches to the same short
- * bound so exit-time UI cleanup cannot stall process teardown.</p>
+ * <p>An acceptance timeout at or above {@link #DEFAULT_ACCEPT_TIMEOUT} trips a circuit breaker:
+ * a probe runnable is queued behind the wedged work, and until it executes all subsequent
+ * dispatches use {@link #UNRESPONSIVE_ACCEPT_TIMEOUT} ({@code runEventually} returns without
+ * waiting). Callers racing a shorter bound (status probes, attach deadlines) only evidence a
+ * busy EDT, not a wedged one, so their timeouts never trip the breaker for everyone else. A JVM
+ * shutdown hook switches to the same short bound so exit-time UI cleanup cannot stall process
+ * teardown.</p>
  */
 public final class EdtDispatch {
 
@@ -63,6 +66,13 @@ public final class EdtDispatch {
 
     private static final AtomicBoolean EDT_UNRESPONSIVE = new AtomicBoolean();
     private static final AtomicBoolean EXITING = new AtomicBoolean();
+
+    /**
+     * Caller acceptance bound at or above which an acceptance timeout marks the EDT
+     * unresponsive. A short-bounded caller that times out only proves the EDT was busy for a
+     * few seconds, so tripping the breaker on it would degrade every unrelated dispatch.
+     */
+    private static volatile Duration breakerTripBound = DEFAULT_ACCEPT_TIMEOUT;
 
     static {
         try {
@@ -142,7 +152,9 @@ public final class EdtDispatch {
         try {
             if (!queued.awaitStart(bound)) {
                 if (tryAbandon(queued.state)) {
-                    markEdtUnresponsive(label);
+                    if (!shortBound && acceptTimeout.compareTo(breakerTripBound) >= 0) {
+                        markEdtUnresponsive(label);
+                    }
                     throw new EdtDispatchException(
                             shortBound
                                     ? EdtDispatchException.Reason.EDT_UNRESPONSIVE
@@ -221,7 +233,9 @@ public final class EdtDispatch {
         }
         try {
             if (!queued.awaitStart(acceptTimeout)) {
-                markEdtUnresponsive(label);
+                if (acceptTimeout.compareTo(breakerTripBound) >= 0) {
+                    markEdtUnresponsive(label);
+                }
                 queued.callerGone.set(true);
                 RuntimeDiagnostics.debug(
                         COMPONENT, label + " deferred: EDT did not accept within " + acceptTimeout.toMillis() + "ms");
@@ -252,9 +266,14 @@ public final class EdtDispatch {
         EXITING.set(true);
     }
 
+    static void breakerTripBoundForTesting(final Duration bound) {
+        breakerTripBound = Objects.requireNonNull(bound, "bound");
+    }
+
     static void resetStateForTesting() {
         EDT_UNRESPONSIVE.set(false);
         EXITING.set(false);
+        breakerTripBound = DEFAULT_ACCEPT_TIMEOUT;
     }
 
     private static <T> T runInline(final String label, final Callable<T> task, final boolean exact) {
@@ -366,8 +385,9 @@ public final class EdtDispatch {
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
+                // Record first: a fatal Error must still reach the caller via outcome().
                 failure.set(throwable);
+                FatalErrors.rethrowIfFatal(throwable);
             } finally {
                 state.set(DONE);
                 done.countDown();
