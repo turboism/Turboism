@@ -611,3 +611,85 @@ wrapper dry-run/preparation and exact input-difference review. This is offline
 admission, not a full-native5302 result. Production remains NOT_PASSED; final
 repeated outputs/resources, memory stability,5303 compatibility and formal native
 startup/UI restart linkage remain required.
+
+## Complete 5302 producer pair: performance result closed, memory acceptance open
+
+The frozen 5302 driver `6cf72bdb` completed off/on jobs seq2418/2421 through the
+official BAT and shared FIFO. Both authoritative outcomes are succeeded/PASS:
+normal exit, exact host identity, unchanged original/copy fixtures, immutable
+inputs and bound-scope cleanup all pass. Both read-only observers exit zero.
+The off audit first encountered sandbox denial at its authoritative SQLite read;
+the empty refusal and exact script are retained. Granting read access completed
+the audit without another host run. Unrelated menu-validation jobs ran between
+the two legs; none ran concurrently inside either managed host session.
+
+Each leg captures 711 native sources in each of three real auto-connect cycles,
+2133 records total. Every semantic field matches off/on in native order, including
+point count, edge version, position/index lengths and their SHA-256 digests. The
+separate first-four ordered-edge capture also matches. Raw arrays are not saved.
+Native off itself varies across cycles: cycle2 versus cycle1 has eight changed
+index digests/four changed lengths, and cycle3 has five/two. The on leg has the
+same variations; positions and point counts remain unchanged.
+
+| Native command window | Off seconds | On seconds |
+| --- | ---: | ---: |
+| Cycle1 | 35.210 | 25.284 |
+| Cycle2 | 35.664 | 23.646 |
+| Cycle3 | 34.625 | 23.873 |
+| Total | 105.498 | 72.803 |
+
+Total command wall time falls **30.99%**. Sampled Java user/system CPU totals
+110.06 to 78.29 seconds (**28.87% lower**); separately observed auxiliary CPU
+8.45 to 5.37 seconds (36.45% lower). Each cycle has actual triangulation samples;
+the on leg also has production-index samples 139/151/145. All windows have zero
+unknown frames. Edge-class allocation sample weight is 1,235,625,304 to
+301,475,248 bytes (75.60% lower), a statistical estimate rather than exact
+allocation or an additional speedup claim. This is one native auto-connect
+diagnostic pair, not Atlas A/B or independent-run/three-version stability.
+
+**Memory acceptance remains open.** On starts with a lower baseline, yet has
+higher command peaks and retained medians:
+
+| Window | Off RSS MiB | On RSS MiB | Off PSS MiB | On PSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline median | 2944.77 | 2560.16 | 2874.47 | 2495.27 |
+| Operation1 sampled peak | 2952.91 | 3395.17 | 2882.77 | 3334.16 |
+| Operation2 sampled peak | 2957.58 | 3825.05 | 2887.46 | 3760.87 |
+| Operation3 sampled peak | 2459.96 | 3729.96 | 2402.16 | 3664.88 |
+| Retained1 median | 2957.53 | 3464.07 | 2887.15 | 3399.28 |
+| Retained2 median | 2251.25 | 3729.89 | 2192.78 | 3664.85 |
+| Retained3 median | 2483.84 | 3161.54 | 2425.63 | 3102.48 |
+
+Relative to each baseline, command RSS peaks change by +8.14/+12.82/−484.81 MiB
+off versus +835.00/+1264.89/+1169.79 MiB on. All six retained windows have no
+sampled triangulation/index or native-serialization work; Java CPU per retained
+window is below one second. They remain sampled 30-second observations, with no
+GC heap events during retained windows. Falling final RSS and fewer allocation
+samples do not prove retention safety. On operation allocation samples include
+Long, SetKey and reflection Type arrays; those samples identify investigation
+targets, not the cause of retained RSS or a leak proof.
+
+Whole observations, which include startup and exit, have RSS peaks 3210.29/off
+versus 4510.63/on MiB and JFR heap maxima 2563.55 versus 3513.32 MiB. Their scope
+does not replace command-window memory comparisons. All sampled PSS records are
+present. Independent recomputation verifies all 14 derived resource windows,
+CPU/RSS/PSS, actual targets, allocation/heap data, full outputs and ratios. All
+260 heap event times/values match the JDK CLI exactly (144/off, 116/on). Native
+cancel takes 0.598/off and 0.671/on seconds with one reviewed CUB3-4362 confirmation
+and no external window action. No build ran during the pair's measurement windows.
+
+Evidence: `build/t050-lazy-edge-bytecode/performance5302-producer-r1/`.
+`independent-pair-review.json` SHA is
+`f3963f07fae5fbc98256f55c7ed9271255d9679338ba3c146280b430afee45ca`.
+All 744 report-bound input pins pass post-writer rehash;
+`post-writer-pin-review.json` SHA is
+`d3bcafd19f94e230f4ab324ae6e4f3c82e14465e06f052deff899dbcc3b3f939`.
+
+This bounded pair's report is closed. Production remains
+HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED; T050 partial and T044/T046 remain open.
+Next priority is to explain and reduce the measured memory cost using existing
+evidence before another performance run. Final 5303 owned compatibility and
+complete outputs/resources, memory stability and reviewed numerical limits,
+formal native managed startup and real-settings/independent-restart linkage
+remain required. No theoretical bottleneck is established. No frozen production
+artifact or shared Runner changed, and no merge/push was performed.
