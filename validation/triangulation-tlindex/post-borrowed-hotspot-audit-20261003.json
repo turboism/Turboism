@@ -1,0 +1,1130 @@
+{
+  "status": "PASS_READ_ONLY_AUDIT",
+  "decision": "RETAIN_NATIVE_REMOVAL_AND_SETTLE_PROOF; NEXT_OWNED_VECTOR_COPY_ELISION_PROTOTYPE",
+  "commandHotspots": {
+    "scope": "Same-recording epoch time vs explicit three native command windows; triangulation-stack condition",
+    "limitations": [
+      "Sample counts are not calls, CPU duration or removable-time estimates.",
+      "Java and native samples must not be added to infer CPU proportions.",
+      "JIT inlining can attribute native callees to caller BCIs; map exact installed method bytes.",
+      "Truncated or empty stacks limit attribution; separate counters retain those observations."
+    ],
+    "analyzerSha256": "25371d6ae8d34ecefe4bfb9285cae9f58f20e20f45aa793339e2af235200ab84",
+    "legs": {
+      "baseline": {
+        "windows": [
+          {
+            "operation": 1,
+            "startEpochMillis": 1790973421384,
+            "endEpochMillis": 1790973435716
+          },
+          {
+            "operation": 2,
+            "startEpochMillis": 1790973469759,
+            "endEpochMillis": 1790973481989
+          },
+          {
+            "operation": 3,
+            "startEpochMillis": 1790973515904,
+            "endEpochMillis": 1790973528343
+          }
+        ],
+        "counts": {
+          "jdk.NativeMethodSampleInCommandWindows": 1932,
+          "jdk.ExecutionSampleInCommandWindows": 1507,
+          "jdk.ExecutionSampleTriangulationStack": 954,
+          "jdk.NativeMethodSampleTriangulationStack": 12
+        },
+        "javaLeafBci": [
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 163,
+            "samples": 227
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 544,
+            "samples": 159
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 127,
+            "samples": 113
+          },
+          {
+            "method": "java/lang/Math.atan2(DD)D",
+            "bci": 2,
+            "samples": 93
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 92,
+            "samples": 67
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 256,
+            "samples": 65
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 766,
+            "samples": 35
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 172,
+            "samples": 35
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 127,
+            "samples": 27
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+            "bci": 209,
+            "samples": 18
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 510,
+            "samples": 8
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 366,
+            "samples": 8
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 786,
+            "samples": 4
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z",
+            "bci": 18,
+            "samples": 4
+          },
+          {
+            "method": "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry;",
+            "bci": 16,
+            "samples": 3
+          },
+          {
+            "method": "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V",
+            "bci": 75,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 308,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z",
+            "bci": 17,
+            "samples": 3
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.slot([JJ)I",
+            "bci": 73,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 183,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 226,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+            "bci": 260,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 236,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 549,
+            "samples": 2
+          },
+          {
+            "method": "java/lang/Float.isFinite(F)Z",
+            "bci": 7,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 504,
+            "samples": 2
+          },
+          {
+            "method": "java/util/ArrayList$Itr.next()Ljava/lang/Object;",
+            "bci": 64,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 119,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 249,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 420,
+            "samples": 2
+          },
+          {
+            "method": "java/util/IdentityHashMap.containsKey(Ljava/lang/Object;)Z",
+            "bci": 52,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 360,
+            "samples": 2
+          },
+          {
+            "method": "java/util/IdentityHashMap.remove(Ljava/lang/Object;)Ljava/lang/Object;",
+            "bci": 99,
+            "samples": 2
+          },
+          {
+            "method": "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node;",
+            "bci": 145,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/type/GVector2.getY()F",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+            "bci": 62,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Lcom/live2d/graphics3d/type/GVector2;",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 227,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 104,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 80,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 725,
+            "samples": 1
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.checkNotNullExpressionValue(Ljava/lang/Object;Ljava/lang/String;)V",
+            "bci": 1,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 660,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 496,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 383,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 306,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 318,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V",
+            "bci": 32,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 176,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 147,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 124,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 169,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 583,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V",
+            "bci": 14,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 779,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 192,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 31,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 179,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 111,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 143,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 378,
+            "samples": 1
+          },
+          {
+            "method": "java/util/IdentityHashMap.hash(Ljava/lang/Object;I)I",
+            "bci": 1,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/c.f()[[I",
+            "bci": 35,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 313,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 479,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 152,
+            "samples": 1
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V",
+            "bci": 1,
+            "samples": 1
+          },
+          {
+            "method": "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object;",
+            "bci": 54,
+            "samples": 1
+          },
+          {
+            "method": "java/util/Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object;",
+            "bci": 6,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/c.f()[[I",
+            "bci": 119,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(I)Ljava/util/List;",
+            "bci": 51,
+            "samples": 1
+          },
+          {
+            "method": "java/util/HashMap.removeNode(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/util/HashMap$Node;",
+            "bci": 168,
+            "samples": 1
+          },
+          {
+            "method": "java/util/LinkedHashMap.newNode(ILjava/lang/Object;Ljava/lang/Object;Ljava/util/HashMap$Node;)Ljava/util/HashMap$Node;",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 154,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 165,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 224,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z",
+            "bci": 2,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.<init>(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)V",
+            "bci": 56,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z",
+            "bci": 120,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I",
+            "bci": 36,
+            "samples": 1
+          }
+        ],
+        "nativeLeaves": {
+          "java/lang/StrictMath.atan2(DD)D": 9,
+          "java/lang/System.identityHashCode(Ljava/lang/Object;)I": 3
+        },
+        "javaLeafCallPaths": {
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 196,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 153,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 141,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 131,
+          "java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 93,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 81,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 56,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 30,
+          "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 18,
+          "com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 4,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 3,
+          "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 3,
+          "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V <- java/util/HashMap$KeyIterator.<init>(Ljava/util/HashMap;)V <- java/util/HashMap$KeySet.iterator()Ljava/util/Iterator; <- java/util/HashSet.iterator()Ljava/util/Iterator; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.iterator()Ljava/util/Iterator;": 3,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 3,
+          "com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 2,
+          "java/lang/Float.isFinite(F)Z <- dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard.reject(FF)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 2,
+          "java/util/ArrayList$Itr.next()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 2,
+          "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry; <- java/util/LinkedHashMap$LinkedKeyIterator.next()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/c.f()[[I <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V <- com/live2d/cubism/doc/modeling/CModelingEditMode_MeshEditor.commandAutoConnect()V": 2,
+          "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.slot([JJ)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(Ldev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges;II)I <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V": 2,
+          "com/live2d/graphics3d/type/GVector2.getY()F <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/r.b(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)I <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/l.a(Lcom/live2d/graphics3d/type/GVector2;)Z": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "kotlin/jvm/internal/Intrinsics.checkNotNullExpressionValue(Ljava/lang/Object;Ljava/lang/String;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 1,
+          "java/util/IdentityHashMap.containsKey(Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/IdentityHashMap.hash(Ljava/lang/Object;I)I <- java/util/IdentityHashMap.put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.add(Ljava/util/LinkedHashSet;Ljava/lang/Object;III)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry; <- java/util/LinkedHashMap$LinkedKeyIterator.next()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "kotlin/jvm/internal/Intrinsics.checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V <- com/live2d/graphics3d/editableMesh/triangulation/j.<init>(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/l.f()Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1,
+          "java/util/Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object; <- java/util/ArrayList.toArray()[Ljava/lang/Object; <- java/util/ArrayList.<init>(Ljava/util/Collection;)V <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/IdentityHashMap.remove(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/IdentityHashMap.remove(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z": 1,
+          "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(I)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V": 1,
+          "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.slot([JJ)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(Ldev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges;II)I <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;": 1,
+          "java/util/HashMap.removeNode(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/util/HashMap$Node; <- java/util/HashMap.remove(Ljava/lang/Object;)Ljava/lang/Object; <- java/util/HashSet.remove(Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z": 1,
+          "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node; <- java/util/HashMap.get(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.bucket(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;J)Ljava/util/ArrayList; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/LinkedHashMap.newNode(ILjava/lang/Object;Ljava/lang/Object;Ljava/util/HashMap$Node;)Ljava/util/HashMap$Node; <- java/util/HashMap.putVal(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/lang/Object; <- java/util/HashMap.put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object; <- java/util/HashSet.add(Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node; <- java/util/HashMap.get(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.st(Ljava/util/LinkedHashSet;)Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z <- kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.<init>(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 1,
+          "java/util/IdentityHashMap.containsKey(Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1,
+          "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(Ldev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges;II)I <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1
+        },
+        "pins": {
+          "build/t060-borrowed-integration-r1/hotspots/baseline-samples.json": "8fd3f992e5814a19cf843611fb0e4db5834d6b656d493ee6b82e2062239ea52e",
+          "build/t060-borrowed-integration-r1/native5303-pair1/baseline/native-evidence/resource-windows.tsv": "4619bd1caf13c489e284fe5c38e70b5db1c0caf99bb4634b3c5dcdfbe57e07f5",
+          "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f"
+        }
+      },
+      "candidate": {
+        "windows": [
+          {
+            "operation": 1,
+            "startEpochMillis": 1790973760424,
+            "endEpochMillis": 1790973776214
+          },
+          {
+            "operation": 2,
+            "startEpochMillis": 1790973810348,
+            "endEpochMillis": 1790973823296
+          },
+          {
+            "operation": 3,
+            "startEpochMillis": 1790973857371,
+            "endEpochMillis": 1790973869995
+          }
+        ],
+        "counts": {
+          "jdk.NativeMethodSampleInCommandWindows": 2040,
+          "jdk.ExecutionSampleInCommandWindows": 1568,
+          "jdk.ExecutionSampleTriangulationStack": 968,
+          "jdk.NativeMethodSampleTriangulationStack": 10
+        },
+        "javaLeafBci": [
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+            "bci": 22,
+            "samples": 175
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+            "bci": 62,
+            "samples": 110
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+            "bci": 49,
+            "samples": 102
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 127,
+            "samples": 81
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 163,
+            "samples": 75
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.leave(Ljava/lang/AutoCloseable;)V",
+            "bci": 6,
+            "samples": 66
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 94,
+            "samples": 64
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 766,
+            "samples": 39
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 127,
+            "samples": 25
+          },
+          {
+            "method": "java/lang/Math.atan2(DD)D",
+            "bci": 2,
+            "samples": 19
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+            "bci": 24,
+            "samples": 19
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 92,
+            "samples": 17
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 395,
+            "samples": 12
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+            "bci": 209,
+            "samples": 12
+          },
+          {
+            "method": "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V",
+            "bci": 75,
+            "samples": 12
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 389,
+            "samples": 10
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 308,
+            "samples": 9
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 510,
+            "samples": 8
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 854,
+            "samples": 4
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 732,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 306,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 169,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+            "bci": 260,
+            "samples": 3
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V",
+            "bci": 1,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 256,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 52,
+            "samples": 3
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z",
+            "bci": 18,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 313,
+            "samples": 3
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.slot([JJ)I",
+            "bci": 73,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 172,
+            "samples": 3
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 244,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 226,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 695,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 147,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 779,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 786,
+            "samples": 2
+          },
+          {
+            "method": "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node;",
+            "bci": 145,
+            "samples": 2
+          },
+          {
+            "method": "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object;",
+            "bci": 54,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 818,
+            "samples": 2
+          },
+          {
+            "method": "java/lang/Float.isFinite(F)Z",
+            "bci": 7,
+            "samples": 2
+          },
+          {
+            "method": "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry;",
+            "bci": 16,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 166,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z",
+            "bci": 17,
+            "samples": 2
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Z",
+            "bci": 6,
+            "samples": 2
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.put(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;JLjava/lang/Object;)V",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "java/lang/Float.isFinite(F)Z",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 166,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 240,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 136,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/j.a(I)Z",
+            "bci": -1,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 92,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/c.a(I)Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;",
+            "bci": 0,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 479,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 725,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 361,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 192,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/j.a(I)Z",
+            "bci": 8,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+            "bci": 130,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 318,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 246,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+            "bci": 58,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 69,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k;",
+            "bci": 135,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+            "bci": 152,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k;",
+            "bci": 37,
+            "samples": 1
+          },
+          {
+            "method": "java/util/HashSet.size()I",
+            "bci": 4,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 176,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.e()Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+            "bci": 6,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+            "bci": 202,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+            "bci": 257,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 665,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 119,
+            "samples": 1
+          },
+          {
+            "method": "java/util/HashMap.putVal(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/lang/Object;",
+            "bci": 152,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 720,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+            "bci": 5,
+            "samples": 1
+          },
+          {
+            "method": "java/util/Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object;",
+            "bci": 6,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z",
+            "bci": 133,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 549,
+            "samples": 1
+          },
+          {
+            "method": "kotlin/jvm/internal/Intrinsics.sanitizeStackTrace(Ljava/lang/Throwable;)Ljava/lang/Throwable;",
+            "bci": 7,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+            "bci": 117,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(I)Ljava/util/List;",
+            "bci": 89,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 104,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 124,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+            "bci": 236,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/a.b()V",
+            "bci": 230,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+            "bci": 128,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+            "bci": 672,
+            "samples": 1
+          },
+          {
+            "method": "java/util/HashMap.putVal(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/lang/Object;",
+            "bci": 219,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z",
+            "bci": 12,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z",
+            "bci": 2,
+            "samples": 1
+          },
+          {
+            "method": "com/live2d/graphics3d/editableMesh/triangulation/l.e()Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+            "bci": 11,
+            "samples": 1
+          },
+          {
+            "method": "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I",
+            "bci": 136,
+            "samples": 1
+          }
+        ],
+        "nativeLeaves": {
+          "java/lang/StrictMath.atan2(DD)D": 9,
+          "java/lang/System.identityHashCode(Ljava/lang/Object;)I": 1
+        },
+        "javaLeafCallPaths": {
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 278,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 164,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 77,
+          "dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.leave(Ljava/lang/AutoCloseable;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 66,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 63,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 50,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V": 48,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 43,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 30,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 30,
+          "java/lang/Math.atan2(DD)D <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)F <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 19,
+          "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 19,
+          "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 14,
+          "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V <- java/util/HashMap$KeyIterator.<init>(Ljava/util/HashMap;)V <- java/util/HashMap$KeySet.iterator()Ljava/util/Iterator; <- java/util/HashSet.iterator()Ljava/util/Iterator; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.iterator()Ljava/util/Iterator;": 12,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 6,
+          "com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 4,
+          "java/lang/Float.isFinite(F)Z <- dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard.reject(FF)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 3,
+          "kotlin/jvm/internal/Intrinsics.checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Z)Z <- com/live2d/graphics3d/editableMesh/triangulation/l.a(Lcom/live2d/graphics3d/type/GVector2;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 3,
+          "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.slot([JJ)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(Ldev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges;II)I <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;": 3,
+          "com/live2d/graphics3d/editableMesh/triangulation/j.a(I)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.e()Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 2,
+          "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/r;Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;ZILjava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/a.b()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 2,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V": 2,
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.put(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;JLjava/lang/Object;)V <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.add(Ljava/util/LinkedHashSet;Ljava/lang/Object;III)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/c.a(I)Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint; <- com/live2d/graphics3d/editableMesh/triangulation/c.a(II)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect(ZZLcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/GEditableMesh2.autoConnect$default(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;ZZLcom/live2d/util/j/a;ILjava/lang/Object;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "java/util/HashSet.size()I <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/h;Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/l.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z <- com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "java/util/HashMap.putVal(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/lang/Object; <- java/util/HashMap.put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object; <- java/util/HashSet.add(Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.add(Ljava/util/LinkedHashSet;Ljava/lang/Object;III)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Lcom/live2d/graphics3d/type/GVector2; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 1,
+          "java/util/Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object; <- java/util/ArrayList.toArray()[Ljava/lang/Object; <- java/util/ArrayList.<init>(Ljava/util/Collection;)V <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z <- kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node; <- java/util/HashMap.get(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.bucket(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;J)Ljava/util/ArrayList; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/l.e()Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1,
+          "kotlin/jvm/internal/Intrinsics.sanitizeStackTrace(Ljava/lang/Throwable;)Ljava/lang/Throwable; <- kotlin/jvm/internal/Intrinsics.throwParameterIsNullNPE(Ljava/lang/String;)V <- kotlin/jvm/internal/Intrinsics.checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V <- com/live2d/graphics3d/editableMesh/triangulation/c.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(I)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/h.c()V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/util/j/a;)V <- com/live2d/graphics3d/editableMesh/b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V": 1,
+          "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry; <- java/util/LinkedHashMap$LinkedKeyIterator.next()Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "java/util/LinkedHashMap$LinkedHashIterator.nextNode()Ljava/util/LinkedHashMap$Entry; <- java/util/LinkedHashMap$LinkedKeyIterator.next()Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.contains(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.c(Lcom/live2d/graphics3d/editableMesh/triangulation/l;)Z": 1,
+          "java/util/HashMap.putVal(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/lang/Object; <- java/util/HashMap.put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object; <- java/util/HashSet.add(Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object; <- com/live2d/graphics3d/editableMesh/triangulation/l.f()Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1,
+          "java/util/HashMap.getNode(Ljava/lang/Object;)Ljava/util/HashMap$Node; <- java/util/HashMap.get(Ljava/lang/Object;)Ljava/lang/Object; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.st(Ljava/util/LinkedHashSet;)Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St; <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z <- java/util/HashMap.removeNode(ILjava/lang/Object;Ljava/lang/Object;ZZ)Ljava/util/HashMap$Node; <- java/util/HashMap.remove(Ljava/lang/Object;)Ljava/lang/Object; <- java/util/HashSet.remove(Ljava/lang/Object;)Z <- dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z": 1,
+          "com/live2d/graphics3d/editableMesh/triangulation/l.equals(Ljava/lang/Object;)Z <- kotlin/jvm/internal/Intrinsics.areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z <- com/live2d/graphics3d/editableMesh/triangulation/h.b(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List; <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/ArrayList;Lcom/live2d/graphics3d/editableMesh/triangulation/j;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V <- com/live2d/graphics3d/editableMesh/triangulation/h.a(Ljava/util/List;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V": 1,
+          "dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.record(J)I <- dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.seen(Ldev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges;II)I <- com/live2d/graphics3d/editableMesh/triangulation/TriangleList.b()Lcom/live2d/graphics3d/editableMesh/triangulation/k; <- com/live2d/graphics3d/editableMesh/triangulation/h.d()V <- com/live2d/graphics3d/editableMesh/triangulation/h.c()V": 1
+        },
+        "pins": {
+          "build/t060-borrowed-integration-r1/hotspots/candidate-samples.json": "73ff00adaf87954e392143c0506f37a1f195221f58dfe5b2433adc8427ad86e3",
+          "build/t060-borrowed-integration-r1/native5303-pair1/candidate/native-evidence/resource-windows.tsv": "a8d3c7145e506c39b16c407f5099156fee1ffbc614c6648a6c736983f21bca25",
+          "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f"
+        }
+      }
+    }
+  },
+  "vectorAudit": {
+    "scope": "READ_ONLY_DIAGNOSTIC_SHAPE_NO_PRODUCTION_ADMISSION",
+    "profiles": {
+      "5203": {
+        "jar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar",
+        "jarSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+        "rawVectorSha256": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+        "listingSha256": "1a14b4b1bba913ff07ca648e712c351891486347da14f8850be883ee339353c0",
+        "bodies": {
+          "minus": "  public final com.live2d.graphics3d.type.GVector2 minus(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: new           #26                 // class com/live2d/graphics3d/type/GVector2\n       9: dup\n      10: aload_0\n      11: getfield      #46                 // Field x:F\n      14: aload_1\n      15: getfield      #46                 // Field x:F\n      18: fsub\n      19: aload_0\n      20: getfield      #47                 // Field y:F\n      23: aload_1\n      24: getfield      #47                 // Field y:F\n      27: fsub\n      28: invokespecial #57                 // Method \"<init>\":(FF)V\n      31: areturn\n\n",
+          "copyConstructor": "  public com.live2d.graphics3d.type.GVector2(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: aload_0\n       7: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n      10: aload_0\n      11: aload_1\n      12: getfield      #46                 // Field x:F\n      15: putfield      #46                 // Field x:F\n      18: aload_0\n      19: aload_1\n      20: getfield      #47                 // Field y:F\n      23: putfield      #47                 // Field y:F\n      26: return\n\n",
+          "scalarConstructor": "  public com.live2d.graphics3d.type.GVector2(float, float);\n    Code:\n       0: aload_0\n       1: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n       4: aload_0\n       5: fload_1\n       6: putfield      #46                 // Field x:F\n       9: aload_0\n      10: fload_2\n      11: putfield      #47                 // Field y:F\n      14: return\n\n"
+        },
+        "normalizedBodySha256": {
+          "minus": "dbe2ff1e84b8e4fc3b4754aa46a70cd421f740699306f593855388c3126c7bab",
+          "copyConstructor": "6e41019d2f3193646532c0fe204675c9f492a93d3cf38f03e31c5900c7711cdb",
+          "scalarConstructor": "50019e0ec21e8660d78105c083a3124dd39b792226a229585fc19dfddc8f1fba"
+        }
+      },
+      "5302": {
+        "jar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar",
+        "jarSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+        "rawVectorSha256": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+        "listingSha256": "1a14b4b1bba913ff07ca648e712c351891486347da14f8850be883ee339353c0",
+        "bodies": {
+          "minus": "  public final com.live2d.graphics3d.type.GVector2 minus(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: new           #26                 // class com/live2d/graphics3d/type/GVector2\n       9: dup\n      10: aload_0\n      11: getfield      #46                 // Field x:F\n      14: aload_1\n      15: getfield      #46                 // Field x:F\n      18: fsub\n      19: aload_0\n      20: getfield      #47                 // Field y:F\n      23: aload_1\n      24: getfield      #47                 // Field y:F\n      27: fsub\n      28: invokespecial #57                 // Method \"<init>\":(FF)V\n      31: areturn\n\n",
+          "copyConstructor": "  public com.live2d.graphics3d.type.GVector2(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: aload_0\n       7: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n      10: aload_0\n      11: aload_1\n      12: getfield      #46                 // Field x:F\n      15: putfield      #46                 // Field x:F\n      18: aload_0\n      19: aload_1\n      20: getfield      #47                 // Field y:F\n      23: putfield      #47                 // Field y:F\n      26: return\n\n",
+          "scalarConstructor": "  public com.live2d.graphics3d.type.GVector2(float, float);\n    Code:\n       0: aload_0\n       1: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n       4: aload_0\n       5: fload_1\n       6: putfield      #46                 // Field x:F\n       9: aload_0\n      10: fload_2\n      11: putfield      #47                 // Field y:F\n      14: return\n\n"
+        },
+        "normalizedBodySha256": {
+          "minus": "dbe2ff1e84b8e4fc3b4754aa46a70cd421f740699306f593855388c3126c7bab",
+          "copyConstructor": "6e41019d2f3193646532c0fe204675c9f492a93d3cf38f03e31c5900c7711cdb",
+          "scalarConstructor": "50019e0ec21e8660d78105c083a3124dd39b792226a229585fc19dfddc8f1fba"
+        }
+      },
+      "5303": {
+        "jar": "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar",
+        "jarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+        "rawVectorSha256": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+        "listingSha256": "1a14b4b1bba913ff07ca648e712c351891486347da14f8850be883ee339353c0",
+        "bodies": {
+          "minus": "  public final com.live2d.graphics3d.type.GVector2 minus(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: new           #26                 // class com/live2d/graphics3d/type/GVector2\n       9: dup\n      10: aload_0\n      11: getfield      #46                 // Field x:F\n      14: aload_1\n      15: getfield      #46                 // Field x:F\n      18: fsub\n      19: aload_0\n      20: getfield      #47                 // Field y:F\n      23: aload_1\n      24: getfield      #47                 // Field y:F\n      27: fsub\n      28: invokespecial #57                 // Method \"<init>\":(FF)V\n      31: areturn\n\n",
+          "copyConstructor": "  public com.live2d.graphics3d.type.GVector2(com.live2d.graphics3d.type.GVector2);\n    Code:\n       0: aload_1\n       1: ldc           #7                  // String\n       3: invokestatic  #99                 // Method kotlin/jvm/internal/Intrinsics.checkNotNullParameter:(Ljava/lang/Object;Ljava/lang/String;)V\n       6: aload_0\n       7: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n      10: aload_0\n      11: aload_1\n      12: getfield      #46                 // Field x:F\n      15: putfield      #46                 // Field x:F\n      18: aload_0\n      19: aload_1\n      20: getfield      #47                 // Field y:F\n      23: putfield      #47                 // Field y:F\n      26: return\n\n",
+          "scalarConstructor": "  public com.live2d.graphics3d.type.GVector2(float, float);\n    Code:\n       0: aload_0\n       1: invokespecial #92                 // Method java/lang/Object.\"<init>\":()V\n       4: aload_0\n       5: fload_1\n       6: putfield      #46                 // Field x:F\n       9: aload_0\n      10: fload_2\n      11: putfield      #47                 // Field y:F\n      14: return\n\n"
+        },
+        "normalizedBodySha256": {
+          "minus": "dbe2ff1e84b8e4fc3b4754aa46a70cd421f740699306f593855388c3126c7bab",
+          "copyConstructor": "6e41019d2f3193646532c0fe204675c9f492a93d3cf38f03e31c5900c7711cdb",
+          "scalarConstructor": "50019e0ec21e8660d78105c083a3124dd39b792226a229585fc19dfddc8f1fba"
+        }
+      }
+    },
+    "allThreeReviewedBodiesMatch": true,
+    "pins": {
+      "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/audit-vector-copy-shape.py": "a6df4c63fc284df579814d4c060f5a6a90dc0821ca4ac8d36a0e224652fdcd9d",
+      "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "bfab1271129671edd29e59eb5008c4fefd0a5da5919d8abb8f2e1ad356d6bcad"
+    },
+    "limitations": [
+      "Normalized listings are research evidence, not runtime admission fingerprints.",
+      "No native fixtures, full transformed method or Editor executed.",
+      "Removing copies needs shared exact-definition lease, complete failure/order/geometry controls and independent native CPU/RSS comparison."
+    ]
+  },
+  "pins": {
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/hotspots/command-review.json": "7471dbcca2775ee6e9920cf6b9928dfb52415fac4c77cba1bd97b464021b13c8",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t061-hotspot-audit-r1/vector-audit-r1/review.json": "bbc17bf20d0af0afb8a59cfab0684484926a71b271fa0caf86026872b472d2a9",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t060-borrowed-integration-r1/hotspots/export-review.json": "401ae4315197df0243c3456d49cd73c3f9aa6c7637539ddc1f93af9fe09c859b",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t058-borrowed-membership-r3/t058-native-h-javap.txt": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "2fe0f008cd71ff373e0ae0a4453707fd7b4aa6aa114df13d3ca06b426d3d52ec",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationAngleGuardPatcher.java": "35b575260727652b4434cb06bf6c413719a3d02b7d23139a0b4a0442a7c39da4",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t061-hotspot-audit-r1/GVector2.javap.txt": "1a14b4b1bba913ff07ca648e712c351891486347da14f8850be883ee339353c0",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t061-hotspot-audit-r1/l.javap.txt": "6536a586a2cb761f3c2adddd8b34a0888d077bebc01f2b9032bd534cbb1f5422",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t061-hotspot-audit-r1/c.javap.txt": "df360ee11328a588a6d03cb2a95d44debce1140da8e3645e5c7bace0b57350d8"
+  },
+  "productionChanged": false,
+  "editorLaunched": false,
+  "limitations": [
+    "Sample counts are not calls, CPU shares or removable-time estimates.",
+    "JDK CompilerInlining events are absent in both recordings; no causal inlining claim.",
+    "Observed leaf shifts do not explain the CPU regression by themselves.",
+    "Absence of setters in h alone cannot prove coordinate immutability across exposed context points/callbacks.",
+    "Vector copy elision is only a candidate; no complete transformed method, allocation measurement or host speed claim."
+  ]
+}
