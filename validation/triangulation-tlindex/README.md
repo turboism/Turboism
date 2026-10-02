@@ -415,3 +415,16 @@ pair. On baseline/operation RSS is higher and both third retained windows contai
 native serialization/archive work; retention safety remains undecided.
 See the [current host evidence](host-evidence-20261002.md) for hashes and remaining
 acceptance. Production remains NOT_PASSED.
+
+The explicit 5302 producer profile later completed its own matched off/on pair
+(seq2418/2421). Both legs pass all standard host gates, and all 2133 complete
+producer projections match. Three command windows total 105.498/off versus
+72.803/on seconds (30.99% lower); sampled Java CPU falls 28.87%. Independent
+recomputation and 744 post-writer pin checks pass. This closes that bounded
+native auto-connect report. On has a lower initial RSS baseline but higher
+operation peaks and retained medians: operation peak maxima are 2957.58/off
+versus 3825.05/on MiB. Memory acceptance remains open, with investigation of
+existing evidence taking priority over another performance run. Final 5303,
+memory stability/limits and formal native startup/real-settings/restart linkage
+remain open; production remains NOT_PASSED. See the current host evidence record
+for complete comparisons, hashes and limitations.
