@@ -451,3 +451,17 @@ SetKey/Long/Type-array allocations are sampled in the new command windows.
 This closes the corrected 5302 report, not production memory or three-version
 acceptance. Final 5203/5303, formal startup/settings/restart and reviewed memory
 limits remain open. See the current host evidence.
+
+The corrected-candidate 5303 pair (seq2451/2455) now passes all standard native
+gates and matches all2133 complete producer projections. Actual T039 cold removal
+and fresh lazy activation pass under the sole production premain. Command wall
+falls27.33% and sampled Java CPU16.40%; first-cycle CPU is slightly higher on.
+A native/JFR clock-rate mismatch was independently bounded from four fixed
+same-driver sleep phases: explicit cancel stacks belong to the subsequent cancel
+phase, not the third retained window. The corrected command edge allocation
+weight estimate falls79.45%. Native RSS/CPU arithmetic is unchanged; on retained
+RSS still grows42.855MiB across the three windows.640 final input hashes match.
+This closes the bounded5303 report while memory stability, final5203, formal
+base-only startup/settings/restarts and numerical limits remain open. Production
+remains NOT_PASSED. See the current host evidence for calibration bounds and
+preserved original reports.
