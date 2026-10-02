@@ -14,6 +14,7 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.json.Json;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
