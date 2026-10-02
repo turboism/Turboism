@@ -1,8 +1,9 @@
 package dev.turboism.plugin.webdavbackup.webdav;
 
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupSyncTarget;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -58,13 +59,13 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
     }
 
     @Override
-    public void sync(final List<File> newBackupFiles) {
-        Objects.requireNonNull(newBackupFiles, "newBackupFiles");
+    public void sync(final List<BackupArtifactHandle> newArtifacts) {
+        Objects.requireNonNull(newArtifacts, "newArtifacts");
         if (!config.enabled()) {
             return;
         }
-        for (File file : newBackupFiles) {
-            upload(file);
+        for (BackupArtifactHandle artifact : newArtifacts) {
+            upload(artifact);
         }
     }
 
@@ -80,17 +81,32 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
     }
 
     /** Uploads one artifact (MKCOL + PROPFIND + PUT with retry); fails closed on error. */
-    public void upload(final File file) {
-        Objects.requireNonNull(file, "file");
-        if (!file.isFile()) {
-            throw new IllegalStateException("backup artifact is not a regular file: " + file.getName());
+    public void upload(final BackupArtifactHandle artifact) {
+        Objects.requireNonNull(artifact, "artifact");
+        if (artifact.sizeBytes() <= 0) {
+            throw new IllegalStateException("backup artifact is empty: " + artifact.fileName());
         }
-        if (file.length() <= 0) {
-            throw new IllegalStateException("backup artifact is empty: " + file.getName());
+        final byte[] body = readAll(artifact);
+        if (body.length == 0) {
+            throw new IllegalStateException("backup artifact is empty: " + artifact.fileName());
         }
         final String collection = config.remotePath();
         ensureCollection(collection);
-        putWithRetry(file, targetUri(collection, file.getName()));
+        putWithRetry(body, artifact.fileName(), targetUri(collection, artifact.fileName()));
+    }
+
+    /**
+     * Reads the whole artifact through the runtime-issued handle. The bytes are
+     * materialized once so every retry PUT carries an exact, stable
+     * Content-Length — a streaming body could observe a mutated artifact on a
+     * retried send.
+     */
+    private static byte[] readAll(final BackupArtifactHandle artifact) {
+        try (InputStream input = artifact.openStream()) {
+            return input.readAllBytes();
+        } catch (IOException | RuntimeException failure) {
+            throw new IllegalStateException("backup artifact is unreadable: " + artifact.fileName(), failure);
+        }
     }
 
     /** Deletes one remote resource (used for cleanup and tests). */
@@ -129,39 +145,39 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
     }
 
-    private void putWithRetry(final File file, final URI target) {
+    private void putWithRetry(final byte[] body, final String fileName, final URI target) {
         final int maxAttempts = 1 + config.retryMax();
         IOException lastNetwork = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 final HttpResponse<Void> response = client.send(
-                        request("PUT", target, HttpRequest.BodyPublishers.ofFile(file.toPath()))
+                        request("PUT", target, HttpRequest.BodyPublishers.ofByteArray(body))
                                 .header("Content-Type", "application/octet-stream")
                                 .build(),
                         HttpResponse.BodyHandlers.discarding());
                 if (response.statusCode() == 200 || response.statusCode() == 201) {
-                    diagnostics.accept("webdav:put-ok file=" + file.getName() + " remote=" + target + " bytes="
-                            + file.length() + " attempts=" + attempt);
+                    diagnostics.accept("webdav:put-ok file=" + fileName + " remote=" + target + " bytes=" + body.length
+                            + " attempts=" + attempt);
                     return;
                 }
                 rejectRedirect("PUT", response);
                 if (response.statusCode() / 100 != 5 && response.statusCode() != 429) {
                     throw new IllegalStateException(
-                            "webdav put failed: " + response.statusCode() + " file=" + file.getName());
+                            "webdav put failed: " + response.statusCode() + " file=" + fileName);
                 }
                 lastNetwork = new IOException("webdav put status " + response.statusCode());
             } catch (IOException failure) {
                 lastNetwork = failure;
             } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
-                throw new IllegalStateException("webdav put interrupted: " + file.getName(), interrupted);
+                throw new IllegalStateException("webdav put interrupted: " + fileName, interrupted);
             }
             if (attempt < maxAttempts) {
                 backoff(attempt);
             }
         }
-        diagnostics.accept("webdav:put-exhausted file=" + file.getName());
-        throw new IllegalStateException("webdav put exhausted retries: " + file.getName(), lastNetwork);
+        diagnostics.accept("webdav:put-exhausted file=" + fileName);
+        throw new IllegalStateException("webdav put exhausted retries: " + fileName, lastNetwork);
     }
 
     private void backoff(final int attempt) {
