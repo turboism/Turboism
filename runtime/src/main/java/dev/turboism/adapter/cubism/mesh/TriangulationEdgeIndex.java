@@ -56,8 +56,58 @@ public final class TriangulationEdgeIndex {
         return ((long) Math.min(i, j) << 32) | (Math.max(i, j) & 0xffffffffL);
     }
 
+    // Long.hashCode reduces an endpoint pair to i ^ j: neighboring point indices
+    // produce huge collision buckets. Mix all bits; equality still uses the exact pair.
+    private static int edgeHash(long value) {
+        value ^= value >>> 33;
+        value *= 0xff51afd7ed558ccdL;
+        value ^= value >>> 33;
+        value *= 0xc4ceb9fe1a85ec53L;
+        value ^= value >>> 33;
+        return (int) (value ^ (value >>> 32));
+    }
+
+    private static final class EdgeKey {
+        private final long value;
+        private final int hash;
+
+        EdgeKey(final long value) {
+            this.value = value;
+            hash = edgeHash(value);
+        }
+
+        @Override
+        public int hashCode() { return hash; }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof EdgeKey key && value == key.value
+                    || other instanceof EdgeLookup lookup && value == lookup.value;
+        }
+    }
+
+    private static final class EdgeLookup {
+        private long value;
+        private int hash;
+
+        void bind(final long value) {
+            this.value = value;
+            hash = edgeHash(value);
+        }
+
+        @Override
+        public int hashCode() { return hash; }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof EdgeKey key && value == key.value
+                    || other instanceof EdgeLookup lookup && value == lookup.value;
+        }
+    }
+
     static final class St {
-        final HashMap<Long, ArrayList<Object>> byKey = new HashMap<>();
+        final HashMap<EdgeKey, ArrayList<Object>> byKey = new HashMap<>();
+        private final EdgeLookup lookup = new EdgeLookup();
         final IdentityHashMap<Object, long[]> keys = new IdentityHashMap<>();
         final Object[] pending = new Object[8];
         int pendingSize;
@@ -69,6 +119,28 @@ public final class TriangulationEdgeIndex {
     /** Weak identity registration on the target's final {@code b} field instance. */
     private static final ReferenceQueue<LinkedHashSet> COLLECTED = new ReferenceQueue<>();
     static final Map<SetKey, St> STATES = new HashMap<>();
+    // All registry access holds this class's monitor. Never store the lookup probe;
+    // its temporary strong owner reference is cleared before releasing that monitor.
+    private static final SetLookup LOOKUP = new SetLookup();
+
+    private static final class SetLookup {
+        private LinkedHashSet set;
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(set);
+        }
+
+        @SuppressWarnings("ReferenceEquality") // probe follows the weak registry's identity contract
+        private boolean matches(final SetKey key) {
+            return set != null && set == key.get();
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return this == other || other instanceof SetKey key && matches(key);
+        }
+    }
 
     static final class SetKey extends WeakReference<LinkedHashSet> {
         private final int hash;
@@ -87,6 +159,7 @@ public final class TriangulationEdgeIndex {
         @SuppressWarnings("ReferenceEquality") // identity is the registry's explicit key contract
         public boolean equals(final Object other) {
             if (this == other) return true; // allows removal after the reference is cleared
+            if (other instanceof SetLookup lookup) return lookup.matches(this);
             if (!(other instanceof SetKey key)) return false;
             final LinkedHashSet set = get();
             return set != null && set == key.get();
@@ -101,40 +174,57 @@ public final class TriangulationEdgeIndex {
     // Synchronize only the process-wide registry, not the original set's operations.
     // Independent TriangleList instances may be used concurrently; a single original
     // LinkedHashSet retains its original thread-safety contract.
+    @SuppressWarnings("CollectionIncompatibleType") // Probe and stored weak key share identity equals/hash.
     static synchronized St st(final LinkedHashSet s) {
         expungeCollected();
-        final SetKey key = new SetKey(s, COLLECTED);
-        St t = STATES.get(key);
-        if (t == null) {
-            t = new St();
-            STATES.put(key, t);
+        try {
+            LOOKUP.set = java.util.Objects.requireNonNull(s);
+            St t = STATES.get(LOOKUP);
+            if (t == null) {
+                t = new St();
+                STATES.put(new SetKey(s, COLLECTED), t);
+            }
+            return t;
+        } finally {
+            LOOKUP.set = null;
+            Reference.reachabilityFence(s);
         }
-        Reference.reachabilityFence(s);
-        return t;
     }
 
+    @SuppressWarnings("CollectionIncompatibleType") // HashMap.remove accepts the transient equal-key probe.
     private static synchronized void discard(final LinkedHashSet s) {
         expungeCollected();
-        final St t = STATES.remove(new SetKey(s, null));
-        if (t != null) {
-            t.byKey.clear();
-            t.keys.clear();
-            clearPending(t);
-            // Once inconsistency was proven, keep only a weak-keyed tombstone:
-            // clear may release triangles, but must not reactivate a dead index.
-            if (t.dead) STATES.put(new SetKey(s, COLLECTED), t);
+        try {
+            LOOKUP.set = java.util.Objects.requireNonNull(s);
+            final St t = STATES.remove(LOOKUP);
+            if (t != null) {
+                t.byKey.clear();
+                t.keys.clear();
+                clearPending(t);
+                // Once inconsistency was proven, keep only a weak-keyed tombstone:
+                // clear may release triangles, but must not reactivate a dead index.
+                if (t.dead) STATES.put(new SetKey(s, COLLECTED), t);
+            }
+        } finally {
+            LOOKUP.set = null;
+            Reference.reachabilityFence(s);
         }
-        Reference.reachabilityFence(s);
     }
 
+    @SuppressWarnings("CollectionIncompatibleType") // Never store the strong lookup probe.
     private static synchronized void invalidate(final LinkedHashSet s) {
         expungeCollected();
-        final St t = STATES.get(new SetKey(s, null));
-        if (t != null) {
-            t.dead = true;
-            clearPending(t);
+        try {
+            LOOKUP.set = java.util.Objects.requireNonNull(s);
+            final St t = STATES.get(LOOKUP);
+            if (t != null) {
+                t.dead = true;
+                clearPending(t);
+            }
+        } finally {
+            LOOKUP.set = null;
+            Reference.reachabilityFence(s);
         }
-        Reference.reachabilityFence(s);
     }
 
     /**
@@ -259,7 +349,7 @@ public final class TriangulationEdgeIndex {
         if (ks == null) return false;
         for (int i = 0; i < 3; i++) {
             if (i > 0 && (ks[i] == ks[0] || (i == 2 && ks[2] == ks[1]))) continue;
-            final ArrayList<Object> bucket = t.byKey.get(ks[i]);
+            final ArrayList<Object> bucket = bucket(t, ks[i]);
             if (bucket == null) return false;
             int at = -1;
             for (int j = 0; j < bucket.size(); j++) {
@@ -270,7 +360,7 @@ public final class TriangulationEdgeIndex {
             }
             if (at < 0) return false;
             bucket.remove(at);
-            if (bucket.isEmpty()) t.byKey.remove(ks[i]);
+            if (bucket.isEmpty()) removeBucket(t, ks[i]);
         }
         return true;
     }
@@ -328,10 +418,10 @@ public final class TriangulationEdgeIndex {
                     return null;
                 }
             }
-            final ArrayList<Object> bucket = t.byKey.get(key(ja, jb));
-            final ArrayList<Object> out = new ArrayList<>(bucket == null ? 4 : bucket.size());
-            if (bucket != null) out.addAll(bucket);
-            return out;
+            final ArrayList<Object> bucket = bucket(t, key(ja, jb));
+            // Collection construction adopts its private toArray copy. Preallocating
+            // another backing array and calling addAll would copy through two arrays.
+            return bucket == null ? new ArrayList<>(4) : new ArrayList<>(bucket);
         } catch (Throwable indexFailure) {
             FatalErrors.rethrowIfFatal(indexFailure);
             t.dead = true; // never trust a crashed index again
@@ -341,7 +431,39 @@ public final class TriangulationEdgeIndex {
     }
 
     private static void put(final St t, final long k, final Object tri) {
-        t.byKey.computeIfAbsent(k, x -> new ArrayList<>()).add(tri);
+        put(t.byKey, t.lookup, k, tri);
+    }
+
+    @SuppressWarnings("CollectionIncompatibleType") // Equal-key probe avoids transient boxed keys.
+    private static ArrayList<Object> bucket(final St t, final long k) {
+        // Concurrent read-only queries on a clean set remain safe: one query must
+        // not rebind the probe while another is inside HashMap.get.
+        synchronized (t.lookup) {
+            t.lookup.bind(k);
+            return t.byKey.get(t.lookup);
+        }
+    }
+
+    @SuppressWarnings("CollectionIncompatibleType") // Same exact-key equality as stored EdgeKey.
+    private static void removeBucket(final St t, final long k) {
+        synchronized (t.lookup) {
+            t.lookup.bind(k);
+            t.byKey.remove(t.lookup);
+        }
+    }
+
+    @SuppressWarnings("CollectionIncompatibleType") // The mutable probe is never stored in the map.
+    private static void put(final HashMap<EdgeKey, ArrayList<Object>> map,
+            final EdgeLookup lookup, final long k, final Object tri) {
+        synchronized (lookup) {
+            lookup.bind(k);
+            ArrayList<Object> bucket = map.get(lookup);
+            if (bucket == null) {
+                bucket = new ArrayList<>();
+                map.put(new EdgeKey(k), bucket);
+            }
+            bucket.add(tri);
+        }
     }
 
     /**
@@ -353,16 +475,17 @@ public final class TriangulationEdgeIndex {
      */
     static boolean rebuild(final St t, final LinkedHashSet s) {
         clearPending(t);
-        final HashMap<Long, ArrayList<Object>> map = new HashMap<>();
+        final HashMap<EdgeKey, ArrayList<Object>> map = new HashMap<>();
+        final EdgeLookup lookup = new EdgeLookup();
         final IdentityHashMap<Object, Boolean> live = new IdentityHashMap<>();
         for (final Object o : s) {
             final long[] ks = t.keys.get(o);
             if (ks == null) return false; // unwoven-add element: cannot index it faithfully
             live.put(o, Boolean.TRUE);
             final long k1 = ks[0], k2 = ks[1], k3 = ks[2];
-            map.computeIfAbsent(k1, x -> new ArrayList<>()).add(o);
-            if (k2 != k1) map.computeIfAbsent(k2, x -> new ArrayList<>()).add(o);
-            if (k3 != k1 && k3 != k2) map.computeIfAbsent(k3, x -> new ArrayList<>()).add(o);
+            put(map, lookup, k1, o);
+            if (k2 != k1) put(map, lookup, k2, o);
+            if (k3 != k1 && k3 != k2) put(map, lookup, k3, o);
         }
         t.byKey.clear();
         t.byKey.putAll(map);
