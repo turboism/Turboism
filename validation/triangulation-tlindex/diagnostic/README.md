@@ -451,3 +451,17 @@ result. Next bind actual editDataList identities, preserve partial events on
 failure, freeze an independent driver and submit one bounded5203 diagnostic
 through the existing single-Agent/FIFO route. No Atlas performance acceptance
 is inferred. Production remains HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED.
+
+T039OwnerColdRemovalSelfCheck reaches the actual owned definition gateway in a
+sole-agent, attach-disabled JVM and defines only an owned target. Run
+check-t039-owner-cold.py with --sidecar, its explicit --sidecar-sha256, the frozen
+ddb1ba0c production dependency via --production, and a fresh --output directory.
+The old pinned sidecar with --expect-missing-api reproduces callback removal
+failure and the missing new entry before implementation. The corrected sidecar
+passes default/cold/raw/missing-token/false/throws/late/wrong-hash cases; removal
+false/throw is explicitly fault-injected while registration and definition use
+the actual VM. It verifies freeze refusal before real removal, unchanged43-key
+freeze, callback refusal, stale-gate revocation and fresh post-removal capture.
+It does not start the actual Turboism premain or an official Editor, and cannot
+admit a native5303 leg. Evidence: t039-owner-cold-r1; the strict pre/post native
+ordering and final5203/5303 resource/UI acceptance remain required.

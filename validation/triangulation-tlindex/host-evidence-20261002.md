@@ -833,3 +833,43 @@ formal managed startup/real settings/independent restart, memory stability and
 measured numerical limits for review remain required. Production stays
 HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED; T050 remains partial and T044/T046/full
 continuous goal remain active.
+
+### T039 owner-cold removal: bounded offline lifecycle slice closed
+
+The real sole-agent/attach-disabled gateway reproduces the default T039 failure:
+self-removal inside the transformer callback is refused, leaving BLOCKED/FAILED,
+registered=true and zero returned candidates. The new explicit validation-only
+entry requires the actual owned premain gateway and an opt-in token. Its callback
+records a terminal outcome, preserves full bounds and remains honestly registered
+with NOT_ATTEMPTED. Ordinary run-bound one-shot completion performs real removal;
+false/throw stays BLOCKED and rejected targets stay ineligible after cleanup.
+Callback/early/wrong/repeated completion refuses. Freeze still requires real
+REMOVED and the exact existing one-shot/zero-rejection/zero-late/43-key contract.
+
+Eight owned JVM cases pass (default/cold/raw/missing-token/false/throws/late/wrong
+hash), including removal fault injection over actual registration/definition,
+freeze refusal before completion and gate retirement after cold removal. A fresh
+post-removal capture admits; the previous gate never does. The old missing-API
+red regression is retained. Original full T039/T040 offline suite and default
+false/throw controls pass; one devCheck passes in53seconds. Its initial Gradle
+cache-lock sandbox refusal is retained separately and no host job is retried.
+
+Distinct sidecar SHA c71e5b46c17e10cbf159a76126c5f18b66097a7ee3e09f6797654954fa917691
+is frozen in build/t050-lazy-edge-bytecode/t039-owner-cold-r1/sidecar-candidate.
+Independent data-only patch verifies original5303 class ff1d1ce9 and shadow bytes
+800e3f67; no official class is defined or executed. Against the older frozen Jar,
+27 entries differ (20 agent-family plus7 current profile/patch-bridge entries);
+other entries and manifest remain equal. It is a full current-source build,
+not an identity-equal overlay or an admitted native sidecar. Post-writer review
+rehashes144 bound files with zero mismatches; slice-review SHA
+525926e5e11a26dfae4e99049dde8217071a86d8cb614919bee1788e638f0745.
+
+This API/regression slice closes. Production remains HOLD_PRODUCTION_ACCEPTANCE /
+NOT_PASSED, T050partial/T044/T046/full goalactive. Next required5303 integration
+registers T039 before production Atlas, defines the target only after Atlas
+registration, then removes before any lazy capture. Actual unique-Turboism-premain
+metadata order, strict companion/driver/wrapper/native-cancel linkage, final
+corrected5203/5303 complete paired outputs/resources, formal managed native startup,
+real settings/independent restart, memory stability and numerical limits remain.
+No shared Runner/gateway/production algorithm change, new host task, immutable
+overwrite, previewBundle, merge or push occurs in this slice.
