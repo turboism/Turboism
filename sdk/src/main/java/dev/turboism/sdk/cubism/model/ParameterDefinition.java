@@ -3,7 +3,13 @@ package dev.turboism.sdk.cubism.model;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 
-/** Atomic Editor authoring definition for one Cubism parameter. */
+/**
+ * Atomic Editor authoring definition for one Cubism parameter.
+ *
+ * <p>This is a structural payload for {@link Parameter#updateDefinition} and {@link
+ * Parameters#create}, not a value handle: write the current value through {@link
+ * Parameter#setValue(float)}.
+ */
 public record ParameterDefinition(
         ParameterId id,
         String name,

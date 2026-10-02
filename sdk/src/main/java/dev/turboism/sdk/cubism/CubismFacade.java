@@ -80,7 +80,11 @@ public interface CubismFacade {
     }
 
     /**
-     * Returns the synchronous Editor-owned authoring transaction service.
+     * Returns the synchronous Editor-owned authoring transaction service — the recommended entry
+     * for grouped or batched writes that must share one Editor Undo unit.
+     *
+     * <p>Single parameter writes do not need it: {@code model().active().parameters().find(id)
+     * .setValue(v)} is already validated and undoable on its own.
      *
      * <p>The default fails closed and never executes work outside a verified transaction scope.</p>
      *
