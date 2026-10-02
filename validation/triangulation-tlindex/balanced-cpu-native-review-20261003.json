@@ -1,0 +1,405 @@
+{
+  "status": "FAIL_FIXED_BALANCED_GATES",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -3.8879804441912524,
+        "directCpuSeconds": -2.5670498084291227,
+        "operationPeakRssBytes": -4.215416445220566
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": true
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": 3.247011552383272,
+        "directCpuSeconds": 1.740139211136893,
+        "operationPeakRssBytes": -2.7263607986864113
+      },
+      "gates": {
+        "commandWallImproves": false,
+        "javaCpuTotalNoRegression": false,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": false
+    }
+  ],
+  "totals": {
+    "baseline": {
+      "wallSeconds": 76.2915467,
+      "directCpuSeconds": 103.92,
+      "sampledCpuSeconds": 97.03
+    },
+    "candidate": {
+      "wallSeconds": 75.9887445,
+      "directCpuSeconds": 103.47999999999999,
+      "sampledCpuSeconds": 94.08
+    }
+  },
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": -0.3969013778036379,
+    "directCpuSeconds": -0.42340261739800544
+  },
+  "productionAcceptance": "NOT_GRANTED_INSTRUMENTED_PROTOCOL",
+  "statisticalBenefit": "NOT_ESTABLISHED_TWO_PAIRS",
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2550,
+      "jobId": "b79353d0-3b86-4612-a46c-122aa26b78e4",
+      "runId": "queue-66e54e773af9465ca13bec5a39eeb511",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 38.9628683,
+      "directCpuSeconds": 52.2,
+      "sampledCpuSeconds": 47.81,
+      "operationPeakRssBytes": 4315873280,
+      "peakAboveBaselineBytes": 24932352.0,
+      "retained3Minus1Bytes": 8486912.0,
+      "maximumSampleGapMillis": 1052
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2552,
+      "jobId": "9cdf05b0-8680-4926-b21b-e8e38e88d604",
+      "runId": "queue-b9029f28870d48fc8368345d6801750e",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.4479996,
+      "directCpuSeconds": 50.86,
+      "sampledCpuSeconds": 47.41,
+      "operationPeakRssBytes": 4133941248,
+      "peakAboveBaselineBytes": 32051200.0,
+      "retained3Minus1Bytes": -292638720.0,
+      "maximumSampleGapMillis": 1053
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2554,
+      "jobId": "69778d8a-dc5e-4546-b251-fbeb15b2378e",
+      "runId": "queue-c48a751815aa4892b72ac73985eb9974",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 38.5407449,
+      "directCpuSeconds": 52.62,
+      "sampledCpuSeconds": 46.67,
+      "operationPeakRssBytes": 2843901952,
+      "peakAboveBaselineBytes": 68423680.0,
+      "retained3Minus1Bytes": 45678592.0,
+      "maximumSampleGapMillis": 1037
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2555,
+      "jobId": "226593d1-5f19-42fa-9d40-25a77e2aba3c",
+      "runId": "queue-a63f7ec6b13049e9bc0424ac4a3a3ec3",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.3286784,
+      "directCpuSeconds": 51.72,
+      "sampledCpuSeconds": 49.22,
+      "operationPeakRssBytes": 2923610112,
+      "peakAboveBaselineBytes": 40366080.0,
+      "retained3Minus1Bytes": 5992448.0,
+      "maximumSampleGapMillis": 1027
+    }
+  ],
+  "inputPins": {
+    "validation/triangulation-tlindex/balanced-cpu-protocol-20261003.json": "e718cd7ee83249be65492a3f10103ba12af3cdce6e333e6aac91216b6e0ed55b",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/run.json": "04242ed9b429d6cd4e9021b539cdf366912a934870718755f22c2f544071e8d1",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/native-review.json": "6b55d4af17990cfccfd622cdcce8d3c5166947d0f9265a3603c4ffe28d0b2b76",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/direct-cpu-review.json": "f166f4829907f42380298309944c490aff048ef9654756d9d495f70228e0cb03",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/resource-review.json": "a78d58937a461eec518f47ab95f9b549b06bb439526e6ba0967391610c860b25",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/native-evidence/auto-connect-producer-results.tsv": "a21fa5ff4021a8f7bc87ec9ca59658bb1e77719757428a627b9c028549023cac",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/native-evidence/resources.jsonl": "f01f740dda37c6df1fc1bcf9c351ffd45da2b883a00c93f3783d31e019d17212",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline1/native-evidence/command-cpu-boundaries.tsv": "308008d77d90346aa112c20d413f08bf602463c1ece93e61885e083324739f62",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/run.json": "5d992b94a12cbee7d2cd9c84d781a8089fbee58eb8dc332a77ab9db5929a9678",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/native-review.json": "86a1662717d0e15202f5468ee22d3883cfc0be755086a5cf4feb6f6641590b8a",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/direct-cpu-review.json": "16660cabd98b7265c2a70381478dbf7d399802d6f881499381610ced962bb247",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/resource-review.json": "d6ad17afc4062d4df5bb6cf3a80f813f6174a957ada55c67de93eb141a8b09dd",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/native-evidence/auto-connect-producer-results.tsv": "5317f852fb68a818c7d7da2e379b651d478af70984364a876d0db87dcdcec77f",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/native-evidence/resources.jsonl": "c5bc61809cd65a941bed132778cfafc265f1840ae8338ce1baf1f6d69e1c08b5",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate1/native-evidence/command-cpu-boundaries.tsv": "b3b165fddd8ec5e3b27094c6ad2b53e7a16b86e90de0a1e0f230457b480918d8",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/run.json": "1de4512ccb06712b13f53d95bc45f686c5f8ae0c2ab92a35b30491e26b8b7e1b",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/native-review.json": "ddfdbf45a463d795f8bfdb373bf7f53b859bb221f7eaffc810cfcf68deb54996",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/direct-cpu-review.json": "a123c692647096aca98ee719cdebb2f3b8e14029e75904f6c1ca02753d547523",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/resource-review.json": "2c833cfda563df234c296c6dec9dca3e34c89cac5f4b5c9f6aad7662e90da5a1",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/native-evidence/auto-connect-producer-results.tsv": "1dcc78548686b2485797077c262908bf159a224b54a9f56e5ecb2acb7ea99291",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/native-evidence/resources.jsonl": "0f93d4048178aa54005256cd5c500f7668fe986639a488b00e6001b423370c5e",
+    "build/t069-balanced-cpu-r1/native5303-abba1/candidate2/native-evidence/command-cpu-boundaries.tsv": "931d2c9698d5160b8a01010e1a2f302440ccbbbfdce0977902474b3dddd308f0",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/run.json": "5857276f3e3379e10152cc9f94bbeb9ecc32c04d559bed816fc05451dd86876e",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/native-review.json": "55631bef7077dbdc2c9124c77ee5f550334486d75c8e8e3146043d3755ee8258",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/direct-cpu-review.json": "b078a3c4bb678788658c09bcd6336e01168c97a9530c8f58f0ca60bae870b78c",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/resource-review.json": "a632db993721b0af42a98afc68fef711d116095a518e2ad211705ec6412efbac",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/native-evidence/auto-connect-producer-results.tsv": "19e84eb0b989028fc00d6ac06f2c9fe40be8fa2ee9e9f6aae045614990a49429",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/native-evidence/resources.jsonl": "2f6abdc0d3558345ecc49cae9540cadc9a60b6cf69b96c7785ca331189f7950b",
+    "build/t069-balanced-cpu-r1/native5303-abba1/baseline2/native-evidence/command-cpu-boundaries.tsv": "0edd70dd8a8fd0e5e97897660d81f3bc3c35c6194f5a11a36bd34ebe66aa6374",
+    "build/t069-balanced-cpu-r1/native5303-abba1/balanced-review.json": "f54c0240bd4fb5e4d3b09ed8b8a3a345a3a0cc5287577e02a7fa580f1f0dc656",
+    "build/t069-balanced-cpu-r1/review-infrastructure-errata.json": "b31ea1cf737dee944734c6231a217420c16d6a52cf1bbad5ee78cd3a3968846c"
+  },
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or uninstrumented production acceptance.",
+    "Direct process CPU includes all Java threads and common dispatch work. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. No changed caps, favorable retry, or retrospective T066 acceptance."
+  ],
+  "task": "T069",
+  "decision": "KEEP_COMPACT_BUCKET_WITHDRAWN_RETAIN_T057",
+  "protocolCommitBeforeSubmission": "ef906d23d",
+  "historicalT066Decision": "WITHDRAWN_ORIGINAL_CPU_GATE_FAIL_UNCHANGED",
+  "semanticFieldCount": 11,
+  "producerRowsPerLeg": 2133,
+  "orderedEdgeCapturesPerLeg": 4,
+  "allFourNativeOutputAndLifecyclePass": true,
+  "allTwentyFourCommandBoundaryUnitChecksPass": true,
+  "cycles": {
+    "baseline1": {
+      "native": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 13.8171784,
+          "nativeCommandWallSeconds": 15.3251357,
+          "fullObservationWallSeconds": 15.3570425
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 11.1173922,
+          "nativeCommandWallSeconds": 12.4876708,
+          "fullObservationWallSeconds": 12.4907217
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.007125,
+          "nativeCommandWallSeconds": 11.1500618,
+          "fullObservationWallSeconds": 11.1547708
+        }
+      ],
+      "cpu": [
+        {
+          "cycle": 1,
+          "processCpuSeconds": 25.46,
+          "startReadSpanNanos": 68300,
+          "endReadSpanNanos": 67900,
+          "cpuBoundaryWallSpanSeconds": 15.3225509
+        },
+        {
+          "cycle": 2,
+          "processCpuSeconds": 14.1,
+          "startReadSpanNanos": 48900,
+          "endReadSpanNanos": 41300,
+          "cpuBoundaryWallSpanSeconds": 12.4876356
+        },
+        {
+          "cycle": 3,
+          "processCpuSeconds": 12.64,
+          "startReadSpanNanos": 70500,
+          "endReadSpanNanos": 65500,
+          "cpuBoundaryWallSpanSeconds": 11.1499483
+        }
+      ]
+    },
+    "candidate1": {
+      "native": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 12.6542486,
+          "nativeCommandWallSeconds": 13.9481331,
+          "fullObservationWallSeconds": 13.9610997
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.6139607,
+          "nativeCommandWallSeconds": 11.7406451,
+          "fullObservationWallSeconds": 11.7440242
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.6039419,
+          "nativeCommandWallSeconds": 11.7592214,
+          "fullObservationWallSeconds": 11.7621434
+        }
+      ],
+      "cpu": [
+        {
+          "cycle": 1,
+          "processCpuSeconds": 24.26,
+          "startReadSpanNanos": 73300,
+          "endReadSpanNanos": 48800,
+          "cpuBoundaryWallSpanSeconds": 13.9480706
+        },
+        {
+          "cycle": 2,
+          "processCpuSeconds": 13.6,
+          "startReadSpanNanos": 59800,
+          "endReadSpanNanos": 46200,
+          "cpuBoundaryWallSpanSeconds": 11.7405766
+        },
+        {
+          "cycle": 3,
+          "processCpuSeconds": 13.0,
+          "startReadSpanNanos": 46600,
+          "endReadSpanNanos": 48900,
+          "cpuBoundaryWallSpanSeconds": 11.7591724
+        }
+      ]
+    },
+    "candidate2": {
+      "native": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 13.4394411,
+          "nativeCommandWallSeconds": 14.8762364,
+          "fullObservationWallSeconds": 14.8851878
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.9729429,
+          "nativeCommandWallSeconds": 12.125272,
+          "fullObservationWallSeconds": 12.1287032
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.4268844,
+          "nativeCommandWallSeconds": 11.5392365,
+          "fullObservationWallSeconds": 11.5430929
+        }
+      ],
+      "cpu": [
+        {
+          "cycle": 1,
+          "processCpuSeconds": 25.36,
+          "startReadSpanNanos": 79800,
+          "endReadSpanNanos": 50600,
+          "cpuBoundaryWallSpanSeconds": 14.8762886
+        },
+        {
+          "cycle": 2,
+          "processCpuSeconds": 15.03,
+          "startReadSpanNanos": 45800,
+          "endReadSpanNanos": 38600,
+          "cpuBoundaryWallSpanSeconds": 12.1252551
+        },
+        {
+          "cycle": 3,
+          "processCpuSeconds": 12.23,
+          "startReadSpanNanos": 61500,
+          "endReadSpanNanos": 81800,
+          "cpuBoundaryWallSpanSeconds": 11.539682
+        }
+      ]
+    },
+    "baseline2": {
+      "native": [
+        {
+          "cycle": 1,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 12.4727767,
+          "nativeCommandWallSeconds": 13.6598091,
+          "fullObservationWallSeconds": 13.6702167
+        },
+        {
+          "cycle": 2,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.6960836,
+          "nativeCommandWallSeconds": 11.7295696,
+          "fullObservationWallSeconds": 11.7328073
+        },
+        {
+          "cycle": 3,
+          "sources": 711,
+          "status": "PASS",
+          "threadId": "23",
+          "producerDurationSeconds": 10.9061538,
+          "nativeCommandWallSeconds": 11.9392997,
+          "fullObservationWallSeconds": 11.9433711
+        }
+      ],
+      "cpu": [
+        {
+          "cycle": 1,
+          "processCpuSeconds": 24.38,
+          "startReadSpanNanos": 107600,
+          "endReadSpanNanos": 54800,
+          "cpuBoundaryWallSpanSeconds": 13.6597215
+        },
+        {
+          "cycle": 2,
+          "processCpuSeconds": 13.15,
+          "startReadSpanNanos": 73500,
+          "endReadSpanNanos": 38400,
+          "cpuBoundaryWallSpanSeconds": 11.7296598
+        },
+        {
+          "cycle": 3,
+          "processCpuSeconds": 14.19,
+          "startReadSpanNanos": 69200,
+          "endReadSpanNanos": 42400,
+          "cpuBoundaryWallSpanSeconds": 11.93929
+        }
+      ]
+    }
+  },
+  "reviewInfrastructureErrata": {
+    "cause": "Frozen reviewer final inputPins reference has an extra integration component in the offline report directory name. All native assertions executed before missing-path error.",
+    "repair": "Provided exact byte-identical offline report at that referenced path; preserved failed evidence directory and rerun same read-only reviewer. Frozen reviewer/protocol/methodology/host run unchanged.",
+    "extraReferencedPath": "build/t069-balanced-cpu-integration-r1/offline-review.json",
+    "sha256": "caf4fa05d8abf3707726fca5f8700895a462b6df6e0754a977adc45d526bec95",
+    "hostResubmitted": false,
+    "candidateReferencedArtifactAliases": {
+      "build/t069-balanced-cpu-integration-r1/production-candidate-r1/turboism-agent.jar": "4b6145a7ada0eb77c4df72e813897f423bb4da418da788befcc4a6aab33e6b88",
+      "build/t069-balanced-cpu-integration-r1/candidate-producer-capture-r1/turboism-agent.jar": "a111ba81e518882146b008682346ab54188447e40d368df247f783d0cafd2a07"
+    },
+    "candidateCause": "Same path-rewrite typo also affected production/capture artifact review references. Provide byte-identical previously frozen artifacts at references; frozen scripts and actual host artifacts untouched."
+  },
+  "nextWork": "Read-only audit of the frozen new-protocol JFR/CPU/allocations to select a distinct ownership-safe hotspot hypothesis. Do not retry this compact-bucket arm until favorable or promote descriptive aggregate gains."
+}
