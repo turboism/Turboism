@@ -315,6 +315,11 @@ public final class TurboismAgent {
     private static boolean installPhaseHook(final HookContributor contributor, final HookEnvironment environment) {
         boolean installed = false;
         try {
+            final String refusal = startupPolicyRefusal(contributor, environment);
+            if (refusal != null) {
+                runtimeWarn("Turboism hook disabled by startup policy: " + contributor.id() + " (" + refusal + ")");
+                return false;
+            }
             if (!contributor.admitted(environment)) {
                 return false;
             }
@@ -338,6 +343,28 @@ public final class TurboismAgent {
         } finally {
             if (!installed) disableHookCapabilities(contributor, environment);
         }
+    }
+
+    /**
+     * Central startup-policy gate applied to every hook before {@code admitted}
+     * runs: the operator's {@code hooks.disabledIds} kill switch always wins,
+     * and safe mode skips every contributor that is not marked
+     * {@link HookContributor#requiredInSafeMode()}. A {@code null} policy (a
+     * test environment without the suppression shim) only honours the
+     * environment's own safe-mode flag.
+     *
+     * @return a short refusal reason, or {@code null} when installation may proceed
+     */
+    static String startupPolicyRefusal(final HookContributor contributor, final HookEnvironment environment) {
+        final dev.turboism.config.RuntimeStartupConfig policy = environment.startupPolicy();
+        if (policy != null && policy.disabledHookIds().contains(contributor.policyId())) {
+            return "hooks.disabledIds contains " + contributor.policyId();
+        }
+        final boolean safeMode = environment.safeMode() || (policy != null && policy.safeMode());
+        if (safeMode && !contributor.requiredInSafeMode()) {
+            return "safe mode";
+        }
+        return null;
     }
 
     private static void disableHookCapabilities(final HookContributor contributor, final HookEnvironment environment) {
@@ -380,6 +407,7 @@ public final class TurboismAgent {
                 .hostResolution(resolved.resolution())
                 .fullRuntimeAdmission(resolved.fullRuntimeAdmission())
                 .safeMode(JvmShims.safeModeActive())
+                .startupPolicy(JvmShims.startupPolicy())
                 .verificationDirectory(options.home().resolve("state").resolve("verification"))
                 .build();
     }
