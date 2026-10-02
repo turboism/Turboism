@@ -383,3 +383,24 @@ additions, duplicate identities/IDs and later order changes. The native-binding
 selfcheck passes 17 cases. No second host run was submitted. The corrected driver
 SHA is 5e34ad58afaa5064616e819e8ed61dbcf9549186f4d6d728d36019269c4ee3ae;
 its offline report is under `build/t050-lazy-edge-bytecode/producer-driver-r4/`.
+
+The corrected r4 later passed one bounded 5203 native diagnostic (seq2408): all
+711 sources in each of three cycles, 2133 producer records and all standard host
+gates. Native command durations were 58.395/56.900/57.972 seconds. Positions match
+across cycles, while eight/six sources' index hashes differ from cycle 1; no
+matched off diagnostic exists yet. Retained RSS medians are
+2584.72/2582.87/2602.88 MiB. Complete output/resource evidence is independently
+reviewed in producer-driver-r4; this is not Atlas A/B or final production acceptance.
+
+Its native cancellation prompt caused 482 seconds of additional wait after all
+measurement windows. The distinct r5 revision responds only to a new modal prompt
+directly owned by the bound task window, with the native CUB3-0009 locale message
+and the exact reviewed Yes/Cancel option shape. It confirms cancellation once,
+stops/releases its Timer on every outcome and checks restoration of the bound
+document's main mode. Unknown prompts are untouched; response/leave deadlines
+are 10/30 seconds. 56 real own-modal private-Xvfb checks, native binding17,
+writer11, CaptureWait17 and actual premain metadata admission pass. The driver
+contains no selfcheck classes, and measured source/recorder helpers are unchanged.
+The r5 driver is frozen separately as b6684c49; it has no native PASS yet.
+See the [current host evidence](host-evidence-20261002.md) for hashes and remaining
+acceptance. Production remains NOT_PASSED.

@@ -381,3 +381,97 @@ offline-review SHA is
 All 135 report-bound inputs/artifacts were independently rehashed after the
 report writer completed with zero mismatches. This remains an offline correction,
 not a native acceptance result.
+
+## Corrected 5203 producer diagnostic: complete native output and resources
+
+The corrected r4 was subsequently submitted once: seq2408, job
+`5e28c67d-81d0-4b68-8b68-444cffacc7ba`, prepared
+`3f92f2fbc12a0c1c8a0a3946178d08163b0d0dd9304a9c14dd5f168533a14665`,
+run `queue-0a719ce447a84a13a870925cbf15880c`. Its authoritative state is
+succeeded: validationStatus=PASS, cleanup=safe, normalExit=true,
+identityVerified=true and fixtureUnchanged=true. The native review independently
+rehashes all 138 inventory files, checks 12 directories, compares every production
+base entry and admits only the exact three companion hook classes and resource.
+Base b47f6f47, companion dd4b21a5, capture f0b11990, driver 5e34ad58,
+plugin 30f5203e, heavy fixture and UI-saved on config retain their pins.
+
+All 711 sources are covered in native order in every cycle: 2133 normal-return
+producer records, all PASS, with ordered non-overlapping invocation times inside
+their actual command markers. Position hashes and point counts match across
+cycles. Compared with cycle 1, cycle 2 changes eight sources' index hashes
+(five lengths); cycle 3 changes six hashes (three lengths). Every source's edge
+version changes. Complete capture does not establish equal repeated topology.
+There is no matched off leg in this protocol yet, so these changes cannot be
+attributed to either the optimization or native repeated computation.
+
+| Cycle | Native command seconds | Sampled Java CPU seconds | Retained Java median RSS MiB | Retained Java median PSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 58.395 | 65.19 | 2584.72 | 2528.28 |
+| 2 | 56.900 | 58.47 | 2582.87 | 2528.63 |
+| 3 | 57.972 | 60.45 | 2602.88 | 2551.75 |
+
+Every baseline/retained window lasts 30 seconds. The three command windows have
+2069/2016/2002 actual triangulation samples and 1628/1599/1588 production-index
+samples. The final-minus-first retained RSS median is +18.15 MiB. This single on
+leg establishes neither net benefit nor retention safety. The original 21 native
+markers remain unchanged; a separate 14-marker mapping only reuses the resource
+analyzer's arithmetic. These are native auto-connect diagnostic windows,
+distinct from Atlas A/B. The JFR is 11,835,028 bytes.
+
+After all measurement windows ended, native cancellation waited 482.19 seconds
+on the reviewed CUB3-0009 Yes/Cancel prompt. A task-bound X11 confirmation was
+issued only after live job/Java PID-start/transient owner/fixture verification;
+the command then restored main mode and the host exited normally. This is a
+controlled exit action, separately recorded in the evidence. Whole-run timing
+is excluded from operation comparisons. The complete raw recording also retains
+the cancellation-wait RSS peak 5438.48 MiB, PSS peak 5395.16 MiB and GC heap peak
+5657.96 MiB; this observation is not hidden by excluding that wait from timing.
+
+Under `build/t050-lazy-edge-bytecode/producer-driver-r4/`, native-review SHA is
+`41983b9f8e1bbd6489d3fd2ee76d8571d6b6b89bcfdf91760eb64aa28e7aeac0`,
+native-resource-review SHA is
+`8df84e25efd2e9d8317bbf24c80b939f7328b8b6b6791bf6b441f2100849571d`,
+and native-independent-review SHA is
+`25a0118cf43b8bddac761e13b91995cd66ad3761205d07ad8d5fdebb6ad90653`.
+Independent recomputation checks 46 pins, 30 copied evidence files, all seven
+resource windows and exact timestamp/value parity of all 180 heap events against
+the official JDK CLI. The initial audit's incorrect package-path assumption was
+refused before copying evidence; its script/failure remain preserved. The final
+audit checks the maintained builder's exact three bootstrap validation classes.
+
+## Bounded cancellation responder: offline revision only
+
+A validation-only responder now runs briefly inside the native modal secondary
+loop. It admits one newly created modal dialog directly owned by the bound task
+main window, exactly one JOptionPane, the native locale's CUB3-0009 message,
+reviewed OK_CANCEL/PLAIN types and custom Yes/Cancel buttons with unique usable
+Yes and the reviewed default. It clicks Yes once to discard mesh editing. Unknown,
+ambiguous, existing or foreign prompts remain untouched. Context is rechecked;
+the response deadline is 10 seconds and MESH_LEAVE is bounded to 30 seconds.
+Success, refusal, timeout and finally stop the Timer and release owner/message/
+context/baseline references. The document must still restore main mode afterward.
+
+56 real own-JVM modal checks pass in private Xvfb, including wrong prompts,
+owners, duplicate dialogs/panes/buttons, default/type changes, disabled choices,
+deadline, context errors and original native throwable identity. The initial
+sandbox X11 connection failure executed no scenario and is preserved. Native
+binding17, generated writer11 and CaptureWait17 also pass. Actual companion
+premain metadata still admits owned/producer weave/lazy lease with no official
+initialization, geometry or Editor launch. The entire measured source prefix and
+all existing recorder helpers are unchanged; only cancellation is revised.
+
+The distinct r5 driver SHA is
+`b6684c497fe2ab5c3a2e0c2cd9744165958a87716c07ee08f84b0f255b5be13d`.
+Its offline-review SHA is
+`2dfe4c093b763eb5ebda6c94e78d4d755feb72a8aeea0558e84f3be3f617419c`;
+214 source/tool/class/artifact/config/command/log inputs were independently
+rehashed with zero mismatches. No r5 native job has been submitted. r4 source
+snapshots, its frozen driver and all production artifacts remain preserved.
+
+This native diagnostic report and cancellation-code slice are closed. Production
+remains HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED, T050 partial, T044/T046 open.
+Three acceptance blocks remain: matched 5203 outputs/resources and variation
+classification; final 5303 owned compatibility and verification; real settings
+and full native managed-launch/independent-restart linkage. Resource acceptance
+limits still need measured proposal and user review. Existing 5302 gains are
+bounded evidence, not a final three-version verdict or theoretical bottleneck.
