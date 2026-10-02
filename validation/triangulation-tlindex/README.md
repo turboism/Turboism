@@ -350,12 +350,17 @@ and the remaining three-version gates stay open.
 ### Native producer diagnostic driver (2026-10-02)
 
 `diagnostic/build-auto-connect-driver.py OUTPUT --producer-recorder --base-agent
-PINNED_BASE` builds an independent, validation-only 5203 driver using the reviewed
+PINNED_BASE [--host-profile 5203|5302]` builds an independent, validation-only driver using the reviewed
 b47f6f47 production dependency. Its native command scope binds every selected
 source to the actual edit-data mesh identity. It writes ordered 14-column
 `auto-connect-producer-results.tsv` and per-cycle
 `auto-connect-producer-status.properties`, including partial failed evidence
 before stopping. Legacy delayed-cache capture remains a separate default mode.
+The default profile is5203 and preserves every frozen r5 source and JAR entry's
+content. Explicit5302 requires the producer recorder and freezes its version
+guard plus the native CUB3-4362 cancellation resource;5303 and unknown profiles
+are refused. The reviewed Yes/Cancel responder shape and all measured commands,
+recorder and resource windows remain unchanged. The5302 artifact is separate.
 
 Registration and removal run in an ordinary owner class; a separate transformer
 class implements the callback so owned callback rejection remains effective.
