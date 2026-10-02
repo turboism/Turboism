@@ -78,8 +78,8 @@ public final class FxHostValidationProbe implements CubismPlugin {
                         id,
                         "name",
                         name)));
-        final String json = new String(
-                dev.turboism.protocol.json.StrictJson.bytes(arguments), java.nio.charset.StandardCharsets.UTF_8);
+        final String json =
+                new String(dev.turboism.sdk.json.Json.bytes(arguments), java.nio.charset.StandardCharsets.UTF_8);
         return "Use the Turboism MCP tool turboism.model_objects.apply exactly once with these JSON arguments: " + json
                 + "\nDo not rename any other object or perform additional operations.";
     }

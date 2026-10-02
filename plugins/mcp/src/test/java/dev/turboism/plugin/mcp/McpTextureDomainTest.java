@@ -23,6 +23,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.lang.reflect.Proxy;
@@ -667,7 +668,7 @@ final class McpTextureDomainTest {
     void dimensionsAcceptIntegralJsonNumbersAfterWireRoundTrip() {
         final TextureHarness harness = TextureHarness.create();
         final Map<String, Object> arguments =
-                object(dev.turboism.protocol.json.StrictJson.parse(dev.turboism.protocol.json.StrictJson.bytes(Map.of(
+                object(dev.turboism.sdk.json.Json.parse(dev.turboism.sdk.json.Json.bytes(Map.of(
                         "operation",
                         "add_texture_atlas",
                         "expectedState",

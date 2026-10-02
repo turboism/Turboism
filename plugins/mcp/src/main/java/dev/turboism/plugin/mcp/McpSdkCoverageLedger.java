@@ -1,6 +1,6 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -34,7 +34,7 @@ final class McpSdkCoverageLedger {
             if (input == null) {
                 throw new IllegalStateException("MCP SDK coverage ledger is missing: " + RESOURCE);
             }
-            final Object parsed = StrictJson.parse(input.readAllBytes());
+            final Object parsed = Json.parse(input.readAllBytes());
             if (!(parsed instanceof Map<?, ?> map)) {
                 throw new IllegalStateException("MCP SDK coverage ledger must be a JSON object");
             }

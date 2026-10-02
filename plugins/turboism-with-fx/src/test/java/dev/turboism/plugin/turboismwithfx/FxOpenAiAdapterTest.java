@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -51,8 +51,7 @@ final class FxOpenAiAdapterTest {
             try (exchange) {
                 paths.add(exchange.getRequestURI().getPath());
                 authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-                chatRequest.set(
-                        object(StrictJson.parse(exchange.getRequestBody().readAllBytes())));
+                chatRequest.set(object(Json.parse(exchange.getRequestBody().readAllBytes())));
                 final byte[] body = STREAM.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
                 exchange.sendResponseHeaders(200, body.length);
@@ -65,7 +64,7 @@ final class FxOpenAiAdapterTest {
             try (exchange) {
                 paths.add(exchange.getRequestURI().getPath());
                 authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-                final byte[] body = StrictJson.bytes(Map.of(
+                final byte[] body = Json.bytes(Map.of(
                         "object", "list", "data", List.of(Map.of("id", "local/one"), Map.of("id", "local/two"))));
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, body.length);
@@ -123,7 +122,7 @@ final class FxOpenAiAdapterTest {
                             HttpResponse.BodyHandlers.ofByteArray());
 
             assertEquals(200, response.statusCode());
-            final Map<String, Object> catalog = object(StrictJson.parse(response.body()));
+            final Map<String, Object> catalog = object(Json.parse(response.body()));
             assertEquals(
                     List.of("local/one", "local/two"),
                     ((List<?>) catalog.get("data"))
@@ -200,7 +199,7 @@ final class FxOpenAiAdapterTest {
         if (requestedModel != null) request.header("ai-language-model-id", requestedModel);
         final HttpResponse<String> response = HttpClient.newHttpClient()
                 .send(
-                        request.POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(gateway)))
+                        request.POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(gateway)))
                                 .build(),
                         HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         assertEquals(200, response.statusCode());
