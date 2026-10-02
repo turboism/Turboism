@@ -289,6 +289,20 @@ class EdtDispatchTest {
     }
 
     @Test
+    void fatalEdtErrorStillSurfacesToTheCaller() {
+        // A VirtualMachineError on the EDT must reach the caller as that Error — recording it
+        // before rethrowing keeps outcome() from reporting a phantom null success that would
+        // surface as an unboxing NPE (or a silently "succeeded" write) downstream.
+        final StackOverflowError fatal = new StackOverflowError("simulated fatal");
+        final StackOverflowError thrown = assertThrows(
+                StackOverflowError.class,
+                () -> EdtDispatch.call("fatal-error", () -> {
+                    throw fatal;
+                }));
+        assertSame(fatal, thrown);
+    }
+
+    @Test
     void acceptTimeoutTripsTheUnresponsiveCircuitUntilTheProbeRuns() throws Exception {
         final CountDownLatch wedged = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
