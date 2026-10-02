@@ -55,6 +55,21 @@
       "id": "turboism.cubism.model.observe",
       "scope": "application",
       "reason": "Observes model and animation save lifecycle to trigger save-triggered backups."
+    },
+    {
+      "id": "turboism.network.fetch",
+      "scope": "application",
+      "reason": "Uploads backup artifacts to the user-configured WebDAV endpoint through the JDK HttpClient (MKCOL/PROPFIND/PUT/DELETE); redirects are never followed."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads runtime-issued backup artifacts for upload and scans the configured host auto-backup directory for new _backup*.cmo3 files."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Deletes plugin-owned save-triggered temporary backup files and their empty directories after upload completes."
     }
   ],
   "capabilities": [],
