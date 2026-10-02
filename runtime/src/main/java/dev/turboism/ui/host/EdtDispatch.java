@@ -366,8 +366,9 @@ public final class EdtDispatch {
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
-                FatalErrors.rethrowIfFatal(throwable);
+                // Record first: a fatal Error must still reach the caller via outcome().
                 failure.set(throwable);
+                FatalErrors.rethrowIfFatal(throwable);
             } finally {
                 state.set(DONE);
                 done.countDown();
