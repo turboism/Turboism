@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -12,7 +13,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.BoxLayout;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 
 /**
  * Framework capability: attaches plugin-owned UI panels to the native texture-atlas
@@ -231,20 +231,9 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
     }
 
     private static void onEdt(final Runnable task) {
-        if (SwingUtilities.isEventDispatchThread()) {
+        EdtDispatch.call("texture-atlas editor UI update", () -> {
             task.run();
-        } else {
-            try {
-                SwingUtilities.invokeAndWait(task);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while updating the texture-atlas editor UI.", exception);
-            } catch (java.lang.reflect.InvocationTargetException exception) {
-                final Throwable cause = exception.getCause();
-                if (cause instanceof RuntimeException runtime) throw runtime;
-                if (cause instanceof Error error) throw error;
-                throw new IllegalStateException("Texture-atlas editor UI update failed.", cause);
-            }
-        }
+            return null;
+        });
     }
 }
