@@ -196,7 +196,8 @@ public final class NativeEditToggleInjector {
     public boolean ensureInjectedOnEdt() {
         try {
             return EdtDispatch.call("native edit toggle injection", this::ensureInjected);
-        } catch (RuntimeException failure) {
+        } catch (Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
             return false;
         }
     }
