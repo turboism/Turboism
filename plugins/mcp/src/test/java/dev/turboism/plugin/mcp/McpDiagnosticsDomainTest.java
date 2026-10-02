@@ -34,6 +34,7 @@ import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;

@@ -3,7 +3,6 @@ package dev.turboism.plugin.mcp;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.CubismHistory;
@@ -14,6 +13,7 @@ import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -391,7 +391,7 @@ final class McpHttpServer implements AutoCloseable {
             }
             final Object request;
             try {
-                request = StrictJson.parse(body);
+                request = Json.parse(body);
             } catch (IllegalArgumentException failure) {
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
                 return;
@@ -493,7 +493,7 @@ final class McpHttpServer implements AutoCloseable {
         content.put("protocolVersion", McpProtocol.VERSION);
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
-        final byte[] bytes = StrictJson.bytes(content);
+        final byte[] bytes = Json.bytes(content);
         final Path temporary = createSecuredTemporary(directory);
         try {
             Files.write(temporary, bytes);
@@ -671,7 +671,7 @@ final class McpHttpServer implements AutoCloseable {
     }
 
     private static void sendJson(final HttpExchange exchange, final int status, final Object body) throws IOException {
-        final byte[] bytes = StrictJson.bytes(body);
+        final byte[] bytes = Json.bytes(body);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);

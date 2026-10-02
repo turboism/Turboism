@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.Glue;
@@ -19,6 +18,7 @@ import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
@@ -174,11 +174,10 @@ final class McpSdkCoverageGuardTest {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private static Map<String, Object> ledger() throws IOException {
         try (InputStream input = McpSdkCoverageGuardTest.class.getClassLoader().getResourceAsStream(RESOURCE)) {
             assertNotNull(input, "missing MCP SDK coverage ledger");
-            return (Map<String, Object>) StrictJson.parse(input.readAllBytes());
+            return Json.parseObject(input.readAllBytes());
         }
     }
 
