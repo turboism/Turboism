@@ -1116,3 +1116,23 @@ probe is `c3ae3bb61e92b802c747753df76c7520a43cb5ce813339c273fd2ee3eead010d`.
 Six fresh inputs under `final-owned-startup-ui-r2` are submitted one at a time;
 each must pass the full real UI/config/identity/cleanup audit before the next.
 At this checkpoint they are not claimed complete. Production remains NOT_PASSED.
+
+
+## Final independent restarts complete; resource acceptance awaits human review
+
+All six corrected full-UI independent starts passed real Apply/Cancel/OK/reopen,
+exact initial preference, unchanged permission-preparation bytes and every
+standard identity/fixture/normal-exit/safe-cleanup gate. Sequences are
+2476, 2478, 2480, 2481, 2482, 2483.
+This closes the automatic code/host verification slice, not production acceptance.
+The concrete proposed resource envelope is CPU total no regression, absolute
+operation RSS increase≤20%, own-baseline peak increment≤80MiB and three-cycle
+retained growth≤64MiB. These are PROPOSED_NOT_APPROVED; sampled three-cycle evidence
+does not prove long-run stability. Exact scope and memory costs are in
+[the final candidate review](final-candidate-review-20261002.md).
+Summary SHA 259914f77ee94f826743382c9cde1406e41226e85e0c45b78078d56017fdcd8d; production remains HOLD_PRODUCTION_ACCEPTANCE/NOT_PASSED,
+T044/T046/T050 partial and full goal active pending required manual review.
+Original five FAILs/queued cancellation remain; five old terminal prefixes were
+removed using official safety checks, retaining config/results/logs/outcomes.
+No new performance A/B, production-base change, shared Runner change, previewBundle,
+immutable overwrite, merge or push was used to close this slice.
