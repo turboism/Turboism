@@ -1,0 +1,74 @@
+IDENTITY_ABSENCE_SELF_CHECK_PASS checks=480524
+ROUND size=128 pending=1 round=0 iterations=31250 iteratorNs=17450967 arrayNs=13226501 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=1 round=1 iterations=31250 iteratorNs=17523968 arrayNs=13813786 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=1 round=2 iterations=31250 iteratorNs=17547784 arrayNs=13280136 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=1 round=3 iterations=31250 iteratorNs=17555714 arrayNs=13275306 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=1 round=4 iterations=31250 iteratorNs=17680705 arrayNs=13412854 iteratorBytes=1000000 arrayBytes=0
+MEDIAN size=128 pending=1 iteratorNs=17547784 arrayNs=13280136 changePercent=-24.320
+ROUND size=128 pending=2 round=0 iterations=31250 iteratorNs=21065548 arrayNs=16358820 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=2 round=1 iterations=31250 iteratorNs=20142112 arrayNs=16351538 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=2 round=2 iterations=31250 iteratorNs=23731278 arrayNs=14157104 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=2 round=3 iterations=31250 iteratorNs=21883880 arrayNs=14575334 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=2 round=4 iterations=31250 iteratorNs=20012449 arrayNs=14092897 iteratorBytes=1000000 arrayBytes=0
+MEDIAN size=128 pending=2 iteratorNs=21065548 arrayNs=14575334 changePercent=-30.810
+ROUND size=128 pending=8 round=0 iterations=31250 iteratorNs=40287868 arrayNs=41611046 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=8 round=1 iterations=31250 iteratorNs=40963192 arrayNs=39758222 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=8 round=2 iterations=31250 iteratorNs=40207073 arrayNs=42905038 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=8 round=3 iterations=31250 iteratorNs=38547778 arrayNs=39596321 iteratorBytes=1000000 arrayBytes=0
+ROUND size=128 pending=8 round=4 iterations=31250 iteratorNs=40119502 arrayNs=39000074 iteratorBytes=1000000 arrayBytes=0
+MEDIAN size=128 pending=8 iteratorNs=40207073 arrayNs=39758222 changePercent=-1.116
+ROUND size=512 pending=1 round=0 iterations=7812 iteratorNs=20805546 arrayNs=22793623 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=1 round=1 iterations=7812 iteratorNs=20823294 arrayNs=22801339 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=1 round=2 iterations=7812 iteratorNs=20821563 arrayNs=22892002 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=1 round=3 iterations=7812 iteratorNs=20794855 arrayNs=22620176 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=1 round=4 iterations=7812 iteratorNs=20671447 arrayNs=22721419 iteratorBytes=249984 arrayBytes=0
+MEDIAN size=512 pending=1 iteratorNs=20805546 arrayNs=22793623 changePercent=9.556
+ROUND size=512 pending=2 round=0 iterations=7812 iteratorNs=21752525 arrayNs=24552569 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=2 round=1 iterations=7812 iteratorNs=22571874 arrayNs=24474481 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=2 round=2 iterations=7812 iteratorNs=21185507 arrayNs=24508897 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=2 round=3 iterations=7812 iteratorNs=20879577 arrayNs=23893772 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=2 round=4 iterations=7812 iteratorNs=20754724 arrayNs=24119651 iteratorBytes=249984 arrayBytes=0
+MEDIAN size=512 pending=2 iteratorNs=21185507 arrayNs=24474481 changePercent=15.525
+ROUND size=512 pending=8 round=0 iterations=7812 iteratorNs=37908511 arrayNs=45325423 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=8 round=1 iterations=7812 iteratorNs=37991165 arrayNs=45065763 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=8 round=2 iterations=7812 iteratorNs=38351266 arrayNs=45102134 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=8 round=3 iterations=7812 iteratorNs=38210620 arrayNs=45510786 iteratorBytes=249984 arrayBytes=0
+ROUND size=512 pending=8 round=4 iterations=7812 iteratorNs=38069171 arrayNs=44778612 iteratorBytes=249984 arrayBytes=0
+MEDIAN size=512 pending=8 iteratorNs=38069171 arrayNs=45102134 changePercent=18.474
+ROUND size=2048 pending=1 round=0 iterations=1953 iteratorNs=21456545 arrayNs=24163995 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=1 round=1 iterations=1953 iteratorNs=21857340 arrayNs=24046244 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=1 round=2 iterations=1953 iteratorNs=29807193 arrayNs=29164716 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=1 round=3 iterations=1953 iteratorNs=22572981 arrayNs=25945067 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=1 round=4 iterations=1953 iteratorNs=23689705 arrayNs=24297325 iteratorBytes=62496 arrayBytes=0
+MEDIAN size=2048 pending=1 iteratorNs=22572981 arrayNs=24297325 changePercent=7.639
+ROUND size=2048 pending=2 round=0 iterations=1953 iteratorNs=22324147 arrayNs=24691101 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=2 round=1 iterations=1953 iteratorNs=22298727 arrayNs=24618093 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=2 round=2 iterations=1953 iteratorNs=22232180 arrayNs=24555710 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=2 round=3 iterations=1953 iteratorNs=22025909 arrayNs=24412524 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=2 round=4 iterations=1953 iteratorNs=22164897 arrayNs=24407161 iteratorBytes=62496 arrayBytes=0
+MEDIAN size=2048 pending=2 iteratorNs=22232180 arrayNs=24555710 changePercent=10.451
+ROUND size=2048 pending=8 round=0 iterations=1953 iteratorNs=39096470 arrayNs=48085504 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=8 round=1 iterations=1953 iteratorNs=41890778 arrayNs=48689842 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=8 round=2 iterations=1953 iteratorNs=40832905 arrayNs=49728384 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=8 round=3 iterations=1953 iteratorNs=40252771 arrayNs=49450932 iteratorBytes=62496 arrayBytes=0
+ROUND size=2048 pending=8 round=4 iterations=1953 iteratorNs=38852956 arrayNs=46325009 iteratorBytes=62496 arrayBytes=0
+MEDIAN size=2048 pending=8 iteratorNs=40252771 arrayNs=48689842 changePercent=20.960
+ROUND size=4096 pending=1 round=0 iterations=1000 iteratorNs=24759837 arrayNs=26659134 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=1 round=1 iterations=1000 iteratorNs=25176572 arrayNs=26984892 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=1 round=2 iterations=1000 iteratorNs=24737918 arrayNs=26878407 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=1 round=3 iterations=1000 iteratorNs=24757970 arrayNs=26791212 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=1 round=4 iterations=1000 iteratorNs=25465530 arrayNs=27236347 iteratorBytes=32000 arrayBytes=0
+MEDIAN size=4096 pending=1 iteratorNs=24759837 arrayNs=26878407 changePercent=8.556
+ROUND size=4096 pending=2 round=0 iterations=1000 iteratorNs=26426610 arrayNs=32235449 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=2 round=1 iterations=1000 iteratorNs=25974927 arrayNs=27585368 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=2 round=2 iterations=1000 iteratorNs=26253571 arrayNs=27510709 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=2 round=3 iterations=1000 iteratorNs=24806750 arrayNs=27312864 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=2 round=4 iterations=1000 iteratorNs=24537967 arrayNs=27412681 iteratorBytes=32000 arrayBytes=0
+MEDIAN size=4096 pending=2 iteratorNs=25974927 arrayNs=27510709 changePercent=5.913
+ROUND size=4096 pending=8 round=0 iterations=1000 iteratorNs=44585518 arrayNs=51302153 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=8 round=1 iterations=1000 iteratorNs=40342560 arrayNs=52074089 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=8 round=2 iterations=1000 iteratorNs=39987492 arrayNs=51164417 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=8 round=3 iterations=1000 iteratorNs=40833906 arrayNs=51130320 iteratorBytes=32000 arrayBytes=0
+ROUND size=4096 pending=8 round=4 iterations=1000 iteratorNs=40266232 arrayNs=50850308 iteratorBytes=32000 arrayBytes=0
+MEDIAN size=4096 pending=8 iteratorNs=40342560 arrayNs=51164417 changePercent=26.825
+OWNED_FEASIBILITY_FINISHED checks=529940 consumed=1000
