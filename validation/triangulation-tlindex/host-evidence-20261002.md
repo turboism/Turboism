@@ -1155,3 +1155,8 @@ remain unchanged; the full goal is not marked complete.
 ## 十轮内存诊断续验
 
 见 [2026-10-02 十轮验证收尾](memory-stability-closeout-20261002.md)。seq2492 开启与 seq2497 关闭各10次/7110条结果，11字段逐条零差异及标准实机 gates PASS；seq2494 排队超时 FAIL 保留。原生自动备份在开/关均造成数 GiB 分配；长时间 RSS 平台与无泄漏未建立，关闭长 recording 的整体 affine 时钟归因失败。生产保持 HOLD / NOT_PASSED，原三轮性能数值不变，T044/T046/T050 partial。
+
+
+## 2026-10-02 用户批准与提交
+
+用户明确“批准。提交。”。所列最终候选的三轮资源界限及 Lane C 实机证据已获人工批准，当前决策为 APPROVED_BOUNDED_CANDIDATE_WITH_DOCUMENTED_LIMITATIONS；见 [批准记录](candidate-approval-20261002.json)。该决策覆盖历史人工审阅等待，不更改冻结工件、失败、长运行内存未建立或时钟归因限制；未扩展 Atlas/模型/版本准入。
