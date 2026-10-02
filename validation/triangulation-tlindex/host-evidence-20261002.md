@@ -942,3 +942,86 @@ checkpoint it is queued behind2448running and2449/2450queued; no measuring
 leg has begun and no native PASS is claimed. Existing worker is reused;
 there is no second worker or intervention in other sessions. On remains
 unsubmitted until off standard gates and full independent review pass.
+
+## Corrected final candidate 5303: native pair and clock attribution closed
+
+The previously queued off22 leg and its on22 successor have both finished.
+Off seq2451/job`c6871651-9e42-417f-bd1d-cbeac942c064`/prepared
+`4d218785c7e65e402cff85a16e216287e4853494a648ccaa8c59dac516a3c900` and
+on seq2455/job`fa1e450a-5b9d-4b51-b60c-a29104bad3bf`/prepared
+`73cd85ae5151ec18b24fa65959887ba3093a66dc316cf4ecfc59445462ae5bd7`
+are authoritative succeeded/PASS, normalExit/identityVerified/fixtureUnchanged
+true, cleanup=safe, observer/metrics exit0 and bound kernel scope destroyed.
+Both 140-file/13-directory inventories pass. No measurement builds or external
+window actions occurred. The actual sole-premain sequence registers T039 before
+Atlas, observes the composed initial definition, really removes it outside the
+callback and installs the producer afterward. Both actual 43-key freezes are
+SHADOW_READY/REMOVED/unregistered, targetEvents1/late0 and NO_CALLS. Fresh on
+capture admits after removal; off refuses the production lazy patch.
+
+All 711 sources in each of three actual command cycles complete. All 2133
+ordered producer semantic projections, including complete positions/index
+digests and counts, match off/on in all 11 compared fields. The distinct
+first-four ordered edge digests also match. The common unchanged production
+base is `ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2`;
+companion `892ce6ee…`, driver `fe920a1d…`, shadow `12d5fea3…`, capture
+`f0b11990…` and startup probe `30f5203e…` are pinned to both native receipts.
+
+| Metric | Off | On | On change |
+| --- | ---: | ---: | ---: |
+| Three native command windows, seconds | 102.285759 | 74.334730 | −27.3264% |
+| Sampled Java command CPU, seconds | 107.61 | 89.96 | −16.4018% |
+| Sampled auxiliary command CPU, seconds | 8.11 | 6.41 | −20.9618% |
+| Baseline median RSS, MiB | 2655.293 | 2541.395 | Different baselines |
+| Maximum command RSS peak, MiB | 2668.797 | 2609.527 | −59.27 MiB |
+| Third-minus-first retained median RSS, MiB | +0.996 | +42.855 | Safety undecided |
+| Clock-aligned command j-edge allocation weight estimate, bytes | 1,313,644,864 | 269,985,192 | −79.4476% |
+
+First-cycle sampled CPU is 38.07/off versus 38.74/on seconds; the aggregate
+improvement does not imply every cycle improves. On own-baseline command peak
+increments are 15.910/25.734/68.133 MiB; off 6.285/12.980/13.504 MiB.
+Retained medians are 2667.801/2668.797/2668.797/off versus
+2566.977/2568.777/2609.832/on MiB. Absolute on RSS is lower in this pair,
+but different baselines prevent causal attribution of that difference, and
+the on growth remains an unresolved resource observation. PSS is available in
+all windows; all 244 heap-event times/values match the independent JDK CLI.
+
+The first mathematical pair review used uncalibrated JFR epoch times. A later
+audit found explicit native editCancel stacks apparently inside retained3,
+although the frozen driver issues cancellation only after retained-end.
+Independent official JDK ThreadSleep/ThreadPark exports expose the clock-rate
+difference: every 120-sleep, native 30-second phase spans only about 29.907
+JFR seconds. The four separate same-driver observation phases constrain eight
+start/end inequalities and a bounded affine mapping, with timestamp
+quantization included; cancellation is not used as a calibration anchor.
+Every editCancel event then lies wholly inside the explicit mesh-cancel phase.
+No target/index/editCancel execution sample remains in any corrected retained
+window, and all three command windows still contain actual target/index evidence.
+Events whose mapping range overlaps a boundary are counted separately rather
+than assigned as certain. This assumes constant affine clock rate over the
+recording; it is not an independently synchronized custom-clock event.
+
+`clock-attribution-review.json` supersedes JFR window counts/allocation estimates
+in the original resource/pair/retained reviews. Original raw files, projections,
+reports, initial audit refusal and all failure logs remain unchanged. Wall,
+native process CPU/RSS/PSS and complete output comparisons do not use the JFR
+clock and are unchanged. Original unaligned allocation comparison −78.8005%
+is historical; the bounded aligned estimate is −79.4476%, not exact bytes or a
+speedup percentage. This correction does not explain or erase +42.855 MiB RSS.
+
+Evidence root: `build/t050-lazy-edge-bytecode/t039-shadow-integration-r1/native5303-pair1/`.
+`final-pin-review.json` rehashes 640 distinct inputs after both writers with
+zero mismatches; SHA
+`617f82cbb6e4623e21a816b259534f641f7c8fa7db9ea863218561fe6bc65f3b`.
+The prior frozen-script requirement that late cleanup stdout appear in an earlier
+console snapshot was corrected in a separate r2 audit using the actual freeze,
+runtime cleanup records and final kernel proof; the original refusal is retained.
+
+This closes the bounded corrected-candidate 5303 output/activation/resource
+report. Production remains HOLD_PRODUCTION_ACCEPTANCE / NOT_PASSED; T050 partial,
+T044/T046 and the continuous goal remain open. Final corrected-candidate 5203
+off/on inputs are prepared (239 frozen pins, no mismatch) but not yet submitted
+at this checkpoint. Formal base-only native startup, real settings and independent
+restarts, memory stability and numerical resource limits still require evidence.
+The remaining two measuring legs have a combined maximum host budget of40minutes;
+FIFO waiting, UI/restarts and audit time are additional, not a completion promise.
