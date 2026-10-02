@@ -67,6 +67,9 @@ No capabilities are declared in the plugin manifest.
 | `turboism.action.register` | `application` | Registers the backup.webdav.settings.open action behind the Turboism menu item. |
 | `turboism.ui.menu.contribute` | `application` | Exposes the WebDAV backup settings dialog through the Turboism menu. |
 | `turboism.cubism.model.observe` | `application` | Observes model and animation save lifecycle to trigger save-triggered backups. |
+| `turboism.network.fetch` | `application` | Uploads backup artifacts to the user-configured WebDAV endpoint through the JDK HttpClient (MKCOL/PROPFIND/PUT/DELETE); redirects are never followed. |
+| `turboism.file.read` | `application` | Reads runtime-issued backup artifacts for upload and scans the configured host auto-backup directory for new `_backup*.cmo3` files. |
+| `turboism.file.write` | `application` | Deletes plugin-owned save-triggered temporary backup files and their empty directories after upload completes. |
 
 ## Privacy and data
 

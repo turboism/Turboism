@@ -7,7 +7,7 @@ import dev.turboism.runtime.log.RuntimeDiagnostics;
 final class MatrixScratchHookContributor extends NativeOptimizationHookContributor {
 
     MatrixScratchHookContributor() {
-        super("TURBOISM_MATRIX_SCRATCH");
+        super("TURBOISM_MATRIX_SCRATCH", VerifiedMatrixScratchInstaller.HOOK_ID);
     }
 
     @Override

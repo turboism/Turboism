@@ -22,7 +22,7 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 final class InputPathElisionHookContributor extends NativeOptimizationHookContributor {
 
     InputPathElisionHookContributor() {
-        super("TURBOISM_INPUT_PATH");
+        super("TURBOISM_INPUT_PATH", VerifiedInputPathElisionInstaller.HOOK_ID);
     }
 
     @Override

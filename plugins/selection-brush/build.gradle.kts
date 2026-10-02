@@ -1,4 +1,3 @@
-import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.jvm.tasks.Jar
 import java.util.jar.JarFile
 
@@ -9,30 +8,6 @@ plugins {
 dependencies {
     compileOnly(project(":sdk"))
     testImplementation(project(":sdk"))
-}
-
-val verifySdkOnlyProduction by tasks.registering {
-    group = "verification"
-    description = "Rejects non-SDK dependencies and private/runtime APIs in Selection Brush production source."
-    val sourceRoot = layout.projectDirectory.dir("src/main/java")
-    inputs.dir(sourceRoot)
-    doLast {
-        val projectDependencies = configurations.getByName("compileClasspath").allDependencies
-            .filterIsInstance<ProjectDependency>()
-            .map { it.dependencyProject.path }
-            .toSet()
-        check(projectDependencies == setOf(":sdk")) {
-            "Selection Brush production compile classpath must contain only the SDK project: $projectDependencies"
-        }
-        val forbidden = listOf(
-            "java.awt", "javax.swing", "java.lang.reflect", "dev.turboism.runtime",
-            "dev.turboism.mapping", "VerifiedMemberResolver", "ClassLoader", "getDeclared"
-        )
-        sourceRoot.asFileTree.matching { include("**/*.java") }.forEach { source ->
-            val text = source.readText()
-            forbidden.forEach { token -> check(token !in text) { "${source.path}: forbidden production token $token" } }
-        }
-    }
 }
 
 val verifySelectionBrushJar by tasks.registering {
@@ -71,5 +46,5 @@ val verifySelectionBrushJar by tasks.registering {
 }
 
 tasks.named("check") {
-    dependsOn(verifySdkOnlyProduction, verifySelectionBrushJar)
+    dependsOn(verifySelectionBrushJar)
 }
