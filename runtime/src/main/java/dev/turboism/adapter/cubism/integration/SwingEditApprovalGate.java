@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.integration;
 
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.util.Objects;
@@ -74,12 +75,10 @@ public final class SwingEditApprovalGate implements EditApprovalGate {
     }
 
     private int promptOnEdt(final Window owner, final EditConnectionInfo connection) {
-        final int[] choice = {JOptionPane.NO_OPTION};
         try {
-            SwingUtilities.invokeAndWait(() -> choice[0] = prompt(owner, connection));
-        } catch (Exception failure) {
+            return EdtDispatch.call("edit approval prompt", () -> prompt(owner, connection));
+        } catch (RuntimeException failure) {
             return JOptionPane.NO_OPTION;
         }
-        return choice[0];
     }
 }

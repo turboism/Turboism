@@ -841,7 +841,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         try {
             // Posted, not waited on: al.a runs the entire modal export flow on
             // the EDT (inner settings dialog, warnings, chooser, write and any
-            // trailing message prompts). Blocking the worker in invokeAndWait
+            // trailing message prompts). Blocking the worker on EDT completion
             // here would park the session past every timeout in
             // awaitCompletion — one un-dismissed native prompt wedged it
             // forever (observed on exact host run queue-e324da1a).

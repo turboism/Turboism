@@ -1,10 +1,9 @@
 package dev.turboism.adapter.ui;
 
-import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.StatusNotification;
-import java.lang.reflect.InvocationTargetException;
+import dev.turboism.ui.host.EdtDispatch;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -16,7 +15,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import javax.swing.SwingUtilities;
 
 /**
  * Exact-version host operations for the platform-owned CX bottom status region.
@@ -320,38 +318,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     }
 
     private static <T> T onEdt(final Supplier<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.get();
-        }
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
-        try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.get();
-                } catch (Throwable throwable) {
-                    FatalErrors.rethrowIfFatal(throwable);
-                    failure[0] = throwable;
-                }
-            });
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("CX status-region EDT operation was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("CX status-region EDT operation failed", exception);
-        }
-        if (failure[0] instanceof RuntimeException exception) {
-            throw exception;
-        }
-        if (failure[0] instanceof Error error) {
-            throw error;
-        }
-        if (failure[0] != null) {
-            throw new IllegalStateException("CX status-region EDT operation failed", failure[0]);
-        }
-        @SuppressWarnings("unchecked")
-        final T value = (T) result[0];
-        return value;
+        return EdtDispatch.call("CX status-region EDT operation", operation::get);
     }
 
     private static String requireText(final String value, final String name) {

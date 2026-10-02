@@ -1,11 +1,11 @@
 package dev.turboism.shell;
 
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Frame;
 import java.awt.Window;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 /** Shared window construction and message behavior for Turboism core UI. */
@@ -45,8 +45,7 @@ final class CoreDialogs {
     }
 
     static void onEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run();
-        else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("core shell dialog", action);
     }
 
     private static Frame owner() {
