@@ -51,6 +51,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
@@ -150,6 +152,108 @@ final class McpParametersListContractTest {
         assertEquals("PERMISSION_DENIED", object(content.get("error")).get("code"));
     }
 
+    @Test
+    void everyHostReadRunsInsideOneUiExecution() {
+        // The immediate UI scheduler cannot expose off-UI host reads; guard every fake
+        // accessor on a flag that is set only while a runOnUiThread body executes, and
+        // count executions so split reads would show up as more than one dispatch.
+        final AtomicInteger uiExecutions = new AtomicInteger();
+        final AtomicBoolean insideUi = new AtomicBoolean();
+        final UiScheduler counting = new UiScheduler() {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
+                uiExecutions.incrementAndGet();
+                insideUi.set(true);
+                try {
+                    work.run();
+                } finally {
+                    insideUi.set(false);
+                }
+                return () -> {};
+            }
+
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
+                work.run();
+                return () -> {};
+            }
+        };
+        final Runnable onUi = () -> {
+            if (!insideUi.get()) throw new AssertionError("host read outside the UI execution");
+        };
+        final FakeModel model = new FakeModel();
+        model.put(parameter("ParamAngleX", "Angle X", 0.5, -30.0, 30.0, 0.0, true, true, onUi));
+        model.put(parameter("ParamOpacity", "Opacity", 1.0, 0.0, 1.0, 1.0, false, true, onUi));
+
+        final Map<String, Object> output = new McpTools(
+                        emptyObjects(),
+                        cubism(model, onUi),
+                        emptyHierarchy(),
+                        emptySelection(),
+                        emptyRead(),
+                        emptyClipMasks(),
+                        silentLogger(),
+                        counting)
+                .call(McpTools.PARAMETERS_LIST, Map.of());
+
+        final Map<String, Object> content = structured(output);
+        assertEquals(true, content.get("ok"));
+        assertEquals(2, content.get("count"));
+        assertEquals(1, uiExecutions.get(), "model resolution, filtering and row mapping must share one UI execution");
+    }
+
+    @Test
+    void aModelThatTurnsStaleMidListKeepsTheFailedErrorCode() {
+        // A parameter whose appearance read fails as stale must surface through the same
+        // FAILED contract the service exception path produced before the object API.
+        final Map<String, Object> output = parametersList(
+                parameters -> parameters.put(new Parameter() {
+                    @Override
+                    public ParameterId id() {
+                        return new ParameterId("ParamStale");
+                    }
+
+                    @Override
+                    public Optional<String> name() {
+                        return Optional.of("Stale");
+                    }
+
+                    @Override
+                    public float getValue() {
+                        return 0.0F;
+                    }
+
+                    @Override
+                    public float getMinimumValue() {
+                        return 0.0F;
+                    }
+
+                    @Override
+                    public float getMaximumValue() {
+                        return 1.0F;
+                    }
+
+                    @Override
+                    public float getDefaultValue() {
+                        return 0.0F;
+                    }
+
+                    @Override
+                    public void setValue(final float next) {}
+
+                    @Override
+                    public ParameterAppearance ui() {
+                        throw new IllegalStateException("Model appearance facade is stale or unavailable.");
+                    }
+                }),
+                Map.of());
+
+        final Map<String, Object> content = structured(output);
+        assertEquals(false, content.get("ok"));
+        assertEquals("FAILED", object(content.get("error")).get("code"));
+        assertEquals(Boolean.TRUE, output.get("isError"));
+    }
+
     private static Map<String, Object> parametersList(
             final Consumer<FakeModel> values, final Map<String, Object> arguments) {
         final FakeModel model = new FakeModel();
@@ -175,34 +279,54 @@ final class McpParametersListContractTest {
             final double defaultValue,
             final boolean visible,
             final boolean editable) {
+        return parameter(id, name, value, min, max, defaultValue, visible, editable, () -> {});
+    }
+
+    /** A parameter fake whose every accessor first runs {@code guard}. */
+    private static Parameter parameter(
+            final String id,
+            final String name,
+            final double value,
+            final double min,
+            final double max,
+            final double defaultValue,
+            final boolean visible,
+            final boolean editable,
+            final Runnable guard) {
         return new Parameter() {
             @Override
             public ParameterId id() {
+                // Identity is a stable handle attribute, not a host observation.
                 return new ParameterId(id);
             }
 
             @Override
             public Optional<String> name() {
+                guard.run();
                 return Optional.of(name);
             }
 
             @Override
             public float getValue() {
+                guard.run();
                 return (float) value;
             }
 
             @Override
             public float getMinimumValue() {
+                guard.run();
                 return (float) min;
             }
 
             @Override
             public float getMaximumValue() {
+                guard.run();
                 return (float) max;
             }
 
             @Override
             public float getDefaultValue() {
+                guard.run();
                 return (float) defaultValue;
             }
 
@@ -213,19 +337,23 @@ final class McpParametersListContractTest {
 
             @Override
             public ParameterAppearance ui() {
+                guard.run();
                 return new ParameterAppearance() {
                     @Override
                     public Optional<PaletteEntry> parameterPaletteEntry() {
+                        guard.run();
                         return Optional.empty();
                     }
 
                     @Override
                     public Optional<Boolean> visible() {
+                        guard.run();
                         return Optional.of(visible);
                     }
 
                     @Override
                     public Optional<Boolean> editable() {
+                        guard.run();
                         return Optional.of(editable);
                     }
                 };
@@ -265,6 +393,11 @@ final class McpParametersListContractTest {
     }
 
     private static CubismFacade cubism(final FakeModel model) {
+        return cubism(model, () -> {});
+    }
+
+    /** A facade whose model access first runs {@code guard} on every host touch. */
+    private static CubismFacade cubism(final FakeModel model, final Runnable guard) {
         return new CubismFacade() {
             @Override
             public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
@@ -296,24 +429,29 @@ final class McpParametersListContractTest {
                 return new CubismModelAccess() {
                     @Override
                     public CubismModel active() {
+                        guard.run();
                         model.check();
                         final List<Parameter> values = List.copyOf(model.values.values());
                         return new CubismModel() {
                             @Override
                             public ModelId id() {
+                                guard.run();
                                 return new ModelId("model-1");
                             }
 
                             @Override
                             public Parameters parameters() {
+                                guard.run();
                                 return new Parameters() {
                                     @Override
                                     public List<Parameter> all() {
+                                        guard.run();
                                         return values;
                                     }
 
                                     @Override
                                     public Parameter find(final ParameterId id) {
+                                        guard.run();
                                         return values.stream()
                                                 .filter(value -> value.id().equals(id))
                                                 .findFirst()
