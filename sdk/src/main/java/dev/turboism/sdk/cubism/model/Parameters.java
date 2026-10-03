@@ -69,6 +69,7 @@ public interface Parameters {
      * unique in the active model.</p>
      *
      * @throws IllegalArgumentException when the ID is already present or the definition is invalid
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter create(final ParameterDefinition definition) {
         return create(definition, java.util.Optional.empty());
@@ -79,6 +80,7 @@ public interface Parameters {
      *
      * @throws IllegalArgumentException when the ID is already present or the definition is invalid
      * @throws NoSuchElementException when the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter create(
             final ParameterDefinition definition,
@@ -95,6 +97,7 @@ public interface Parameters {
      * the source.</p>
      *
      * @throws NoSuchElementException when the source parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default Parameter copy(final ParameterId id) {
         Objects.requireNonNull(id, "id");
@@ -105,6 +108,7 @@ public interface Parameters {
      * Deletes one parameter, including its keyform bindings, Morph Targets, and physics references.
      *
      * @throws NoSuchElementException when the parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default void remove(final ParameterId id) {
         Objects.requireNonNull(id, "id");
@@ -119,6 +123,7 @@ public interface Parameters {
      *
      * @throws IllegalArgumentException when an ID is already present, duplicated within
      *                                  the batch, or a definition is invalid
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default List<Parameter> createMany(final List<ParameterDefinition> definitions) {
         return createMany(definitions, java.util.Optional.empty());
@@ -130,6 +135,7 @@ public interface Parameters {
      * @throws IllegalArgumentException when an ID is already present, duplicated within
      *                                  the batch, or a definition is invalid
      * @throws NoSuchElementException   when the folder is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default List<Parameter> createMany(
             final List<ParameterDefinition> definitions,
@@ -143,6 +149,7 @@ public interface Parameters {
      * Deletes several parameters as one undo unit.
      *
      * @throws NoSuchElementException when any parameter is absent
+     * @throws UnsupportedOperationException when the backend does not support parameter authoring
      */
     default void removeMany(final List<ParameterId> ids) {
         Objects.requireNonNull(ids, "ids");

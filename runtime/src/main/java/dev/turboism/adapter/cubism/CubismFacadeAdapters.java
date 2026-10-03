@@ -28,9 +28,7 @@ final class CubismFacadeAdapters {
     }
 
     static CubismModelAccess unavailableModelAccess() {
-        return () -> {
-            throw new UnsupportedOperationException("Unified Cubism model access is unavailable");
-        };
+        return CubismModelAccess.unavailable();
     }
 
     static RuntimeScheduler defaultScheduler() {
@@ -43,22 +41,7 @@ final class CubismFacadeAdapters {
     }
 
     static dev.turboism.sdk.cubism.core.CoreRuntimeInfo unavailableCoreRuntime() {
-        return new dev.turboism.sdk.cubism.core.CoreRuntimeInfo() {
-            @Override
-            public dev.turboism.sdk.cubism.core.CoreVersion version() {
-                throw new UnsupportedOperationException("Core runtime metadata is unavailable.");
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-                throw new UnsupportedOperationException("Core runtime capabilities are unavailable.");
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
-                throw new UnsupportedOperationException("Core MOC inspection is unavailable.");
-            }
-        };
+        return dev.turboism.sdk.cubism.core.CoreRuntimeInfo.unavailable();
     }
 
     static dev.turboism.sdk.cubism.core.CoreRuntimeInfo permissionCheckedCoreRuntime(

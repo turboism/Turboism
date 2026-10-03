@@ -17,12 +17,18 @@ public interface Parameter {
         return ParameterAppearance.unavailable();
     }
 
-    /** Returns this parameter's position within the model's parameter list. */
+    /**
+     * Returns this parameter's position within the model's parameter list.
+     * @throws UnsupportedOperationException when the backend does not expose the parameter index
+     */
     default int index() {
         throw new UnsupportedOperationException("Cubism parameter index is unavailable.");
     }
 
-    /** Returns the parameter's key values in declaration order. */
+    /**
+     * Returns the parameter's key values in declaration order.
+     * @throws UnsupportedOperationException when the backend does not expose key values
+     */
     default FloatSequence keyValues() {
         throw new UnsupportedOperationException("Cubism parameter key values are unavailable.");
     }
@@ -65,7 +71,10 @@ public interface Parameter {
         return Optional.empty();
     }
 
-    /** Returns this parameter's generation-bound Editor authoring bindings. */
+    /**
+     * Returns this parameter's generation-bound Editor authoring bindings.
+     * @throws UnsupportedOperationException when the backend does not expose parameter bindings
+     */
     default List<ParameterBinding> getParameterBindings() {
         throw new UnsupportedOperationException("Parameter binding projection is unavailable for this backend.");
     }
@@ -75,13 +84,17 @@ public interface Parameter {
      *
      * <p>The parameter and partner must be unpaired members of the same Editor parameter
      * group. Existing pairs are not silently replaced.</p>
+     * @throws UnsupportedOperationException when the backend does not support parameter combining
      */
     default void combineWith(final ParameterId partnerId) {
         Objects.requireNonNull(partnerId, "partnerId");
         throw new UnsupportedOperationException("Parameter Combined editing is unavailable for this backend.");
     }
 
-    /** Removes this parameter's current Editor four-corner pairing. */
+    /**
+     * Removes this parameter's current Editor four-corner pairing.
+     * @throws UnsupportedOperationException when the backend does not support parameter combining
+     */
     default void uncombine() {
         throw new UnsupportedOperationException("Parameter Combined editing is unavailable for this backend.");
     }
@@ -119,6 +132,7 @@ public interface Parameter {
      *
      * <p>Backends that do not expose an Editor-native definition transaction fail
      * explicitly rather than mutating detached runtime metadata.</p>
+     * @throws UnsupportedOperationException when the backend does not support parameter definition editing
      */
     default void updateDefinition(final ParameterDefinition definition) {
         throw new UnsupportedOperationException("Parameter definition editing is unavailable for this backend.");
