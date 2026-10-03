@@ -17,6 +17,27 @@ final class NativeMeshEdgeLoopPrototype implements Opcodes {
     }
 
     static byte[] patch(byte[] raw, boolean candidate, boolean complete) throws Exception {
+        if (candidate && complete && Boolean.getBoolean("turboism.validation.meshRuntimeWeave")) {
+            byte[] output = dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess.runtimePatch(raw);
+            if (Boolean.getBoolean("turboism.validation.meshRuntimeNativeAdmission")) return output;
+            ClassNode type = new ClassNode();
+            new ClassReader(output).accept(type, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            // Owned controls replace only the admission/counter frontends. Actual production
+            // field access, primitive storage, find, append and disposal execute unchanged.
+            for (MethodNode method : type.methods) for (AbstractInsnNode n : method.instructions) {
+                if (n instanceof MethodInsnNode call && call.owner.equals("dev/turboism/adapter/cubism/mesh/NativeMeshEdgeLookup")) {
+                    call.owner = CONTROL;
+                    if (call.name.equals("find")) call.name = "runtimeFind";
+                    else if (call.name.equals("appended")) call.name = "runtimeAppended";
+                    else require(call.name.equals("enter"), "runtime frontend");
+                }
+            }
+            ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+                @Override protected String getCommonSuperClass(String a, String b) { return "java/lang/Object"; }
+            };
+            type.accept(writer);
+            return writer.toByteArray();
+        }
         String pin = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(raw));
         require(pin.equals("734b9bde593f27816b72f63c585a371d724507f21c97ac41980cbf3f347c57ad")
                 || pin.equals("d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a"), "exact native class pin");

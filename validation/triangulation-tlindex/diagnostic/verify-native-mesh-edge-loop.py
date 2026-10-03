@@ -62,11 +62,16 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--complete', action='store_true')
     parser.add_argument('--primitive', action='store_true')
+    parser.add_argument('--runtime', action='store_true', help='actual runtime patcher and helper, owned admission frontend')
     args = parser.parse_args()
+    if args.runtime and not (args.complete and args.primitive):
+        parser.error('--runtime requires --complete --primitive')
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
     report = {'scope': 'OWNED_COMPLETE_AUTOCONNECT' if args.complete else 'OWNED_NATIVE_SUFFIX_ONLY', 'productionChanged': False, 'editorLaunched': False,
               'hostGain': 'UNPROVEN', 'status': 'STARTED', 'pins': {}}
+    report['runtimeWeave'] = args.runtime
+    report['productionAdmissionIntegrated'] = False
     try:
         if quiet_jobs():
             raise RuntimeError('shared performance work pending')
@@ -74,8 +79,17 @@ def main():
         sources = [source / (name + '.java') for name in ('NativeMeshEdgeLoopPrototype', 'NativeMeshEdgeLoopSelfCheck')]
         sources.extend([source / 'NativeMeshEdgeTableOwnedAccess.java',
                         Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeTable.java').resolve()])
+        runtime = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh').resolve()
+        sources.extend(runtime / (name + '.java') for name in ('NativeMeshEdgePatcher', 'NativeMeshEdgeLookup',
+                        'LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle'))
+        baseline = Path('build/t057-angle-integration-r1/production-scoped-r3/turboism-agent.jar').resolve()
+        if sha(baseline) != '17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295':
+            raise ValueError('frozen T057 identity mismatch')
         if args.complete:
             sources.append(source / 'NativeMeshAutoConnectSelfCheck.java')
+        if args.runtime:
+            sources.append(source / 'NativeMeshRuntimeHelperSelfCheck.java')
+            sources.append(source / 'NativeMeshRuntimeFallbackSelfCheck.java')
         jars = []
         for version, expected in PINS.items():
             argv = json.loads(Path(f'build/t053-local-builder-r1/metadata-production/on{version}/command.json').read_text())['argv']
@@ -88,20 +102,22 @@ def main():
         cache = Path.home() / '.gradle/caches/modules-2/files-2.1/org.ow2.asm'
         asm = next((cache / 'asm/9.7.1').glob('*/*.jar'))
         tree = next((cache / 'asm-tree/9.7.1').glob('*/*.jar'))
-        for path in [Path(__file__).resolve(), *sources, asm, tree]:
+        for path in [Path(__file__).resolve(), *sources, asm, tree, baseline]:
             report['pins'][str(path)] = sha(path)
         classes = out / 'classes'
         classes.mkdir()
         env = dict(os.environ)
         for key in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVAC_OPTIONS', 'CLASSPATH'):
             env.pop(key, None)
-        guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', os.pathsep.join(map(str, [asm, tree])),
+        guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', os.pathsep.join(map(str, [asm, tree, baseline])),
                  '-d', str(classes), *map(str, sources)], out / 'compile.log', env)
         main_class = 'NativeMeshAutoConnectSelfCheck' if args.complete else 'NativeMeshEdgeLoopSelfCheck'
         marker = 'NATIVE_MESH_AUTOCONNECT_' if args.complete else 'NATIVE_MESH_EDGE_LOOP_'
         options = ['-Dturboism.validation.meshPrimitiveTable=true'] if args.primitive else []
+        if args.runtime:
+            options.append('-Dturboism.validation.meshRuntimeWeave=true')
         guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism', *options, '-cp',
-                 os.pathsep.join(map(str, [classes, asm, tree])), main_class, *map(str, jars)],
+                 os.pathsep.join(map(str, [classes, asm, tree, baseline])), main_class, *map(str, jars)],
                 out / 'execution.log', env)
         console = (out / 'execution.log').read_text()
         if console.count(marker + 'PASS ') != 6 or marker + 'FINISHED ' not in console:
@@ -109,6 +125,22 @@ def main():
         if args.primitive and marker + 'PRIMITIVE reservedBytes=0 productionStorage=ACTUAL' not in console:
             raise ValueError('actual primitive storage/released reservation controls missing')
         report['primitiveStorage'] = args.primitive
+        if args.runtime:
+            guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism', '-cp',
+                     os.pathsep.join(map(str, [classes, asm, tree, baseline])), 'NativeMeshRuntimeHelperSelfCheck', *map(str, jars)],
+                    out / 'helper-controls.log', env)
+            helper = (out / 'helper-controls.log').read_text()
+            if helper.count('NATIVE_MESH_RUNTIME_HELPER_PASS ') != 6 or 'NATIVE_MESH_RUNTIME_HELPER_FINISHED ' not in helper:
+                raise ValueError('missing actual runtime helper refusal/cleanup/counterexample controls')
+            report['helperResults'] = [line for line in helper.splitlines() if line.startswith('NATIVE_MESH_RUNTIME_HELPER_')]
+            guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism',
+                     '-Dturboism.validation.meshRuntimeWeave=true', '-Dturboism.validation.meshRuntimeNativeAdmission=true', '-cp',
+                     os.pathsep.join(map(str, [classes, asm, tree, baseline])), 'NativeMeshRuntimeFallbackSelfCheck', *map(str, jars)],
+                    out / 'native-fallback.log', env)
+            fallback = (out / 'native-fallback.log').read_text()
+            if fallback.count('NATIVE_MESH_RUNTIME_FALLBACK_PASS ') != 6 or 'NATIVE_MESH_RUNTIME_FALLBACK_FINISHED groups=288 reservedBytes=0' not in fallback:
+                raise ValueError('missing actual runtime fallback complete-operation controls')
+            report['fallbackResults'] = [line for line in fallback.splitlines() if line.startswith('NATIVE_MESH_RUNTIME_FALLBACK_')]
         report['status'] = 'PASS'
         report['results'] = [line for line in console.splitlines() if line.startswith(marker)]
     except Exception as failure:
