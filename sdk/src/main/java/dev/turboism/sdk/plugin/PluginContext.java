@@ -6,7 +6,6 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -91,11 +90,6 @@ public interface PluginContext {
      * Returns the Cubism-facing facade for the current plugin. */
     CubismFacade cubism();
 
-    /** Returns the parameter query service. */
-    default ParameterQueryService parameterQuery() {
-        return ParameterQueryService.unavailable();
-    }
-
     /** Returns the selection query service. */
     default SelectionQueryService selectionQuery() {
         return SelectionQueryService.unavailable();
@@ -127,7 +121,7 @@ public interface PluginContext {
      *
      * <p>The default resolves the context's remaining optional accessors
      * ({@link #localization()}, {@link #tasks()}, {@link #hostReads()}, {@link #storage()},
-     * {@link #scripts()}, {@link #userFiles()}, {@link #parameterQuery()},
+     * {@link #scripts()}, {@link #userFiles()},
      * {@link #selectionQuery()}, {@link #modelHierarchyQuery()}, {@link #cubismRead()},
      * {@link #modelObjects()} and {@link #config()}); the runtime installs a directory
      * that covers every {@link PluginService} member.</p>

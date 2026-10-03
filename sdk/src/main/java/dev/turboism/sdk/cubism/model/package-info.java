@@ -19,8 +19,7 @@
  * objects for ordinary value writes.
  *
  * <p>Several look-alike parameter types serve different semantics and are not interchangeable:
- * {@link dev.turboism.sdk.cubism.ParameterSnapshot} and {@link
- * dev.turboism.sdk.cubism.service.query.ParameterSummary} are immutable read snapshots, {@link
+ * {@link dev.turboism.sdk.cubism.ParameterSnapshot} is an immutable read snapshot, {@link
  * ParameterDefinition} is the payload for definition-level authoring ({@link
  * Parameter#updateDefinition}, {@link Parameters#create}), {@link
  * dev.turboism.sdk.cubism.core.OwnedParameter} belongs to the detached {@link

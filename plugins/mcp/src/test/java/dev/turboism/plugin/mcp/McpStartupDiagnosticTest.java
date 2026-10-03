@@ -11,7 +11,6 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -182,7 +181,6 @@ final class McpStartupDiagnosticTest {
         return new McpHttpServer.Dependencies(
                 logger,
                 ModelObjectService.unavailable(),
-                reads.parameters,
                 reads.hierarchy,
                 reads.selection,
                 reads.read,
@@ -386,11 +384,6 @@ final class McpStartupDiagnosticTest {
 
         @Override
         public DiagnosticReport diagnostics() {
-            return null;
-        }
-
-        @Override
-        public ParameterQueryService parameterQuery() {
             return null;
         }
 
