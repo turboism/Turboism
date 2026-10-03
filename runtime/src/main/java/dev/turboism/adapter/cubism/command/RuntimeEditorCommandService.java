@@ -216,7 +216,17 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
 
     @Override
     public boolean isAvailable() {
-        return active.getAsBoolean() && adapter.isAvailable();
+        if (!active.getAsBoolean()) {
+            return false;
+        }
+        // A probe failure (for example a delegate mid-teardown) means the
+        // command surface is unavailable; the contract never throws.
+        try {
+            return adapter.isAvailable();
+        } catch (Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
     }
 
     private static EditorCommandResult result(final EditorCommand command, final EditorCommandResult.Status status) {
