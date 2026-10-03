@@ -706,6 +706,26 @@ class PreparedStoreTest(unittest.TestCase):
                 self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
         with self.assertRaises(queue.QueueError):
             self.prepared.capture({**self.request, "argv": argv}, self.source, "other:5303")
+        final_hook = self.preview / "capture-direct-nmt-launcher.py"
+        final_hook.write_text("# stdlib-only final capture fixture, never executed\n")
+        final_argv = [*argv, "--remote-pre-cleanup", str(final_hook)]
+        captured_final = self.prepared.capture({**self.request, "argv": final_argv}, self.source, "atlas-image-shadow:5303")
+        final_hook.write_text("changed final hook\n")
+        command = self.prepared.command(captured_final["digest"], self.base / "final-nmt-evidence")
+        self.assertIn("final capture fixture", Path(command[command.index("--remote-pre-cleanup") + 1]).read_text())
+        invalid_final = [final_argv + ["--remote-pre-launch-background"],
+                         [x.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "wrong") for x in final_argv]]
+        without_launch = list(final_argv)
+        index = without_launch.index("--remote-pre-launch"); del without_launch[index:index + 2]
+        invalid_final.append(without_launch)
+        wrong_stage = list(final_argv); wrong_stage[wrong_stage.index("--remote-pre-cleanup")] = "--remote-post-launch"
+        invalid_final.append(wrong_stage)
+        outside_final = self.base / final_hook.name; outside_final.write_text("unreviewed\n")
+        wrong_path = list(final_argv); wrong_path[wrong_path.index("--remote-pre-cleanup") + 1] = str(outside_final)
+        invalid_final.append(wrong_path)
+        for request in invalid_final:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
         self.assertEqual([], self.store.jobs())
 
     def test_reviewed_plugin_management_restart_hook_is_admitted(self) -> None:
