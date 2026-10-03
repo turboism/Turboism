@@ -15,6 +15,7 @@ import java.util.Random;
 import java.util.jar.JarFile;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
+import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess;
 
 /** Functional owned-loop differential experiment. Boxed research map; no gain claim. */
 public final class NativeMeshEdgeLoopSelfCheck {
@@ -25,28 +26,41 @@ public final class NativeMeshEdgeLoopSelfCheck {
         private static final ThreadLocal<Lease> CURRENT = new ThreadLocal<>();
         static boolean enabled;
         static int entries, closes, indexedCalls, nativeCalls, registrations;
+        private static final boolean PRIMITIVE = Boolean.getBoolean("turboism.validation.meshPrimitiveTable");
         private Control() { }
 
         private static final class Lease implements AutoCloseable {
             final Object mesh;
             final List<?> list;
             final Method first, second;
-            final Map<Long, Integer> slots = new HashMap<>();
+            final Map<Long, Integer> slots;
+            Object primitive;
             final Lease previous;
             int size;
             boolean active = true;
             Lease(Object mesh, List<?> list, Method first, Method second) {
                 this.mesh = mesh; this.list = list; this.first = first; this.second = second;
                 this.previous = CURRENT.get(); this.size = list.size();
+                slots = PRIMITIVE ? null : new HashMap<>();
+                primitive = PRIMITIVE ? NativeMeshEdgeTableOwnedAccess.reserve(4096) : null;
+                if (PRIMITIVE && primitive == null) active = false;
             }
             void register(int index) throws ReflectiveOperationException {
                 Object edge = list.get(index);
                 if (edge == null || edge.getClass() != first.getDeclaringClass()) {
                     active = false; return;
                 }
-                slots.putIfAbsent(key((int) first.invoke(edge), (int) second.invoke(edge)), index);
+                int a = (int) first.invoke(edge), b = (int) second.invoke(edge);
+                if (primitive != null) {
+                    if (!NativeMeshEdgeTableOwnedAccess.putFirst(primitive, a, b, index)) active = false;
+                } else slots.putIfAbsent(key(a, b), index);
             }
-            @Override public void close() { CURRENT.set(previous); slots.clear(); active = false; closes++; }
+            void discard() {
+                if (slots != null) slots.clear();
+                if (primitive != null) NativeMeshEdgeTableOwnedAccess.close(primitive);
+                primitive = null; active = false;
+            }
+            @Override public void close() { CURRENT.set(previous); discard(); closes++; }
         }
 
         private static long key(int first, int second) {
@@ -69,10 +83,15 @@ public final class NativeMeshEdgeLoopSelfCheck {
             if (!(raw instanceof List<?> list) || !raw.getClass().getName().equals(NativeMeshEdgeLoopPrototype.LIST.replace('/', '.')))
                 return null;
             Class<?> edge = mesh.getClass().getClassLoader().loadClass("com.live2d.graphics3d.editableMesh.MEdge");
+            if (list.size() > 4096) return null;
             Lease lease = new Lease(mesh, list, edge.getMethod("getIndex1"), edge.getMethod("getIndex2"));
-            if (lease.size > 4096) return null;
-            for (int i = 0; i < lease.size && lease.active; i++) lease.register(i);
-            if (!lease.active) return null;
+            try {
+                for (int i = 0; i < lease.size && lease.active; i++) lease.register(i);
+            } catch (ReflectiveOperationException | RuntimeException | Error failure) {
+                lease.discard();
+                throw failure;
+            }
+            if (!lease.active) { lease.discard(); return null; }
             CURRENT.set(lease);
             return lease;
         }
@@ -81,8 +100,16 @@ public final class NativeMeshEdgeLoopSelfCheck {
             Lease lease = CURRENT.get();
             if (lease != null && lease.active && lease.mesh == mesh && !filtered
                     && field(mesh, "_edges").get(mesh) == lease.list && lease.list.size() == lease.size) {
-                indexedCalls++;
-                return lease.slots.get(key(first, second));
+                if (lease.primitive == null) {
+                    indexedCalls++;
+                    return lease.slots.get(key(first, second));
+                }
+                int found = NativeMeshEdgeTableOwnedAccess.find(lease.primitive, first, second);
+                if (found >= -1) {
+                    indexedCalls++;
+                    return found < 0 ? null : Integer.valueOf(found);
+                }
+                lease.active = false;
             }
             nativeCalls++;
             Method nativeLookup = mesh.getClass().getDeclaredMethod("chechExistingEdge_exe", int.class, int.class, boolean.class);
@@ -330,5 +357,9 @@ public final class NativeMeshEdgeLoopSelfCheck {
         System.out.printf("NATIVE_MESH_EDGE_LOOP_FINISHED checks=%d indexed=%d native=%d appends=%d scope=OWNED_SUFFIX_ONLY hostGain=UNPROVEN%n",
                 checks, bypasses, fallbacks, appends);
         System.out.println("NATIVE_MESH_EDGE_LOOP_BOUNDARY sameSizeExternalSet=COUNTEREXAMPLE_CONFIRMED productionAdmission=OPEN");
+        if (Boolean.getBoolean("turboism.validation.meshPrimitiveTable")) {
+            require(NativeMeshEdgeTableOwnedAccess.reservedBytes() == 0, "all primitive reservations released");
+            System.out.println("NATIVE_MESH_EDGE_LOOP_PRIMITIVE reservedBytes=0 productionStorage=ACTUAL hostGain=UNPROVEN");
+        }
     }
 }
