@@ -1,0 +1,172 @@
+{
+  "status": "PASS_NATIVE_NONEMPTY_COPY_SEAM_ONLY",
+  "historicalVerdicts": "UNCHANGED",
+  "performanceAcceptance": "NOT_GRANTED",
+  "validEvidence": "build/native-cache-copy-r3",
+  "supersededExploration": {
+    "r1": "INADEQUATE_EMPTY_INDICES",
+    "r2": "NONEMPTY_PARITY_WITHOUT_EXPLICIT_PREMAIN_ADMISSION_CONTROLS"
+  },
+  "sdkAssertionGroups": [
+    {
+      "profile": "5203",
+      "assertions": false,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    },
+    {
+      "profile": "5203",
+      "assertions": true,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    },
+    {
+      "profile": "5302",
+      "assertions": false,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    },
+    {
+      "profile": "5302",
+      "assertions": true,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    },
+    {
+      "profile": "5303",
+      "assertions": false,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    },
+    {
+      "profile": "5303",
+      "assertions": true,
+      "fixtures": 12,
+      "legs": 3,
+      "status": "BYTE_IDENTICAL",
+      "recordsSha256": "f792b04f66ba45328536055746ee569b5f85c834acdc59c93666c7cb4f24cc35"
+    }
+  ],
+  "fixtureComparisons": 72,
+  "recordCount": 216,
+  "copySourceSummary5303": [
+    {
+      "pointCount": 3,
+      "shape": 0,
+      "beforeEdgeVersion": 14,
+      "afterEdgeVersion": 17,
+      "indexValues": 3,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 3,
+      "shape": 1,
+      "beforeEdgeVersion": 14,
+      "afterEdgeVersion": 17,
+      "indexValues": 3,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 8,
+      "shape": 0,
+      "beforeEdgeVersion": 54,
+      "afterEdgeVersion": 72,
+      "indexValues": 18,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 8,
+      "shape": 1,
+      "beforeEdgeVersion": 54,
+      "afterEdgeVersion": 72,
+      "indexValues": 18,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 32,
+      "shape": 0,
+      "beforeEdgeVersion": 246,
+      "afterEdgeVersion": 336,
+      "indexValues": 90,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 32,
+      "shape": 1,
+      "beforeEdgeVersion": 246,
+      "afterEdgeVersion": 336,
+      "indexValues": 90,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 248,
+      "shape": 0,
+      "beforeEdgeVersion": 1974,
+      "afterEdgeVersion": 2712,
+      "indexValues": 738,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 248,
+      "shape": 1,
+      "beforeEdgeVersion": 1974,
+      "afterEdgeVersion": 2712,
+      "indexValues": 738,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 312,
+      "shape": 0,
+      "beforeEdgeVersion": 2486,
+      "afterEdgeVersion": 3416,
+      "indexValues": 930,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 312,
+      "shape": 1,
+      "beforeEdgeVersion": 2486,
+      "afterEdgeVersion": 3416,
+      "indexValues": 930,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 376,
+      "shape": 0,
+      "beforeEdgeVersion": 2998,
+      "afterEdgeVersion": 4120,
+      "indexValues": 1122,
+      "indexArraysChanged": false
+    },
+    {
+      "pointCount": 376,
+      "shape": 1,
+      "beforeEdgeVersion": 2998,
+      "afterEdgeVersion": 4120,
+      "indexValues": 1122,
+      "indexArraysChanged": false
+    }
+  ],
+  "inputPins": {
+    "build/native-cache-copy-r3/review.json": "5973fe815f54fb483b583641acdd7cfc2830d362faea20ca9ef9c40ac99abd96",
+    "build/native-cache-copy-r2/input-dispatch-static-audit.json": "03098a369d833c1c548388d92a1c0425393cc91446354bac4b13b33b8093fca5",
+    "build/native-cache-copy-r2/repaint-mouse-event-static-audit.json": "4e08c4b3a174b8d16511d5dd4f75c0b0fcb1fce5002cf19f1cf07103acb86da0",
+    "build/native-cache-copy-r2/mouse-event-state-static-audit.json": "c7072787822cf79965c00fedc7d50e18a0a6b97e5909678843592b53b2ff89b3"
+  },
+  "limitations": [
+    "No native action context or full Editor was reproduced.",
+    "Nonempty fixtures reproduce source edge-version/cache refresh, not T089 index-array divergence.",
+    "Shared last-input widget is a proven static dispatch dependency, but its T087/T089 runtime values remain unknown.",
+    "No production optimization or historical RSS causation was established."
+  ]
+}
