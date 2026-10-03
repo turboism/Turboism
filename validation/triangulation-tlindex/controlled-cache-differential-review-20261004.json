@@ -1,0 +1,61 @@
+{
+  "task": "T092",
+  "status": "PASS_CONTROLLED_COMMAND_BOUNDARY_DIFFERENTIAL_ONLY",
+  "rowsCompared": 2133,
+  "mismatchCount": 0,
+  "legs": [
+    {
+      "leg": "baseline",
+      "sequence": 2641,
+      "jobId": "d6de7e7d-aaf7-4642-81ab-a8bed5c96a15",
+      "runId": "queue-0c0cc889ac52475b8be2b25e4d943dd4",
+      "standardGates": "PASS",
+      "historicalReferenceMismatchCount": 378,
+      "productionAgentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+      "fullChainObservedEachCycle": true,
+      "fullChainExecutionSamples": [
+        2088,
+        1923,
+        1875
+      ],
+      "kernelCpuUnitComparisons": 6,
+      "cpuPayloadFieldsMatched": 30
+    },
+    {
+      "leg": "candidate",
+      "sequence": 2642,
+      "jobId": "e809ea7f-a6ad-4733-b9cf-f23b6dadf0b7",
+      "runId": "queue-a0bea1c69cc040d69d80a315a06d1dcd",
+      "standardGates": "PASS",
+      "historicalReferenceMismatchCount": 378,
+      "productionAgentSha256": "eb6875699d3fdb92e3340a0a0af106fcf30f2985d490389f81fe3a0823c209f8",
+      "fullChainObservedEachCycle": true,
+      "fullChainExecutionSamples": [
+        1755,
+        1701,
+        1703
+      ],
+      "kernelCpuUnitComparisons": 6,
+      "cpuPayloadFieldsMatched": 30
+    }
+  ],
+  "rawAndReviewedEvidencePinsRehashed": 156,
+  "inputPins": {
+    "build/t092-controlled-cache-differential-r1/differential-review.json": "d6b2216245bbe6fbd8f329328efd22c66d907974b3bbe94d063240702c0181eb",
+    "build/t092-controlled-cache-differential-r1/baseline/native-review.json": "ccd78061875b369d073388b962f1aac1f2d875443d078d87691081a58650a3b8",
+    "build/t092-controlled-cache-differential-r1/baseline/cache-refresh-review.json": "1a1e6e84889af093350fc5ae8e232c903fbfdd7c4bbe5c76c3845c6977d8dad5",
+    "build/t092-controlled-cache-differential-r1/baseline/input-cache-stack-review.json": "196393b5fe43e6242377de326dd88ccfaff11e813857ac0accdd651418cf7e1c",
+    "build/t092-controlled-cache-differential-r1/baseline/raw-terminal-evidence/preservation.json": "d789a739e707aa06a76990a349720db3a3f7db723b717c07f4c4423675ba06eb",
+    "build/t092-controlled-cache-differential-r1/baseline/run.json": "b8e506d66c070ae4fced2810f9a5ff9c697cdad3779104187fee3f6cb72d9505",
+    "build/t092-controlled-cache-differential-r1/baseline/outcome.json": "d571e394bc542bc512fb649ed0564522d2d1c1d931eaf2cd5c08448671b02486",
+    "build/t092-controlled-cache-differential-r1/candidate/native-review.json": "f89b7afcb007de3d48291ba2a8dd2a48a1c3dea0231acb085db200dff777fcbd",
+    "build/t092-controlled-cache-differential-r1/candidate/cache-refresh-review.json": "0aadeefab3873cb9e3d2dbbd5caa34b3098a7e37b3dc2529b2f89a075cf94000",
+    "build/t092-controlled-cache-differential-r1/candidate/input-cache-stack-review.json": "75a9beb457ba44751e5ffb295fbb9aeef644b0f8c9957be3db87a861a482fb43",
+    "build/t092-controlled-cache-differential-r1/candidate/raw-terminal-evidence/preservation.json": "f68f4e3f92ec5814e1ae10da9b51feb3df6cc909db88380748d24a66b70b962e",
+    "build/t092-controlled-cache-differential-r1/candidate/run.json": "b1cbd9418af94454f8b402d4b7c3e11ea2188f6aa9c284f2a0d951581930154a",
+    "build/t092-controlled-cache-differential-r1/candidate/outcome.json": "53e50cd37056d4d2371d0004b1c2543f76f5869e7a5478fc18885bf314dd86b2"
+  },
+  "historicalFailures": "UNCHANGED",
+  "performanceAcceptance": "NOT_GRANTED",
+  "nextStep": "Implement bounded initial-size primitive buffers with budgeted growth and native fallback, preserving proven command/cache side effects."
+}
