@@ -100,7 +100,6 @@ class CorePluginContextAvailableServicesTest {
                 PluginService.EXPORT_SETTINGS,
                 PluginService.ACTION_CATALOG);
         final Set<PluginService> expectedPresent = Set.of(
-                PluginService.PARAMETER_QUERY,
                 PluginService.SELECTION_QUERY,
                 PluginService.MODEL_HIERARCHY_QUERY,
                 PluginService.CUBISM_READ,
@@ -183,11 +182,6 @@ class CorePluginContextAvailableServicesTest {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
 
         assertEquals(context.services().installed(), context.services().installed());
-        assertEquals(
-                context.parameterQuery(),
-                context.services()
-                        .find(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class)
-                        .orElse(null));
         // Absent services resolve to empty rather than the unavailable sentinel.
         context.services()
                 .installed()

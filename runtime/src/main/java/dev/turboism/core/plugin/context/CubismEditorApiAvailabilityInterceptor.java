@@ -49,7 +49,6 @@ final class CubismEditorApiAvailabilityInterceptor {
         final Map<Class<?>, Set<String>> required = new LinkedHashMap<>();
         final Set<String> editorRead = Set.of("cubism.editor-model.read");
         required.put(dev.turboism.sdk.cubism.CubismFacade.class, editorRead);
-        required.put(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class, editorRead);
         required.put(dev.turboism.sdk.cubism.service.query.SelectionQueryService.class, editorRead);
         required.put(dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService.class, editorRead);
         required.put(dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService.class, editorRead);
@@ -107,9 +106,6 @@ final class CubismEditorApiAvailabilityInterceptor {
         Objects.requireNonNull(services, "services");
         return new CubismContextServices(
                 wrap(services.cubismFacade(), dev.turboism.sdk.cubism.CubismFacade.class),
-                wrap(
-                        services.parameterQueryService(),
-                        dev.turboism.sdk.cubism.service.query.ParameterQueryService.class),
                 wrap(
                         services.selectionQueryService(),
                         dev.turboism.sdk.cubism.service.query.SelectionQueryService.class),

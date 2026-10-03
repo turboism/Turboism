@@ -48,12 +48,7 @@ public final class PreviewReportSnapshotFactory {
                     binding("selectionQuery.currentSelection", "turboism.cubism.model.read"),
                     binding("selectionQuery.selectedIds", "turboism.cubism.model.read"),
                     binding("selectionQuery.onSelectionChanged", "turboism.cubism.model.read")),
-            bindings(
-                    "cubism.parameter.read",
-                    binding("cubismRead.parameters", "turboism.cubism.model.read"),
-                    binding("parameterQuery.findById", "turboism.cubism.parameter.read"),
-                    binding("parameterQuery.listAll", "turboism.cubism.parameter.read"),
-                    binding("parameterQuery.exists", "turboism.cubism.parameter.read")),
+            binding("cubism.parameter.read", "cubismRead.parameters", "turboism.cubism.model.read"),
             bindings(
                     "cubism.parameter.write",
                     binding("transaction.open", "turboism.cubism.model.write"),
