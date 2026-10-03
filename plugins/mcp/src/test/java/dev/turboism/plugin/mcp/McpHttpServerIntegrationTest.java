@@ -24,7 +24,6 @@ import dev.turboism.sdk.cubism.RenderStatusSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
-import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
@@ -56,8 +55,6 @@ import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
-import dev.turboism.sdk.ui.workspace.WorkspaceService;
-import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -1451,15 +1448,17 @@ final class McpHttpServerIntegrationTest {
                     case "modelHierarchyQuery" -> reads.hierarchy;
                     case "selectionQuery" -> reads.selection;
                     case "cubismRead" -> reads.read;
-                    case "cubismClipMasks" -> reads.clipMasks;
-                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(
+                                        dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.class,
+                                        reads.clipMasks)
+                                .install(dev.turboism.sdk.mcp.McpConnectionService.class, connections)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
                     case "cubism" -> McpHttpServer.Dependencies.unavailableCubism();
-                    case "workspace" -> WorkspaceService.unavailable();
-                    case "workspaceLayout" -> WorkspaceLayoutService.unavailable();
                     case "diagnostics" -> McpHttpServer.Dependencies.emptyDiagnostics();
-                    case "editorCommands" -> EditorCommandService.unavailable();
                     case "uiScheduler" -> immediateUi();
-                    case "mcpConnections" -> connections;
                     case "actions" -> ui;
                     case "menus" -> ui;
                     case "localization" -> ui.localization;
