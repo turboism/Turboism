@@ -147,7 +147,7 @@ final class McpToolCatalog {
         }
         try {
             final Object parsed = Json.parse(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            if (!Json.stringify(output).equals(Json.stringify(parsed))) {
+            if (!McpJsonSupport.stringify(output).equals(Json.stringify(parsed))) {
                 return "content text must equal structuredContent";
             }
         } catch (IllegalArgumentException failure) {
