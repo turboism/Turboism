@@ -278,11 +278,10 @@ class PreviewPluginContextFactoryCompositionTest {
                             "cache-a-model",
                             context.cubism().activeModel().orElseThrow().modelId());
 
-                    final List<dev.turboism.sdk.cubism.service.query.ParameterSummary> first =
-                            context.parameterQuery().listAll();
+                    final List<ParameterSnapshot> first = context.cubismRead().parameters();
                     assertEquals(1, first.size());
-                    assertEquals("ParamA", first.get(0).id().value());
-                    assertEquals(1.0, first.get(0).currentValue(), 0.0);
+                    assertEquals("ParamA", first.get(0).id());
+                    assertEquals(1.0, first.get(0).value(), 0.0);
 
                     current.set(HostSessionTestSupport.descriptor("cache-b"));
                     assertEquals(HostSession.State.ACTIVE, session.refresh());
@@ -290,11 +289,10 @@ class PreviewPluginContextFactoryCompositionTest {
                             "cache-b-model",
                             context.cubism().activeModel().orElseThrow().modelId());
 
-                    final List<dev.turboism.sdk.cubism.service.query.ParameterSummary> second =
-                            context.parameterQuery().listAll();
+                    final List<ParameterSnapshot> second = context.cubismRead().parameters();
                     assertEquals(1, second.size());
-                    assertEquals("ParamB", second.get(0).id().value());
-                    assertEquals(2.0, second.get(0).currentValue(), 0.0);
+                    assertEquals("ParamB", second.get(0).id());
+                    assertEquals(2.0, second.get(0).value(), 0.0);
                 } finally {
                     scope.close();
                 }
