@@ -1,0 +1,419 @@
+{
+  "status": "PARTIAL_NATIVE_CAPTURE_COMPLETE_JFR_CLOCK_SCOPE_UNPROVEN",
+  "protocolCommitBeforeSubmission": "f7db27160",
+  "nativeRowsVerified": 4266,
+  "kernelBracketedCpuReadings": 12,
+  "productionAcceptance": "NOT_GRANTED",
+  "newRecordingRetries": 0,
+  "originalFailedBalancedProtocolUnchanged": true,
+  "legs": {
+    "baseline": {
+      "sequence": 2596,
+      "jobId": "fbb55d1d-3fe7-4ebf-a9ce-5ce740c12026",
+      "nativeIntegrity": "PASS",
+      "nominalJfrStreamingParser": "PASS",
+      "jfrNativeWindowAlignment": "UNPROVEN",
+      "clockComparisons": [
+        {
+          "cycle": 1,
+          "matchedGcClocks": [
+            {
+              "gcId": 57,
+              "phase": "before",
+              "jfrEpochMillis": 1791011190634.681,
+              "gcLogEpochMillis": 1791011190951,
+              "jfrMinusGcLogMillis": -316.319091796875
+            },
+            {
+              "gcId": 57,
+              "phase": "after",
+              "jfrEpochMillis": 1791011190729.0771,
+              "gcLogEpochMillis": 1791011191046,
+              "jfrMinusGcLogMillis": -316.9228515625
+            }
+          ],
+          "unmatchedHeapSummaries": [],
+          "nominalEventCounts": {
+            "jdk.Deoptimization": 41,
+            "jdk.NativeMethodSample": 666,
+            "jdk.ExecutionSample": 501,
+            "jdk.ObjectAllocationSample": 394,
+            "jdk.GCHeapSummary": 2,
+            "jdk.GCPhasePause": 1,
+            "jdk.GarbageCollection": 1
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              105
+            ],
+            [
+              "java.util.Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object;",
+              104
+            ],
+            [
+              "java.util.Arrays.copyOf([BI)[B",
+              1
+            ],
+            [
+              "java.util.Objects.checkIndex(II)I",
+              1
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 662
+        },
+        {
+          "cycle": 2,
+          "matchedGcClocks": [
+            {
+              "gcId": 58,
+              "phase": "before",
+              "jfrEpochMillis": 1791011236196.5972,
+              "gcLogEpochMillis": 1791011236653,
+              "jfrMinusGcLogMillis": -456.40283203125
+            },
+            {
+              "gcId": 58,
+              "phase": "after",
+              "jfrEpochMillis": 1791011236264.7021,
+              "gcLogEpochMillis": 1791011236721,
+              "jfrMinusGcLogMillis": -456.2978515625
+            }
+          ],
+          "unmatchedHeapSummaries": [
+            {
+              "gcId": 59,
+              "phase": "before"
+            },
+            {
+              "gcId": 59,
+              "phase": "after"
+            }
+          ],
+          "nominalEventCounts": {
+            "jdk.ObjectAllocationSample": 322,
+            "jdk.NativeMethodSample": 599,
+            "jdk.ExecutionSample": 454,
+            "jdk.Deoptimization": 8,
+            "jdk.GCHeapSummary": 4,
+            "jdk.GarbageCollection": 2,
+            "jdk.GCPhasePause": 3
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              91
+            ],
+            [
+              "java.util.Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object;",
+              90
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+              2
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 575
+        },
+        {
+          "cycle": 3,
+          "matchedGcClocks": [
+            {
+              "gcId": 60,
+              "phase": "before",
+              "jfrEpochMillis": 1791011281948.297,
+              "gcLogEpochMillis": 1791011282544,
+              "jfrMinusGcLogMillis": -595.702880859375
+            },
+            {
+              "gcId": 60,
+              "phase": "after",
+              "jfrEpochMillis": 1791011281997.184,
+              "gcLogEpochMillis": 1791011282593,
+              "jfrMinusGcLogMillis": -595.81591796875
+            },
+            {
+              "gcId": 61,
+              "phase": "before",
+              "jfrEpochMillis": 1791011282035.63,
+              "gcLogEpochMillis": 1791011282632,
+              "jfrMinusGcLogMillis": -596.3701171875
+            },
+            {
+              "gcId": 61,
+              "phase": "after",
+              "jfrEpochMillis": 1791011282050.175,
+              "gcLogEpochMillis": 1791011282647,
+              "jfrMinusGcLogMillis": -596.824951171875
+            }
+          ],
+          "unmatchedHeapSummaries": [],
+          "nominalEventCounts": {
+            "jdk.NativeMethodSample": 589,
+            "jdk.ObjectAllocationSample": 369,
+            "jdk.ExecutionSample": 429,
+            "jdk.GCHeapSummary": 4,
+            "jdk.GCPhasePause": 2,
+            "jdk.GarbageCollection": 2,
+            "jdk.Deoptimization": 1
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "java.util.Arrays.copyOf([Ljava/lang/Object;I)[Ljava/lang/Object;",
+              98
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              95
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.deindex(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+              2
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 585
+        }
+      ]
+    },
+    "candidate": {
+      "sequence": 2597,
+      "jobId": "ddeeefd2-48ca-456a-abd7-06290f95c7ee",
+      "nativeIntegrity": "PASS",
+      "nominalJfrStreamingParser": "PASS",
+      "jfrNativeWindowAlignment": "UNPROVEN",
+      "clockComparisons": [
+        {
+          "cycle": 1,
+          "matchedGcClocks": [
+            {
+              "gcId": 65,
+              "phase": "before",
+              "jfrEpochMillis": 1791011466162.3708,
+              "gcLogEpochMillis": 1791011466466,
+              "jfrMinusGcLogMillis": -303.629150390625
+            },
+            {
+              "gcId": 65,
+              "phase": "after",
+              "jfrEpochMillis": 1791011466205.521,
+              "gcLogEpochMillis": 1791011466509,
+              "jfrMinusGcLogMillis": -303.47900390625
+            }
+          ],
+          "unmatchedHeapSummaries": [
+            {
+              "gcId": 66,
+              "phase": "before"
+            },
+            {
+              "gcId": 66,
+              "phase": "after"
+            }
+          ],
+          "nominalEventCounts": {
+            "jdk.NativeMethodSample": 667,
+            "jdk.ExecutionSample": 520,
+            "jdk.Deoptimization": 47,
+            "jdk.ObjectAllocationSample": 397,
+            "jdk.GCHeapSummary": 4,
+            "jdk.GCPhasePause": 3,
+            "jdk.GarbageCollection": 2
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              113
+            ],
+            [
+              "java.util.Objects.checkIndex(II)I",
+              112
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$QuerySnapshot.size()I",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$SetLookup.hashCode()I",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$EdgeKey.hashCode()I",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List;",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.remove(Ljava/util/LinkedHashSet;Ljava/lang/Object;)Z",
+              1
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 651
+        },
+        {
+          "cycle": 2,
+          "matchedGcClocks": [
+            {
+              "gcId": 67,
+              "phase": "before",
+              "jfrEpochMillis": 1791011502546.867,
+              "gcLogEpochMillis": 1791011502962,
+              "jfrMinusGcLogMillis": -415.133056640625
+            },
+            {
+              "gcId": 67,
+              "phase": "after",
+              "jfrEpochMillis": 1791011502587.868,
+              "gcLogEpochMillis": 1791011503003,
+              "jfrMinusGcLogMillis": -415.132080078125
+            },
+            {
+              "gcId": 68,
+              "phase": "before",
+              "jfrEpochMillis": 1791011503091.206,
+              "gcLogEpochMillis": 1791011503508,
+              "jfrMinusGcLogMillis": -416.7939453125
+            },
+            {
+              "gcId": 68,
+              "phase": "after",
+              "jfrEpochMillis": 1791011503113.667,
+              "gcLogEpochMillis": 1791011503530,
+              "jfrMinusGcLogMillis": -416.3330078125
+            }
+          ],
+          "unmatchedHeapSummaries": [],
+          "nominalEventCounts": {
+            "jdk.NativeMethodSample": 570,
+            "jdk.ObjectAllocationSample": 388,
+            "jdk.ExecutionSample": 446,
+            "jdk.GCHeapSummary": 4,
+            "jdk.GCPhasePause": 2,
+            "jdk.GarbageCollection": 2,
+            "jdk.Deoptimization": 7
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "java.util.Objects.checkIndex(II)I",
+              101
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              75
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$EdgeLookup.equals(Ljava/lang/Object;)Z",
+              3
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.isPending(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$SetLookup.matches(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey;)Z",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$SetLookup.hashCode()I",
+              1
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 562
+        },
+        {
+          "cycle": 3,
+          "matchedGcClocks": [
+            {
+              "gcId": 70,
+              "phase": "before",
+              "jfrEpochMillis": 1791011556637.63,
+              "gcLogEpochMillis": 1791011557218,
+              "jfrMinusGcLogMillis": -580.3701171875
+            },
+            {
+              "gcId": 70,
+              "phase": "after",
+              "jfrEpochMillis": 1791011556684.795,
+              "gcLogEpochMillis": 1791011557265,
+              "jfrMinusGcLogMillis": -580.205078125
+            }
+          ],
+          "unmatchedHeapSummaries": [
+            {
+              "gcId": 71,
+              "phase": "before"
+            }
+          ],
+          "nominalEventCounts": {
+            "jdk.NativeMethodSample": 579,
+            "jdk.ExecutionSample": 474,
+            "jdk.ObjectAllocationSample": 320,
+            "jdk.GCHeapSummary": 3,
+            "jdk.GCPhasePause": 1,
+            "jdk.GarbageCollection": 2,
+            "jdk.Deoptimization": 4
+          },
+          "nominalRepeatedIndexLeafSites": [
+            [
+              "java.util.Objects.checkIndex(II)I",
+              124
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+              119
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$EdgeLookup.equals(Ljava/lang/Object;)Z",
+              2
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex$SetLookup.matches(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey;)Z",
+              2
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.isPending(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/lang/Object;)Z",
+              1
+            ],
+            [
+              "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndex.tryQuery(Ljava/util/LinkedHashSet;II)Ljava/util/List;",
+              1
+            ]
+          ],
+          "nominalWindowsEventLoopSamples": 568
+        }
+      ]
+    }
+  },
+  "inputPins": {
+    "validation/triangulation-tlindex/diagnostic/analyze-gc-heap-log.py": "090c37d46592bf2a3157c05ddac2370e9d3f079c57be2aa3a80d573ca853f179",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/baseline/native-review.json": "a646bb073facd43b94f7e7c4921efbcb07a092f56a87634742cc761dcdd7aedf",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/baseline/ownership-review.json": "be562214602b441ca1eab9120d7256b5aabaab3f2e24b9225c0fe09d1c4193ac",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/baseline/native-evidence/console.txt": "5159c82204935b51591640c1dab41cabc25b8c1ea1e12fe4b031eb2d540ea8e6",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/baseline/native-evidence/atlas-profiling.jfr": "ca98f48f2c3fb66775987095513682a76a2294b45b1f7294d3a61fb2b5ab58dc",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/baseline/native-evidence/observer-free-command-cpu.tsv": "4dbaea5096320ff0981d2553bf19bd1e5e065fca32b147cb8fd35a4029d3b358",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/candidate/native-review.json": "9e9127788ae0acaf40efbcf5a0e31b64df77a134c78921fefe3e90fcce55338e",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/candidate/ownership-review.json": "7ffe1d3fcbf8453dd2ae638a4e407ada74a488618054a31336e971f463fb2ef6",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/candidate/native-evidence/console.txt": "fd0687df7bc78b277291292f88f3c67f157190c651d5b2f840ee9d76ae28bdfb",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/candidate/native-evidence/atlas-profiling.jfr": "6d54fd12b86338bed418dfdb1c0b38cf37c1b26e142f9166e858a6c58393f2e7",
+    "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1/candidate/native-evidence/observer-free-command-cpu.tsv": "8a02ac0be1d53fdced84697c430fca8d3e40a94500a3068a8a2821762c5fb310"
+  },
+  "limitations": [
+    "Nominal JFR command intervals are not independently clock-aligned to Java epoch boundaries.",
+    "Matched GC events show drift hundreds of milliseconds; no constant offset correction or post-hoc performance reinterpretation is used.",
+    "NativeMethodSample Windows event-loop stacks do not prove runnable CPU cost.",
+    "Nominal repeated settle/copyOf/checkIndex stacks are investigation clues, not exact CPU shares.",
+    "Allocation sample weights are estimates; driver/preparation stacks near boundaries cannot be counted as native-command owners."
+  ],
+  "rawClockScopeReviewSha256": "126848b4c6b9fc2df59328baafad9e879fee96b0080350753ce75d02f4f514e1",
+  "rawEvidence": "build/t076-production-acceptance-preflight-r1/native5303-production-ownership-r1",
+  "settlementEqualityStaticEvidence": {
+    "path": "build/t076-production-acceptance-preflight-r1/settlement-equality-static-review-r1.json",
+    "sha256": "8a068986e51f7528210514bd18cdc7a4fe681b4df492468344f214e5110733e9",
+    "status": "NAIVE_IDENTITY_OR_IMMUTABLE_EQUALITY_SHORTCUT_REFUSED"
+  },
+  "reproducibleClockAudit": {
+    "path": "build/t076-production-acceptance-preflight-r1/production-jfr-clock-audit-r1.json",
+    "sha256": "438ef9a61f23e14ecf244215d2e63ae8ff3241dbbc05938d6aeaadc3120d5068"
+  }
+}
