@@ -52,6 +52,7 @@ final class BackupPluginTest {
 
     private HttpServer server;
     private int serverPort;
+    private volatile java.util.concurrent.CountDownLatch putGate;
 
     @BeforeEach
     void startMockWebDavServer() throws IOException {
@@ -77,6 +78,14 @@ final class BackupPluginTest {
             case "PROPFIND" -> exchange.sendResponseHeaders(207, -1);
             case "PUT" -> {
                 exchange.getRequestBody().readAllBytes();
+                final java.util.concurrent.CountDownLatch gate = putGate;
+                if (gate != null) {
+                    try {
+                        gate.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
                 exchange.sendResponseHeaders(201, -1);
             }
             default -> exchange.sendResponseHeaders(501, -1);
@@ -316,6 +325,44 @@ final class BackupPluginTest {
                 context.awaitLog("WEBDAV_TEMP_CLEANUP file=model_backup2026_08_08_120000.cmo3", Duration.ofSeconds(2)),
                 "the temp artifact must be cleaned up after the upload attempt");
         assertFalse(java.nio.file.Files.exists(artifact), "the save-triggered temp file must be deleted");
+    }
+
+    @Test
+    void disableDiscardsPendingTempArtifactsWhileAnUploadIsInFlight() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(savedConfig());
+        java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("turboism-backup-");
+        java.nio.file.Path artifact = tempDir.resolve("model_backup2026_08_08_120000.cmo3");
+        java.nio.file.Files.writeString(artifact, "temp-content");
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
+        putGate = new java.util.concurrent.CountDownLatch(1);
+        try {
+            plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+                    "model:test",
+                    "model.cmo3",
+                    dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+                    java.util.Optional.empty(),
+                    List.of()));
+            assertTrue(
+                    context.awaitLog("WEBDAV_SYNC_UPLOAD file=", Duration.ofSeconds(2)),
+                    "the upload task must be in flight so the artifact stays pending");
+            // The plugin's static permission grant list is still in effect at
+            // disable() time, so the permission-checked discard succeeds.
+            plugin.disable();
+            assertTrue(
+                    context.hasLog("WEBDAV_TEMP_CLEANUP file=model_backup2026_08_08_120000.cmo3"),
+                    "disable must discard the pending temp artifact");
+            assertFalse(
+                    java.nio.file.Files.exists(artifact),
+                    "the pending temp file must be deleted during disable");
+        } finally {
+            putGate.countDown();
+            putGate = null;
+        }
     }
 
     private dev.turboism.plugin.webdavbackup.webdav.WebDavConfig autoConfig() {
