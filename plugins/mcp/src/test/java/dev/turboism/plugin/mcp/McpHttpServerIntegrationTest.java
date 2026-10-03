@@ -101,7 +101,8 @@ final class McpHttpServerIntegrationTest {
         final McpHttpServer server =
                 McpHttpServer.start(dependencies(new CapturingLogger(), new MutableObjects(), new FakeReadServices()));
         try {
-            final Map<String, Object> connection = object(Json.parse(Files.readAllBytes(server.connectionFile())));
+            final Map<String, Object> connection =
+                    object(Json.parseObject(Files.readAllBytes(server.connectionFile())));
             assertFalse(connection.containsKey("authorization"));
 
             final HttpRequest request = HttpRequest.newBuilder(server.endpoint())
@@ -142,7 +143,7 @@ final class McpHttpServerIntegrationTest {
         try {
             assertEquals("127.0.0.1", server.endpoint().getHost());
             assertTrue(Files.isRegularFile(connectionFile));
-            final Map<String, Object> connection = object(Json.parse(Files.readAllBytes(connectionFile)));
+            final Map<String, Object> connection = object(Json.parseObject(Files.readAllBytes(connectionFile)));
             assertEquals(server.endpoint().toString(), connection.get("endpoint"));
             assertFalse(connection.containsKey("authorization"));
             assertEquals(McpProtocol.VERSION, connection.get("protocolVersion"));
@@ -357,7 +358,7 @@ final class McpHttpServerIntegrationTest {
                                     Map.of("operation", "rename", "kind", "part", "id", "PartHead", "name", "Changed"),
                                     7)));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(Json.parse(response.body()));
+            final Map<String, Object> body = object(Json.parseObject(response.body()));
             assertEquals(-32602L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -401,7 +402,7 @@ final class McpHttpServerIntegrationTest {
                                                     "name",
                                                     "Changed"))))));
             assertEquals(200, response.statusCode());
-            final Map<String, Object> body = object(Json.parse(response.body()));
+            final Map<String, Object> body = object(Json.parseObject(response.body()));
             assertEquals(-32600L, integer(object(body.get("error")).get("code")));
             assertEquals("Head", objects.find(ModelObjectKind.PART, "PartHead").name());
         }
@@ -558,7 +559,7 @@ final class McpHttpServerIntegrationTest {
             assertEquals(
                     "application/json; charset=utf-8",
                     response.headers().firstValue("Content-Type").orElse(null));
-            final Map<String, Object> envelope = object(Json.parse(response.body()));
+            final Map<String, Object> envelope = object(Json.parseObject(response.body()));
             assertEquals(null, envelope.get("id"));
             final Map<String, Object> error = object(envelope.get("error"));
             assertEquals(-32022L, integer(error.get("code")));
@@ -593,7 +594,7 @@ final class McpHttpServerIntegrationTest {
                                     "capabilities", Map.of(),
                                     "clientInfo", Map.of("name", "invalid-test", "version", "1"))));
             assertEquals(200, initialize.statusCode());
-            assertTrue(object(Json.parse(initialize.body())).containsKey("error"));
+            assertTrue(object(Json.parseObject(initialize.body())).containsKey("error"));
             assertTrue(initialize.headers().firstValue("MCP-Session-Id").isEmpty());
         } finally {
             server.close();
@@ -1323,7 +1324,7 @@ final class McpHttpServerIntegrationTest {
     }
 
     private static Map<String, Object> result(final HttpResponse<byte[]> response) {
-        final Map<String, Object> envelope = object(Json.parse(response.body()));
+        final Map<String, Object> envelope = object(Json.parseObject(response.body()));
         assertFalse(envelope.containsKey("error"), () -> new String(response.body(), StandardCharsets.UTF_8));
         return object(envelope.get("result"));
     }
@@ -1337,7 +1338,7 @@ final class McpHttpServerIntegrationTest {
     private static Map<String, Object> resourceJson(final HttpResponse<byte[]> response) {
         final Map<String, Object> read = result(response);
         final Map<String, Object> content = object(array(read.get("contents")).get(0));
-        return object(Json.parse(((String) content.get("text")).getBytes(StandardCharsets.UTF_8)));
+        return object(Json.parseObject(((String) content.get("text")).getBytes(StandardCharsets.UTF_8)));
     }
 
     private static UiScheduler immediateUi() {

@@ -19,8 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   services the runtime actually installed, so plugins no longer have to probe getters or guess at
   `unavailable()` sentinels; the default fails closed with an empty set.
 - `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
-  optional context services the runtime actually installed (`services().get(ServiceType.class)`
-  returns `null` when absent); each `PluginService` member now carries its service type. The
+  optional context services the runtime actually installed (`services().find(ServiceType.class)`
+  returns an empty `Optional` when absent); each `PluginService` member now carries its service type. The
   pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
   compatibility, and new optional services land on the directory instead of growing the context.
 - `@Incubating` marks SDK types and members that are published for early adopters but not yet

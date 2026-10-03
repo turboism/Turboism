@@ -502,9 +502,10 @@ final class McpTextureDomain {
     // ---- envelopes ----------------------------------------------------------
 
     private static Map<String, Object> envelope(final Map<String, Object> output, final boolean isError) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return Map.of(
-                "content", List.of(Map.of("type", "text", "text", Json.stringify(output))),
-                "structuredContent", output,
+                "content", List.of(Map.of("type", "text", "text", Json.stringify(safe))),
+                "structuredContent", safe,
                 "isError", isError);
     }
 

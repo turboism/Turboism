@@ -33,6 +33,7 @@ class WebDavSyncTargetTest {
     private final List<String> requests = new CopyOnWriteArrayList<>();
     private final List<String> rawRequests = new CopyOnWriteArrayList<>();
     private final List<String> putBodies = new CopyOnWriteArrayList<>();
+    private final List<String> putContentLengths = new CopyOnWriteArrayList<>();
     private Function<String, Integer> statusOverride = path -> null;
     private volatile String redirectLocation;
     private final AtomicInteger putCalls = new AtomicInteger();
@@ -83,6 +84,7 @@ class WebDavSyncTargetTest {
                 exchange.sendResponseHeaders(207, -1);
             }
             case "PUT" -> {
+                putContentLengths.add(exchange.getRequestHeaders().getFirst("Content-Length"));
                 putBodies.add(new String(exchange.getRequestBody().readAllBytes()));
                 exchange.sendResponseHeaders(201, -1);
             }
@@ -362,6 +364,97 @@ class WebDavSyncTargetTest {
         } finally {
             otherOrigin.stop(0);
         }
+    }
+
+    @Test
+    void uploadsStreamTheArtifactWithAFixedContentLength() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
+        final Path file = temporary.resolve("streamed.cmo3");
+        Files.writeString(file, "streamed-content");
+        final AtomicInteger opens = new AtomicInteger();
+        target.sync(List.of(countingHandle(file, opens)));
+
+        assertEquals(1, putCalls.get());
+        assertEquals(1, opens.get(), "one attempt opens the artifact stream exactly once");
+        assertEquals(
+                List.of(String.valueOf("streamed-content".length())),
+                putContentLengths,
+                "the streamed PUT still carries the exact Content-Length");
+        assertEquals("streamed-content", putBodies.get(0));
+    }
+
+    @Test
+    void uploadReopensTheArtifactStreamOnEveryRetry() throws Exception {
+        statusOverride = path -> path.startsWith("PUT ") && putCalls.get() == 1 ? 500 : null;
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 2, 5, "/backup", "", ""), diagnostics::add);
+        final Path file = temporary.resolve("retried.cmo3");
+        Files.writeString(file, "retried-content");
+        final AtomicInteger opens = new AtomicInteger();
+        target.sync(List.of(countingHandle(file, opens)));
+
+        assertEquals(2, putCalls.get(), "the failed PUT must be retried");
+        assertEquals(2, opens.get(), "each attempt re-opens the artifact stream");
+        assertEquals(
+                List.of("retried-content"),
+                putBodies,
+                "the successful attempt uploads the artifact body streamed from its own open");
+    }
+
+    @Test
+    void unreadableArtifactFailsTheUploadThroughTheRetryPath() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
+        final AtomicInteger opens = new AtomicInteger();
+        final BackupArtifactHandle vanished = new BackupArtifactHandle() {
+            @Override
+            public dev.turboism.sdk.cubism.backup.BackupArtifact artifact() {
+                return new dev.turboism.sdk.cubism.backup.BackupArtifact("vanished.cmo3", 10, false);
+            }
+
+            @Override
+            public long lastModifiedMillis() {
+                return -1L;
+            }
+
+            @Override
+            public java.io.InputStream openStream() throws IOException {
+                opens.incrementAndGet();
+                throw new IOException("vanished");
+            }
+
+            @Override
+            public void discard() {}
+        };
+
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> target.sync(List.of(vanished)));
+        assertTrue(failure.getMessage().contains("vanished.cmo3"), "the open failure surfaces as an upload failure");
+        assertEquals(1, opens.get(), "the artifact stream was attempted once and not swallowed");
+    }
+
+    private static BackupArtifactHandle countingHandle(final Path file, final AtomicInteger opens) {
+        final BackupArtifactHandle delegate = TestBackupArtifactHandle.of(file);
+        return new BackupArtifactHandle() {
+            @Override
+            public dev.turboism.sdk.cubism.backup.BackupArtifact artifact() {
+                return delegate.artifact();
+            }
+
+            @Override
+            public long lastModifiedMillis() {
+                return delegate.lastModifiedMillis();
+            }
+
+            @Override
+            public java.io.InputStream openStream() throws IOException {
+                opens.incrementAndGet();
+                return delegate.openStream();
+            }
+
+            @Override
+            public void discard() throws IOException {
+                delegate.discard();
+            }
+        };
     }
 
     @Test

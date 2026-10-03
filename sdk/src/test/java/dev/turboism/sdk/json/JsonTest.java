@@ -27,7 +27,7 @@ final class JsonTest {
         assertEquals(
                 "{\"text\":\"line\\n🚀\",\"number\":42,\"array\":[true,\"value\"],\"object\":{\"nested\":false}}",
                 encoded);
-        assertEquals(input, Json.parse(encoded.getBytes(StandardCharsets.UTF_8)));
+        assertEquals(input, Json.parseObject(encoded.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -62,18 +62,26 @@ final class JsonTest {
     }
 
     @Test
+    void parseArrayRequiresAnArrayRoot() {
+        assertEquals(List.of(1L, "x"), Json.parseArray("[1,\"x\"]"));
+        assertEquals(List.of(1L), Json.parseArray("[1]".getBytes(StandardCharsets.UTF_8)));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseArray("{}"));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseArray("1".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    @Test
     void rejectsMalformedUtf8BomDuplicatesAndTrailingContent() {
-        assertThrows(IllegalArgumentException.class, () -> Json.parse(new byte[] {(byte) 0xc3, (byte) 0x28}));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject(new byte[] {(byte) 0xc3, (byte) 0x28}));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> Json.parse(new byte[] {(byte) 0xef, (byte) 0xbb, (byte) 0xbf, '{', '}'}));
-        assertThrows(IllegalArgumentException.class, () -> Json.parse("\uFEFF{}"));
-        assertThrows(IllegalArgumentException.class, () -> Json.parse(new byte[0]));
-        assertThrows(IllegalArgumentException.class, () -> Json.parse(""));
-        assertThrows(IllegalArgumentException.class, () -> parse("{\"id\":1,\"id\":2}"));
-        assertThrows(IllegalArgumentException.class, () -> parse("{} []"));
-        assertThrows(IllegalArgumentException.class, () -> parse("["));
-        assertThrows(IllegalArgumentException.class, () -> parse("{\"a\":"));
+                () -> Json.parseObject(new byte[] {(byte) 0xef, (byte) 0xbb, (byte) 0xbf, '{', '}'}));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject("\uFEFF{}"));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject(new byte[0]));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject(""));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject("{\"id\":1,\"id\":2}"));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject("{} []"));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseArray("["));
+        assertThrows(IllegalArgumentException.class, () -> Json.parseObject("{\"a\":"));
     }
 
     @Test
@@ -102,21 +110,21 @@ final class JsonTest {
         assertThrows(IllegalArgumentException.class, () -> parse("\"\\u００ＡＦ\""));
         assertThrows(IllegalArgumentException.class, () -> parse("\"\\ud800\""));
         assertThrows(IllegalArgumentException.class, () -> parse("[".repeat(65) + "0" + "]".repeat(65)));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify("\ud800"));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify("\udc00"));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Double.NaN));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Float.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", "\ud800")));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", "\udc00")));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", Double.NaN)));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", Float.POSITIVE_INFINITY)));
     }
 
     @Test
     void writerRejectsNonStringKeysAndUnknownTypes() {
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of(1, "x")));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(new Object()));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(new StringBuilder("x")));
-        assertEquals("[1,2]", Json.stringify(new Object[] {1, 2}));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", Map.of(1, "x"))));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", new Object())));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify(Map.of("k", new StringBuilder("x"))));
+        assertEquals("{\"k\":[1,2]}", Json.stringify(Map.of("k", new Object[] {1, 2})));
         assertEquals("[]", Json.stringify(List.of()));
         assertEquals("{}", Json.stringify(Map.of()));
-        assertThrows(IllegalArgumentException.class, () -> Json.stringify(nest(70)));
+        assertThrows(IllegalArgumentException.class, () -> Json.stringify((List<?>) nest(70)));
     }
 
     private static Object nest(final int depth) {
@@ -128,6 +136,7 @@ final class JsonTest {
     }
 
     private static Object parse(final String value) {
-        return Json.parse(value.getBytes(StandardCharsets.UTF_8));
+        // The public surface only exposes typed roots; wrap scalar fixtures in an array.
+        return Json.parseArray("[" + value + "]").get(0);
     }
 }

@@ -254,6 +254,13 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (lifecycleLock) {
+            return active;
+        }
+    }
+
+    @Override
     public List<EditorAutoBackupStatus> statuses() {
         requireOpen();
         return adapter.documents().stream().map(AutoBackupCoordinator::toStatus).toList();

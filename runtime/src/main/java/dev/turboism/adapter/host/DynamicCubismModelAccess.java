@@ -208,6 +208,13 @@ final class DynamicCubismModelAccess
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (callGate) {
+            return current.isAvailable();
+        }
+    }
+
+    @Override
     public CubismModel active() {
         return withActiveLease(lease -> {
             final CubismModel model = Objects.requireNonNull(lease.modelAccess().active(), "active model");

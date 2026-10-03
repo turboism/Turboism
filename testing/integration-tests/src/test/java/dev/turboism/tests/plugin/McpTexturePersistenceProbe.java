@@ -123,7 +123,7 @@ public final class McpTexturePersistenceProbe {
             require(stream != null, "Canonical host verification record is not packaged");
             final byte[] bytes = stream.readNBytes(2 * 1024 * 1024 + 1);
             require(bytes.length <= 2 * 1024 * 1024, "Host verification record is too large");
-            final Map<String, Object> record = Json.parseObject(bytes);
+            final Map<String, ?> record = Json.parseObject(bytes);
             require(exact.equals(record.get("cubismVersion")), "Host record version mismatch");
             final Map<?, ?> artifact = (Map<?, ?>) record.get("artifact");
             require("Live2D_Cubism.jar".equals(artifact.get("name")), "Unexpected host artifact");
