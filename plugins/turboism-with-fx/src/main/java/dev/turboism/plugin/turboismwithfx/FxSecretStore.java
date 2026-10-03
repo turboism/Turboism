@@ -1,6 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import java.io.IOException;
@@ -145,13 +145,12 @@ final class FxSecretStore {
         if (bytes.length == 0 || bytes.length > MAX_AUTH_FILE_BYTES) {
             throw new IOException("auth.json is invalid");
         }
-        final Object parsed;
+        final Map<String, ?> raw;
         try {
-            parsed = StrictJson.parse(bytes);
+            raw = Json.parseObject(bytes);
         } catch (IllegalArgumentException failure) {
             throw new IOException("auth.json is invalid", failure);
         }
-        if (!(parsed instanceof Map<?, ?> raw)) throw new IOException("auth.json is invalid");
         for (Map.Entry<?, ?> entry : raw.entrySet()) {
             if (!(entry.getKey() instanceof String id) || !(entry.getValue() instanceof String secret)) {
                 throw new IOException("auth.json is invalid");
@@ -168,7 +167,7 @@ final class FxSecretStore {
             Files.deleteIfExists(authFile);
             return;
         }
-        final byte[] bytes = StrictJson.bytes(values);
+        final byte[] bytes = Json.bytes(values);
         if (bytes.length > MAX_AUTH_FILE_BYTES) throw new IOException("auth.json is too large");
         Files.createDirectories(authFile.getParent());
         writeAtomic(authFile, bytes);

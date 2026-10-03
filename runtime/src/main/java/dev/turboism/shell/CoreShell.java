@@ -64,16 +64,14 @@ public final class CoreShell implements ShellHandle {
         this.logger = context.logger();
         final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings = services.settings();
         this.settings = runtimeSettings.read();
-        this.fileChooserHistory = java.util.Optional.ofNullable(
-                        context.services().get(FileChooserHistoryService.class))
+        this.fileChooserHistory = context.services()
+                .find(FileChooserHistoryService.class)
                 .orElseGet(FileChooserHistoryService::unavailable);
         this.plugins = services.plugins();
         this.closed = false;
         this.homeEntryService = new MainToolbarHomeEntryService(
-                java.util.Optional.ofNullable(context.services().get(UiHostCapabilityService.class))
-                        .orElseGet(UiHostCapabilityService::unavailable),
-                java.util.Optional.ofNullable(context.services().get(MainToolbarRegistry.class))
-                        .orElseGet(MainToolbarRegistry::unavailable),
+                context.services().find(UiHostCapabilityService.class).orElseGet(UiHostCapabilityService::unavailable),
+                context.services().find(MainToolbarRegistry.class).orElseGet(MainToolbarRegistry::unavailable),
                 context.menus(),
                 localization(context),
                 runtimeSettings,
@@ -224,8 +222,8 @@ public final class CoreShell implements ShellHandle {
      */
     private void applyAutoBackupPreference(final boolean reduce) {
         try {
-            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = java.util.Optional.ofNullable(
-                            context.services().get(EditorAutoBackupService.class))
+            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = context.services()
+                    .find(EditorAutoBackupService.class)
                     .orElseGet(EditorAutoBackupService::unavailable);
             final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings current = backup.settings();
             if (reduce) {
@@ -240,7 +238,7 @@ public final class CoreShell implements ShellHandle {
                                     current.maxMB(),
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
-                            current.backupDir()));
+                            current.backupDirDisplay()));
                     logger.info("auto-backup reduced for this session (opt-in)");
                 }
             } else {
@@ -256,7 +254,7 @@ public final class CoreShell implements ShellHandle {
                                     Integer.parseInt(baseline.getProperty("maxMB", "50")),
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
-                            baseline.getProperty("backupDir")));
+                            java.util.Optional.ofNullable(baseline.getProperty("backupDir"))));
                     java.nio.file.Files.deleteIfExists(baselineFile());
                     logger.info("auto-backup baseline restored");
                 }
@@ -285,9 +283,7 @@ public final class CoreShell implements ShellHandle {
         props.setProperty("enabled", Boolean.toString(current.enabled()));
         props.setProperty("intervalMinutes", Integer.toString(current.intervalMinutes()));
         props.setProperty("maxMB", Integer.toString(current.maxMB()));
-        if (current.backupDir() != null) {
-            props.setProperty("backupDir", current.backupDir());
-        }
+        current.backupDirDisplay().ifPresent(dir -> props.setProperty("backupDir", dir));
         java.nio.file.Files.createDirectories(file.getParent());
         try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(file)) {
             props.store(out, "host auto-backup settings before Turboism opt-in reduction");

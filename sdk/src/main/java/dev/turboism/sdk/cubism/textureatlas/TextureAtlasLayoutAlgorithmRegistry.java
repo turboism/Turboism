@@ -95,4 +95,52 @@ public interface TextureAtlasLayoutAlgorithmRegistry {
         select(selection);
         return true;
     }
+
+    /**
+     * Reports whether a live runtime backend backs this registry.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this registry's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static TextureAtlasLayoutAlgorithmRegistry unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /**
+     * Sentinel returned by {@link #unavailable()}: registration throws a stable
+     * {@link UnsupportedOperationException} matching the other unavailable registries,
+     * and reads report empty; probe with {@link #isAvailable()} first.
+     */
+    enum Unavailable implements TextureAtlasLayoutAlgorithmRegistry {
+        INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
+
+        @Override
+        public Registration register(final TextureAtlasLayoutAlgorithm algorithm) {
+            Objects.requireNonNull(algorithm, "algorithm");
+            throw new UnsupportedOperationException("texture atlas algorithm registry is unavailable");
+        }
+
+        @Override
+        public Optional<TextureAtlasLayoutAlgorithm> find(final String id) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<TextureAtlasLayoutAlgorithm> algorithms() {
+            return List.of();
+        }
+    }
 }

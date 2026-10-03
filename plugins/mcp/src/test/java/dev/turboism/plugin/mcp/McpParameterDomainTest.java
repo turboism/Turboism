@@ -30,7 +30,7 @@ import dev.turboism.sdk.cubism.model.ParameterDefinitions;
 import dev.turboism.sdk.cubism.model.ParameterType;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -123,15 +123,15 @@ final class McpParameterDomainTest {
         assertEquals(2, resources.templates().size());
         final List<Map<String, Object>> detail = resources.read("turboism://active/model/parameters/Param%20A%2BB");
         final Map<String, Object> content = object(detail.get(0));
-        final Map<String, Object> payload =
-                object(Json.parse(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        final Map<String, Object> payload = object(
+                Json.parseObject(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         assertEquals("Param A+B", payload.get("id"));
 
         final List<Map<String, Object>> bindings =
                 resources.read("turboism://active/model/parameters/Param%20A%2BB/bindings");
         assertEquals(
                 0,
-                list(object(Json.parse(((String) object(bindings.get(0)).get("text"))
+                list(object(Json.parseObject(((String) object(bindings.get(0)).get("text"))
                                         .getBytes(java.nio.charset.StandardCharsets.UTF_8)))
                                 .get("bindings"))
                         .size());
@@ -947,11 +947,6 @@ final class McpParameterDomainTest {
         @Override
         public boolean isHostPresent() {
             return true;
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            return null;
         }
 
         @Override

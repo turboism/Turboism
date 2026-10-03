@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +28,7 @@ final class FxMcpPromptContractTest {
                                     "target",
                                     "name",
                                     "name"))),
-                    StrictJson.parse(json.getBytes(StandardCharsets.UTF_8)));
+                    Json.parseObject(json.getBytes(StandardCharsets.UTF_8)));
         }
     }
 
@@ -40,7 +40,7 @@ final class FxMcpPromptContractTest {
         assertTrue(prompt.contains("turboism.model_objects.apply exactly once"));
         assertFalse(prompt.contains("turboism_model_object_rename"));
         final String json = prompt.substring(prompt.indexOf('{'), prompt.lastIndexOf('}') + 1);
-        final Object arguments = StrictJson.parse(json.getBytes(StandardCharsets.UTF_8));
+        final Object arguments = Json.parseObject(json.getBytes(StandardCharsets.UTF_8));
         assertEquals(
                 Map.of("operations", List.of(Map.of("operation", "rename", "kind", "part", "id", id, "name", name))),
                 arguments);

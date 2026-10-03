@@ -3,7 +3,9 @@ package dev.turboism.tests.plugin;
 import static dev.turboism.tests.plugin.WindowsMeshEditValidationProbe.*;
 
 import dev.turboism.sdk.cubism.command.EditorCommand;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.awt.Component;
 import java.awt.KeyEventDispatcher;
@@ -766,14 +768,32 @@ final class WindowsModelingSelectionBrushProbe {
         awaitOverlay(0);
         check(
                 "meshEntry",
-                !context.meshEdit().snapshot().points().isEmpty(),
-                context.meshEdit().snapshot().toString());
+                !context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .points()
+                        .isEmpty(),
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .toString());
         check("ordinaryDisabledInMesh", !onEdt(brushButton::isEnabled), brushButton.toString());
         execute(EditorCommand.START_OR_END_MESH_EDITOR);
         check(
                 "meshExit",
-                context.meshEdit().snapshot().points().isEmpty(),
-                context.meshEdit().snapshot().toString());
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .points()
+                        .isEmpty(),
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .toString());
         check(
                 "meshExitDirtyMatchesNative",
                 nativeDirtyAfter.equals(onEdt(this::dirty)),
@@ -1108,7 +1128,10 @@ final class WindowsModelingSelectionBrushProbe {
 
     private void execute(EditorCommand command) throws Exception {
         report.add("modeling.command." + command.name() + ".dirtyBefore=" + onEdt(this::dirty));
-        final var result = onEdt(() -> context.editorCommands().execute(command));
+        final var result = onEdt(() -> context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(command));
         check("command." + command.name(), result.executed(), result.toString());
         report.add("modeling.command." + command.name() + ".dirtyAfter=" + onEdt(this::dirty));
     }

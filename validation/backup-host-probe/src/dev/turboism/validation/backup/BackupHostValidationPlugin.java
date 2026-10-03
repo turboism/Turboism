@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import dev.turboism.plugin.webdavbackup.webdav.WebDavConfig;
 import dev.turboism.plugin.webdavbackup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
@@ -39,7 +40,7 @@ import java.util.stream.Stream;
 
 /**
  * Task-local exerciser for the native auto-backup manager takeover on an exact
- * Cubism host. It only uses the public SDK ({@code context.backup()},
+ * Cubism host. It only uses the public SDK ({@code context.services().require(EditorAutoBackupService.class)},
  * {@code context.cubism()}) plus plain JDK file scanning and an in-JVM WebDAV
  * mock ({@code com.sun.net.httpserver}); it never imports or reflects
  * {@code com.live2d.*} types.
@@ -228,7 +229,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private void runMatrix(final CubismModel model, final String hostVersion, final List<String> failures) {
         logger.info("BACKUP_VALIDATION_BEGIN hostVersion=" + hostVersion);
         try {
-            final EditorAutoBackupService backup = context.backup();
+            final EditorAutoBackupService backup = context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable());
             identityBanner(hostVersion, model, failures);
             settingsRead(backup, failures);
             final EditorAutoBackupSettings originalSettings = backup.settings();
@@ -268,11 +269,11 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private void identityBanner(final String hostVersion, final CubismModel model,
                                 final List<String> failures) {
         try {
-            final EditorAutoBackupSettings settings = context.backup().settings();
+            final EditorAutoBackupSettings settings = context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable()).settings();
             logger.info("BACKUP_IDENTITY hostVersion=" + hostVersion
                 + " modelId=" + safeModelId(model)
                 + " drawables=" + onHostThread(() -> model.drawables().all().size())
-                + " serviceAvailable=true backupDir=" + settings.backupDir()
+                + " serviceAvailable=true backupDir=" + settings.backupDirDisplay().orElse(null)
                 + " interval=" + settings.intervalMinutes() + " maxMB=" + settings.maxMB());
         } catch (RuntimeException failure) {
             failures.add("identity banner failed: " + failure.getClass().getSimpleName());
@@ -286,15 +287,18 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 failures.add("settings read produced out-of-range values: " + settings);
                 return;
             }
-            if (settings.backupDir() != null) {
-                final File dir = new File(settings.backupDir());
+            final String backupDir = settings.backupDirDisplay().orElse(null);
+            if (backupDir != null) {
+                // The display string is not an SDK access capability; the probe
+                // resolves it itself because host probes are not permission-audited.
+                final File dir = new File(backupDir);
                 if (!dir.exists() && !dir.mkdirs()) {
-                    failures.add("backup dir is not present and cannot be created: " + settings.backupDir());
+                    failures.add("backup dir is not present and cannot be created: " + backupDir);
                 }
             }
             logger.info("BACKUP_SETTINGS_READ enabled=" + settings.enabled()
                 + " interval=" + settings.intervalMinutes() + " maxMB=" + settings.maxMB()
-                + " backupDir=" + settings.backupDir());
+                + " backupDir=" + backupDir);
         } catch (RuntimeException failure) {
             failures.add("settings read failed: " + failure.getClass().getSimpleName());
         }
@@ -309,7 +313,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private void settingsWriteReadback(final EditorAutoBackupService backup, final List<String> failures) {
         try {
             final EditorAutoBackupSettings updated = backup.updateSettings(
-                new EditorAutoBackupSettings(true, 3, 128, null)
+                new EditorAutoBackupSettings(true, 3, 128, Optional.empty())
             );
             if (updated.intervalMinutes() != 3 || updated.maxMB() != 128) {
                 failures.add("settings write-readback mismatch: " + updated);
@@ -323,7 +327,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             // probe's own failure messages mirrored by CubismLoggerBridge).
             // The key mapping itself rests on the reviewed decompile evidence
             // (a(int) writes UUConfig FileSetting.autoBackupIntervalMinute).
-            logDiagnostics(updated.backupDir());
+            logDiagnostics(updated.backupDirDisplay().orElse(null));
         } catch (RuntimeException failure) {
             failures.add("settings write-readback failed: " + failure.getClass().getSimpleName());
         }
@@ -473,17 +477,17 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                     registration.close();
                 }
             }
-            final List<File> artifacts = event.newBackupFiles();
+            final List<BackupArtifactHandle> artifacts = event.artifacts();
             if (artifacts.isEmpty()) {
                 failures.add("backupNow produced no artifacts");
                 return;
             }
-            for (File artifact : artifacts) {
-                if (!artifact.isFile() || artifact.length() <= 0) {
-                    failures.add("artifact is missing or empty: " + artifact);
+            for (BackupArtifactHandle artifact : artifacts) {
+                if (artifact.sizeBytes() <= 0 || !artifactReadable(artifact)) {
+                    failures.add("artifact is missing or empty: " + artifact.fileName());
                 } else {
-                    logger.info("BACKUP_ARTIFACT file=" + artifact.getAbsolutePath()
-                        + " bytes=" + artifact.length());
+                    logger.info("BACKUP_ARTIFACT file=" + artifact.fileName()
+                        + " bytes=" + artifact.sizeBytes());
                 }
             }
             final List<EditorAutoBackupStatus> after = backup.statuses();
@@ -503,7 +507,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
                 logger.info("BACKUP_FIXTURE_HASH_AFTER " + hash);
             }
             if (webDav != null) {
-                final String expected = artifacts.get(0).getName();
+                final String expected = artifacts.get(0).fileName();
                 final boolean matched = webDav.receivedPuts.stream()
                     .anyMatch(path -> path.endsWith("/" + expected));
                 if (!matched) {
@@ -712,6 +716,16 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             throw new IllegalStateException("auto-backup probe host operation failed", failure.get());
         }
         return result.get();
+    }
+
+    /** Streams the artifact through the runtime-issued handle; any read failure means unreadable. */
+    private static boolean artifactReadable(final BackupArtifactHandle artifact) {
+        try (var in = artifact.openStream()) {
+            in.readAllBytes();
+            return true;
+        } catch (IOException | RuntimeException failure) {
+            return false;
+        }
     }
 
     private static String sha256(final Path path) {

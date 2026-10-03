@@ -1,6 +1,6 @@
 package dev.turboism.plugin.turboismwithfx;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,7 +32,7 @@ final class FxIsolatedHome {
         Files.createDirectories(settingsDirectory);
         Files.write(
                 settingsDirectory.resolve("settings.json"),
-                StrictJson.bytes(Map.of("provider", "gateway")),
+                Json.bytes(Map.of("provider", "gateway")),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.WRITE);

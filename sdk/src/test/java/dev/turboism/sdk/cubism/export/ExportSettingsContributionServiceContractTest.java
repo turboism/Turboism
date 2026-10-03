@@ -22,20 +22,18 @@ final class ExportSettingsContributionServiceContractTest {
 
     @Test
     void pluginContextDefaultsToTheTypedUnavailableExportSettingsSingleton() throws Exception {
-        final Method accessor = Arrays.stream(PluginContext.class.getMethods())
-                .filter(method -> method.getName().equals("exportSettings"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(accessor.isDefault());
-        assertEquals(ExportSettingsContributionService.class, accessor.getReturnType());
-        assertEquals(0, accessor.getParameterCount());
+        assertTrue(Arrays.stream(PluginContext.class.getMethods())
+                .noneMatch(method -> method.getName().equals("exportSettings")));
 
         final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null);
-        assertSame(ExportSettingsContributionService.unavailable(), context.exportSettings());
+        assertSame(
+                ExportSettingsContributionService.unavailable(),
+                context.services()
+                        .find(ExportSettingsContributionService.class)
+                        .orElse(ExportSettingsContributionService.unavailable()));
     }
 
     @Test

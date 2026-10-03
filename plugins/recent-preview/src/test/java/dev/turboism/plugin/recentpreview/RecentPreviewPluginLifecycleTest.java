@@ -20,6 +20,8 @@ import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginService;
+import dev.turboism.sdk.plugin.PluginServiceDirectory;
 import dev.turboism.sdk.plugin.PluginServices;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.storage.PluginStorage;
@@ -376,13 +378,17 @@ final class RecentPreviewPluginLifecycleTest {
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "storage" -> storage;
-                    case "recentFiles" -> recentFiles;
-                    case "screenshots" -> screenshots;
-                    case "recentPreviews" -> popups;
-                    case "services" -> PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        PluginServices.builder()
+                                .install(RecentFileService.class, recentFiles)
+                                .install(ScreenshotCaptureService.class, screenshots)
+                                .install(RecentPreviewContributionService.class, popups)
+                                .fallback(PluginServices.of((PluginContext) proxy))
+                                .build();
                     case "logger" -> logger;
                     case "disposableScope" -> scope;
                     case "tasks" -> tasks;
+                    case "localization" -> dev.turboism.sdk.i18n.PluginLocalization.unavailable();
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }
@@ -455,11 +461,27 @@ final class RecentPreviewPluginLifecycleTest {
             final AtomicInteger refreshes,
             final List<String> warnings) {
         final PluginContext safe = context(file, new ArrayList<>(), captures, refreshes, warnings);
+        final PluginServiceDirectory safeServices = safe.services();
+        final PluginServiceDirectory withoutPreviews = new PluginServiceDirectory() {
+            @Override
+            public java.util.Set<PluginService> installed() {
+                final java.util.Set<PluginService> installed = java.util.EnumSet.copyOf(safeServices.installed());
+                installed.remove(PluginService.RECENT_PREVIEWS);
+                return installed;
+            }
+
+            @Override
+            public <T> Optional<T> find(final Class<T> serviceType) {
+                return serviceType == RecentPreviewContributionService.class
+                        ? Optional.empty()
+                        : safeServices.find(serviceType);
+            }
+        };
         return (PluginContext) Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> switch (method.getName()) {
-                    case "recentPreviews" -> RecentPreviewContributionService.unavailable();
+                    case "services" -> withoutPreviews;
                     default ->
                         java.lang.reflect.Proxy.getInvocationHandler(safe).invoke(proxy, method, args);
                 });

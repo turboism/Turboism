@@ -34,7 +34,7 @@
     {
       "id": "turboism.cubism.backup.observe",
       "scope": "application",
-      "reason": "Observes privacy-safe Runtime backup completion facts to upload command-owned artifacts."
+      "reason": "Observes backup completion facts and reads runtime-issued artifact bytes through permission-gated BackupArtifactHandle surfaces."
     },
     {
       "id": "turboism.config.plugin.write",
@@ -60,16 +60,6 @@
       "id": "turboism.network.fetch",
       "scope": "application",
       "reason": "Uploads backup artifacts to the user-configured WebDAV endpoint through the JDK HttpClient (MKCOL/PROPFIND/PUT/DELETE); redirects are never followed."
-    },
-    {
-      "id": "turboism.file.read",
-      "scope": "application",
-      "reason": "Reads runtime-issued backup artifacts for upload and scans the configured host auto-backup directory for new _backup*.cmo3 files."
-    },
-    {
-      "id": "turboism.file.write",
-      "scope": "application",
-      "reason": "Deletes plugin-owned save-triggered temporary backup files and their empty directories after upload completes."
     }
   ],
   "capabilities": [],

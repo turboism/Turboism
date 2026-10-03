@@ -404,7 +404,6 @@ final class McpStartupDiagnosticTest {
             return null;
         }
 
-        @Override
         public CubismClipMaskService cubismClipMasks() {
             return null;
         }
@@ -413,6 +412,13 @@ final class McpStartupDiagnosticTest {
         public CubismReadCapabilityService cubismRead() {
             captured = new IllegalStateException("deterministic read failure");
             throw captured;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 }

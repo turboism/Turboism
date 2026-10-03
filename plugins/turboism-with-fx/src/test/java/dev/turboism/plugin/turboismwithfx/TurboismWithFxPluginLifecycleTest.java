@@ -271,13 +271,16 @@ final class TurboismWithFxPluginLifecycleTest {
                     case "config" -> config;
                     case "paths" -> paths();
                     case "actions" -> actionRegistry;
-                    case "mainToolbar" -> toolbarRegistry;
                     case "menus" -> menuRegistry;
                     case "disposableScope" -> scope;
                     case "toString" -> "TurboismWithFxPluginLifecycleTestContext";
                     case "hashCode" -> System.identityHashCode(proxy);
                     case "equals" -> proxy == (arguments == null ? null : arguments[0]);
-                    case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, toolbarRegistry)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
                     default ->
                         throw new UnsupportedOperationException("unused PluginContext method: " + method.getName());
                 });

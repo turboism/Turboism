@@ -7,7 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import java.io.File;
+import dev.turboism.plugin.webdavbackup.TestBackupArtifactHandle;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -32,6 +33,7 @@ class WebDavSyncTargetTest {
     private final List<String> requests = new CopyOnWriteArrayList<>();
     private final List<String> rawRequests = new CopyOnWriteArrayList<>();
     private final List<String> putBodies = new CopyOnWriteArrayList<>();
+    private final List<String> putContentLengths = new CopyOnWriteArrayList<>();
     private Function<String, Integer> statusOverride = path -> null;
     private volatile String redirectLocation;
     private final AtomicInteger putCalls = new AtomicInteger();
@@ -82,6 +84,7 @@ class WebDavSyncTargetTest {
                 exchange.sendResponseHeaders(207, -1);
             }
             case "PUT" -> {
+                putContentLengths.add(exchange.getRequestHeaders().getFirst("Content-Length"));
                 putBodies.add(new String(exchange.getRequestBody().readAllBytes()));
                 exchange.sendResponseHeaders(201, -1);
             }
@@ -112,17 +115,17 @@ class WebDavSyncTargetTest {
                 10);
     }
 
-    private File artifact(final String name) throws IOException {
+    private BackupArtifactHandle artifact(final String name) throws IOException {
         final Path file = temporary.resolve(name);
         Files.writeString(file, "backup-content-" + name);
-        return file.toFile();
+        return TestBackupArtifactHandle.of(file);
     }
 
     @Test
     void uploadsThroughMkcolPropfindAndPutWithTheArtifactName() throws Exception {
         WebDavSyncTarget target =
                 new WebDavSyncTarget(config(true, 0, 0, "/turboism-backup", "", ""), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1200.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1200.cmo3");
         target.sync(List.of(artifact));
         assertTrue(requests.contains("MKCOL /turboism-backup"), "collection must be ensured with MKCOL");
         assertTrue(
@@ -145,7 +148,7 @@ class WebDavSyncTargetTest {
     @Test
     void uploadsIntoTheRootCollectionWhenRemotePathIsRoot() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/", "", ""), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1201.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1201.cmo3");
         target.sync(List.of(artifact));
         assertTrue(requests.contains("PUT /model_backup2026_08_08_1201.cmo3"));
     }
@@ -155,7 +158,7 @@ class WebDavSyncTargetTest {
         // 500 once, then success on the second attempt
         statusOverride = path -> path.startsWith("PUT ") && putCalls.get() == 1 ? 500 : null;
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 2, 5, "/backup", "", ""), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1202.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1202.cmo3");
         target.sync(List.of(artifact));
         assertEquals(2, putCalls.get(), "first PUT must fail with 500 and be retried");
         assertTrue(requests.contains("PUT /backup/model_backup2026_08_08_1202.cmo3"));
@@ -170,7 +173,7 @@ class WebDavSyncTargetTest {
     void exhaustsRetriesAndFailsClosedWithoutCorruptingTheDiagnostics() throws Exception {
         statusOverride = path -> path.startsWith("PUT ") ? 503 : null;
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 2, 2, "/backup", "", ""), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1203.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1203.cmo3");
         assertThrows(IllegalStateException.class, () -> target.sync(List.of(artifact)));
         assertEquals(3, putCalls.get(), "1 + retryMax attempts");
         assertTrue(
@@ -190,7 +193,7 @@ class WebDavSyncTargetTest {
         });
         WebDavSyncTarget target =
                 new WebDavSyncTarget(config(true, 0, 0, "/auth", "alice", "s3cret!"), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1204.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1204.cmo3");
         target.sync(List.of(artifact));
         assertEquals(1, putAuthHeaders.size());
         assertEquals("Basic YWxpY2U6czNjcmV0IQ==", putAuthHeaders.get(0));
@@ -203,7 +206,7 @@ class WebDavSyncTargetTest {
     @Test
     void disabledTargetSkipsUploadEntirely() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(config(false, 0, 0, "/backup", "", ""), diagnostics::add);
-        File artifact = artifact("model_backup2026_08_08_1205.cmo3");
+        BackupArtifactHandle artifact = artifact("model_backup2026_08_08_1205.cmo3");
         target.sync(List.of(artifact));
         assertTrue(requests.isEmpty(), "disabled target must not touch the network");
     }
@@ -267,7 +270,7 @@ class WebDavSyncTargetTest {
     @Test
     void encodesEachUriSegmentWhenUploadingArtifacts() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/turbo ism/备份", "", ""), diagnostics::add);
-        File artifact = artifact("model 备份 #1?.cmo3");
+        BackupArtifactHandle artifact = artifact("model 备份 #1?.cmo3");
         target.sync(List.of(artifact));
         assertTrue(
                 rawRequests.contains("MKCOL /turbo%20ism/%E5%A4%87%E4%BB%BD"),
@@ -364,13 +367,104 @@ class WebDavSyncTargetTest {
     }
 
     @Test
+    void uploadsStreamTheArtifactWithAFixedContentLength() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
+        final Path file = temporary.resolve("streamed.cmo3");
+        Files.writeString(file, "streamed-content");
+        final AtomicInteger opens = new AtomicInteger();
+        target.sync(List.of(countingHandle(file, opens)));
+
+        assertEquals(1, putCalls.get());
+        assertEquals(1, opens.get(), "one attempt opens the artifact stream exactly once");
+        assertEquals(
+                List.of(String.valueOf("streamed-content".length())),
+                putContentLengths,
+                "the streamed PUT still carries the exact Content-Length");
+        assertEquals("streamed-content", putBodies.get(0));
+    }
+
+    @Test
+    void uploadReopensTheArtifactStreamOnEveryRetry() throws Exception {
+        statusOverride = path -> path.startsWith("PUT ") && putCalls.get() == 1 ? 500 : null;
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 2, 5, "/backup", "", ""), diagnostics::add);
+        final Path file = temporary.resolve("retried.cmo3");
+        Files.writeString(file, "retried-content");
+        final AtomicInteger opens = new AtomicInteger();
+        target.sync(List.of(countingHandle(file, opens)));
+
+        assertEquals(2, putCalls.get(), "the failed PUT must be retried");
+        assertEquals(2, opens.get(), "each attempt re-opens the artifact stream");
+        assertEquals(
+                List.of("retried-content"),
+                putBodies,
+                "the successful attempt uploads the artifact body streamed from its own open");
+    }
+
+    @Test
+    void unreadableArtifactFailsTheUploadThroughTheRetryPath() throws Exception {
+        WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
+        final AtomicInteger opens = new AtomicInteger();
+        final BackupArtifactHandle vanished = new BackupArtifactHandle() {
+            @Override
+            public dev.turboism.sdk.cubism.backup.BackupArtifact artifact() {
+                return new dev.turboism.sdk.cubism.backup.BackupArtifact("vanished.cmo3", 10, false);
+            }
+
+            @Override
+            public long lastModifiedMillis() {
+                return -1L;
+            }
+
+            @Override
+            public java.io.InputStream openStream() throws IOException {
+                opens.incrementAndGet();
+                throw new IOException("vanished");
+            }
+
+            @Override
+            public void discard() {}
+        };
+
+        final IllegalStateException failure =
+                assertThrows(IllegalStateException.class, () -> target.sync(List.of(vanished)));
+        assertTrue(failure.getMessage().contains("vanished.cmo3"), "the open failure surfaces as an upload failure");
+        assertEquals(1, opens.get(), "the artifact stream was attempted once and not swallowed");
+    }
+
+    private static BackupArtifactHandle countingHandle(final Path file, final AtomicInteger opens) {
+        final BackupArtifactHandle delegate = TestBackupArtifactHandle.of(file);
+        return new BackupArtifactHandle() {
+            @Override
+            public dev.turboism.sdk.cubism.backup.BackupArtifact artifact() {
+                return delegate.artifact();
+            }
+
+            @Override
+            public long lastModifiedMillis() {
+                return delegate.lastModifiedMillis();
+            }
+
+            @Override
+            public java.io.InputStream openStream() throws IOException {
+                opens.incrementAndGet();
+                return delegate.openStream();
+            }
+
+            @Override
+            public void discard() throws IOException {
+                delegate.discard();
+            }
+        };
+    }
+
+    @Test
     void uploadRejectsMissingOrEmptyArtifacts() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(config(true, 0, 0, "/backup", "", ""), diagnostics::add);
         assertThrows(
                 IllegalStateException.class,
-                () -> target.upload(temporary.resolve("missing.cmo3").toFile()));
+                () -> target.upload(TestBackupArtifactHandle.of(temporary.resolve("missing.cmo3"))));
         Path empty = temporary.resolve("empty_backup2026_08_08_1206.cmo3");
         Files.writeString(empty, "");
-        assertThrows(IllegalStateException.class, () -> target.upload(empty.toFile()));
+        assertThrows(IllegalStateException.class, () -> target.upload(TestBackupArtifactHandle.of(empty)));
     }
 }

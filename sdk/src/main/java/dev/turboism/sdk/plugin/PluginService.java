@@ -5,17 +5,20 @@ import dev.turboism.sdk.Incubating;
 /**
  * One optional service slot on {@link PluginContext}.
  *
- * <p>Members name the getter they describe, so
- * {@code context.services().get(PluginStorage.class) != null} tells the plugin that
- * {@code context.storage()} resolves to an installed service. Guaranteed core members of
+ * <p>Members name the service interface they describe, so
+ * {@code context.services().find(PluginStorage.class).isPresent()} tells the plugin that a
+ * usable {@code PluginStorage} is installed. Guaranteed core members of
  * {@link PluginContext} ({@code descriptor}, {@code logger}, {@code paths}, {@code cubism},
  * {@code permissions}, {@code eventBus}, {@code actions}, {@code menus}, {@code uiScheduler},
  * {@code diagnostics}, {@code disposableScope}) have no member because they cannot be absent.</p>
  *
- * <p>New tool services are directory-only and have no legacy context getter. Presence means the
- * directory returns a usable service object; it does not imply the plugin holds
- * the permissions that service's operations require, and it does not guarantee individual
- * version-routed members succeed on the active host.</p>
+ * <p>Presence means the directory returns a usable service object; it does not imply the
+ * plugin holds the permissions that service's operations require, and it does not guarantee
+ * individual version-routed members succeed on the active host.</p>
+ *
+ * <p>The catalog itself is stable, while a member's service type keeps its own maturity:
+ * members whose constant carries {@link Incubating} resolve to incubating service types and
+ * may still change between framework versions.</p>
  */
 public enum PluginService {
 
@@ -32,6 +35,7 @@ public enum PluginService {
     STORAGE(dev.turboism.sdk.storage.PluginStorage.class),
 
     /** {@link PluginContext#scripts()} */
+    @Incubating
     SCRIPTS(dev.turboism.sdk.script.ScriptService.class),
 
     /** {@link PluginContext#userFiles()} */
@@ -52,114 +56,117 @@ public enum PluginService {
     /** {@link PluginContext#modelObjects()} */
     MODEL_OBJECTS(dev.turboism.sdk.cubism.model.ModelObjectService.class),
 
-    /** {@link PluginContext#cubismClipMasks()} */
+    /** {@link dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService} */
     CUBISM_CLIP_MASKS(dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.class),
 
-    /** {@link PluginContext#recentFiles()} */
+    /** {@link dev.turboism.sdk.cubism.recentfile.RecentFileService} */
     RECENT_FILES(dev.turboism.sdk.cubism.recentfile.RecentFileService.class),
 
-    /** {@link PluginContext#screenshots()} */
+    /** {@link dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService} */
     SCREENSHOTS(dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService.class),
 
-    /** {@link PluginContext#recentPreviews()} */
+    /** {@link dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService} */
     RECENT_PREVIEWS(dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService.class),
 
-    /** {@link PluginContext#physicsEditor()} */
+    /** {@link dev.turboism.sdk.cubism.physics.PhysicsEditorService} */
     PHYSICS_EDITOR(dev.turboism.sdk.cubism.physics.PhysicsEditorService.class),
 
-    /** {@link PluginContext#fileChooserHistory()} */
+    /** {@link dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService} */
     FILE_CHOOSER_HISTORY(dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class),
 
-    /** {@link PluginContext#meshMirrorAxis()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService} */
     MESH_MIRROR_AXIS(dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.class),
 
-    /** {@link PluginContext#meshEdit()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshEditService} */
     MESH_EDIT(dev.turboism.sdk.cubism.mesh.MeshEditService.class),
 
-    /** {@link PluginContext#meshEditParticipation()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshEditParticipation} */
     MESH_EDIT_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshEditParticipation.class),
 
-    /** {@link PluginContext#meshMirrorCounterparts()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts} */
     MESH_MIRROR_COUNTERPARTS(dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.class),
 
-    /** {@link PluginContext#meshMirrorToolEligibility()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility} */
     MESH_MIRROR_TOOL_ELIGIBILITY(dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.class),
 
-    /** {@link PluginContext#meshMirrorMoveParticipation()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation} */
     MESH_MIRROR_MOVE_PARTICIPATION(dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.class),
 
-    /** {@link PluginContext#meshEditUi()} */
+    /** {@link dev.turboism.sdk.cubism.mesh.MeshEditUiService} */
     MESH_EDIT_UI(dev.turboism.sdk.cubism.mesh.MeshEditUiService.class),
 
-    /** Directory-only custom mesh tools; no legacy {@link PluginContext} accessor. */
+    /** Directory-only custom mesh tools; no {@link PluginContext} accessor. */
+    @Incubating
     MESH_TOOLS(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class),
-    /** Directory-only ordinary modeling tools. */
+    /** Directory-only ordinary modeling tools; no {@link PluginContext} accessor. */
+    @Incubating
     MODELING_TOOLS(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class),
 
-    /** {@link PluginContext#editorCommands()} */
+    /** {@link dev.turboism.sdk.cubism.command.EditorCommandService} */
     EDITOR_COMMANDS(dev.turboism.sdk.cubism.command.EditorCommandService.class),
 
-    /** {@link PluginContext#actionCatalog()} */
+    /** {@link dev.turboism.sdk.action.ActionCatalogService} */
     ACTION_CATALOG(dev.turboism.sdk.action.ActionCatalogService.class),
 
-    /** {@link PluginContext#backup()} */
+    /** {@link dev.turboism.sdk.cubism.backup.EditorAutoBackupService} */
     BACKUP(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class),
 
-    /** {@link PluginContext#mainToolbar()} */
+    /** {@link dev.turboism.sdk.ui.toolbar.MainToolbarRegistry} */
     MAIN_TOOLBAR(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class),
 
-    /** {@link PluginContext#paletteToolbar()} */
+    /** {@link dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry} */
     PALETTE_TOOLBAR(dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.class),
 
-    /** {@link PluginContext#paletteFilter()} */
+    /** {@link dev.turboism.sdk.ui.filter.PaletteFilterRegistry} */
     PALETTE_FILTER(dev.turboism.sdk.ui.filter.PaletteFilterRegistry.class),
 
-    /** {@link PluginContext#sceneTable()} */
+    /** {@link dev.turboism.sdk.ui.table.SceneTableService} */
     SCENE_TABLE(dev.turboism.sdk.ui.table.SceneTableService.class),
 
-    /** {@link PluginContext#uiHost()} */
+    /** {@link dev.turboism.sdk.ui.UiHostCapabilityService} */
     UI_HOST(dev.turboism.sdk.ui.UiHostCapabilityService.class),
 
-    /** {@link PluginContext#hostDialogs()} */
+    /** {@link dev.turboism.sdk.ui.dialog.HostDialogAutomationService} */
     HOST_DIALOGS(dev.turboism.sdk.ui.dialog.HostDialogAutomationService.class),
 
-    /** {@link PluginContext#appearance()} */
+    /** {@link dev.turboism.sdk.appearance.AppearanceService} */
     APPEARANCE(dev.turboism.sdk.appearance.AppearanceService.class),
 
-    /** {@link PluginContext#workspace()} */
+    /** {@link dev.turboism.sdk.ui.workspace.WorkspaceService} */
     WORKSPACE(dev.turboism.sdk.ui.workspace.WorkspaceService.class),
 
-    /** {@link PluginContext#workspaceLayout()} */
+    /** {@link dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService} */
     WORKSPACE_LAYOUT(dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.class),
 
-    /** {@link PluginContext#contextMenu()} */
+    /** {@link dev.turboism.sdk.ui.context.ContextMenuRegistry} */
     CONTEXT_MENU(dev.turboism.sdk.ui.context.ContextMenuRegistry.class),
 
     /** {@link PluginContext#config()} */
     CONFIG(dev.turboism.sdk.config.PluginConfigRegistry.class),
 
-    /** {@link PluginContext#cubismLog()} */
+    /** {@link dev.turboism.sdk.runtime.CubismLogService} */
     CUBISM_LOG(dev.turboism.sdk.runtime.CubismLogService.class),
 
-    /** {@link PluginContext#runtimeSettings()} */
+    /** {@link dev.turboism.sdk.runtime.RuntimeSettingsService} */
     RUNTIME_SETTINGS(dev.turboism.sdk.runtime.RuntimeSettingsService.class),
 
-    /** {@link PluginContext#mcpConnections()} */
+    /** {@link dev.turboism.sdk.mcp.McpConnectionService} */
+    @Incubating
     MCP_CONNECTIONS(dev.turboism.sdk.mcp.McpConnectionService.class),
 
-    /** {@link PluginContext#performanceStats()} */
+    /** {@link dev.turboism.sdk.performance.PerformanceProbeService} */
     PERFORMANCE_STATS(dev.turboism.sdk.performance.PerformanceProbeService.class),
 
-    /** {@link PluginContext#warpAltMirrorParticipation()} */
+    /** {@link dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation} */
     WARP_ALT_MIRROR_PARTICIPATION(dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation.class),
 
-    /** {@link PluginContext#viewContextMenu()} */
+    /** {@link dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry} */
     VIEW_CONTEXT_MENU(dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.class),
 
-    /** {@link PluginContext#uiResources()} */
+    /** {@link dev.turboism.sdk.ui.resource.UiResourceService} */
     UI_RESOURCES(dev.turboism.sdk.ui.resource.UiResourceService.class),
 
-    /** {@link PluginContext#exportSettings()} */
+    /** {@link dev.turboism.sdk.cubism.export.ExportSettingsContributionService} */
     EXPORT_SETTINGS(dev.turboism.sdk.cubism.export.ExportSettingsContributionService.class);
 
     private final Class<?> type;
@@ -168,160 +175,23 @@ public enum PluginService {
         this.type = type;
     }
 
-    /** The service interface this member names, usable with {@link PluginServiceDirectory#get}. */
-    @Incubating
+    /** The service interface this member names, usable with {@link PluginServiceDirectory#find}. */
     public Class<?> type() {
         return type;
     }
 
     /**
-     * Returns the member naming {@code serviceType}, or {@code null} when no member maps it.
+     * Returns the member naming {@code serviceType}, or empty when no member maps it.
      *
      * @param serviceType the service interface to look up
-     * @return the matching member, or {@code null}
+     * @return the matching member, or empty
      */
-    @Incubating
-    public static PluginService forType(final Class<?> serviceType) {
+    public static java.util.Optional<PluginService> forType(final Class<?> serviceType) {
         for (final PluginService member : values()) {
             if (member.type == serviceType) {
-                return member;
+                return java.util.Optional.of(member);
             }
         }
-        return null;
-    }
-
-    /**
-     * Resolves this member's service on {@code context} to the installed instance, or
-     * {@code null} when the context exposes only the service's unavailable sentinel.
-     *
-     * @param context the plugin context to read through
-     * @return the installed service object, never its unavailable sentinel
-     */
-    @SuppressWarnings("deprecation") // Bridges the deprecated pre-directory accessors.
-    Object resolve(final PluginContext context) {
-        return switch (this) {
-            case MESH_TOOLS, MODELING_TOOLS -> null; // Installed by runtime directories, never by a legacy accessor.
-            case LOCALIZATION ->
-                available(context.localization(), dev.turboism.sdk.i18n.PluginLocalization.unavailable());
-            case TASKS -> available(context.tasks(), dev.turboism.sdk.task.PluginTaskScheduler.unavailable());
-            case HOST_READS ->
-                available(context.hostReads(), dev.turboism.sdk.hostread.AsyncHostReadService.unavailable());
-            case STORAGE -> available(context.storage(), dev.turboism.sdk.storage.PluginStorage.unavailable());
-            case SCRIPTS -> available(context.scripts(), dev.turboism.sdk.script.ScriptService.unavailable());
-            case USER_FILES -> available(context.userFiles(), dev.turboism.sdk.ui.UserFileAccessService.unavailable());
-            case PARAMETER_QUERY ->
-                available(
-                        context.parameterQuery(),
-                        dev.turboism.sdk.cubism.service.query.ParameterQueryService.unavailable());
-            case SELECTION_QUERY ->
-                available(
-                        context.selectionQuery(),
-                        dev.turboism.sdk.cubism.service.query.SelectionQueryService.unavailable());
-            case MODEL_HIERARCHY_QUERY ->
-                available(
-                        context.modelHierarchyQuery(),
-                        dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService.unavailable());
-            case CUBISM_READ ->
-                available(
-                        context.cubismRead(),
-                        dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService.unavailable());
-            case MODEL_OBJECTS ->
-                available(context.modelObjects(), dev.turboism.sdk.cubism.model.ModelObjectService.unavailable());
-            case CUBISM_CLIP_MASKS ->
-                available(
-                        context.cubismClipMasks(),
-                        dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.unavailable());
-            case RECENT_FILES ->
-                available(context.recentFiles(), dev.turboism.sdk.cubism.recentfile.RecentFileService.unavailable());
-            case SCREENSHOTS ->
-                available(
-                        context.screenshots(),
-                        dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService.unavailable());
-            case RECENT_PREVIEWS ->
-                available(
-                        context.recentPreviews(),
-                        dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService.unavailable());
-            case PHYSICS_EDITOR ->
-                available(context.physicsEditor(), dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable());
-            case FILE_CHOOSER_HISTORY ->
-                available(
-                        context.fileChooserHistory(),
-                        dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.unavailable());
-            case MESH_MIRROR_AXIS ->
-                available(context.meshMirrorAxis(), dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService.unavailable());
-            case MESH_EDIT -> available(context.meshEdit(), dev.turboism.sdk.cubism.mesh.MeshEditService.unavailable());
-            case MESH_EDIT_PARTICIPATION ->
-                available(
-                        context.meshEditParticipation(),
-                        dev.turboism.sdk.cubism.mesh.MeshEditParticipation.unavailable());
-            case MESH_MIRROR_COUNTERPARTS ->
-                available(
-                        context.meshMirrorCounterparts(),
-                        dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts.unavailable());
-            case MESH_MIRROR_TOOL_ELIGIBILITY ->
-                available(
-                        context.meshMirrorToolEligibility(),
-                        dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility.unavailable());
-            case MESH_MIRROR_MOVE_PARTICIPATION ->
-                available(
-                        context.meshMirrorMoveParticipation(),
-                        dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation.unavailable());
-            case MESH_EDIT_UI ->
-                available(context.meshEditUi(), dev.turboism.sdk.cubism.mesh.MeshEditUiService.unavailable());
-            case EDITOR_COMMANDS ->
-                available(context.editorCommands(), dev.turboism.sdk.cubism.command.EditorCommandService.unavailable());
-            case ACTION_CATALOG ->
-                available(context.actionCatalog(), dev.turboism.sdk.action.ActionCatalogService.unavailable());
-            case BACKUP ->
-                available(context.backup(), dev.turboism.sdk.cubism.backup.EditorAutoBackupService.unavailable());
-            case MAIN_TOOLBAR ->
-                available(context.mainToolbar(), dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.unavailable());
-            case PALETTE_TOOLBAR ->
-                available(context.paletteToolbar(), dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.unavailable());
-            case PALETTE_FILTER ->
-                available(context.paletteFilter(), dev.turboism.sdk.ui.filter.PaletteFilterRegistry.unavailable());
-            case SCENE_TABLE ->
-                available(context.sceneTable(), dev.turboism.sdk.ui.table.SceneTableService.unavailable());
-            case UI_HOST -> available(context.uiHost(), dev.turboism.sdk.ui.UiHostCapabilityService.unavailable());
-            case HOST_DIALOGS ->
-                available(context.hostDialogs(), dev.turboism.sdk.ui.dialog.HostDialogAutomationService.unavailable());
-            case APPEARANCE ->
-                available(context.appearance(), dev.turboism.sdk.appearance.AppearanceService.unavailable());
-            case WORKSPACE ->
-                available(context.workspace(), dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable());
-            case WORKSPACE_LAYOUT ->
-                available(
-                        context.workspaceLayout(),
-                        dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService.unavailable());
-            case CONTEXT_MENU ->
-                available(context.contextMenu(), dev.turboism.sdk.ui.context.ContextMenuRegistry.unavailable());
-            case CONFIG -> available(context.config(), dev.turboism.sdk.config.PluginConfigRegistry.unavailable());
-            case CUBISM_LOG -> available(context.cubismLog(), dev.turboism.sdk.runtime.CubismLogService.unavailable());
-            case RUNTIME_SETTINGS ->
-                available(context.runtimeSettings(), dev.turboism.sdk.runtime.RuntimeSettingsService.unavailable());
-            case MCP_CONNECTIONS ->
-                available(context.mcpConnections(), dev.turboism.sdk.mcp.McpConnectionService.unavailable());
-            case PERFORMANCE_STATS ->
-                available(
-                        context.performanceStats(), dev.turboism.sdk.performance.PerformanceProbeService.unavailable());
-            case WARP_ALT_MIRROR_PARTICIPATION ->
-                available(
-                        context.warpAltMirrorParticipation(),
-                        dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation.unavailable());
-            case VIEW_CONTEXT_MENU ->
-                available(
-                        context.viewContextMenu(),
-                        dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.unavailable());
-            case UI_RESOURCES ->
-                available(context.uiResources(), dev.turboism.sdk.ui.resource.UiResourceService.unavailable());
-            case EXPORT_SETTINGS ->
-                available(
-                        context.exportSettings(),
-                        dev.turboism.sdk.cubism.export.ExportSettingsContributionService.unavailable());
-        };
-    }
-
-    private static <T> T available(final T service, final T unavailable) {
-        return service == unavailable ? null : service;
+        return java.util.Optional.empty();
     }
 }

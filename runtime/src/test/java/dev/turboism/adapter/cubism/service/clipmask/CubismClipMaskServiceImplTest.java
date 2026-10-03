@@ -417,11 +417,6 @@ class CubismClipMaskServiceImplTest {
         public boolean isHostPresent() {
             return false;
         }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
-        }
     }
 
     /** Fake read service: clip-mask and mesh data are fully controlled. */

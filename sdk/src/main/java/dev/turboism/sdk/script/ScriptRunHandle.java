@@ -1,8 +1,10 @@
 package dev.turboism.sdk.script;
 
+import dev.turboism.sdk.Incubating;
 import java.util.concurrent.CompletionStage;
 
 /** Handle for a running or queued script execution. */
+@Incubating
 public interface ScriptRunHandle extends AutoCloseable {
 
     /** Returns the run's stable execution identifier. */
