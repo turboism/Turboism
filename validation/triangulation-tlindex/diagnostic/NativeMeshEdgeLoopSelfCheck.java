@@ -101,14 +101,19 @@ public final class NativeMeshEdgeLoopSelfCheck {
             require(CURRENT.get() == null, "no retained prior lease");
             enabled = fast; entries = closes = indexedCalls = nativeCalls = registrations = 0;
         }
+        static boolean active() { return CURRENT.get() != null; }
     }
 
-    private static final class Loader extends URLClassLoader {
+    static final class Loader extends URLClassLoader {
         final Path jar;
         final boolean candidate;
+        final boolean complete;
         Loader(Path jar, boolean candidate, boolean assertions) throws Exception {
+            this(jar, candidate, assertions, false);
+        }
+        Loader(Path jar, boolean candidate, boolean assertions, boolean complete) throws Exception {
             super(urls(jar), NativeMeshEdgeLoopSelfCheck.class.getClassLoader());
-            this.jar = jar; this.candidate = candidate; setDefaultAssertionStatus(assertions);
+            this.jar = jar; this.candidate = candidate; this.complete = complete; setDefaultAssertionStatus(assertions);
         }
         private static URL[] urls(Path jar) throws Exception {
             List<URL> paths = new ArrayList<>(); paths.add(jar.toUri().toURL());
@@ -124,7 +129,7 @@ public final class NativeMeshEdgeLoopSelfCheck {
                 var entry = file.getJarEntry(NativeMeshEdgeLoopPrototype.MESH + ".class");
                 byte[] raw;
                 try (InputStream in = file.getInputStream(entry)) { raw = in.readAllBytes(); }
-                byte[] transformed = NativeMeshEdgeLoopPrototype.patch(raw, candidate);
+                byte[] transformed = NativeMeshEdgeLoopPrototype.patch(raw, candidate, complete);
                 String pkg = name.substring(0, name.lastIndexOf('.'));
                 if (getDefinedPackage(pkg) == null) definePackage(pkg, file.getManifest(), jar.toUri().toURL());
                 return defineClass(name, transformed, 0, transformed.length,
@@ -150,10 +155,14 @@ public final class NativeMeshEdgeLoopSelfCheck {
     }
 
     private static String untouched(byte[] bytes) throws Exception {
+        return untouched(bytes, false);
+    }
+
+    static String untouched(byte[] bytes, boolean complete) throws Exception {
         ClassNode type = new ClassNode();
         new ClassReader(bytes).accept(type, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         type.methods.removeIf(m -> m.name.equals("checkExitingTypedEdge") || m.name.equals("addEdge")
-                || m.name.equals("ownedAppend"));
+                || m.name.equals("ownedAppend") || complete && m.name.equals("autoConnect"));
         ClassWriter writer = new ClassWriter(0); type.accept(writer);
         return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(writer.toByteArray()));
     }
