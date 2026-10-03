@@ -197,7 +197,8 @@ public final class PluginScopedCubismModelAccess {
                 changeKey(null);
                 return java.util.Optional.of(new Current(document(document, contentId), java.util.Optional.empty()));
             }
-            final dev.turboism.sdk.cubism.ModelSnapshot observedModel = document.model().orElseThrow();
+            final dev.turboism.sdk.cubism.ModelSnapshot observedModel =
+                    document.model().orElseThrow();
             final HostModel hostModel = new HostModel(
                     modelId,
                     observedModel.name(),
