@@ -223,7 +223,7 @@ url = "http://127.0.0.1:43123/mcp"
 | 权限 | 作用域 | 请求原因 |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | 读取活动模型对象、Core 元数据、统计信息和纹理元数据。 |
-| `turboism.cubism.parameter.read` | `application` | 为工具面声明参数读取意图；实际参数读取在运行时由 `turboism.cubism.model.read` 强制执行。 |
+| `turboism.cubism.parameter.read` | `application` | 为工具面声明参数读取意图；实际参数读取在运行时由上方的模型读取权限强制执行。 |
 | `turboism.cubism.project.read` | `application` | 读取活动项目、工作区、布局和主题状态。 |
 | `turboism.cubism.model.write` | `application` | 应用类型化的模型、参数、绑定、历史记录和模型设置写入。 |
 | `turboism.file.read` | `application` | 在发布 loopback 端点前校验 MCP 连接文件元数据（存在性、所有者、符号链接检查）。 |
