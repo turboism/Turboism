@@ -6,6 +6,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import java.awt.AWTException;
 import java.awt.Component;
 import java.awt.Container;
@@ -41,7 +42,9 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
                 throw new IllegalStateException("History float evidence already exists");
             }
             write(evidence, "status=RUNNING at=" + Instant.now() + "\n");
-            final Registration panel = context.uiHost()
+            final Registration panel = context.services()
+                    .find(UiHostCapabilityService.class)
+                    .orElse(UiHostCapabilityService.unavailable())
                     .contributeEmbeddedPanel(new EmbeddedPanelContribution(
                             PANEL_ID,
                             "History Float Probe",
@@ -49,7 +52,10 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
                             90,
                             PanelView.column(PanelView.text("Float probe panel"))));
             try {
-                context.uiHost().activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
+                context.services()
+                        .find(UiHostCapabilityService.class)
+                        .orElse(UiHostCapabilityService.unavailable())
+                        .activateEmbeddedPanelFloating(EmbeddedPanelId.of(PANEL_ID));
                 write(
                         evidence,
                         "status=PASS\npanelId=" + PANEL_ID
