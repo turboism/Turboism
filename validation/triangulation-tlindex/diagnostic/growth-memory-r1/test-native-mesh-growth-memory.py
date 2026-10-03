@@ -1,0 +1,78 @@
+"""Negative controls for memory accounting, release, command binding and missing GC."""
+import importlib.util
+from pathlib import Path
+import unittest
+
+
+def module(name, filename):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(filename))
+    result = importlib.util.module_from_spec(spec); spec.loader.exec_module(result)
+    return result
+
+
+audit = module('audit', 'analyze-native-mesh-growth-memory.py')
+spec = importlib.util.spec_from_file_location('fixtures', Path(__file__).resolve().parent.parent / 'test-native-mesh-scope-events.py')
+previous = importlib.util.module_from_spec(spec); spec.loader.exec_module(previous)
+
+
+def fixture():
+    events, windows = previous.fixture()
+    for event in events:
+        event['type'] = audit.EVENT
+        event['values'].update(initialEntries=3, entryLimit=20, initialBufferCapacity=16, finalBufferCapacity=64, growthCount=2,
+                               initialDeclaredBufferBytes=1216, finalDeclaredBufferBytes=1792, peakLiveDeclaredBufferBytes=3200,
+                               cumulativeDeclaredBufferBytes=4416, rawPrimitiveArrayAllocatedBytes=1344, helperAndSuffixAllocatedBytes=2048)
+    events += [{'type': 'jdk.GarbageCollection', 'values': {
+        'startTime': '2026-10-03T13:20:00Z', 'duration': 'PT0.01S', 'gcId': 1,
+        'name': 'G1New', 'cause': 'G1 Evacuation Pause'}},
+        {'type': 'jdk.GCHeapSummary', 'values': {'startTime': '2026-10-03T13:20:00Z',
+         'gcId': 1, 'when': 'After GC', 'heapUsed': 1024, 'heapSpace': {'committedSize': 4096}}}]
+    return events, windows
+
+
+class MemoryAuditTest(unittest.TestCase):
+    def test_exact_buffer_totals_and_design_estimate(self):
+        e, w = fixture(); r = audit.audit(e, w, 1)
+        self.assertEqual(r['cycles'][1]['finalDeclaredBufferBytes'], 1792)
+        self.assertEqual(r['cycles'][1]['initialDeclaredBufferBytes'], 1216)
+        self.assertEqual(r['garbageCollections'][0]['phase'], 'beforeFirstCommand')
+
+    def test_invalid_memory_or_recording(self):
+        changes = [lambda e: e[0]['values'].update(finalBufferCapacity=32),
+                   lambda e: e[0]['values'].update(peakLiveDeclaredBufferBytes=1792),
+                   lambda e: e[0]['values'].update(helperAndSuffixAllocatedBytes=1),
+                   lambda e: e[0]['values'].update(initialEntries=21),
+                   lambda e: e[0]['values'].update(initialEntries=True),
+                   lambda e: e[0]['values'].update(released=False),
+                   lambda e: e.pop(),
+                   lambda e: e.append({'type': 'jdk.DataLoss', 'values': {}})]
+        for change in changes:
+            e, w = fixture(); change(e)
+            with self.assertRaises(ValueError): audit.audit(e, w, 1)
+
+    def test_cumulative_includes_every_replacement(self):
+        e, w = fixture(); r = audit.audit(e, w, 1)
+        self.assertEqual(r['cycles'][1]['cumulativeDeclaredBufferBytes'], 4416)
+        self.assertEqual(r['cycles'][1]['rawPrimitiveArrayAllocatedBytes'], 1344)
+        self.assertEqual(r['cycles'][1]['maximumLiveDeclaredBufferBytes'], 3200)
+        for key in ('growthCount', 'initialBufferCapacity', 'initialDeclaredBufferBytes',
+                    'finalBufferCapacity', 'finalDeclaredBufferBytes', 'peakLiveDeclaredBufferBytes',
+                    'cumulativeDeclaredBufferBytes', 'rawPrimitiveArrayAllocatedBytes'):
+            e, w = fixture(); e[0]['values'][key] += 1
+            with self.assertRaises(ValueError): audit.audit(e, w, 1)
+
+    def test_no_growth_records_one_allocation(self):
+        e, w = fixture()
+        for event in e[:3]:
+            event['values'].update(growthCount=0, finalBufferCapacity=16, finalDeclaredBufferBytes=1216,
+                                  peakLiveDeclaredBufferBytes=1216, cumulativeDeclaredBufferBytes=1216,
+                                  rawPrimitiveArrayAllocatedBytes=192)
+        self.assertEqual(audit.audit(e, w, 1)['cycles'][1]['growthCount'], 0)
+
+    def test_missing_selected_scope_is_not_silently_accepted(self):
+        e, w = fixture()
+        with self.assertRaises(ValueError): audit.audit(e, w, 711)
+
+
+if __name__ == '__main__':
+    unittest.main()
