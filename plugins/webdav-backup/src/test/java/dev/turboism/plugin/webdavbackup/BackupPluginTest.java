@@ -464,7 +464,6 @@ final class BackupPluginTest {
             return registry;
         }
 
-        @Override
         public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
             return new dev.turboism.sdk.cubism.backup.EditorAutoBackupService() {
                 @Override
@@ -569,6 +568,14 @@ final class BackupPluginTest {
 
         boolean hasLog(final String fragment) {
             return logger.lines.stream().anyMatch(line -> line.contains(fragment));
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class, () -> this.backup())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
