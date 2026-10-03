@@ -48,6 +48,12 @@ public interface AutoBackupAdapter {
     File saveDocumentFor(File matchFile, List<String> documentUids, long timestampMillis);
 
     /**
+     * @return {@code true} while a live host auto-backup manager backs this
+     *         adapter; {@code false} for the safe-mode adapter
+     */
+    boolean available();
+
+    /**
      * An adapter for when no host auto-backup manager is attached.
      *
      * @return the fail-closed adapter whose every operation throws
@@ -161,6 +167,11 @@ public interface AutoBackupAdapter {
             Objects.requireNonNull(matchFile, "matchFile");
             Objects.requireNonNull(documentUids, "documentUids");
             throw new UnsupportedOperationException("auto-backup is not available");
+        }
+
+        @Override
+        public boolean available() {
+            return false;
         }
     }
 }

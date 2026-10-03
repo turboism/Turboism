@@ -89,6 +89,11 @@ public final class SceneTableHostOperations
         return state;
     }
 
+    @Override
+    public boolean available() {
+        return state() == State.CONNECTED;
+    }
+
     /**
      * Verifies and pre-binds the actual host contract before Scene palette discovery starts.
      * Unsupported artifacts and artifact-read or member-binding failures never enter polling.

@@ -38,6 +38,14 @@ class PhysicsEditorCoordinatorTest {
         assertTrue(available.isAvailable(), "a scoped view of the live coordinator reports available");
     }
 
+    @Test
+    void coordinatorReportsUnavailableAfterClose() {
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        assertTrue(coordinator.isAvailable());
+        coordinator.close();
+        assertFalse(coordinator.isAvailable(), "a closed coordinator must report unavailable");
+    }
+
     private static final PhysicsEditorHostProfile PROFILE = new PhysicsEditorHostProfile(
             Panel.class.getName().replace('.', '/'),
             "getTableArea",
