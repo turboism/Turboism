@@ -1,0 +1,132 @@
+{
+  "status": "PASS_BOUND_GC_MEMORY_DIAGNOSTIC_CAUSE_UNPROVEN",
+  "legs": {
+    "baseline": {
+      "sequence": 2593,
+      "jobId": "93ab8e68-db2a-4205-9356-5b23055c73d0",
+      "resourceWindowGcSummaryCount": 14,
+      "committedHeapChanges": [
+        {
+          "previousObservedEpochMillis": 1791009658109,
+          "firstLargerOrSmallerObservedEpochMillis": 1791009666614,
+          "gcId": 65,
+          "changeBytes": 159383552
+        }
+      ],
+      "committedHeapFirstBytes": 2097152000,
+      "committedHeapLastBytes": 2256535552,
+      "largestSampledRssRise": {
+        "startEpochMillis": 1791009658763,
+        "endEpochMillis": 1791009659763,
+        "rssChangeBytes": 143704064,
+        "nearbyGcHeapSummaries": [
+          {
+            "line": 1148,
+            "epochMillis": 1791009658085,
+            "uptimeMillis": 136732,
+            "level": "debug",
+            "tags": "gc,heap",
+            "message": "GC(63)  garbage-first heap   total 2048000K, used 1689323K [0x0000000423000000, 0x0000000800000000)",
+            "uptimeOrderInversion": false,
+            "gcId": 63,
+            "phase": "before",
+            "committedHeapBytes": 2097152000,
+            "usedHeapBytes": 1729866752
+          },
+          {
+            "line": 1158,
+            "epochMillis": 1791009658109,
+            "uptimeMillis": 136755,
+            "level": "debug",
+            "tags": "gc,heap",
+            "message": "GC(63)  garbage-first heap   total 2048000K, used 1145610K [0x0000000423000000, 0x0000000800000000)",
+            "uptimeOrderInversion": false,
+            "gcId": 63,
+            "phase": "after",
+            "committedHeapBytes": 2097152000,
+            "usedHeapBytes": 1173104640
+          }
+        ],
+        "withinCommitmentObservationBrackets": [
+          {
+            "previousObservedEpochMillis": 1791009658109,
+            "firstLargerOrSmallerObservedEpochMillis": 1791009666614,
+            "gcId": 65,
+            "changeBytes": 159383552
+          }
+        ]
+      },
+      "operationPeakRssBytes": 2957115392,
+      "peakAboveOwnBaselineRssBytes": 179654656.0,
+      "retainedMedianRss3Minus1Bytes": 167604224.0
+    },
+    "candidate": {
+      "sequence": 2594,
+      "jobId": "67001680-4b4c-4c26-a0dd-02fcb1019486",
+      "resourceWindowGcSummaryCount": 18,
+      "committedHeapChanges": [
+        {
+          "previousObservedEpochMillis": 1791010020236,
+          "firstLargerOrSmallerObservedEpochMillis": 1791010054386,
+          "gcId": 73,
+          "changeBytes": 125829120
+        }
+      ],
+      "committedHeapFirstBytes": 2013265920,
+      "committedHeapLastBytes": 2139095040,
+      "largestSampledRssRise": {
+        "startEpochMillis": 1791010051594,
+        "endEpochMillis": 1791010052593,
+        "rssChangeBytes": 87293952,
+        "nearbyGcHeapSummaries": [],
+        "withinCommitmentObservationBrackets": [
+          {
+            "previousObservedEpochMillis": 1791010020236,
+            "firstLargerOrSmallerObservedEpochMillis": 1791010054386,
+            "gcId": 73,
+            "changeBytes": 125829120
+          }
+        ]
+      },
+      "operationPeakRssBytes": 2826862592,
+      "peakAboveOwnBaselineRssBytes": 153886720.0,
+      "retainedMedianRss3Minus1Bytes": 100245504.0
+    }
+  },
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC_LOGGING",
+  "inputPins": {
+    "validation/triangulation-tlindex/production-gc-explanation-protocol-20261003.json": "05852e70c7e9acde9c43f1d8dc43a02a70e892d42a0650ecde55c6fcbd7e7860",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/run.json": "f9d924f31b312cf1214f6fef8f8e2d9da36ae638863ed0dfdcc0bd4619d187a6",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/native-review.json": "3cb16779a6e87a8dd1051d33305137d2c92ef976dabb1c8fd393a0925faf03c1",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/gc-review.json": "9a9d8465a356e6068a0e312c86c9bf745fd4fcfcd9744be85d366fedda672d76",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/resource-review.json": "4900651fccb93f86bbc7ac3b8a448759460c38ca06cac52e3f84fd6c1c53f452",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/native-evidence/console.txt": "59867b4e4a194235793787fa93f3a96167a8102a83c83cca798b451a4d323053",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/baseline/native-evidence/resources.jsonl": "d2098a3b30d29089b34007ccc3b92ad3a6885abe855721ebca616b39cd9166e9",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/run.json": "04d926bc96f895d22e675ff270f552765c7af55dfc53a51002da3de8ae555681",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/native-review.json": "a7325a1d536315667ee4b82e43ff0971ae0a908b65985067ff9a50b3f137f067",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/gc-review.json": "e8e44538e52b277bf50b4c64af35994b805c3bfa54c7b71cd3f8a722db4787dc",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/resource-review.json": "5eb1e75a2a427d5efaf83ea43581e08bff48a70819a29be70ee1f61edec2cecc",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/native-evidence/console.txt": "5d8609c51a2391dd17a0d17c954ab41eca9dd9a30e9c4b4e8a653575d23877ca",
+    "build/t076-production-acceptance-preflight-r1/native5303-gc-explanation-r1/candidate/native-evidence/resources.jsonl": "8f5463fdec7a0d48032c58cbaf0a7d461b15876baead7525fed7c43cf8974ae4"
+  },
+  "limitations": [
+    "Two new diagnostic jobs cannot explain an earlier process without its GC logs.",
+    "Timestamp proximity is not allocation ownership or causal proof.",
+    "RSS samples and GC used/committed heap are distinct quantities.",
+    "Original failed production comparison is unchanged; no replacement performance legs."
+  ],
+  "protocolCommitBeforeSubmission": "0d8eb7b30",
+  "correlationEvidence": "build/t076-production-acceptance-preflight-r1/gc-memory-correlation-r2.json",
+  "correlationSha256": "993205800a7957f2db4e02b5495e62a83af4b0b7c0f1918433d0fced73cd52dd",
+  "correlationSourceSha256": "aef80c8ee0ef15b26c48c113cc1aa90e0c96bddd7e94fc3aa53db12768a67bf6",
+  "nativeRowsVerified": 4266,
+  "kernelBracketedCpuReadings": 12,
+  "originalFailedProductionComparisonUnchanged": true,
+  "deliveryBaseline": "T057_UNCHANGED",
+  "rootCause": "UNPROVEN_ORIGINAL_PROCESS_HAS_NO_GC_LOGS",
+  "offlineActualHotSpotSmoke": {
+    "status": "PASS_38_HEAP_SUMMARIES_NOT_VENDOR_ADMISSION",
+    "rawLog": "build/t076-production-acceptance-preflight-r1/gc-parser-smoke-console.txt",
+    "sha256": "99fed7bb2c5b5ca5a4d407b606f2a3b586c64b8cec37cd6392771f13aaeb40da"
+  }
+}
