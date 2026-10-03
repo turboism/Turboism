@@ -31,4 +31,9 @@ public final class RuntimeRecentPreviewContributionService implements RecentPrev
         permissionChecker.check(PERMISSION, "ui.recent-preview.refresh");
         adapter.refresh();
     }
+
+    @Override
+    public boolean isAvailable() {
+        return adapter.available();
+    }
 }

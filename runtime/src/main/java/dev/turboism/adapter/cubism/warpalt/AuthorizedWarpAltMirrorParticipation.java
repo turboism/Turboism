@@ -59,4 +59,9 @@ public final class AuthorizedWarpAltMirrorParticipation implements WarpAltMirror
     public int weightMirrorLastCounterpartIndex() {
         return delegate.weightMirrorLastCounterpartIndex();
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

@@ -49,4 +49,9 @@ public final class AuthorizedMeshMirrorCounterparts implements MeshMirrorCounter
             throw failure;
         }
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

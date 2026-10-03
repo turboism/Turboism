@@ -1,7 +1,9 @@
 package dev.turboism.recentpreview;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.RecentPreviewContributionAdapter;
 import dev.turboism.permissions.PermissionChecker;
@@ -50,6 +52,29 @@ final class RuntimeRecentPreviewContributionServiceTest {
                 RecentPreviewContributionAdapter.safeMode(), PermissionChecker.allowAll());
         assertThrows(UnsupportedOperationException.class, () -> service.contribute(summary -> Optional.empty()));
         service.refresh();
+    }
+
+    @Test
+    void reportsUnavailableForSafeModeAdapter() {
+        final RuntimeRecentPreviewContributionService service = new RuntimeRecentPreviewContributionService(
+                RecentPreviewContributionAdapter.safeMode(), PermissionChecker.allowAll());
+        assertFalse(service.isAvailable());
+    }
+
+    @Test
+    void reportsAvailableForConnectedAdapter() {
+        final RuntimeRecentPreviewContributionService service = new RuntimeRecentPreviewContributionService(
+                RecentPreviewContributionAdapter.connected(new RecentPreviewContributionAdapter.HostOperations() {
+                    @Override
+                    public Registration contribute(final RecentPreviewRenderer renderer) {
+                        return () -> {};
+                    }
+
+                    @Override
+                    public void refresh() {}
+                }),
+                PermissionChecker.allowAll());
+        assertTrue(service.isAvailable());
     }
 
     @Test

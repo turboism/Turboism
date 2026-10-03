@@ -256,7 +256,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     @Override
     public boolean isAvailable() {
         synchronized (lifecycleLock) {
-            return active;
+            return active && adapter.available();
         }
     }
 
