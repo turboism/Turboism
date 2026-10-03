@@ -1,0 +1,676 @@
+{
+  "task": "T079",
+  "status": "STATIC_BOUNDARY_FEASIBLE_NATIVE_DIFFERENTIAL_OPEN",
+  "nativeExecuted": false,
+  "productionChanged": false,
+  "hostSubmitted": false,
+  "versions": {
+    "5203": {
+      "raw": "build/t079-native-mesh-edge-search-r1/5203-instructions-r2.json",
+      "rawSha256": "a3e2beaed52c6860177ecc72b78a0c6521fd51553ac0c9555eeb5789e39df476",
+      "loop": {
+        "cachedIndicesReadOffset": 202,
+        "edgeInsertionOffsets": [
+          257,
+          283,
+          307
+        ],
+        "normalReturnOffset": 324,
+        "directCalls": [
+          {
+            "offset": 206,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/jvm/internal/Intrinsics",
+            "name": "checkNotNull",
+            "descriptor": "(Ljava/lang/Object;)V",
+            "bytes": "b8014e"
+          },
+          {
+            "offset": 225,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/internal/ProgressionUtilKt",
+            "name": "getProgressionLastElement",
+            "descriptor": "(III)I",
+            "bytes": "b8014c"
+          },
+          {
+            "offset": 257,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800ba"
+          },
+          {
+            "offset": 283,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800ba"
+          },
+          {
+            "offset": 307,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800ba"
+          }
+        ],
+        "exceptionHandlers": [],
+        "status": "DIRECT_SUFFIX_SHAPE_PASS"
+      },
+      "classes": {
+        "com/live2d/graphics3d/editableMesh/GEditableMesh2": {
+          "classSha256": "734b9bde593f27816b72f63c585a371d724507f21c97ac41980cbf3f347c57ad",
+          "methods": [
+            {
+              "name": "getEdges",
+              "descriptor": "()Ljava/util/List;",
+              "codeSha256": "0b4319597aadf496869d24b40576c172a8b647ef1a80c8a0de40b97ffd2afdef"
+            },
+            {
+              "name": "addEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer;",
+              "codeSha256": "9e3d6429893f0c495f8f1cea66f6ccb681100f66c3011b54bf37fb627d64886d"
+            },
+            {
+              "name": "checkExitingTypedEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer;",
+              "codeSha256": "8f57d3fc8ea77898417a1764d3526314bd208c96d1e0a4f6f8fc9a519fb18015"
+            },
+            {
+              "name": "chechExistingEdge_exe",
+              "descriptor": "(IIZ)Ljava/lang/Integer;",
+              "codeSha256": "de9a363f2f936448303533c5ba190eb2a4bdb8247ff91ba396278921cfa788cd"
+            },
+            {
+              "name": "addEdgeIfNotExists",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer;",
+              "codeSha256": "7239fe5c78168f88af9774177eff67525de0a0d48c203359f610e28520b19d2c"
+            },
+            {
+              "name": "addEdgeIfNotExists$default",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+              "codeSha256": "d9d21b84a5d1965dc69a58468613f2d41f6ab0e625f58615c425994facb06413"
+            },
+            {
+              "name": "clearAutoTriangulation",
+              "descriptor": "()V",
+              "codeSha256": "38b58c58d15dd31ae2f4fe04ea84c4ceea5d76a25effb433ec1b3f88b875d592"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "caed0e3805213b065015aec57de92f8059dedfcf8ccd19b2dc8f24459dfebcfb"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(II)V",
+              "codeSha256": "e6c2d15c83041d5691b918c4d467997c6ed488459719e4d9b5589b632fb7da1f"
+            },
+            {
+              "name": "removeAllEdges",
+              "descriptor": "()V",
+              "codeSha256": "3da58349f456ffbddbb02f771b4347a0d06ff98cfe4f6f3703d18dc8d2f8f25b"
+            },
+            {
+              "name": "setEdgeUpdated",
+              "descriptor": "()V",
+              "codeSha256": "85c7211111df3131255b64a496ed444b40714eae522b0cbab9ab03851782ce50"
+            },
+            {
+              "name": "autoConnect",
+              "descriptor": "(ZZLcom/live2d/util/i/a;)V",
+              "codeSha256": "5b42aa153f142cf6e3743ee90c9b522b152a8d151feaf9fd72b3da92f2c00de6"
+            },
+            {
+              "name": "access$get_edges$p",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Lcom/live2d/type/CArrayList;",
+              "codeSha256": "de766d363b5a40386de76664b1e8d960a7bd47d7acb87bfe063177a70aab8707"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge": {
+          "classSha256": "1df5844a6055b785ea9877ab753e57220145f0bc221a5430f6025519616ddf7e",
+          "methods": [
+            {
+              "name": "getIndex1",
+              "descriptor": "()I",
+              "codeSha256": "c82aed037c5afb54cd1235f0acbd9e50ea5462301ecc01f1e215873f28b1fa33"
+            },
+            {
+              "name": "getIndex2",
+              "descriptor": "()I",
+              "codeSha256": "4c3ee618f94f6d0a299215efb4305a6d1d2298178196a7dfce14be8f959a5200"
+            },
+            {
+              "name": "getType",
+              "descriptor": "()Lcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;",
+              "codeSha256": "5d159aedaf5714f84326c9966981962b7474d34226b625adc14123ec9271eb51"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "()V",
+              "codeSha256": "180dbcd994b169774ae1adda78a8c3ae397df943d1436ccf69e6ab4cc4674f82"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)V",
+              "codeSha256": "560f3db4979644aaf20198efc7dbc427f7f42105349bbdb132fc80114881268b"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "dced77c773dc9b9d0c8129854e1e1b4e10f7522fe840ce9a28bb1e6adea313d1"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge$EdgeType": {
+          "classSha256": "227aaa250ad3038984b9e6d874f0b69c3029cdc7a7e52969eecf83cbbec8c3c2",
+          "methods": [
+            {
+              "name": "a",
+              "descriptor": "()B",
+              "codeSha256": "85d26770fd4a48de59f70964ff3f08e2243f6d9c897910136273f9d9fa1dbbc0"
+            },
+            {
+              "name": "<clinit>",
+              "descriptor": "()V",
+              "codeSha256": "42b254bb57908a8c70a7b98d265f07d4944e352ce95e4fa86543c11102abb0ac"
+            }
+          ]
+        },
+        "com/live2d/type/CArrayList": {
+          "classSha256": "0bce138f32c8375dc31ead9638c96f10a2b29ede696d2664c9c42b4df4e9441d",
+          "methods": [
+            {
+              "name": "add",
+              "descriptor": "(ILjava/lang/Object;)V",
+              "codeSha256": "4db7d11b7da71dee842060eb85cfbcfe77f79e357d367c1781a74298cbb483a6"
+            },
+            {
+              "name": "add",
+              "descriptor": "(Ljava/lang/Object;)Z",
+              "codeSha256": "95572fed5f48140c927abfc5e310b01abefefceabbbd3337282e8d2a80d81812"
+            },
+            {
+              "name": "set",
+              "descriptor": "(ILjava/lang/Object;)Ljava/lang/Object;",
+              "codeSha256": "876d3219aa4e92e0f10a0f81b203099c85a184c5a3d867d67c73c5aa54e2cd2b"
+            },
+            {
+              "name": "removeIf",
+              "descriptor": "(Ljava/util/function/Predicate;)Z",
+              "codeSha256": "85dbc5cf63ce911f622f7e235819412fa59a3e84b6812ab73d8de16b8a2a810f"
+            },
+            {
+              "name": "get",
+              "descriptor": "(I)Ljava/lang/Object;",
+              "codeSha256": "b59bc557effd263f575701a6b39f0d88b9c8f300378f97b45d11253728163084"
+            },
+            {
+              "name": "size",
+              "descriptor": "()I",
+              "codeSha256": "c2196f53abf44e6c6d19c820ba34aa6a74e5e1a28276a079bb7a9a3024796120"
+            }
+          ]
+        }
+      }
+    },
+    "5302": {
+      "raw": "build/t079-native-mesh-edge-search-r1/5302-instructions-r2.json",
+      "rawSha256": "6ba619254464560e6a040cc38bfef9025e4b2ab815fd01eb1721341d5cdf6fe6",
+      "loop": {
+        "cachedIndicesReadOffset": 206,
+        "edgeInsertionOffsets": [
+          261,
+          287,
+          311
+        ],
+        "normalReturnOffset": 328,
+        "directCalls": [
+          {
+            "offset": 210,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/jvm/internal/Intrinsics",
+            "name": "checkNotNull",
+            "descriptor": "(Ljava/lang/Object;)V",
+            "bytes": "b8015f"
+          },
+          {
+            "offset": 229,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/internal/ProgressionUtilKt",
+            "name": "getProgressionLastElement",
+            "descriptor": "(III)I",
+            "bytes": "b8015d"
+          },
+          {
+            "offset": 261,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          },
+          {
+            "offset": 287,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          },
+          {
+            "offset": 311,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          }
+        ],
+        "exceptionHandlers": [],
+        "status": "DIRECT_SUFFIX_SHAPE_PASS"
+      },
+      "classes": {
+        "com/live2d/graphics3d/editableMesh/GEditableMesh2": {
+          "classSha256": "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a",
+          "methods": [
+            {
+              "name": "getEdges",
+              "descriptor": "()Ljava/util/List;",
+              "codeSha256": "609b3e289a93c01e8db6acada810851ba4099ef005197aa972df331ee533d349"
+            },
+            {
+              "name": "addEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer;",
+              "codeSha256": "fc1632ace5522e2d9a86808e21bfe9d98ca6fdf3c7c305a76cd6558e9909cf2c"
+            },
+            {
+              "name": "checkExitingTypedEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer;",
+              "codeSha256": "fb4d1cbb4031cb8db250b3e6ea7ece3fe6821142186ad00ad889a63211b4f692"
+            },
+            {
+              "name": "chechExistingEdge_exe",
+              "descriptor": "(IIZ)Ljava/lang/Integer;",
+              "codeSha256": "16304342b7cb5ea5387ff687cdc20bc280bd96276b6b7379fd82219bebafec0b"
+            },
+            {
+              "name": "addEdgeIfNotExists",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer;",
+              "codeSha256": "20ea6a8549224242cf7d786eb1ad0e743cefad4cc9f113587e787157c4dbe550"
+            },
+            {
+              "name": "addEdgeIfNotExists$default",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+              "codeSha256": "c4ccf1e28d6abf914095f0ef7ea35319e6a1648d6eb2e72ee59ecb8707601d19"
+            },
+            {
+              "name": "clearAutoTriangulation",
+              "descriptor": "()V",
+              "codeSha256": "d8f4061894a757050564b86bb5bf9baacc4cd94d8f261b975c566e899eefddb6"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "79f9c47220cbd073fb3edac10a268c33b583b8270b8d9955793bbfa857ed8e3c"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(II)V",
+              "codeSha256": "e5378f49e65545466700a6b7295661d6fd22fbc135158a028ff06d87a18043ad"
+            },
+            {
+              "name": "removeAllEdges",
+              "descriptor": "()V",
+              "codeSha256": "82530f3136839bd26739e4b308314197227849bbb7773e896c92e9f062fe8124"
+            },
+            {
+              "name": "setEdgeUpdated",
+              "descriptor": "()V",
+              "codeSha256": "fefd4833c32ff5d42f18b16f8054b5336c05df912e4f1628a299c029fec0918b"
+            },
+            {
+              "name": "autoConnect",
+              "descriptor": "(ZZLcom/live2d/util/j/a;)V",
+              "codeSha256": "0d32a87f73dc129bd003ca32d4dd6a1f7eb7da0c754b7ff67f81c79daf57bee4"
+            },
+            {
+              "name": "access$get_edges$p",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Lcom/live2d/type/CArrayList;",
+              "codeSha256": "ffb2b04e597ef6ea17e82fac0d3b8edf90ec590b452739237c56ed87596c42ff"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge": {
+          "classSha256": "1df5844a6055b785ea9877ab753e57220145f0bc221a5430f6025519616ddf7e",
+          "methods": [
+            {
+              "name": "getIndex1",
+              "descriptor": "()I",
+              "codeSha256": "c82aed037c5afb54cd1235f0acbd9e50ea5462301ecc01f1e215873f28b1fa33"
+            },
+            {
+              "name": "getIndex2",
+              "descriptor": "()I",
+              "codeSha256": "4c3ee618f94f6d0a299215efb4305a6d1d2298178196a7dfce14be8f959a5200"
+            },
+            {
+              "name": "getType",
+              "descriptor": "()Lcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;",
+              "codeSha256": "5d159aedaf5714f84326c9966981962b7474d34226b625adc14123ec9271eb51"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "()V",
+              "codeSha256": "180dbcd994b169774ae1adda78a8c3ae397df943d1436ccf69e6ab4cc4674f82"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)V",
+              "codeSha256": "560f3db4979644aaf20198efc7dbc427f7f42105349bbdb132fc80114881268b"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "dced77c773dc9b9d0c8129854e1e1b4e10f7522fe840ce9a28bb1e6adea313d1"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge$EdgeType": {
+          "classSha256": "227aaa250ad3038984b9e6d874f0b69c3029cdc7a7e52969eecf83cbbec8c3c2",
+          "methods": [
+            {
+              "name": "a",
+              "descriptor": "()B",
+              "codeSha256": "85d26770fd4a48de59f70964ff3f08e2243f6d9c897910136273f9d9fa1dbbc0"
+            },
+            {
+              "name": "<clinit>",
+              "descriptor": "()V",
+              "codeSha256": "42b254bb57908a8c70a7b98d265f07d4944e352ce95e4fa86543c11102abb0ac"
+            }
+          ]
+        },
+        "com/live2d/type/CArrayList": {
+          "classSha256": "c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051",
+          "methods": [
+            {
+              "name": "add",
+              "descriptor": "(ILjava/lang/Object;)V",
+              "codeSha256": "4db7d11b7da71dee842060eb85cfbcfe77f79e357d367c1781a74298cbb483a6"
+            },
+            {
+              "name": "add",
+              "descriptor": "(Ljava/lang/Object;)Z",
+              "codeSha256": "95572fed5f48140c927abfc5e310b01abefefceabbbd3337282e8d2a80d81812"
+            },
+            {
+              "name": "set",
+              "descriptor": "(ILjava/lang/Object;)Ljava/lang/Object;",
+              "codeSha256": "876d3219aa4e92e0f10a0f81b203099c85a184c5a3d867d67c73c5aa54e2cd2b"
+            },
+            {
+              "name": "removeIf",
+              "descriptor": "(Ljava/util/function/Predicate;)Z",
+              "codeSha256": "85dbc5cf63ce911f622f7e235819412fa59a3e84b6812ab73d8de16b8a2a810f"
+            },
+            {
+              "name": "get",
+              "descriptor": "(I)Ljava/lang/Object;",
+              "codeSha256": "b59bc557effd263f575701a6b39f0d88b9c8f300378f97b45d11253728163084"
+            },
+            {
+              "name": "size",
+              "descriptor": "()I",
+              "codeSha256": "c2196f53abf44e6c6d19c820ba34aa6a74e5e1a28276a079bb7a9a3024796120"
+            }
+          ]
+        }
+      }
+    },
+    "5303": {
+      "raw": "build/t079-native-mesh-edge-search-r1/5303-instructions-r2.json",
+      "rawSha256": "6ba619254464560e6a040cc38bfef9025e4b2ab815fd01eb1721341d5cdf6fe6",
+      "loop": {
+        "cachedIndicesReadOffset": 206,
+        "edgeInsertionOffsets": [
+          261,
+          287,
+          311
+        ],
+        "normalReturnOffset": 328,
+        "directCalls": [
+          {
+            "offset": 210,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/jvm/internal/Intrinsics",
+            "name": "checkNotNull",
+            "descriptor": "(Ljava/lang/Object;)V",
+            "bytes": "b8015f"
+          },
+          {
+            "offset": 229,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "kotlin/internal/ProgressionUtilKt",
+            "name": "getProgressionLastElement",
+            "descriptor": "(III)I",
+            "bytes": "b8015d"
+          },
+          {
+            "offset": 261,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          },
+          {
+            "offset": 287,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          },
+          {
+            "offset": 311,
+            "opcode": 184,
+            "operation": "invokestatic",
+            "owner": "com/live2d/graphics3d/editableMesh/GEditableMesh2",
+            "name": "addEdgeIfNotExists$default",
+            "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+            "bytes": "b800bf"
+          }
+        ],
+        "exceptionHandlers": [],
+        "status": "DIRECT_SUFFIX_SHAPE_PASS"
+      },
+      "classes": {
+        "com/live2d/graphics3d/editableMesh/GEditableMesh2": {
+          "classSha256": "d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a",
+          "methods": [
+            {
+              "name": "getEdges",
+              "descriptor": "()Ljava/util/List;",
+              "codeSha256": "609b3e289a93c01e8db6acada810851ba4099ef005197aa972df331ee533d349"
+            },
+            {
+              "name": "addEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZZ)Ljava/lang/Integer;",
+              "codeSha256": "fc1632ace5522e2d9a86808e21bfe9d98ca6fdf3c7c305a76cd6558e9909cf2c"
+            },
+            {
+              "name": "checkExitingTypedEdge",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)Ljava/lang/Integer;",
+              "codeSha256": "fb4d1cbb4031cb8db250b3e6ea7ece3fe6821142186ad00ad889a63211b4f692"
+            },
+            {
+              "name": "chechExistingEdge_exe",
+              "descriptor": "(IIZ)Ljava/lang/Integer;",
+              "codeSha256": "16304342b7cb5ea5387ff687cdc20bc280bd96276b6b7379fd82219bebafec0b"
+            },
+            {
+              "name": "addEdgeIfNotExists",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;Z)Ljava/lang/Integer;",
+              "codeSha256": "20ea6a8549224242cf7d786eb1ad0e743cefad4cc9f113587e787157c4dbe550"
+            },
+            {
+              "name": "addEdgeIfNotExists$default",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;ZILjava/lang/Object;)Ljava/lang/Integer;",
+              "codeSha256": "c4ccf1e28d6abf914095f0ef7ea35319e6a1648d6eb2e72ee59ecb8707601d19"
+            },
+            {
+              "name": "clearAutoTriangulation",
+              "descriptor": "()V",
+              "codeSha256": "d8f4061894a757050564b86bb5bf9baacc4cd94d8f261b975c566e899eefddb6"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "79f9c47220cbd073fb3edac10a268c33b583b8270b8d9955793bbfa857ed8e3c"
+            },
+            {
+              "name": "removeEdge",
+              "descriptor": "(II)V",
+              "codeSha256": "e5378f49e65545466700a6b7295661d6fd22fbc135158a028ff06d87a18043ad"
+            },
+            {
+              "name": "removeAllEdges",
+              "descriptor": "()V",
+              "codeSha256": "82530f3136839bd26739e4b308314197227849bbb7773e896c92e9f062fe8124"
+            },
+            {
+              "name": "setEdgeUpdated",
+              "descriptor": "()V",
+              "codeSha256": "fefd4833c32ff5d42f18b16f8054b5336c05df912e4f1628a299c029fec0918b"
+            },
+            {
+              "name": "autoConnect",
+              "descriptor": "(ZZLcom/live2d/util/j/a;)V",
+              "codeSha256": "0d32a87f73dc129bd003ca32d4dd6a1f7eb7da0c754b7ff67f81c79daf57bee4"
+            },
+            {
+              "name": "access$get_edges$p",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Lcom/live2d/type/CArrayList;",
+              "codeSha256": "ffb2b04e597ef6ea17e82fac0d3b8edf90ec590b452739237c56ed87596c42ff"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge": {
+          "classSha256": "1df5844a6055b785ea9877ab753e57220145f0bc221a5430f6025519616ddf7e",
+          "methods": [
+            {
+              "name": "getIndex1",
+              "descriptor": "()I",
+              "codeSha256": "c82aed037c5afb54cd1235f0acbd9e50ea5462301ecc01f1e215873f28b1fa33"
+            },
+            {
+              "name": "getIndex2",
+              "descriptor": "()I",
+              "codeSha256": "4c3ee618f94f6d0a299215efb4305a6d1d2298178196a7dfce14be8f959a5200"
+            },
+            {
+              "name": "getType",
+              "descriptor": "()Lcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;",
+              "codeSha256": "5d159aedaf5714f84326c9966981962b7474d34226b625adc14123ec9271eb51"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "()V",
+              "codeSha256": "180dbcd994b169774ae1adda78a8c3ae397df943d1436ccf69e6ab4cc4674f82"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(IILcom/live2d/graphics3d/editableMesh/MEdge$EdgeType;)V",
+              "codeSha256": "560f3db4979644aaf20198efc7dbc427f7f42105349bbdb132fc80114881268b"
+            },
+            {
+              "name": "<init>",
+              "descriptor": "(Lcom/live2d/graphics3d/editableMesh/MEdge;)V",
+              "codeSha256": "dced77c773dc9b9d0c8129854e1e1b4e10f7522fe840ce9a28bb1e6adea313d1"
+            }
+          ]
+        },
+        "com/live2d/graphics3d/editableMesh/MEdge$EdgeType": {
+          "classSha256": "227aaa250ad3038984b9e6d874f0b69c3029cdc7a7e52969eecf83cbbec8c3c2",
+          "methods": [
+            {
+              "name": "a",
+              "descriptor": "()B",
+              "codeSha256": "85d26770fd4a48de59f70964ff3f08e2243f6d9c897910136273f9d9fa1dbbc0"
+            },
+            {
+              "name": "<clinit>",
+              "descriptor": "()V",
+              "codeSha256": "42b254bb57908a8c70a7b98d265f07d4944e352ce95e4fa86543c11102abb0ac"
+            }
+          ]
+        },
+        "com/live2d/type/CArrayList": {
+          "classSha256": "c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051",
+          "methods": [
+            {
+              "name": "add",
+              "descriptor": "(ILjava/lang/Object;)V",
+              "codeSha256": "4db7d11b7da71dee842060eb85cfbcfe77f79e357d367c1781a74298cbb483a6"
+            },
+            {
+              "name": "add",
+              "descriptor": "(Ljava/lang/Object;)Z",
+              "codeSha256": "95572fed5f48140c927abfc5e310b01abefefceabbbd3337282e8d2a80d81812"
+            },
+            {
+              "name": "set",
+              "descriptor": "(ILjava/lang/Object;)Ljava/lang/Object;",
+              "codeSha256": "876d3219aa4e92e0f10a0f81b203099c85a184c5a3d867d67c73c5aa54e2cd2b"
+            },
+            {
+              "name": "removeIf",
+              "descriptor": "(Ljava/util/function/Predicate;)Z",
+              "codeSha256": "85dbc5cf63ce911f622f7e235819412fa59a3e84b6812ab73d8de16b8a2a810f"
+            },
+            {
+              "name": "get",
+              "descriptor": "(I)Ljava/lang/Object;",
+              "codeSha256": "b59bc557effd263f575701a6b39f0d88b9c8f300378f97b45d11253728163084"
+            },
+            {
+              "name": "size",
+              "descriptor": "()I",
+              "codeSha256": "c2196f53abf44e6c6d19c820ba34aa6a74e5e1a28276a079bb7a9a3024796120"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "tests": {
+    "testMethods": 2,
+    "rejectedMutationCases": 10,
+    "status": "PASS"
+  },
+  "archiveIdentityRevalidated": false,
+  "limitations": [
+    "Selected class digests are recorded; full archive identity has not been revalidated.",
+    "No transitive call closure, loader identity, concurrent mutation safety, transformed method equivalence or performance gain is proven."
+  ]
+}
