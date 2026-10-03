@@ -132,7 +132,8 @@ public final class PluginServices {
         /**
          * Resolves unregistered types through {@code delegate}. Registered types always
          * win, so a registration resolving to {@code null} reports absent rather than
-         * delegating. {@link #installed()} reports the union.
+         * delegating. {@link PluginServiceDirectory#installed()} on the built directory
+         * reports the union.
          *
          * @param delegate the directory queried for unregistered types, never {@code null}
          * @return this builder
