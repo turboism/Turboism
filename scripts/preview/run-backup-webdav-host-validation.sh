@@ -8,9 +8,9 @@
 # chain runs against real host primitives; the mock records every request
 # (method/path/Content-Length/body bytes/SHA-256) into the plugin state dir,
 # which the runner archives under evidence/state. The save deliberately
-# rewrites the copied fixture, so this variant must not pass
-# --require-fixture-unchanged (the immutable source fixture hash is still
-# verified by the Runner).
+# rewrites the copied fixture; the exerciser restores the original fixture
+# bytes afterwards, so the runner below still passes
+# --require-fixture-unchanged to verify the immutable source fixture hash.
 set -euo pipefail
 
 # Machine-specific fixture paths come from the ignored repository `.env`.

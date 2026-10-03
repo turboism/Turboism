@@ -4,6 +4,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.management.BufferPoolMXBean;
+import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,11 +18,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
- * Controlled heap measurement for the upload body publisher, run manually —
- * never during the test suite. Compares the JDK {@code ofInputStream} baseline
- * against {@link BoundedInputStreamBodyPublisher} on a large upload to a
- * loopback {@link HttpServer}, reporting the peak managed-heap delta of a
- * sampler thread, mirroring the real-host BACKUP_HEAP_OBSERVATION phase.
+ * Controlled heap/direct-memory measurement for the upload body publisher,
+ * run manually — never during the test suite. Compares the JDK
+ * {@code ofInputStream} baseline against {@link BoundedInputStreamBodyPublisher}
+ * on a large upload to a loopback {@link HttpServer}, reporting the peak
+ * managed-heap delta of a sampler thread plus the {@code direct}
+ * {@link BufferPoolMXBean} usage, mirroring the real-host
+ * BACKUP_HEAP_OBSERVATION phase.
  *
  * <pre>
  *   ./gradlew :plugins:webdav-backup:testClasses
@@ -80,12 +84,15 @@ public final class UploadHeapMeasurement {
             throws IOException, InterruptedException {
         settleHeap();
         final long baseline = heapUsed();
+        final long directBaseline = directUsed();
         final AtomicLong peak = new AtomicLong(baseline);
+        final AtomicLong directPeak = new AtomicLong(directBaseline);
         final AtomicBoolean sampling = new AtomicBoolean(true);
         final Thread sampler = new Thread(
                 () -> {
                     while (sampling.get()) {
                         peak.accumulateAndGet(heapUsed(), Math::max);
+                        directPeak.accumulateAndGet(directUsed(), Math::max);
                         try {
                             Thread.sleep(5L);
                         } catch (InterruptedException interrupted) {
@@ -110,9 +117,11 @@ public final class UploadHeapMeasurement {
         }
         settleHeap();
         final long postGc = heapUsed();
+        final long postGcDirect = directUsed();
         System.out.println("RESULT impl=" + label + " status=" + status + " bytes=" + bytes + " baselineHeap="
                 + baseline + " peakHeap=" + peak.get() + " peakDelta=" + (peak.get() - baseline) + " postGcHeap="
-                + postGc);
+                + postGc + " directBaseline=" + directBaseline + " directPeak=" + directPeak.get()
+                + " directPeakDelta=" + (directPeak.get() - directBaseline) + " postGcDirect=" + postGcDirect);
     }
 
     private static InputStream openUnchecked(final Path file) {
@@ -141,6 +150,16 @@ public final class UploadHeapMeasurement {
     private static long heapUsed() {
         final Runtime runtime = Runtime.getRuntime();
         return runtime.totalMemory() - runtime.freeMemory();
+    }
+
+    /** Bytes held by all direct {@link java.nio.ByteBuffer}s, JVM-wide. */
+    private static long directUsed() {
+        for (final BufferPoolMXBean pool : ManagementFactory.getPlatformMXBeans(BufferPoolMXBean.class)) {
+            if ("direct".equals(pool.getName())) {
+                return pool.getMemoryUsed();
+            }
+        }
+        return 0L;
     }
 
     private static void settleHeap() throws InterruptedException {

@@ -81,6 +81,27 @@ final class RuntimeScreenshotCaptureServiceTest {
     }
 
     @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                new ScreenshotCaptureAdapter() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<ScreenshotCaptureResult> capture(
+                            final ScreenshotCaptureRequest request) {
+                        return CompletableFuture.failedStage(new UnsupportedOperationException("no host"));
+                    }
+
+                    @Override
+                    public boolean available() {
+                        // Mirrors DynamicRuntimeHostAdapters.call: an outermost
+                        // adapter call may run session teardown on this thread.
+                        throw new IllegalStateException("host session teardown on the calling thread");
+                    }
+                },
+                PermissionChecker.allowAll());
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
+    @Test
     void checksViewportReadPermissionBeforeCallingAdapter() {
         final int[] calls = {0};
         final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
