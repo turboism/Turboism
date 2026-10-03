@@ -1,0 +1,9 @@
+# T106 最终点复用候选受控ABBA
+
+5303四腿固定顺序baseline1/candidate1/candidate2/baseline2，各一次FIFO，无重试、替换或提前根据性能择优停止。基线为已接受T057（17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295），候选为通过T105最终包预检的T104（678bb3fd4d9810ea7ec3171ebd2db4107a70648741836ce356da57c7ac2e5b80）。候选包含既有native mesh与新增point复用组件，测试的是整个候选相对交付工件的净变化。
+
+所有腿用相同T096非JFR受控画布插件e03edb6d6d54fd3aa5869a7204cf19694ed4bc2a6d95b69553a9f45e82ae4b8a、heavy模型、启动配置、三轮711来源、kernel只读观察及GC日志选项。禁止attach、无JFR、无额外agent、无强制GC/JVM调参。准备输入除工件字节/本腿路径/标签外一致；按FIFO等待用户窗口正常关闭，不操作其他窗口。
+
+每腿先保存全部原始终态证据，再审核身份/模型/config/渲染startup/部署SHA/正常退出/kernel清理、2133有序完整受控输出零差异、六输入快照与CPU单位。候选须实际point PATCHED及OWNED_FINAL_DEFINITION_MATCH准入。任何腿有效性失败立即停止，保留记录，不替换。历史未受控参考378差异单独保留FAIL，不阻断已声明的受控比较，也不追认历史通过。
+
+两对配对为baseline1/candidate1与baseline2/candidate2。每对CPU回退≤0%、wall严格改善、peak RSS增长≤20%；每候选自身基线peak增长≤80MiB、retained3−1≤64MiB；原门槛不放宽。性能失败须保留四个有效腿后统一计算；不能用总均值覆盖任何失败配对。有效性已失败则不继续宿主执行。两对反序比较不构成统计显著性。即使全部通过，也只完成5303本协议，多版本/长期/LaneC与人工审核仍待完成，T057交付不变。T088/T089/T097历史失败、T100旧门槛UNPROVEN保持。
