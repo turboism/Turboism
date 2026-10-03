@@ -35,7 +35,6 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -647,7 +646,6 @@ public final class CorePluginContext implements PluginContext {
         serviceDirectory.install(PluginService.SCRIPTS, () -> scriptService, ScriptService::unavailable);
         serviceDirectory.install(
                 PluginService.USER_FILES, () -> userFileAccessService, UserFileAccessService::unavailable);
-        serviceDirectory.installWhenPresent(PluginService.PARAMETER_QUERY, cubismServices::parameterQueryService);
         serviceDirectory.installWhenPresent(PluginService.SELECTION_QUERY, cubismServices::selectionQueryService);
         serviceDirectory.installWhenPresent(
                 PluginService.MODEL_HIERARCHY_QUERY, cubismServices::modelHierarchyQueryService);
@@ -853,11 +851,6 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public CubismFacade cubism() {
         return cubismServices.cubismFacade();
-    }
-
-    @Override
-    public ParameterQueryService parameterQuery() {
-        return cubismServices.parameterQueryService();
     }
 
     @Override

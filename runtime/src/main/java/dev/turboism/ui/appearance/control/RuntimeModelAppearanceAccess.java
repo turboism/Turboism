@@ -689,6 +689,32 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             requireScope(scope);
             return Optional.of(entry(scope, PaletteAppearanceCoordinator.Palette.PARAMETER, objectId));
         }
+
+        @Override
+        public Optional<Boolean> visible() {
+            readPermission("model.parameter.visible.read");
+            requireScope(scope);
+            return hostParameter().map(HostSnapshotSource.HostParameter::visible);
+        }
+
+        @Override
+        public Optional<Boolean> editable() {
+            readPermission("model.parameter.editable.read");
+            requireScope(scope);
+            return hostParameter().map(HostSnapshotSource.HostParameter::editable);
+        }
+
+        /**
+         * Reads the parameter's palette state from the same observed model the retiring query plane
+         * consumed: the host observation's parameter list, keyed by this facade's parameter id.
+         */
+        private Optional<HostSnapshotSource.HostParameter> hostParameter() {
+            return source.observe()
+                    .model()
+                    .flatMap(model -> model.parameters().stream()
+                            .filter(parameter -> parameter.id().equals(objectId))
+                            .findFirst());
+        }
     }
 
     private final class ParameterGroupFacade implements ParameterGroupAppearance {
