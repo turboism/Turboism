@@ -86,26 +86,22 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         if (artifact.sizeBytes() <= 0) {
             throw new IllegalStateException("backup artifact is empty: " + artifact.fileName());
         }
-        final byte[] body = readAll(artifact);
-        if (body.length == 0) {
-            throw new IllegalStateException("backup artifact is empty: " + artifact.fileName());
-        }
         final String collection = config.remotePath();
         ensureCollection(collection);
-        putWithRetry(body, artifact.fileName(), targetUri(collection, artifact.fileName()));
+        putWithRetry(artifact, targetUri(collection, artifact.fileName()));
     }
 
     /**
-     * Reads the whole artifact through the runtime-issued handle. The bytes are
-     * materialized once so every retry PUT carries an exact, stable
-     * Content-Length — a streaming body could observe a mutated artifact on a
-     * retried send.
+     * Opens a fresh read stream for one upload attempt. {@code ofInputStream}
+     * suppliers cannot throw checked exceptions, so an {@link IOException} is
+     * wrapped; the request fails (and enters the normal retry path) instead of
+     * silently uploading nothing.
      */
-    private static byte[] readAll(final BackupArtifactHandle artifact) {
-        try (InputStream input = artifact.openStream()) {
-            return input.readAllBytes();
-        } catch (IOException | RuntimeException failure) {
-            throw new IllegalStateException("backup artifact is unreadable: " + artifact.fileName(), failure);
+    private static InputStream openStreamUnchecked(final BackupArtifactHandle artifact) {
+        try {
+            return artifact.openStream();
+        } catch (IOException failure) {
+            throw new java.io.UncheckedIOException("backup artifact is unreadable: " + artifact.fileName(), failure);
         }
     }
 
@@ -145,19 +141,31 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         }
     }
 
-    private void putWithRetry(final byte[] body, final String fileName, final URI target) {
+    private void putWithRetry(final BackupArtifactHandle artifact, final URI target) {
+        final String fileName = artifact.fileName();
         final int maxAttempts = 1 + config.retryMax();
         IOException lastNetwork = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
+                // Stream the artifact: a fixed Content-Length keeps the request
+                // honest while the supplier reopens the artifact on every
+                // attempt, so a mid-upload mutation or a stale stream fails the
+                // send instead of corrupting it — and large artifacts never
+                // occupy the heap.
                 final HttpResponse<Void> response = client.send(
-                        request("PUT", target, HttpRequest.BodyPublishers.ofByteArray(body))
+                        request(
+                                        "PUT",
+                                        target,
+                                        HttpRequest.BodyPublishers.fromPublisher(
+                                                HttpRequest.BodyPublishers.ofInputStream(
+                                                        () -> openStreamUnchecked(artifact)),
+                                                artifact.sizeBytes()))
                                 .header("Content-Type", "application/octet-stream")
                                 .build(),
                         HttpResponse.BodyHandlers.discarding());
                 if (response.statusCode() == 200 || response.statusCode() == 201) {
-                    diagnostics.accept("webdav:put-ok file=" + fileName + " remote=" + target + " bytes=" + body.length
-                            + " attempts=" + attempt);
+                    diagnostics.accept("webdav:put-ok file=" + fileName + " remote=" + target + " bytes="
+                            + artifact.sizeBytes() + " attempts=" + attempt);
                     return;
                 }
                 rejectRedirect("PUT", response);
@@ -166,6 +174,10 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
                             "webdav put failed: " + response.statusCode() + " file=" + fileName);
                 }
                 lastNetwork = new IOException("webdav put status " + response.statusCode());
+            } catch (java.io.UncheckedIOException failure) {
+                // An artifact that fails to open mid-upload surfaces here: fold
+                // it into the same retry/failure path as a network error.
+                lastNetwork = new IOException(failure.getMessage(), failure);
             } catch (IOException failure) {
                 lastNetwork = failure;
             } catch (InterruptedException interrupted) {
