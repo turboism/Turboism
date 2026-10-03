@@ -1,6 +1,7 @@
 """Nightly policy tests: changed sources, shared identity and fail-closed publishing."""
 import copy
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -177,11 +178,20 @@ class NightlyWorkflowTest(unittest.TestCase):
     def test_sdk_keeps_its_reviewed_bytes_while_product_jars_get_identity(self):
         text = (ROOT / 'gradle/common-java.gradle.kts').read_text()
         self.assertIn('project.path != ":sdk" && turboismBuildNumber.isNotEmpty()', text)
-        # This gate must still enforce exact artifact hashes, not just API shape.
+        # This gate must still enforce exact artifact hashes, not just API shape. The
+        # live check is generated for the newest anchor-table row, so this test derives
+        # the version instead of naming it.
         verifier = (ROOT / 'gradle/sdk-api.gradle.kts').read_text()
-        gate = verifier.split('val checkSdkV13ExactApiCompatibility', 1)[1].split('val checkSdkV8Linkage', 1)[0]
-        self.assertIn('"verify-exact"', gate)
-        self.assertIn('"--input", sdkJarArtifact', gate)
+        anchors = [int(v) for v in re.findall(r'SdkBaselineAnchor\((\d+)', verifier)]
+        self.assertTrue(anchors)
+        self.assertEqual(len(set(anchors)), len(anchors))
+        baselines = {int(p.name.split('-v')[1].split('-')[0])
+                     for p in (ROOT / 'sdk/api-contracts/baselines').glob('sdk-api-v*-exact.json')}
+        self.assertEqual(set(anchors), baselines)
+        self.assertIn('sdkBaselineAnchors.maxBy', verifier)
+        self.assertIn('checkSdkV${', verifier)
+        self.assertIn('"verify-exact"', verifier)
+        self.assertIn('if (live) sdkJarArtifact', verifier)
 
     def test_nightly_publishing_does_not_replace_stable_or_call_legacy(self):
         text=(ROOT/'scripts/release/turboism_release/prerelease.py').read_text()
