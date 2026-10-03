@@ -61,6 +61,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--complete', action='store_true')
+    parser.add_argument('--primitive', action='store_true')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -71,6 +72,8 @@ def main():
             raise RuntimeError('shared performance work pending')
         source = Path(__file__).resolve().parent
         sources = [source / (name + '.java') for name in ('NativeMeshEdgeLoopPrototype', 'NativeMeshEdgeLoopSelfCheck')]
+        sources.extend([source / 'NativeMeshEdgeTableOwnedAccess.java',
+                        Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/NativeMeshEdgeTable.java').resolve()])
         if args.complete:
             sources.append(source / 'NativeMeshAutoConnectSelfCheck.java')
         jars = []
@@ -96,12 +99,16 @@ def main():
                  '-d', str(classes), *map(str, sources)], out / 'compile.log', env)
         main_class = 'NativeMeshAutoConnectSelfCheck' if args.complete else 'NativeMeshEdgeLoopSelfCheck'
         marker = 'NATIVE_MESH_AUTOCONNECT_' if args.complete else 'NATIVE_MESH_EDGE_LOOP_'
-        guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism', '-cp',
+        options = ['-Dturboism.validation.meshPrimitiveTable=true'] if args.primitive else []
+        guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism', *options, '-cp',
                  os.pathsep.join(map(str, [classes, asm, tree])), main_class, *map(str, jars)],
                 out / 'execution.log', env)
         console = (out / 'execution.log').read_text()
         if console.count(marker + 'PASS ') != 6 or marker + 'FINISHED ' not in console:
             raise ValueError('missing complete three-version assertion controls')
+        if args.primitive and marker + 'PRIMITIVE reservedBytes=0 productionStorage=ACTUAL' not in console:
+            raise ValueError('actual primitive storage/released reservation controls missing')
+        report['primitiveStorage'] = args.primitive
         report['status'] = 'PASS'
         report['results'] = [line for line in console.splitlines() if line.startswith(marker)]
     except Exception as failure:
