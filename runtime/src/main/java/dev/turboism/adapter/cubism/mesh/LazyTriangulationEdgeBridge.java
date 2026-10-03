@@ -13,9 +13,9 @@ import java.util.function.Function;
  */
 public final class LazyTriangulationEdgeBridge {
     private static final String HOST = "com.live2d.graphics3d.editableMesh.triangulation.h";
+    private static final String MESH = "com.live2d.graphics3d.editableMesh.GEditableMesh2";
     private static final ReferenceQueue<ClassLoader> RELEASED = new ReferenceQueue<>();
-    private static final Map<LoaderKey, Function<Class<?>, TriangulationDefinitionLifecycle.Gate>> PLANS =
-            new HashMap<>();
+    private static final Map<LoaderKey, Function<Class<?>, Admission>> PLANS = new HashMap<>();
     // Only publish an empty holder here. Performing capture in computeValue could
     // create competing gates: ClassValue may compute several candidates and keep one.
     private static final ClassValue<Holder> GATES = new ClassValue<>() {
@@ -26,6 +26,9 @@ public final class LazyTriangulationEdgeBridge {
     };
 
     private LazyTriangulationEdgeBridge() {}
+
+    /** One capture result; mesh permission belongs to that exact captured dependency set. */
+    record Admission(TriangulationDefinitionLifecycle.Gate gate, boolean meshIncluded) {}
 
     private static final class LoaderKey extends WeakReference<ClassLoader> {
         private final int hash;
@@ -57,6 +60,13 @@ public final class LazyTriangulationEdgeBridge {
     // Factory values must contain immutable fingerprints/origins and the Agent
     // lifecycle only. Never close over an application Class or its loader.
     static boolean register(ClassLoader loader, Function<Class<?>, TriangulationDefinitionLifecycle.Gate> factory) {
+        if (factory == null) return false;
+        return registerShared(loader, owner -> new Admission(factory.apply(owner), false));
+    }
+
+    // The factory may return the original non-mesh admission when extended preparation declines.
+    // Only an extended capture may set meshIncluded; a loader-wide Boolean is insufficient.
+    static boolean registerShared(ClassLoader loader, Function<Class<?>, Admission> factory) {
         if (loader == null || factory == null) return false;
         synchronized (PLANS) {
             drain();
@@ -67,7 +77,7 @@ public final class LazyTriangulationEdgeBridge {
         }
     }
 
-    private static Function<Class<?>, TriangulationDefinitionLifecycle.Gate> plan(ClassLoader loader) {
+    private static Function<Class<?>, Admission> plan(ClassLoader loader) {
         synchronized (PLANS) {
             drain();
             return PLANS.get(new LoaderKey(loader, null));
@@ -76,21 +86,20 @@ public final class LazyTriangulationEdgeBridge {
 
     private static final class Holder {
         private volatile boolean attempted;
-        private TriangulationDefinitionLifecycle.Gate gate;
+        private Admission admission;
 
-        TriangulationDefinitionLifecycle.Gate gate(Class<?> owner) {
+        Admission admission(Class<?> owner) {
             if (!attempted)
                 synchronized (this) {
                     if (!attempted)
                         try {
-                            Function<Class<?>, TriangulationDefinitionLifecycle.Gate> factory =
-                                    plan(owner.getClassLoader());
-                            if (factory != null) gate = factory.apply(owner);
+                            Function<Class<?>, Admission> factory = plan(owner.getClassLoader());
+                            if (factory != null) admission = factory.apply(owner);
                         } finally {
                             attempted = true;
                         }
                 }
-            return gate;
+            return admission;
         }
     }
 
@@ -99,8 +108,12 @@ public final class LazyTriangulationEdgeBridge {
         if (owner == null || !HOST.equals(owner.getName()) || TriangulationDefinitionLifecycle.inTransformerCallback())
             return null;
         try {
-            TriangulationDefinitionLifecycle.Gate gate = GATES.get(owner).gate(owner);
-            return gate == null ? null : gate.acquire();
+            Admission admission = GATES.get(owner).admission(owner);
+            return admission == null
+                            || admission.gate() == null
+                            || !admission.gate().covers(owner)
+                    ? null
+                    : admission.gate().acquire();
         } catch (RuntimeException | LinkageError unavailable) {
             return null;
         }
@@ -118,6 +131,34 @@ public final class LazyTriangulationEdgeBridge {
                 || TriangulationDefinitionLifecycle.inTransformerCallback()) return null;
         try {
             return enter(Class.forName(HOST, false, owner.getClassLoader()));
+        } catch (ClassNotFoundException | RuntimeException | LinkageError unavailable) {
+            return null;
+        }
+    }
+
+    /**
+     * Acquire the same captured gate for the native mesh suffix. The factory must have
+     * included the woven mesh and its dependencies; legacy plans always preserve native
+     * mesh lookup. Parent delegation cannot substitute another loader's captured owner.
+     */
+    public static AutoCloseable enterMesh(Class<?> owner) {
+        if (owner == null
+                || !MESH.equals(owner.getName())
+                || owner.getClassLoader() == null
+                || owner.getModule().isNamed()
+                || TriangulationDefinitionLifecycle.inTransformerCallback()) return null;
+        try {
+            ClassLoader loader = owner.getClassLoader();
+            Class<?> host = Class.forName(HOST, false, loader);
+            if (host.getClassLoader() != loader || Class.forName(MESH, false, loader) != owner) return null;
+            Admission admission = GATES.get(host).admission(host);
+            return admission == null
+                            || !admission.meshIncluded()
+                            || admission.gate() == null
+                            || !admission.gate().covers(host)
+                            || !admission.gate().covers(owner)
+                    ? null
+                    : admission.gate().acquire();
         } catch (ClassNotFoundException | RuntimeException | LinkageError unavailable) {
             return null;
         }

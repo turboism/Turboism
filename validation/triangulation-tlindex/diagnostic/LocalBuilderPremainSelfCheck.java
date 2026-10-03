@@ -4,25 +4,25 @@ import dev.turboism.bootstrap.TurboismAgent;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.agent.shaded.asm.*;
 import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
 import java.security.ProtectionDomain;
-import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Offline genuine single-premain gates; no Editor or official class initialization. */
 public final class LocalBuilderPremainSelfCheck {
     private static final String P = "com.live2d.graphics3d.editableMesh.triangulation.";
     private LocalBuilderPremainSelfCheck() {}
     private static TriangulationDefinitionLifecycle lifecycle() throws Exception {
-        var field = LazyTriangulationEdgeBridge.class.getDeclaredField("PLANS");
-        field.setAccessible(true);
-        Object factory = ((Map<?, ?>) field.get(null)).values().iterator().next();
-        for (var captured : factory.getClass().getDeclaredFields()) {
-            captured.setAccessible(true);
-            Object plan = captured.get(factory);
-            if (plan != null && plan.getClass().isRecord()) {
-                var owner = plan.getClass().getDeclaredField("lifecycle");
-                owner.setAccessible(true);
-                return (TriangulationDefinitionLifecycle) owner.get(plan);
-            }
+        Class<?> shims = Class.forName("dev.turboism.bootstrap.JvmShims");
+        for (String name : new String[] {"STARTUP_SUPPRESSION", "PIPE_IMPL_SHIM"}) {
+            var holder = shims.getDeclaredField(name); holder.setAccessible(true);
+            Object installation = ((AtomicReference<?>) holder.get(null)).get();
+            if (installation == null) continue;
+            var field = installation.getClass().getDeclaredField("instrumentation"); field.setAccessible(true);
+            Instrumentation gateway = (Instrumentation) field.get(installation);
+            if (gateway == null) continue;
+            TriangulationDefinitionLifecycle owner = TriangulationDefinitionLifecycle.ownedBy(gateway);
+            if (owner != null) return owner;
         }
         throw new AssertionError("owned preparation absent");
     }
