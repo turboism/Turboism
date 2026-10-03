@@ -147,7 +147,7 @@ public final class NativeMeshEdgeLookup {
             int size = list.size();
             if (size > NativeMeshEdgeTable.MAX_ENTRIES) return null;
             int limit = (int) Math.min(NativeMeshEdgeTable.MAX_ENTRIES, (long) size + indices.length);
-            table = NativeMeshEdgeTable.reserve(limit);
+            table = NativeMeshEdgeTable.reserve(limit, size);
             if (table == null) return null;
             Scope scope = new Scope(mesh, list, access, definition, table);
             for (int i = 0; i < size; i++) {
