@@ -1,0 +1,2248 @@
+{
+  "task": "T073",
+  "status": "FROZEN_HEAP_GC_ALLOCATION_AUDIT_COMPLETE",
+  "productionDecision": "RETAIN_T057_T072_WITHDRAWAL_UNCHANGED",
+  "heapGc": {
+    "baseline1": {
+      "status": "DIAGNOSTIC_ONLY_NOT_ACCEPTANCE",
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "startEpochMillis": 1790987250983,
+          "endEpochMillis": 1790987280985,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987228283.216,
+            "gcId": 52,
+            "when": "After GC",
+            "usedBytes": 1065769800,
+            "committedBytes": 5536481280,
+            "ageMillis": 22699.783935546875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987284776.001,
+            "gcId": 53,
+            "when": "Before GC",
+            "usedBytes": 4421213000,
+            "committedBytes": 5536481280,
+            "delayMillis": 3791.0009765625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 1,
+          "startEpochMillis": 1790987282966,
+          "endEpochMillis": 1790987297194,
+          "heapObservations": [
+            {
+              "epochMillis": 1790987284776.001,
+              "gcId": 53,
+              "when": "Before GC",
+              "usedBytes": 4421213000,
+              "committedBytes": 5536481280
+            },
+            {
+              "epochMillis": 1790987284860.946,
+              "gcId": 53,
+              "when": "After GC",
+              "usedBytes": 1344409008,
+              "committedBytes": 5536481280
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987228283.216,
+            "gcId": 52,
+            "when": "After GC",
+            "usedBytes": 1065769800,
+            "committedBytes": 5536481280,
+            "ageMillis": 54682.783935546875
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 53,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987284775.9841,
+              "durationSeconds": 0.08496878,
+              "overlapSeconds": 0.08496875,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 53,
+              "overlapSeconds": 0.08496875
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.08496875
+        },
+        {
+          "phase": "post-return",
+          "cycle": 1,
+          "startEpochMillis": 1790987297194,
+          "endEpochMillis": 1790987299396,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 12333.053955078125
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "startEpochMillis": 1790987299396,
+          "endEpochMillis": 1790987329398,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 14535.053955078125
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 2,
+          "startEpochMillis": 1790987331122,
+          "endEpochMillis": 1790987343668,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 46261.053955078125
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "post-return",
+          "cycle": 2,
+          "startEpochMillis": 1790987343668,
+          "endEpochMillis": 1790987345553,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 58807.053955078125
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "startEpochMillis": 1790987345553,
+          "endEpochMillis": 1790987375555,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 60692.053955078125
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 3,
+          "startEpochMillis": 1790987377272,
+          "endEpochMillis": 1790987390967,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 92411.05395507812
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "post-return",
+          "cycle": 3,
+          "startEpochMillis": 1790987390967,
+          "endEpochMillis": 1790987392887,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 106106.05395507812
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "startEpochMillis": 1790987392887,
+          "endEpochMillis": 1790987422889,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987284860.946,
+            "gcId": 53,
+            "when": "After GC",
+            "usedBytes": 1344409008,
+            "committedBytes": 5536481280,
+            "ageMillis": 108026.05395507812
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        }
+      ],
+      "limitations": [
+        "Heap summaries are sparse observations, not boundary snapshots.",
+        "Used heap is not live retained heap; committed heap is not RSS.",
+        "GC elapsed duration and pause overlap are not CPU measurements.",
+        "Temporal association does not establish a Java/native/GC memory cause."
+      ],
+      "pins": {
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/native-evidence/resource-windows.tsv": "46958482394ba35c794d3b429563b4796addf5423e69d2f2dd372d27e29ad37c",
+        "build/t073-memory-window-audit-r1/baseline1-heap-gc-events.json": "e7b3f485f13bf2ddb29fe0b8d5d62c72dae8a7c69e36f38dc5880ea0e1a4142b",
+        "validation/triangulation-tlindex/diagnostic/analyze-memory-window-gc.py": "15f1bc95159be78798f21c10f3aafd966b75106bfea7ad10a7220be90463c59e",
+        "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+        "validation/triangulation-tlindex/diagnostic/analyze-command-allocation-gc.py": "a1f64ff4e85e178fb4471adc12f1565000b363de383736a22df08d34717bdb66",
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/native-evidence/atlas-profiling.jfr": "fcb47ce84c59c6fd5b5cd71e27c373bfa208aa96d8958cb2c16e11cb1036c09d"
+      }
+    },
+    "candidate1": {
+      "status": "DIAGNOSTIC_ONLY_NOT_ACCEPTANCE",
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "startEpochMillis": 1790987637846,
+          "endEpochMillis": 1790987667847,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987631695.7842,
+            "gcId": 56,
+            "when": "After GC",
+            "usedBytes": 1131373648,
+            "committedBytes": 2181038080,
+            "ageMillis": 6150.2158203125
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987669831.451,
+            "gcId": 57,
+            "when": "Before GC",
+            "usedBytes": 1559192656,
+            "committedBytes": 2181038080,
+            "delayMillis": 1984.450927734375
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 1,
+          "startEpochMillis": 1790987669576,
+          "endEpochMillis": 1790987683178,
+          "heapObservations": [
+            {
+              "epochMillis": 1790987669831.451,
+              "gcId": 57,
+              "when": "Before GC",
+              "usedBytes": 1559192656,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987669854.83,
+              "gcId": 57,
+              "when": "After GC",
+              "usedBytes": 1112229480,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987670445.636,
+              "gcId": 58,
+              "when": "Before GC",
+              "usedBytes": 1170949736,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987670476.84,
+              "gcId": 58,
+              "when": "After GC",
+              "usedBytes": 1116818528,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987680353.73,
+              "gcId": 59,
+              "when": "Before GC",
+              "usedBytes": 1762741344,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987680378.225,
+              "gcId": 59,
+              "when": "After GC",
+              "usedBytes": 1153180960,
+              "committedBytes": 2181038080
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987631695.7842,
+            "gcId": 56,
+            "when": "After GC",
+            "usedBytes": 1131373648,
+            "committedBytes": 2181038080,
+            "ageMillis": 37880.2158203125
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987723516.758,
+            "gcId": 60,
+            "when": "Before GC",
+            "usedBytes": 1773937952,
+            "committedBytes": 2181038080,
+            "delayMillis": 40338.758056640625
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 57,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987669831.434,
+              "durationSeconds": 0.023399842,
+              "overlapSeconds": 0.02339990234375,
+              "startsInside": true
+            },
+            {
+              "gcId": 58,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987670445.62,
+              "durationSeconds": 0.031225623,
+              "overlapSeconds": 0.0312255859375,
+              "startsInside": true
+            },
+            {
+              "gcId": 59,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987680353.7158,
+              "durationSeconds": 0.024513343,
+              "overlapSeconds": 0.024513427734375,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 57,
+              "overlapSeconds": 0.02339990234375
+            },
+            {
+              "gcId": 58,
+              "overlapSeconds": 0.0312255859375
+            },
+            {
+              "gcId": 59,
+              "overlapSeconds": 0.024513427734375
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.079138916015625
+        },
+        {
+          "phase": "post-return",
+          "cycle": 1,
+          "startEpochMillis": 1790987683178,
+          "endEpochMillis": 1790987685067,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987680378.225,
+            "gcId": 59,
+            "when": "After GC",
+            "usedBytes": 1153180960,
+            "committedBytes": 2181038080,
+            "ageMillis": 2799.77490234375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987723516.758,
+            "gcId": 60,
+            "when": "Before GC",
+            "usedBytes": 1773937952,
+            "committedBytes": 2181038080,
+            "delayMillis": 38449.758056640625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "startEpochMillis": 1790987685067,
+          "endEpochMillis": 1790987715069,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987680378.225,
+            "gcId": 59,
+            "when": "After GC",
+            "usedBytes": 1153180960,
+            "committedBytes": 2181038080,
+            "ageMillis": 4688.77490234375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987723516.758,
+            "gcId": 60,
+            "when": "Before GC",
+            "usedBytes": 1773937952,
+            "committedBytes": 2181038080,
+            "delayMillis": 8447.758056640625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 2,
+          "startEpochMillis": 1790987716791,
+          "endEpochMillis": 1790987728408,
+          "heapObservations": [
+            {
+              "epochMillis": 1790987723516.758,
+              "gcId": 60,
+              "when": "Before GC",
+              "usedBytes": 1773937952,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987723553.812,
+              "gcId": 60,
+              "when": "After GC",
+              "usedBytes": 1189378240,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987723553.843,
+              "gcId": 61,
+              "when": "Before GC",
+              "usedBytes": 1189378240,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987724121.061,
+              "gcId": 61,
+              "when": "After GC",
+              "usedBytes": 1248098496,
+              "committedBytes": 2181038080
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987680378.225,
+            "gcId": 59,
+            "when": "After GC",
+            "usedBytes": 1153180960,
+            "committedBytes": 2181038080,
+            "ageMillis": 36412.77490234375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987761792.797,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1759803584,
+            "committedBytes": 2181038080,
+            "delayMillis": 33384.797119140625
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 60,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987723516.745,
+              "durationSeconds": 0.037070822,
+              "overlapSeconds": 0.03707080078125,
+              "startsInside": true
+            },
+            {
+              "gcId": 61,
+              "name": "G1Old",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987723553.842,
+              "durationSeconds": 0.567224937,
+              "overlapSeconds": 0.567224853515625,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 60,
+              "overlapSeconds": 0.03707080078125
+            },
+            {
+              "gcId": 61,
+              "overlapSeconds": 0.00914208984375
+            },
+            {
+              "gcId": 61,
+              "overlapSeconds": 0.000146484375
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.046359375
+        },
+        {
+          "phase": "post-return",
+          "cycle": 2,
+          "startEpochMillis": 1790987728408,
+          "endEpochMillis": 1790987730186,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987724121.061,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1248098496,
+            "committedBytes": 2181038080,
+            "ageMillis": 4286.93896484375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987761792.797,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1759803584,
+            "committedBytes": 2181038080,
+            "delayMillis": 31606.797119140625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "startEpochMillis": 1790987730186,
+          "endEpochMillis": 1790987760188,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987724121.061,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1248098496,
+            "committedBytes": 2181038080,
+            "ageMillis": 6064.93896484375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790987761792.797,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1759803584,
+            "committedBytes": 2181038080,
+            "delayMillis": 1604.797119140625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 3,
+          "startEpochMillis": 1790987761963,
+          "endEpochMillis": 1790987773532,
+          "heapObservations": [
+            {
+              "epochMillis": 1790987762098.406,
+              "gcId": 63,
+              "when": "Before GC",
+              "usedBytes": 1230729920,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987762106.632,
+              "gcId": 63,
+              "when": "After GC",
+              "usedBytes": 1168247920,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987772602.029,
+              "gcId": 64,
+              "when": "Before GC",
+              "usedBytes": 1763839088,
+              "committedBytes": 2181038080
+            },
+            {
+              "epochMillis": 1790987772629.663,
+              "gcId": 64,
+              "when": "After GC",
+              "usedBytes": 1208841632,
+              "committedBytes": 2181038080
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987761823.554,
+            "gcId": 62,
+            "when": "After GC",
+            "usedBytes": 1197175488,
+            "committedBytes": 2181038080,
+            "ageMillis": 139.446044921875
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 63,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987762098.392,
+              "durationSeconds": 0.008244554,
+              "overlapSeconds": 0.00824462890625,
+              "startsInside": true
+            },
+            {
+              "gcId": 64,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790987772602.0168,
+              "durationSeconds": 0.027649598,
+              "overlapSeconds": 0.027649658203125,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 63,
+              "overlapSeconds": 0.00824462890625
+            },
+            {
+              "gcId": 64,
+              "overlapSeconds": 0.027649658203125
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.035894287109375
+        },
+        {
+          "phase": "post-return",
+          "cycle": 3,
+          "startEpochMillis": 1790987773532,
+          "endEpochMillis": 1790987775283,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987772629.663,
+            "gcId": 64,
+            "when": "After GC",
+            "usedBytes": 1208841632,
+            "committedBytes": 2181038080,
+            "ageMillis": 902.3369140625
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "startEpochMillis": 1790987775283,
+          "endEpochMillis": 1790987805284,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790987772629.663,
+            "gcId": 64,
+            "when": "After GC",
+            "usedBytes": 1208841632,
+            "committedBytes": 2181038080,
+            "ageMillis": 2653.3369140625
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        }
+      ],
+      "limitations": [
+        "Heap summaries are sparse observations, not boundary snapshots.",
+        "Used heap is not live retained heap; committed heap is not RSS.",
+        "GC elapsed duration and pause overlap are not CPU measurements.",
+        "Temporal association does not establish a Java/native/GC memory cause."
+      ],
+      "pins": {
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/native-evidence/resource-windows.tsv": "da12b42350f599084025434d6e12af2b741163ce354e1abeaea68901bfb06715",
+        "build/t073-memory-window-audit-r1/candidate1-heap-gc-events.json": "1d6f3b1932db964781516f540b9364f1e9242930017cfc0aa1f0853a0aca27a0",
+        "validation/triangulation-tlindex/diagnostic/analyze-memory-window-gc.py": "15f1bc95159be78798f21c10f3aafd966b75106bfea7ad10a7220be90463c59e",
+        "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+        "validation/triangulation-tlindex/diagnostic/analyze-command-allocation-gc.py": "a1f64ff4e85e178fb4471adc12f1565000b363de383736a22df08d34717bdb66",
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/native-evidence/atlas-profiling.jfr": "a756a7543f376eec9e527a84d7bc8dcff135ba5083d5f4d6c8b7672620bb8f04"
+      }
+    },
+    "candidate2": {
+      "status": "DIAGNOSTIC_ONLY_NOT_ACCEPTANCE",
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "startEpochMillis": 1790988400672,
+          "endEpochMillis": 1790988430675,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988400462.059,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1154354320,
+            "committedBytes": 2046820352,
+            "ageMillis": 209.94091796875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988440698.717,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1674448016,
+            "committedBytes": 2046820352,
+            "delayMillis": 10023.717041015625
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 1,
+          "startEpochMillis": 1790988432413,
+          "endEpochMillis": 1790988445735,
+          "heapObservations": [
+            {
+              "epochMillis": 1790988440698.717,
+              "gcId": 62,
+              "when": "Before GC",
+              "usedBytes": 1674448016,
+              "committedBytes": 2046820352
+            },
+            {
+              "epochMillis": 1790988440734.7058,
+              "gcId": 62,
+              "when": "After GC",
+              "usedBytes": 1192444080,
+              "committedBytes": 2046820352
+            },
+            {
+              "epochMillis": 1790988445249.328,
+              "gcId": 63,
+              "when": "Before GC",
+              "usedBytes": 1678983344,
+              "committedBytes": 2046820352
+            },
+            {
+              "epochMillis": 1790988445279.283,
+              "gcId": 63,
+              "when": "After GC",
+              "usedBytes": 1212285632,
+              "committedBytes": 2046820352
+            },
+            {
+              "epochMillis": 1790988445279.314,
+              "gcId": 64,
+              "when": "Before GC",
+              "usedBytes": 1212285632,
+              "committedBytes": 2046820352
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988400462.059,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1154354320,
+            "committedBytes": 2046820352,
+            "ageMillis": 31950.94091796875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988445956.837,
+            "gcId": 64,
+            "when": "After GC",
+            "usedBytes": 1195508416,
+            "committedBytes": 2071986176,
+            "delayMillis": 221.8369140625
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 62,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988440698.698,
+              "durationSeconds": 0.036013151,
+              "overlapSeconds": 0.03601318359375,
+              "startsInside": true
+            },
+            {
+              "gcId": 63,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988445249.314,
+              "durationSeconds": 0.029972916,
+              "overlapSeconds": 0.029972900390625,
+              "startsInside": true
+            },
+            {
+              "gcId": 64,
+              "name": "G1Old",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988445279.313,
+              "durationSeconds": 0.67752997,
+              "overlapSeconds": 0.45568701171875,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 62,
+              "overlapSeconds": 0.03601318359375
+            },
+            {
+              "gcId": 63,
+              "overlapSeconds": 0.029972900390625
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.065986083984375
+        },
+        {
+          "phase": "post-return",
+          "cycle": 1,
+          "startEpochMillis": 1790988445735,
+          "endEpochMillis": 1790988447756,
+          "heapObservations": [
+            {
+              "epochMillis": 1790988445956.837,
+              "gcId": 64,
+              "when": "After GC",
+              "usedBytes": 1195508416,
+              "committedBytes": 2071986176
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988445279.314,
+            "gcId": 64,
+            "when": "Before GC",
+            "usedBytes": 1212285632,
+            "committedBytes": 2046820352,
+            "ageMillis": 455.68603515625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988487343.895,
+            "gcId": 65,
+            "when": "Before GC",
+            "usedBytes": 1640104640,
+            "committedBytes": 2071986176,
+            "delayMillis": 39587.89501953125
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 64,
+              "name": "G1Old",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988445279.313,
+              "durationSeconds": 0.67752997,
+              "overlapSeconds": 0.221843017578125,
+              "startsInside": false
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 64,
+              "overlapSeconds": 0.014
+            },
+            {
+              "gcId": 64,
+              "overlapSeconds": 0.000107666015625
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.014107666015625001
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "startEpochMillis": 1790988447756,
+          "endEpochMillis": 1790988477760,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988445956.837,
+            "gcId": 64,
+            "when": "After GC",
+            "usedBytes": 1195508416,
+            "committedBytes": 2071986176,
+            "ageMillis": 1799.1630859375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988487343.895,
+            "gcId": 65,
+            "when": "Before GC",
+            "usedBytes": 1640104640,
+            "committedBytes": 2071986176,
+            "delayMillis": 9583.89501953125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 2,
+          "startEpochMillis": 1790988479518,
+          "endEpochMillis": 1790988491456,
+          "heapObservations": [
+            {
+              "epochMillis": 1790988487343.895,
+              "gcId": 65,
+              "when": "Before GC",
+              "usedBytes": 1640104640,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988487373.568,
+              "gcId": 65,
+              "when": "After GC",
+              "usedBytes": 1196198904,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988487776.0989,
+              "gcId": 66,
+              "when": "Before GC",
+              "usedBytes": 1238141944,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988487783.4138,
+              "gcId": 66,
+              "when": "After GC",
+              "usedBytes": 1176689720,
+              "committedBytes": 2071986176
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988445956.837,
+            "gcId": 64,
+            "when": "After GC",
+            "usedBytes": 1195508416,
+            "committedBytes": 2071986176,
+            "ageMillis": 33561.1630859375
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988525501.779,
+            "gcId": 67,
+            "when": "Before GC",
+            "usedBytes": 1688394808,
+            "committedBytes": 2071986176,
+            "delayMillis": 34045.779052734375
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 65,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988487343.88,
+              "durationSeconds": 0.02969303,
+              "overlapSeconds": 0.029693115234375,
+              "startsInside": true
+            },
+            {
+              "gcId": 66,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988487776.0872,
+              "durationSeconds": 0.007331217,
+              "overlapSeconds": 0.007331298828125,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 65,
+              "overlapSeconds": 0.029693115234375
+            },
+            {
+              "gcId": 66,
+              "overlapSeconds": 0.007331298828125
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.037024414062500004
+        },
+        {
+          "phase": "post-return",
+          "cycle": 2,
+          "startEpochMillis": 1790988491456,
+          "endEpochMillis": 1790988493374,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988487783.4138,
+            "gcId": 66,
+            "when": "After GC",
+            "usedBytes": 1176689720,
+            "committedBytes": 2071986176,
+            "ageMillis": 3672.586181640625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988525501.779,
+            "gcId": 67,
+            "when": "Before GC",
+            "usedBytes": 1688394808,
+            "committedBytes": 2071986176,
+            "delayMillis": 32127.779052734375
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "startEpochMillis": 1790988493374,
+          "endEpochMillis": 1790988523377,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988487783.4138,
+            "gcId": 66,
+            "when": "After GC",
+            "usedBytes": 1176689720,
+            "committedBytes": 2071986176,
+            "ageMillis": 5590.586181640625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988525501.779,
+            "gcId": 67,
+            "when": "Before GC",
+            "usedBytes": 1688394808,
+            "committedBytes": 2071986176,
+            "delayMillis": 2124.779052734375
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 3,
+          "startEpochMillis": 1790988525099,
+          "endEpochMillis": 1790988537083,
+          "heapObservations": [
+            {
+              "epochMillis": 1790988525501.779,
+              "gcId": 67,
+              "when": "Before GC",
+              "usedBytes": 1688394808,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988525532.784,
+              "gcId": 67,
+              "when": "After GC",
+              "usedBytes": 1226919792,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988534750.594,
+              "gcId": 68,
+              "when": "Before GC",
+              "usedBytes": 1688293232,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988534786.368,
+              "gcId": 68,
+              "when": "After GC",
+              "usedBytes": 1236022032,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988534786.479,
+              "gcId": 69,
+              "when": "Before GC",
+              "usedBytes": 1236022032,
+              "committedBytes": 2071986176
+            },
+            {
+              "epochMillis": 1790988535385.4238,
+              "gcId": 69,
+              "when": "After GC",
+              "usedBytes": 1277965072,
+              "committedBytes": 2197815296
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988487783.4138,
+            "gcId": 66,
+            "when": "After GC",
+            "usedBytes": 1176689720,
+            "committedBytes": 2071986176,
+            "ageMillis": 37315.586181640625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988571386.802,
+            "gcId": 70,
+            "when": "Before GC",
+            "usedBytes": 1689006864,
+            "committedBytes": 2197815296,
+            "delayMillis": 34303.802001953125
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 67,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988525501.7632,
+              "durationSeconds": 0.03102589,
+              "overlapSeconds": 0.03102587890625,
+              "startsInside": true
+            },
+            {
+              "gcId": 68,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988534750.575,
+              "durationSeconds": 0.035798966,
+              "overlapSeconds": 0.035799072265625,
+              "startsInside": true
+            },
+            {
+              "gcId": 69,
+              "name": "G1Old",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988534786.419,
+              "durationSeconds": 0.599009723,
+              "overlapSeconds": 0.599009765625,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 67,
+              "overlapSeconds": 0.03102587890625
+            },
+            {
+              "gcId": 68,
+              "overlapSeconds": 0.035799072265625
+            },
+            {
+              "gcId": 69,
+              "overlapSeconds": 0.00881982421875
+            },
+            {
+              "gcId": 69,
+              "overlapSeconds": 8.9599609375e-05
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.075734375
+        },
+        {
+          "phase": "post-return",
+          "cycle": 3,
+          "startEpochMillis": 1790988537083,
+          "endEpochMillis": 1790988538842,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988535385.4238,
+            "gcId": 69,
+            "when": "After GC",
+            "usedBytes": 1277965072,
+            "committedBytes": 2197815296,
+            "ageMillis": 1697.576171875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988571386.802,
+            "gcId": 70,
+            "when": "Before GC",
+            "usedBytes": 1689006864,
+            "committedBytes": 2197815296,
+            "delayMillis": 32544.802001953125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "startEpochMillis": 1790988538842,
+          "endEpochMillis": 1790988568845,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988535385.4238,
+            "gcId": 69,
+            "when": "After GC",
+            "usedBytes": 1277965072,
+            "committedBytes": 2197815296,
+            "ageMillis": 3456.576171875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988571386.802,
+            "gcId": 70,
+            "when": "Before GC",
+            "usedBytes": 1689006864,
+            "committedBytes": 2197815296,
+            "delayMillis": 2541.802001953125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        }
+      ],
+      "limitations": [
+        "Heap summaries are sparse observations, not boundary snapshots.",
+        "Used heap is not live retained heap; committed heap is not RSS.",
+        "GC elapsed duration and pause overlap are not CPU measurements.",
+        "Temporal association does not establish a Java/native/GC memory cause."
+      ],
+      "pins": {
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/native-evidence/resource-windows.tsv": "4c5757225266eb04e7db45056fa8538470eaf90cc8e66e021f03c028115dd217",
+        "build/t073-memory-window-audit-r1/candidate2-heap-gc-events.json": "340a3fca59904bafa6f34569906e1280ed61b6cdf99a524a4022f75e97d9e656",
+        "validation/triangulation-tlindex/diagnostic/analyze-memory-window-gc.py": "15f1bc95159be78798f21c10f3aafd966b75106bfea7ad10a7220be90463c59e",
+        "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+        "validation/triangulation-tlindex/diagnostic/analyze-command-allocation-gc.py": "a1f64ff4e85e178fb4471adc12f1565000b363de383736a22df08d34717bdb66",
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/native-evidence/atlas-profiling.jfr": "c21a3775dcf8603e5183a04b4c9a8926368c97d51f303af02c51c5a28f76a408"
+      }
+    },
+    "baseline2": {
+      "status": "DIAGNOSTIC_ONLY_NOT_ACCEPTANCE",
+      "windows": [
+        {
+          "phase": "baseline",
+          "cycle": 0,
+          "startEpochMillis": 1790988950806,
+          "endEpochMillis": 1790988980808,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988950493.738,
+            "gcId": 58,
+            "when": "After GC",
+            "usedBytes": 1324740736,
+            "committedBytes": 2130706432,
+            "ageMillis": 312.261962890625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790988984988.5408,
+            "gcId": 59,
+            "when": "Before GC",
+            "usedBytes": 1760948352,
+            "committedBytes": 2130706432,
+            "delayMillis": 4180.540771484375
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 1,
+          "startEpochMillis": 1790988982632,
+          "endEpochMillis": 1790988996340,
+          "heapObservations": [
+            {
+              "epochMillis": 1790988984988.5408,
+              "gcId": 59,
+              "when": "Before GC",
+              "usedBytes": 1760948352,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790988985020.936,
+              "gcId": 59,
+              "when": "After GC",
+              "usedBytes": 1364493152,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790988992812.651,
+              "gcId": 60,
+              "when": "Before GC",
+              "usedBytes": 1758757728,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790988992846.3262,
+              "gcId": 60,
+              "when": "After GC",
+              "usedBytes": 1380784960,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790988995897.372,
+              "gcId": 61,
+              "when": "Before GC",
+              "usedBytes": 1775049536,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790988995914.645,
+              "gcId": 61,
+              "when": "After GC",
+              "usedBytes": 1386253152,
+              "committedBytes": 2130706432
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988950493.738,
+            "gcId": 58,
+            "when": "After GC",
+            "usedBytes": 1324740736,
+            "committedBytes": 2130706432,
+            "ageMillis": 32138.261962890625
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989037117.821,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1772129120,
+            "committedBytes": 2130706432,
+            "delayMillis": 40777.821044921875
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 59,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988984988.524,
+              "durationSeconds": 0.032416489,
+              "overlapSeconds": 0.03241650390625,
+              "startsInside": true
+            },
+            {
+              "gcId": 60,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988992812.638,
+              "durationSeconds": 0.03369188,
+              "overlapSeconds": 0.03369189453125,
+              "startsInside": true
+            },
+            {
+              "gcId": 61,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790988995897.361,
+              "durationSeconds": 0.017288967,
+              "overlapSeconds": 0.0172890625,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 59,
+              "overlapSeconds": 0.03241650390625
+            },
+            {
+              "gcId": 60,
+              "overlapSeconds": 0.03369189453125
+            },
+            {
+              "gcId": 61,
+              "overlapSeconds": 0.0172890625
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.0833974609375
+        },
+        {
+          "phase": "post-return",
+          "cycle": 1,
+          "startEpochMillis": 1790988996340,
+          "endEpochMillis": 1790988998487,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988995914.645,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1386253152,
+            "committedBytes": 2130706432,
+            "ageMillis": 425.35498046875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989037117.821,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1772129120,
+            "committedBytes": 2130706432,
+            "delayMillis": 38630.821044921875
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 1,
+          "startEpochMillis": 1790988998487,
+          "endEpochMillis": 1790989028489,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988995914.645,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1386253152,
+            "committedBytes": 2130706432,
+            "ageMillis": 2572.35498046875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989037117.821,
+            "gcId": 62,
+            "when": "Before GC",
+            "usedBytes": 1772129120,
+            "committedBytes": 2130706432,
+            "delayMillis": 8628.821044921875
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 2,
+          "startEpochMillis": 1790989030216,
+          "endEpochMillis": 1790989041833,
+          "heapObservations": [
+            {
+              "epochMillis": 1790989037117.821,
+              "gcId": 62,
+              "when": "Before GC",
+              "usedBytes": 1772129120,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989037140.408,
+              "gcId": 62,
+              "when": "After GC",
+              "usedBytes": 1412132232,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989040066.353,
+              "gcId": 63,
+              "when": "Before GC",
+              "usedBytes": 1764453768,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989040089.128,
+              "gcId": 63,
+              "when": "After GC",
+              "usedBytes": 1424008656,
+              "committedBytes": 2130706432
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790988995914.645,
+            "gcId": 61,
+            "when": "After GC",
+            "usedBytes": 1386253152,
+            "committedBytes": 2130706432,
+            "ageMillis": 34301.35498046875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989075999.136,
+            "gcId": 64,
+            "when": "Before GC",
+            "usedBytes": 1767941584,
+            "committedBytes": 2130706432,
+            "delayMillis": 34166.135986328125
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 62,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790989037117.809,
+              "durationSeconds": 0.022602826,
+              "overlapSeconds": 0.022602783203125,
+              "startsInside": true
+            },
+            {
+              "gcId": 63,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790989040066.339,
+              "durationSeconds": 0.022794026,
+              "overlapSeconds": 0.0227939453125,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 62,
+              "overlapSeconds": 0.022602783203125
+            },
+            {
+              "gcId": 63,
+              "overlapSeconds": 0.0227939453125
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.045396728515625
+        },
+        {
+          "phase": "post-return",
+          "cycle": 2,
+          "startEpochMillis": 1790989041833,
+          "endEpochMillis": 1790989043633,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790989040089.128,
+            "gcId": 63,
+            "when": "After GC",
+            "usedBytes": 1424008656,
+            "committedBytes": 2130706432,
+            "ageMillis": 1743.8720703125
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989075999.136,
+            "gcId": 64,
+            "when": "Before GC",
+            "usedBytes": 1767941584,
+            "committedBytes": 2130706432,
+            "delayMillis": 32366.135986328125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 2,
+          "startEpochMillis": 1790989043633,
+          "endEpochMillis": 1790989073635,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790989040089.128,
+            "gcId": 63,
+            "when": "After GC",
+            "usedBytes": 1424008656,
+            "committedBytes": 2130706432,
+            "ageMillis": 3543.8720703125
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989075999.136,
+            "gcId": 64,
+            "when": "Before GC",
+            "usedBytes": 1767941584,
+            "committedBytes": 2130706432,
+            "delayMillis": 2364.135986328125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "command",
+          "cycle": 3,
+          "startEpochMillis": 1790989075383,
+          "endEpochMillis": 1790989086721,
+          "heapObservations": [
+            {
+              "epochMillis": 1790989075999.136,
+              "gcId": 64,
+              "when": "Before GC",
+              "usedBytes": 1767941584,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989076021.5361,
+              "gcId": 64,
+              "when": "After GC",
+              "usedBytes": 1441222624,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989083704.4028,
+              "gcId": 65,
+              "when": "Before GC",
+              "usedBytes": 1768378336,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989083728.8599,
+              "gcId": 65,
+              "when": "After GC",
+              "usedBytes": 1452996040,
+              "committedBytes": 2130706432
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790989040089.128,
+            "gcId": 63,
+            "when": "After GC",
+            "usedBytes": 1424008656,
+            "committedBytes": 2130706432,
+            "ageMillis": 35293.8720703125
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989118330.3079,
+            "gcId": 66,
+            "when": "Before GC",
+            "usedBytes": 1771763144,
+            "committedBytes": 2130706432,
+            "delayMillis": 31609.307861328125
+          },
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 64,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790989075999.1218,
+              "durationSeconds": 0.022417566,
+              "overlapSeconds": 0.02241748046875,
+              "startsInside": true
+            },
+            {
+              "gcId": 65,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790989083704.3901,
+              "durationSeconds": 0.024476303,
+              "overlapSeconds": 0.024476318359375,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 64,
+              "overlapSeconds": 0.02241748046875
+            },
+            {
+              "gcId": 65,
+              "overlapSeconds": 0.024476318359375
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.046893798828125
+        },
+        {
+          "phase": "post-return",
+          "cycle": 3,
+          "startEpochMillis": 1790989086721,
+          "endEpochMillis": 1790989088556,
+          "heapObservations": [],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790989083728.8599,
+            "gcId": 65,
+            "when": "After GC",
+            "usedBytes": 1452996040,
+            "committedBytes": 2130706432,
+            "ageMillis": 2992.14013671875
+          },
+          "nearestFollowingHeapObservation": {
+            "epochMillis": 1790989118330.3079,
+            "gcId": 66,
+            "when": "Before GC",
+            "usedBytes": 1771763144,
+            "committedBytes": 2130706432,
+            "delayMillis": 29774.307861328125
+          },
+          "gcEventsOverlappingOrStartingInside": [],
+          "pauseOverlaps": [],
+          "gcPauseOverlapSeconds": 0
+        },
+        {
+          "phase": "retained",
+          "cycle": 3,
+          "startEpochMillis": 1790989088556,
+          "endEpochMillis": 1790989118558,
+          "heapObservations": [
+            {
+              "epochMillis": 1790989118330.3079,
+              "gcId": 66,
+              "when": "Before GC",
+              "usedBytes": 1771763144,
+              "committedBytes": 2130706432
+            },
+            {
+              "epochMillis": 1790989118349.615,
+              "gcId": 66,
+              "when": "After GC",
+              "usedBytes": 1474560160,
+              "committedBytes": 2130706432
+            }
+          ],
+          "nearestPriorHeapObservation": {
+            "epochMillis": 1790989083728.8599,
+            "gcId": 65,
+            "when": "After GC",
+            "usedBytes": 1452996040,
+            "committedBytes": 2130706432,
+            "ageMillis": 4827.14013671875
+          },
+          "nearestFollowingHeapObservation": null,
+          "gcEventsOverlappingOrStartingInside": [
+            {
+              "gcId": 66,
+              "name": "G1New",
+              "cause": "G1 Evacuation Pause",
+              "startEpochMillis": 1790989118330.294,
+              "durationSeconds": 0.019325366,
+              "overlapSeconds": 0.019325439453125,
+              "startsInside": true
+            }
+          ],
+          "pauseOverlaps": [
+            {
+              "gcId": 66,
+              "overlapSeconds": 0.019325439453125
+            }
+          ],
+          "gcPauseOverlapSeconds": 0.019325439453125
+        }
+      ],
+      "limitations": [
+        "Heap summaries are sparse observations, not boundary snapshots.",
+        "Used heap is not live retained heap; committed heap is not RSS.",
+        "GC elapsed duration and pause overlap are not CPU measurements.",
+        "Temporal association does not establish a Java/native/GC memory cause."
+      ],
+      "pins": {
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/native-evidence/resource-windows.tsv": "48c4dd61a0d172d93df2422be8a45baf4c5550bc641a31cd6f555d7c0ac161be",
+        "build/t073-memory-window-audit-r1/baseline2-heap-gc-events.json": "a846b87df5ba0d779b2437949069140593c654fc691f3de4e6dfb0a1ca9c717e",
+        "validation/triangulation-tlindex/diagnostic/analyze-memory-window-gc.py": "15f1bc95159be78798f21c10f3aafd966b75106bfea7ad10a7220be90463c59e",
+        "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+        "validation/triangulation-tlindex/diagnostic/analyze-command-allocation-gc.py": "a1f64ff4e85e178fb4471adc12f1565000b363de383736a22df08d34717bdb66",
+        "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/native-evidence/atlas-profiling.jfr": "0f8a6dc4d4dd2ee72b2edb4f2dbaea47653953e7e0a12449b433e3b2ced7e73c"
+      }
+    }
+  },
+  "allocationSummary": {
+    "baseline1": {
+      "visibleQueryStackWeightMiB": 250.4889144897461,
+      "indexPutStackWeightMiB": 177.3235321044922,
+      "retained3AllocationWeights": {
+        "all": 82049632
+      },
+      "commands": [
+        {
+          "cycle": 1,
+          "allocationSampleWeightBytes": {
+            "all": 893678984,
+            "emptyStack": 3200,
+            "triangulationStack": 852468136
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/type/GVector2": 118850696,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 97958184,
+            "[Ljava/lang/Object;": 87433064,
+            "java/util/LinkedHashMap$Entry": 85680152,
+            "java/util/ArrayList": 74243664,
+            "kotlin/SynchronizedLazyImpl": 65394128,
+            "[J": 52833472,
+            "kotlin/Pair": 35918640,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 35795408,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 26909232,
+            "java/lang/invoke/MemberName": 25408152,
+            "java/lang/StackFrameInfo": 22714816,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 22211816,
+            "java/util/HashMap$Node": 22077008,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 18362888,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 18269816,
+            "[Ljava/util/HashMap$Node;": 8884560,
+            "[Ljava/lang/StackFrameInfo;": 4708976,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 4692680,
+            "java/util/ArrayList$Itr": 4691336,
+            "[I": 4193144,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 4191664,
+            "[B": 3784712,
+            "com/live2d/graphics3d/editableMesh/triangulation/b": 1250616,
+            "java/util/ImmutableCollections$ListItr": 1245176,
+            "java/util/Spliterators$ArraySpliterator": 1002024,
+            "java/util/stream/ReferencePipeline$3": 999304,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 752416,
+            "java/util/ImmutableCollections$ListN": 722400,
+            "dev/turboism/agent/shaded/asm/Label": 282552,
+            "java/util/stream/ReferencePipeline$Head": 255200,
+            "java/lang/String": 252192,
+            "java/util/Arrays$ArrayList": 249824,
+            "[C": 246768,
+            "java/lang/StackStreamFactory$StackFrameTraverser$StackFrameBuffer": 1456
+          },
+          "indexPutAllocationClassWeights": {
+            "java/util/HashMap$Node": 22077008,
+            "[Ljava/lang/Object;": 18777880,
+            "java/util/ArrayList": 18273800,
+            "[Ljava/util/HashMap$Node;": 8633536,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 752416
+          }
+        },
+        {
+          "cycle": 2,
+          "allocationSampleWeightBytes": {
+            "all": 759002752,
+            "triangulationStack": 687699016
+          },
+          "triangulationAllocationClasses": {
+            "[Ljava/lang/Object;": 109036568,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 88063448,
+            "java/util/LinkedHashMap$Entry": 83859904,
+            "java/util/ArrayList": 71287640,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 58706056,
+            "kotlin/SynchronizedLazyImpl": 50320752,
+            "com/live2d/graphics3d/type/GVector2": 37733656,
+            "kotlin/Pair": 29352224,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 25157048,
+            "java/lang/invoke/MemberName": 20965952,
+            "[J": 20963784,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 20961104,
+            "java/lang/StackFrameInfo": 16772216,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 16770216,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 12580592,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 8385368,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 4199568,
+            "java/util/HashMap$Node": 4194592,
+            "[I": 4193720,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 4193144,
+            "java.util.stream.MatchOps$$Lambda$30+0x0000000800c52140/1848402763": 1464
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 29360408,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 16770216,
+            "java/util/ArrayList": 8385392,
+            "java/util/HashMap$Node": 4194592
+          }
+        },
+        {
+          "cycle": 3,
+          "allocationSampleWeightBytes": {
+            "all": 746360648,
+            "triangulationStack": 683359168
+          },
+          "triangulationAllocationClasses": {
+            "java/util/LinkedHashMap$Entry": 113195816,
+            "[Ljava/lang/Object;": 100645184,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 88041624,
+            "kotlin/SynchronizedLazyImpl": 67030984,
+            "com/live2d/graphics3d/type/GVector2": 50296744,
+            "java/util/ArrayList": 46133832,
+            "[J": 41930008,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 41887144,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 25160544,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 20966808,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 20966560,
+            "kotlin/Pair": 12582040,
+            "java/util/HashMap$Node": 12582016,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 12580576,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 8389776,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 8386264,
+            "[I": 4193712,
+            "[Ljava/lang/StackFrameInfo;": 4193664,
+            "java/lang/StackFrameInfo": 4191672,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 1464,
+            "java/lang/invoke/MemberName": 1432,
+            "[Ljava/util/HashMap$Node;": 1304
+          },
+          "indexPutAllocationClassWeights": {
+            "java/util/ArrayList": 16775760,
+            "[Ljava/lang/Object;": 16772296,
+            "java/util/HashMap$Node": 12582016,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 12580576,
+            "[Ljava/util/HashMap$Node;": 1304
+          }
+        }
+      ]
+    },
+    "candidate1": {
+      "visibleQueryStackWeightMiB": 250.8272476196289,
+      "indexPutStackWeightMiB": 168.15816497802734,
+      "retained3AllocationWeights": {
+        "all": 83564584,
+        "emptyStack": 328
+      },
+      "commands": [
+        {
+          "cycle": 1,
+          "allocationSampleWeightBytes": {
+            "all": 961021224,
+            "triangulationStack": 918130232,
+            "emptyStack": 5784
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/type/GVector2": 243577776,
+            "[Ljava/lang/Object;": 138141448,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 83703120,
+            "[J": 71241632,
+            "java/util/ArrayList": 68030152,
+            "java/util/LinkedHashMap$Entry": 63923904,
+            "kotlin/SynchronizedLazyImpl": 59643152,
+            "kotlin/Pair": 33521912,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 29350728,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 26227096,
+            "java/lang/invoke/MemberName": 16773008,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 16737744,
+            "java/util/ArrayList$Itr": 12757240,
+            "java/lang/StackFrameInfo": 12572344,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 9451840,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 8388280,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 8353448,
+            "java/util/stream/ReferencePipeline$Head": 4193696,
+            "[B": 3302528,
+            "java/util/ImmutableCollections$ListN": 1571696,
+            "java/lang/Long": 1327584,
+            "[C": 1072592,
+            "java/util/stream/ReferencePipeline$3": 1069488,
+            "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionFingerprint$$Lambda$1480+0x0000000801737c28/1401765125": 1066936,
+            "com/live2d/graphics3d/editableMesh/triangulation/b": 1065448,
+            "java/util/Arrays$ArrayItr": 1065440
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 42952504,
+            "[J": 16764464,
+            "java/util/ArrayList": 1066456
+          }
+        },
+        {
+          "cycle": 2,
+          "allocationSampleWeightBytes": {
+            "all": 721595624,
+            "triangulationStack": 657917720,
+            "emptyStack": 544
+          },
+          "triangulationAllocationClasses": {
+            "[Ljava/lang/Object;": 109269112,
+            "java/util/ArrayList": 108992960,
+            "java/util/LinkedHashMap$Entry": 91982848,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 71247504,
+            "kotlin/SynchronizedLazyImpl": 67042712,
+            "com/live2d/graphics3d/type/GVector2": 37737312,
+            "[J": 33479384,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 20926400,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 20919960,
+            "kotlin/Pair": 20884528,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 16724968,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 12582064,
+            "java/lang/invoke/MemberName": 12582008,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 12580576,
+            "[I": 8386856,
+            "java/time/Instant": 4193720,
+            "java/lang/StackFrameInfo": 4191680,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 4191664,
+            "com/live2d/graphics3d/editableMesh/triangulation/b": 1464
+          },
+          "indexPutAllocationClassWeights": {
+            "java/util/ArrayList": 29353392,
+            "[Ljava/lang/Object;": 21417216,
+            "[J": 4192608
+          }
+        },
+        {
+          "cycle": 3,
+          "allocationSampleWeightBytes": {
+            "all": 702209088,
+            "triangulationStack": 612694448
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 94170024,
+            "[Ljava/lang/Object;": 83581520,
+            "kotlin/SynchronizedLazyImpl": 63258120,
+            "java/util/LinkedHashMap$Entry": 56278464,
+            "java/util/ArrayList": 52962160,
+            "[J": 43041904,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 31839736,
+            "com/live2d/graphics3d/type/GVector2": 29355440,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 29352816,
+            "kotlin/Pair": 25164672,
+            "java/util/ArrayList$Itr": 21620992,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 20963920,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 18081976,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 17340512,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 8387416,
+            "java/lang/invoke/MemberName": 8386224,
+            "java/lang/StackFrameInfo": 8385392,
+            "[I": 521784,
+            "[Ljava/util/HashMap$Node;": 1376
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 34195704,
+            "[J": 16734816,
+            "java/util/ArrayList": 9649456
+          }
+        }
+      ]
+    },
+    "candidate2": {
+      "visibleQueryStackWeightMiB": 213.02445220947266,
+      "indexPutStackWeightMiB": 101.13764190673828,
+      "retained3AllocationWeights": {
+        "all": 32838832
+      },
+      "commands": [
+        {
+          "cycle": 1,
+          "allocationSampleWeightBytes": {
+            "all": 860798440,
+            "triangulationStack": 813793016,
+            "emptyStack": 1952
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/type/GVector2": 137357536,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 113126528,
+            "[Ljava/lang/Object;": 112928720,
+            "java/util/LinkedHashMap$Entry": 87927736,
+            "kotlin/SynchronizedLazyImpl": 66921608,
+            "java/util/ArrayList": 50183416,
+            "kotlin/Pair": 46044352,
+            "[J": 41910232,
+            "java/lang/invoke/MemberName": 37689888,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 29346968,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 16778608,
+            "java/lang/StackFrameInfo": 16599480,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 12582624,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 12579136,
+            "[B": 10844376,
+            "java/util/IdentityHashMap$KeySet": 4193728,
+            "java/util/Spliterators$ArraySpliterator": 4193720,
+            "[Ljava/util/HashMap$Node;": 4193712,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 4193136,
+            "java/util/ArrayList$Itr": 4191672,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 2912,
+            "com/live2d/graphics3d/editableMesh/triangulation/b": 1472,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 1456
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 20882824,
+            "java/util/ArrayList": 4196040
+          }
+        },
+        {
+          "cycle": 2,
+          "allocationSampleWeightBytes": {
+            "all": 720971120,
+            "triangulationStack": 653045472
+          },
+          "triangulationAllocationClasses": {
+            "[Ljava/lang/Object;": 110986912,
+            "java/util/LinkedHashMap$Entry": 75633528,
+            "[J": 66050128,
+            "kotlin/SynchronizedLazyImpl": 63494968,
+            "java/util/ArrayList": 60911224,
+            "com/live2d/graphics3d/type/GVector2": 55427320,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 50476376,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 31737016,
+            "kotlin/Pair": 26730232,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 25158192,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 18591936,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 16589704,
+            "java/lang/StackFrameInfo": 14199816,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 13351568,
+            "java/lang/invoke/MemberName": 10325320,
+            "[Ljava/util/HashMap$Node;": 9186632,
+            "[I": 4193144,
+            "[Ljava/lang/StackFrameInfo;": 1456
+          },
+          "indexPutAllocationClassWeights": {
+            "java/util/ArrayList": 24961176,
+            "[Ljava/lang/Object;": 22466656,
+            "[J": 4193456
+          }
+        },
+        {
+          "cycle": 3,
+          "allocationSampleWeightBytes": {
+            "all": 696002256,
+            "triangulationStack": 602943096
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 83794312,
+            "java/util/LinkedHashMap$Entry": 75415072,
+            "[Ljava/lang/Object;": 67056920,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 50200688,
+            "[J": 45845856,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 41930640,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 41869072,
+            "kotlin/SynchronizedLazyImpl": 37709632,
+            "com/live2d/graphics3d/type/GVector2": 37705920,
+            "java/util/ArrayList": 33542424,
+            "kotlin/Pair": 29191920,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 20935784,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 12584408,
+            "java/lang/invoke/MemberName": 12580520,
+            "java/lang/StackFrameInfo": 8385376,
+            "[I": 4191680,
+            "java/util/ArrayList$Itr": 1472,
+            "[Ljava/lang/StackFrameInfo;": 1400
+          },
+          "indexPutAllocationClassWeights": {
+            "[J": 12574624,
+            "[Ljava/lang/Object;": 8390352,
+            "java/util/ArrayList": 8385376
+          }
+        }
+      ]
+    },
+    "baseline2": {
+      "visibleQueryStackWeightMiB": 255.46698760986328,
+      "indexPutStackWeightMiB": 155.75008392333984,
+      "retained3AllocationWeights": {
+        "all": 94727520,
+        "emptyStack": 176
+      },
+      "commands": [
+        {
+          "cycle": 1,
+          "allocationSampleWeightBytes": {
+            "all": 1050281456,
+            "triangulationStack": 997387496,
+            "emptyStack": 5040
+          },
+          "triangulationAllocationClasses": {
+            "com/live2d/graphics3d/type/GVector2": 318313328,
+            "[Ljava/lang/Object;": 117285464,
+            "java/util/LinkedHashMap$Entry": 75459936,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 71231768,
+            "java/util/ArrayList": 62721320,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 54512976,
+            "kotlin/Pair": 50236848,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 46033448,
+            "[J": 41943952,
+            "kotlin/SynchronizedLazyImpl": 37703896,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 25023384,
+            "java/lang/StackFrameInfo": 23911304,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 20973880,
+            "java/util/HashMap$Node": 12580576,
+            "[Ljava/util/HashMap$Node;": 8384104,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 8347840,
+            "java/lang/invoke/MemberName": 4200952,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 4198992,
+            "java/util/ArrayList$Itr": 4193704,
+            "[Ljava/lang/StackFrameInfo;": 4193120,
+            "[B": 4168448,
+            "java/util/ImmutableCollections$ListItr": 1766024,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 1464,
+            "[[I": 768
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 20926472,
+            "java/util/HashMap$Node": 12580576,
+            "java/util/ArrayList": 12577064,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 8347840
+          }
+        },
+        {
+          "cycle": 2,
+          "allocationSampleWeightBytes": {
+            "all": 754658056,
+            "triangulationStack": 678328344,
+            "emptyStack": 632
+          },
+          "triangulationAllocationClasses": {
+            "[Ljava/lang/Object;": 104520968,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 88032528,
+            "java/util/LinkedHashMap$Entry": 71207672,
+            "com/live2d/graphics3d/type/GVector2": 54475624,
+            "[J": 54453896,
+            "kotlin/SynchronizedLazyImpl": 50300928,
+            "java/util/ArrayList": 46102856,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 46045904,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 37683344,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 20933488,
+            "java/lang/invoke/MemberName": 20931024,
+            "kotlin/Pair": 16731520,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 16724776,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 12500600,
+            "java/lang/StackFrameInfo": 8388296,
+            "java/util/HashMap$Node": 8385360,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 8366872,
+            "com/live2d/graphics3d/editableMesh/triangulation/b": 4193728,
+            "com/live2d/graphics3d/editableMesh/triangulation/TriPoint": 4193136,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 4155824
+          },
+          "indexPutAllocationClassWeights": {
+            "[Ljava/lang/Object;": 29350704,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 12500600,
+            "java/util/HashMap$Node": 8385360,
+            "java/util/ArrayList": 8384824
+          }
+        },
+        {
+          "cycle": 3,
+          "allocationSampleWeightBytes": {
+            "all": 716949528,
+            "triangulationStack": 649091792
+          },
+          "triangulationAllocationClasses": {
+            "java/util/LinkedHashMap$Entry": 121380424,
+            "[Ljava/lang/Object;": 88032192,
+            "kotlin/SynchronizedLazyImpl": 83758032,
+            "com/live2d/graphics3d/editableMesh/triangulation/j": 66879448,
+            "java/util/ArrayList": 41900376,
+            "[J": 29374064,
+            "com/live2d/graphics3d/type/GVector2": 29182816,
+            "java/util/LinkedHashMap$LinkedKeyIterator": 25161136,
+            "kotlin/Pair": 25135736,
+            "java/util/HashMap$Node": 25103856,
+            "com/live2d/graphics3d/editableMesh/triangulation/n": 20967408,
+            "com/live2d/graphics3d/editableMesh/triangulation/l": 20937808,
+            "java/lang/invoke/MemberName": 16775704,
+            "com/live2d/graphics3d/editableMesh/triangulation/m": 12580600,
+            "java/lang/StackFrameInfo": 12574432,
+            "[Ljava/util/HashMap$Node;": 12571712,
+            "com/live2d/graphics3d/editableMesh/triangulation/o": 8389784,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 4193128,
+            "java/util/ArrayList$Itr": 4191672,
+            "[Lcom/live2d/graphics3d/editableMesh/triangulation/j;": 1464
+          },
+          "indexPutAllocationClassWeights": {
+            "java/util/HashMap$Node": 25103856,
+            "java/util/ArrayList": 12580584,
+            "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 4193128,
+            "[Ljava/util/HashMap$Node;": 4192464,
+            "[Ljava/lang/Object;": 4192328
+          }
+        }
+      ]
+    }
+  },
+  "pins": {
+    "build/t073-memory-window-audit-r1/heap-gc-combined-review.json": "cffc9c8c7ac02133d5b20c94947c323a1ab447401175d8a0d2b9f5c79876c507",
+    "build/t073-memory-window-audit-r1/allocation-window-review.json": "bf7f76226c6ea1af178a768eba35924d64b36b72aa93b70c3299403801341479",
+    "build/t073-memory-window-audit-r1/heap-gc-export-plan.json": "c2f7a42d06ef07d33da56b7b354119a211415646611ef49a97824873b6b4c9cd",
+    "validation/triangulation-tlindex/diagnostic/analyze-memory-window-gc.py": "15f1bc95159be78798f21c10f3aafd966b75106bfea7ad10a7220be90463c59e",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-allocation-gc.py": "a1f64ff4e85e178fb4471adc12f1565000b363de383736a22df08d34717bdb66",
+    "build/t073-memory-window-audit-r1/baseline1-allocation-events.json": "cf4d677f032718151c5d4ba14677266901a16069d1361a115a39aeee43f46404",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/native-evidence/atlas-profiling.jfr": "fcb47ce84c59c6fd5b5cd71e27c373bfa208aa96d8958cb2c16e11cb1036c09d",
+    "build/t073-memory-window-audit-r1/candidate1-allocation-events.json": "fcb76f8dd5ddab2686d9c72457debd5cb4abd1aa46d085de7b0669246f97fce2",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/native-evidence/atlas-profiling.jfr": "a756a7543f376eec9e527a84d7bc8dcff135ba5083d5f4d6c8b7672620bb8f04",
+    "build/t073-memory-window-audit-r1/candidate2-allocation-events.json": "a12ad5317203a5ba2a246672130837c703373f906a29060fdcd34c0548b471fb",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/native-evidence/atlas-profiling.jfr": "c21a3775dcf8603e5183a04b4c9a8926368c97d51f303af02c51c5a28f76a408",
+    "build/t073-memory-window-audit-r1/baseline2-allocation-events.json": "f947ac105ad1d4c24a5e1f3fac88e816e9ed4776402edf130e0ba5bb47e6c412",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/native-evidence/atlas-profiling.jfr": "0f8a6dc4d4dd2ee72b2edb4f2dbaea47653953e7e0a12449b433e3b2ced7e73c"
+  },
+  "limitations": [
+    "Sparse allocation weights are not exact allocation, retained bytes, CPU fractions or savings.",
+    "Visible query site sum only identifies tryQuery among the first six rendered frames; sampled full traces have depth64.",
+    "Allocation helper uses inclusive boundary timestamps; adjacent window weights are not claimed as an exact disjoint partition.",
+    "No triangulation allocation sample in retained3 is not proof of absence.",
+    "Temporal committed-heap/RSS association does not establish candidate causation, leakage or stable benefit."
+  ],
+  "nextWork": "Audit actual tryQuery snapshot consumers and mutable detached List contract before a distinct small-snapshot feasibility prototype; no T072 retry.",
+  "executionNote": "FIFO2568 verified live; prepared task model-import-3d-user-entry:5302 has no performance observer/JFR options. Sequential targeted exports permitted after this distinction. Allocation exports were unexpectedly0.716\u20131.257GB each; original summarizer loads events. Process completed before any unique-output-fd SIGINT match; no process interrupted, no rerun. Preserve existing exports; use streaming for future work."
+}
