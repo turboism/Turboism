@@ -1,0 +1,92 @@
+{
+  "task": "T091",
+  "status": "FAIL_HISTORICAL_REFERENCE_PARITY_CONTROLLED_REPRODUCTION_COMPLETE",
+  "sequence": 2640,
+  "jobId": "fa1185da-f249-4b7d-a976-9db9e537da37",
+  "runId": "queue-e9d1e60c3e2a4139a0c2180e02c63292",
+  "preparedId": "a46ee2562118accc14646761164995401b202163a6f66ec4267e95cd2e6a6d64",
+  "nativeCanvasListenerDelivery": "PASS",
+  "standardGates": "PASS",
+  "referenceMismatchCount": 378,
+  "indexCountMismatchCount": 18,
+  "T089SevenFieldRowsMatched": 2133,
+  "T089GeometryMismatchCount": 0,
+  "sameJfrTaskAndEdtBinding": "PASS",
+  "cpuPayloadFieldsMatched": 30,
+  "kernelCpuUnitComparisons": 6,
+  "cycles": [
+    {
+      "cycle": 1,
+      "before": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@57400221[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@1711646429"
+      },
+      "after": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@1051805776[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@1701346927"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 0,
+      "currentIndexCacheSources": 711,
+      "fullChainExecutionSamples": 1752,
+      "fullChainAllocationSamples": 248
+    },
+    {
+      "cycle": 2,
+      "before": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@226282422[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@503198489"
+      },
+      "after": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@1348960100[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@967837797"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 0,
+      "currentIndexCacheSources": 711,
+      "fullChainExecutionSamples": 1689,
+      "fullChainAllocationSamples": 278
+    },
+    {
+      "cycle": 3,
+      "before": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@1224819917[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@1296990750"
+      },
+      "after": {
+        "widget": "com.live2d.graphics3d.view.glWrapper.GLJPanelWrapper@1064321981",
+        "subtool": "POINT_ADD",
+        "views": "com.live2d.cubism.view.context.CEViewContext_ModelingView@1256343771;mouse=com.live2d.ui.event.m@1087203150[com.live2d.ui.event.h:c=MOUSE_MOVED, com.live2d.ui.event.h:f=0, com.live2d.ui.event.h:g=0];actionPack=com.live2d.cubism.view.context.actionManager.Z@1170071045"
+      },
+      "widgetTextUnchanged": true,
+      "subtoolTextUnchanged": true,
+      "invalidatedIndexCacheSources": 0,
+      "currentIndexCacheSources": 711,
+      "fullChainExecutionSamples": 2145,
+      "fullChainAllocationSamples": 267
+    }
+  ],
+  "reviewEvidencePinsRehashed": 24,
+  "rawEvidencePinsRehashed": 55,
+  "inputPins": {
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/native-review.json": "0f0bf769f068d3c1dad09dc15202ec298bf180c185833a49341e5344ce8eeb15",
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/cache-refresh-review.json": "5539d1e30fe97e37a1250031875043051554ea8e473173150da3e3d832239b48",
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/input-cache-stack-review.json": "4e5d7ebf22fe873932d2ca9d33337f81a063f7593029edd20c0ff7d7ddaea6c8",
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/raw-terminal-evidence/preservation.json": "e4d6d3548a3a8405431d480214652a6fb233c56bd0845a0f53fa3a877c8fad6f",
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/run.json": "01af1f098a26800f270c6b3433c9331f735b0827fe366085b1c8477ae2a17957",
+    "build/t091-native-canvas-input-r1/native5303-canvas-r1/outcome.json": "ea890d354923b31ec0d73b52809325b6a104d82b867ef68465054f75d986a861",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/post-failure-evidence/observer-free-results.tsv": "e38a3639b21af60189cf97df0fa177c28a09245041265a5c15784399cac3aeac",
+    "validation/triangulation-tlindex/diagnostic/preserve-terminal-native-evidence.py": "2399d00dfbfd507ce6abc149d068c61acb5e6a27bfd35f8e7f1b210f11753481"
+  },
+  "historicalFailures": "UNCHANGED",
+  "performanceAcceptance": "NOT_GRANTED",
+  "historicalInputCausation": "NOT_PROVEN",
+  "nextStep": "Run frozen T057 versus T085 differential under the same controlled canvas input, preserving both output/cache boundaries before production memory changes."
+}
