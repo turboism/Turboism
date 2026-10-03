@@ -43,6 +43,21 @@ class AutoBackupCoordinatorTest {
     Path temporary;
 
     @Test
+    void availabilityFollowsTheAdapterProbe() throws Exception {
+        final AutoBackupCoordinator safe =
+                new AutoBackupCoordinator(AutoBackupAdapter.safeMode(), ignored -> {}, Clock.systemUTC(), 60_000L);
+        assertFalse(safe.isAvailable(), "a coordinator over the safe-mode adapter must report unavailable");
+        safe.close();
+
+        final FakeHost host = new FakeHost();
+        final AutoBackupCoordinator connected = new AutoBackupCoordinator(
+                AutoBackupAdapter.connected(host.operations()), ignored -> {}, Clock.systemUTC(), 60_000L);
+        assertTrue(connected.isAvailable());
+        connected.close();
+        assertFalse(connected.isAvailable(), "a closed coordinator must report unavailable");
+    }
+
+    @Test
     void unknownDeclarationWithMatchedSelectorsCanMutateSettingsAndProduceABackup() throws Exception {
         final FakeHost host = new FakeHost();
         final VerifiedMemberResolver resolver = host.resolver(true, "5.3.99");

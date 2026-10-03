@@ -99,7 +99,8 @@ public interface TextureAtlasLayoutAlgorithmRegistry {
     /**
      * Reports whether a live runtime backend backs this registry.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;

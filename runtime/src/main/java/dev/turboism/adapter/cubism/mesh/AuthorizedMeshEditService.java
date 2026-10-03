@@ -57,4 +57,9 @@ public final class AuthorizedMeshEditService implements MeshEditService {
         permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.edit.delete-edges");
         return delegate.deleteEdges(edges);
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }

@@ -214,6 +214,11 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
         };
     }
 
+    @Override
+    public boolean isAvailable() {
+        return active.getAsBoolean() && adapter.isAvailable();
+    }
+
     private static EditorCommandResult result(final EditorCommand command, final EditorCommandResult.Status status) {
         return new EditorCommandResult(status, command.id());
     }

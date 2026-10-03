@@ -32,6 +32,11 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
     }
 
     @Override
+    public boolean isAvailable() {
+        return readService.isAvailable() && modelAccess.isAvailable();
+    }
+
+    @Override
     public List<ClipMaskRecord> collectClipMaskRecords() {
         final List<ClipMaskSnapshot> snapshots = readService.clipMasks();
         if (snapshots == null || snapshots.isEmpty()) {

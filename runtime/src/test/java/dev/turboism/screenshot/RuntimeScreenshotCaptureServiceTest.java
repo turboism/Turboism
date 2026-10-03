@@ -1,7 +1,9 @@
 package dev.turboism.screenshot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
 import dev.turboism.permissions.PermissionChecker;
@@ -60,6 +62,22 @@ final class RuntimeScreenshotCaptureServiceTest {
                 () -> service.capture(new ScreenshotCaptureRequest(new RecentFileId("one"), 150, 150))
                         .toCompletableFuture()
                         .join());
+    }
+
+    @Test
+    void reportsUnavailableForSafeModeAdapter() {
+        assertFalse(
+                new RuntimeScreenshotCaptureService(ScreenshotCaptureAdapter.safeMode(), PermissionChecker.allowAll())
+                        .isAvailable());
+    }
+
+    @Test
+    void reportsAvailableForConnectedAdapter() {
+        final RuntimeScreenshotCaptureService service = new RuntimeScreenshotCaptureService(
+                ScreenshotCaptureAdapter.connected(ignored -> CompletableFuture.failedStage(
+                        new UnsupportedOperationException("capture refused in this test"))),
+                PermissionChecker.allowAll());
+        assertTrue(service.isAvailable());
     }
 
     @Test
