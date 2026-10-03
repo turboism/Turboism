@@ -1,0 +1,404 @@
+{
+  "scope": "All class constant pools in each actual official primary jar; direct target method references followed by javap",
+  "profiles": {
+    "5203": {
+      "officialJarSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+      "scannedClasses": 16540,
+      "referencingClasses": [
+        "com.live2d.graphics3d.editableMesh.triangulation.h"
+      ],
+      "results": [
+        {
+          "class": "com.live2d.graphics3d.editableMesh.triangulation.h",
+          "javap": "build/t074-query-snapshot-consumer-audit-r1/5203-h.javap.txt",
+          "sha256": "ecb2d890a65c62516ee5e959cbf6609642be6000f9e9d459e5935def31e74b1a",
+          "callSites": [
+            {
+              "line": 534,
+              "instruction": "979: invokevirtual #70                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     982: astore        11",
+                "     984: aload_0",
+                "     985: aload         11",
+                "     987: invokevirtual #96                 // Method a:(Ljava/util/List;)Z",
+                "     990: ifeq          944",
+                "     993: aload         11",
+                "     995: iconst_0",
+                "     996: invokeinterface #165,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "    1001: checkcast     #34                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "    1004: astore        12",
+                "    1006: aload         11"
+              ]
+            },
+            {
+              "line": 786,
+              "instruction": "224: invokevirtual #70                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     227: nop",
+                "     228: dup",
+                "     229: ifnonnull     236",
+                "     232: pop",
+                "     233: invokestatic  #153                // Method kotlin/collections/CollectionsKt.emptyList:()Ljava/util/List;",
+                "     236: astore        9",
+                "     238: aload         8",
+                "     240: ifnull        549",
+                "     243: aload         9",
+                "     245: invokeinterface #168,  1          // InterfaceMethod java/util/List.size:()I",
+                "     250: iconst_2"
+              ]
+            },
+            {
+              "line": 1141,
+              "instruction": "35: invokevirtual #70                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "      38: astore        6",
+                "      40: aload_0",
+                "      41: aload         6",
+                "      43: invokevirtual #96                 // Method a:(Ljava/util/List;)Z",
+                "      46: ifne          50",
+                "      49: return",
+                "      50: aload         6",
+                "      52: iconst_0",
+                "      53: invokeinterface #165,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "      58: checkcast     #34                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "      61: astore        7"
+              ]
+            },
+            {
+              "line": 1544,
+              "instruction": "237: invokevirtual #70                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     240: dup",
+                "     241: invokestatic  #157                // Method kotlin/jvm/internal/Intrinsics.checkNotNull:(Ljava/lang/Object;)V",
+                "     244: astore        15",
+                "     246: aload         15",
+                "     248: invokeinterface #167,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;",
+                "     253: astore        16",
+                "     255: aload         16",
+                "     257: invokeinterface #163,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z",
+                "     262: ifeq          89",
+                "     265: aload         16",
+                "     267: invokeinterface #164,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "5302": {
+      "officialJarSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+      "scannedClasses": 16947,
+      "referencingClasses": [
+        "com.live2d.graphics3d.editableMesh.triangulation.h",
+        "com.live2d.graphics3d.editableMesh.triangulation.TriangleList"
+      ],
+      "results": [
+        {
+          "class": "com.live2d.graphics3d.editableMesh.triangulation.h",
+          "javap": "build/t074-query-snapshot-consumer-audit-r1/5302-h.javap.txt",
+          "sha256": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+          "callSites": [
+            {
+              "line": 348,
+              "instruction": "583: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     586: astore        11",
+                "     588: aload_0",
+                "     589: aload         11",
+                "     591: invokevirtual #119                // Method a:(Ljava/util/List;)Z",
+                "     594: ifeq          535",
+                "     597: aload         11",
+                "     599: iconst_0",
+                "     600: invokeinterface #246,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "     605: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "     608: astore        12",
+                "     610: aload         11"
+              ]
+            },
+            {
+              "line": 609,
+              "instruction": "216: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     219: nop",
+                "     220: dup",
+                "     221: ifnonnull     228",
+                "     224: pop",
+                "     225: invokestatic  #217                // Method kotlin/collections/CollectionsKt.emptyList:()Ljava/util/List;",
+                "     228: astore        8",
+                "     230: aload         7",
+                "     232: ifnull        539",
+                "     235: aload         8",
+                "     237: invokeinterface #250,  1          // InterfaceMethod java/util/List.size:()I",
+                "     242: iconst_2"
+              ]
+            },
+            {
+              "line": 960,
+              "instruction": "27: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "      30: astore        5",
+                "      32: aload_0",
+                "      33: aload         5",
+                "      35: invokevirtual #119                // Method a:(Ljava/util/List;)Z",
+                "      38: ifne          42",
+                "      41: return",
+                "      42: aload         5",
+                "      44: iconst_0",
+                "      45: invokeinterface #246,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "      50: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "      53: astore        6"
+              ]
+            },
+            {
+              "line": 1305,
+              "instruction": "224: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     227: astore        15",
+                "     229: aload         15",
+                "     231: invokeinterface #249,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;",
+                "     236: astore        16",
+                "     238: aload         16",
+                "     240: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z",
+                "     245: ifeq          79",
+                "     248: aload         16",
+                "     250: invokeinterface #244,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;",
+                "     255: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "     258: astore        17"
+              ]
+            },
+            {
+              "line": 2352,
+              "instruction": "274: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     277: astore        20",
+                "     279: aload         20",
+                "     281: checkcast     #46                 // class java/lang/Iterable",
+                "     284: astore        21",
+                "     286: iconst_0",
+                "     287: istore        22",
+                "     289: aload         21",
+                "     291: invokeinterface #240,  1          // InterfaceMethod java/lang/Iterable.iterator:()Ljava/util/Iterator;",
+                "     296: astore        23",
+                "     298: aload         23",
+                "     300: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z"
+              ]
+            },
+            {
+              "line": 2542,
+              "instruction": "184: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     187: invokeinterface #250,  1          // InterfaceMethod java/util/List.size:()I",
+                "     192: iconst_1",
+                "     193: if_icmpne     213",
+                "     196: aload_3",
+                "     197: aload         14",
+                "     199: iconst_0",
+                "     200: invokevirtual #144                // Method com/live2d/graphics3d/editableMesh/triangulation/k.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+                "     203: ifne          213",
+                "     206: aload_3",
+                "     207: aload         14",
+                "     209: invokevirtual #143                // Method com/live2d/graphics3d/editableMesh/triangulation/k.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Z"
+              ]
+            }
+          ]
+        },
+        {
+          "class": "com.live2d.graphics3d.editableMesh.triangulation.TriangleList",
+          "javap": "build/t074-query-snapshot-consumer-audit-r1/5302-TriangleList.javap.txt",
+          "sha256": "6f7b94910aa65bcda429608d0a75cdfcd5183393dd581ed47015046dcbb1b2c5",
+          "callSites": [
+            {
+              "line": 423,
+              "instruction": "123: invokevirtual #42                 // Method a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     126: checkcast     #20                 // class java/lang/Iterable",
+                "     129: astore        11",
+                "     131: iconst_0",
+                "     132: istore        12",
+                "     134: aload         11",
+                "     136: invokeinterface #79,  1           // InterfaceMethod java/lang/Iterable.iterator:()Ljava/util/Iterator;",
+                "     141: astore        13",
+                "     143: aload         13",
+                "     145: invokeinterface #81,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z",
+                "     150: ifeq          210",
+                "     153: aload         13"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "5303": {
+      "officialJarSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+      "scannedClasses": 16992,
+      "referencingClasses": [
+        "com.live2d.graphics3d.editableMesh.triangulation.h",
+        "com.live2d.graphics3d.editableMesh.triangulation.TriangleList"
+      ],
+      "results": [
+        {
+          "class": "com.live2d.graphics3d.editableMesh.triangulation.h",
+          "javap": "build/t074-query-snapshot-consumer-audit-r1/5303-h.javap.txt",
+          "sha256": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+          "callSites": [
+            {
+              "line": 348,
+              "instruction": "583: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     586: astore        11",
+                "     588: aload_0",
+                "     589: aload         11",
+                "     591: invokevirtual #119                // Method a:(Ljava/util/List;)Z",
+                "     594: ifeq          535",
+                "     597: aload         11",
+                "     599: iconst_0",
+                "     600: invokeinterface #246,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "     605: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "     608: astore        12",
+                "     610: aload         11"
+              ]
+            },
+            {
+              "line": 609,
+              "instruction": "216: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     219: nop",
+                "     220: dup",
+                "     221: ifnonnull     228",
+                "     224: pop",
+                "     225: invokestatic  #217                // Method kotlin/collections/CollectionsKt.emptyList:()Ljava/util/List;",
+                "     228: astore        8",
+                "     230: aload         7",
+                "     232: ifnull        539",
+                "     235: aload         8",
+                "     237: invokeinterface #250,  1          // InterfaceMethod java/util/List.size:()I",
+                "     242: iconst_2"
+              ]
+            },
+            {
+              "line": 960,
+              "instruction": "27: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "      30: astore        5",
+                "      32: aload_0",
+                "      33: aload         5",
+                "      35: invokevirtual #119                // Method a:(Ljava/util/List;)Z",
+                "      38: ifne          42",
+                "      41: return",
+                "      42: aload         5",
+                "      44: iconst_0",
+                "      45: invokeinterface #246,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;",
+                "      50: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "      53: astore        6"
+              ]
+            },
+            {
+              "line": 1305,
+              "instruction": "224: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     227: astore        15",
+                "     229: aload         15",
+                "     231: invokeinterface #249,  1          // InterfaceMethod java/util/List.iterator:()Ljava/util/Iterator;",
+                "     236: astore        16",
+                "     238: aload         16",
+                "     240: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z",
+                "     245: ifeq          79",
+                "     248: aload         16",
+                "     250: invokeinterface #244,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;",
+                "     255: checkcast     #36                 // class com/live2d/graphics3d/editableMesh/triangulation/l",
+                "     258: astore        17"
+              ]
+            },
+            {
+              "line": 2352,
+              "instruction": "274: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     277: astore        20",
+                "     279: aload         20",
+                "     281: checkcast     #46                 // class java/lang/Iterable",
+                "     284: astore        21",
+                "     286: iconst_0",
+                "     287: istore        22",
+                "     289: aload         21",
+                "     291: invokeinterface #240,  1          // InterfaceMethod java/lang/Iterable.iterator:()Ljava/util/Iterator;",
+                "     296: astore        23",
+                "     298: aload         23",
+                "     300: invokeinterface #243,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z"
+              ]
+            },
+            {
+              "line": 2542,
+              "instruction": "184: invokevirtual #82                 // Method com/live2d/graphics3d/editableMesh/triangulation/TriangleList.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     187: invokeinterface #250,  1          // InterfaceMethod java/util/List.size:()I",
+                "     192: iconst_1",
+                "     193: if_icmpne     213",
+                "     196: aload_3",
+                "     197: aload         14",
+                "     199: iconst_0",
+                "     200: invokevirtual #144                // Method com/live2d/graphics3d/editableMesh/triangulation/k.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+                "     203: ifne          213",
+                "     206: aload_3",
+                "     207: aload         14",
+                "     209: invokevirtual #143                // Method com/live2d/graphics3d/editableMesh/triangulation/k.a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Z"
+              ]
+            }
+          ]
+        },
+        {
+          "class": "com.live2d.graphics3d.editableMesh.triangulation.TriangleList",
+          "javap": "build/t074-query-snapshot-consumer-audit-r1/5303-TriangleList.javap.txt",
+          "sha256": "6f7b94910aa65bcda429608d0a75cdfcd5183393dd581ed47015046dcbb1b2c5",
+          "callSites": [
+            {
+              "line": 423,
+              "instruction": "123: invokevirtual #42                 // Method a:(Lcom/live2d/graphics3d/editableMesh/triangulation/j;)Ljava/util/List;",
+              "following": [
+                "     126: checkcast     #20                 // class java/lang/Iterable",
+                "     129: astore        11",
+                "     131: iconst_0",
+                "     132: istore        12",
+                "     134: aload         11",
+                "     136: invokeinterface #79,  1           // InterfaceMethod java/lang/Iterable.iterator:()Ljava/util/Iterator;",
+                "     141: astore        13",
+                "     143: aload         13",
+                "     145: invokeinterface #81,  1           // InterfaceMethod java/util/Iterator.hasNext:()Z",
+                "     150: ifeq          210",
+                "     153: aload         13"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "Constant-pool references are not proof of invocation or dataflow; javap code must confirm callers.",
+    "Primary jar audit does not cover external plugins/reflection; detached mutable List semantics remain required."
+  ],
+  "task": "T074",
+  "status": "BOUNDED_DIRECT_CONSUMER_AUDIT_AND_STANDALONE_FEASIBILITY_PASS",
+  "productionAcceptance": "NOT_GRANTED_NO_INTEGRATION_OR_HOST_PERFORMANCE",
+  "prototypeChecks": 1709997,
+  "productionBaseline": "T057",
+  "nextWork": "Integrate private small detached snapshot into actual complete index only for cardinality0\u20132; retain ArrayList for >2. Verify full index semantics, native/sole-premain profile output/lifecycle, then separately freeze balanced direct CPU/RSS protocol.",
+  "consumerFindings": [
+    "5203:h has4directcall sites;5302/5303:h has6andTriangleList.d(l) has1each. Allprimaryjarconstantpools scanned, not externalplugins/reflection.",
+    "Reviewed direct uses read size/get/iteration and h.a(List) boolean validation; latter reads isEmpty,size,get only. No ArrayList cast of query result was observed in these bounded consumers.",
+    "5302/5303h.a(TriangleList,k) traverses a query snapshot while TriangleList.b(l) changes the native source set. Sharinglivebuckets is therefore invalid.",
+    "Listmutability/detachment remains preserved even though bounded callers primarilyread. Cardinality>2 must keeporiginalArrayListpath."
+  ],
+  "prototypeLimitations": [
+    "PrototypeSnapshot is AbstractList/RandomAccess, notArrayList; concrete-type compatibility must be verified in actual integration consumers.",
+    "No exact allocationbyte/JOL/CPU/RSS/retainedheapclaim. No native execution, productionintegration, identity/lifecycle or hostperformance acceptance.",
+    "Atomic array/list migration on allocation failure retains inline snapshot; indexfallback remains tobechecked afterintegration."
+  ],
+  "pins": {
+    "build/t074-query-snapshot-consumer-audit-r1/review.json": "b4054c2455cfb83ff23d47a1f67788e78d4faa7fa66cc6a07f31a3872324da48",
+    "build/t074-query-snapshot-consumer-audit-r1/prototype-selfcheck-final.log": "d39d7de806d8d8bdbe5a0d3dbaa06c3f84b5ad7d650dfdb1aba60b9ed19d3840",
+    "validation/triangulation-tlindex/diagnostic/SmallQuerySnapshotSelfCheck.java": "037bd9c905daf9a070a1de520fb9b4e63b4d65c926a5ffe1d025ab9db6dce068",
+    "build/t074-query-snapshot-consumer-audit-r1/prototype-classes/SmallQuerySnapshotSelfCheck$Snapshot.class": "ccadd66c21a0e9c45d16e459fe109312faea69b6d6bdcc033a316b0ca406152b",
+    "build/t074-query-snapshot-consumer-audit-r1/prototype-classes/SmallQuerySnapshotSelfCheck.class": "caa4dbb4511002f54ffebdad9aedcd2a6d5cf44cf022fbb79f7cae8d6b36fd33",
+    "build/t074-query-snapshot-consumer-audit-r1/prototype-classes/SmallQuerySnapshotSelfCheck$1.class": "6979da0853cb9b8b01f8572cb8478e73798bd3edf611074b29a80b4ab1f42c52"
+  }
+}
