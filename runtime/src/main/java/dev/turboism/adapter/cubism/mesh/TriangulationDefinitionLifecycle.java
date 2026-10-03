@@ -155,6 +155,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
     public static final class Gate {
         private final TriangulationDefinitionLifecycle owner;
         private volatile boolean admitted;
+        private Map<String, WeakReference<Class<?>>> covered = Map.of();
         private volatile String reason = "UNVERIFIED";
 
         private Gate(TriangulationDefinitionLifecycle owner) {
@@ -163,6 +164,12 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
         /** Latest capture or permanent revocation reason; this observation grants no lease. */
         public String reason() {
             return reason;
+        }
+
+        boolean covers(Class<?> type) {
+            if (!admitted || type == null) return false;
+            WeakReference<Class<?>> actual = covered.get(type.getName());
+            return actual != null && actual.get() == type;
         }
 
         /** Null means native fallback. The lease is confined to its acquiring thread. */
@@ -266,6 +273,9 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                     && collector.captured.size() == collector.wanted.size()
                     && collector.wanted.entrySet().stream()
                             .allMatch(e -> e.getValue().equals(collector.captured.get(e.getKey())))) {
+                Map<String, WeakReference<Class<?>>> covered = new java.util.HashMap<>();
+                for (Class<?> type : actual) covered.put(type.getName(), new WeakReference<>(type));
+                gate.covered = Map.copyOf(covered);
                 gate.reason = "OWNED_FINAL_DEFINITION_MATCH";
                 gate.admitted = true;
             } else gate.revoke("DEFINITION_MISMATCH_OR_INCOMPLETE");
