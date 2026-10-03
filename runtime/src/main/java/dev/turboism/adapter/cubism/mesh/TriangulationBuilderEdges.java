@@ -17,8 +17,9 @@ public final class TriangulationBuilderEdges {
 
     /** Create local bookkeeping, or null when ordinary allocation fails. */
     public static TriangulationBuilderEdges create() {
-        try { return new TriangulationBuilderEdges(); }
-        catch (Throwable failure) {
+        try {
+            return new TriangulationBuilderEdges();
+        } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             return null;
         }
@@ -31,8 +32,9 @@ public final class TriangulationBuilderEdges {
      */
     public static int seen(final TriangulationBuilderEdges state, final int a, final int b) {
         if (state == null || state.table == null) return -1;
-        try { return state.record(TriangulationEdgeIndex.key(a, b)); }
-        catch (Throwable failure) {
+        try {
+            return state.record(TriangulationEdgeIndex.key(a, b));
+        } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             state.table = null;
             return -1;

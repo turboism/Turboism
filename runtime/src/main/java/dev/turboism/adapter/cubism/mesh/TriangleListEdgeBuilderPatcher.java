@@ -27,14 +27,22 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
         final ClassWriter writer = new ClassWriter(0);
         writer.visit(V17, ACC_PUBLIC, OWNER, null, "java/lang/Object", null);
         final int[] found = {0};
-        new ClassReader(bytes).accept(new ClassVisitor(ASM9) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                    final String descriptor, final String signature, final String[] exceptions) {
-                if (!name.equals("b") || !descriptor.equals(DESC)) return null;
-                found[0]++;
-                return writer.visitMethod(access, name, descriptor, signature, exceptions);
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(ASM9) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                if (!name.equals("b") || !descriptor.equals(DESC)) return null;
+                                found[0]++;
+                                return writer.visitMethod(access, name, descriptor, signature, exceptions);
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         writer.visitEnd();
         if (found[0] != 1) throw new IllegalArgumentException("local builder method missing or duplicated");
         return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
@@ -43,13 +51,22 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
     /** Runtime contract includes the class/field shape and only the relevant builder method. */
     static String dependencyFingerprint(final byte[] bytes) {
         final ClassWriter writer = new ClassWriter(0);
-        new ClassReader(bytes).accept(new ClassVisitor(ASM9, writer) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                    final String descriptor, final String signature, final String[] exceptions) {
-                return name.equals("b") && descriptor.equals(DESC)
-                        ? super.visitMethod(access, name, descriptor, signature, exceptions) : null;
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(ASM9, writer) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                return name.equals("b") && descriptor.equals(DESC)
+                                        ? super.visitMethod(access, name, descriptor, signature, exceptions)
+                                        : null;
+                            }
+                        },
+                        ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         return TriangulationDefinitionFingerprint.runtimeOf(writer.toByteArray());
     }
 
@@ -59,32 +76,51 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
             throw new IllegalArgumentException("unreviewed local builder body");
         }
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-            @Override protected String getCommonSuperClass(final String a, final String b) {
+            @Override
+            protected String getCommonSuperClass(final String a, final String b) {
                 return "java/lang/Object";
             }
         };
-        new ClassReader(bytes).accept(new ClassVisitor(ASM9, writer) {
-            @Override public MethodVisitor visitMethod(final int access, final String name,
-                    final String descriptor, final String signature, final String[] exceptions) {
-                final MethodVisitor method = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (!name.equals("b") || !descriptor.equals(DESC)) return method;
-                return new Builder(method);
-            }
-        }, ClassReader.EXPAND_FRAMES);
+        new ClassReader(bytes)
+                .accept(
+                        new ClassVisitor(ASM9, writer) {
+                            @Override
+                            public MethodVisitor visitMethod(
+                                    final int access,
+                                    final String name,
+                                    final String descriptor,
+                                    final String signature,
+                                    final String[] exceptions) {
+                                final MethodVisitor method =
+                                        super.visitMethod(access, name, descriptor, signature, exceptions);
+                                if (!name.equals("b") || !descriptor.equals(DESC)) return method;
+                                return new Builder(method);
+                            }
+                        },
+                        ClassReader.EXPAND_FRAMES);
         return writer.toByteArray();
     }
 
     private static final class Builder extends MethodVisitor {
-        private static final int LEASE_LOCAL = 7, STATE_LOCAL = 8, EDGE_LOCAL = 9,
-                COLLECTION_LOCAL = 10, RETURN_LOCAL = 11, FAILURE_LOCAL = 12, SEEN_LOCAL = 13;
+        private static final int LEASE_LOCAL = 7,
+                STATE_LOCAL = 8,
+                EDGE_LOCAL = 9,
+                COLLECTION_LOCAL = 10,
+                RETURN_LOCAL = 11,
+                FAILURE_LOCAL = 12,
+                SEEN_LOCAL = 13;
         private final Label start = new Label(), end = new Label(), success = new Label(), failure = new Label();
 
-        Builder(final MethodVisitor method) { super(ASM9, method); }
+        Builder(final MethodVisitor method) {
+            super(ASM9, method);
+        }
 
-        @Override public void visitCode() {
+        @Override
+        public void visitCode() {
             super.visitCode();
             super.visitLdcInsn(Type.getObjectType(OWNER));
-            super.visitMethodInsn(INVOKESTATIC, LEASE, "enterBuilder", "(Ljava/lang/Class;)Ljava/lang/AutoCloseable;", false);
+            super.visitMethodInsn(
+                    INVOKESTATIC, LEASE, "enterBuilder", "(Ljava/lang/Class;)Ljava/lang/AutoCloseable;", false);
             super.visitVarInsn(ASTORE, LEASE_LOCAL);
             super.visitTryCatchBlock(start, end, failure, "java/lang/Throwable");
             super.visitLabel(start);
@@ -99,10 +135,13 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
             super.visitVarInsn(ASTORE, STATE_LOCAL);
         }
 
-        @Override public void visitMethodInsn(final int opcode, final String owner, final String name,
-                final String descriptor, final boolean itf) {
-            if (opcode != INVOKEVIRTUAL || !owner.equals(COLLECTION)
-                    || !name.equals("a") || !descriptor.equals(QUERY)) {
+        @Override
+        public void visitMethodInsn(
+                final int opcode, final String owner, final String name, final String descriptor, final boolean itf) {
+            if (opcode != INVOKEVIRTUAL
+                    || !owner.equals(COLLECTION)
+                    || !name.equals("a")
+                    || !descriptor.equals(QUERY)) {
                 super.visitMethodInsn(opcode, owner, name, descriptor, itf);
                 return;
             }
@@ -137,14 +176,16 @@ final class TriangleListEdgeBuilderPatcher implements Opcodes {
             super.visitMethodInsn(INVOKEVIRTUAL, POINT, "getIndex", "()I", false);
         }
 
-        @Override public void visitInsn(final int opcode) {
+        @Override
+        public void visitInsn(final int opcode) {
             if (opcode == ARETURN) {
                 super.visitVarInsn(ASTORE, RETURN_LOCAL);
                 super.visitJumpInsn(GOTO, success);
             } else super.visitInsn(opcode);
         }
 
-        @Override public void visitMaxs(final int stack, final int locals) {
+        @Override
+        public void visitMaxs(final int stack, final int locals) {
             super.visitLabel(end);
             super.visitLabel(success);
             leave();

@@ -2,7 +2,7 @@ package dev.turboism.adapter.cubism.mesh;
 
 /** Scalar-only conservative rejection for the leased native h.d branch. */
 public final class TriangulationAngleGuard {
-    private TriangulationAngleGuard() { }
+    private TriangulationAngleGuard() {}
 
     /** Inputs retain the native float products/order; false always runs the native angle call. */
     public static boolean reject(final float cross, final float dot) {

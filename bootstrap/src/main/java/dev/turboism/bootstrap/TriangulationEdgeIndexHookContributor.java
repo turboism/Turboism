@@ -44,23 +44,19 @@ final class TriangulationEdgeIndexHookContributor implements HookContributor {
     public AutoCloseable install(final HookEnvironment environment) throws Exception {
         try {
             final VerifiedTriangulationEdgeIndexInstaller.Installation installation =
-                    VerifiedTriangulationEdgeIndexInstaller.install(
-                            environment.instrumentation(),
-                            code -> {
-                                if (code.startsWith("TRIANGULATION_MEMBERSHIP_PATCHED ")
-                                        || code.startsWith("TRIANGULATION_FRESH_EDGE_PATCHED ")
-                                        || code.startsWith("TRIANGULATION_LAZY_EDGE_")) {
-                                    RuntimeDiagnostics.info("triangulation-edge-index", code);
-                                } else {
-                                    RuntimeDiagnostics.debug("triangulation-edge-index", code);
-                                }
-                            });
-            RuntimeDiagnostics.debug(
-                    "bootstrap", "Triangulation edge index status=" + installation.status());
+                    VerifiedTriangulationEdgeIndexInstaller.install(environment.instrumentation(), code -> {
+                        if (code.startsWith("TRIANGULATION_MEMBERSHIP_PATCHED ")
+                                || code.startsWith("TRIANGULATION_FRESH_EDGE_PATCHED ")
+                                || code.startsWith("TRIANGULATION_LAZY_EDGE_")) {
+                            RuntimeDiagnostics.info("triangulation-edge-index", code);
+                        } else {
+                            RuntimeDiagnostics.debug("triangulation-edge-index", code);
+                        }
+                    });
+            RuntimeDiagnostics.debug("bootstrap", "Triangulation edge index status=" + installation.status());
             return installation;
         } catch (final Throwable failure) {
-            RuntimeDiagnostics.error(
-                    "triangulation-edge-index", "Triangulation edge index disabled safely", failure);
+            RuntimeDiagnostics.error("triangulation-edge-index", "Triangulation edge index disabled safely", failure);
             return () -> {};
         }
     }

@@ -75,7 +75,9 @@ class TriangulationEdgeIndexSettingsContributionTest {
             try (final var reader = java.nio.file.Files.newBufferedReader(path)) {
                 final var catalog = new java.util.Properties();
                 catalog.load(reader);
-                assertEquals(label.getValue(), catalog.getProperty(key),
+                assertEquals(
+                        label.getValue(),
+                        catalog.getProperty(key),
                         label.getKey() + " must resolve the exact translated label");
             } catch (java.io.IOException failure) {
                 throw new AssertionError("cannot read " + label.getKey(), failure);

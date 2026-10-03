@@ -87,7 +87,8 @@ class RuntimeInstallerConfigRoundTripTest {
                 try (var edgeIndex = new TriangulationEdgeIndexSettingsFileService(home)) {
                     assertFalse(edgeIndex.read(), "explicit edge-index opt-out survives installer upgrade");
                 }
-                assertFalse(TriangulationEdgeIndexPreference.read(home),
+                assertFalse(
+                        TriangulationEdgeIndexPreference.read(home),
                         "premain must honor the upgraded runtime-saved opt-out");
             }
         }

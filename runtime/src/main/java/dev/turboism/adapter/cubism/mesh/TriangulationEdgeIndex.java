@@ -80,7 +80,9 @@ public final class TriangulationEdgeIndex {
         }
 
         @Override
-        public int hashCode() { return hash; }
+        public int hashCode() {
+            return hash;
+        }
 
         @Override
         public boolean equals(final Object other) {
@@ -99,7 +101,9 @@ public final class TriangulationEdgeIndex {
         }
 
         @Override
-        public int hashCode() { return hash; }
+        public int hashCode() {
+            return hash;
+        }
 
         @Override
         public boolean equals(final Object other) {
@@ -121,6 +125,7 @@ public final class TriangulationEdgeIndex {
 
     /** Weak identity registration on the target's final {@code b} field instance. */
     private static final ReferenceQueue<LinkedHashSet> COLLECTED = new ReferenceQueue<>();
+
     static final Map<SetKey, St> STATES = new HashMap<>();
     // All registry access holds this class's monitor. Never store the lookup probe;
     // its temporary strong owner reference is cleared before releasing that monitor.
@@ -234,14 +239,13 @@ public final class TriangulationEdgeIndex {
      * Replaces {@code LinkedHashSet.add}. Runs the real add first (its return value is the
      * official one), then bookkeeping that can only degrade — never alter — set semantics.
      */
-    public static boolean add(
-            final LinkedHashSet s, final Object tri, final int ia, final int ib, final int ic) {
+    public static boolean add(final LinkedHashSet s, final Object tri, final int ia, final int ib, final int ic) {
         final boolean changed = s.add(tri);
         try {
             final St t = st(s);
             if (changed && !t.dead) {
-                final boolean incremental = !t.dirty && t.sz == s.size() - 1
-                        && t.keys.size() == t.sz + t.pendingSize && !isPending(t, tri);
+                final boolean incremental =
+                        !t.dirty && t.sz == s.size() - 1 && t.keys.size() == t.sz + t.pendingSize && !isPending(t, tri);
                 final long k1 = key(ia, ib), k2 = key(ib, ic), k3 = key(ic, ia);
                 t.keys.put(tri, new long[] {k1, k2, k3});
                 if (incremental) {
@@ -269,9 +273,13 @@ public final class TriangulationEdgeIndex {
         if (!removed) return false;
         try {
             final St t = st(s);
-            if (!t.dead && !t.dirty && t.sz == s.size() + 1
-                    && t.keys.size() == t.sz + t.pendingSize && t.keys.containsKey(tri)
-                    && !isPending(t, tri) && t.pendingSize < t.pending.length) {
+            if (!t.dead
+                    && !t.dirty
+                    && t.sz == s.size() + 1
+                    && t.keys.size() == t.sz + t.pendingSize
+                    && t.keys.containsKey(tri)
+                    && !isPending(t, tri)
+                    && t.pendingSize < t.pending.length) {
                 t.pending[t.pendingSize++] = tri;
             } else {
                 markDirty(t);
@@ -366,8 +374,8 @@ public final class TriangulationEdgeIndex {
         try {
             final St t = st(s);
             if (!t.dead && t.pendingSize > 0) settle(t, s);
-            if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size()
-                    && t.keys.containsKey(tri)) return true;
+            if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size() && t.keys.containsKey(tri))
+                return true;
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             if (s != null) invalidate(s); // settle may have partially changed bookkeeping
@@ -413,8 +421,7 @@ public final class TriangulationEdgeIndex {
             // Never expose a live bucket: the native caller can remove triangles
             // while iterating this result. Small results own inline references;
             // larger/nonmanifold results retain their existing ArrayList snapshot.
-            return bucket == null || bucket.size() <= 2
-                    ? new QuerySnapshot(bucket) : new ArrayList<>(bucket);
+            return bucket == null || bucket.size() <= 2 ? new QuerySnapshot(bucket) : new ArrayList<>(bucket);
         } catch (Throwable indexFailure) {
             FatalErrors.rethrowIfFatal(indexFailure);
             t.dead = true; // never trust a crashed index again
@@ -436,11 +443,13 @@ public final class TriangulationEdgeIndex {
             if (initialSize > 1) second = bucket.get(1);
         }
 
-        @Override public int size() {
+        @Override
+        public int size() {
             return mutable == null ? initialSize : mutable.size();
         }
 
-        @Override public Object get(final int index) {
+        @Override
+        public Object get(final int index) {
             Objects.checkIndex(index, size());
             return mutable != null ? mutable.get(index) : index == 0 ? first : second;
         }
@@ -458,25 +467,29 @@ public final class TriangulationEdgeIndex {
             return mutable;
         }
 
-        @Override public Object set(final int index, final Object value) {
+        @Override
+        public Object set(final int index, final Object value) {
             Objects.checkIndex(index, size());
             return materialize().set(index, value);
         }
 
-        @Override public void add(final int index, final Object value) {
+        @Override
+        public void add(final int index, final Object value) {
             if (index < 0 || index > size()) throw new IndexOutOfBoundsException(index);
             materialize().add(index, value);
             modCount++;
         }
 
-        @Override public Object remove(final int index) {
+        @Override
+        public Object remove(final int index) {
             Objects.checkIndex(index, size());
             final Object removed = materialize().remove(index);
             modCount++;
             return removed;
         }
 
-        @Override public void clear() {
+        @Override
+        public void clear() {
             if (mutable != null) mutable.clear();
             first = null;
             second = null;
@@ -519,8 +532,8 @@ public final class TriangulationEdgeIndex {
     }
 
     @SuppressWarnings("CollectionIncompatibleType") // The mutable probe is never stored in the map.
-    private static void put(final HashMap<EdgeKey, ArrayList<Object>> map,
-            final EdgeLookup lookup, final long k, final Object tri) {
+    private static void put(
+            final HashMap<EdgeKey, ArrayList<Object>> map, final EdgeLookup lookup, final long k, final Object tri) {
         synchronized (lookup) {
             lookup.bind(k);
             ArrayList<Object> bucket = map.get(lookup);
