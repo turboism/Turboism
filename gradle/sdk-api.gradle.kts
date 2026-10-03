@@ -54,7 +54,9 @@ private val sdkBaselineAnchors = listOf(
     SdkBaselineAnchor(12, "913ada16a231ee43f22b39c4adbf767bd3cb8a37",
         "Reconstructs the reviewed v12 selection-tool SDK from its pinned Git commit."),
     SdkBaselineAnchor(13, "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501",
-        "Reconstructs the reviewed v13 contract-convergence SDK from its pinned Git commit.")
+        "Reconstructs the reviewed v13 contract-convergence SDK from its pinned Git commit."),
+    SdkBaselineAnchor(14, "34a68362b7d1b523094e6788f9346339c584f116",
+        "Reconstructs the reviewed v14 parameter-read-plane SDK from its pinned Git commit.")
 )
 
 private fun sdkExactBaseline(version: Int) =
@@ -128,21 +130,37 @@ sdkBaselineAnchors.forEach { anchor ->
     }
 }
 
-// v2–v12 audit their reconstructed historical artifact; the v13 live-JAR audit and the
-// linkage checks below are deliberately hand-written because their inputs differ.
-sdkBaselineAnchors.filter { it.version <= 12 }.forEach { anchor ->
+/*
+ * Every anchor registers an exact-API compatibility check. The newest anchor is the
+ * live gate: it audits the freshly built :sdk:jar, so it depends on the jar task and
+ * reads that artifact as its check input. Older anchors audit their reconstructed
+ * historical artifact against itself; their check input and reference are the same
+ * file and the SDK jar is not needed.
+ */
+private val sdkLiveBaselineAnchor = sdkBaselineAnchors.maxBy { it.version }
+
+val sdkExactCompatibilityCheckTasks = sdkBaselineAnchors.map { anchor ->
     val version = anchor.version
+    val live = anchor.version == sdkLiveBaselineAnchor.version
     tasks.register<Exec>("checkSdkV${version}ExactApiCompatibility") {
-        group = "historical verification"
-        description = "Audits the reviewed v$version baseline's historical artifact and canonical binding."
+        group = if (live) "release verification" else "historical verification"
+        description = if (live) {
+            "Verifies the live SDK's canonical API matches the reviewed v$version anchor."
+        } else {
+            "Audits the reviewed v$version baseline's historical artifact and canonical binding."
+        }
+        val auditedArtifact = if (live) sdkJarArtifact else sdkExactReferenceArtifact(version)
         dependsOn("prepareSdkV${version}ExactReference")
+        if (live) {
+            dependsOn(":sdk:jar")
+        }
         inputs.files(sdkApiHelperFiles, sdkExactBaseline(version), sdkExactReferenceBuilder,
-            sdkExactReferenceArtifact(version))
+            sdkExactReferenceArtifact(version), auditedArtifact)
         inputs.property("expectedCommit", anchor.commit)
         outputs.upToDateWhen { false }
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-            "--input", sdkExactReferenceArtifact(version).get().asFile.absolutePath,
+            "--input", auditedArtifact.get().asFile.absolutePath,
             "--reference-input", sdkExactReferenceArtifact(version).get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
             "--baseline", sdkExactBaseline(version).asFile.absolutePath,
@@ -151,23 +169,9 @@ sdkBaselineAnchors.filter { it.version <= 12 }.forEach { anchor ->
     }
 }
 
-val checkSdkV13ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "release verification"
-    description = "Verifies the live SDK's canonical API matches the reviewed v13 contract-convergence anchor."
-    dependsOn(":sdk:jar", "prepareSdkV13ExactReference")
-    inputs.files(sdkApiHelperFiles, sdkExactBaseline(13), sdkExactReferenceBuilder,
-        sdkExactReferenceArtifact(13), sdkJarArtifact)
-    inputs.property("expectedCommit", "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501")
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkJarArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkExactReferenceArtifact(13).get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkExactBaseline(13).asFile.absolutePath,
-        "--expected-commit", "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501"
-    )
-}
+// checkRelease in gradle/verification.gradle.kts consumes this list so the release
+// gate gains a new anchored check without naming the version there.
+extensions.extraProperties["sdkExactCompatibilityCheckTasks"] = sdkExactCompatibilityCheckTasks
 
 val checkSdkV8Linkage by tasks.registering(Exec::class) {
     group = "verification"
@@ -187,6 +191,50 @@ val checkTextureAtlasSdkV7Linkage by tasks.registering(Exec::class) {
     verificationStamp()
     commandLine("bash", "scripts/test/test_texture_atlas_sdk_linkage.sh",
         sdkExactReferenceArtifact(7).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
+}
+
+/*
+ * Anchor-table consistency self-check. v2–v6 were anchored before per-version review
+ * documents existed, so they are grandfathered here; the exemption set must match the
+ * versions that actually lack a document, which fails closed both when a new anchor
+ * forgets its review and when a grandfathered version later gains one.
+ */
+private val sdkAnchorVersionsWithoutReviewDocs = setOf(2, 3, 4, 5, 6)
+
+val checkSdkBaselineAnchorConsistency by tasks.registering {
+    group = "verification"
+    description = "Verifies every anchored SDK version has one exact baseline and one review document."
+    inputs.dir("sdk/api-contracts/baselines")
+    inputs.files(fileTree("sdk/api-contracts") { include("sdk-api-v*-review.md") })
+    inputs.property("anchorVersions", sdkBaselineAnchors.map { it.version })
+    verificationStamp()
+    doLast {
+        val versions = sdkBaselineAnchors.map { it.version }
+        val duplicated = versions.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        if (duplicated.isNotEmpty()) {
+            throw GradleException("SDK anchor table lists duplicate versions: ${duplicated.sorted()}.")
+        }
+        val baselineName = Regex("sdk-api-v(\\d+)-exact\\.json")
+        val baselineVersions = file("sdk/api-contracts/baselines").listFiles().orEmpty()
+            .mapNotNull { baselineName.matchEntire(it.name)?.groupValues?.get(1)?.toInt() }
+            .toSet()
+        if (baselineVersions != versions.toSet()) {
+            throw GradleException(
+                "SDK anchor table and sdk/api-contracts/baselines disagree: " +
+                    "anchors=${versions.sorted()}, baselines=${baselineVersions.sorted()}."
+            )
+        }
+        val missingReviews = versions.filter { version ->
+            !file("sdk/api-contracts/sdk-api-v$version-review.md").isFile
+        }.toSet()
+        if (missingReviews != sdkAnchorVersionsWithoutReviewDocs) {
+            throw GradleException(
+                "SDK anchors without a review document are ${missingReviews.sorted()}; expected " +
+                    "${sdkAnchorVersionsWithoutReviewDocs.sorted()}. Write sdk-api-v<N>-review.md for " +
+                    "the new anchor or trim the exemption once a grandfathered version gains one."
+            )
+        }
+    }
 }
 
 val generateSdkApiReport by tasks.registering(Exec::class) {

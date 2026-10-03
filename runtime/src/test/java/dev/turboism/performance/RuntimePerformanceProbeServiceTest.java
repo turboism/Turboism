@@ -173,6 +173,14 @@ class RuntimePerformanceProbeServiceTest {
         assertTrue(available.isAvailable(), "a checked view of the live service reports available");
     }
 
+    @Test
+    void availabilityReportsTheClosedState() {
+        final RuntimePerformanceProbeService service = service(granted());
+        assertTrue(service.isAvailable());
+        service.close();
+        assertFalse(service.isAvailable(), "a closed service must report unavailable");
+    }
+
     private static RuntimePerformanceProbeService service(final PermissionChecker checker) {
         return new RuntimePerformanceProbeService("perf-stats", checker, Clock.systemUTC());
     }

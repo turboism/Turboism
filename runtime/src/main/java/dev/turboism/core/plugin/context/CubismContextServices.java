@@ -7,14 +7,12 @@ import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import java.util.Objects;
 
 record CubismContextServices(
         CubismFacade cubismFacade,
-        ParameterQueryService parameterQueryService,
         SelectionQueryService selectionQueryService,
         ModelHierarchyQueryService modelHierarchyQueryService,
         CubismReadCapabilityService cubismReadCapabilityService,
@@ -25,7 +23,6 @@ record CubismContextServices(
         EditorAutoBackupService backupService) {
     CubismContextServices {
         cubismFacade = Objects.requireNonNull(cubismFacade, "cubismFacade");
-        parameterQueryService = Objects.requireNonNull(parameterQueryService, "parameterQueryService");
         selectionQueryService = Objects.requireNonNull(selectionQueryService, "selectionQueryService");
         modelHierarchyQueryService = Objects.requireNonNull(modelHierarchyQueryService, "modelHierarchyQueryService");
         cubismReadCapabilityService =

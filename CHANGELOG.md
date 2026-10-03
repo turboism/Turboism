@@ -163,6 +163,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   v2–v12 retained as historical audits. **Plugin API migration is required:** resolve services
   through `ctx.services()`, route writes through `Parameter.setValue`/authoring transactions,
   and read backup artifacts via handles.
+- The parameter query read plane is removed from the SDK: `ParameterQueryService` (and its
+  `Unavailable` sentinel), `ParameterSummary`, `ParameterBounds`, `PluginContext.parameterQuery()`
+  and `PluginService.PARAMETER_QUERY` are gone, and `ParameterAppearance` gains `visible()` /
+  `editable()` `Optional<Boolean>` projections of the parameter palette state. Deleting the enum
+  constant shifts real `PluginService.ordinal()` values by −1 for everything declared after it, so
+  persisted ordinals must be rewritten. The reviewed exact baseline is now v14, with v2–v13 retained
+  as historical audits. **Plugin API migration is required:** list parameters through
+  `cubism().model().active().parameters().all()`, resolve one through `parameters().findById(id)`,
+  read values through `Parameter.getValue`/`getMinimumValue`/`getMaximumValue`/`getDefaultValue`,
+  read palette flags through `parameter.ui().visible()`/`editable()`, and declare
+  `turboism.cubism.model.read` instead of `turboism.cubism.parameter.read`.
 - Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
   instead of being hand-wired: each `HookContributor` checks its own admission and forwards
   install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a
