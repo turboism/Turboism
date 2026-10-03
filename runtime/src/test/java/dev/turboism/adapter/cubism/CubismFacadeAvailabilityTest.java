@@ -65,6 +65,44 @@ class CubismFacadeAvailabilityTest {
     }
 
     @Test
+    void queryServicesForwardModelAccessAvailability() {
+        final CubismFacadeImpl unavailableFacade = facade(
+                CubismModelAccess.unavailable(),
+                dev.turboism.sdk.cubism.core.CoreRuntimeInfo.unavailable(),
+                new TextureAtlasLayoutCoordinator(),
+                new TextureAtlasNativeInvocationCoordinator(),
+                () -> true,
+                new RuntimeTextureAtlasEditorUi(),
+                RuntimeTextureAtlasEditorSession.unavailable(),
+                new RuntimeTextureAtlasLayoutAlgorithmRegistry());
+        assertFalse(unavailableFacade.isModelAccessAvailable());
+        assertFalse(new dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl(
+                        unavailableFacade, permissionGate())
+                .isAvailable());
+        assertFalse(new dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl(
+                        unavailableFacade, permissionGate())
+                .isAvailable());
+
+        final CubismFacadeImpl liveFacade = facade(
+                () -> {
+                    throw new UnsupportedOperationException();
+                },
+                dev.turboism.sdk.cubism.core.CoreRuntimeInfo.unavailable(),
+                new TextureAtlasLayoutCoordinator(),
+                new TextureAtlasNativeInvocationCoordinator(),
+                () -> true,
+                new RuntimeTextureAtlasEditorUi(),
+                RuntimeTextureAtlasEditorSession.unavailable(),
+                new RuntimeTextureAtlasLayoutAlgorithmRegistry());
+        assertTrue(liveFacade.isModelAccessAvailable());
+        assertTrue(new dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl(liveFacade, permissionGate())
+                .isAvailable());
+        assertTrue(new dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl(
+                        liveFacade, permissionGate())
+                .isAvailable());
+    }
+
+    @Test
     void facadeViewsForwardAvailableDelegates() {
         final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();
         coordinator.connect(new TextureAtlasLayoutProvider() {
@@ -246,6 +284,11 @@ class CubismFacadeAvailabilityTest {
                 editorUi,
                 editorSession,
                 algorithms);
+    }
+
+    private static CubismPermissionGate permissionGate() {
+        return new CubismPermissionGate(
+                "plugin.demo", List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)), ignored -> {}, FIXED_CLOCK);
     }
 
     private static HostSnapshotSource source() {

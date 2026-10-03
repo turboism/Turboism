@@ -70,6 +70,11 @@ public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQuery
         return hierarchy().flatMap(modelHierarchy -> modelHierarchy.findNode(id));
     }
 
+    @Override
+    public boolean isAvailable() {
+        return facade.isModelAccessAvailable();
+    }
+
     private void requireModelRead(final String operationId) {
         permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, operationId, MODEL_TREE_READ_CAPABILITY);
     }
