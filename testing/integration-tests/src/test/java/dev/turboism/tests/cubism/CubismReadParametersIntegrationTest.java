@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.cubism.ParameterSnapshot;
-import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import java.util.List;
 import java.util.Optional;
@@ -34,11 +33,12 @@ class CubismReadParametersIntegrationTest {
         final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(
                 CubismQueryIntegrationSupport.sampleHost(), MODEL_READ_PERMISSION);
 
-        final List<ParameterSnapshot> parameters = environment.context().cubismRead().parameters();
+        final List<ParameterSnapshot> parameters =
+                environment.context().cubismRead().parameters();
 
-        assertEquals(List.of("param-angle-x", "param-opacity"), parameters.stream()
-                .map(ParameterSnapshot::id)
-                .toList());
+        assertEquals(
+                List.of("param-angle-x", "param-opacity"),
+                parameters.stream().map(ParameterSnapshot::id).toList());
     }
 
     @Test

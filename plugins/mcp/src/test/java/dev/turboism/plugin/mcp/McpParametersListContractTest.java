@@ -20,15 +20,15 @@ import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
-import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
-import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
-import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
+import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.Parameters;
@@ -66,17 +66,10 @@ final class McpParametersListContractTest {
         assertEquals(List.of("ok", "count", "parameters"), List.copyOf(output.keySet()));
         assertEquals(true, output.get("ok"));
         assertEquals(1, output.get("count"));
-        final Map<String, Object> parameter = object(list(output.get("parameters")).get(0));
+        final Map<String, Object> parameter =
+                object(list(output.get("parameters")).get(0));
         assertEquals(
-                List.of(
-                        "id",
-                        "name",
-                        "currentValue",
-                        "minValue",
-                        "maxValue",
-                        "defaultValue",
-                        "visible",
-                        "editable"),
+                List.of("id", "name", "currentValue", "minValue", "maxValue", "defaultValue", "visible", "editable"),
                 List.copyOf(parameter.keySet()));
         assertEquals("ParamAngleX", parameter.get("id"));
         assertEquals("Angle X", parameter.get("name"));
@@ -97,7 +90,8 @@ final class McpParametersListContractTest {
                 },
                 Map.of("id", "ParamOpacity")));
         assertEquals(1, found.get("count"));
-        assertEquals("ParamOpacity", object(list(found.get("parameters")).get(0)).get("id"));
+        assertEquals(
+                "ParamOpacity", object(list(found.get("parameters")).get(0)).get("id"));
 
         final Map<String, Object> missing = structured(parametersList(
                 parameters -> parameters.put(parameter("ParamAngleX", "Angle X", 0.5, -30.0, 30.0, 0.0, true, true)),
@@ -117,7 +111,8 @@ final class McpParametersListContractTest {
                 Map.of("name", "angle")));
 
         assertEquals(1, output.get("count"));
-        assertEquals("ParamAngleX", object(list(output.get("parameters")).get(0)).get("id"));
+        assertEquals(
+                "ParamAngleX", object(list(output.get("parameters")).get(0)).get("id"));
     }
 
     @Test
@@ -131,14 +126,12 @@ final class McpParametersListContractTest {
 
     @Test
     void unknownArgumentAndServiceFailureKeepTheErrorContract() {
-        final Map<String, Object> invalidContent =
-                structured(parametersList(ignored -> {}, Map.of("bogus", 1)));
+        final Map<String, Object> invalidContent = structured(parametersList(ignored -> {}, Map.of("bogus", 1)));
         assertEquals(false, invalidContent.get("ok"));
         assertEquals("INVALID_ARGUMENT", object(invalidContent.get("error")).get("code"));
 
-        final Map<String, Object> failed = parametersList(
-                parameters -> parameters.failWith(new RuntimeException("boom")),
-                Map.of());
+        final Map<String, Object> failed =
+                parametersList(parameters -> parameters.failWith(new RuntimeException("boom")), Map.of());
         final Map<String, Object> failedContent = structured(failed);
         assertEquals(false, failedContent.get("ok"));
         assertEquals("FAILED", object(failedContent.get("error")).get("code"));

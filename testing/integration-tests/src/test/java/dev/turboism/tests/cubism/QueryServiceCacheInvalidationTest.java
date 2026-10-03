@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
-import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +21,8 @@ class QueryServiceCacheInvalidationTest {
         final List<ParameterSnapshot> first = environment.context().cubismRead().parameters();
         source.replaceParametersWithoutInvalidation(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
-        final List<ParameterSnapshot> reread = environment.context().cubismRead().parameters();
+        final List<ParameterSnapshot> reread =
+                environment.context().cubismRead().parameters();
 
         assertEquals(
                 List.of("param-angle-x"),
@@ -43,7 +43,8 @@ class QueryServiceCacheInvalidationTest {
         source.replaceParametersWithoutInvalidation(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         source.advanceInvalidationToken();
-        final List<ParameterSnapshot> refreshed = environment.context().cubismRead().parameters();
+        final List<ParameterSnapshot> refreshed =
+                environment.context().cubismRead().parameters();
 
         assertEquals(
                 List.of("param-opacity"),
@@ -63,12 +64,12 @@ class QueryServiceCacheInvalidationTest {
         source.replaceParametersWithoutInvalidation(List.of(
                 new HostSnapshotSource.HostParameter("param-angle-y", "Angle Y", 0.0, 0.0, -30.0, 30.0, true, true)));
         source.advanceInvalidationToken();
-        final List<ParameterSnapshot> refreshed = environment.context().cubismRead().parameters();
+        final List<ParameterSnapshot> refreshed =
+                environment.context().cubismRead().parameters();
 
         assertEquals(
                 List.of("param-angle-y"),
                 refreshed.stream().map(ParameterSnapshot::id).toList());
-        assertTrue(refreshed.stream()
-                .noneMatch(parameter -> parameter.id().equals("param-opacity")));
+        assertTrue(refreshed.stream().noneMatch(parameter -> parameter.id().equals("param-opacity")));
     }
 }
