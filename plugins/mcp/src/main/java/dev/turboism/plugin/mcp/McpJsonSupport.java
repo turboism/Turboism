@@ -27,7 +27,7 @@ final class McpJsonSupport {
      * Strict-encodes {@code value} after rewriting the values strict JSON
      * cannot represent (see {@link #encodable}).
      */
-    static String stringify(final Object value) {
+    static String stringify(final Map<String, ?> value) {
         return Json.stringify(encodable(value));
     }
 
