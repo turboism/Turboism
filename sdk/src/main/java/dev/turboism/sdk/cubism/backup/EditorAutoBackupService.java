@@ -21,7 +21,7 @@ import java.util.concurrent.CompletionStage;
 public interface EditorAutoBackupService {
 
     /**
-     * Reads the current host settings (enabled / interval / maxMB / backupDir).
+     * Reads the current host settings (enabled / interval / maxMB / backupDirDisplay).
      *
      * @throws UnsupportedOperationException when the service is unavailable
      */
@@ -33,7 +33,7 @@ public interface EditorAutoBackupService {
      * and rolls them back to the observed originals (with verified readback)
      * when any mutation or readback step fails.
      *
-     * @param settings target settings; {@code backupDir} is ignored (host-read-only)
+     * @param settings target settings; {@code backupDirDisplay} is ignored (host-read-only)
      * @return the settings as read back from the host after the update
      * @throws IllegalArgumentException when the requested values are out of range
      * @throws UnsupportedOperationException when the service is unavailable
@@ -43,11 +43,32 @@ public interface EditorAutoBackupService {
     EditorAutoBackupSettings updateSettings(EditorAutoBackupSettings settings);
 
     /**
-     * Per-document auto-backup snapshot (lastAutoBackupTime / lastSavedTime /
-     * modifiedAfterSaving / file) for every file content in the current pack.
+     * Per-document auto-backup snapshot (documentName / lastAutoBackupTime /
+     * lastSavedTime / modifiedAfterSaving) for every file content in the current
+     * pack. The projection is privacy-safe: it never exposes host file paths.
      */
     @CubismEditor(from = "5.2.03")
     List<EditorAutoBackupStatus> statuses();
+
+    /**
+     * Lists the artifacts currently present inside the host's configured
+     * auto-backup directory as opaque, permission-gated
+     * {@link BackupArtifactHandle}s — regular files directly inside that
+     * directory only, never the directory's path, never recursive, and
+     * symbolic links are skipped.
+     *
+     * <p>Requires the {@code turboism.cubism.backup.observe} permission: the
+     * handles it returns read artifact bytes, which crosses the same risk
+     * boundary as observing backup completions.</p>
+     *
+     * @return the current backup artifacts, or an empty list when the host
+     *         exposes no backup directory or the directory cannot be read
+     * @throws dev.turboism.sdk.permission.CubismPermissionException when the
+     *         caller lacks {@code turboism.cubism.backup.observe}
+     * @throws UnsupportedOperationException when the service is unavailable
+     */
+    @CubismEditor(from = "5.2.03")
+    List<BackupArtifactHandle> artifacts();
 
     /**
      * Runs an immediate auto-backup: idempotent pack attach, then the host's
@@ -58,7 +79,7 @@ public interface EditorAutoBackupService {
      * or exceptionally (sanitized) when the host call failed, the polling timed
      * out, or the service is unavailable. The runtime separately publishes a
      * detached {@link BackupCompletedEvent}. Sync targets registered
-     * via {@link #registerSyncTarget} are invoked with the new files after
+     * via {@link #registerSyncTarget} are invoked with the new artifacts after
      * completion; target failures never fail the backup result.</p>
      */
     @CubismEditor(from = "5.2.03")
@@ -78,7 +99,7 @@ public interface EditorAutoBackupService {
      * the artifact is polled for, and the returned stage completes with a
      * {@link BackupRunResult}. The runtime separately publishes a detached
      * {@link BackupCompletedEvent}. Sync targets registered via
-     * {@link #registerSyncTarget} are invoked with the new file after
+     * {@link #registerSyncTarget} are invoked with the new artifact after
      * completion; target failures never fail the backup result.</p>
      *
      * <p>Idempotent debounce: per-document saves within the 2-second debounce
@@ -96,7 +117,7 @@ public interface EditorAutoBackupService {
     CompletionStage<BackupRunResult> backupAfterSave(ProjectContentSnapshot saved);
 
     /**
-     * Registers a sync target invoked with the new backup files after each
+     * Registers a sync target invoked with the new artifact handles after each
      * successful {@link #backupNow()} completion.
      */
     @CubismEditor(from = "5.2.03")
@@ -138,6 +159,11 @@ public interface EditorAutoBackupService {
 
         @Override
         public List<EditorAutoBackupStatus> statuses() {
+            throw new UnsupportedOperationException("auto-backup service is not available");
+        }
+
+        @Override
+        public List<BackupArtifactHandle> artifacts() {
             throw new UnsupportedOperationException("auto-backup service is not available");
         }
 

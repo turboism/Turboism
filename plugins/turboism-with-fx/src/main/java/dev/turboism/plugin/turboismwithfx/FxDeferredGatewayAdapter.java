@@ -2,7 +2,7 @@ package dev.turboism.plugin.turboismwithfx;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -61,7 +61,7 @@ final class FxDeferredGatewayAdapter implements AutoCloseable {
                 exchange.sendResponseHeaders(405, -1L);
                 return;
             }
-            final byte[] body = StrictJson.bytes(Map.of("object", "list", "data", List.of()));
+            final byte[] body = Json.bytes(Map.of("object", "list", "data", List.of()));
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, body.length);
             exchange.getResponseBody().write(body);
@@ -70,7 +70,7 @@ final class FxDeferredGatewayAdapter implements AutoCloseable {
 
     private void generate(final HttpExchange exchange) throws IOException {
         try (exchange) {
-            final byte[] body = StrictJson.bytes(Map.of(
+            final byte[] body = Json.bytes(Map.of(
                     "error",
                     Map.of(
                             "type", "provider_required",

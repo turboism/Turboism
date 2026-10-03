@@ -179,7 +179,7 @@ class NightlyWorkflowTest(unittest.TestCase):
         self.assertIn('project.path != ":sdk" && turboismBuildNumber.isNotEmpty()', text)
         # This gate must still enforce exact artifact hashes, not just API shape.
         verifier = (ROOT / 'gradle/sdk-api.gradle.kts').read_text()
-        gate = verifier.split('val checkSdkV11ExactApiCompatibility', 1)[1].split('val checkSdkV8Linkage', 1)[0]
+        gate = verifier.split('val checkSdkV13ExactApiCompatibility', 1)[1].split('val checkSdkV8Linkage', 1)[0]
         self.assertIn('"verify-exact"', gate)
         self.assertIn('"--input", sdkJarArtifact', gate)
 

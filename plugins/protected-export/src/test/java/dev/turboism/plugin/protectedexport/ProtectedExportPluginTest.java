@@ -293,11 +293,14 @@ class ProtectedExportPluginTest {
             final RecordingCubism cubism,
             final RecordingLogger logger) {
         return proxy(PluginContext.class, (proxy, method, arguments) -> switch (method.getName()) {
-            case "exportSettings" -> exportSettings;
             case "cubism" -> cubism.facade;
             case "logger" -> logger;
             case "permissions" -> List.of();
-            case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
+            case "services" ->
+                dev.turboism.sdk.plugin.PluginServices.builder()
+                        .install(ExportSettingsContributionService.class, exportSettings)
+                        .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                        .build();
             default -> defaultValue(method.getReturnType());
         });
     }

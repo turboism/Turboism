@@ -2,7 +2,7 @@ package dev.turboism.plugin.turboismwithfx;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -120,7 +120,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IOException("custom provider model discovery was rejected");
         }
-        final Map<String, Object> catalog = object(StrictJson.parse(response.body()));
+        final Map<String, ?> catalog = Json.parseObject(response.body());
         final java.util.LinkedHashSet<String> result = new java.util.LinkedHashSet<>();
         for (Object value : array(catalog.get("data"))) {
             final Map<String, Object> model = object(value);
@@ -152,7 +152,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
             }
             final Object parsed;
             try {
-                parsed = StrictJson.parse(readBounded(exchange));
+                parsed = Json.parseObject(readBounded(exchange));
             } catch (IllegalArgumentException failure) {
                 sendError(exchange, 400, "invalid_request", "Invalid Gateway request");
                 return;
@@ -166,7 +166,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
             }
             final HttpRequest upstream;
             try {
-                upstream = upstreamRequest(CHAT_PATH, "POST", StrictJson.bytes(request));
+                upstream = upstreamRequest(CHAT_PATH, "POST", Json.bytes(request));
             } catch (IllegalStateException failure) {
                 sendError(exchange, 400, "missing_api_key", "Custom endpoint API key is unavailable");
                 return;
@@ -209,7 +209,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 final HttpResponse<byte[]> response =
                         client.send(upstreamRequest(MODELS_PATH, "GET", null), HttpResponse.BodyHandlers.ofByteArray());
                 if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    final Map<String, Object> catalog = object(StrictJson.parse(response.body()));
+                    final Map<String, ?> catalog = Json.parseObject(response.body());
                     for (Object value : array(catalog.get("data"))) {
                         final Map<String, Object> model = object(value);
                         final String id = text(model.get("id"), "model id");
@@ -291,7 +291,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
                         "function",
                                 Map.of(
                                         "name", text(part.get("toolName"), "tool name"),
-                                        "arguments", StrictJson.stringify(part.get("input")))));
+                                        "arguments", Json.stringify(object(part.get("input"))))));
             } else {
                 throw new IllegalArgumentException("Unsupported assistant content");
             }
@@ -361,7 +361,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 if (!line.startsWith("data:")) continue;
                 final String data = line.substring("data:".length()).strip();
                 if (data.isEmpty() || "[DONE]".equals(data)) continue;
-                final Map<String, Object> event = object(StrictJson.parse(data.getBytes(StandardCharsets.UTF_8)));
+                final Map<String, ?> event = Json.parseObject(data.getBytes(StandardCharsets.UTF_8));
                 final Object usageValue = event.get("usage");
                 if (usageValue instanceof Map<?, ?>) usage = usage(object(usageValue));
                 for (Object rawChoice : arrayOrEmpty(event.get("choices"))) {
@@ -404,9 +404,7 @@ final class FxOpenAiAdapter implements AutoCloseable {
                                 "type", "tool-call",
                                 "toolCallId", requireStreamText(call.id, "tool call id"),
                                 "toolName", requireStreamText(call.name, "tool name"),
-                                "input",
-                                        StrictJson.parse(
-                                                call.arguments.toString().getBytes(StandardCharsets.UTF_8))));
+                                "input", decodeToolArguments(call.arguments.toString())));
             }
             final LinkedHashMap<String, Object> finish = new LinkedHashMap<>();
             finish.put("type", "finish");
@@ -545,8 +543,25 @@ final class FxOpenAiAdapter implements AutoCloseable {
         return bytes;
     }
 
-    private static void sendEvent(final java.io.OutputStream output, final Object value) throws IOException {
-        output.write(("data: " + StrictJson.stringify(value) + "\n\n").getBytes(StandardCharsets.UTF_8));
+    /**
+     * OpenAI tool-call {@code arguments} is a JSON string; the spec says object, but
+     * providers may emit arrays or bare scalars, so decode containers and pass any
+     * other well-formed or malformed text through unchanged.
+     */
+    private static Object decodeToolArguments(final String raw) {
+        try {
+            return Json.parseObject(raw.getBytes(StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException notObject) {
+            try {
+                return Json.parseArray(raw.getBytes(StandardCharsets.UTF_8));
+            } catch (IllegalArgumentException notContainer) {
+                return raw;
+            }
+        }
+    }
+
+    private static void sendEvent(final java.io.OutputStream output, final Map<String, ?> value) throws IOException {
+        output.write(("data: " + Json.stringify(value) + "\n\n").getBytes(StandardCharsets.UTF_8));
         output.flush();
     }
 
@@ -563,8 +578,9 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 Map.of("error", Map.of("message", message, "type", "turboism_adapter", "code", code)));
     }
 
-    private static void sendJson(final HttpExchange exchange, final int status, final Object value) throws IOException {
-        final byte[] bytes = StrictJson.bytes(value);
+    private static void sendJson(final HttpExchange exchange, final int status, final Map<String, ?> value)
+            throws IOException {
+        final byte[] bytes = Json.bytes(value);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);

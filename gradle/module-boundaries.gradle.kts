@@ -616,13 +616,12 @@ private fun checkOpaqueUserFileSdkSource(project: Project, file: java.io.File, s
  * scans the bytecode every plugin actually ships, so copied or generated
  * classes cannot carry runtime/internal/Cubism references past the source
  * rules. Plugins are external consumers: only the JDK, dev.turboism.sdk.*,
- * dev.turboism.protocol.* (the SDK module's second root), the plugin's own
- * dev.turboism.plugin.* classes, and com.sun.* JDK surfaces are admissible.
+ * the plugin's own dev.turboism.plugin.* classes, and com.sun.* JDK surfaces
+ * are admissible.
  */
 private val pluginBoundaryAllowedRoots = setOf(
-    "sdk",     // the public API module
-    "plugin",  // the plugin's own dev.turboism.plugin.* classes
-    "protocol" // StrictJson and sibling wire helpers shipped inside :sdk
+    "sdk",    // the public API module
+    "plugin"  // the plugin's own dev.turboism.plugin.* classes
 )
 
 private val pluginBoundaryProjects = rootProject.subprojects

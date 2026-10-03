@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.StaticSelector;
@@ -68,6 +69,24 @@ class RuntimeTextureAtlasEditorSessionTest {
         assertEquals(
                 new TextureAtlasSummary(1, 1, List.of(new TextureAtlasSizeBucket(8, 8, 1))),
                 session.selectedTexture().orElseThrow());
+    }
+
+    @Test
+    void isAvailableReflectsTheLiveBinding() {
+        final Fixture fixture = new Fixture();
+        final AtomicReference<RuntimeTextureAtlasEditorSession.GenerationBinding> binding = new AtomicReference<>();
+        final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(binding::get);
+
+        assertFalse(session.isAvailable(), "an unbound session reports unavailable");
+
+        binding.set(new RuntimeTextureAtlasEditorSession.GenerationBinding(1, resolver(), fixture.view));
+        assertTrue(session.isAvailable(), "a live binding reports available");
+
+        binding.set(null);
+        assertFalse(session.isAvailable(), "a detached session reports unavailable again");
+        assertFalse(
+                RuntimeTextureAtlasEditorSession.unavailable().isAvailable(),
+                "the permanently detached session reports unavailable");
     }
 
     private static VerifiedMemberResolver resolver() {

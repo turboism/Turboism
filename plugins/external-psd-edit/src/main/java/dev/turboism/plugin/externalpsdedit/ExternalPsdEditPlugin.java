@@ -122,7 +122,9 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
 
     private void registerContextMenu(final String id, final ContextMenuRegistry.Location location) {
         context.disposableScope()
-                .register(context.contextMenu()
+                .register(context.services()
+                        .find(ContextMenuRegistry.class)
+                        .orElse(ContextMenuRegistry.unavailable())
                         .contribute(new ContextMenuRegistry.ContextMenuContribution(
                                 id,
                                 OPEN_ACTION_ID,
@@ -146,30 +148,30 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
     }
 
     private static PluginLocalization localization(final PluginContext context) {
-        try {
-            return context.localization();
-        } catch (UnsupportedOperationException unavailable) {
-            return new PluginLocalization() {
-                @Override
-                public java.util.Locale locale() {
-                    return java.util.Locale.ENGLISH;
-                }
-
-                @Override
-                public String text(final String key) {
-                    return key;
-                }
-
-                @Override
-                public String format(final String key, final Object... arguments) {
-                    return java.text.MessageFormat.format(text(key), arguments);
-                }
-
-                @Override
-                public boolean contains(final String key) {
-                    return true;
-                }
-            };
+        final PluginLocalization installed = context.localization();
+        if (installed.isAvailable()) {
+            return installed;
         }
+        return new PluginLocalization() {
+            @Override
+            public java.util.Locale locale() {
+                return java.util.Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return key;
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return java.text.MessageFormat.format(text(key), arguments);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
+        };
     }
 }

@@ -88,4 +88,4 @@ The plugin has Preview status and is included in official release packages. Its 
 - Publisher: Turboism Contributors
 - License: Project License
 
-Developer contracts are documented in `sdk/src/main/java/dev/turboism/sdk/cubism/mesh/` and `sdk/src/main/java/dev/turboism/sdk/cubism/modeling/`. Obtain ordinary tools through `context.services().get(ModelingToolRegistry.class)`; there is no legacy `PluginContext` getter.
+Developer contracts are documented in `sdk/src/main/java/dev/turboism/sdk/cubism/mesh/` and `sdk/src/main/java/dev/turboism/sdk/cubism/modeling/`. Obtain ordinary tools through `context.services().find(ModelingToolRegistry.class)` (or `require` when the tool is mandatory); there is no legacy `PluginContext` getter.

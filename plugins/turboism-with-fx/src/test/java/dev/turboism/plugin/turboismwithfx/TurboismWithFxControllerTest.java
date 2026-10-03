@@ -398,7 +398,7 @@ final class TurboismWithFxControllerTest {
             assertEquals("saved-session", fixture.config.value("fxSessionId"));
             assertEquals(
                     "gateway",
-                    object(dev.turboism.protocol.json.StrictJson.parse(java.nio.file.Files.readAllBytes(
+                    object(dev.turboism.sdk.json.Json.parseObject(java.nio.file.Files.readAllBytes(
                                     Path.of(captured.get().environment().get("HOME"))
                                             .resolve(".fx/settings.json"))))
                             .get("provider"));
@@ -485,7 +485,7 @@ final class TurboismWithFxControllerTest {
             assertTrue(captured.get().environment().containsKey("FX_GATEWAY_CHAT_URL"));
             assertEquals(
                     "gateway",
-                    object(dev.turboism.protocol.json.StrictJson.parse(java.nio.file.Files.readAllBytes(
+                    object(dev.turboism.sdk.json.Json.parseObject(java.nio.file.Files.readAllBytes(
                                     Path.of(captured.get().environment().get("HOME"))
                                             .resolve(".fx/settings.json"))))
                             .get("provider"));
@@ -1482,23 +1482,28 @@ final class TurboismWithFxControllerTest {
                     (proxy, method, arguments) -> switch (method.getName()) {
                         case "logger" -> logger;
                         case "paths" -> paths;
-                        case "mcpConnections" ->
-                            new McpConnectionService() {
-                                @Override
-                                public Optional<dev.turboism.sdk.mcp.McpHttpConnection> current() {
-                                    return mcpConnection;
-                                }
+                        case "services" ->
+                            dev.turboism.sdk.plugin.PluginServices.builder()
+                                    .install(
+                                            dev.turboism.sdk.mcp.McpConnectionService.class,
+                                            new McpConnectionService() {
+                                                @Override
+                                                public Optional<dev.turboism.sdk.mcp.McpHttpConnection> current() {
+                                                    return mcpConnection;
+                                                }
 
-                                @Override
-                                public Registration publish(final dev.turboism.sdk.mcp.McpHttpConnection connection) {
-                                    throw new UnsupportedOperationException("not used");
-                                }
-                            };
+                                                @Override
+                                                public Registration publish(
+                                                        final dev.turboism.sdk.mcp.McpHttpConnection connection) {
+                                                    throw new UnsupportedOperationException("not used");
+                                                }
+                                            })
+                                    .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                    .build();
                         case "uiScheduler" -> ui;
                         case "toString" -> "TurboismWithFxControllerTestContext";
                         case "hashCode" -> System.identityHashCode(proxy);
                         case "equals" -> proxy == (arguments == null ? null : arguments[0]);
-                        case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                         default ->
                             throw new UnsupportedOperationException("unused PluginContext method: " + method.getName());
                     });
@@ -1849,8 +1854,8 @@ final class TurboismWithFxControllerTest {
         }
 
         private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
-                    json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            final Map<String, Object> request = object(
+                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             if (!"session/load".equals(request.get("method"))) return;
             loadStarted.countDown();
             try {
@@ -1926,8 +1931,8 @@ final class TurboismWithFxControllerTest {
         }
 
         private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
-                    json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            final Map<String, Object> request = object(
+                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             if (!"session/load".equals(request.get("method"))) return;
             final Map<String, Object> update = new LinkedHashMap<>();
             update.put("jsonrpc", "2.0");
@@ -1943,13 +1948,13 @@ final class TurboismWithFxControllerTest {
                                     "agent_message_chunk",
                                     "content",
                                     Map.of("type", "text", "text", "restored"))));
-            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(update) + "\n")
+            serverStdout.write((dev.turboism.sdk.json.Json.stringify(update) + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             final Map<String, Object> response = new LinkedHashMap<>();
             response.put("jsonrpc", "2.0");
             response.put("id", request.get("id"));
             response.put("result", Map.of("configOptions", List.of()));
-            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(response) + "\n")
+            serverStdout.write((dev.turboism.sdk.json.Json.stringify(response) + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             serverStdout.flush();
         }
@@ -2022,8 +2027,8 @@ final class TurboismWithFxControllerTest {
         }
 
         private void handle(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
-                    json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            final Map<String, Object> request = object(
+                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             if (!"session/load".equals(request.get("method"))) return;
             final Map<String, Object> params = object(request.get("params"));
             final FxAcpListener.PermissionDecision permission = listener.permission(
@@ -2035,7 +2040,7 @@ final class TurboismWithFxControllerTest {
             response.put("jsonrpc", "2.0");
             response.put("id", request.get("id"));
             response.put("error", Map.of("code", -32000L, "message", "permission cancelled"));
-            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(response) + "\n")
+            serverStdout.write((dev.turboism.sdk.json.Json.stringify(response) + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             serverStdout.flush();
         }
@@ -2103,8 +2108,8 @@ final class TurboismWithFxControllerTest {
         }
 
         private void respond(final String json) throws java.io.IOException {
-            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
-                    json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            final Map<String, Object> request = object(
+                    dev.turboism.sdk.json.Json.parseObject(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
             final Map<String, Object> params = object(request.get("params"));
             selectedProvider = (String) params.get("value");
             final Map<String, Object> option = Map.of(
@@ -2120,7 +2125,7 @@ final class TurboismWithFxControllerTest {
                     "jsonrpc", "2.0",
                     "id", request.get("id"),
                     "result", Map.of("configOptions", List.of(option)));
-            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(response) + "\n")
+            serverStdout.write((dev.turboism.sdk.json.Json.stringify(response) + "\n")
                     .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             serverStdout.flush();
         }
@@ -2149,8 +2154,8 @@ final class TurboismWithFxControllerTest {
             final String line =
                     stdin.toString(java.nio.charset.StandardCharsets.UTF_8).strip();
             assertFalse(line.isEmpty(), "ACP request was not written");
-            return object(dev.turboism.protocol.json.StrictJson.parse(
-                    line.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            return object(
+                    dev.turboism.sdk.json.Json.parseObject(line.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         }
 
         @Override

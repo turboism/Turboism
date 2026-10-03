@@ -1,4 +1,4 @@
-package dev.turboism.protocol.json;
+package dev.turboism.sdk.json;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -13,25 +13,41 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Dependency-free strict JSON codec shared by bounded local protocol transports.
+ * Dependency-free strict JSON codec for plugin protocol and settings payloads.
  *
- * <p>The parser rejects malformed UTF-8, byte-order marks, duplicate object keys, unpaired
- * surrogates, invalid numbers, trailing content, and nesting deeper than 64 levels. The writer
- * accepts only JSON-native Java value shapes and rejects non-finite numbers.</p>
+ * <p>The parser accepts exactly one complete JSON document. It rejects malformed UTF-8,
+ * UTF-8 byte-order marks, empty input, trailing content after the document, duplicate
+ * object keys, unpaired surrogates (literal or escaped), unescaped control characters,
+ * invalid escapes, leading zeros, non-ASCII digits, malformed exponents such as
+ * {@code 1e+-2}, and nesting deeper than 64 levels.
+ *
+ * <p>Decoded values use only these Java shapes:
+ *
+ * <ul>
+ *   <li>{@code Map<String, Object>} (insertion-ordered {@link LinkedHashMap}) for objects
+ *   <li>{@code List<Object>} for arrays
+ *   <li>{@link String}, {@link Boolean}, {@code null}
+ *   <li>{@link Long} for integral numbers that fit in 64 bits, {@link BigDecimal} for all
+ *       other numbers
+ * </ul>
+ *
+ * <p>The public surface is typed by root shape: {@link #parseObject} and
+ * {@link #parseArray} decode object and array documents, and {@code stringify}/{@code bytes}
+ * accept {@link Map} and {@link List} roots. Top-level scalars are not part of the typed
+ * surface. Nested values still accept only the JSON-native shapes above (maps with
+ * {@link String} keys, {@link Iterable}s, and {@code Object[]} arrays for collections;
+ * {@link Byte}, {@link Short}, {@link Integer}, {@link Long}, {@link BigDecimal},
+ * {@link Float}, and {@link Double} for numbers). Non-finite floating-point numbers,
+ * unpaired surrogates, non-string map keys, and nesting deeper than 64 levels are
+ * rejected. Object members are written in map iteration order.
+ *
+ * <p>All failures surface as {@link IllegalArgumentException}.
  */
-public final class StrictJson {
+public final class Json {
 
-    private StrictJson() {}
+    private Json() {}
 
-    /**
-     * Parses one complete UTF-8 JSON document.
-     *
-     * @param bytes complete document bytes
-     * @return maps, lists, strings, booleans, numbers, or {@code null}
-     * @throws IllegalArgumentException when the document is not strict JSON
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> T parse(final byte[] bytes) {
+    private static Object parseDocument(final byte[] bytes) {
         Objects.requireNonNull(bytes, "bytes");
         if (bytes.length == 0) {
             throw new IllegalArgumentException("JSON body is empty");
@@ -50,19 +66,131 @@ public final class StrictJson {
         } catch (CharacterCodingException failure) {
             throw new IllegalArgumentException("JSON body must be valid UTF-8", failure);
         }
-        return (T) new Parser(input).parse();
+        return parseText(input);
     }
 
-    /** @return the strict UTF-8 JSON encoding of {@code value} */
-    public static <T> byte[] bytes(final T value) {
-        return stringify(value).getBytes(StandardCharsets.UTF_8);
+    private static Object parseDocument(final String text) {
+        Objects.requireNonNull(text, "text");
+        if (text.isEmpty()) {
+            throw new IllegalArgumentException("JSON body is empty");
+        }
+        return parseText(text);
     }
 
-    /** @return the strict JSON text encoding of {@code value} */
-    public static <T> String stringify(final T value) {
+    /**
+     * Parses one complete UTF-8 JSON document whose root must be an object.
+     *
+     * @param bytes complete document bytes
+     * @return the decoded {@code Map<String, ?>} in document order
+     * @throws IllegalArgumentException when the document is not strict JSON or its root
+     *     is not an object
+     */
+    public static Map<String, ?> parseObject(final byte[] bytes) {
+        return requireObject(parseDocument(bytes));
+    }
+
+    /**
+     * Parses one complete JSON {@link String} whose root must be an object.
+     *
+     * @param text complete document text
+     * @return the decoded {@code Map<String, ?>} in document order
+     * @throws IllegalArgumentException when the document is not strict JSON or its root
+     *     is not an object
+     */
+    public static Map<String, ?> parseObject(final String text) {
+        return requireObject(parseDocument(text));
+    }
+
+    /**
+     * Parses one complete UTF-8 JSON document whose root must be an array.
+     *
+     * @param bytes complete document bytes
+     * @return the decoded {@code List<?>} in document order
+     * @throws IllegalArgumentException when the document is not strict JSON or its root
+     *     is not an array
+     */
+    public static List<?> parseArray(final byte[] bytes) {
+        return requireArray(parseDocument(bytes));
+    }
+
+    /**
+     * Parses one complete JSON {@link String} whose root must be an array.
+     *
+     * @param text complete document text
+     * @return the decoded {@code List<?>} in document order
+     * @throws IllegalArgumentException when the document is not strict JSON or its root
+     *     is not an array
+     */
+    public static List<?> parseArray(final String text) {
+        return requireArray(parseDocument(text));
+    }
+
+    /**
+     * Encodes a JSON object document as strict JSON text.
+     *
+     * @param value a map whose values are JSON-native shapes; see the class contract
+     * @return the JSON encoding of {@code value}
+     * @throws IllegalArgumentException when {@code value} cannot be encoded as strict JSON
+     */
+    public static String stringify(final Map<String, ?> value) {
         final StringBuilder output = new StringBuilder();
         write(value, output, 0);
         return output.toString();
+    }
+
+    /**
+     * Encodes a JSON array document as strict JSON text.
+     *
+     * @param value a list whose elements are JSON-native shapes; see the class contract
+     * @return the JSON encoding of {@code value}
+     * @throws IllegalArgumentException when {@code value} cannot be encoded as strict JSON
+     */
+    public static String stringify(final List<?> value) {
+        final StringBuilder output = new StringBuilder();
+        write(value, output, 0);
+        return output.toString();
+    }
+
+    /**
+     * Encodes a JSON object document as strict UTF-8 JSON.
+     *
+     * @param value a map whose values are JSON-native shapes; see the class contract
+     * @return the UTF-8 bytes of {@link #stringify(Map)}
+     * @throws IllegalArgumentException when {@code value} cannot be encoded as strict JSON
+     */
+    public static byte[] bytes(final Map<String, ?> value) {
+        return stringify(value).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Encodes a JSON array document as strict UTF-8 JSON.
+     *
+     * @param value a list whose elements are JSON-native shapes; see the class contract
+     * @return the UTF-8 bytes of {@link #stringify(List)}
+     * @throws IllegalArgumentException when {@code value} cannot be encoded as strict JSON
+     */
+    public static byte[] bytes(final List<?> value) {
+        return stringify(value).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static Object parseText(final String input) {
+        return new Parser(input).parse();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> requireObject(final Object value) {
+        if (!(value instanceof Map<?, ?>)) {
+            throw new IllegalArgumentException("JSON document root must be an object");
+        }
+        return (Map<String, Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object> requireArray(final Object value) {
+        if (!(value instanceof List<?> list)) {
+            throw new IllegalArgumentException("JSON document root must be an array");
+        }
+        return (List<Object>) list;
     }
 
     private static void write(final Object value, final StringBuilder output, final int depth) {

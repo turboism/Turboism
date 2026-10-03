@@ -34,7 +34,6 @@ import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -2384,11 +2383,6 @@ class ExternalPsdEditPluginTest {
             };
         }
 
-        @Override
-        public TransactionManager transactionManager() {
-            throw unsupported();
-        }
-
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used");
         }
@@ -2472,7 +2466,6 @@ class ExternalPsdEditPluginTest {
             return contribution -> () -> {};
         }
 
-        @Override
         public RecordingContextMenuRegistry contextMenu() {
             return contextMenu;
         }
@@ -2492,7 +2485,6 @@ class ExternalPsdEditPluginTest {
             return disposableScope;
         }
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -2500,6 +2492,15 @@ class ExternalPsdEditPluginTest {
         @Override
         public RecordingTaskScheduler tasks() {
             return taskScheduler;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

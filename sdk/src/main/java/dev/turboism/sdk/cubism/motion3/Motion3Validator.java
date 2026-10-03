@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.motion3;
 
-import dev.turboism.protocol.json.StrictJson;
+import dev.turboism.sdk.json.Json;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -36,15 +36,11 @@ public final class Motion3Validator {
     public static Motion3Report validate(final byte[] bytes) {
         Objects.requireNonNull(bytes, "bytes");
         final List<Motion3Issue> issues = new ArrayList<>();
-        final Object root;
+        final Map<String, ?> document;
         try {
-            root = StrictJson.parse(bytes);
+            document = Json.parseObject(bytes);
         } catch (IllegalArgumentException failure) {
             issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "invalid JSON: " + failure.getMessage()));
-            return new Motion3Report(issues);
-        }
-        if (!(root instanceof Map<?, ?> document)) {
-            issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "motion3 root must be a JSON object"));
             return new Motion3Report(issues);
         }
         validateDocument(asStringMap(document, issues, "$"), issues);

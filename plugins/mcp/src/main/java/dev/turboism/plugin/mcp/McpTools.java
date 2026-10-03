@@ -1,6 +1,5 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -43,6 +42,7 @@ import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
@@ -714,9 +714,10 @@ final class McpTools {
     }
 
     private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", StrictJson.stringify(output))))),
-                entry("structuredContent", output),
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", error));
     }
 
