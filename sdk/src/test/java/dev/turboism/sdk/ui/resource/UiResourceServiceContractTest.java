@@ -39,13 +39,13 @@ class UiResourceServiceContractTest {
 
     @Test
     void oldPluginContextsDefaultToUnavailableWithoutRequiringAnOverride() throws Throwable {
-        final var accessor = PluginContext.class.getMethod("uiResources");
-        assertTrue(accessor.isDefault());
-        assertEquals(UiResourceService.class, accessor.getReturnType());
+        assertThrows(NoSuchMethodException.class, () -> PluginContext.class.getMethod("uiResources"));
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> InvocationHandler.invokeDefault(proxy, method, args));
-        assertSame(UiResourceService.unavailable(), context.uiResources());
+        assertSame(
+                UiResourceService.unavailable(),
+                context.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
     }
 }

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.plugin;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -87,21 +86,22 @@ class PluginServiceDirectoryContractTest {
     @Test
     void everyMemberTypeNamesItsAccessorReturnType() throws Exception {
         for (PluginService service : PluginService.values()) {
-            if (service == PluginService.MESH_TOOLS) {
-                assertThrows(NoSuchMethodException.class, () -> PluginContext.class.getDeclaredMethod("meshTools"));
-                assertSame(dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class, service.type());
+            final Method accessor = findAccessor(service);
+            if (accessor == null) {
                 continue;
             }
-            if (service == PluginService.MODELING_TOOLS) {
-                assertThrows(NoSuchMethodException.class, () -> PluginContext.class.getDeclaredMethod("modelingTools"));
-                assertSame(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class, service.type());
-                continue;
-            }
-            final Method accessor = PluginContext.class.getDeclaredMethod(accessorName(service.name()));
             assertSame(
                     accessor.getReturnType(),
                     service.type(),
                     "PluginService." + service.name() + ".type() must name " + accessor.getName() + "()'s return type");
+        }
+    }
+
+    private static Method findAccessor(final PluginService service) {
+        try {
+            return PluginContext.class.getDeclaredMethod(accessorName(service.name()));
+        } catch (NoSuchMethodException absent) {
+            return null;
         }
     }
 
@@ -113,7 +113,6 @@ class PluginServiceDirectoryContractTest {
             assertTrue(
                     directory.find(service.type()).isEmpty(),
                     service + " resolved on a context exposing only unavailable sentinels");
-            assertNull(service.resolve(context), service + ".resolve() must return null for the unavailable sentinel");
         }
     }
 

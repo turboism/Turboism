@@ -25,20 +25,18 @@ final class RecentPreviewContributionServiceContractTest {
 
     @Test
     void pluginContextDefaultsToTheTypedUnavailableRecentPreviewSingleton() throws Exception {
-        final Method accessor = Arrays.stream(PluginContext.class.getMethods())
-                .filter(method -> method.getName().equals("recentPreviews"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(accessor.isDefault());
-        assertEquals(RecentPreviewContributionService.class, accessor.getReturnType());
-        assertEquals(0, accessor.getParameterCount());
+        assertTrue(Arrays.stream(PluginContext.class.getMethods())
+                .noneMatch(method -> method.getName().equals("recentPreviews")));
 
         final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null);
-        assertSame(RecentPreviewContributionService.unavailable(), context.recentPreviews());
+        assertSame(
+                RecentPreviewContributionService.unavailable(),
+                context.services()
+                        .find(RecentPreviewContributionService.class)
+                        .orElse(RecentPreviewContributionService.unavailable()));
 
         assertEquals(
                 List.of("contribute", "isAvailable", "refresh", "unavailable"),

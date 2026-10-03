@@ -1,6 +1,5 @@
 package dev.turboism.sdk.plugin;
 
-import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -11,7 +10,6 @@ import java.util.Optional;
  * <p>The structured fields are the stable diagnostic contract. The exception message is
  * intended for humans and must not be parsed.
  */
-@Incubating
 public final class PluginServiceUnavailableException extends UnsupportedOperationException {
 
     private final Class<?> serviceType;
