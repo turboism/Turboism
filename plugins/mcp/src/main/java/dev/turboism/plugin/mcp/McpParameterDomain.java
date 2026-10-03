@@ -54,7 +54,9 @@ final class McpParameterDomain {
                 throw new McpResourceCatalog.ResourceNotFound(uri);
             }
             return List.of(linked(
-                    entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(content))));
+                    entry("uri", uri),
+                    entry("mimeType", "application/json"),
+                    entry("text", McpJsonSupport.stringify(content))));
         });
     }
 
@@ -511,10 +513,11 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> toolEnvelope(final Map<String, Object> output) {
-        final boolean error = !Boolean.TRUE.equals(output.get("ok"));
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
+        final boolean error = !Boolean.TRUE.equals(safe.get("ok"));
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", error));
     }
 

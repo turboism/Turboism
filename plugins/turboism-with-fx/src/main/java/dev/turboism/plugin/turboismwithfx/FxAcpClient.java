@@ -280,7 +280,7 @@ final class FxAcpClient implements AutoCloseable {
         }
     }
 
-    private void write(final Object message) throws FxAcpException {
+    private void write(final Map<String, ?> message) throws FxAcpException {
         final String line = Json.stringify(message);
         if (line.length() > MAX_ACP_LINE_CHARS) {
             throw new FxAcpException("outgoing fx ACP message exceeds the line limit");
@@ -302,7 +302,7 @@ final class FxAcpClient implements AutoCloseable {
             for (String line; (line = lines.readLine()) != null; ) {
                 if (line.isBlank()) continue;
                 try {
-                    dispatch(Json.parse(line.getBytes(StandardCharsets.UTF_8)));
+                    dispatch(Json.parseObject(line.getBytes(StandardCharsets.UTF_8)));
                 } catch (RuntimeException failure) {
                     protocolFailureHint.compareAndSet(null, protocolLineHint(line));
                     protocolFailurePreview.compareAndSet(null, protocolLinePreview(redact(line)));
@@ -573,7 +573,7 @@ final class FxAcpClient implements AutoCloseable {
     private String permissionDetails(final Object rawInput) {
         final String json;
         try {
-            json = redact(Json.stringify(rawInput == null ? Map.of() : rawInput));
+            json = redact(Json.stringify(objectOrEmpty(rawInput)));
         } catch (RuntimeException failure) {
             return "<unavailable>";
         }

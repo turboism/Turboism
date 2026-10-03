@@ -1140,9 +1140,14 @@ public final class CubismFacadeImpl implements CubismFacade {
         requireActiveScope();
         if (!(textureAtlasLayouts
                 instanceof dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService delegate)) {
-            throw new UnsupportedOperationException("Texture atlas polygon layout service is unavailable");
+            return dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService.unavailable();
         }
         return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService() {
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
+
             @Override
             public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
                 requireActiveScope();
@@ -1251,44 +1256,6 @@ public final class CubismFacadeImpl implements CubismFacade {
                 List.of(),
                 List.of(),
                 List.of());
-    }
-
-    private dev.turboism.sdk.cubism.core.CoreRuntimeInfo permissionCheckedCoreRuntime(
-            final dev.turboism.sdk.cubism.core.CoreRuntimeInfo delegate) {
-        Objects.requireNonNull(delegate, "delegate");
-        return new dev.turboism.sdk.cubism.core.CoreRuntimeInfo() {
-            @Override
-            public dev.turboism.sdk.cubism.core.CoreVersion version() {
-                requireModelRead("coreRuntime.version");
-                return delegate.version();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-                requireModelRead("coreRuntime.capabilities");
-                return delegate.capabilities();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
-                requireModelRead("coreRuntime.mocInspector");
-                final dev.turboism.sdk.cubism.core.MocInspector inspector = delegate.mocInspector();
-                return new dev.turboism.sdk.cubism.core.MocInspector() {
-                    @Override
-                    public dev.turboism.sdk.cubism.core.MocVersion latestVersion() {
-                        requireModelRead("coreRuntime.mocInspector.latestVersion");
-                        return inspector.latestVersion();
-                    }
-
-                    @Override
-                    public dev.turboism.sdk.cubism.core.MocInfo inspect(
-                            final dev.turboism.sdk.cubism.core.MocData data) {
-                        requireModelRead("coreRuntime.mocInspector.inspect");
-                        return inspector.inspect(data);
-                    }
-                };
-            }
-        };
     }
 
     RuntimePsdExportService psdExportService() {

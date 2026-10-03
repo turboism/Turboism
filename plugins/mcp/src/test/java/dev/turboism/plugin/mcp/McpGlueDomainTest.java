@@ -967,6 +967,41 @@ final class McpGlueDomainTest {
     }
 
     @SuppressWarnings("unchecked")
+    @Test
+    void loneSurrogatesInHostDataAreReplacedNotMisreported() {
+        // A lone surrogate in host-provided names cannot be strict-JSON
+        // encoded; the envelope must replace it with U+FFFD and still return
+        // the result, not an INVALID_ARGUMENT encoding failure.
+        final FakeGlue glue = new FakeGlue(
+                "GlueLone",
+                "lone " + (char) 0xD800 + " surrogate " + (char) 0xDC00,
+                0,
+                0.5F,
+                "ArtA",
+                "ArtB",
+                List.of("ParamA"));
+        final McpGlueDomain domain =
+                new McpGlueDomain(new FakeFacade(List.of(glue)), new McpExecutionBridge(immediateScheduler()));
+
+        final Map<String, Object> envelope = domain.tools().call(McpGlueDomain.GLUES_READ, Map.of("operation", "list"));
+        final Map<String, Object> output = output(envelope);
+
+        assertTrue((Boolean) output.get("ok"), "unencodable host text must not fail the read");
+        final Map<String, Object> result = object(output.get("result"));
+        final Map<String, Object> projected = object(array(result.get("items")).get(0));
+        assertEquals("lone \uFFFD surrogate \uFFFD", projected.get("name"));
+        // The text channel and the structured channel carry the same encoded value.
+        final Map<String, Object> block = object(array(envelope.get("content")).get(0));
+        final Object reparsed = dev.turboism.sdk.json.Json.parseObject(
+                ((String) block.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        final Map<String, Object> reparsedItem = object(
+                array(object(object(reparsed).get("result")).get("items")).get(0));
+        assertEquals(
+                projected.get("name"),
+                reparsedItem.get("name"),
+                "content text must carry the same sanitized name as structuredContent");
+    }
+
     private static Map<String, Object> output(final Map<String, Object> envelope) {
         return (Map<String, Object>) envelope.get("structuredContent");
     }

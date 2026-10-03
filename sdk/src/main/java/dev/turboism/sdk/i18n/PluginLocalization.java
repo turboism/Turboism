@@ -23,14 +23,17 @@ public interface PluginLocalization {
     /**
      * Returns the localized text for {@code key}, or {@code fallback} when the key is
      * absent, resolves to a blank value, or this catalog is the {@link #unavailable()}
-     * sentinel. This member never throws for a missing catalog or key.
+     * sentinel. This member never throws for a missing catalog or key: a {@code null}
+     * or blank {@code key} has no translation and yields {@code fallback}. A
+     * {@code null} {@code fallback} is permitted and simply makes the fallback
+     * value {@code null}.
      *
-     * @param key the catalog key to resolve
-     * @param fallback the value returned when no usable translation exists
+     * @param key the catalog key to resolve; {@code null} or blank yields {@code fallback}
+     * @param fallback the value returned when no usable translation exists; may be {@code null}
      * @return the localized text, or {@code fallback}
      */
     default String text(final String key, final String fallback) {
-        if (!isAvailable() || !contains(key)) {
+        if (key == null || key.isBlank() || !isAvailable() || !contains(key)) {
             return fallback;
         }
         final String value = text(key);

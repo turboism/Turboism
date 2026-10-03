@@ -1,8 +1,10 @@
 package dev.turboism.adapter.host;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.core.OwnedModelParameterWriter;
 import dev.turboism.sdk.cubism.core.CoreCapabilities;
@@ -142,6 +144,19 @@ class DynamicCoreRuntimeInfoTest {
             WRITTEN_ID.set(parameterId);
             WRITTEN_VALUE.set(value);
         }
+    }
+
+    @Test
+    void reportsAvailabilityOfTheCurrentDelegate() {
+        final DynamicCoreRuntimeInfo dynamic = new DynamicCoreRuntimeInfo();
+
+        assertFalse(dynamic.isAvailable(), "a detached info reports unavailable");
+
+        dynamic.connect(runtime(5));
+        assertTrue(dynamic.isAvailable(), "a connected info forwards the live delegate");
+
+        dynamic.deactivate();
+        assertFalse(dynamic.isAvailable(), "a deactivated info reports unavailable again");
     }
 
     private static CoreRuntimeInfo runtime(final int mocVersion) {

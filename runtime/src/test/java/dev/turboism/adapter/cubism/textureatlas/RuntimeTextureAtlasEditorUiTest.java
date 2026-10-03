@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -138,6 +139,16 @@ class RuntimeTextureAtlasEditorUiTest {
 
         assertFalse(view.offEdtMutation.get());
         ui.close();
+    }
+
+    @Test
+    void isAvailableReflectsTheClosedState() {
+        final RuntimeTextureAtlasEditorUi ui = new RuntimeTextureAtlasEditorUi();
+
+        assertTrue(ui.isAvailable(), "an open editor UI surface reports available");
+
+        ui.close();
+        assertFalse(ui.isAvailable(), "a closed surface reports unavailable");
     }
 
     private static RuntimeTextureAtlasEditorUi boundUi() {

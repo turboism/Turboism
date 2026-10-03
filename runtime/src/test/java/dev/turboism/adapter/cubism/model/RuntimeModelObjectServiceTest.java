@@ -197,6 +197,18 @@ final class RuntimeModelObjectServiceTest {
         assertEquals(ModelObjectOperationException.Code.STALE, failure.code());
     }
 
+    @Test
+    void isAvailableFollowsTheModelAccessDelegate() {
+        final RuntimeModelObjectService available = service(new MutableModel(), () -> true);
+        assertTrue(available.isAvailable(), "a service over live model access reports available");
+
+        final RuntimeModelObjectService unavailable = new RuntimeModelObjectService(
+                dev.turboism.sdk.cubism.model.CubismModelAccess.unavailable(),
+                PermissionChecker.allowAll(),
+                () -> true);
+        assertFalse(unavailable.isAvailable(), "a service over the unavailable sentinel reports unavailable");
+    }
+
     private static RuntimeModelObjectService service(
             final MutableModel model, final java.util.function.BooleanSupplier active) {
         return new RuntimeModelObjectService(() -> model, PermissionChecker.allowAll(), active);

@@ -51,7 +51,8 @@ final class FxOpenAiAdapterTest {
             try (exchange) {
                 paths.add(exchange.getRequestURI().getPath());
                 authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-                chatRequest.set(object(Json.parse(exchange.getRequestBody().readAllBytes())));
+                chatRequest.set(
+                        object(Json.parseObject(exchange.getRequestBody().readAllBytes())));
                 final byte[] body = STREAM.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
                 exchange.sendResponseHeaders(200, body.length);
@@ -122,7 +123,7 @@ final class FxOpenAiAdapterTest {
                             HttpResponse.BodyHandlers.ofByteArray());
 
             assertEquals(200, response.statusCode());
-            final Map<String, Object> catalog = object(Json.parse(response.body()));
+            final Map<String, Object> catalog = object(Json.parseObject(response.body()));
             assertEquals(
                     List.of("local/one", "local/two"),
                     ((List<?>) catalog.get("data"))
