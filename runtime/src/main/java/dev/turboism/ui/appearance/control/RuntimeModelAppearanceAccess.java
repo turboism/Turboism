@@ -7,6 +7,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -25,6 +26,7 @@ import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
+import dev.turboism.ui.host.HostReadEpoch;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,6 +45,12 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
     private final LongSupplier hostGeneration;
     private final LongSupplier providerGeneration;
     private final AtomicBoolean active = new AtomicBoolean(true);
+    /**
+     * The observation captured for the calling thread's current {@link HostReadEpoch}. Every
+     * scope capture and parameter read in one dispatched host-read task reuses it, so listing
+     * N parameters costs one host observation instead of re-observing per read.
+     */
+    private final ThreadLocal<EpochObservation> epochCache = new ThreadLocal<>();
 
     RuntimeModelAppearanceAccess(
             final String pluginId,
@@ -390,7 +398,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             if (currentModelGeneration != null && currentModelGeneration.getAsLong() != modelGeneration) {
                 return Optional.empty();
             }
-            final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+            final HostSnapshotSource.SdkRuntimeObservation observed = observedRuntime();
             final ScopeInput input =
                     observed.host() != null ? hostScopeInput(observed.host()) : sdkScopeInput(observed);
             if (input == null) return deactivate();
@@ -416,6 +424,48 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         coordinator.deactivate();
         return Optional.empty();
     }
+
+    /**
+     * One coherent host observation for the calling thread's current read epoch. Inside a
+     * dispatched host task the first caller pays {@code source.observeSdkRuntime()} and every
+     * later scope capture or parameter read in the same task reuses it; outside any epoch — or
+     * after a nested dispatched body or a generation change — the host is observed fresh. A
+     * reused observation can therefore never hide a document/model switch or a write performed
+     * by nested dispatched work, and scope staleness keeps judging against the same generations
+     * it always did.
+     */
+    private HostSnapshotSource.SdkRuntimeObservation observedRuntime() {
+        final long epoch = HostReadEpoch.current();
+        if (epoch == 0L) {
+            return source.observeSdkRuntime();
+        }
+        final long liveModelGeneration = currentModelGeneration == null ? 0L : currentModelGeneration.getAsLong();
+        final long liveHostGeneration = hostGeneration.getAsLong();
+        final long liveProviderGeneration = providerGeneration.getAsLong();
+        final long writes = HostReadEpoch.writes();
+        final EpochObservation cached = epochCache.get();
+        if (cached != null
+                && cached.epoch() == epoch
+                && cached.writes() == writes
+                && cached.modelGeneration() == liveModelGeneration
+                && cached.hostGeneration() == liveHostGeneration
+                && cached.providerGeneration() == liveProviderGeneration) {
+            return cached.observed();
+        }
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        epochCache.set(new EpochObservation(
+                epoch, writes, liveModelGeneration, liveHostGeneration, liveProviderGeneration, observed));
+        return observed;
+    }
+
+    /** The memoized observation for one {@link HostReadEpoch} frame plus the generations read alongside it. */
+    private record EpochObservation(
+            long epoch,
+            long writes,
+            long modelGeneration,
+            long hostGeneration,
+            long providerGeneration,
+            HostSnapshotSource.SdkRuntimeObservation observed) {}
 
     /** The document/model fields {@link #captureScope} needs, or null when the scope is gone. */
     private record ScopeInput(String contentId, String modelId) {}
@@ -705,15 +755,29 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         }
 
         /**
-         * Reads the parameter's palette state from the same observed model the retiring query plane
-         * consumed: the host observation's parameter list, keyed by this facade's parameter id.
+         * Reads the parameter's palette state from the observed model: the parameter list of the
+         * same coherent observation {@link #requireScope} validated, keyed by this facade's
+         * parameter id. Within one host-read epoch that observation is the memoized one, so a
+         * parameter list traversal costs no additional host read.
          */
         private Optional<HostSnapshotSource.HostParameter> hostParameter() {
-            return source.observe()
-                    .model()
+            final HostSnapshotSource.SdkRuntimeObservation observed = observedRuntime();
+            if (observed.host() != null) {
+                return observed.host()
+                        .model()
+                        .flatMap(model -> model.parameters().stream()
+                                .filter(parameter -> parameter.id().equals(objectId))
+                                .findFirst());
+            }
+            final DocumentSnapshot document = observed.document();
+            if (document == null || document.kind() != DocumentKind.MODEL) {
+                return Optional.empty();
+            }
+            return document.model()
                     .flatMap(model -> model.parameters().stream()
                             .filter(parameter -> parameter.id().equals(objectId))
-                            .findFirst());
+                            .findFirst()
+                            .map(RuntimeModelAppearanceAccess::toHostParameter));
         }
     }
 
@@ -757,6 +821,18 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
     }
 
     private record Bound(PaletteAppearanceCoordinator.Scope scope, String id) {}
+
+    private static HostSnapshotSource.HostParameter toHostParameter(final ParameterSnapshot snapshot) {
+        return new HostSnapshotSource.HostParameter(
+                snapshot.id(),
+                snapshot.name(),
+                snapshot.value(),
+                snapshot.defaultValue(),
+                snapshot.minValue(),
+                snapshot.maxValue(),
+                snapshot.visible(),
+                snapshot.editable());
+    }
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);

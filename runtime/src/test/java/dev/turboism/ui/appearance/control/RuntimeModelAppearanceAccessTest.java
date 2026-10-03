@@ -31,6 +31,7 @@ import dev.turboism.sdk.ui.appearance.UiColor;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
+import dev.turboism.ui.host.HostReadEpoch;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -394,6 +395,159 @@ class RuntimeModelAppearanceAccessTest {
                 List.of(PermissionIds.TURBOISM_UI_APPEARANCE_MODIFY, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
                 checked);
         assertEquals(1, writes.get());
+    }
+
+    @Test
+    void oneReadEpochObservesTheHostOnceAcrossEveryFacadeRead() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(
+                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, false, true),
+                new ParameterSnapshot("ParamB", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance angleX = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(false), angleX.visible());
+            assertEquals(Optional.of(true), angleX.editable());
+            final ParameterAppearance opacity = access.parameter("model-a", "ParamB", 3L);
+            assertEquals(Optional.of(true), opacity.visible());
+            assertEquals(Optional.of(false), opacity.editable());
+            access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(1L, fixture.observeCalls.get(), "one read epoch must pay exactly one host observation");
+    }
+
+    @Test
+    void oneReadEpochReadsThePairedDocumentOnceAcrossParameterReads() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.sdkSource = true;
+        fixture.parameters = List.of(
+                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, false, true),
+                new ParameterSnapshot("ParamB", "Opacity", 1.0, 1.0, 0.0, 1.0, true, false));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance angleX = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(false), angleX.visible());
+            assertEquals(Optional.of(true), angleX.editable());
+            final ParameterAppearance opacity = access.parameter("model-a", "ParamB", 3L);
+            assertEquals(Optional.of(true), opacity.visible());
+            assertEquals(Optional.of(false), opacity.editable());
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(1L, fixture.pairReads.get(), "one read epoch must pay exactly one paired document read");
+    }
+
+    @Test
+    void aNewReadEpochObservesTheHostFreshly() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            assertEquals(
+                    Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        } finally {
+            HostReadEpoch.exit();
+        }
+        HostReadEpoch.enter();
+        try {
+            assertEquals(
+                    Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        } finally {
+            HostReadEpoch.exit();
+        }
+
+        assertEquals(2L, fixture.observeCalls.get(), "a new epoch must observe the host again");
+    }
+
+    @Test
+    void aNestedDispatchedBodyInvalidatesTheOuterEpochObservation() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(true), appearance.visible());
+            assertEquals(1L, fixture.observeCalls.get());
+            HostReadEpoch.enter();
+            try {
+                // A nested dispatched body may mutate the host.
+            } finally {
+                HostReadEpoch.exit();
+            }
+            assertEquals(Optional.of(true), appearance.visible());
+            assertEquals(
+                    2L, fixture.observeCalls.get(), "a nested body must invalidate the outer memoized observation");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void aGenerationChangeInsideAnEpochStalesFacadesAndReobserves() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
+            assertEquals(Optional.of(true), appearance.visible());
+            fixture.hostGeneration.incrementAndGet();
+            assertThrows(IllegalStateException.class, appearance::visible);
+            assertEquals(
+                    2L,
+                    fixture.observeCalls.get(),
+                    "a generation change must force a fresh observation before the stale verdict");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void anEpochObservationStillStalesWhenTheDocumentMoves() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        HostReadEpoch.enter();
+        try {
+            final PaletteEntry entry =
+                    access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+            fixture.replace("content-b", "model-b", 8L);
+            assertThrows(
+                    IllegalStateException.class,
+                    entry::resolved,
+                    "a token-moving document change must still stale the facade inside an epoch");
+        } finally {
+            HostReadEpoch.exit();
+        }
+    }
+
+    @Test
+    void readsOutsideAnEpochKeepObservingFreshly() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
+
+        assertEquals(
+                Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        assertEquals(
+                Optional.of(true), access.parameter("model-a", "ParamA", 3L).visible());
+        assertEquals(0L, HostReadEpoch.current(), "the test thread must not sit inside an epoch");
+        assertTrue(
+                fixture.observeCalls.get() >= 2L,
+                "outside a read epoch every scope capture must observe the host fresh");
     }
 
     private static Part part(final String id) {
