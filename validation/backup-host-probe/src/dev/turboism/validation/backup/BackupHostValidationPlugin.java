@@ -40,7 +40,7 @@ import java.util.stream.Stream;
 
 /**
  * Task-local exerciser for the native auto-backup manager takeover on an exact
- * Cubism host. It only uses the public SDK ({@code context.backup()},
+ * Cubism host. It only uses the public SDK ({@code context.services().require(EditorAutoBackupService.class)},
  * {@code context.cubism()}) plus plain JDK file scanning and an in-JVM WebDAV
  * mock ({@code com.sun.net.httpserver}); it never imports or reflects
  * {@code com.live2d.*} types.
@@ -229,7 +229,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private void runMatrix(final CubismModel model, final String hostVersion, final List<String> failures) {
         logger.info("BACKUP_VALIDATION_BEGIN hostVersion=" + hostVersion);
         try {
-            final EditorAutoBackupService backup = context.backup();
+            final EditorAutoBackupService backup = context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable());
             identityBanner(hostVersion, model, failures);
             settingsRead(backup, failures);
             final EditorAutoBackupSettings originalSettings = backup.settings();
@@ -269,7 +269,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     private void identityBanner(final String hostVersion, final CubismModel model,
                                 final List<String> failures) {
         try {
-            final EditorAutoBackupSettings settings = context.backup().settings();
+            final EditorAutoBackupSettings settings = context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable()).settings();
             logger.info("BACKUP_IDENTITY hostVersion=" + hostVersion
                 + " modelId=" + safeModelId(model)
                 + " drawables=" + onHostThread(() -> model.drawables().all().size())

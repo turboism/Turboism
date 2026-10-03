@@ -33,6 +33,7 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -151,7 +152,10 @@ class PreviewPluginContextFactoryCompositionTest {
                             .context();
                     assertThrows(
                             CubismEditorApiUnavailableException.class,
-                            () -> context.exportSettings().contribute(exportContribution()));
+                            () -> context.services()
+                                    .find(ExportSettingsContributionService.class)
+                                    .orElse(ExportSettingsContributionService.unavailable())
+                                    .contribute(exportContribution()));
                     final RuntimeUserFileAccessService userFiles =
                             assertInstanceOf(RuntimeUserFileAccessService.class, context.userFiles());
                     actualSource.set(sourceOf(userFiles));
@@ -172,8 +176,10 @@ class PreviewPluginContextFactoryCompositionTest {
 
                     current.set(HostSessionTestSupport.descriptor("preview-project"));
                     assertEquals(HostSession.State.ACTIVE, session.refresh());
-                    final Registration exportRegistration =
-                            context.exportSettings().contribute(exportContribution());
+                    final Registration exportRegistration = context.services()
+                            .find(ExportSettingsContributionService.class)
+                            .orElse(ExportSettingsContributionService.unavailable())
+                            .contribute(exportContribution());
                     exportRegistration.close();
 
                     assertEquals(
@@ -200,13 +206,19 @@ class PreviewPluginContextFactoryCompositionTest {
                     assertTrue(context.cubismRead().activeProject().isEmpty());
                     assertThrows(
                             CubismEditorApiUnavailableException.class,
-                            () -> context.exportSettings().contribute(exportContribution()));
+                            () -> context.services()
+                                    .find(ExportSettingsContributionService.class)
+                                    .orElse(ExportSettingsContributionService.unavailable())
+                                    .contribute(exportContribution()));
                     current.set(HostSessionTestSupport.descriptor("preview-project-closed"));
                     assertEquals(HostSession.State.ACTIVE, session.refresh());
                     scope.close();
                     assertThrows(
                             IllegalStateException.class,
-                            () -> context.exportSettings().contribute(exportContribution()));
+                            () -> context.services()
+                                    .find(ExportSettingsContributionService.class)
+                                    .orElse(ExportSettingsContributionService.unavailable())
+                                    .contribute(exportContribution()));
                 } finally {
                     scope.close();
                 }

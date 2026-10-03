@@ -1482,23 +1482,28 @@ final class TurboismWithFxControllerTest {
                     (proxy, method, arguments) -> switch (method.getName()) {
                         case "logger" -> logger;
                         case "paths" -> paths;
-                        case "mcpConnections" ->
-                            new McpConnectionService() {
-                                @Override
-                                public Optional<dev.turboism.sdk.mcp.McpHttpConnection> current() {
-                                    return mcpConnection;
-                                }
+                        case "services" ->
+                            dev.turboism.sdk.plugin.PluginServices.builder()
+                                    .install(
+                                            dev.turboism.sdk.mcp.McpConnectionService.class,
+                                            new McpConnectionService() {
+                                                @Override
+                                                public Optional<dev.turboism.sdk.mcp.McpHttpConnection> current() {
+                                                    return mcpConnection;
+                                                }
 
-                                @Override
-                                public Registration publish(final dev.turboism.sdk.mcp.McpHttpConnection connection) {
-                                    throw new UnsupportedOperationException("not used");
-                                }
-                            };
+                                                @Override
+                                                public Registration publish(
+                                                        final dev.turboism.sdk.mcp.McpHttpConnection connection) {
+                                                    throw new UnsupportedOperationException("not used");
+                                                }
+                                            })
+                                    .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                    .build();
                         case "uiScheduler" -> ui;
                         case "toString" -> "TurboismWithFxControllerTestContext";
                         case "hashCode" -> System.identityHashCode(proxy);
                         case "equals" -> proxy == (arguments == null ? null : arguments[0]);
-                        case "services" -> dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy);
                         default ->
                             throw new UnsupportedOperationException("unused PluginContext method: " + method.getName());
                     });

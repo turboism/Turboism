@@ -22,20 +22,16 @@ final class EditorAutoBackupServiceContractTest {
 
     @Test
     void pluginContextDefaultsToTheTypedUnavailableBackupSingleton() throws Exception {
-        final Method accessor = Arrays.stream(PluginContext.class.getMethods())
-                .filter(method -> method.getName().equals("backup"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(accessor.isDefault());
-        assertEquals(EditorAutoBackupService.class, accessor.getReturnType());
-        assertEquals(0, accessor.getParameterCount());
+        assertTrue(Arrays.stream(PluginContext.class.getMethods())
+                .noneMatch(method -> method.getName().equals("backup")));
 
         final PluginContext context = (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null);
-        assertSame(EditorAutoBackupService.unavailable(), context.backup());
+        assertSame(
+                EditorAutoBackupService.unavailable(),
+                context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable()));
     }
 
     @Test

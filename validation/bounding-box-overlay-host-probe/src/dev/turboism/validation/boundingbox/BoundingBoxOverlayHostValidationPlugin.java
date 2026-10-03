@@ -6,6 +6,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.BoundingBoxOverlayButton;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 import javax.imageio.ImageIO;
 import java.awt.Dialog;
@@ -545,7 +546,7 @@ public final class BoundingBoxOverlayHostValidationPlugin implements TurboismPlu
 
     private void registerButtons(final List<String> failures) {
         try {
-            final Registration a = context.uiHost().contributeBoundingBoxOverlayButton(
+            final Registration a = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).contributeBoundingBoxOverlayButton(
                 new BoundingBoxOverlayButton(
                     BUTTON_A_ID,
                     "Turboism validation overlay button A",
@@ -558,7 +559,7 @@ public final class BoundingBoxOverlayHostValidationPlugin implements TurboismPlu
                 )
             );
             registrationA.set(a);
-            final Registration b = context.uiHost().contributeBoundingBoxOverlayButton(
+            final Registration b = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).contributeBoundingBoxOverlayButton(
                 new BoundingBoxOverlayButton(
                     BUTTON_B_ID,
                     "Turboism validation overlay button B",

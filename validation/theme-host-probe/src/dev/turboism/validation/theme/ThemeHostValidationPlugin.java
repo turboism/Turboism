@@ -50,7 +50,7 @@ public final class ThemeHostValidationPlugin implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) {
         this.logger = context.logger();
-        this.appearance = context.appearance();
+        this.appearance = context.services().find(AppearanceService.class).orElse(AppearanceService.unavailable());
         this.stateDir = context.paths().stateDir();
         final Map<String, String> nativeSnapshot = stableSnapshot(30_000L);
         logger.info("THEME_EXERCISER_NATIVE " + render(nativeSnapshot));
