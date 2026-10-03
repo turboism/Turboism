@@ -4,15 +4,12 @@ import dev.turboism.core.runtime.work.FatalErrors;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.RandomAccess;
 
 /**
  * Edge-indexed adjunct for the host triangulator's per-edge triangle lookup.
@@ -373,9 +370,13 @@ public final class TriangulationEdgeIndex {
     public static boolean contains(final LinkedHashSet s, final Object tri) {
         try {
             final St t = st(s);
-            if (!t.dead && t.pendingSize > 0) settle(t, s);
-            if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size() && t.keys.containsKey(tri))
-                return true;
+            // Unknown identities and unresolved removal arguments always need
+            // native equality. Settling cannot make either eligible for the
+            // positive shortcut, so retain the batch for an indexed answer.
+            if (!t.dead && !t.dirty && t.keys.containsKey(tri) && !isPending(t, tri)) {
+                if (t.pendingSize > 0) settle(t, s);
+                if (!t.dirty && t.sz == s.size() && t.keys.size() == s.size() && t.keys.containsKey(tri)) return true;
+            }
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             if (s != null) invalidate(s); // settle may have partially changed bookkeeping
@@ -418,83 +419,14 @@ public final class TriangulationEdgeIndex {
                 }
             }
             final ArrayList<Object> bucket = bucket(t, key(ja, jb));
-            // Never expose a live bucket: the native caller can remove triangles
-            // while iterating this result. Small results own inline references;
-            // larger/nonmanifold results retain their existing ArrayList snapshot.
-            return bucket == null || bucket.size() <= 2 ? new QuerySnapshot(bucket) : new ArrayList<>(bucket);
+            // Collection construction adopts its private toArray copy. Preallocating
+            // another backing array and calling addAll would copy through two arrays.
+            return bucket == null ? new ArrayList<>(4) : new ArrayList<>(bucket);
         } catch (Throwable indexFailure) {
             FatalErrors.rethrowIfFatal(indexFailure);
             t.dead = true; // never trust a crashed index again
             clearPending(t);
             return null;
-        }
-    }
-
-    /** Detached mutable result; its backing list is needed only after a caller edit. */
-    private static final class QuerySnapshot extends AbstractList<Object> implements RandomAccess {
-        private Object first;
-        private Object second;
-        private int initialSize;
-        private ArrayList<Object> mutable;
-
-        QuerySnapshot(final ArrayList<Object> bucket) {
-            initialSize = bucket == null ? 0 : bucket.size();
-            if (initialSize > 0) first = bucket.get(0);
-            if (initialSize > 1) second = bucket.get(1);
-        }
-
-        @Override
-        public int size() {
-            return mutable == null ? initialSize : mutable.size();
-        }
-
-        @Override
-        public Object get(final int index) {
-            Objects.checkIndex(index, size());
-            return mutable != null ? mutable.get(index) : index == 0 ? first : second;
-        }
-
-        private ArrayList<Object> materialize() {
-            if (mutable == null) {
-                final ArrayList<Object> result = new ArrayList<>(initialSize + 1);
-                if (initialSize > 0) result.add(first);
-                if (initialSize > 1) result.add(second);
-                mutable = result;
-                first = null;
-                second = null;
-                initialSize = 0;
-            }
-            return mutable;
-        }
-
-        @Override
-        public Object set(final int index, final Object value) {
-            Objects.checkIndex(index, size());
-            return materialize().set(index, value);
-        }
-
-        @Override
-        public void add(final int index, final Object value) {
-            if (index < 0 || index > size()) throw new IndexOutOfBoundsException(index);
-            materialize().add(index, value);
-            modCount++;
-        }
-
-        @Override
-        public Object remove(final int index) {
-            Objects.checkIndex(index, size());
-            final Object removed = materialize().remove(index);
-            modCount++;
-            return removed;
-        }
-
-        @Override
-        public void clear() {
-            if (mutable != null) mutable.clear();
-            first = null;
-            second = null;
-            initialSize = 0;
-            modCount++;
         }
     }
 

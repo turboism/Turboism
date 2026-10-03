@@ -500,50 +500,6 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
-    void smallSnapshotsSurviveSourceMutationAndSupportIndependentEdits() {
-        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
-        final Tri a = tri(1, 1, 2, 3), b = tri(2, 1, 2, 4);
-        TriangulationEdgeIndex.add(set, a, a.ia, a.ib, a.ic);
-        TriangulationEdgeIndex.add(set, b, b.ia, b.ib, b.ic);
-        final List<Object> snapshot = TriangulationEdgeIndex.tryQuery(set, 1, 2);
-        final List<Object> sibling = TriangulationEdgeIndex.tryQuery(set, 2, 1);
-        for (final Object triangle : snapshot) TriangulationEdgeIndex.remove(set, triangle);
-        assertTrue(set.isEmpty());
-        assertEquals(List.of(a, b), snapshot);
-        assertEquals(List.of(a, b), sibling);
-        final var iterator = snapshot.listIterator(snapshot.size());
-        assertSame(b, iterator.previous());
-        iterator.set(null);
-        iterator.add(a);
-        assertEquals(java.util.Arrays.asList(a, a, null), snapshot);
-        snapshot.subList(1, 3).clear();
-        assertEquals(List.of(a), snapshot);
-        assertEquals(List.of(a, b), sibling);
-        final List<Object> empty = TriangulationEdgeIndex.tryQuery(set, 1, 2);
-        empty.add(null);
-        assertEquals(java.util.Arrays.asList((Object) null), empty);
-        assertTrue(TriangulationEdgeIndex.tryQuery(set, 1, 2).isEmpty());
-    }
-
-    @Test
-    void nonmanifoldSnapshotsPreserveAllEntriesAcrossSourceRemovals() {
-        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
-        final List<Tri> triangles = new ArrayList<>();
-        for (int i = 0; i < 128; i++) {
-            final Tri triangle = tri(i, 1, 2, i + 3);
-            triangles.add(triangle);
-            TriangulationEdgeIndex.add(set, triangle, triangle.ia, triangle.ib, triangle.ic);
-        }
-        final List<Object> snapshot = TriangulationEdgeIndex.tryQuery(set, 1, 2);
-        assertEquals(ArrayList.class, snapshot.getClass());
-        for (final Object triangle : snapshot) TriangulationEdgeIndex.remove(set, triangle);
-        assertEquals(triangles, snapshot);
-        assertTrue(TriangulationEdgeIndex.tryQuery(set, 1, 2).isEmpty());
-        snapshot.subList(0, 64).clear();
-        assertEquals(triangles.subList(64, 128), snapshot);
-    }
-
-    @Test
     void bookkeepingFailuresNeverPropagate() {
         // A null set is rejected inside the bookkeeping guard; it must still decline
         // without leaking that failure into the original scan's control flow.
@@ -622,6 +578,73 @@ final class TriangulationEdgeIndexTest {
         assertEquals(scan(set, 1, 2), hits);
         assertSame(first, hits.get(hits.size() - 2));
         assertSame(second, hits.get(hits.size() - 1));
+    }
+
+    @Test
+    void nativeOnlyMembershipKeepsRemovalsBatchedWithoutTraversingSurvivors() {
+        final class CountingSet extends LinkedHashSet<Tri> {
+            int visits;
+
+            @Override
+            public Iterator<Tri> iterator() {
+                final Iterator<Tri> actual = super.iterator();
+                return new Iterator<>() {
+                    @Override
+                    public boolean hasNext() {
+                        return actual.hasNext();
+                    }
+
+                    @Override
+                    public Tri next() {
+                        visits++;
+                        return actual.next();
+                    }
+                };
+            }
+        }
+        final var set = new CountingSet();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            final Tri t = tri(i, 1, 2, i + 3);
+            triangles.add(t);
+            TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
+        }
+        TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        set.visits = 0;
+        TriangulationEdgeIndex.remove(set, triangles.get(0));
+        for (final Tri probe : List.of(tri(10, 900, 901, 902), tri(1000, 1, 2, 3), triangles.get(0))) {
+            probe.equalityCalls = 0;
+            final boolean expected = set.contains(probe);
+            final int nativeComparisons = probe.equalityCalls;
+            probe.equalityCalls = 0;
+            assertEquals(expected, TriangulationEdgeIndex.contains(set, probe));
+            assertEquals(nativeComparisons, probe.equalityCalls, "native fallback invokes equality exactly once");
+        }
+        TriangulationEdgeIndex.remove(set, triangles.get(1));
+        assertEquals(0, set.visits, "native-only membership must not flush the removal batch");
+        final List<?> actual = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertEquals(set.size(), set.visits, "the next indexed answer resolves both removals in one scan");
+        assertEquals(scan(set, 1, 2), actual);
+    }
+
+    @Test
+    void nativeMembershipFailurePropagatesWithoutRetry() {
+        final IllegalStateException failure = new IllegalStateException("native contains failure");
+        final class FailingSet extends LinkedHashSet<Tri> {
+            int calls;
+
+            @Override
+            public boolean contains(final Object value) {
+                calls++;
+                throw failure;
+            }
+        }
+        final var set = new FailingSet();
+        assertSame(
+                failure,
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalStateException.class, () -> TriangulationEdgeIndex.contains(set, tri(1, 1, 2, 3))));
+        assertEquals(1, set.calls);
     }
 
     @Test
