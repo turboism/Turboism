@@ -1,0 +1,93 @@
+{
+  "task": "T075",
+  "status": "FROZEN_BEFORE_ANY_SUBMISSION",
+  "purpose": "NEW_SMALL_DETACHED_QUERY_SNAPSHOT_FIXED_BALANCED_COMPARISON",
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "pairs": [
+    [
+      "baseline1",
+      "candidate1"
+    ],
+    [
+      "baseline2",
+      "candidate2"
+    ]
+  ],
+  "legCount": 4,
+  "replacementsAllowed": false,
+  "abortOnInvalidEvidence": true,
+  "performanceFailureStopsEarly": false,
+  "aggregateCanOverrideFailedPair": false,
+  "primaryCpu": "sum_3_command_start_return_process_cpu_nanoseconds",
+  "cpuCapPercent": 0,
+  "wallRequirement": "strictly_less_in_each_pair",
+  "peakRssCapPercent": 20,
+  "ownBaselineRssCapMiB": 80,
+  "retainedGrowthCapMiB": 64,
+  "baselineProductionSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "newCandidateProductionSha256": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+  "requestOnlyDifferences": [
+    "arm_bundle_paths",
+    "leg_evidence_path",
+    "run_label",
+    "capture_run_id"
+  ],
+  "productionAcceptance": "NOT_GRANTED",
+  "historicalDecisions": "T072/T069/T066/T063 remain withdrawn; T057 retained.",
+  "preparedIds": {
+    "baseline1": "9490207a6bb54d033f6a1691072398e79dd5aa3f0788006e0a8c746e460f2792",
+    "candidate1": "6dedbe7a8736ce1d88704597d24672c7df2bbd5e61f0df1387d2798b95e786b4",
+    "candidate2": "20e5bc5b6298050c9d0eb530f5023555426dfd6d5575d5bd70b54e1419da4f00",
+    "baseline2": "e947c7b6949105a2c39e574857c77ff9dbcd03fde732aea7a87f3cf139933a13"
+  },
+  "frozenInputPins": {
+    "validation/triangulation-tlindex/small-query-snapshot-cpu-protocol-20261003.md": "dd9789f76b7fea3eaed2dbc0487f6face76549a9062e7a7190c5d982e8fcf316",
+    "validation/triangulation-tlindex/diagnostic/balanced-cpu-gates.py": "40d6ce54085fbb52be3041ea2c1f95c31bf8ef9621d235699faf10ef1255e548",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "build/t075-small-query-snapshot-integration-r1/offline-review.json": "86a3cf32bbca08f1229f1300e63960f01ee493c3d333eb78580bde1b35049a6d",
+    "build/t075-small-query-snapshot-integration-r1/artifact-review.json": "fead506a49b463d0015240262b34b6bcc2f767f60f86c7ac194d7c66f1ea93d4",
+    "build/t075-small-query-snapshot-integration-r1/TriangulationEdgeIndex.java": "eeb294999e4147e726495772b61c1458a2e1dd1ea4f7b7b8375e67451c1c8051",
+    "build/t075-small-query-snapshot-integration-r1/TriangulationEdgeIndexTest.java": "613db42ee5c11b82513b4656927cc4056a919c1b8a2bebeac294b1dba3f0fe3b",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/prepare-all.py": "5293f65590c8bb42942985f18d82399fbee894ab73fd3359534c8a620039988f",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/run-one.py": "a5fd55f5d36ba3169984ef057aeeca0cb465180393288660120126906bb6cf97",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/review-native.py": "21731207410a37a87481af1d3385514861d9aad10750c8a363b9a835b17efbd4",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/analyze-all.py": "10631b65928105546c856603eee7636fd443f1364e28ca33d9454b2c0d82acdd",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/baseline/turboism-agent.jar": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/baseline/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/baseline/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/baseline/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/baseline/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/candidate/turboism-agent.jar": "dc09b3d06e7e2a999d349adff51bfa07a26e6ff3b14345d4afc3b830d9d8a2da",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/candidate/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/candidate/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/candidate/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/bundles/candidate/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/runner-input.json": "40038003ae2ef8a3e7e0b33e90c60440cadbd50d0673d29136d1a04b6de430f4",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/prepared.json": "c5e145c3cfee45f49d13c21c8c71bafe1bfd6639d59d5862b44db03913f65280",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/request/runner-request.json": "fb073196eaec9ddb9c1d236dbe963d21b720a8cfaa3af41000f061c073fcd896",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/runner-input.json": "603ff6c4f7783809afc2d1cd595939e72abbfebb8ab6e3dcc788357a2f6d3461",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/prepared.json": "8679a87cabb189842871629fb4d6894935ef87b0ed940bde94232d623ce21463",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/request/runner-request.json": "3243ccadda0747a4d92e32c6007edd61ce77a3bef876c0672361da9447d9d8dd",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/runner-input.json": "bd48e5ec4756a272dbeddbddfc745349f8cd368dabdfe7030485efaa071e8dc2",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/prepared.json": "44ad760088e0d4254fc48533ace57077db04f4c828775c5051b151f3c40f06b0",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/request/runner-request.json": "f7fb9cfa03bfd594010642333cdbc72027d051c2f111e07bcfee3e33f8090845",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/runner-input.json": "11f5c49f5df4240a90531b8fb40033ae307694e2319b9015cc4c3df561b2a37c",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/prepared.json": "41dbb1f60925846211e9330582b93a69987e1c9b97129fb2e3718b4e77d61267",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/request/runner-request.json": "7747f50e25c76f025ca9c6439f6f018c830937fe36e827adf91a5e9453ef482c",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "scripts/preview/collect-cubism-process-metrics.sh": "5a3cb7ba1caa070675db53dc33a2718b40e6038ddcea765d5a02f052400c3ca4",
+    "build/t075-small-query-snapshot-integration-r1/production-candidate-r1/turboism-agent.jar": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+    "build/t075-small-query-snapshot-integration-r1/candidate-producer-r1/turboism-agent.jar": "d1d6596462cb539b49e56114e5de833ab9ec2c2127fa4067a7f26410f918836c",
+    "build/t075-small-query-snapshot-integration-r1/candidate-producer-capture-r1/turboism-agent.jar": "dc09b3d06e7e2a999d349adff51bfa07a26e6ff3b14345d4afc3b830d9d8a2da",
+    "validation/triangulation-tlindex/small-query-snapshot-production-offline-review-20261003.json": "86a3cf32bbca08f1229f1300e63960f01ee493c3d333eb78580bde1b35049a6d"
+  }
+}
