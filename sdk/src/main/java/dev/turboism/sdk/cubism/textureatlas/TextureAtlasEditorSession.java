@@ -18,4 +18,42 @@ public interface TextureAtlasEditorSession {
 
     /** Summary of the texture currently selected in the editor list, if any. */
     Optional<TextureAtlasSummary> selectedTexture();
+
+    /**
+     * Reports whether a live runtime backend backs this session.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static TextureAtlasEditorSession unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /** Sentinel returned by {@link #unavailable()}: every read reports empty. */
+    enum Unavailable implements TextureAtlasEditorSession {
+        INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
+
+        @Override
+        public Optional<TextureAtlasSummary> summary() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<TextureAtlasSummary> selectedTexture() {
+            return Optional.empty();
+        }
+    }
 }

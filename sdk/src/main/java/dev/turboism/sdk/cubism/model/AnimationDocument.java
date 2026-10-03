@@ -22,6 +22,7 @@ public interface AnimationDocument {
      * Returns the scenes with their timelines, tracks, and keyframes, in the
      * animation's scene order. The default rejects the deep read when the
      * active provider lacks exact animation-timeline host mapping.
+     * @throws UnsupportedOperationException when the provider lacks exact animation-timeline host mapping
      */
     default List<AnimationScene> scenes() {
         throw new UnsupportedOperationException(

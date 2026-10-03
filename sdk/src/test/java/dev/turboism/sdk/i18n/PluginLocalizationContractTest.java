@@ -28,6 +28,7 @@ class PluginLocalizationContractTest {
                 Set.of(
                         "locale():java.util.Locale",
                         "text(java.lang.String):java.lang.String",
+                        "text(java.lang.String,java.lang.String):java.lang.String",
                         "format(java.lang.String,java.lang.Object[]):java.lang.String",
                         "contains(java.lang.String):boolean",
                         "isAvailable():boolean",
@@ -57,6 +58,64 @@ class PluginLocalizationContractTest {
         final UnsupportedOperationException error =
                 assertThrows(UnsupportedOperationException.class, () -> localization.text("key"));
         assertEquals("localization service is not available", error.getMessage());
+    }
+
+    @Test
+    void textWithFallbackReturnsFallbackOnTheUnavailableSentinel() {
+        final PluginLocalization localization = PluginLocalization.unavailable();
+
+        assertEquals("fallback", localization.text("key", "fallback"));
+    }
+
+    @Test
+    void textWithFallbackReturnsFallbackForMissingAndBlankKeys() {
+        final PluginLocalization localization = new PluginLocalization() {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return "blank".equals(key) ? " " : "⟦" + key + "⟧";
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return text(key);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return "present".equals(key) || "blank".equals(key);
+            }
+        };
+
+        assertEquals(
+                "resolved",
+                new PluginLocalization() {
+                    @Override
+                    public Locale locale() {
+                        return Locale.ENGLISH;
+                    }
+
+                    @Override
+                    public String text(final String key) {
+                        return "resolved";
+                    }
+
+                    @Override
+                    public String format(final String key, final Object... arguments) {
+                        return text(key);
+                    }
+
+                    @Override
+                    public boolean contains(final String key) {
+                        return true;
+                    }
+                }.text("present", "fallback"));
+        assertEquals("fallback", localization.text("missing", "fallback"));
+        assertEquals("fallback", localization.text("blank", "fallback"));
     }
 
     private static Object invokeDefault(final Object proxy, final Method method, final Object[] arguments)

@@ -82,7 +82,12 @@ public interface PluginContext {
     /** Returns the persistent and runtime paths available to the plugin. */
     PluginPaths paths();
 
-    /** Returns the plugin-scoped localization catalog. */
+    /**
+     * Returns the plugin-scoped localization catalog.
+     *
+     * @return the catalog, never {@code null}; the {@link PluginLocalization#unavailable()}
+     *     sentinel when no catalog is installed
+     */
     default PluginLocalization localization() {
         return PluginLocalization.unavailable();
     }
@@ -115,7 +120,7 @@ public interface PluginContext {
 
     /** Returns the inert, plugin-scoped bridge for the native export settings flow.
      *
-     * @deprecated superseded by the service directory: {@code services().get(ExportSettingsContributionService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(ExportSettingsContributionService.class)}
      */
     @Deprecated
     default ExportSettingsContributionService exportSettings() {
@@ -153,7 +158,7 @@ public interface PluginContext {
 
     /** Returns the clip-mask service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(CubismClipMaskService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(CubismClipMaskService.class)}
      */
     @Deprecated
     default CubismClipMaskService cubismClipMasks() {
@@ -163,7 +168,7 @@ public interface PluginContext {
     /**
      * Returns the Recent Files menu projection.
      *
-     * @deprecated superseded by the service directory: {@code services().get(RecentFileService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(RecentFileService.class)}
      */
     @Deprecated
     default RecentFileService recentFiles() {
@@ -173,7 +178,7 @@ public interface PluginContext {
     /**
      * Returns the asynchronous preview capture service for recent project files.
      *
-     * @deprecated superseded by the service directory: {@code services().get(ScreenshotCaptureService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(ScreenshotCaptureService.class)}
      */
     @Deprecated
     default ScreenshotCaptureService screenshots() {
@@ -183,7 +188,7 @@ public interface PluginContext {
     /**
      * Returns the recent-file hover preview contribution service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(RecentPreviewContributionService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(RecentPreviewContributionService.class)}
      */
     @Deprecated
     default RecentPreviewContributionService recentPreviews() {
@@ -193,7 +198,7 @@ public interface PluginContext {
     /**
      * Returns the Physics Settings contribution seam.
      *
-     * @deprecated superseded by the service directory: {@code services().get(PhysicsEditorService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(PhysicsEditorService.class)}
      */
     @Deprecated
     default PhysicsEditorService physicsEditor() {
@@ -203,7 +208,7 @@ public interface PluginContext {
     /**
      * Returns the file-chooser history service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(FileChooserHistoryService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(FileChooserHistoryService.class)}
      */
     @Deprecated
     default FileChooserHistoryService fileChooserHistory() {
@@ -213,7 +218,7 @@ public interface PluginContext {
     /**
      * Returns the mesh mirror-axis service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshMirrorAxisService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshMirrorAxisService.class)}
      */
     @Deprecated
     default MeshMirrorAxisService meshMirrorAxis() {
@@ -223,7 +228,7 @@ public interface PluginContext {
     /**
      * Returns the mesh editing service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshEditService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshEditService.class)}
      */
     @Deprecated
     default MeshEditService meshEdit() {
@@ -233,7 +238,7 @@ public interface PluginContext {
     /**
      * Returns the mesh-edit participation service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshEditParticipation.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshEditParticipation.class)}
      */
     @Deprecated
     default MeshEditParticipation meshEditParticipation() {
@@ -243,7 +248,7 @@ public interface PluginContext {
     /**
      * Returns the mesh mirror-counterpart resolution service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshMirrorCounterparts.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshMirrorCounterparts.class)}
      */
     @Deprecated
     default MeshMirrorCounterparts meshMirrorCounterparts() {
@@ -253,7 +258,7 @@ public interface PluginContext {
     /**
      * Returns the mesh mirror tool-eligibility service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshMirrorToolEligibility.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshMirrorToolEligibility.class)}
      */
     @Deprecated
     default MeshMirrorToolEligibility meshMirrorToolEligibility() {
@@ -263,7 +268,7 @@ public interface PluginContext {
     /**
      * Returns the mesh mirror move-participation service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshMirrorMoveParticipation.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshMirrorMoveParticipation.class)}
      */
     @Deprecated
     default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
@@ -273,7 +278,7 @@ public interface PluginContext {
     /**
      * Returns the Warp Deformer Alt-symmetry participation backed by the reviewed native drag-tick hook.
      *
-     * @deprecated superseded by the service directory: {@code services().get(WarpAltMirrorParticipation.class)}
+     * @deprecated superseded by the service directory: {@code services().find(WarpAltMirrorParticipation.class)}
      */
     @Deprecated
     default dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation warpAltMirrorParticipation() {
@@ -283,7 +288,7 @@ public interface PluginContext {
     /**
      * Returns the canvas-top strip (view context menu) button surface.
      *
-     * @deprecated superseded by the service directory: {@code services().get(ViewContextMenuRegistry.class)}
+     * @deprecated superseded by the service directory: {@code services().find(ViewContextMenuRegistry.class)}
      */
     @Deprecated
     default dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry viewContextMenu() {
@@ -293,7 +298,7 @@ public interface PluginContext {
     /**
      * Returns the mesh-edit UI service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MeshEditUiService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MeshEditUiService.class)}
      */
     @Deprecated
     default MeshEditUiService meshEditUi() {
@@ -303,7 +308,7 @@ public interface PluginContext {
     /**
      * Returns the Editor command execution service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(EditorCommandService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(EditorCommandService.class)}
      */
     @Deprecated
     default EditorCommandService editorCommands() {
@@ -313,7 +318,7 @@ public interface PluginContext {
     /**
      * Returns the catalog enumerating and invoking every registered plugin action.
      *
-     * @deprecated superseded by the service directory: {@code services().get(ActionCatalogService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(ActionCatalogService.class)}
      */
     @Deprecated
     default ActionCatalogService actionCatalog() {
@@ -323,7 +328,7 @@ public interface PluginContext {
     /**
      * Returns the Editor auto-backup service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(EditorAutoBackupService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(EditorAutoBackupService.class)}
      */
     @Deprecated
     default EditorAutoBackupService backup() {
@@ -377,7 +382,7 @@ public interface PluginContext {
 
     /** Returns the main-toolbar contribution registry.
      *
-     * @deprecated superseded by the service directory: {@code services().get(MainToolbarRegistry.class)}
+     * @deprecated superseded by the service directory: {@code services().find(MainToolbarRegistry.class)}
      */
     @Deprecated
     default MainToolbarRegistry mainToolbar() {
@@ -387,7 +392,7 @@ public interface PluginContext {
     /**
      * Returns the palette-toolbar contribution registry.
      *
-     * @deprecated superseded by the service directory: {@code services().get(PaletteToolbarRegistry.class)}
+     * @deprecated superseded by the service directory: {@code services().find(PaletteToolbarRegistry.class)}
      */
     @Deprecated
     default PaletteToolbarRegistry paletteToolbar() {
@@ -397,7 +402,7 @@ public interface PluginContext {
     /**
      * Returns the palette filter-box contribution registry.
      *
-     * @deprecated superseded by the service directory: {@code services().get(PaletteFilterRegistry.class)}
+     * @deprecated superseded by the service directory: {@code services().find(PaletteFilterRegistry.class)}
      */
     @Deprecated
     default PaletteFilterRegistry paletteFilter() {
@@ -407,7 +412,7 @@ public interface PluginContext {
     /**
      * Returns the Scene palette table service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(SceneTableService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(SceneTableService.class)}
      */
     @Deprecated
     default SceneTableService sceneTable() {
@@ -417,7 +422,7 @@ public interface PluginContext {
     /**
      * Returns the UI-host capability surface.
      *
-     * @deprecated superseded by the service directory: {@code services().get(UiHostCapabilityService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(UiHostCapabilityService.class)}
      */
     @Deprecated
     default UiHostCapabilityService uiHost() {
@@ -427,7 +432,7 @@ public interface PluginContext {
     /**
      * Declarative native icon references; unavailable until a verified provider is installed.
      *
-     * @deprecated superseded by the service directory: {@code services().get(UiResourceService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(UiResourceService.class)}
      */
     @Deprecated
     default dev.turboism.sdk.ui.resource.UiResourceService uiResources() {
@@ -437,7 +442,7 @@ public interface PluginContext {
     /**
      * Returns the host dialog automation service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(HostDialogAutomationService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(HostDialogAutomationService.class)}
      */
     @Deprecated
     default HostDialogAutomationService hostDialogs() {
@@ -447,7 +452,7 @@ public interface PluginContext {
     /**
      * Returns the theme appearance service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(AppearanceService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(AppearanceService.class)}
      */
     @Deprecated
     default AppearanceService appearance() {
@@ -457,7 +462,7 @@ public interface PluginContext {
     /**
      * Returns the workspace arrangement service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(WorkspaceService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(WorkspaceService.class)}
      */
     @Deprecated
     default WorkspaceService workspace() {
@@ -467,7 +472,7 @@ public interface PluginContext {
     /**
      * Returns the workspace dock-layout query service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(WorkspaceLayoutService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(WorkspaceLayoutService.class)}
      */
     @Deprecated
     default WorkspaceLayoutService workspaceLayout() {
@@ -477,7 +482,7 @@ public interface PluginContext {
     /**
      * Returns the context-menu contribution registry.
      *
-     * @deprecated superseded by the service directory: {@code services().get(ContextMenuRegistry.class)}
+     * @deprecated superseded by the service directory: {@code services().find(ContextMenuRegistry.class)}
      */
     @Deprecated
     default ContextMenuRegistry contextMenu() {
@@ -492,7 +497,7 @@ public interface PluginContext {
 
     /** Returns the Cubism log stream service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(CubismLogService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(CubismLogService.class)}
      */
     @Deprecated
     default CubismLogService cubismLog() {
@@ -502,7 +507,7 @@ public interface PluginContext {
     /**
      * Returns the global runtime settings service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(RuntimeSettingsService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(RuntimeSettingsService.class)}
      */
     @Deprecated
     default RuntimeSettingsService runtimeSettings() {
@@ -517,7 +522,7 @@ public interface PluginContext {
      * carries no credentials or authorization material.</p>
      *
      * @return the current plugin's MCP connection service
-     * @deprecated superseded by the service directory: {@code services().get(McpConnectionService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(McpConnectionService.class)}
      */
     @Deprecated
     default McpConnectionService mcpConnections() {
@@ -530,7 +535,7 @@ public interface PluginContext {
 
     /** Returns the performance probe service.
      *
-     * @deprecated superseded by the service directory: {@code services().get(PerformanceProbeService.class)}
+     * @deprecated superseded by the service directory: {@code services().find(PerformanceProbeService.class)}
      */
     @Deprecated
     default PerformanceProbeService performanceStats() {

@@ -382,7 +382,8 @@ final class CommandPaletteDialog {
     }
 
     private void executeCommand(final EditorCommand command) {
-        final EditorCommandService service = context.services().get(EditorCommandService.class);
+        final EditorCommandService service =
+                context.services().find(EditorCommandService.class).orElse(null);
         if (service == null) {
             logger.warn("Command Palette cannot run " + command.id() + ": Editor commands unavailable");
             return;
@@ -394,7 +395,8 @@ final class CommandPaletteDialog {
     }
 
     private void invokeAction(final CommandMatcher.Entry entry) {
-        final ActionCatalogService catalog = context.services().get(ActionCatalogService.class);
+        final ActionCatalogService catalog =
+                context.services().find(ActionCatalogService.class).orElse(null);
         if (catalog == null) {
             logger.warn("Command Palette cannot run action " + entry.id() + ": action catalog unavailable");
             return;

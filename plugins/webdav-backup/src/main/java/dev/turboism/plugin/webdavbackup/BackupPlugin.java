@@ -308,10 +308,10 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     /** Localized label for the Turboism menu entry and its action; English literal as fallback. */
     private String menuLabel() {
         final PluginContext active = context;
-        if (active == null || !active.localization().contains(MENU_LABEL_KEY)) {
+        if (active == null) {
             return MENU_LABEL;
         }
-        return active.localization().text(MENU_LABEL_KEY);
+        return active.localization().text(MENU_LABEL_KEY, MENU_LABEL);
     }
 
     private void registerMenuAndAction() {

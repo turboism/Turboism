@@ -383,6 +383,7 @@ final class RecentPreviewPluginLifecycleTest {
                     case "logger" -> logger;
                     case "disposableScope" -> scope;
                     case "tasks" -> tasks;
+                    case "localization" -> dev.turboism.sdk.i18n.PluginLocalization.unavailable();
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }
