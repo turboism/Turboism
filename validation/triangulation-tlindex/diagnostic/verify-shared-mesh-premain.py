@@ -23,6 +23,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--profile', choices=['5203', '5302', '5303'])
+    parser.add_argument('--logger-only', action='store_true')
+    parser.add_argument('--point-only', action='store_true', help='run point admission and cold logger callback controls only')
     parser.add_argument('--integration', action='store_true', help='compose actual SDK native mesh dependency plan and transformer')
     args = parser.parse_args()
     baseline = args.baseline.resolve()
@@ -40,7 +43,7 @@ def main():
         classes.mkdir()
         bridge = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.java').resolve()
         lifecycle = bridge.with_name('TriangulationDefinitionLifecycle.java')
-        source_names = ['LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle']
+        source_names = ['LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle', 'PointTriangleReusePatcher', 'PointTriangleReusePreparation']
         if args.integration:
             source_names.extend(['TriangulationEdgeIndexTransformer', 'LazyTriangulationEdgePreparation',
                                  'NativeMeshEdgePreparation', 'NativeMeshEdgePatcher', 'NativeMeshEdgeLookup', 'NativeMeshEdgeTable'])
@@ -78,14 +81,14 @@ def main():
         probes = [SOURCE / (name + '.java') for name in ('SharedMeshPremainSelfCheck',
                   'BorrowedEdgePremainSelfCheck', 'LocalBuilderPremainSelfCheck')]
         if args.integration:
-            probes.append(SOURCE / 'NativeMeshPremainSelfCheck.java')
+            probes.extend([SOURCE / 'NativeMeshPremainSelfCheck.java', SOURCE / 'PointTrianglePremainSelfCheck.java', SOURCE / 'PointTriangleLoggerCallbackSelfCheck.java'])
         probe_classes = out / 'probe-classes'
         probe_classes.mkdir()
         guard.guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', str(candidate),
                        '-d', str(probe_classes), *map(str, probes)], out / 'probe-compile.log', env)
         for path in [Path(__file__).resolve(), SOURCE / 'verify-native-mesh-edge-loop.py', *originals, *probes]:
             report['pins'][str(path)] = sha(path)
-        for profile in ('5203', '5302', '5303'):
+        for profile in ([args.profile] if args.profile else ('5203', '5302', '5303')):
             template = Path('build/t053-local-builder-r1/metadata-production') / ('on' + profile)
             old = json.loads((template / 'command.json').read_text())['argv']
             host_cp = old[old.index('-cp') + 1].split(os.pathsep)[1:]
@@ -98,6 +101,16 @@ def main():
             if args.integration:
                 cases += [('mesh-' + mode, 'NativeMeshPremainSelfCheck', mode) for mode in
                           ('accepted', 'callback', 'mesh-mutation', 'revocation')]
+            if args.integration:
+                cases += [('point-' + mode, 'PointTrianglePremainSelfCheck', mode) for mode in ('accepted', 'edge-first', 'revocation')]
+            if args.integration:
+                cases += [('point-logger', 'PointTriangleLoggerCallbackSelfCheck', 'logger')]
+            if args.point_only:
+                if not args.integration: raise ValueError('--point-only requires --integration')
+                cases = [case for case in cases if case[0].startswith('point-')]
+            if args.logger_only:
+                if not args.integration: raise ValueError('--logger-only requires --integration')
+                cases = [case for case in cases if case[0] == 'point-logger']
             for key, main_class, control in cases:
                 case = out / (profile + '-' + key)
                 home = case / 'home'
@@ -114,7 +127,9 @@ def main():
                 marker = {'SharedMeshPremainSelfCheck': 'SHARED_MESH_PREMAIN_PASS',
                           'BorrowedEdgePremainSelfCheck': 'BORROWED_EDGE_PREMAIN_CONTROL_PASS',
                           'LocalBuilderPremainSelfCheck': 'LOCAL_BUILDER_PREMAIN_CONTROL_PASS',
-                          'NativeMeshPremainSelfCheck': 'NATIVE_MESH_PREMAIN_PASS'}[main_class]
+                          'NativeMeshPremainSelfCheck': 'NATIVE_MESH_PREMAIN_PASS',
+                          'PointTrianglePremainSelfCheck': 'POINT_TRIANGLE_PREMAIN_PASS',
+                          'PointTriangleLoggerCallbackSelfCheck': 'POINT_TRIANGLE_LOGGER_CALLBACK_PASS'}[main_class]
                 if marker not in console:
                     raise ValueError('missing protocol marker: ' + profile + '-' + key)
                 report['cases'].append({'profile': profile, 'control': key, 'status': 'PASS',
