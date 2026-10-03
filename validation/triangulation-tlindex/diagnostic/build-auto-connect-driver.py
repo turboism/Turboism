@@ -11,12 +11,18 @@ parser.add_argument('output', type=Path)
 parser.add_argument('--host-profile', choices=('5203', '5302', '5303'), default='5203',
                     help='Freeze one reviewed host version; 53x requires producer recorder')
 parser.add_argument('--producer-recorder', action='store_true', help='Bind raw results at the reviewed native producer return boundary')
+parser.add_argument('--command-return-check', action='store_true',
+                    help='Separate dual-boundary feasibility with producer proof; never a performance leg')
+parser.add_argument('--source-only', action='store_true',
+                    help='Generate sources only; do not invoke javac/java/jar or claim offline PASS')
 parser.add_argument('--command-cpu-boundaries', action='store_true',
                     help='Separate process CPU evidence at resource markers; no acceptance claim')
 parser.add_argument('--base-agent', type=Path, help='Pinned production b47f6f47 Agent, shaded ASM/ownership compile dependency only')
 parser.add_argument('--cycles', type=int, choices=range(3, 13), default=3,
                     help='Bounded producer memory-stability commands; default protocol remains three')
 args = parser.parse_args()
+if args.command_return_check and (not args.producer_recorder or args.command_cpu_boundaries or args.cycles != 3):
+    raise ValueError('command-return feasibility requires producer recorder, three cycles and no performance CPU boundaries')
 if args.cycles != 3 and not args.producer_recorder:
     raise ValueError('extended cycles require producer recorder')
 if args.host_profile in ('5302', '5303') and not args.producer_recorder:
@@ -253,6 +259,54 @@ if args.producer_recorder:
     }
 
     static boolean mayRetryCaptureWait(''')
+if args.command_return_check:
+    replace('System.out.println("AUTO_CONNECT_DIAGNOSTIC_ONLY_NOT_ATLAS_PERFORMANCE_ACCEPTANCE");',
+            'System.out.println("COMMAND_RETURN_DUAL_BOUNDARY_FEASIBILITY_ONLY_NO_PERFORMANCE_ACCEPTANCE");')
+    replace('scope=DIAGNOSTIC_ONLY\\nrecorder=PRODUCER_ENTRY_RETURN_V1\\nrebuild=true',
+            'scope=DIAGNOSTIC_ONLY\\nrecorder=PRODUCER_ENTRY_RETURN_V1\\nobservation=PRODUCER_AND_COMMAND_RETURN_PARITY_V1\\nrebuild=true')
+    replace('"recorder=PRODUCER_ENTRY_RETURN_V1\\ninitialHookStatus="',
+            '"recorder=PRODUCER_ENTRY_RETURN_V1\\ncommandReturn=DUAL_BOUNDARY_FEASIBILITY_ONLY\\ninitialHookStatus="')
+    replace('''                final NativeProducerAutoConnect.Observation observation = FixedEdt.callWithin(
+                    () -> NativeProducerAutoConnect.connect(meshController(), binding, ids, boundCycle),''',
+            '''                final NativeCommandReturnAutoConnect.Observation paired = FixedEdt.callWithin(
+                    () -> NativeCommandReturnAutoConnect.connect(meshController(), binding, ids, boundCycle),''')
+    replace('''                resourceMarker("auto-connect-returned", cycle);
+                persistProducerObservation(run, observation, cycle, producerWeave.status());''',
+            '''                resourceMarker("auto-connect-returned", cycle);
+                final NativeProducerAutoConnect.Observation observation = paired.producer();
+                persistProducerObservation(run, observation, cycle, producerWeave.status());
+                persistCommandReturnObservation(run, paired, cycle);
+                if (!paired.complete()) throw new IllegalStateException(paired.failure());''')
+    replace('    static boolean mayRetryCaptureWait(', '''    static void persistCommandReturnObservation(Path run,
+            NativeCommandReturnAutoConnect.Observation paired, int cycle) throws Exception {
+        if (SwingUtilities.isEventDispatchThread())
+            throw new IllegalStateException("command-return evidence I/O requires driver thread");
+        final Path output = run.resolve("auto-connect-command-return-results.tsv");
+        if (!Files.exists(output, LinkOption.NOFOLLOW_LINKS))
+            Files.writeString(output, "cycle\\tsourceIdBase64\\tpointCount\\tpositionValues\\tindexValues\\tpositionsSha256\\tindicesSha256\\tcommandEdgeVersion\\tproducerEdgeVersion\\tindexCacheVersion\\tpositionVersion\\tvertexCacheVersion\\n",
+                StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW);
+        if (!Files.isRegularFile(output, LinkOption.NOFOLLOW_LINKS))
+            throw new IllegalStateException("command-return output is not a regular file");
+        StringBuilder rows = new StringBuilder();
+        for (var result : paired.results()) {
+            var arrays = result.arrays();
+            rows.append(cycle).append('\\t').append(java.util.Base64.getEncoder().encodeToString(
+                result.sourceId().getBytes(StandardCharsets.UTF_8))).append('\\t')
+                .append(arrays.pointCount()).append('\\t').append(arrays.positionValues()).append('\\t')
+                .append(arrays.indexValues()).append('\\t').append(arrays.positionsSha256()).append('\\t')
+                .append(arrays.indicesSha256()).append('\\t').append(arrays.edgeVersion()).append('\\t')
+                .append(result.producerEdgeVersion()).append('\\t').append(result.indexCacheVersion()).append('\\t')
+                .append(result.positionVersion()).append('\\t').append(result.vertexCacheVersion()).append('\\n');
+        }
+        Files.writeString(output, rows.toString(), StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        Files.writeString(run.resolve("auto-connect-command-return-status.properties"),
+            "cycle." + cycle + ".complete=" + paired.complete() + "\\n"
+            + "cycle." + cycle + ".rows=" + paired.results().size() + "\\n"
+            + "cycle." + cycle + ".failure=" + paired.failure() + "\\n",
+            StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    }
+
+    static boolean mayRetryCaptureWait(''')
 if args.host_profile == '5302':
     # Preserve reviewed5203 generation. This separate build changes admission
     # and its post-measurement cancel resource; commands/recorder/windows stay exact.
@@ -324,6 +378,8 @@ if args.command_cpu_boundaries:
 if args.producer_recorder:
     helpers += ['MeshProducerRecorder.java', 'MeshProducerWeave.java', 'NativeProducerAutoConnect.java']
     inputs[str(args.base_agent.resolve())] = hashlib.sha256(args.base_agent.read_bytes()).hexdigest()
+if args.command_return_check:
+    helpers += ['NativeCommandReturnSnapshot.java', 'NativeCommandReturnAutoConnect.java']
 for name in helpers:
     raw = (diag / name).read_bytes()
     inputs[str((diag / name).relative_to(root))] = hashlib.sha256(raw).hexdigest()
@@ -334,6 +390,16 @@ for name in helpers:
         assert helper_text.count('"CUB3-0009"') == 2
         helper_text = helper_text.replace('"CUB3-0009"', '"CUB3-4362"')
     (src / name).write_text('package dev.turboism.validation.atlasimage.shadow;\n' + helper_text)
+if args.source_only:
+    (out / 'source-only.json').write_text(json.dumps({
+        'status': 'SOURCE_ONLY_NOT_COMPILED_OR_HOST_VALIDATED',
+        'commandReturnCheck': args.command_return_check,
+        'hostProfile': args.host_profile, 'inputs': inputs,
+        'generatedSources': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))},
+        'hostPreparedOrSubmitted': False,
+    }, indent=2) + '\n')
+    print('SOURCE_ONLY_NOT_COMPILED_OR_HOST_VALIDATED')
+    raise SystemExit(0)
 env = dict(os.environ)
 for name in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVAC_OPTIONS', 'CLASSPATH'):
     env.pop(name, None)
@@ -371,6 +437,34 @@ if args.producer_recorder:
     (out / 'writer-selfcheck.log').write_text(check.stdout + check.stderr)
     check.check_returncode()
     print(check.stdout, end='')
+if args.command_return_check:
+    check_source = diag / 'NativeCommandReturnSnapshotSelfCheck.java'
+    inputs[str(check_source.relative_to(root))] = hashlib.sha256(check_source.read_bytes()).hexdigest()
+    check_java = check_src / check_source.name
+    check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + check_source.read_text())
+    subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                    '-cp', str(classes), '-d', str(check_classes), str(check_java)], env=env, check=True)
+    check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                            str(classes) + os.pathsep + str(check_classes),
+                            'dev.turboism.validation.atlasimage.shadow.NativeCommandReturnSnapshotSelfCheck'],
+                           env=env, capture_output=True, text=True)
+    (out / 'command-return-selfcheck.log').write_text(check.stdout + check.stderr)
+    check.check_returncode()
+    print(check.stdout, end='')
+    check_source = diag / 'CommandReturnWriterSelfCheck.java'
+    inputs[str(check_source.relative_to(root))] = hashlib.sha256(check_source.read_bytes()).hexdigest()
+    check_java = check_src / check_source.name
+    check_java.write_text('package dev.turboism.validation.atlasimage.shadow;\n' + check_source.read_text())
+    subprocess.run(['javac', '--release', '17', '-proc:none', '-implicit:none', '-Xlint:all', '-Werror',
+                    '-cp', str(classes), '-d', str(check_classes), str(check_java)], env=env, check=True)
+    check = subprocess.run(['java', '-Xverify:all', '-Djava.awt.headless=true', '-cp',
+                            str(classes) + os.pathsep + str(check_classes),
+                            'dev.turboism.validation.atlasimage.shadow.CommandReturnWriterSelfCheck',
+                            str(out / 'command-return-writer-run')],
+                           env=env, capture_output=True, text=True)
+    (out / 'command-return-writer-selfcheck.log').write_text(check.stdout + check.stderr)
+    check.check_returncode()
+    print(check.stdout, end='')
 if args.cycles != 3:
     queue_check = diag / 'ExtendedMeshWaitSelfCheck.java'
     inputs[str(queue_check.relative_to(root))] = hashlib.sha256(queue_check.read_bytes()).hexdigest()
@@ -403,5 +497,5 @@ manifest = out / 'MANIFEST.MF'
 manifest.write_text('Manifest-Version: 1.0\nPremain-Class: dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent\n\n')
 jar = out / 'auto-connect-diagnostic-driver.jar'
 subprocess.run(['jar', '--create', '--file', str(jar), '--manifest', str(manifest), '-C', str(classes), '.'], env=env, check=True)
-(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'commandCpuBoundaries':args.command_cpu_boundaries, 'hostProfile':args.host_profile, 'cycles':args.cycles, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
+(out / 'build.json').write_text(json.dumps({'status':'BUILT_NOT_HOST_VALIDATED', 'commandCpuBoundaries':args.command_cpu_boundaries, 'commandReturnCheck':args.command_return_check, 'hostProfile':args.host_profile, 'cycles':args.cycles, 'recorder':'PRODUCER_ENTRY_RETURN_V1' if args.producer_recorder else 'DELAYED_CACHE_R4', 'purpose':'Native auto-connect feasibility only; distinct phases incompatible with atlas performance protocol', 'inputs':inputs, 'generatedSources':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))}, 'driverSha256':hashlib.sha256(jar.read_bytes()).hexdigest()}, indent=2)+'\n')
 print(jar)
