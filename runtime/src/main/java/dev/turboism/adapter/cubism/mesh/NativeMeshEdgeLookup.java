@@ -1,8 +1,10 @@
 package dev.turboism.adapter.cubism.mesh;
 
 import dev.turboism.core.runtime.work.FatalErrors;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -10,12 +12,13 @@ import java.util.List;
  * Method-local native edge lookup. Only an extended shared admission may enter.
  * The admitted plan must prove the native callback/mutation closure separately;
  * list size and identity checks here are defensive checks, not a mutation lease.
- * No production plan currently admits this helper.
+ * The scope adds no synchronization or guarantee for concurrent external list writers.
  */
 public final class NativeMeshEdgeLookup {
     private static final String MESH = "com.live2d.graphics3d.editableMesh.GEditableMesh2";
     private static final String LIST = "com.live2d.type.CArrayList";
     private static final String EDGE = "com.live2d.graphics3d.editableMesh.MEdge";
+    private static final StackWalker CALLERS = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
     private static final ThreadLocal<Scope> CURRENT = new ThreadLocal<>();
     private static final ClassValue<Access> ACCESS = new ClassValue<>() {
         @Override
@@ -33,7 +36,16 @@ public final class NativeMeshEdgeLookup {
                 Method first = edge.getDeclaredMethod("getIndex1"), second = edge.getDeclaredMethod("getIndex2");
                 if (first.getReturnType() != int.class || second.getReturnType() != int.class)
                     throw new IllegalArgumentException("native endpoint identity");
-                return new Access(list, edge, edges, indices, first, second);
+                MethodHandles.Lookup lookup = MethodHandles.lookup();
+                MethodType objectGetter = MethodType.methodType(Object.class, Object.class);
+                MethodType intGetter = MethodType.methodType(int.class, Object.class);
+                return new Access(
+                        list,
+                        edge,
+                        lookup.unreflectGetter(edges).asType(objectGetter),
+                        lookup.unreflectGetter(indices).asType(objectGetter),
+                        lookup.unreflect(first).asType(intGetter),
+                        lookup.unreflect(second).asType(intGetter));
             } catch (ReflectiveOperationException failure) {
                 throw new IllegalArgumentException("native access unavailable", failure);
             }
@@ -42,7 +54,13 @@ public final class NativeMeshEdgeLookup {
 
     private NativeMeshEdgeLookup() {}
 
-    private record Access(Class<?> list, Class<?> edge, Field edges, Field indices, Method first, Method second) {}
+    private record Access(
+            Class<?> list,
+            Class<?> edge,
+            MethodHandle edges,
+            MethodHandle indices,
+            MethodHandle first,
+            MethodHandle second) {}
 
     private static final class Scope implements AutoCloseable {
         final Object mesh;
@@ -65,20 +83,14 @@ public final class NativeMeshEdgeLookup {
             size = list.size();
         }
 
-        boolean register(int slot) throws ReflectiveOperationException {
+        boolean register(int slot) throws Throwable {
             Object edge = list.get(slot);
             return edge != null
                     && edge.getClass() == access.edge()
-                    && table.putFirst(endpoint(access.first(), edge), endpoint(access.second(), edge), slot);
-        }
-
-        private static int endpoint(Method getter, Object edge) throws ReflectiveOperationException {
-            try {
-                return (int) getter.invoke(edge);
-            } catch (InvocationTargetException failure) {
-                FatalErrors.rethrowIfFatal(failure.getCause());
-                throw failure;
-            }
+                    && table.putFirst(
+                            (int) access.first().invokeExact(edge),
+                            (int) access.second().invokeExact(edge),
+                            slot);
         }
 
         void discard() {
@@ -102,9 +114,10 @@ public final class NativeMeshEdgeLookup {
         }
     }
 
-    /** Null preserves native suffix execution. Unavailable plans do not resolve native fields. */
+    /** Only the woven native owner may enter; other callers and unavailable plans preserve native lookup. */
     public static AutoCloseable enter(Object mesh) {
-        if (mesh == null || !MESH.equals(mesh.getClass().getName())) return null;
+        if (mesh == null || !MESH.equals(mesh.getClass().getName()) || CALLERS.getCallerClass() != mesh.getClass())
+            return null;
         AutoCloseable definition = LazyTriangulationEdgeBridge.enterMesh(mesh.getClass());
         if (definition == null) return null;
         return begin(mesh, definition);
@@ -118,7 +131,8 @@ public final class NativeMeshEdgeLookup {
         try {
             if (definition == null || mesh == null) return null;
             Access access = ACCESS.get(mesh.getClass());
-            Object cached = access.indices().get(mesh), raw = access.edges().get(mesh);
+            Object cached = (Object) access.indices().invokeExact(mesh),
+                    raw = (Object) access.edges().invokeExact(mesh);
             if (!(cached instanceof int[] indices)
                     || indices.length == 0
                     || indices.length % 3 != 0
@@ -162,7 +176,7 @@ public final class NativeMeshEdgeLookup {
         Scope scope = CURRENT.get();
         if (scope == null || scope.table == null || scope.mesh != mesh || filtered) return NativeMeshEdgeTable.UNKNOWN;
         try {
-            if (scope.access.edges().get(mesh) != scope.list || scope.list.size() != scope.size) {
+            if ((Object) scope.access.edges().invokeExact(mesh) != scope.list || scope.list.size() != scope.size) {
                 scope.discard();
                 return NativeMeshEdgeTable.UNKNOWN;
             }
@@ -179,7 +193,7 @@ public final class NativeMeshEdgeLookup {
         Scope scope = CURRENT.get();
         if (scope == null || scope.table == null || scope.mesh != mesh) return;
         try {
-            if (scope.access.edges().get(mesh) != scope.list
+            if ((Object) scope.access.edges().invokeExact(mesh) != scope.list
                     || scope.list.size() != scope.size + 1
                     || !scope.register(scope.size)) {
                 scope.discard();
