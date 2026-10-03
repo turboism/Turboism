@@ -18,7 +18,7 @@ final class NativeMeshEdgeTable implements AutoCloseable {
     static final int PROCESS_BUDGET_BYTES = 4 * 1024 * 1024;
     private static final AtomicInteger RESERVED = new AtomicInteger();
     private final int entryLimit;
-    private final int bytes;
+    private int bytes;
     private Thread owner;
     private long[] keys;
     private int[] slots;
@@ -35,20 +35,30 @@ final class NativeMeshEdgeTable implements AutoCloseable {
 
     /** Null requires native fallback before any table allocation. */
     static NativeMeshEdgeTable reserve(int entryLimit) {
-        if (entryLimit < 1 || entryLimit > MAX_ENTRIES) return null;
+        return reserve(entryLimit, entryLimit);
+    }
+
+    /** Start with current entries; the admitted upper bound remains unchanged. */
+    static NativeMeshEdgeTable reserve(int entryLimit, int initialEntries) {
+        if (entryLimit < 1 || entryLimit > MAX_ENTRIES || initialEntries < 0 || initialEntries > entryLimit)
+            return null;
         int capacity = 16;
-        while (capacity < 2 * entryLimit) capacity *= 2;
+        while (capacity < 2 * initialEntries) capacity *= 2;
         int bytes = 12 * capacity + 1024;
-        for (; ; ) {
-            int used = RESERVED.get();
-            if (used > PROCESS_BUDGET_BYTES - bytes) return null;
-            if (RESERVED.compareAndSet(used, used + bytes)) break;
-        }
+        if (!reserveBytes(bytes)) return null;
         try {
             return new NativeMeshEdgeTable(entryLimit, capacity, bytes);
         } catch (RuntimeException | Error failure) {
             RESERVED.addAndGet(-bytes);
             throw failure;
+        }
+    }
+
+    private static boolean reserveBytes(int bytes) {
+        for (; ; ) {
+            int used = RESERVED.get();
+            if (used > PROCESS_BUDGET_BYTES - bytes) return false;
+            if (RESERVED.compareAndSet(used, used + bytes)) return true;
         }
     }
 
@@ -72,6 +82,10 @@ final class NativeMeshEdgeTable implements AutoCloseable {
             close();
             return false;
         }
+        if (size == keys.length / 2) {
+            if (!grow()) return false;
+            at = position(key);
+        }
         keys[at] = key;
         slots[at] = nativeSlot;
         size++;
@@ -89,6 +103,10 @@ final class NativeMeshEdgeTable implements AutoCloseable {
     }
 
     private int position(long wanted) {
+        return position(wanted, keys, slots);
+    }
+
+    private static int position(long wanted, long[] keys, int[] slots) {
         long hash = wanted;
         hash ^= hash >>> 33;
         hash *= 0xff51afd7ed558ccdL;
@@ -98,6 +116,39 @@ final class NativeMeshEdgeTable implements AutoCloseable {
         int at = (int) hash & (keys.length - 1);
         while (slots[at] != ABSENT && keys[at] != wanted) at = (at + 1) & (keys.length - 1);
         return at;
+    }
+
+    /** Reserve both old and replacement buffers until rehashing completes. */
+    private boolean grow() {
+        int capacity = keys.length * 2;
+        int replacementBytes = 12 * capacity + 1024;
+        if (!reserveBytes(replacementBytes)) {
+            close();
+            return false;
+        }
+        long[] replacementKeys;
+        int[] replacementSlots;
+        try {
+            replacementKeys = new long[capacity];
+            replacementSlots = new int[capacity];
+            Arrays.fill(replacementSlots, ABSENT);
+            for (int i = 0; i < slots.length; i++) {
+                if (slots[i] == ABSENT) continue;
+                int at = position(keys[i], replacementKeys, replacementSlots);
+                replacementKeys[at] = keys[i];
+                replacementSlots[at] = slots[i];
+            }
+        } catch (RuntimeException | Error failure) {
+            RESERVED.addAndGet(-replacementBytes);
+            close();
+            throw failure;
+        }
+        int previousBytes = bytes;
+        keys = replacementKeys;
+        slots = replacementSlots;
+        bytes = replacementBytes;
+        RESERVED.addAndGet(-previousBytes);
+        return true;
     }
 
     /** Release primitive buffers and the reservation on the owning thread; repeat close is safe. */

@@ -71,6 +71,76 @@ final class NativeMeshEdgeTableTest {
     }
 
     @Test
+    void growingFromEmptyPreservesSignedPairsAndMinimumPhysicalSlots() {
+        int initial = NativeMeshEdgeTable.reservedBytes();
+        try (NativeMeshEdgeTable table = NativeMeshEdgeTable.reserve(NativeMeshEdgeTable.MAX_ENTRIES, 0)) {
+            assertNotNull(table);
+            HashMap<Pair, Integer> expected = new HashMap<>();
+            Random random = new Random(92005303L);
+            for (int i = 0; i < 14_000; i++) {
+                Pair pair = new Pair(i - 7000, random.nextInt());
+                int slot = random.nextInt(Integer.MAX_VALUE);
+                expected.merge(pair, slot, Math::min);
+                assertTrue(table.putFirst(pair.first(), pair.second(), slot));
+                if (i % 17 == 0) {
+                    expected.merge(pair, i, Math::min);
+                    assertTrue(table.putFirst(pair.first(), pair.second(), i));
+                }
+                if (i % 1000 == 0)
+                    for (var row : expected.entrySet())
+                        assertEquals(row.getValue().intValue(), table.find(row.getKey().first(), row.getKey().second()));
+            }
+            for (var row : expected.entrySet())
+                assertEquals(row.getValue().intValue(), table.find(row.getKey().first(), row.getKey().second()));
+        }
+        assertEquals(initial, NativeMeshEdgeTable.reservedBytes());
+    }
+
+    @Test
+    void currentEntriesDoNotReserveWorstCaseBuffersBeforeTheyAreNeeded() {
+        int initial = NativeMeshEdgeTable.reservedBytes();
+        int worstCase;
+        try (NativeMeshEdgeTable full = NativeMeshEdgeTable.reserve(NativeMeshEdgeTable.MAX_ENTRIES)) {
+            assertNotNull(full);
+            worstCase = NativeMeshEdgeTable.reservedBytes() - initial;
+        }
+        try (NativeMeshEdgeTable small = NativeMeshEdgeTable.reserve(NativeMeshEdgeTable.MAX_ENTRIES, 16)) {
+            assertNotNull(small);
+            assertTrue((NativeMeshEdgeTable.reservedBytes() - initial) * 10 < worstCase);
+            for (int i = 0; i < 16; i++) assertTrue(small.putFirst(i, -i, i));
+            for (int i = 0; i < 16; i++) assertEquals(i, small.find(i, -i));
+        }
+        assertEquals(initial, NativeMeshEdgeTable.reservedBytes());
+        assertNull(NativeMeshEdgeTable.reserve(5, -1));
+        assertNull(NativeMeshEdgeTable.reserve(5, 6));
+    }
+
+    @Test
+    void growthBudgetRefusalDiscardsPartialAnswersAndReturnsOnlyItsReservation() {
+        int initial = NativeMeshEdgeTable.reservedBytes();
+        List<NativeMeshEdgeTable> holders = new ArrayList<>();
+        try {
+            NativeMeshEdgeTable next;
+            while ((next = NativeMeshEdgeTable.reserve(NativeMeshEdgeTable.MAX_ENTRIES)) != null) holders.add(next);
+            int occupied = NativeMeshEdgeTable.reservedBytes();
+            try (NativeMeshEdgeTable growing = NativeMeshEdgeTable.reserve(NativeMeshEdgeTable.MAX_ENTRIES, 0)) {
+                assertNotNull(growing);
+                boolean refused = false;
+                for (int i = 0; i < NativeMeshEdgeTable.MAX_ENTRIES; i++) {
+                    if (!growing.putFirst(i, -i, i)) { refused = true; break; }
+                    assertTrue(NativeMeshEdgeTable.reservedBytes() <= NativeMeshEdgeTable.PROCESS_BUDGET_BYTES);
+                }
+                assertTrue(refused, "replacement plus old buffers must fit the process budget");
+                assertEquals(NativeMeshEdgeTable.UNKNOWN, growing.find(0, 0));
+                assertEquals(occupied, NativeMeshEdgeTable.reservedBytes());
+            }
+        } finally {
+            for (NativeMeshEdgeTable holder : holders) holder.close();
+        }
+        assertEquals(initial, NativeMeshEdgeTable.reservedBytes());
+    }
+
+    @Test
     void capacityRefusalDiscardsPartialAnswersAndReturnsReservation() {
         int initial = NativeMeshEdgeTable.reservedBytes();
         NativeMeshEdgeTable table = NativeMeshEdgeTable.reserve(2);
