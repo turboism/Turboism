@@ -145,13 +145,12 @@ final class FxSecretStore {
         if (bytes.length == 0 || bytes.length > MAX_AUTH_FILE_BYTES) {
             throw new IOException("auth.json is invalid");
         }
-        final Object parsed;
+        final Map<String, ?> raw;
         try {
-            parsed = Json.parse(bytes);
+            raw = Json.parseObject(bytes);
         } catch (IllegalArgumentException failure) {
             throw new IOException("auth.json is invalid", failure);
         }
-        if (!(parsed instanceof Map<?, ?> raw)) throw new IOException("auth.json is invalid");
         for (Map.Entry<?, ?> entry : raw.entrySet()) {
             if (!(entry.getKey() instanceof String id) || !(entry.getValue() instanceof String secret)) {
                 throw new IOException("auth.json is invalid");

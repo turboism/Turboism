@@ -82,9 +82,10 @@ final class McpExpandedProtocolTest {
         final Map<String, Object> validEnvelope = valid.call("validated", Map.of());
         assertEquals(
                 validEnvelope.get("structuredContent"),
-                Json.parse(((String) object(list(validEnvelope.get("content")).get(0))
-                                .get("text"))
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                Json.parseObject(
+                        ((String) object(list(validEnvelope.get("content")).get(0))
+                                        .get("text"))
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         final McpToolCatalog invalid = new McpToolCatalog(
                 java.util.List.of(Map.of(

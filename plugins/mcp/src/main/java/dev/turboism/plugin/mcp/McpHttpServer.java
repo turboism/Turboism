@@ -388,7 +388,7 @@ final class McpHttpServer implements AutoCloseable {
             }
             final Object request;
             try {
-                request = Json.parse(body);
+                request = Json.parseObject(body);
             } catch (IllegalArgumentException failure) {
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
                 return;
@@ -667,7 +667,8 @@ final class McpHttpServer implements AutoCloseable {
         return name instanceof String text && !text.isBlank() ? text : "unknown client";
     }
 
-    private static void sendJson(final HttpExchange exchange, final int status, final Object body) throws IOException {
+    private static void sendJson(final HttpExchange exchange, final int status, final Map<String, ?> body)
+            throws IOException {
         final byte[] bytes = Json.bytes(body);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);

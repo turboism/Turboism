@@ -30,10 +30,7 @@ final class FxProviderProfileCodec {
 
     static List<FxProviderProfile> decode(final String value) {
         if (value == null || value.isBlank()) return List.of();
-        final Object parsed = Json.parse(value.getBytes(StandardCharsets.UTF_8));
-        if (!(parsed instanceof List<?> raw)) {
-            throw new IllegalArgumentException("provider profile JSON must be an array");
-        }
+        final List<?> raw = Json.parseArray(value.getBytes(StandardCharsets.UTF_8));
         final ArrayList<FxProviderProfile> profiles = new ArrayList<>();
         for (Object item : raw) {
             final Map<String, Object> profile = object(item);
