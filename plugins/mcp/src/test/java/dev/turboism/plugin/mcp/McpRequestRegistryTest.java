@@ -10,7 +10,6 @@ import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -122,7 +121,7 @@ final class McpRequestRegistryTest {
         };
         final McpTools tools = new McpTools(
                 objects,
-                unavailableParameters(),
+                McpHttpServer.Dependencies.unavailableCubism(),
                 unavailableHierarchy(),
                 unavailableSelection(),
                 unavailableRead(),
@@ -240,26 +239,6 @@ final class McpRequestRegistryTest {
         assertFalse(worker.isAlive());
         assertTrue(cancelled.get());
         assertFalse(requests.cancel("session", 8));
-    }
-
-    private static ParameterQueryService unavailableParameters() {
-        return new ParameterQueryService() {
-            @Override
-            public java.util.Optional<dev.turboism.sdk.cubism.service.query.ParameterSummary> findById(
-                    final dev.turboism.sdk.cubism.id.ParameterId id) {
-                return java.util.Optional.empty();
-            }
-
-            @Override
-            public java.util.List<dev.turboism.sdk.cubism.service.query.ParameterSummary> listAll() {
-                return java.util.List.of();
-            }
-
-            @Override
-            public boolean exists(final dev.turboism.sdk.cubism.id.ParameterId id) {
-                return false;
-            }
-        };
     }
 
     private static ModelHierarchyQueryService unavailableHierarchy() {
