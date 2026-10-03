@@ -10,6 +10,12 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- 将原本仅开发用的 agent 聊天插件重构为通用 `Turboism ACP` 插件
+  (`dev.turboism.plugin.acp`)：启动用户安装的 ACP 兼容 agent（Claude Agent ACP、Codex
+  ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令），支持 PATH 上的
+  可执行文件检测、ACP 认证与持久会话，并在 agent 声明 HTTP MCP 支持时照旧接入已认证的
+  Turboism MCP 端点。
+
 - SDK 与运行时新增动画工作区支持：插件可以枚举动画文档、工程时间线、轨道、属性与关键帧，
   激活和重命名场景、定位播放进度、应用批量关键帧编辑与曲线类型，以及录制/烘焙求值结果。
   纯 SDK 的 `Motion3Validator` 可报告 motion3 数据中的结构问题。该对象模型已通过
@@ -56,6 +62,13 @@ Turboism 的所有重要变更都记录在本文件中。
   时无修饰键的单键绑定不触发；录制对话框在捕获期间暂停全局拦截。
   `ActionRegistry.Action.defaultShortcut()` 与新的
   `Action.of(id, label, shortcut, handler)` 重载允许插件声明可被用户改绑的默认快捷键。核心 shell 为其窗口动作声明了默认键（设置 Ctrl+Alt+S、插件 Ctrl+Alt+P、日志 Ctrl+Alt+L、快捷键窗口 Ctrl+Shift+K），第一方的网格检查、历史面板与演示动作也带默认键作为 SDK 示例。双击某行的快捷键单元格可直接打开按键捕获对话框。
+
+### 移除
+
+- 彻底移除托管 fx 运行时：不再捆绑或下载任何 agent 二进制，移除运行时清单/哈希钉死、
+  Turboism 托管的 provider 档案与凭据存储、以及 Gateway/OpenAI 适配器——agent 的认证、
+  provider 与模型全部由 agent 自身管理。仅开发用的 `turboism-with-fx` 插件 ID 退役，
+  发布工具链中的 fx 打包与验证夹具引用也已清除。
 
 ### 变更
 

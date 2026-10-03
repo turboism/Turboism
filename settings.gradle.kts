@@ -14,7 +14,7 @@ include(
     "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:selection-brush",
     "plugins:mcp",
-    "plugins:turboism-with-fx",
+    "plugins:acp",
     "plugins:project-inspector",
     "plugins:clipmask-viewer",
     "plugins:bounding-box",

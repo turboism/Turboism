@@ -547,7 +547,7 @@ class PreparedStoreTest(unittest.TestCase):
                                           self.source, "test:5302")
 
     def test_only_enumerated_fps_hook_is_allowed(self) -> None:
-        for flag, name in (("--remote-pre-launch", "fx-validation-remote-pre-launch.sh"),
+        for flag, name in (("--remote-pre-launch", "agent-validation-remote-pre-launch.sh"),
                            ("--remote-post-launch", "fps-resize-driver.sh"),
                            ("--client-script", "mcp-host-validation-client.py")):
             source = self.preview / name

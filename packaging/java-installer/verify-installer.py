@@ -260,7 +260,7 @@ EXCLUDED_PUBLIC_MODULES = (
     "project-inspector",
     "project-panel",
     "psd-import",
-    "turboism-with-fx",
+    "acp",
 )
 # Renamed algorithm identity: module/JAR atlas-maxrects-bssf carries the
 # MaxRects-BSSF display name and the historical texture-atlas compatibility id.

@@ -271,8 +271,6 @@ class ReleaseWorkflowTest(unittest.TestCase):
             if "5.2.03" not in text or "5.3.02" not in text:
                 continue
             self.assertIn("5.3.03", text, path)
-        runtime = (ROOT / "packaging/fx-runtime/README.md").read_text(encoding="utf-8")
-        self.assertIn("5.2.03/5.3.02/5.3.03", runtime)
 
     def test_windows_zip_writer_uses_a_fixed_timestamp(self):
         script = (
@@ -365,7 +363,7 @@ class RootReadmeTest(unittest.TestCase):
 
 
 class ReleaseVerifierTest(unittest.TestCase):
-    PLUGINS = ("mcp", "turboism-with-fx")
+    PLUGINS = ("acp", "mcp")
 
     def fixture(self, version="0.42.0") -> tuple[Path, Path, Path]:
         root = Path(tempfile.mkdtemp(prefix="release-tooling-"))
@@ -375,7 +373,7 @@ class ReleaseVerifierTest(unittest.TestCase):
         stage.mkdir()
         roster = root / "release-plugins.txt"
         roster.write_text(
-            ":plugins:core\n:plugins:mcp\n:plugins:turboism-with-fx\n",
+            ":plugins:acp\n:plugins:core\n:plugins:mcp\n",
             encoding="utf-8",
         )
         lite = dist / f"turboism-{version}-lite.zip"
@@ -459,7 +457,7 @@ class ReleaseVerifierTest(unittest.TestCase):
         self.rewrite_archive(
             fixture,
             "turboism-0.42.0-lite.zip",
-            plugins=("turboism-with-fx",),
+            plugins=("acp",),
         )
         with self.assertRaises(ValueError):
             self.verify(fixture)

@@ -54,7 +54,7 @@ EXPECTED_PATHS = [
 # 八个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
 EXCLUDED = {"bounding-box", "context-menu", "demo", "parameter",
             "project-inspector", "project-panel", "psd-import",
-            "turboism-with-fx"}
+            "acp"}
 
 
 def check(name, cond, detail=""):
@@ -516,19 +516,6 @@ def check_java_installer_docs_contract():
     check("DOC3 rerunning the installer is documented as applying plugin selection",
           "Rerun the installer to apply a different plugin selection." in markdown_flat
           and "Rerun the installer to apply a different plugin selection." in installed_flat)
-
-
-def check_fx_fixture_guard_contract():
-    """The optional Windows fx test fixture must be checked before Path.of is called."""
-    source = (INSTALLER_NSI.parents[2] / "plugins" / "turboism-with-fx" / "src" /
-              "test" / "java" / "dev" / "turboism" / "plugin" /
-              "turboismwithfx" / "FxRuntimeResolverTest.java").read_text(encoding="utf-8")
-    property_read = 'final String fixtureProperty = System.getProperty("turboism.windowsFxFixture");'
-    path_read = "final Path fixture = Path.of(fixtureProperty);"
-    check("FXT1 missing fixture property is guarded before Path.of",
-          property_read in source and path_read in source
-          and source.index(property_read) < source.index("Assumptions.assumeTrue")
-          < source.index(path_read))
 
 
 def check_managed_graal_installer_contract():
@@ -1518,7 +1505,6 @@ def main():
     check_nsis_retirement_contract()
     check_config_migration_contract()
     check_java_installer_docs_contract()
-    check_fx_fixture_guard_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
     check_jar_payload_contract()
