@@ -1,6 +1,7 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.plugin.PluginContext;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,11 +75,26 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
         if (outputDir == null) return;
         try {
             Files.createDirectories(outputDir);
-            final float initial = context.meshMirrorAxis().currentAngleDegrees();
-            context.meshMirrorAxis().setCurrentAngleDegrees(45.0f);
-            final float afterSet = context.meshMirrorAxis().currentAngleDegrees();
-            context.meshMirrorAxis().setCurrentAngleDegrees(0.0f);
-            final float afterRestore = context.meshMirrorAxis().currentAngleDegrees();
+            final float initial = context.services()
+                    .find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable())
+                    .currentAngleDegrees();
+            context.services()
+                    .find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable())
+                    .setCurrentAngleDegrees(45.0f);
+            final float afterSet = context.services()
+                    .find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable())
+                    .currentAngleDegrees();
+            context.services()
+                    .find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable())
+                    .setCurrentAngleDegrees(0.0f);
+            final float afterRestore = context.services()
+                    .find(MeshMirrorAxisService.class)
+                    .orElse(MeshMirrorAxisService.unavailable())
+                    .currentAngleDegrees();
             final String report = "status=SDK_ROUNDTRIP_DONE\n"
                     + "time=" + Instant.now() + "\n"
                     + "initialAngleDegrees=" + initial + "\n"
@@ -107,7 +123,10 @@ public final class WindowsMeshMirrorAxisValidationProbe implements CubismPlugin 
                     .append(Instant.now())
                     .append('\n')
                     .append("angleDegrees=")
-                    .append(context.meshMirrorAxis().currentAngleDegrees())
+                    .append(context.services()
+                            .find(MeshMirrorAxisService.class)
+                            .orElse(MeshMirrorAxisService.unavailable())
+                            .currentAngleDegrees())
                     .append('\n')
                     .append("meshes=")
                     .append(context.cubismRead().meshes().size())

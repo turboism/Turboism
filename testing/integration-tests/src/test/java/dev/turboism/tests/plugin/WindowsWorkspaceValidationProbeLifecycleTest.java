@@ -352,8 +352,11 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public WorkspaceService workspace() {
-            return workspace;
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(WorkspaceService.class, workspace)
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
 
         @Override

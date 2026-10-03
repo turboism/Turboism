@@ -6,6 +6,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 
 import javax.swing.JLabel;
@@ -316,7 +317,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         final AtomicReference<Registration> published = new AtomicReference<>();
         final Registration watch;
         try {
-            watch = context.uiHost().showCanvasHintWhile(
+            watch = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).showCanvasHintWhile(
                 context.uiScheduler(),
                 new CanvasHintNotification(
                     CANVAS_HINT_ID,
@@ -456,7 +457,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
     private Registration notify(final String severity, final List<String> failures) {
         try {
-            final Registration registration = context.uiHost().notifyStatus(
+            final Registration registration = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).notifyStatus(
                 new StatusNotification(STATUS_ID, severity, TOKEN)
             );
             if (registration == null) {
@@ -473,7 +474,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     /** COMPACT_METRIC status: the runtime must render the raw message without severity appearance. */
     private Registration notifyCompact(final List<String> failures) {
         try {
-            final Registration registration = context.uiHost().notifyStatus(
+            final Registration registration = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).notifyStatus(
                 new StatusNotification(
                     STATUS_ID, "INFO", TOKEN, StatusNotification.Presentation.COMPACT_METRIC)
             );

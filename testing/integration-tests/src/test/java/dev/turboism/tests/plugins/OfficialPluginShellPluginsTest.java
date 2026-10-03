@@ -132,8 +132,11 @@ class OfficialPluginShellPluginsTest {
         }
 
         @Override
-        public ContextMenuRegistry contextMenu() {
-            return contribution -> () -> {};
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(ContextMenuRegistry.class, (ContextMenuRegistry) contribution -> () -> {})
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
 
         @Override

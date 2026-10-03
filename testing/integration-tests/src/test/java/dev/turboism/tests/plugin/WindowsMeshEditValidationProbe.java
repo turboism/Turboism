@@ -3,6 +3,7 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeKind;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditResult;
@@ -130,7 +131,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private void runMatrix(final List<String> report) throws Exception {
-        final MeshEditService edit = context.meshEdit();
+        final MeshEditService edit =
+                context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable());
         final MeshSnapshot original = awaitEditableMesh(report);
         failureBaseline.set(original);
         require(report, "fixture.points", original.points().size() >= 2, original.toString());
@@ -220,8 +222,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(
                 report,
                 "cleanup.meshEditorExited",
-                context.meshEdit().snapshot().points().isEmpty(),
-                context.meshEdit().snapshot().toString());
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .points()
+                        .isEmpty(),
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .toString());
         report.add("original.points=" + original.points().size());
         report.add("original.edges=" + original.edges().size());
         report.add("assignedPointId=" + added.id());
@@ -256,8 +267,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                         .sorted()
                         .toList());
         require(report, "selectionBrush.dirtyAvailable", !dirtyBefore.isEmpty(), dirtyBefore.toString());
-        final boolean redoBefore = context.editorCommands().available().contains(EditorCommand.REDO);
-        final boolean undoBefore = context.editorCommands().available().contains(EditorCommand.UNDO);
+        final boolean redoBefore = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .available()
+                .contains(EditorCommand.REDO);
+        final boolean undoBefore = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .available()
+                .contains(EditorCommand.UNDO);
         report.add("selection.before=" + safe(selectionBefore.indices().toString()));
         report.add("undo.available.before=" + undoBefore);
 
@@ -380,9 +399,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         runBrushInputAssertions(session, awaitBrushControls(), overlay, report);
         proveBrushCancellation(session, overlay, report);
 
-        final MeshSnapshot geometryAfter = context.meshEdit().snapshot();
+        final MeshSnapshot geometryAfter = context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .snapshot();
         final boolean geometryUnchanged = geometryBefore.equals(geometryAfter);
-        final boolean undoAfter = context.editorCommands().available().contains(EditorCommand.UNDO);
+        final boolean undoAfter = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .available()
+                .contains(EditorCommand.UNDO);
         report.add("geometry.unchanged=" + geometryUnchanged);
         report.add("undo.available.after=" + undoAfter);
         require(report, "selectionBrush.geometryUnchanged", geometryUnchanged, geometryAfter.toString());
@@ -407,7 +433,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(
                 report,
                 "selectionBrush.redoUnchanged",
-                redoBefore == context.editorCommands().available().contains(EditorCommand.REDO),
+                redoBefore
+                        == context.services()
+                                .find(EditorCommandService.class)
+                                .orElse(EditorCommandService.unavailable())
+                                .available()
+                                .contains(EditorCommand.REDO),
                 "Redo availability changed");
         proveNativeConfirmationClick(session, awaitBrushControls().button(), report);
         final MeshSnapshot rebuiltGeometry = awaitEditableMesh(report);
@@ -487,13 +518,24 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     "native=" + java.util.Arrays.toString(nativeReceipts) + " brush="
                             + java.util.Arrays.toString(brushReceipts));
             final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
-            while (!context.meshEdit().snapshot().points().isEmpty() && System.nanoTime() < deadline) {
+            while (!context.services()
+                            .find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable())
+                            .snapshot()
+                            .points()
+                            .isEmpty()
+                    && System.nanoTime() < deadline) {
                 Thread.sleep(100);
             }
             require(
                     report,
                     "selectionBrush.confirmationEndsMeshEdit",
-                    context.meshEdit().snapshot().points().isEmpty(),
+                    context.services()
+                            .find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable())
+                            .snapshot()
+                            .points()
+                            .isEmpty(),
                     "native check did not end mesh edit");
             require(
                     report,
@@ -1741,12 +1783,18 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private void cleanupAfterFailure(final List<String> report) {
         try {
-            MeshSnapshot current = context.meshEdit().snapshot();
+            MeshSnapshot current = context.services()
+                    .find(MeshEditService.class)
+                    .orElse(MeshEditService.unavailable())
+                    .snapshot();
             if (current.points().isEmpty()) return;
             final MeshSnapshot baseline = failureBaseline.get();
             if (baseline != null) {
                 for (int attempts = 0; attempts < 12 && !current.equals(baseline); attempts++) {
-                    final EditorCommandResult undo = context.editorCommands().execute(EditorCommand.UNDO);
+                    final EditorCommandResult undo = context.services()
+                            .find(EditorCommandService.class)
+                            .orElse(EditorCommandService.unavailable())
+                            .execute(EditorCommand.UNDO);
                     report.add("failureCleanup.undo." + attempts + "=" + undo.status());
                     if (!undo.executed()) break;
                     current = awaitCleanupSnapshotChange(current, 5_000L);
@@ -1757,15 +1805,28 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                     return;
                 }
             }
-            final EditorCommandResult exit = context.editorCommands().execute(EditorCommand.START_OR_END_MESH_EDITOR);
+            final EditorCommandResult exit = context.services()
+                    .find(EditorCommandService.class)
+                    .orElse(EditorCommandService.unavailable())
+                    .execute(EditorCommand.START_OR_END_MESH_EDITOR);
             report.add("failureCleanup.meshExit=" + exit.status());
             final long deadline = System.nanoTime() + 10_000_000_000L;
             while (System.nanoTime() < deadline
-                    && !context.meshEdit().snapshot().points().isEmpty()) {
+                    && !context.services()
+                            .find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable())
+                            .snapshot()
+                            .points()
+                            .isEmpty()) {
                 Thread.sleep(100L);
             }
             report.add("failureCleanup.meshInactive="
-                    + context.meshEdit().snapshot().points().isEmpty());
+                    + context.services()
+                            .find(MeshEditService.class)
+                            .orElse(MeshEditService.unavailable())
+                            .snapshot()
+                            .points()
+                            .isEmpty());
         } catch (Exception failure) {
             report.add("failureCleanup.error=" + safe(failureDescription(failure)));
             if (failure instanceof InterruptedException) Thread.currentThread().interrupt();
@@ -1792,10 +1853,16 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     private MeshSnapshot awaitCleanupSnapshotChange(final MeshSnapshot before, final long timeoutMillis)
             throws InterruptedException {
         final long deadline = System.nanoTime() + timeoutMillis * 1_000_000L;
-        MeshSnapshot current = context.meshEdit().snapshot();
+        MeshSnapshot current = context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .snapshot();
         while (System.nanoTime() < deadline && current.equals(before)) {
             Thread.sleep(100L);
-            current = context.meshEdit().snapshot();
+            current = context.services()
+                    .find(MeshEditService.class)
+                    .orElse(MeshEditService.unavailable())
+                    .snapshot();
         }
         return current;
     }
@@ -1804,7 +1871,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final Path fixture = fixturePath();
         persistenceFileBaseline.set(Files.readAllBytes(fixture));
         persistenceFileWritten = false;
-        final MeshEditService edit = context.meshEdit();
+        final MeshEditService edit =
+                context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable());
         final MeshSnapshot before = awaitEditableMesh(report);
         failureBaseline.set(before);
         final MeshPointPosition position = distinctPosition(before);
@@ -1819,7 +1887,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "persist.saveWritten", firstSave.confirmed(), firstSave.toString());
         report.add(firstSave.report("saveWritten."));
 
-        final EditorCommandResult reloadWritten = context.editorCommands().execute(EditorCommand.RELOAD_MODEL);
+        final EditorCommandResult reloadWritten = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(EditorCommand.RELOAD_MODEL);
         require(report, "persist.reloadWritten", reloadWritten.executed(), reloadWritten.toString());
         final MeshSnapshot persisted = awaitEditableMesh(report);
         require(report, "persist.reopened", persisted.equals(after), "expected=" + after + " actual=" + persisted);
@@ -1837,7 +1908,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(report, "persist.saveRestored", cleanupSave.confirmed(), cleanupSave.toString());
         report.add(cleanupSave.report("saveRestored."));
 
-        final EditorCommandResult reloadRestored = context.editorCommands().execute(EditorCommand.RELOAD_MODEL);
+        final EditorCommandResult reloadRestored = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(EditorCommand.RELOAD_MODEL);
         require(report, "persist.reloadRestored", reloadRestored.executed(), reloadRestored.toString());
         final MeshSnapshot finalState = awaitEditableMesh(report);
         require(
@@ -1849,8 +1923,17 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         require(
                 report,
                 "persist.finalMeshEditorExited",
-                context.meshEdit().snapshot().points().isEmpty(),
-                context.meshEdit().snapshot().toString());
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .points()
+                        .isEmpty(),
+                context.services()
+                        .find(MeshEditService.class)
+                        .orElse(MeshEditService.unavailable())
+                        .snapshot()
+                        .toString());
         report.add("persist.addedPointId=" + added.id());
         report.add("persist.restoredPoints=" + restored.points().size());
         report.add("persist.restoredEdges=" + restored.edges().size());
@@ -1862,7 +1945,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     private MeshSnapshot awaitEditableMesh(final List<String> report) throws Exception {
         awaitVisibleModelWindow();
         awaitModelingDocument();
-        MeshSnapshot snapshot = context.meshEdit().snapshot();
+        MeshSnapshot snapshot = context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .snapshot();
         if (!snapshot.points().isEmpty()) {
             report.add("meshEntry=already-active");
             return snapshot;
@@ -1870,7 +1956,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final SelectionTarget target = selectFirstArtMesh(report);
         report.add("detail.selection.snapshot="
                 + safe(context.cubism().runtime().selection().toString()));
-        final EditorCommandResult entered = context.editorCommands().execute(EditorCommand.START_OR_END_MESH_EDITOR);
+        final EditorCommandResult entered = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(EditorCommand.START_OR_END_MESH_EDITOR);
         report.add("meshEntry.attempts=1"); // A toggle is never blindly retried.
         require(report, "meshEntry.command", entered.executed(), entered.toString());
         report.add("meshEntry=command");
@@ -2352,15 +2441,28 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             int rowHeight) {}
 
     private void finishMeshEditIfActive(final List<String> report) throws Exception {
-        if (context.meshEdit().snapshot().points().isEmpty()) {
+        if (context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .snapshot()
+                .points()
+                .isEmpty()) {
             report.add("meshExit=already-inactive");
             return;
         }
-        final EditorCommandResult result = context.editorCommands().execute(EditorCommand.START_OR_END_MESH_EDITOR);
+        final EditorCommandResult result = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(EditorCommand.START_OR_END_MESH_EDITOR);
         require(report, "meshExit.command", result.executed(), result.toString());
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            if (context.meshEdit().snapshot().points().isEmpty()) {
+            if (context.services()
+                    .find(MeshEditService.class)
+                    .orElse(MeshEditService.unavailable())
+                    .snapshot()
+                    .points()
+                    .isEmpty()) {
                 report.add("meshExit=command");
                 return;
             }
@@ -2402,18 +2504,27 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
     }
 
     private void executeCommand(final List<String> report, final String phase, final EditorCommand command) {
-        final EditorCommandResult result = context.editorCommands().execute(command);
+        final EditorCommandResult result = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(command);
         require(report, phase + ".command", result.executed(), result.toString());
     }
 
     private MeshSnapshot awaitSnapshot(final java.util.function.Predicate<MeshSnapshot> expected, final String phase)
             throws Exception {
         final long deadline = System.nanoTime() + SNAPSHOT_TIMEOUT_MILLIS * 1_000_000L;
-        MeshSnapshot actual = context.meshEdit().snapshot();
+        MeshSnapshot actual = context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .snapshot();
         while (System.nanoTime() < deadline) {
             if (expected.test(actual)) return actual;
             Thread.sleep(100L);
-            actual = context.meshEdit().snapshot();
+            actual = context.services()
+                    .find(MeshEditService.class)
+                    .orElse(MeshEditService.unavailable())
+                    .snapshot();
         }
         throw new IllegalStateException("mesh snapshot timed out during " + phase + "; actual=" + actual);
     }
@@ -2422,7 +2533,10 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         final Path fixture = fixturePath();
         final FileTime beforeMtime = Files.getLastModifiedTime(fixture);
         final long beforeSize = Files.size(fixture);
-        final EditorCommandResult command = context.editorCommands().execute(EditorCommand.SAVE);
+        final EditorCommandResult command = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable())
+                .execute(EditorCommand.SAVE);
         require(report, phase + ".command", command.executed(), command.toString());
         return awaitSaveConfirmation(fixture, beforeMtime, beforeSize, SAVE_TIMEOUT_MILLIS, SAVE_POLL_MILLIS);
     }
