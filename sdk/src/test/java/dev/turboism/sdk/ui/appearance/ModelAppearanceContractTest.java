@@ -73,6 +73,8 @@ class ModelAppearanceContractTest {
         assertEquals(Optional.empty(), DeformerAppearance.unavailable().deformerPaletteEntry());
         assertEquals(Optional.empty(), DrawableAppearance.unavailable().partPaletteEntry());
         assertEquals(Optional.empty(), ParameterAppearance.unavailable().parameterPaletteEntry());
+        assertEquals(Optional.empty(), ParameterAppearance.unavailable().visible());
+        assertEquals(Optional.empty(), ParameterAppearance.unavailable().editable());
         assertEquals(Optional.empty(), ParameterGroupAppearance.unavailable().parameterPaletteEntry());
         assertEquals(Optional.empty(), ParameterGroupAppearance.unavailable().nativeLabelColor());
         assertThrows(
@@ -91,6 +93,20 @@ class ModelAppearanceContractTest {
                 NoSuchMethodException.class, () -> ParameterAppearance.class.getDeclaredMethod("nativeLabelColor"));
         assertFalse(Arrays.stream(DeformerAppearance.class.getDeclaredMethods())
                 .anyMatch(method -> method.getName().contains("ControlRow")));
+    }
+
+    @Test
+    void parameterPaletteVisibilityAndEditabilityDefaultToUnknown() throws Exception {
+        final ParameterAppearance projection = () -> Optional.empty();
+
+        assertEquals(Optional.empty(), projection.visible());
+        assertEquals(Optional.empty(), projection.editable());
+        assertEquals(
+                Optional.class,
+                ParameterAppearance.class.getMethod("visible").getReturnType());
+        assertEquals(
+                Optional.class,
+                ParameterAppearance.class.getMethod("editable").getReturnType());
     }
 
     @Test
