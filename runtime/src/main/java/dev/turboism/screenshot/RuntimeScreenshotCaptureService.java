@@ -25,4 +25,9 @@ public final class RuntimeScreenshotCaptureService implements ScreenshotCaptureS
         permissionChecker.check(PERMISSION, "cubism.screenshot.capture");
         return adapter.capture(Objects.requireNonNull(request, "request"));
     }
+
+    @Override
+    public boolean isAvailable() {
+        return adapter.available();
+    }
 }

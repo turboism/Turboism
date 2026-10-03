@@ -49,6 +49,11 @@ final class VerifiedDispatchAutoBackupAdapter implements AutoBackupAdapter {
         return onEdt(() -> host.saveDocumentFor(matchFile, documentUids, timestampMillis));
     }
 
+    @Override
+    public boolean available() {
+        return true;
+    }
+
     private static <T> T onEdt(final Operation<T> operation) {
         return EdtDispatch.call("auto-backup EDT operation", operation::run);
     }

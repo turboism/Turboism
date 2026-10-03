@@ -64,6 +64,11 @@ public final class ParameterQueryServiceImpl implements ParameterQueryService {
         return index().parametersById().containsKey(id);
     }
 
+    @Override
+    public boolean isAvailable() {
+        return facade.isModelAccessAvailable();
+    }
+
     private ParameterIndex index() throws CubismServiceException {
         final SnapshotWithVersion versioned = runtimeWithServiceError();
         final ParameterIndex currentIndex = cachedIndex;

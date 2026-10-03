@@ -1090,6 +1090,18 @@ public final class CubismFacadeImpl implements CubismFacade {
         return modelAccess;
     }
 
+    /**
+     * Runtime-internal availability probe for the bound model access: answers
+     * {@code modelAccess.isAvailable()} without the permission or active-scope
+     * checks {@link #model()} performs, so service-level probes stay free of
+     * side effects and grants.
+     *
+     * @return {@code true} while the bound model access reports a live delegate
+     */
+    public boolean isModelAccessAvailable() {
+        return modelAccess.isAvailable();
+    }
+
     @Override
     public dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
         requireActiveScope();

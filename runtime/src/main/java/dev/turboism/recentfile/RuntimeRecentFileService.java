@@ -23,4 +23,9 @@ public final class RuntimeRecentFileService implements RecentFileService {
         permissionChecker.check(PERMISSION, "cubism.recent-file.list");
         return adapter.list();
     }
+
+    @Override
+    public boolean isAvailable() {
+        return adapter.available();
+    }
 }

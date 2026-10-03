@@ -29,4 +29,9 @@ public final class AuthorizedViewContextMenuRegistry implements ViewContextMenuR
     public void updateButtonState(final String contributionId, final int axis) {
         delegate.updateButtonState(contributionId, axis);
     }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
 }
