@@ -505,6 +505,50 @@ final class TriangulationEdgeIndexTest {
     }
 
     @Test
+    void smallSnapshotsSurviveSourceMutationAndSupportIndependentEdits() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final Tri a = tri(1, 1, 2, 3), b = tri(2, 1, 2, 4);
+        TriangulationEdgeIndex.add(set, a, a.ia, a.ib, a.ic);
+        TriangulationEdgeIndex.add(set, b, b.ia, b.ib, b.ic);
+        final List<Object> snapshot = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        final List<Object> sibling = TriangulationEdgeIndex.tryQuery(set, 2, 1);
+        for (final Object triangle : snapshot) TriangulationEdgeIndex.remove(set, triangle);
+        assertTrue(set.isEmpty());
+        assertEquals(List.of(a, b), snapshot);
+        assertEquals(List.of(a, b), sibling);
+        final var iterator = snapshot.listIterator(snapshot.size());
+        assertSame(b, iterator.previous());
+        iterator.set(null);
+        iterator.add(a);
+        assertEquals(java.util.Arrays.asList(a, a, null), snapshot);
+        snapshot.subList(1, 3).clear();
+        assertEquals(List.of(a), snapshot);
+        assertEquals(List.of(a, b), sibling);
+        final List<Object> empty = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        empty.add(null);
+        assertEquals(java.util.Arrays.asList((Object) null), empty);
+        assertTrue(TriangulationEdgeIndex.tryQuery(set, 1, 2).isEmpty());
+    }
+
+    @Test
+    void nonmanifoldSnapshotsPreserveAllEntriesAcrossSourceRemovals() {
+        final LinkedHashSet<Tri> set = new LinkedHashSet<>();
+        final List<Tri> triangles = new ArrayList<>();
+        for (int i = 0; i < 128; i++) {
+            final Tri triangle = tri(i, 1, 2, i + 3);
+            triangles.add(triangle);
+            TriangulationEdgeIndex.add(set, triangle, triangle.ia, triangle.ib, triangle.ic);
+        }
+        final List<Object> snapshot = TriangulationEdgeIndex.tryQuery(set, 1, 2);
+        assertEquals(ArrayList.class, snapshot.getClass());
+        for (final Object triangle : snapshot) TriangulationEdgeIndex.remove(set, triangle);
+        assertEquals(triangles, snapshot);
+        assertTrue(TriangulationEdgeIndex.tryQuery(set, 1, 2).isEmpty());
+        snapshot.subList(0, 64).clear();
+        assertEquals(triangles.subList(64, 128), snapshot);
+    }
+
+    @Test
     void bookkeepingFailuresNeverPropagate() {
         // A null set is rejected inside the bookkeeping guard; it must still decline
         // without leaking that failure into the original scan's control flow.
