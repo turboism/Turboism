@@ -16,6 +16,7 @@ public final class LazyTriangulationEdgeBridge {
     private static final String MESH = "com.live2d.graphics3d.editableMesh.GEditableMesh2";
     private static final ReferenceQueue<ClassLoader> RELEASED = new ReferenceQueue<>();
     private static final Map<LoaderKey, Function<Class<?>, Admission>> PLANS = new HashMap<>();
+    private static final Map<LoaderKey, String> MESH_PREPARED = new HashMap<>();
     // Only publish an empty holder here. Performing capture in computeValue could
     // create competing gates: ClassValue may compute several candidates and keep one.
     private static final ClassValue<Holder> GATES = new ClassValue<>() {
@@ -54,7 +55,25 @@ public final class LazyTriangulationEdgeBridge {
 
     private static void drain() {
         LoaderKey key;
-        while ((key = (LoaderKey) RELEASED.poll()) != null) PLANS.remove(key);
+        while ((key = (LoaderKey) RELEASED.poll()) != null) {
+            PLANS.remove(key);
+            MESH_PREPARED.remove(key);
+        }
+    }
+
+    static void meshPrepared(ClassLoader loader, String fingerprint) {
+        if (loader == null || fingerprint == null) return;
+        synchronized (PLANS) {
+            drain();
+            MESH_PREPARED.put(new LoaderKey(loader, RELEASED), fingerprint);
+        }
+    }
+
+    static boolean meshPreparedMatches(ClassLoader loader, String expected) {
+        synchronized (PLANS) {
+            drain();
+            return expected != null && expected.equals(MESH_PREPARED.get(new LoaderKey(loader, null)));
+        }
     }
 
     // Factory values must contain immutable fingerprints/origins and the Agent
