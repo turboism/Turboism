@@ -1,6 +1,7 @@
 package dev.turboism.screenshot;
 
 import dev.turboism.adapter.cubism.ScreenshotCaptureAdapter;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
@@ -28,6 +29,13 @@ public final class RuntimeScreenshotCaptureService implements ScreenshotCaptureS
 
     @Override
     public boolean isAvailable() {
-        return adapter.available();
+        // A probe failure (for example host-session teardown running on this
+        // thread) means the host is unavailable; the contract never throws.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
     }
 }

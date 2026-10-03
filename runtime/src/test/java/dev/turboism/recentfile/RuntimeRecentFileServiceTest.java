@@ -73,6 +73,31 @@ final class RuntimeRecentFileServiceTest {
     }
 
     @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final RuntimeRecentFileService service = new RuntimeRecentFileService(
+                RecentFileAdapter.connected(new RecentFileAdapter.HostOperations() {
+                    @Override
+                    public List<RecentFileSummary> list() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public Optional<RecentFileId> current() {
+                        return Optional.empty();
+                    }
+
+                    @Override
+                    public boolean available() {
+                        // Mirrors DynamicRuntimeHostAdapters.call: an outermost
+                        // adapter call may run session teardown on this thread.
+                        throw new IllegalStateException("host session teardown on the calling thread");
+                    }
+                }),
+                PermissionChecker.allowAll());
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
+    @Test
     void checksRecentFileReadPermissionBeforeCallingAdapter() {
         final int[] calls = {0};
         final RuntimeRecentFileService service = new RuntimeRecentFileService(
