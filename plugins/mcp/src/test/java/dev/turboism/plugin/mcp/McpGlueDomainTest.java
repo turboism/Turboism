@@ -992,7 +992,7 @@ final class McpGlueDomainTest {
         assertEquals("lone \uFFFD surrogate \uFFFD", projected.get("name"));
         // The text channel and the structured channel carry the same encoded value.
         final Map<String, Object> block = object(array(envelope.get("content")).get(0));
-        final Object reparsed = dev.turboism.sdk.json.Json.parse(
+        final Object reparsed = dev.turboism.sdk.json.Json.parseObject(
                 ((String) block.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         final Map<String, Object> reparsedItem = object(
                 array(object(object(reparsed).get("result")).get("items")).get(0));

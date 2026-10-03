@@ -36,15 +36,11 @@ public final class Motion3Validator {
     public static Motion3Report validate(final byte[] bytes) {
         Objects.requireNonNull(bytes, "bytes");
         final List<Motion3Issue> issues = new ArrayList<>();
-        final Object root;
+        final Map<String, ?> document;
         try {
-            root = Json.parse(bytes);
+            document = Json.parseObject(bytes);
         } catch (IllegalArgumentException failure) {
             issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "invalid JSON: " + failure.getMessage()));
-            return new Motion3Report(issues);
-        }
-        if (!(root instanceof Map<?, ?> document)) {
-            issues.add(new Motion3Issue(Motion3Issue.Severity.ERROR, "$", "motion3 root must be a JSON object"));
             return new Motion3Report(issues);
         }
         validateDocument(asStringMap(document, issues, "$"), issues);

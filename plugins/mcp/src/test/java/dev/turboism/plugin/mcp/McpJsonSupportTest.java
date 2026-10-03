@@ -58,7 +58,8 @@ class McpJsonSupportTest {
 
         final String encoded = McpJsonSupport.stringify(output);
 
-        final Map<?, ?> reparsed = (Map<?, ?>) Json.parse(encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        final Map<?, ?> reparsed =
+                (Map<?, ?>) Json.parseObject(encoded.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertEquals("a�", reparsed.get("name"));
         assertTrue(reparsed.containsKey("value") && reparsed.get("value") == null);
     }

@@ -888,7 +888,8 @@ final class McpDiagnosticsDomainTest {
 
     private static Map<String, Object> payload(final McpResourceCatalog catalog, final String uri) {
         final Map<String, Object> content = catalog.read(uri).get(0);
-        return object(Json.parse(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        return object(
+                Json.parseObject(((String) content.get("text")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
     private static UnsupportedOperationException unavailable() {
