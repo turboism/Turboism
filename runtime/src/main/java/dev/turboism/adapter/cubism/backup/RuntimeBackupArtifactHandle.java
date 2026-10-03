@@ -70,7 +70,13 @@ final class RuntimeBackupArtifactHandle implements BackupArtifactHandle {
         long size = 0L;
         long modified = -1L;
         try {
-            size = Math.max(0L, Files.size(file));
+            // Links are not followed: a symlink artifact reports its own (zero)
+            // metadata rather than the target's, matching the read refusal.
+            size = Math.max(
+                    0L,
+                    Files.readAttributes(
+                                    file, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS)
+                            .size());
             modified =
                     Files.getLastModifiedTime(file, LinkOption.NOFOLLOW_LINKS).toMillis();
         } catch (IOException unavailable) {
@@ -94,7 +100,10 @@ final class RuntimeBackupArtifactHandle implements BackupArtifactHandle {
     @Override
     public InputStream openStream() throws IOException {
         permissions.check(PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE, OPERATION_READ);
-        return Files.newInputStream(confined());
+        // NOFOLLOW_LINKS makes the open itself the link check: a symlink swapped
+        // in after confined() validated the path fails the open instead of
+        // silently streaming the link target.
+        return Files.newInputStream(confined(), LinkOption.NOFOLLOW_LINKS);
     }
 
     @Override
@@ -121,19 +130,23 @@ final class RuntimeBackupArtifactHandle implements BackupArtifactHandle {
 
     /**
      * Re-resolves the artifact against its issuing directory: the file must
-     * still be a regular file (links refused) whose real path stays inside the
-     * real issuing root. A missing file or an escape fails with IOException.
+     * still be a regular file (links refused) whose location stays inside the
+     * real issuing root. The parent chain is resolved with links followed —
+     * {@code toRealPath(NOFOLLOW_LINKS)} does not resolve links at all and
+     * would reduce the containment check to a literal prefix comparison — while
+     * the final component is verified and opened without following links.
+     * A missing file or an escape fails with IOException.
      */
     private Path confined() throws IOException {
         if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("backup artifact is not a regular file: " + file.getFileName());
         }
-        final Path realFile = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
-        final Path realRoot = root.toRealPath(LinkOption.NOFOLLOW_LINKS);
-        if (!realFile.startsWith(realRoot)) {
+        final Path realRoot = root.toRealPath();
+        final Path realParent = file.toAbsolutePath().getParent().toRealPath();
+        if (!realParent.startsWith(realRoot)) {
             throw new IOException("backup artifact escapes its issuing directory: " + file.getFileName());
         }
-        return realFile;
+        return realParent.resolve(file.getFileName().toString());
     }
 
     @Override
