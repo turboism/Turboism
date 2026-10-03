@@ -17,6 +17,7 @@ public final class LazyTriangulationEdgeBridge {
     private static final ReferenceQueue<ClassLoader> RELEASED = new ReferenceQueue<>();
     private static final Map<LoaderKey, Function<Class<?>, Admission>> PLANS = new HashMap<>();
     private static final Map<LoaderKey, String> MESH_PREPARED = new HashMap<>();
+    private static final Map<LoaderKey, String> POINT_PREPARED = new HashMap<>();
     // Only publish an empty holder here. Performing capture in computeValue could
     // create competing gates: ClassValue may compute several candidates and keep one.
     private static final ClassValue<Holder> GATES = new ClassValue<>() {
@@ -26,10 +27,45 @@ public final class LazyTriangulationEdgeBridge {
         }
     };
 
+    // Cache the shared admission, never an application Class or loader. Repeated
+    // point queries must not resolve h twice or create a second capture.
+    private static final ClassValue<PointHolder> POINT_GATES = new ClassValue<>() {
+        @Override
+        protected PointHolder computeValue(Class<?> type) {
+            return new PointHolder();
+        }
+    };
+
+    private static final class PointHolder {
+        private volatile boolean attempted;
+        private Admission admission;
+
+        Admission admission(Class<?> owner) throws ClassNotFoundException {
+            if (!attempted)
+                synchronized (this) {
+                    if (!attempted)
+                        try {
+                            ClassLoader loader = owner.getClassLoader();
+                            Class<?> host = Class.forName(HOST, false, loader);
+                            if (host.getClassLoader() == loader
+                                    && Class.forName(owner.getName(), false, loader) == owner)
+                                admission = GATES.get(host).admission(host);
+                        } finally {
+                            attempted = true;
+                        }
+                }
+            return admission;
+        }
+    }
+
     private LazyTriangulationEdgeBridge() {}
 
     /** One capture result; mesh permission belongs to that exact captured dependency set. */
-    record Admission(TriangulationDefinitionLifecycle.Gate gate, boolean meshIncluded) {}
+    record Admission(TriangulationDefinitionLifecycle.Gate gate, boolean meshIncluded, boolean pointIncluded) {
+        Admission(TriangulationDefinitionLifecycle.Gate gate, boolean meshIncluded) {
+            this(gate, meshIncluded, false);
+        }
+    }
 
     private static final class LoaderKey extends WeakReference<ClassLoader> {
         private final int hash;
@@ -58,6 +94,7 @@ public final class LazyTriangulationEdgeBridge {
         while ((key = (LoaderKey) RELEASED.poll()) != null) {
             PLANS.remove(key);
             MESH_PREPARED.remove(key);
+            POINT_PREPARED.remove(key);
         }
     }
 
@@ -66,6 +103,21 @@ public final class LazyTriangulationEdgeBridge {
         synchronized (PLANS) {
             drain();
             MESH_PREPARED.put(new LoaderKey(loader, RELEASED), fingerprint);
+        }
+    }
+
+    static void pointPrepared(ClassLoader loader, String fingerprint) {
+        if (loader == null || fingerprint == null) return;
+        synchronized (PLANS) {
+            drain();
+            POINT_PREPARED.put(new LoaderKey(loader, RELEASED), fingerprint);
+        }
+    }
+
+    static boolean pointPreparedMatches(ClassLoader loader, String expected) {
+        synchronized (PLANS) {
+            drain();
+            return expected != null && expected.equals(POINT_PREPARED.get(new LoaderKey(loader, null)));
         }
     }
 
@@ -175,6 +227,26 @@ public final class LazyTriangulationEdgeBridge {
                             || !admission.meshIncluded()
                             || admission.gate() == null
                             || !admission.gate().covers(host)
+                            || !admission.gate().covers(owner)
+                    ? null
+                    : admission.gate().acquire();
+        } catch (ClassNotFoundException | RuntimeException | LinkageError unavailable) {
+            return null;
+        }
+    }
+
+    /** Share h's exact captured gate; legacy/declined plans preserve the original point method. */
+    public static AutoCloseable enterPoint(Class<?> owner) {
+        if (owner == null
+                || !PointTriangleReusePreparation.OWNER.equals(owner.getName())
+                || owner.getClassLoader() == null
+                || owner.getModule().isNamed()
+                || TriangulationDefinitionLifecycle.inTransformerCallback()) return null;
+        try {
+            Admission admission = POINT_GATES.get(owner).admission(owner);
+            return admission == null
+                            || !admission.pointIncluded()
+                            || admission.gate() == null
                             || !admission.gate().covers(owner)
                     ? null
                     : admission.gate().acquire();
