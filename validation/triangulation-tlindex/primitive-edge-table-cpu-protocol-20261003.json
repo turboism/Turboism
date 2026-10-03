@@ -1,0 +1,88 @@
+{
+  "task": "T072",
+  "status": "FROZEN_BEFORE_ANY_SUBMISSION",
+  "purpose": "NEW_PRIMITIVE_EDGE_METADATA_FIXED_BALANCED_COMPARISON",
+  "order": [
+    "baseline1",
+    "candidate1",
+    "candidate2",
+    "baseline2"
+  ],
+  "pairs": [
+    [
+      "baseline1",
+      "candidate1"
+    ],
+    [
+      "baseline2",
+      "candidate2"
+    ]
+  ],
+  "legCount": 4,
+  "replacementsAllowed": false,
+  "abortOnInvalidEvidence": true,
+  "performanceFailureStopsEarly": false,
+  "aggregateCanOverrideFailedPair": false,
+  "primaryCpu": "sum_3_command_start_return_process_cpu_nanoseconds",
+  "cpuCapPercent": 0,
+  "wallRequirement": "strictly_less_in_each_pair",
+  "peakRssCapPercent": 20,
+  "ownBaselineRssCapMiB": 80,
+  "retainedGrowthCapMiB": 64,
+  "baselineProductionSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "newCandidateProductionSha256": "ac74f74831f0292f51011b7d11b4023e341a3f3895b8dea6f5c73ad8ad7dea2d",
+  "preparedIds": {
+    "baseline1": "7a427c35ed7c2a295888814671f061155e9a2d077f9c72055bdc0c4a9462324b",
+    "candidate1": "ed3888ea65d96b5b2056c15afef1831d7cfd74ee1827e891f08a2b1aa494d29f",
+    "candidate2": "d7bece926df77ead03f163103777633b2d6f661f7c0ff1426191f5117693da66",
+    "baseline2": "eda918d9753f9ad51aaba744996bc0eb9c28b9dbce2016ce63c865a5004dcf01"
+  },
+  "requestOnlyDifferences": [
+    "arm_bundle_paths",
+    "leg_evidence_path",
+    "run_label",
+    "capture_run_id"
+  ],
+  "productionAcceptance": "NOT_GRANTED",
+  "historicalDecisions": "T069/T066 compact buckets remain withdrawn; T063 vector copy remains withdrawn.",
+  "frozenInputPins": {
+    "validation/triangulation-tlindex/primitive-edge-table-cpu-protocol-20261003.md": "3f3af9d5e6bc1d029a3af6c86d2ab1d9abc9439d2b012913c3b6381e2cf7d107",
+    "validation/triangulation-tlindex/diagnostic/balanced-cpu-gates.py": "40d6ce54085fbb52be3041ea2c1f95c31bf8ef9621d235699faf10ef1255e548",
+    "validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+    "validation/triangulation-tlindex/analyze-resource-windows.py": "26aaf9ab604cedca477d2dd017111465b2428acd41fc63d878cf48c58aad326f",
+    "build/t072-primitive-edge-table-integration-r1/offline-review.json": "8b5891432ea8273827c9d91628257abfd724a367b44b236b9a2ff3d784b35b9d",
+    "build/t072-primitive-edge-table-integration-r1/artifact-review.json": "116ae757813064aec41a832c24178a986579d1159a2dadc6caafaad355120dc9",
+    "build/t072-primitive-edge-table-integration-r1/TriangulationEdgeIndex.java": "fea7b7aff7ecb2b7177585168eb15a8636824b28f13c7fd8f964e5aeb913d092",
+    "build/t072-primitive-edge-table-integration-r1/TriangulationEdgeIndexTest.java": "aa1beb69c661ed3c48750b00c90e3aab8e314639735ad5ce05ef7989d15c6c6a",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/prepare-all.py": "c083a21c3d3c3f5c4ffd42a4e16e5de1c8745f219f6f983551f50ac28dc70208",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/run-one.py": "f23727172a468d13774a63776294b465e9c40c6ba4deae9460cd42652dcb6ae6",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/review-native.py": "61c7e8a82af4ac97537a7a9944632411e688f48905ac19750a0ff4105495fdcf",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/analyze-all.py": "bf42b58656014bde99439dcf8664faff6462d1b307e9541d1bbd26a6b1b8f493",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/baseline/turboism-agent.jar": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/baseline/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/baseline/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/baseline/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/baseline/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/candidate/turboism-agent.jar": "bc27301ec2903c1a45fe33dbb4648ddbdfffd9637a23626a7707d7b7f1a22b6a",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/candidate/tri-weave-agent.jar": "f0b11990c6c8f39710ea2352ac7f3dc6fed274d5136c460b9e9f2f5e96a37e70",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/candidate/t039-shadow-agent.jar": "12d5fea3e9cbfaf5e16f7148731c3e499232f4679aefee127561e9cb52cb8680",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/candidate/atlas-image-shadow-scene-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/bundles/candidate/settings-page-host-probe.jar": "30f5203eb6efc7141688ffcd3c89a83b32ba715056a922b9d981661433b4d975",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/runner-input.json": "abef1bb6860064dd5c7ef6b7c8bb4ccb335b8c1f6b541ec760ba9c074217ae19",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/prepared.json": "94673fe10db682c4cfd047d580e1569c25075e257c9991ab7efde2b867f125ae",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/request/runner-request.json": "4fba941a5c9cec331c55500d1c188f7a6d030c10dca6e12e265693744c78688d",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/runner-input.json": "fa274a5fa00d5a1e88fb040abfedf04e550bd2dbb283238f962ffa3b8af96392",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/prepared.json": "1ebec3b1ba1daa89c379e9b16db697e50a2ed5aaa9b1d9c664172ffde848a43f",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/request/runner-request.json": "7c9a37731167cc2d6855d548bbcb7b427bba450dc595adbfd6dd643d57229a06",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/runner-input.json": "b9a10788c1e45f09a8eca7c3bdb0a6e57362be113f5838a46a8f3dfdd8c795fa",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/prepared.json": "591e6182b4510e23886988e43c8b6a73daf45b7dab05b0c92d48522bdab7024d",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/request/runner-request.json": "1da0824e0251c76618f61f29f10b27611c0ef9cd2336e571beb0f49d86056ce0",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/candidate2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/runner-input.json": "de0ea42b6754185c23964a36cf90da9a83b73f4ce64a0e9d20a36a6200e148bf",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/prepared.json": "f221713dec0f6214d6d90ec252d7b458c3dfb26c7772859feefa36ae1e09e642",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/request/runner-request.json": "bd17d0849d56da62bfafff57a165a9589294519cb845c8ec60590c76b5203d85",
+    "build/t072-primitive-edge-table-integration-r1/native5303-abba1/baseline2/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060"
+  }
+}
