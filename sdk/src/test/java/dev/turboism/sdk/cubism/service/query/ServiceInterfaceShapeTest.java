@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class ServiceInterfaceShapeTest {
 
     private static final List<String> QUERY_SERVICE_SOURCES =
-            List.of("ParameterQueryService", "SelectionQueryService", "ModelHierarchyQueryService");
+            List.of("SelectionQueryService", "ModelHierarchyQueryService");
 
     private static final Set<String> MUTATING_PREFIXES =
             Set.of("set", "add", "remove", "mutate", "write", "delete", "create", "update", "commit", "rollback");
@@ -22,7 +22,6 @@ class ServiceInterfaceShapeTest {
     void pluginContextExposesExplicitReadOnlyQueryServices_whenInspectingSourceContract() throws IOException {
         String source = Files.readString(Path.of("src/main/java/dev/turboism/sdk/plugin/PluginContext.java"));
 
-        assertTrue(source.contains("ParameterQueryService parameterQuery()"));
         assertTrue(source.contains("SelectionQueryService selectionQuery()"));
         assertTrue(source.contains("ModelHierarchyQueryService modelHierarchyQuery()"));
     }
@@ -44,10 +43,6 @@ class ServiceInterfaceShapeTest {
 
     @Test
     void queryServiceReturnTypesAreImmutableContracts_whenInspectingSourceContract() throws IOException {
-        assertTrue(queryServiceSource("ParameterQueryService")
-                .contains("Optional<ParameterSummary> findById(ParameterId id)"));
-        assertTrue(queryServiceSource("ParameterQueryService").contains("List<ParameterSummary> listAll()"));
-        assertTrue(queryServiceSource("ParameterQueryService").contains("boolean exists(ParameterId id)"));
         assertTrue(queryServiceSource("SelectionQueryService").contains("SelectionSummary currentSelection()"));
         assertTrue(queryServiceSource("SelectionQueryService")
                 .contains("List<ModelObjectId> selectedIds(HierarchyNode.Kind kind)"));

@@ -22,6 +22,12 @@ public interface RecentPreviewContributionAdapter {
     void refresh();
 
     /**
+     * @return {@code true} while a live host popup bridge serves this adapter;
+     *         {@code false} for the safe-mode adapter
+     */
+    boolean available();
+
+    /**
      * An adapter for when no host popup bridge is attached.
      *
      * @return a host-free adapter whose {@link #contribute} throws
@@ -36,6 +42,11 @@ public interface RecentPreviewContributionAdapter {
 
             @Override
             public void refresh() {}
+
+            @Override
+            public boolean available() {
+                return false;
+            }
         });
     }
 
@@ -58,6 +69,11 @@ public interface RecentPreviewContributionAdapter {
             public void refresh() {
                 host.refresh();
             }
+
+            @Override
+            public boolean available() {
+                return host.available();
+            }
         };
     }
 
@@ -71,5 +87,13 @@ public interface RecentPreviewContributionAdapter {
 
         /** Asks the host popup to refresh its preview content. */
         void refresh();
+
+        /**
+         * @return {@code true} while the host backend behind these operations is
+         *         attached; the default answers for a live host
+         */
+        default boolean available() {
+            return true;
+        }
     }
 }

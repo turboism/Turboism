@@ -363,6 +363,53 @@ final class BackupPluginTest {
         }
     }
 
+    @Test
+    void disableTerminatesEveryPluginWorkerThread() throws Exception {
+        FakeContext context = new FakeContext();
+        BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        plugin.enable();
+        plugin.applySavedConfig(savedConfig());
+        assertTrue(context.awaitLog("WEBDAV_TARGET_READY", Duration.ofSeconds(2)));
+        // A completed upload guarantees the reader pool spawned its threads.
+        java.nio.file.Path artifact = java.nio.file.Files.createTempFile("turboism-backup-threads-", ".cmo3");
+        java.nio.file.Files.writeString(artifact, "backup");
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+                "model:test",
+                "model.cmo3",
+                dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+                java.util.Optional.empty(),
+                List.of()));
+        assertTrue(
+                context.awaitLog("WEBDAV_SYNC_COMPLETED", Duration.ofSeconds(4)),
+                "the upload must finish so the reader threads demonstrably ran");
+        assertTrue(liveWorkerThreads() > 0, "plugin worker threads must exist while enabled");
+
+        plugin.disable();
+        plugins.remove(plugin);
+
+        final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (System.nanoTime() < deadline && liveWorkerThreads() > 0) {
+            Thread.sleep(20L);
+        }
+        assertEquals(0, liveWorkerThreads(), "no plugin worker thread may survive disable()");
+    }
+
+    /** Live threads owned by this plugin's worker executors. */
+    private static int liveWorkerThreads() {
+        int count = 0;
+        for (final Thread thread : Thread.getAllStackTraces().keySet()) {
+            final String name = thread.getName();
+            if (thread.isAlive()
+                    && (name.startsWith("webdav-upload-reader-") || name.startsWith("turboism-webdav-tasks-"))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private dev.turboism.plugin.webdavbackup.webdav.WebDavConfig autoConfig() {
         return new dev.turboism.plugin.webdavbackup.webdav.WebDavConfig(
                 true,

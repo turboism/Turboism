@@ -249,6 +249,21 @@
    },
    "defaultVariant": "default"
   },
+  "backup-webdav": {
+   "description": "WebDAV backup end-to-end host validation: production webdav plugin uploads to the probe's recording WebDAV mock after a semantic SAVE.",
+   "command": "scripts/preview/run-backup-webdav-host-validation.sh",
+   "versions": [
+    "5302",
+    "5303"
+   ],
+   "arguments": [
+    "{version}",
+    "{runLabel}"
+   ],
+   "resources": {
+    "host-slot": 1
+   }
+  },
   "backup-interactive": {
    "description": "Human-operated WebDAV backup session.",
    "command": "scripts/preview/run-backup-interactive-session.sh",

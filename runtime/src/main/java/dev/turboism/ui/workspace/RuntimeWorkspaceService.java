@@ -81,6 +81,11 @@ public final class RuntimeWorkspaceService implements WorkspaceService, AutoClos
         }));
     }
 
+    @Override
+    public boolean isAvailable() {
+        return !closed && coordinator.isAvailable();
+    }
+
     /**
      * Marks the service closed and waits for the EDT to drain every already-queued service
      * operation (which observes the closed flag) before returning. The fence reuses

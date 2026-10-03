@@ -15,8 +15,7 @@ import java.util.Optional;
  * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
  *
  * <p>Other types named like a parameter are not write handles:
- * {@link dev.turboism.sdk.cubism.ParameterSnapshot} and {@link
- * dev.turboism.sdk.cubism.service.query.ParameterSummary} are immutable read snapshots,
+ * {@link dev.turboism.sdk.cubism.ParameterSnapshot} is an immutable read snapshot,
  * {@link ParameterDefinition} is an authoring-definition payload for {@link #updateDefinition},
  * {@link dev.turboism.sdk.cubism.core.OwnedParameter} belongs to the detached owned model, and
  * {@link dev.turboism.sdk.cubism.edit.EditParameterNode} is a node of the incubating
