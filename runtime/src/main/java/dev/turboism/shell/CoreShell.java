@@ -64,16 +64,14 @@ public final class CoreShell implements ShellHandle {
         this.logger = context.logger();
         final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings = services.settings();
         this.settings = runtimeSettings.read();
-        this.fileChooserHistory = java.util.Optional.ofNullable(
-                        context.services().get(FileChooserHistoryService.class))
+        this.fileChooserHistory = context.services()
+                .find(FileChooserHistoryService.class)
                 .orElseGet(FileChooserHistoryService::unavailable);
         this.plugins = services.plugins();
         this.closed = false;
         this.homeEntryService = new MainToolbarHomeEntryService(
-                java.util.Optional.ofNullable(context.services().get(UiHostCapabilityService.class))
-                        .orElseGet(UiHostCapabilityService::unavailable),
-                java.util.Optional.ofNullable(context.services().get(MainToolbarRegistry.class))
-                        .orElseGet(MainToolbarRegistry::unavailable),
+                context.services().find(UiHostCapabilityService.class).orElseGet(UiHostCapabilityService::unavailable),
+                context.services().find(MainToolbarRegistry.class).orElseGet(MainToolbarRegistry::unavailable),
                 context.menus(),
                 localization(context),
                 runtimeSettings,
@@ -224,8 +222,8 @@ public final class CoreShell implements ShellHandle {
      */
     private void applyAutoBackupPreference(final boolean reduce) {
         try {
-            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = java.util.Optional.ofNullable(
-                            context.services().get(EditorAutoBackupService.class))
+            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = context.services()
+                    .find(EditorAutoBackupService.class)
                     .orElseGet(EditorAutoBackupService::unavailable);
             final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings current = backup.settings();
             if (reduce) {

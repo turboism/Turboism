@@ -46,6 +46,12 @@ public final class RuntimeTextureAtlasLayoutService
         this.nativeInvocations = Objects.requireNonNull(nativeInvocations, "nativeInvocations");
     }
 
+    /** Both implemented service interfaces declare this probe; one override settles the diamond. */
+    @Override
+    public boolean isAvailable() {
+        return true;
+    }
+
     @Override
     public Optional<TextureAtlasLayoutSnapshot> current() {
         permissionGate.require(READ_PERMISSION, "textureAtlasLayouts.current", CAPABILITY);

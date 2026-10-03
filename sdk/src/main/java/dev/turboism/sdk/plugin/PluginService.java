@@ -6,7 +6,7 @@ import dev.turboism.sdk.Incubating;
  * One optional service slot on {@link PluginContext}.
  *
  * <p>Members name the getter they describe, so
- * {@code context.services().get(PluginStorage.class) != null} tells the plugin that
+ * {@code context.services().find(PluginStorage.class).isPresent()} tells the plugin that
  * {@code context.storage()} resolves to an installed service. Guaranteed core members of
  * {@link PluginContext} ({@code descriptor}, {@code logger}, {@code paths}, {@code cubism},
  * {@code permissions}, {@code eventBus}, {@code actions}, {@code menus}, {@code uiScheduler},
@@ -169,26 +169,26 @@ public enum PluginService {
         this.type = type;
     }
 
-    /** The service interface this member names, usable with {@link PluginServiceDirectory#get}. */
+    /** The service interface this member names, usable with {@link PluginServiceDirectory#find}. */
     @Incubating
     public Class<?> type() {
         return type;
     }
 
     /**
-     * Returns the member naming {@code serviceType}, or {@code null} when no member maps it.
+     * Returns the member naming {@code serviceType}, or empty when no member maps it.
      *
      * @param serviceType the service interface to look up
-     * @return the matching member, or {@code null}
+     * @return the matching member, or empty
      */
     @Incubating
-    public static PluginService forType(final Class<?> serviceType) {
+    public static java.util.Optional<PluginService> forType(final Class<?> serviceType) {
         for (final PluginService member : values()) {
             if (member.type == serviceType) {
-                return member;
+                return java.util.Optional.of(member);
             }
         }
-        return null;
+        return java.util.Optional.empty();
     }
 
     /**

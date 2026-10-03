@@ -1,6 +1,7 @@
 package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.Incubating;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -9,7 +10,7 @@ import java.util.Set;
  * <p>This is the growth path for optional plugin-facing services: new optional services land
  * here and on {@link PluginService} instead of gaining a {@link PluginContext} accessor, so
  * the context's core contract stays small while the catalog of installable services can keep
- * expanding. Use {@link #get(Class)} for the service itself and {@link #installed()} (or
+ * expanding. Use {@link #find(Class)} for the service itself and {@link #installed()} (or
  * {@link PluginService#resolve(PluginContext)}) to probe before calling.</p>
  */
 @Incubating
@@ -26,15 +27,15 @@ public interface PluginServiceDirectory {
     Set<PluginService> installed();
 
     /**
-     * Returns the service registered for {@code serviceType}, or {@code null} when the
+     * Returns the service registered for {@code serviceType}, or empty when the
      * context exposes only its unavailable sentinel (or no member names the type).
      *
      * @param <T> the service interface type
      * @param serviceType the service interface to resolve, e.g.
      *     {@code dev.turboism.sdk.storage.PluginStorage.class}
-     * @return the installed service object, or {@code null} when absent
+     * @return the installed service object; empty when absent, never {@code null}
      */
-    <T> T get(Class<T> serviceType);
+    <T> Optional<T> find(Class<T> serviceType);
 
     /**
      * Returns the service registered for {@code serviceType}, throwing a structured
@@ -49,10 +50,8 @@ public interface PluginServiceDirectory {
      * @throws PluginServiceUnavailableException when the service is absent
      */
     default <T> T require(final Class<T> serviceType) {
-        final T service = get(serviceType);
-        if (service == null) {
-            throw new PluginServiceUnavailableException(serviceType, PluginService.forType(serviceType));
-        }
-        return service;
+        return find(serviceType)
+                .orElseThrow(() -> new PluginServiceUnavailableException(
+                        serviceType, PluginService.forType(serviceType).orElse(null)));
     }
 }

@@ -22,7 +22,8 @@ import org.junit.jupiter.api.Test;
  * {@link PluginServiceDirectory} contract: the directory every context exposes through
  * {@link PluginContext#services()} bridges each {@link PluginService} member to the matching
  * optional accessor — installed members resolve to that accessor's instance, absent members
- * resolve to {@code null}, and {@link PluginService#type()} names the accessor's return type.
+ * resolve to {@link java.util.Optional#empty()}, and {@link PluginService#type()} names the
+ * accessor's return type.
  */
 class PluginServiceDirectoryContractTest {
 
@@ -105,20 +106,28 @@ class PluginServiceDirectoryContractTest {
     }
 
     @Test
-    void absentServicesResolveToNullNotTheUnavailableSentinel() {
+    void absentServicesResolveToEmptyNotTheUnavailableSentinel() {
         final PluginServiceDirectory directory = context.services();
         assertTrue(directory.installed().isEmpty());
         for (PluginService service : PluginService.values()) {
-            assertNull(
-                    directory.get(service.type()),
+            assertTrue(
+                    directory.find(service.type()).isEmpty(),
                     service + " resolved on a context exposing only unavailable sentinels");
             assertNull(service.resolve(context), service + ".resolve() must return null for the unavailable sentinel");
         }
     }
 
     @Test
-    void unknownServiceTypesResolveToNull() {
-        assertNull(context.services().get(PluginServiceDirectory.class));
+    void unknownServiceTypesResolveToEmpty() {
+        assertTrue(context.services().find(PluginServiceDirectory.class).isEmpty());
+    }
+
+    @Test
+    void forTypeMapsServiceInterfacesToMembers() {
+        for (PluginService service : PluginService.values()) {
+            assertSame(service, PluginService.forType(service.type()).orElseThrow());
+        }
+        assertTrue(PluginService.forType(PluginServiceDirectory.class).isEmpty());
     }
 
     @Test
@@ -130,7 +139,7 @@ class PluginServiceDirectoryContractTest {
                     () -> directory.require(service.type()),
                     service + ".require() must fail structurally on an empty directory");
             assertSame(service.type(), failure.serviceType(), service + " failure must carry the requested type");
-            assertSame(service, failure.service(), service + " failure must carry the catalog member");
+            assertSame(service, failure.service().orElseThrow(), service + " failure must carry the catalog member");
         }
     }
 
@@ -143,10 +152,9 @@ class PluginServiceDirectoryContractTest {
             }
 
             @Override
-            @SuppressWarnings("unchecked")
-            public <T> T get(final Class<T> serviceType) {
+            public <T> java.util.Optional<T> find(final Class<T> serviceType) {
                 return serviceType == UiScheduler.class
-                        ? (T) new UiScheduler() {
+                        ? java.util.Optional.of(serviceType.cast(new UiScheduler() {
                             @Override
                             public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
                                 return null;
@@ -157,8 +165,8 @@ class PluginServiceDirectoryContractTest {
                                     final Runnable work, final java.time.Duration delay) {
                                 return null;
                             }
-                        }
-                        : null;
+                        }))
+                        : java.util.Optional.empty();
             }
         };
         final UiScheduler scheduler = directory.require(UiScheduler.class);
@@ -166,7 +174,7 @@ class PluginServiceDirectoryContractTest {
         final PluginServiceUnavailableException failure = assertThrows(
                 PluginServiceUnavailableException.class, () -> directory.require(PluginServiceDirectory.class));
         assertEquals(PluginServiceDirectory.class, failure.serviceType());
-        assertNull(failure.service());
+        assertTrue(failure.service().isEmpty());
     }
 
     private static String accessorName(final String memberName) {

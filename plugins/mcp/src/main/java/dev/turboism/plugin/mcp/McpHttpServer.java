@@ -108,28 +108,25 @@ final class McpHttpServer implements AutoCloseable {
             final SelectionQueryService selectionQuery = context.selectionQuery();
             stage.enter("context.cubismRead()");
             final CubismReadCapabilityService read = context.cubismRead();
-            stage.enter("context.services().get(CubismClipMaskService.class)");
-            final CubismClipMaskService clipMasks = java.util.Optional.ofNullable(
-                            context.services().get(CubismClipMaskService.class))
-                    .orElseGet(CubismClipMaskService::unavailable);
+            stage.enter("context.services().find(CubismClipMaskService.class)");
+            final CubismClipMaskService clipMasks =
+                    context.services().find(CubismClipMaskService.class).orElseGet(CubismClipMaskService::unavailable);
             stage.enter("context.cubism()");
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
             final CubismHistory history = cubism.history();
-            stage.enter("context.services().get(WorkspaceService.class)");
-            final WorkspaceService workspace = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceService.class))
-                    .orElseGet(WorkspaceService::unavailable);
-            stage.enter("context.services().get(WorkspaceLayoutService.class)");
-            final WorkspaceLayoutService workspaceLayout = java.util.Optional.ofNullable(
-                            context.services().get(WorkspaceLayoutService.class))
+            stage.enter("context.services().find(WorkspaceService.class)");
+            final WorkspaceService workspace =
+                    context.services().find(WorkspaceService.class).orElseGet(WorkspaceService::unavailable);
+            stage.enter("context.services().find(WorkspaceLayoutService.class)");
+            final WorkspaceLayoutService workspaceLayout = context.services()
+                    .find(WorkspaceLayoutService.class)
                     .orElseGet(WorkspaceLayoutService::unavailable);
             stage.enter("context.diagnostics()");
             final DiagnosticReport diagnostics = context.diagnostics();
-            stage.enter("context.services().get(EditorCommandService.class)");
-            final EditorCommandService editorCommands = java.util.Optional.ofNullable(
-                            context.services().get(EditorCommandService.class))
-                    .orElseGet(EditorCommandService::unavailable);
+            stage.enter("context.services().find(EditorCommandService.class)");
+            final EditorCommandService editorCommands =
+                    context.services().find(EditorCommandService.class).orElseGet(EditorCommandService::unavailable);
             stage.enter("context.uiScheduler()");
             final UiScheduler uiScheduler = context.uiScheduler();
             stage.enter("context.paths().stateDir()");

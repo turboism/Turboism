@@ -1329,7 +1329,7 @@ class CubismFacadeImplTest {
         final CubismFacadeImpl facade = facadeWith(
                 sampleSource(), new ArrayList<>(), List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
-        assertThrows(UnsupportedOperationException.class, () -> facade.model().active());
+        assertThrows(IllegalStateException.class, () -> facade.model().active());
     }
 
     @Test

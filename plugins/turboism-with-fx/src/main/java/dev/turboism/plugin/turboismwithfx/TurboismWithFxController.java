@@ -310,8 +310,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         context.logger().info("fx connection: starting");
         disconnectNow();
         try {
-            final McpHttpConnection connection = java.util.Optional.ofNullable(
-                            context.services().get(McpConnectionService.class))
+            final McpHttpConnection connection = context.services()
+                    .find(McpConnectionService.class)
                     .orElseGet(McpConnectionService::unavailable)
                     .current()
                     .orElseThrow(() -> new FxAcpException("Turboism MCP Server is not available"));
