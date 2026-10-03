@@ -585,10 +585,11 @@ final class McpGlueDomain {
     }
 
     private static Map<String, Object> envelope(final Map<String, Object> output) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
-                entry("isError", !Boolean.TRUE.equals(output.get("ok"))));
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
+                entry("isError", !Boolean.TRUE.equals(safe.get("ok"))));
     }
 
     private static Map<String, Object> readDefinition() {

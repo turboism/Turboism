@@ -714,9 +714,10 @@ final class McpTools {
     }
 
     private static Map<String, Object> toolResult(final Map<String, Object> output, final boolean error) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return linked(
-                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
                 entry("isError", error));
     }
 

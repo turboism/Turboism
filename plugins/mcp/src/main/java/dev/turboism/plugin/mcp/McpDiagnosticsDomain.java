@@ -160,7 +160,9 @@ final class McpDiagnosticsDomain {
                     default -> throw new McpResourceCatalog.ResourceNotFound(uri);
                 };
         return List.of(linked(
-                entry("uri", uri), entry("mimeType", "application/json"), entry("text", Json.stringify(payload))));
+                entry("uri", uri),
+                entry("mimeType", "application/json"),
+                entry("text", McpJsonSupport.stringify(payload))));
     }
 
     private Map<String, Object> core() {
