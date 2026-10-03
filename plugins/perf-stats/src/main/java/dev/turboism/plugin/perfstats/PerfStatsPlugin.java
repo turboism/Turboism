@@ -1,7 +1,6 @@
 package dev.turboism.plugin.perfstats;
 
 import dev.turboism.sdk.action.ActionRegistry;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
@@ -95,74 +94,75 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     private EmbeddedPanelContribution embeddedPanel() {
         return new EmbeddedPanelContribution(
                 PANEL_ID,
-                text("panel.title", PANEL_TITLE),
+                context.localization().text("panel.title", PANEL_TITLE),
                 PANEL_PLACEMENT,
                 PANEL_PRIORITY,
                 PanelView.column(
                         PanelView.collapsibleSection(
-                                text("chart.cpu.title", "CPU"),
+                                context.localization().text("chart.cpu.title", "CPU"),
                                 true,
                                 PanelView.chart(
                                         "cpu",
-                                        text("chart.cpu.title", "CPU"),
-                                        PanelView.series(text("series.cpu", SERIES_CPU), WINDOW_POINTS, "%", "0.0"))),
+                                        context.localization().text("chart.cpu.title", "CPU"),
+                                        PanelView.series(
+                                                context.localization().text("series.cpu", SERIES_CPU),
+                                                WINDOW_POINTS,
+                                                "%",
+                                                "0.0"))),
                         PanelView.collapsibleSection(
-                                text("chart.fps.title", CHART_TITLE_FPS),
+                                context.localization().text("chart.fps.title", CHART_TITLE_FPS),
                                 true,
                                 PanelView.chart(
                                         "fps",
-                                        text("chart.fps.title", CHART_TITLE_FPS),
-                                        PanelView.series(text("series.fps", SERIES_FPS), WINDOW_POINTS, "fps", "0.0"))),
+                                        context.localization().text("chart.fps.title", CHART_TITLE_FPS),
+                                        PanelView.series(
+                                                context.localization().text("series.fps", SERIES_FPS),
+                                                WINDOW_POINTS,
+                                                "fps",
+                                                "0.0"))),
                         PanelView.collapsibleSection(
-                                text("chart.heap.title", SERIES_HEAP),
+                                context.localization().text("chart.heap.title", SERIES_HEAP),
                                 true,
                                 PanelView.chart(
                                         "heap",
-                                        text("chart.heap.title", SERIES_HEAP),
+                                        context.localization().text("chart.heap.title", SERIES_HEAP),
                                         PanelView.series(
-                                                text("series.heap", SERIES_HEAP), WINDOW_POINTS, "MiB", "0.0"))),
+                                                context.localization().text("series.heap", SERIES_HEAP),
+                                                WINDOW_POINTS,
+                                                "MiB",
+                                                "0.0"))),
                         PanelView.collapsibleSection(
-                                text("chart.nonheap.title", SERIES_NONHEAP),
+                                context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
                                 true,
                                 PanelView.chart(
                                         "nonheap",
-                                        text("chart.nonheap.title", SERIES_NONHEAP),
+                                        context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
                                         PanelView.series(
-                                                text("series.nonheap", SERIES_NONHEAP), WINDOW_POINTS, "MiB", "0.0"))),
+                                                context.localization().text("series.nonheap", SERIES_NONHEAP),
+                                                WINDOW_POINTS,
+                                                "MiB",
+                                                "0.0"))),
                         PanelView.collapsibleSection(
-                                text("chart.gc.title", SERIES_GC),
+                                context.localization().text("chart.gc.title", SERIES_GC),
                                 true,
                                 PanelView.chart(
                                         "gc",
-                                        text("chart.gc.title", SERIES_GC),
-                                        PanelView.series(text("series.gc", SERIES_GC), WINDOW_POINTS, "ms", "0.0")))));
-    }
-
-    /**
-     * Localized text for one catalog key with an explicit English fallback when
-     * the localization service is missing or unusable; never throws.
-     */
-    private String text(final String key, final String fallback) {
-        try {
-            final PluginLocalization localization = context.localization();
-            if (localization == null) {
-                return fallback;
-            }
-            final String value = localization.text(key);
-            return value == null || value.isBlank() ? fallback : value;
-        } catch (RuntimeException unavailable) {
-            return fallback;
-        }
+                                        context.localization().text("chart.gc.title", SERIES_GC),
+                                        PanelView.series(
+                                                context.localization().text("series.gc", SERIES_GC),
+                                                WINDOW_POINTS,
+                                                "ms",
+                                                "0.0")))));
     }
 
     /** Row titles for the standalone window: the same chart.*.title copy as the embedded sections. */
     Map<String, String> chartTitles() {
         return Map.of(
-                ChartStore.KEY_CPU, text("chart.cpu.title", "CPU"),
-                ChartStore.KEY_FPS, text("chart.fps.title", CHART_TITLE_FPS),
-                ChartStore.KEY_HEAP, text("chart.heap.title", SERIES_HEAP),
-                ChartStore.KEY_NONHEAP, text("chart.nonheap.title", SERIES_NONHEAP),
-                ChartStore.KEY_GC, text("chart.gc.title", SERIES_GC));
+                ChartStore.KEY_CPU, context.localization().text("chart.cpu.title", "CPU"),
+                ChartStore.KEY_FPS, context.localization().text("chart.fps.title", CHART_TITLE_FPS),
+                ChartStore.KEY_HEAP, context.localization().text("chart.heap.title", SERIES_HEAP),
+                ChartStore.KEY_NONHEAP, context.localization().text("chart.nonheap.title", SERIES_NONHEAP),
+                ChartStore.KEY_GC, context.localization().text("chart.gc.title", SERIES_GC));
     }
 
     @Override
@@ -297,7 +297,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
     }
 
     private String cpuStatusMessage(final String value) {
-        return text(CPU_STATUS_KEY, CPU_STATUS_FALLBACK) + " " + value;
+        return context.localization().text(CPU_STATUS_KEY, CPU_STATUS_FALLBACK) + " " + value;
     }
 
     private void openWindow() {
@@ -310,10 +310,10 @@ public final class PerfStatsPlugin implements TurboismPlugin {
             return;
         }
         final PerfStatsWindow created = new PerfStatsWindow(
-                text("window.title", WINDOW_TITLE),
+                context.localization().text("window.title", WINDOW_TITLE),
                 chartTitles(),
-                text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
-                text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
+                context.localization().text(WINDOW_EXPAND_KEY, WINDOW_EXPAND_FALLBACK),
+                context.localization().text(WINDOW_COLLAPSE_KEY, WINDOW_COLLAPSE_FALLBACK),
                 store);
         if (window.compareAndSet(null, created)) {
             created.start();
@@ -332,7 +332,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
+                return context.localization().text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
             }
 
             @Override
@@ -346,7 +346,7 @@ public final class PerfStatsPlugin implements TurboismPlugin {
         return new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return MENU_ROOT + "/" + text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
+                return MENU_ROOT + "/" + context.localization().text(MENU_ITEM_KEY, WINDOW_ACTION_LABEL);
             }
 
             @Override

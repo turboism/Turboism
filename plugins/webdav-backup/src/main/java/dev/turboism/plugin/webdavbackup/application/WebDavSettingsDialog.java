@@ -63,7 +63,7 @@ public final class WebDavSettingsDialog {
 
     /** Localized text for {@code key}; falls back to the English literal when absent. */
     static String text(final PluginLocalization localization, final String key, final String fallback) {
-        return localization != null && localization.contains(key) ? localization.text(key) : fallback;
+        return localization == null ? fallback : localization.text(key, fallback);
     }
 
     /** Localized {@link java.text.MessageFormat} text for {@code key}, with an English fallback pattern. */
@@ -150,13 +150,13 @@ public final class WebDavSettingsDialog {
                     case SAVE_TRIGGERED -> "backup.remote-trigger.save-triggered";
                     case AUTO_BACKUP_SYNC -> "backup.remote-trigger.auto-backup-sync";
                 };
-        return localization != null && localization.contains(key) ? localization.text(key) : trigger.name();
+        return localization == null ? trigger.name() : localization.text(key, trigger.name());
     }
 
     /** Localized dialog row label for the trigger selector. */
     static String remoteTriggerLabel(final PluginLocalization localization) {
         final String key = "backup.dialog.remote-trigger-label";
-        return localization != null && localization.contains(key) ? localization.text(key) : "Remote trigger";
+        return localization == null ? "Remote trigger" : localization.text(key, "Remote trigger");
     }
 
     private static void show(
