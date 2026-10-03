@@ -34,6 +34,11 @@ public final class PluginScopedPhysicsEditorService implements PhysicsEditorServ
     }
 
     @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
+    }
+
+    @Override
     public Registration contribute(final PhysicsEditorContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         if (!scopeActive.getAsBoolean()) {

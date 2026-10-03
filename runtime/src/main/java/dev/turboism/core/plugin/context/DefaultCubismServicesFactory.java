@@ -30,30 +30,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
-    private static final CubismModelAccess UNAVAILABLE_MODEL_ACCESS = () -> {
-        throw new IllegalStateException("No verified active Cubism Core model is available.");
-    };
+    private static final CubismModelAccess UNAVAILABLE_MODEL_ACCESS = CubismModelAccess.unavailable();
 
-    private static final CoreRuntimeInfo UNAVAILABLE_CORE_RUNTIME = new CoreRuntimeInfo() {
-        private UnsupportedOperationException unavailable() {
-            return new UnsupportedOperationException("Core runtime metadata is unavailable.");
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.CoreVersion version() {
-            throw unavailable();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.CoreCapabilities capabilities() {
-            throw unavailable();
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
-            throw unavailable();
-        }
-    };
+    private static final CoreRuntimeInfo UNAVAILABLE_CORE_RUNTIME = CoreRuntimeInfo.unavailable();
 
     private final RuntimeHostAdapters hostAdapters;
     private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;

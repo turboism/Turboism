@@ -38,6 +38,11 @@ final class CubismFacadeAdapters {
             }
 
             @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
+
+            @Override
             public dev.turboism.sdk.cubism.core.MocInspector mocInspector() {
                 facade.requireModelRead("coreRuntime.mocInspector");
                 final dev.turboism.sdk.cubism.core.MocInspector inspector = delegate.mocInspector();
@@ -61,9 +66,18 @@ final class CubismFacadeAdapters {
 
     static CubismModelAccess permissionCheckedModelAccess(
             final CubismFacadeImpl facade, final CubismModelAccess delegate) {
-        return () -> {
-            facade.requireModelRead("model.active");
-            return new PermissionCheckedModel(facade, delegate.active());
+        Objects.requireNonNull(delegate, "delegate");
+        return new CubismModelAccess() {
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.CubismModel active() {
+                facade.requireModelRead("model.active");
+                return new PermissionCheckedModel(facade, delegate.active());
+            }
         };
     }
 
@@ -155,6 +169,11 @@ final class CubismFacadeAdapters {
                 facade.requireActiveScope();
                 return delegate.apply(target, plan);
             }
+
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
         };
     }
 
@@ -173,27 +192,40 @@ final class CubismFacadeAdapters {
                 facade.requireActiveScope();
                 return delegate.selectedTexture();
             }
+
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
         };
     }
 
     static dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi editorUiView(
             final CubismFacadeImpl facade, final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi delegate) {
-        return () -> {
-            facade.requireActiveScope();
-            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel panel = delegate.attach();
-            return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel() {
-                @Override
-                public void setText(final String text) {
-                    facade.requireActiveScope();
-                    panel.setText(text);
-                }
+        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi() {
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
+            }
 
-                @Override
-                public void close() {
-                    facade.requireActiveScope();
-                    panel.close();
-                }
-            };
+            @Override
+            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel attach() {
+                facade.requireActiveScope();
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel panel = delegate.attach();
+                return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel() {
+                    @Override
+                    public void setText(final String text) {
+                        facade.requireActiveScope();
+                        panel.setText(text);
+                    }
+
+                    @Override
+                    public void close() {
+                        facade.requireActiveScope();
+                        panel.close();
+                    }
+                };
+            }
         };
     }
 
@@ -255,6 +287,11 @@ final class CubismFacadeAdapters {
                     final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection selection) {
                 facade.requireActiveScope();
                 return delegate.selectIfUnset(selection);
+            }
+
+            @Override
+            public boolean isAvailable() {
+                return delegate.isAvailable();
             }
         };
     }
