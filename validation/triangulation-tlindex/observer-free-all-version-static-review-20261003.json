@@ -1,0 +1,64 @@
+{
+  "status": "PASS_PINNED_STATIC_INVENTORY_ONLY",
+  "nativeExecuted": false,
+  "productionAcceptance": "NOT_GRANTED",
+  "rawEvidence": "build/t076-production-acceptance-preflight-r1/observer-free-all-version-static-r1",
+  "pins": {
+    "build/t076-production-acceptance-preflight-r1/observer-free-all-version-static-r1/5203-instructions.json": "bac2c6f3da5e02fa21ad85e04d097d35539f749cc38ab48a91ce35c4a889484a",
+    "build/t076-production-acceptance-preflight-r1/observer-free-all-version-static-r1/5302-instructions.json": "f450073d5a9592760f2defff7d1d4947f044bbb8022e0d67b7711cddc6233881",
+    "build/t076-production-acceptance-preflight-r1/observer-free-all-version-static-r1/5303-instructions.json": "b1365327264bbea8b7789ae3f452713096a6f20f39b7c878e6ff7d7d186c1850",
+    "build/t076-production-acceptance-preflight-r1/observer-free-all-version-static-r1/review.json": "ed78b2365043fadf1a08e5fb7dc5cd42b436ce3039b952a620d4c3f92a7b69c9"
+  },
+  "versions": {
+    "5203": {
+      "archiveSha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+      "autoConnectReturns": [
+        54,
+        324
+      ],
+      "generatorReturns": [
+        674
+      ],
+      "loopReaderReturns": [
+        1430
+      ]
+    },
+    "5302": {
+      "archiveSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+      "autoConnectReturns": [
+        58,
+        328
+      ],
+      "generatorReturns": [
+        674
+      ],
+      "loopReaderReturns": [
+        1430
+      ]
+    },
+    "5303": {
+      "archiveSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+      "autoConnectReturns": [
+        58,
+        328
+      ],
+      "generatorReturns": [
+        674
+      ],
+      "loopReaderReturns": [
+        1430
+      ]
+    }
+  },
+  "limitations": [
+    "No interprocedural side-effect or exceptional-path proof.",
+    "Publication calls/array stores are inventoried, not proven to execute.",
+    "No all-version cold-start or plugin admission established."
+  ],
+  "pending": [
+    "Full command/publication/loop-reader call-chain proof",
+    "Three-version exact-production cold startup",
+    "Separate frozen balanced production baseline/candidate comparison",
+    "Long-run memory gates and Lane C human review"
+  ]
+}
