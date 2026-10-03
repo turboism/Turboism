@@ -779,15 +779,19 @@ class PreparedStore:
                             and source == source_root / "scripts/test/start-task-memory-observer.sh"
                         )
                         if not memory_hook:
-                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
-                                        if flag == "--remote-pre-launch"
+                            final_nmt_hook = (flag == "--remote-pre-cleanup"
+                                              and source.name == "capture-direct-nmt-launcher.py"
+                                              and source.parent == source_root / "scripts/preview")
+                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(
+                                "stage-direct-nmt-launcher.py" if final_nmt_hook else source.name)
+                                        if (flag == "--remote-pre-launch" or final_nmt_hook)
                                         and source.parent == source_root / "scripts/preview" else None)
                             if reviewed is None:
                                 raise QueueError("custom hook requires reviewed dependency inventory")
                             required_flags, description = reviewed
                             if not required_flags.issubset(argv):
                                 raise QueueError(description)
-                            if source.name == "stage-direct-nmt-launcher.py":
+                            if source.name == "stage-direct-nmt-launcher.py" or final_nmt_hook:
                                 # This synchronous writer accepts only the runner's
                                 # standard context, never caller-supplied arguments.
                                 options: dict[str, list[str]] = {}
@@ -805,9 +809,12 @@ class PreparedStore:
                                 if (task_spec != "atlas-image-shadow:5303"
                                         or options.get("--name") != ["atlas-image-shadow"]
                                         or options.get("--version") != ["5303"]
+                                        or options.get("--remote-pre-launch") != [str(source_root / "scripts/preview/stage-direct-nmt-launcher.py")]
+                                        or ("--remote-pre-cleanup" in options and options["--remote-pre-cleanup"] != [
+                                            str(source_root / "scripts/preview/capture-direct-nmt-launcher.py")])
                                         or any(flag in options for flag in (
                                             "--remote-pre-launch-background", "--remote-pre-launch-args-only",
-                                            "--remote-pre-launch-arg", "--remote-post-launch", "--remote-pre-cleanup"))):
+                                            "--remote-pre-launch-arg", "--remote-post-launch"))):
                                     raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
