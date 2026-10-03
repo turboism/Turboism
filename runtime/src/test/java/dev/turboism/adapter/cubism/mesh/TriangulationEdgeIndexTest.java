@@ -34,8 +34,8 @@ final class TriangulationEdgeIndexTest {
             assertEquals(expected.add(pair) ? 0 : 1, TriangulationBuilderEdges.seen(state, a, b));
             assertEquals(1, TriangulationBuilderEdges.seen(state, b, a));
         }
-        for (final List<Integer> pair : List.of(List.of(0, 0), List.of(-1, -1),
-                List.of(Integer.MIN_VALUE, Integer.MAX_VALUE), List.of(-7, 19))) {
+        for (final List<Integer> pair : List.of(
+                List.of(0, 0), List.of(-1, -1), List.of(Integer.MIN_VALUE, Integer.MAX_VALUE), List.of(-7, 19))) {
             assertEquals(0, TriangulationBuilderEdges.seen(state, pair.get(0), pair.get(1)));
             assertEquals(1, TriangulationBuilderEdges.seen(state, pair.get(1), pair.get(0)));
         }
@@ -131,15 +131,12 @@ final class TriangulationEdgeIndexTest {
         }
         assertTrue(nativeEqualityCalls > 0, "native control actually exercised collision equality");
         final Tri equalDifferentIndices = tri(10, 900, 901, 902);
-        assertEquals(set.contains(equalDifferentIndices),
-                TriangulationEdgeIndex.contains(set, equalDifferentIndices));
+        assertEquals(set.contains(equalDifferentIndices), TriangulationEdgeIndex.contains(set, equalDifferentIndices));
         final Tri absent = tri(1000, 0, 1, 2);
         assertFalse(TriangulationEdgeIndex.contains(set, absent));
         triangles.get(10).coords[0] = 999f;
-        assertEquals(set.contains(triangles.get(10)),
-                TriangulationEdgeIndex.contains(set, triangles.get(10)));
-        assertEquals(set.contains(equalDifferentIndices),
-                TriangulationEdgeIndex.contains(set, equalDifferentIndices));
+        assertEquals(set.contains(triangles.get(10)), TriangulationEdgeIndex.contains(set, triangles.get(10)));
+        assertEquals(set.contains(equalDifferentIndices), TriangulationEdgeIndex.contains(set, equalDifferentIndices));
     }
 
     @Test
@@ -160,8 +157,7 @@ final class TriangulationEdgeIndexTest {
         assertFalse(TriangulationEdgeIndex.contains(set, removed)); // same size, but dirty
         assertTrue(TriangulationEdgeIndex.contains(set, replacement));
         TriangulationEdgeIndex.st(set).dead = true;
-        assertEquals(set.contains(tri(2, 90, 91, 92)),
-                TriangulationEdgeIndex.contains(set, tri(2, 90, 91, 92)));
+        assertEquals(set.contains(tri(2, 90, 91, 92)), TriangulationEdgeIndex.contains(set, tri(2, 90, 91, 92)));
         TriangulationEdgeIndex.clear(set);
         assertFalse(TriangulationEdgeIndex.contains(set, survivor));
     }
@@ -182,9 +178,7 @@ final class TriangulationEdgeIndexTest {
                                 random.nextInt(12) - 2,
                                 random.nextInt(12) - 2);
                         final boolean expect = !set.contains(t);
-                        assertEquals(
-                                expect,
-                                TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic));
+                        assertEquals(expect, TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic));
                         if (expect) added.add(t);
                     }
                     case 4 -> {
@@ -192,9 +186,7 @@ final class TriangulationEdgeIndexTest {
                             final Tri victim = added.remove(random.nextInt(added.size()));
                             // contains() uses the same equals semantics remove() applies.
                             final boolean expect = set.contains(victim);
-                            assertEquals(
-                                    expect,
-                                    TriangulationEdgeIndex.remove(set, victim));
+                            assertEquals(expect, TriangulationEdgeIndex.remove(set, victim));
                         }
                     }
                     case 5 -> {
@@ -210,9 +202,7 @@ final class TriangulationEdgeIndexTest {
                         // No side-path mutation happens in this trial, so the index must never
                         // decline; a null here would mask a divergence.
                         assertEquals(
-                                scan(set, ja, jb),
-                                hits,
-                                "indexed result diverged from the scan at trial " + trial);
+                                scan(set, ja, jb), hits, "indexed result diverged from the scan at trial " + trial);
                     }
                 }
             }
@@ -251,10 +241,10 @@ final class TriangulationEdgeIndexTest {
         assertEquals(stored, probe);
         assertTrue(TriangulationEdgeIndex.remove(set, probe));
         assertTrue(set.isEmpty());
-        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 1, 2),
-                "the stored element's keys must be deindexed");
-        assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, 40, 41),
-                "the argument's keys must never be indexed");
+        assertEquals(
+                List.of(), TriangulationEdgeIndex.tryQuery(set, 1, 2), "the stored element's keys must be deindexed");
+        assertEquals(
+                List.of(), TriangulationEdgeIndex.tryQuery(set, 40, 41), "the argument's keys must never be indexed");
     }
 
     @Test
@@ -286,10 +276,10 @@ final class TriangulationEdgeIndexTest {
         // The index never saw this element's vertex keys — it can no longer answer faithfully.
         set.add(tri(2, 1, 2, 7));
 
-        assertNull(TriangulationEdgeIndex.tryQuery(set, 1, 2),
+        assertNull(
+                TriangulationEdgeIndex.tryQuery(set, 1, 2),
                 "an element with no recorded keys must decline to the original scan");
-        assertNull(TriangulationEdgeIndex.tryQuery(set, 2, 1),
-                "the index stays dead once inconsistency is proven");
+        assertNull(TriangulationEdgeIndex.tryQuery(set, 2, 1), "the index stays dead once inconsistency is proven");
         // The set itself is unharmed: the official scan still answers.
         assertEquals(List.of(t1, tri(2, 1, 2, 7)), scan(set, 1, 2));
         final var deadState = TriangulationEdgeIndex.st(set);
@@ -297,7 +287,8 @@ final class TriangulationEdgeIndexTest {
         assertTrue(deadState.keys.isEmpty(), "clear releases recorded triangles even on a dead set");
         assertTrue(deadState.byKey.isEmpty());
         TriangulationEdgeIndex.add(set, t1, t1.ia, t1.ib, t1.ic);
-        assertNull(TriangulationEdgeIndex.tryQuery(set, 1, 2),
+        assertNull(
+                TriangulationEdgeIndex.tryQuery(set, 1, 2),
                 "clear must not reactivate an index permanently declined for this set");
         assertTrue(deadState.keys.isEmpty(), "dead states do not retain newly added triangles");
     }
@@ -306,7 +297,10 @@ final class TriangulationEdgeIndexTest {
     void registryUsesObjectIdentityWithoutHashingOrComparingSets() {
         final class IdentityOnlySet extends LinkedHashSet<Tri> {
             @Override
-            public int hashCode() { throw new AssertionError("Set.hashCode must not be called"); }
+            public int hashCode() {
+                throw new AssertionError("Set.hashCode must not be called");
+            }
+
             @Override
             public boolean equals(final Object other) {
                 throw new AssertionError("Set.equals must not be called");
@@ -368,8 +362,8 @@ final class TriangulationEdgeIndexTest {
             TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic);
         }
         for (int i = 0; i < 1024; i++) {
-            assertEquals(i == 0 ? List.of(triangles.get(0))
-                            : List.of(triangles.get(i - 1), triangles.get(i)),
+            assertEquals(
+                    i == 0 ? List.of(triangles.get(0)) : List.of(triangles.get(i - 1), triangles.get(i)),
                     TriangulationEdgeIndex.tryQuery(set, i, i + 1));
         }
         List<?> last = null;
@@ -387,8 +381,7 @@ final class TriangulationEdgeIndexTest {
         assertEquals(2, last.size());
         // A fresh two-element result needs its own list and array, not boxed lookup
         // keys or reflection arrays for collision-tree Comparable discovery.
-        assertTrue(allocated <= 200_000L * 56 + 4096,
-                "edge queries allocated " + allocated + " bytes");
+        assertTrue(allocated <= 200_000L * 56 + 4096, "edge queries allocated " + allocated + " bytes");
         TriangulationEdgeIndex.clear(set);
     }
 
@@ -408,8 +401,7 @@ final class TriangulationEdgeIndexTest {
                 work.add(executor.submit(() -> {
                     for (int i = 0; i < 5000; i++) {
                         final int edge = (i + offset) & 31;
-                        assertEquals(scan(set, edge, edge + 1),
-                                TriangulationEdgeIndex.tryQuery(set, edge, edge + 1));
+                        assertEquals(scan(set, edge, edge + 1), TriangulationEdgeIndex.tryQuery(set, edge, edge + 1));
                     }
                 }));
             }
@@ -429,7 +421,9 @@ final class TriangulationEdgeIndexTest {
         final var state = TriangulationEdgeIndex.st(set);
         synchronized (TriangulationEdgeIndex.class) {
             final var key = TriangulationEdgeIndex.STATES.keySet().stream()
-                    .filter(candidate -> candidate.get() == set).findFirst().orElseThrow();
+                    .filter(candidate -> candidate.get() == set)
+                    .findFirst()
+                    .orElseThrow();
             assertTrue(key.enqueue());
             assertNull(key.get());
             final LinkedHashSet<Tri> other = new LinkedHashSet<>();
@@ -456,8 +450,7 @@ final class TriangulationEdgeIndexTest {
                         final LinkedHashSet<Tri> set = new LinkedHashSet<>();
                         final Tri t = tri(seed + trial, seed, trial, trial + 1);
                         assertTrue(TriangulationEdgeIndex.add(set, t, t.ia, t.ib, t.ic));
-                        assertEquals(scan(set, t.ia, t.ib),
-                                TriangulationEdgeIndex.tryQuery(set, t.ia, t.ib));
+                        assertEquals(scan(set, t.ia, t.ib), TriangulationEdgeIndex.tryQuery(set, t.ia, t.ib));
                         assertTrue(TriangulationEdgeIndex.remove(set, t));
                         assertEquals(List.of(), TriangulationEdgeIndex.tryQuery(set, t.ia, t.ib));
                         TriangulationEdgeIndex.clear(set);
@@ -478,7 +471,9 @@ final class TriangulationEdgeIndexTest {
         TriangulationEdgeIndex.add(set, t, 1, 2, 3);
         final var oldState = TriangulationEdgeIndex.st(set);
         TriangulationEdgeIndex.clear(set);
-        org.junit.jupiter.api.Assertions.assertNotSame(oldState, TriangulationEdgeIndex.st(set),
+        org.junit.jupiter.api.Assertions.assertNotSame(
+                oldState,
+                TriangulationEdgeIndex.st(set),
                 "clear must unregister the old state instead of retaining it for process lifetime");
         assertTrue(oldState.keys.isEmpty());
         assertTrue(oldState.byKey.isEmpty());
@@ -573,7 +568,9 @@ final class TriangulationEdgeIndexTest {
         final int nativeComparisons = victim.equalityCalls;
         victim.equalityCalls = 0;
         assertTrue(TriangulationEdgeIndex.remove(indexedSet, victim));
-        assertEquals(nativeComparisons, victim.equalityCalls,
+        assertEquals(
+                nativeComparisons,
+                victim.equalityCalls,
                 "bookkeeping must not repeat the host's expensive element equality");
         assertEquals(new ArrayList<>(nativeSet), TriangulationEdgeIndex.tryQuery(indexedSet, 1, 2));
     }
@@ -587,9 +584,21 @@ final class TriangulationEdgeIndexTest {
             public Iterator<Tri> iterator() {
                 final Iterator<Tri> actual = super.iterator();
                 return new Iterator<>() {
-                    @Override public boolean hasNext() { return actual.hasNext(); }
-                    @Override public Tri next() { visits++; return actual.next(); }
-                    @Override public void remove() { actual.remove(); }
+                    @Override
+                    public boolean hasNext() {
+                        return actual.hasNext();
+                    }
+
+                    @Override
+                    public Tri next() {
+                        visits++;
+                        return actual.next();
+                    }
+
+                    @Override
+                    public void remove() {
+                        actual.remove();
+                    }
                 };
             }
         }
@@ -609,8 +618,7 @@ final class TriangulationEdgeIndexTest {
         assertTrue(TriangulationEdgeIndex.add(set, first, first.ia, first.ib, first.ic));
         assertTrue(TriangulationEdgeIndex.add(set, second, second.ia, second.ib, second.ic));
         final List<?> hits = TriangulationEdgeIndex.tryQuery(set, 1, 2);
-        assertEquals(set.size(), set.visits,
-                "the native two-remove/two-add sequence needs one survivor traversal");
+        assertEquals(set.size(), set.visits, "the native two-remove/two-add sequence needs one survivor traversal");
         assertEquals(scan(set, 1, 2), hits);
         assertSame(first, hits.get(hits.size() - 2));
         assertSame(second, hits.get(hits.size() - 1));
@@ -697,7 +705,9 @@ final class TriangulationEdgeIndexTest {
     void failedPendingMembershipScanPermanentlyDeclinesTheIndex() {
         final class FailingSet extends LinkedHashSet<Tri> {
             boolean fail;
-            @Override public Iterator<Tri> iterator() {
+
+            @Override
+            public Iterator<Tri> iterator() {
                 if (fail) throw new IllegalStateException("scan unavailable");
                 return super.iterator();
             }

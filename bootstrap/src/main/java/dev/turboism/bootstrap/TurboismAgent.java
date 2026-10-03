@@ -132,8 +132,9 @@ public final class TurboismAgent {
             // retain their previous instrumentation and cannot admit lazy-edge leases.
             final Instrumentation hookInstrumentation =
                     attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN && instrumentation != null
-                            ? dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle
-                                    .forPremain(instrumentation, TurboismAgent.class.getName()).instrumentation()
+                            ? dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.forPremain(
+                                            instrumentation, TurboismAgent.class.getName())
+                                    .instrumentation()
                             : instrumentation;
             JvmShims.install(attachmentMode, hookInstrumentation, options);
             final HookEnvironment premainEnvironment = HookEnvironment.builder()

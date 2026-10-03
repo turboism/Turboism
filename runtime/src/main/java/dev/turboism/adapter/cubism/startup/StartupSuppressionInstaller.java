@@ -125,8 +125,9 @@ public final class StartupSuppressionInstaller {
                     // operation. targetAttempted already makes this transformer
                     // inert; its installation handle removes it at shutdown.
                     if (installed != null
-                            && dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle
-                                    .ownedBy(instrumentation) == null) {
+                            && dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.ownedBy(
+                                            instrumentation)
+                                    == null) {
                         instrumentation.removeTransformer(installed);
                     }
                 },

@@ -403,8 +403,7 @@ public final class AtlasCacheReuseDelegate {
         final byte[] scratch = new byte[64 * 1024];
         int used = 0;
         final DataBuffer buffer = image.getRaster().getDataBuffer();
-        if (buffer instanceof DataBufferInt ints
-                && buffer.getSize() == image.getWidth() * image.getHeight()) {
+        if (buffer instanceof DataBufferInt ints && buffer.getSize() == image.getWidth() * image.getHeight()) {
             used = updatePixels(sha, scratch, used, ints.getData());
         } else {
             final int[] row = new int[image.getWidth()];
@@ -430,8 +429,7 @@ public final class AtlasCacheReuseDelegate {
      * batches and flush the remainder once — the hashed byte stream is identical to four
      * per-byte {@code update(byte)} calls per int, only chunked.
      */
-    private static int updatePixels(
-            final MessageDigest sha, final byte[] scratch, int used, final int[] values) {
+    private static int updatePixels(final MessageDigest sha, final byte[] scratch, int used, final int[] values) {
         for (final int v : values) {
             scratch[used++] = (byte) (v >>> 24);
             scratch[used++] = (byte) (v >>> 16);

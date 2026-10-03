@@ -11,7 +11,8 @@ import java.util.Objects;
  * <p>Mirrors the mesh triangulation preference service: the same repository, the same write path,
  * and the same rule that a persistence failure reaches the caller instead of being swallowed.</p>
  */
-public final class TriangulationEdgeIndexSettingsFileService implements TriangulationEdgeIndexSettingsService, AutoCloseable {
+public final class TriangulationEdgeIndexSettingsFileService
+        implements TriangulationEdgeIndexSettingsService, AutoCloseable {
 
     private final RuntimeConfigRepository config;
 

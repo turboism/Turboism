@@ -57,7 +57,8 @@ public record ShellServices(
         meshTriangulationSettings = Objects.requireNonNull(meshTriangulationSettings, "meshTriangulationSettings");
         atlasTileBboxSettings = Objects.requireNonNull(atlasTileBboxSettings, "atlasTileBboxSettings");
         atlasCacheReuseSettings = Objects.requireNonNull(atlasCacheReuseSettings, "atlasCacheReuseSettings");
-        triangulationEdgeIndexSettings = Objects.requireNonNull(triangulationEdgeIndexSettings, "triangulationEdgeIndexSettings");
+        triangulationEdgeIndexSettings =
+                Objects.requireNonNull(triangulationEdgeIndexSettings, "triangulationEdgeIndexSettings");
         settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");

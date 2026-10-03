@@ -388,8 +388,7 @@ final class AtlasCacheReuseDelegateTest {
         return hex.toString();
     }
 
-    private static BufferedImage randomImage(
-            final int width, final int height, final int type, final long seed) {
+    private static BufferedImage randomImage(final int width, final int height, final int type, final long seed) {
         final BufferedImage image = new BufferedImage(width, height, type);
         final Random random = new Random(seed);
         for (int y = 0; y < height; y++) {
@@ -404,8 +403,7 @@ final class AtlasCacheReuseDelegateTest {
     void batchedDigestMatchesByteAtATimeOnIntRasters() {
         // Odd dimensions keep the pixel count off power-of-two boundaries.
         for (final int type :
-                new int[] {BufferedImage.TYPE_INT_ARGB, BufferedImage.TYPE_INT_RGB,
-                    BufferedImage.TYPE_INT_ARGB_PRE}) {
+                new int[] {BufferedImage.TYPE_INT_ARGB, BufferedImage.TYPE_INT_RGB, BufferedImage.TYPE_INT_ARGB_PRE}) {
             final BufferedImage image = randomImage(37, 23, type, 0xC041 + type);
             assertEquals(
                     referenceDigest(image),
@@ -432,9 +430,12 @@ final class AtlasCacheReuseDelegateTest {
     void batchedDigestMatchesOnTheGetRgbPath() {
         // Non-int buffers always take the per-row getRGB path; palette/banded types
         // also exercise ARGB conversion rather than raw passthrough.
-        for (final int type :
-                new int[] {BufferedImage.TYPE_3BYTE_BGR, BufferedImage.TYPE_4BYTE_ABGR,
-                    BufferedImage.TYPE_BYTE_GRAY, BufferedImage.TYPE_BYTE_BINARY}) {
+        for (final int type : new int[] {
+            BufferedImage.TYPE_3BYTE_BGR,
+            BufferedImage.TYPE_4BYTE_ABGR,
+            BufferedImage.TYPE_BYTE_GRAY,
+            BufferedImage.TYPE_BYTE_BINARY
+        }) {
             final BufferedImage image = randomImage(37, 23, type, 0xB0A7 + type);
             assertEquals(
                     referenceDigest(image),
@@ -465,12 +466,9 @@ final class AtlasCacheReuseDelegateTest {
         for (int i = 0; i < data.length; i++) data[i] = random.nextInt();
         final DataBufferInt buffer = new DataBufferInt(data, 64);
         final WritableRaster raster = Raster.createPackedRaster(
-                buffer, 8, 8, 8,
-                new int[] {0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000},
-                null);
+                buffer, 8, 8, 8, new int[] {0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000}, null);
         final BufferedImage image = new BufferedImage(
-                new DirectColorModel(32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000),
-                raster, false, null);
+                new DirectColorModel(32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000), raster, false, null);
         assertEquals(
                 referenceDigest(image),
                 AtlasCacheReuseDelegate.pixelDigest(image),
@@ -479,8 +477,7 @@ final class AtlasCacheReuseDelegateTest {
 
     @Test
     void batchedDigestStaysNullOverBudget() {
-        final BufferedImage overBudget =
-                new BufferedImage(8193, 8193, BufferedImage.TYPE_BYTE_BINARY);
+        final BufferedImage overBudget = new BufferedImage(8193, 8193, BufferedImage.TYPE_BYTE_BINARY);
         assertNull(referenceDigest(overBudget));
         assertNull(
                 AtlasCacheReuseDelegate.pixelDigest(overBudget),
