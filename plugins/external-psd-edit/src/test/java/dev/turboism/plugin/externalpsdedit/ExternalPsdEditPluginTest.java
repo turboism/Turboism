@@ -2466,7 +2466,6 @@ class ExternalPsdEditPluginTest {
             return contribution -> () -> {};
         }
 
-        @Override
         public RecordingContextMenuRegistry contextMenu() {
             return contextMenu;
         }
@@ -2486,7 +2485,6 @@ class ExternalPsdEditPluginTest {
             return disposableScope;
         }
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -2494,6 +2492,15 @@ class ExternalPsdEditPluginTest {
         @Override
         public RecordingTaskScheduler tasks() {
             return taskScheduler;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

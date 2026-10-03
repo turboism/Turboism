@@ -34,6 +34,7 @@ import dev.turboism.sdk.task.TaskOutcomeStatus;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
@@ -1262,7 +1263,9 @@ final class ExternalPsdEditSessionManager {
 
     private boolean confirmMultiple(final int count) {
         try {
-            return context.uiHost()
+            return context.services()
+                    .find(UiHostCapabilityService.class)
+                    .orElse(UiHostCapabilityService.unavailable())
                     .confirmDialog(new DialogRequest(
                             "external-psd-edit.confirm.open-multiple",
                             text("external-psd-edit.confirm.open-multiple.title"),
@@ -1483,7 +1486,10 @@ final class ExternalPsdEditSessionManager {
 
     private void notifyStatus(final String id, final String severity, final String message) {
         try {
-            context.uiHost().notifyStatus(new StatusNotification(id, severity, message));
+            context.services()
+                    .find(UiHostCapabilityService.class)
+                    .orElse(UiHostCapabilityService.unavailable())
+                    .notifyStatus(new StatusNotification(id, severity, message));
         } catch (RuntimeException ignored) {
             context.logger().warn("status notification unavailable: " + message);
         }
