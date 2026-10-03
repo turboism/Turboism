@@ -4,6 +4,7 @@ import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot.PsdLayerSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
@@ -7155,7 +7156,7 @@ n     * via the official undo and re-measure the post-GC heap, then redo. A drop
                         // No await or callback is allowed between this sequence capture and the
                         // native command.  The shared seam has just rechecked all task state.
                         final long executeBeforeSequence = lifecycleSequence.get();
-                        final EditorCommandResult saved = context.editorCommands().execute(
+                        final EditorCommandResult saved = context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()).execute(
                             new EditorFileCommandRequest(
                                 EditorFileCommand.SAVE_AS, handle,
                                 EditorOverwritePolicy.REPLACE_EXISTING));

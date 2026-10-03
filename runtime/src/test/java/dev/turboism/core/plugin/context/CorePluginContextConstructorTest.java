@@ -96,9 +96,18 @@ class CorePluginContextConstructorTest {
             assertFalse(context.userFiles().isAvailable());
             assertSame(AsyncHostReadService.unavailable(), context.hostReads());
             assertFalse(context.hostReads().isAvailable());
-            assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-            assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+            assertFalse(context.services()
+                    .find(RuntimeSettingsService.class)
+                    .orElse(RuntimeSettingsService.unavailable())
+                    .isAvailable());
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    context.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertOptionalAvailability(context, Set.of(PluginService.LOCALIZATION));
         }
     }
@@ -120,9 +129,18 @@ class CorePluginContextConstructorTest {
             assertFalse(context.userFiles().isAvailable());
             assertSame(AsyncHostReadService.unavailable(), context.hostReads());
             assertFalse(context.hostReads().isAvailable());
-            assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-            assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+            assertFalse(context.services()
+                    .find(RuntimeSettingsService.class)
+                    .orElse(RuntimeSettingsService.unavailable())
+                    .isAvailable());
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    context.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertOptionalAvailability(context, Set.of(PluginService.LOCALIZATION, PluginService.TASKS));
         }
     }
@@ -144,9 +162,18 @@ class CorePluginContextConstructorTest {
             assertFalse(context.userFiles().isAvailable());
             assertSame(AsyncHostReadService.unavailable(), context.hostReads());
             assertFalse(context.hostReads().isAvailable());
-            assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-            assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+            assertFalse(context.services()
+                    .find(RuntimeSettingsService.class)
+                    .orElse(RuntimeSettingsService.unavailable())
+                    .isAvailable());
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    context.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertOptionalAvailability(
                     context, Set.of(PluginService.LOCALIZATION, PluginService.TASKS, PluginService.STORAGE));
         }
@@ -169,9 +196,18 @@ class CorePluginContextConstructorTest {
             assertSame(userFiles, context.userFiles());
             assertSame(AsyncHostReadService.unavailable(), context.hostReads());
             assertFalse(context.hostReads().isAvailable());
-            assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-            assertFalse(context.runtimeSettings().isAvailable());
-            assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+            assertFalse(context.services()
+                    .find(RuntimeSettingsService.class)
+                    .orElse(RuntimeSettingsService.unavailable())
+                    .isAvailable());
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    context.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertOptionalAvailability(
                     context,
                     Set.of(
@@ -192,7 +228,7 @@ class CorePluginContextConstructorTest {
 
             assertCoreInvariants(context, underTest.dependencies);
             assertOmittedServiceDefaults(context);
-            assertEquals(baseline.availableServices(), context.availableServices());
+            assertEquals(baseline.services().installed(), context.services().installed());
             assertEquals(
                     baseline.cubismRead().activeProject(), context.cubismRead().activeProject());
         }
@@ -217,8 +253,16 @@ class CorePluginContextConstructorTest {
             assertSame(storage, sevenArg.storage());
             assertSame(userFiles, sevenArg.userFiles());
             assertSame(hostReads, sevenArg.hostReads());
-            assertSame(RuntimeSettingsService.unavailable(), sevenArg.runtimeSettings());
-            assertSame(FileChooserHistoryService.unavailable(), sevenArg.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    sevenArg.services()
+                            .find(RuntimeSettingsService.class)
+                            .orElse(RuntimeSettingsService.unavailable()));
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    sevenArg.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertOptionalAvailability(
                     sevenArg,
                     Set.of(
@@ -231,7 +275,11 @@ class CorePluginContextConstructorTest {
             final dev.turboism.sdk.runtime.RuntimeSettingsService settings = runtimeSettings();
             final CorePluginContext eightArg = new CorePluginContext(
                     eight.dependencies, eight.session, localization, tasks, storage, userFiles, hostReads, settings);
-            assertSame(settings, eightArg.runtimeSettings());
+            assertSame(
+                    settings,
+                    eightArg.services()
+                            .find(RuntimeSettingsService.class)
+                            .orElse(RuntimeSettingsService.unavailable()));
             assertOptionalAvailability(
                     eightArg,
                     Set.of(
@@ -245,10 +293,17 @@ class CorePluginContextConstructorTest {
             final FileChooserHistoryService history = fileChooserHistory();
             final CorePluginContext nineArg = new CorePluginContext(
                     nine.dependencies, nine.session, localization, tasks, storage, userFiles, hostReads, null, history);
-            assertNotSame(history, nineArg.fileChooserHistory());
+            assertNotSame(
+                    history,
+                    nineArg.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
             assertThrows(
                     CubismEditorApiUnavailableException.class,
-                    () -> nineArg.fileChooserHistory().projectRecentDirectory());
+                    () -> nineArg.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable())
+                            .projectRecentDirectory());
             assertOptionalAvailability(
                     nineArg,
                     Set.of(
@@ -274,7 +329,11 @@ class CorePluginContextConstructorTest {
                     userFiles(),
                     hostReads(),
                     null);
-            assertSame(RuntimeSettingsService.unavailable(), eightArg.runtimeSettings());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    eightArg.services()
+                            .find(RuntimeSettingsService.class)
+                            .orElse(RuntimeSettingsService.unavailable()));
 
             final CorePluginContext nineArg = new CorePluginContext(
                     nine.dependencies,
@@ -286,8 +345,14 @@ class CorePluginContextConstructorTest {
                     hostReads(),
                     null,
                     null);
-            assertSame(RuntimeSettingsService.unavailable(), nineArg.runtimeSettings());
-            assertSame(FileChooserHistoryService.unavailable(), nineArg.fileChooserHistory());
+            assertSame(
+                    RuntimeSettingsService.unavailable(),
+                    nineArg.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+            assertSame(
+                    FileChooserHistoryService.unavailable(),
+                    nineArg.services()
+                            .find(FileChooserHistoryService.class)
+                            .orElse(FileChooserHistoryService.unavailable()));
         }
     }
 
@@ -445,14 +510,23 @@ class CorePluginContextConstructorTest {
         assertFalse(context.userFiles().isAvailable());
         assertSame(AsyncHostReadService.unavailable(), context.hostReads());
         assertFalse(context.hostReads().isAvailable());
-        assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-        assertFalse(context.runtimeSettings().isAvailable());
-        assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+        assertSame(
+                RuntimeSettingsService.unavailable(),
+                context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+        assertFalse(context.services()
+                .find(RuntimeSettingsService.class)
+                .orElse(RuntimeSettingsService.unavailable())
+                .isAvailable());
+        assertSame(
+                FileChooserHistoryService.unavailable(),
+                context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable()));
     }
 
     private static void assertOptionalAvailability(
             final CorePluginContext context, final Set<PluginService> expectedPresent) {
-        final Set<PluginService> available = context.availableServices();
+        final Set<PluginService> available = context.services().installed();
         for (final PluginService slot : OPTIONAL_SLOTS) {
             assertEquals(
                     expectedPresent.contains(slot),

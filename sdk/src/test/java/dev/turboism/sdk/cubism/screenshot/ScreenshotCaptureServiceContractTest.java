@@ -20,13 +20,8 @@ final class ScreenshotCaptureServiceContractTest {
 
     @Test
     void exposesBoundedAsyncPngCaptureWithoutHostOrPathEscape() throws Exception {
-        final Method accessor = Arrays.stream(PluginContext.class.getMethods())
-                .filter(method -> method.getName().equals("screenshots"))
-                .findFirst()
-                .orElseThrow();
-
-        assertTrue(accessor.isDefault());
-        assertEquals(ScreenshotCaptureService.class, accessor.getReturnType());
+        assertTrue(Arrays.stream(PluginContext.class.getMethods())
+                .noneMatch(method -> method.getName().equals("screenshots")));
         assertEquals(
                 CompletionStage.class,
                 ScreenshotCaptureService.class
@@ -37,7 +32,9 @@ final class ScreenshotCaptureServiceContractTest {
                 PluginContext.class.getClassLoader(),
                 new Class<?>[] {PluginContext.class},
                 (proxy, method, args) -> method.isDefault() ? invokeDefault(proxy, method, args) : null);
-        assertSame(ScreenshotCaptureService.unavailable(), context.screenshots());
+        assertSame(
+                ScreenshotCaptureService.unavailable(),
+                context.services().find(ScreenshotCaptureService.class).orElse(ScreenshotCaptureService.unavailable()));
 
         final ScreenshotCaptureRequest request = new ScreenshotCaptureRequest(new RecentFileId("recent-1"), 150, 150);
         // Bounds are capped at 150×150 per the preview contract.

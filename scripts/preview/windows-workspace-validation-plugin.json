@@ -4,7 +4,7 @@
   "id": "dev.turboism.validation.workspace",
   "name": "Windows Workspace Validation Probe",
   "version": "0.1.0",
-  "description": "SDK probe for manual and opt-in automatic exact-host Workspace validation: current/status, bounded workspace matrix operations, and fail-closed behavior through the real PluginContext.workspace() path.",
+  "description": "SDK probe for manual and opt-in automatic exact-host Workspace validation: current/status, bounded workspace matrix operations, and fail-closed behavior through the real PluginContext.services() WorkspaceService path.",
   "entrypoints": [
     "dev.turboism.tests.plugin.WindowsWorkspaceValidationProbe"
   ],
