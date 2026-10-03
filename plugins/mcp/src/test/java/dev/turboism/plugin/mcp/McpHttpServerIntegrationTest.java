@@ -25,7 +25,6 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
-import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
@@ -38,8 +37,6 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRe
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchy;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
@@ -1392,7 +1389,6 @@ final class McpHttpServerIntegrationTest {
         return new McpHttpServer.Dependencies(
                 logger,
                 objects,
-                reads.parameters,
                 reads.hierarchy,
                 reads.selection,
                 reads.read,
@@ -1445,7 +1441,6 @@ final class McpHttpServerIntegrationTest {
                     case "logger" -> logger;
                     case "paths" -> paths;
                     case "modelObjects" -> objects;
-                    case "parameterQuery" -> reads.parameters;
                     case "modelHierarchyQuery" -> reads.hierarchy;
                     case "selectionQuery" -> reads.selection;
                     case "cubismRead" -> reads.read;
@@ -1473,34 +1468,10 @@ final class McpHttpServerIntegrationTest {
     }
 
     static final class FakeReadServices {
-        final FakeParameterQuery parameters = new FakeParameterQuery();
         final FakeHierarchyQuery hierarchy = new FakeHierarchyQuery();
         final FakeSelectionQuery selection = new FakeSelectionQuery();
         final FakeRead read = new FakeRead();
         final FakeClipMasks clipMasks = new FakeClipMasks();
-    }
-
-    static final class FakeParameterQuery implements ParameterQueryService {
-        private final LinkedHashMap<String, ParameterSummary> values = new LinkedHashMap<>();
-
-        void put(final ParameterSummary value) {
-            values.put(value.id().value(), value);
-        }
-
-        @Override
-        public Optional<ParameterSummary> findById(final ParameterId id) {
-            return Optional.ofNullable(values.get(id.value()));
-        }
-
-        @Override
-        public List<ParameterSummary> listAll() {
-            return List.copyOf(values.values());
-        }
-
-        @Override
-        public boolean exists(final ParameterId id) {
-            return values.containsKey(id.value());
-        }
     }
 
     static final class FakeHierarchyQuery implements ModelHierarchyQueryService {

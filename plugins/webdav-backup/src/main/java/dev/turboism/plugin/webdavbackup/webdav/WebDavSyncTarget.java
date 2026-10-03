@@ -32,14 +32,22 @@ import javax.net.ssl.X509TrustManager;
  * origin; a 3xx response is a fail-closed diagnostic. Zero third-party
  * dependencies ({@code java.net.http} only).</p>
  */
-public final class WebDavSyncTarget implements BackupSyncTarget {
+public final class WebDavSyncTarget implements BackupSyncTarget, AutoCloseable {
 
     private static final String DAV_DEPTH_1 =
             "<?xml version=\"1.0\"?>" + "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:resourcetype/></d:prop></d:propfind>";
 
+    /** Bound on waiting for an owned reader pool to drain after close. */
+    private static final Duration OWNED_POOL_SHUTDOWN_BOUND = Duration.ofSeconds(5);
+
+    private static final java.util.concurrent.atomic.AtomicInteger OWNED_POOL_SEQUENCE =
+            new java.util.concurrent.atomic.AtomicInteger();
+
     private final WebDavConfig config;
     private final HttpClient client;
     private final java.util.function.Consumer<String> diagnostics;
+    private final java.util.concurrent.ExecutorService uploadWorkers;
+    private final java.util.concurrent.ExecutorService ownedWorkers;
 
     public WebDavSyncTarget(final WebDavConfig config) {
         this(config, reason -> {});
@@ -47,15 +55,76 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
 
     /** Test seam: a diagnostics sink receives sanitized failure reasons (never credentials). */
     public WebDavSyncTarget(final WebDavConfig config, final java.util.function.Consumer<String> diagnostics) {
+        this(config, diagnostics, null);
+    }
+
+    /**
+     * @param uploadExecutor the caller-scoped executor that runs the body
+     *        publisher's reader drains and this client's dependent HTTP work;
+     *        {@code null} builds an owned self-timing-out pool released by
+     *        {@link #close()}. An injected executor is never shut down here —
+     *        its owner (the plugin) closes it with the rest of its lifecycle.
+     */
+    public WebDavSyncTarget(
+            final WebDavConfig config,
+            final java.util.function.Consumer<String> diagnostics,
+            final java.util.concurrent.ExecutorService uploadExecutor) {
         this.config = Objects.requireNonNull(config, "config");
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
+        this.ownedWorkers = uploadExecutor == null ? ownedWorkerPool() : null;
+        this.uploadWorkers = uploadExecutor != null ? uploadExecutor : ownedWorkers;
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(config.timeoutSeconds()))
+                .executor(uploadWorkers)
                 .followRedirects(HttpClient.Redirect.NEVER);
         if (!config.verifyTls()) {
             builder.sslContext(permissiveSslContext());
         }
         this.client = builder.build();
+    }
+
+    /**
+     * Releases an owned worker pool; an injected executor stays open (its owner
+     * shuts it down). Dependent HTTP work queued to a shut-down executor fails
+     * the send instead of leaking.
+     */
+    @Override
+    public void close() {
+        final java.util.concurrent.ExecutorService owned = ownedWorkers;
+        if (owned == null) {
+            return;
+        }
+        owned.shutdownNow();
+        try {
+            if (!owned.awaitTermination(
+                    OWNED_POOL_SHUTDOWN_BOUND.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                diagnostics.accept("webdav:reader-pool lingered past the shutdown bound");
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * The fallback pool for callers that do not inject an executor: daemon
+     * threads that retire themselves seconds after going idle, so a forgotten
+     * {@link #close()} cannot pin the plugin classloader forever.
+     */
+    private static java.util.concurrent.ExecutorService ownedWorkerPool() {
+        final java.util.concurrent.ThreadPoolExecutor pool = new java.util.concurrent.ThreadPoolExecutor(
+                0,
+                2,
+                5L,
+                java.util.concurrent.TimeUnit.SECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(),
+                runnable -> {
+                    final Thread thread =
+                            new Thread(runnable, "webdav-upload-reader-owned-" + OWNED_POOL_SEQUENCE.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        pool.allowCoreThreadTimeOut(true);
+        return pool;
     }
 
     @Override
@@ -92,10 +161,10 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
     }
 
     /**
-     * Opens a fresh read stream for one upload attempt. {@code ofInputStream}
-     * suppliers cannot throw checked exceptions, so an {@link IOException} is
-     * wrapped; the request fails (and enters the normal retry path) instead of
-     * silently uploading nothing.
+     * Opens a fresh read stream for one upload attempt. {@link
+     * BoundedInputStreamBodyPublisher} stream suppliers cannot throw checked
+     * exceptions, so an {@link IOException} is wrapped; the request fails (and
+     * enters the normal retry path) instead of silently uploading nothing.
      */
     private static InputStream openStreamUnchecked(final BackupArtifactHandle artifact) {
         try {
@@ -147,19 +216,23 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         IOException lastNetwork = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Stream the artifact: a fixed Content-Length keeps the request
-                // honest while the supplier reopens the artifact on every
-                // attempt, so a mid-upload mutation or a stale stream fails the
-                // send instead of corrupting it — and large artifacts never
-                // occupy the heap.
+                // Stream the artifact through the bounded demand-driven
+                // publisher: a fixed Content-Length keeps the request honest
+                // while the supplier reopens the artifact on every attempt,
+                // so a mid-upload mutation or a stale stream fails the send
+                // instead of corrupting it. Unlike ofInputStream — which
+                // drags the whole artifact through the managed heap as fresh
+                // per-item garbage — the payload moves through heap chunks
+                // bounded by demand, so both resident heap and native
+                // (direct-buffer) usage stay bounded.
                 final HttpResponse<Void> response = client.send(
                         request(
                                         "PUT",
                                         target,
-                                        HttpRequest.BodyPublishers.fromPublisher(
-                                                HttpRequest.BodyPublishers.ofInputStream(
-                                                        () -> openStreamUnchecked(artifact)),
-                                                artifact.sizeBytes()))
+                                        new BoundedInputStreamBodyPublisher(
+                                                () -> openStreamUnchecked(artifact),
+                                                artifact.sizeBytes(),
+                                                uploadWorkers))
                                 .header("Content-Type", "application/octet-stream")
                                 .build(),
                         HttpResponse.BodyHandlers.discarding());

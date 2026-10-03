@@ -14,6 +14,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.swing.SwingUtilities;
 import org.junit.jupiter.api.AfterEach;
@@ -53,6 +54,44 @@ class EdtDispatchTest {
     @Test
     void callDeliversResultFromWorkerThread() {
         assertEquals(7, EdtDispatch.call("result", () -> 7));
+    }
+
+    @Test
+    void dispatchedBodiesRunInsideAHostReadEpoch() throws Exception {
+        final AtomicLong outerEpoch = new AtomicLong();
+        final AtomicLong innerEpoch = new AtomicLong();
+        final AtomicLong writesAfterNested = new AtomicLong(-1L);
+        SwingUtilities.invokeAndWait(() -> EdtDispatch.call("outer-epoch", () -> {
+            outerEpoch.set(HostReadEpoch.current());
+            EdtDispatch.call("inner-epoch", () -> {
+                innerEpoch.set(HostReadEpoch.current());
+                return null;
+            });
+            writesAfterNested.set(HostReadEpoch.writes());
+            return null;
+        }));
+        assertTrue(outerEpoch.get() != 0L, "a dispatched body must run inside a host-read epoch");
+        assertTrue(
+                innerEpoch.get() != 0L && innerEpoch.get() != outerEpoch.get(),
+                "a nested dispatch must open a fresh epoch");
+        assertEquals(
+                1L, writesAfterNested.get(), "closing a nested body must mark the enclosing epoch as possibly mutated");
+        assertEquals(0L, HostReadEpoch.current(), "no epoch may leak onto the caller thread");
+    }
+
+    @Test
+    void queuedBodiesRunInsideAHostReadEpoch() {
+        assertTrue(
+                EdtDispatch.call("queued-epoch", () -> HostReadEpoch.current() != 0L),
+                "a queued body must run inside a host-read epoch");
+    }
+
+    @Test
+    void postedBodiesRunInsideAHostReadEpoch() throws Exception {
+        final AtomicBoolean inEpoch = new AtomicBoolean();
+        SwingUtilities.invokeAndWait(
+                () -> EdtDispatch.post("posted-epoch", () -> inEpoch.set(HostReadEpoch.current() != 0L)));
+        assertTrue(inEpoch.get(), "a posted task must run inside a host-read epoch");
     }
 
     @Test

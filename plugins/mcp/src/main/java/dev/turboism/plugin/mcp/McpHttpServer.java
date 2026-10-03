@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -100,8 +99,6 @@ final class McpHttpServer implements AutoCloseable {
             final PluginLogger logger = context.logger();
             stage.enter("context.modelObjects()");
             final ModelObjectService modelObjects = context.modelObjects();
-            stage.enter("context.parameterQuery()");
-            final ParameterQueryService parameterQuery = context.parameterQuery();
             stage.enter("context.modelHierarchyQuery()");
             final ModelHierarchyQueryService hierarchyQuery = context.modelHierarchyQuery();
             stage.enter("context.selectionQuery()");
@@ -140,7 +137,6 @@ final class McpHttpServer implements AutoCloseable {
                     new Dependencies(
                             logger,
                             modelObjects,
-                            parameterQuery,
                             hierarchyQuery,
                             selectionQuery,
                             read,
@@ -192,7 +188,7 @@ final class McpHttpServer implements AutoCloseable {
             final McpExecutionBridge execution = new McpExecutionBridge(checked.uiScheduler());
             final McpTools legacyTools = new McpTools(
                     checked.modelObjects(),
-                    checked.parameterQuery(),
+                    checked.cubism(),
                     checked.hierarchyQuery(),
                     checked.selectionQuery(),
                     checked.read(),
@@ -773,7 +769,6 @@ final class McpHttpServer implements AutoCloseable {
     record Dependencies(
             PluginLogger logger,
             ModelObjectService modelObjects,
-            ParameterQueryService parameterQuery,
             ModelHierarchyQueryService hierarchyQuery,
             SelectionQueryService selectionQuery,
             CubismReadCapabilityService read,
@@ -791,7 +786,6 @@ final class McpHttpServer implements AutoCloseable {
         Dependencies(
                 final PluginLogger logger,
                 final ModelObjectService modelObjects,
-                final ParameterQueryService parameterQuery,
                 final ModelHierarchyQueryService hierarchyQuery,
                 final SelectionQueryService selectionQuery,
                 final CubismReadCapabilityService read,
@@ -803,7 +797,6 @@ final class McpHttpServer implements AutoCloseable {
             this(
                     logger,
                     modelObjects,
-                    parameterQuery,
                     hierarchyQuery,
                     selectionQuery,
                     read,
@@ -866,7 +859,6 @@ final class McpHttpServer implements AutoCloseable {
         Dependencies {
             logger = Objects.requireNonNull(logger, "logger");
             modelObjects = Objects.requireNonNull(modelObjects, "modelObjects");
-            parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
             hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
             selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
             read = Objects.requireNonNull(read, "read");

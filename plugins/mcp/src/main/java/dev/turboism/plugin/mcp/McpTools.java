@@ -3,6 +3,7 @@ package dev.turboism.plugin.mcp;
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
+import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
@@ -24,6 +25,7 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ProjectId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
@@ -31,14 +33,13 @@ import dev.turboism.sdk.cubism.model.ModelObjectKind;
 import dev.turboism.sdk.cubism.model.ModelObjectOperationException;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
+import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService.ClipMaskRecord;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
@@ -47,6 +48,7 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -78,7 +80,7 @@ final class McpTools {
             "idempotentHint", true);
 
     private final ModelObjectService service;
-    private final ParameterQueryService parameterQuery;
+    private final CubismFacade cubism;
     private final ModelHierarchyQueryService hierarchyQuery;
     private final SelectionQueryService selectionQuery;
     private final CubismReadCapabilityService read;
@@ -88,7 +90,7 @@ final class McpTools {
 
     McpTools(
             final ModelObjectService service,
-            final ParameterQueryService parameterQuery,
+            final CubismFacade cubism,
             final ModelHierarchyQueryService hierarchyQuery,
             final SelectionQueryService selectionQuery,
             final CubismReadCapabilityService read,
@@ -97,7 +99,7 @@ final class McpTools {
             final UiScheduler uiScheduler) {
         this(
                 service,
-                parameterQuery,
+                cubism,
                 hierarchyQuery,
                 selectionQuery,
                 read,
@@ -108,7 +110,7 @@ final class McpTools {
 
     McpTools(
             final ModelObjectService service,
-            final ParameterQueryService parameterQuery,
+            final CubismFacade cubism,
             final ModelHierarchyQueryService hierarchyQuery,
             final SelectionQueryService selectionQuery,
             final CubismReadCapabilityService read,
@@ -116,7 +118,7 @@ final class McpTools {
             final PluginLogger logger,
             final McpExecutionBridge execution) {
         this.service = Objects.requireNonNull(service, "service");
-        this.parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
+        this.cubism = Objects.requireNonNull(cubism, "cubism");
         this.hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
         this.selectionQuery = Objects.requireNonNull(selectionQuery, "selectionQuery");
         this.read = Objects.requireNonNull(read, "read");
@@ -332,19 +334,39 @@ final class McpTools {
         only(arguments, "id", "name");
         final Optional<String> idFilter = optionalString(arguments, "id");
         final Optional<String> nameFilter = optionalString(arguments, "name");
-        final List<ParameterSummary> parameters = idFilter
-                .map(value -> readService(() -> parameterQuery.findById(new ParameterId(value)))
-                        .map(List::of)
-                        .orElseGet(List::of))
-                .orElseGet(() -> readService(parameterQuery::listAll))
-                .stream()
-                .filter(parameter ->
-                        nameFilter.isEmpty() || containsIgnoreCase(parameter.name(), nameFilter.orElseThrow()))
-                .toList();
-        return linked(
-                entry("ok", true),
-                entry("count", parameters.size()),
-                entry("parameters", parameters.stream().map(McpTools::parameter).toList()));
+        // Model resolution, parameter selection, name filtering and per-parameter row
+        // mapping — including the appearance reads — all run inside one UI read so the
+        // listing observes one coherent host state: a mid-list model switch can no
+        // longer split the snapshot or leak a raw stale exception past the read
+        // boundary.
+        final List<Map<String, Object>> rows = readService(() -> {
+            final Optional<CubismModel> model = activeModel();
+            final List<Parameter> parameters = idFilter
+                    .map(value -> model.flatMap(active -> active.parameters().findById(new ParameterId(value)))
+                            .map(List::of)
+                            .orElseGet(List::of))
+                    .orElseGet(
+                            () -> model.map(active -> active.parameters().all()).orElseGet(List::of))
+                    .stream()
+                    .filter(parameter -> nameFilter.isEmpty()
+                            || containsIgnoreCase(parameter.name().orElse(""), nameFilter.orElseThrow()))
+                    .toList();
+            return parameters.stream().map(McpTools::parameter).toList();
+        });
+        return linked(entry("ok", true), entry("count", rows.size()), entry("parameters", rows));
+    }
+
+    /**
+     * The active model of the object API, or empty when the session reports no model — matching
+     * the previous query plane's empty-list semantics for an absent model. Must already run
+     * inside the UI read boundary; it never dispatches on its own.
+     */
+    private Optional<CubismModel> activeModel() {
+        try {
+            return Optional.of(cubism.model().active());
+        } catch (IllegalStateException unavailable) {
+            return Optional.empty();
+        }
     }
 
     private Map<String, Object> modelHierarchyGet(final Map<String, Object> arguments) {
@@ -823,16 +845,17 @@ final class McpTools {
         };
     }
 
-    private static Map<String, Object> parameter(final ParameterSummary value) {
+    private static Map<String, Object> parameter(final Parameter value) {
+        final ParameterAppearance appearance = value.ui();
         return linked(
                 entry("id", value.id().value()),
-                entry("name", value.name()),
-                entry("currentValue", value.currentValue()),
-                entry("minValue", value.minValue()),
-                entry("maxValue", value.maxValue()),
-                entry("defaultValue", value.defaultValue()),
-                entry("visible", value.visible()),
-                entry("editable", value.editable()));
+                entry("name", value.name().orElse("")),
+                entry("currentValue", (double) value.getValue()),
+                entry("minValue", (double) value.getMinimumValue()),
+                entry("maxValue", (double) value.getMaximumValue()),
+                entry("defaultValue", (double) value.getDefaultValue()),
+                entry("visible", appearance.visible().orElse(false)),
+                entry("editable", appearance.editable().orElse(false)));
     }
 
     private static Map<String, Object> clipMaskRecord(final ClipMaskRecord value) {

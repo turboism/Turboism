@@ -15,9 +15,8 @@ import java.util.Optional;
  * {@link #parameters()} yields live {@link Parameter} objects whose {@link Parameter#getValue()} /
  * {@link Parameter#setValue(float)} read and write the Editor authoring value. Immutable
  * point-in-time views exist elsewhere — {@link dev.turboism.sdk.cubism.ParameterSnapshot} inside
- * facade snapshots, {@link dev.turboism.sdk.cubism.service.query.ParameterSummary} from the
- * parameter query service, and {@link dev.turboism.sdk.cubism.core.OwnedParameter} inside the
- * detached owned model — but none of them is a write handle.
+ * facade snapshots and {@link dev.turboism.sdk.cubism.core.OwnedParameter} inside the detached
+ * owned model — but none of them is a write handle.
  */
 public interface CubismModel {
 

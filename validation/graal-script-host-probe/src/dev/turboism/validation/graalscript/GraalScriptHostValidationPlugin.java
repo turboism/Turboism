@@ -50,8 +50,8 @@ public final class GraalScriptHostValidationPlugin implements TurboismPlugin {
             evidence.append("cubismJvm.vmName=").append(safe(System.getProperty("java.vm.name"))).append('\n');
             evidence.append("cubismJvm.vmVendor=").append(safe(System.getProperty("java.vm.vendor"))).append('\n');
             evidence.append("hostReady=").append(awaitHostReady()).append('\n');
-            evidence.append("available=").append(context.scripts().available()).append('\n');
-            if (!context.scripts().available()) {
+            evidence.append("available=").append(context.scripts().isAvailable()).append('\n');
+            if (!context.scripts().isAvailable()) {
                 failures.add("script runtime is unavailable");
             }
             evidence.append("scripts=")

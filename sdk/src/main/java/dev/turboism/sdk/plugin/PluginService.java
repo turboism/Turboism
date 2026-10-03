@@ -41,9 +41,6 @@ public enum PluginService {
     /** {@link PluginContext#userFiles()} */
     USER_FILES(dev.turboism.sdk.ui.UserFileAccessService.class),
 
-    /** {@link PluginContext#parameterQuery()} */
-    PARAMETER_QUERY(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class),
-
     /** {@link PluginContext#selectionQuery()} */
     SELECTION_QUERY(dev.turboism.sdk.cubism.service.query.SelectionQueryService.class),
 

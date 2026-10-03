@@ -81,6 +81,13 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (lock) {
+            return !closed;
+        }
+    }
+
+    @Override
     public void close() {
         final List<Controller> stale;
         synchronized (lock) {
