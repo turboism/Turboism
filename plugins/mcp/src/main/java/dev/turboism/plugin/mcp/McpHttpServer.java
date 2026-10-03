@@ -862,11 +862,6 @@ final class McpHttpServer implements AutoCloseable {
                 public boolean isHostPresent() {
                     return false;
                 }
-
-                @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException("Cubism is unavailable");
-                }
             };
         }
 

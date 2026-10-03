@@ -4,7 +4,6 @@ import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
 /** View of the Cubism host exposed to plugins. */
@@ -81,7 +80,11 @@ public interface CubismFacade {
     }
 
     /**
-     * Returns the synchronous Editor-owned authoring transaction service.
+     * Returns the synchronous Editor-owned authoring transaction service — the recommended entry
+     * for grouped or batched writes that must share one Editor Undo unit.
+     *
+     * <p>Single parameter writes do not need it: {@code model().active().parameters().find(id)
+     * .setValue(v)} is already validated and undoable on its own.
      *
      * <p>The default fails closed and never executes work outside a verified transaction scope.</p>
      *
@@ -100,6 +103,7 @@ public interface CubismFacade {
      *
      * @return the editing session service
      */
+    @dev.turboism.sdk.Incubating
     @dev.turboism.sdk.CubismEditor(from = "5.2.03", to = "5.3.99")
     default dev.turboism.sdk.cubism.edit.EditSessionService edit() {
         return dev.turboism.sdk.cubism.edit.EditSessionService.unavailable();
@@ -116,15 +120,6 @@ public interface CubismFacade {
     default dev.turboism.sdk.cubism.mirror.WarpMirrorService warpMirror() {
         return dev.turboism.sdk.cubism.mirror.WarpMirrorService.unavailable();
     }
-
-    /**
-     * Returns the legacy queued command transaction manager for Preview compatibility.
-     *
-     * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>
-     *
-     * @return legacy queued transaction manager
-     */
-    TransactionManager transactionManager();
 
     /** Returns complete texture-atlas authoring layout access when installed. */
     @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})

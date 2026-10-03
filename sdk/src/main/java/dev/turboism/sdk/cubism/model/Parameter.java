@@ -6,7 +6,22 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** One Cubism parameter. */
+/**
+ * One Cubism parameter.
+ *
+ * <p>This is the recommended parameter handle: {@link #getValue()} reads the current Editor
+ * authoring value and {@link #setValue(float)} performs a single validated, undoable write.
+ * To group several writes into one Editor Undo unit, run them inside {@link
+ * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
+ *
+ * <p>Other types named like a parameter are not write handles:
+ * {@link dev.turboism.sdk.cubism.ParameterSnapshot} and {@link
+ * dev.turboism.sdk.cubism.service.query.ParameterSummary} are immutable read snapshots,
+ * {@link ParameterDefinition} is an authoring-definition payload for {@link #updateDefinition},
+ * {@link dev.turboism.sdk.cubism.core.OwnedParameter} belongs to the detached owned model, and
+ * {@link dev.turboism.sdk.cubism.edit.EditParameterNode} is a node of the incubating
+ * edit-session structure tree.
+ */
 public interface Parameter {
 
     /** Returns this parameter's stable identity within the model. */
@@ -111,6 +126,11 @@ public interface Parameter {
     /**
      * Writes the parameter's value through the Editor authoring path when this object belongs to
      * an Editor document, including validation and Undo integration.
+     *
+     * <p>Prefer this method for single writes — do not reach for an edit session or a command
+     * queue. When several writes must land as one Undo unit, wrap them in {@link
+     * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()} instead of calling this method
+     * in a loop.
      */
     void setValue(float value);
 
