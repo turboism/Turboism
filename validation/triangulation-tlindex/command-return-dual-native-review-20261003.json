@@ -1,0 +1,65 @@
+{
+  "task": "T076",
+  "status": "PASS_BOUND_DUAL_BOUNDARY_FEASIBILITY_ONLY",
+  "scope": "ONE_5303_INSTRUMENTED_DUAL_BOUNDARY_FEASIBILITY_PROBE",
+  "jobId": "2d4a50c3-2103-4b3f-a102-172b4b28208f",
+  "sequence": 2583,
+  "preparedId": "5813b8e5b0d7a348a6fe5432518f48de65f551f9f8028d31a9f71d1a92040f95",
+  "runId": "queue-6392c6cbb1244c8b90334e0f7a9ec972",
+  "protocolCommitBeforeSubmission": "4cafcbe02",
+  "implementationCommit": "c92f802df",
+  "formatCommit": "d70f374e8",
+  "probeCount": 1,
+  "replacementOrRetry": false,
+  "selectedSources": 711,
+  "cycles": 3,
+  "producerRows": 2133,
+  "commandReturnRows": 2133,
+  "producerCommandParity": true,
+  "perCycleCountPositionIndexHashMismatches": 0,
+  "versionObservations": {
+    "producerVsCommandDifferent": 2133,
+    "indexCacheVsCommandDifferent": 2133,
+    "positionVsVertexDifferent": 0
+  },
+  "crossCycleResultDifferences": {
+    "cycle2Vs1": {
+      "pointCount": 0,
+      "edgeVersion": 711,
+      "positionValues": 0,
+      "indexValues": 4,
+      "positionsSha256": 0,
+      "indicesSha256": 8
+    },
+    "cycle3Vs1": {
+      "pointCount": 0,
+      "edgeVersion": 711,
+      "positionValues": 0,
+      "indexValues": 2,
+      "positionsSha256": 0,
+      "indicesSha256": 5
+    }
+  },
+  "standardGates": "PASS",
+  "kernelScopeDestroyed": true,
+  "startupReadOnlyPass": true,
+  "fullRepositoryGate": "PASS_R3",
+  "productionAcceptance": "NOT_GRANTED",
+  "performanceAcceptance": "NOT_APPLICABLE",
+  "nextAction": "Build separate observer-free command-boundary driver with out-of-interval output collection, prove ownership/coverage and compare exact production artifacts under a new frozen protocol. All-version native and human review remain pending.",
+  "inputPins": {
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-review.json": "07ed216ccfa7f48cd2385742c690307c48dd3b36f28068f0c0176b89a3b42037",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/run.json": "fd90a58dbdd29276c01aa378ae1fa445cdb173a3fb3ea876cc207a33d199cb38",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/outcome.json": "c774efd23073ae09f5ccd4ec5586a2f1718f4e66993c84da673695e2b4033017",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/review-native.py": "204f84a2e3e43973456c2fc77e477ef7ba24709fefb5cd6af760cbd4ed5e254d",
+    "validation/triangulation-tlindex/command-return-dual-native-protocol-20261003.json": "b0b0a72cda65dd9979de1d187f038c88df351a5938cec9141c1a88516bd516fa",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-protocol.properties": "b9eb2a63a8fa0d8d8f8dedae16a5d2e8d1094eb4cd2959bed5cc2ee5c7a53490",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-capture-wait.tsv": "131f030eb488fb471a2f936325ac96bbbf483066d95b0952fc5299f8bb41307d",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-selected.txt": "b15126881463acc9b57ea396f585b4b2982330e16cad2c121cbc4e09e0babdae",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-producer-results.tsv": "f9cf67eb60384cccab64cf1404492026fe8ee88516716f5407591eedf8784d40",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-producer-status.properties": "0fbddab144a7d1c5f72b3038e0273af027555dc475d5cac19a59f75171e1902b",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-results.tsv": "9db07555ad8dfdac954b25b10fff57fb36fcfaff94f3ffaee4f3bfbb8533c1e6",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-command-return-status.properties": "36ffb6587449415cfa6739670ad3e5df41c21be01e2f681585f8811353e826e3",
+    "build/t076-production-acceptance-preflight-r1/native5303-dual-r1/native-evidence/auto-connect-cancel.properties": "1926a94b0632dd6d8e8bfa33c648e9853cd5b090de5c58848a2c3ae013eb06fd"
+  }
+}
