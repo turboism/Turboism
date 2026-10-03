@@ -56,6 +56,48 @@ class CubismFacadeContractTest {
         assertSame(Optional.empty(), facade.activeProject());
     }
 
+    @Test
+    void optionalServiceAccessorsReturnUnavailableSentinelsInsteadOfThrowing() {
+        final CubismFacade facade = new NoOpCubismFacade();
+
+        assertSame(dev.turboism.sdk.cubism.model.CubismModelAccess.unavailable(), facade.model());
+        assertSame(dev.turboism.sdk.cubism.core.CoreRuntimeInfo.unavailable(), facade.coreRuntime());
+        assertSame(dev.turboism.sdk.cubism.history.CubismHistory.unavailable(), facade.history());
+        assertSame(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService.unavailable(),
+                facade.textureAtlasLayouts());
+        assertSame(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutService.unavailable(),
+                facade.textureAtlasPolygonLayouts());
+        assertSame(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession.unavailable(),
+                facade.textureAtlasEditorSession());
+        assertSame(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi.unavailable(), facade.textureAtlasEditorUi());
+        assertSame(
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry.unavailable(),
+                facade.textureAtlasAlgorithms());
+
+        assertFalse(facade.model().isAvailable());
+        assertFalse(facade.coreRuntime().isAvailable());
+        assertFalse(facade.textureAtlasLayouts().isAvailable());
+        assertFalse(facade.textureAtlasPolygonLayouts().isAvailable());
+        assertFalse(facade.textureAtlasEditorSession().isAvailable());
+        assertFalse(facade.textureAtlasEditorUi().isAvailable());
+        assertFalse(facade.textureAtlasAlgorithms().isAvailable());
+        assertEquals(
+                java.util.Optional.empty(), facade.textureAtlasEditorSession().summary());
+        assertEquals(java.util.List.of(), facade.textureAtlasAlgorithms().algorithms());
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalStateException.class, () -> facade.model().active());
+        org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> facade.coreRuntime().version());
+        org.junit.jupiter.api.Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> facade.textureAtlasEditorUi().attach());
+    }
+
     private static final class NoOpCubismFacade implements CubismFacade {
 
         @Override

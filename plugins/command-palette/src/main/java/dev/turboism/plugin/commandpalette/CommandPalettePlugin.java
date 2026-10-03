@@ -103,7 +103,8 @@ public final class CommandPalettePlugin implements TurboismPlugin {
     private void togglePalette() {
         CommandPaletteDialog dialog = palette.get();
         if (dialog == null) {
-            dialog = new CommandPaletteDialog(context, () -> text("palette.hint", "Type a command name or id…"));
+            dialog = new CommandPaletteDialog(
+                    context, () -> localization.text("palette.hint", "Type a command name or id…"));
             if (!palette.compareAndSet(null, dialog)) {
                 dialog.dispose();
                 dialog = palette.get();
@@ -130,7 +131,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
 
             @Override
             public String label() {
-                return text("action.open-palette", "Open Command Palette");
+                return localization.text("action.open-palette", "Open Command Palette");
             }
 
             @Override
@@ -149,7 +150,7 @@ public final class CommandPalettePlugin implements TurboismPlugin {
         return new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return MENU_ROOT + "/" + text("menu.command-palette", "Command Palette");
+                return MENU_ROOT + "/" + localization.text("menu.command-palette", "Command Palette");
             }
 
             @Override
@@ -162,17 +163,5 @@ public final class CommandPalettePlugin implements TurboismPlugin {
                 return MENU_ORDER;
             }
         };
-    }
-
-    private String text(final String key, final String fallback) {
-        try {
-            if (localization == null) {
-                return fallback;
-            }
-            final String value = localization.text(key);
-            return value == null || value.isBlank() ? fallback : value;
-        } catch (RuntimeException unavailable) {
-            return fallback;
-        }
     }
 }

@@ -91,13 +91,14 @@ class SelectionBrushPluginLifecycleIntegrationTest {
                             }
 
                             @Override
-                            public <T> T get(Class<T> type) {
+                            public <T> java.util.Optional<T> find(Class<T> type) {
                                 return type == dev.turboism.sdk.cubism.mesh.MeshToolRegistry.class
-                                        ? type.cast(registry)
-                                        : null;
+                                        ? java.util.Optional.ofNullable(type.cast(registry))
+                                        : java.util.Optional.empty();
                             }
                         };
                     case "disposableScope" -> scope;
+                    case "localization" -> dev.turboism.sdk.i18n.PluginLocalization.unavailable();
                     case "toString" -> "SelectionBrushRuntimeContext";
                     default -> throw new UnsupportedOperationException(method.getName());
                 });

@@ -48,7 +48,9 @@ class CorePluginContextMeshToolsTest {
                     dev.turboism.sdk.plugin.PluginServiceUnavailableException.class,
                     () -> context.services().require(MeshToolRegistry.class).register(tool()));
             assertEquals(MeshToolRegistry.class, failure.serviceType());
-            assertEquals(dev.turboism.sdk.plugin.PluginService.MESH_TOOLS, failure.service());
+            assertEquals(
+                    dev.turboism.sdk.plugin.PluginService.MESH_TOOLS,
+                    failure.service().orElseThrow());
             org.junit.jupiter.api.Assertions.assertFalse(
                     context.services().installed().contains(dev.turboism.sdk.plugin.PluginService.MESH_TOOLS));
         } finally {
@@ -75,7 +77,8 @@ class CorePluginContextMeshToolsTest {
                     IllegalStateException.class,
                     () -> context.installMeshTools(service(new AtomicInteger(), new AtomicInteger())));
             context.disposableScope().seal();
-            org.junit.jupiter.api.Assertions.assertNull(context.services().get(MeshToolRegistry.class));
+            org.junit.jupiter.api.Assertions.assertTrue(
+                    context.services().find(MeshToolRegistry.class).isEmpty());
             org.junit.jupiter.api.Assertions.assertFalse(
                     context.services().installed().contains(dev.turboism.sdk.plugin.PluginService.MESH_TOOLS));
             context.disposableScope().close();
@@ -125,8 +128,9 @@ class CorePluginContextMeshToolsTest {
                     dev.turboism.sdk.plugin.PluginServiceUnavailableException.class,
                     () -> context.services().require(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
             context.installMeshTools(service(new AtomicInteger(), meshCloses));
-            org.junit.jupiter.api.Assertions.assertNull(
-                    context.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            org.junit.jupiter.api.Assertions.assertTrue(context.services()
+                    .find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                    .isEmpty());
             context.installModelingTools(ordinary);
             assertSame(
                     ordinary, context.services().require(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
@@ -134,8 +138,9 @@ class CorePluginContextMeshToolsTest {
                     context.services().installed().contains(dev.turboism.sdk.plugin.PluginService.MODELING_TOOLS));
             assertThrows(IllegalStateException.class, () -> context.installModelingTools(ordinary));
             context.disposableScope().seal();
-            org.junit.jupiter.api.Assertions.assertNull(
-                    context.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class));
+            org.junit.jupiter.api.Assertions.assertTrue(context.services()
+                    .find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                    .isEmpty());
             context.disposableScope().close();
             context.disposableScope().close();
             assertEquals(1, meshCloses.get());

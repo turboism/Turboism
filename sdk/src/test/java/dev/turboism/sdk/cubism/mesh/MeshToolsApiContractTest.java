@@ -111,7 +111,9 @@ class MeshToolsApiContractTest {
                 dev.turboism.sdk.plugin.PluginServiceUnavailableException.class,
                 () -> directory.require(MeshToolRegistry.class));
         assertEquals(MeshToolRegistry.class, failure.serviceType());
-        assertEquals(dev.turboism.sdk.plugin.PluginService.MESH_TOOLS, failure.service());
+        assertEquals(
+                dev.turboism.sdk.plugin.PluginService.MESH_TOOLS,
+                failure.service().orElseThrow());
     }
 
     @Test
