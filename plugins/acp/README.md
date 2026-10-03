@@ -76,10 +76,10 @@ Settings → Agent offers the built-in catalog plus a custom command:
 | `turboism.config.plugin.write` | application | Persists that Turboism-owned state; agent credentials and transcript data are never stored. |
 | `turboism.file.read` | application | Detects user-installed agent executables on PATH and common install directories. |
 | `turboism.process.run` | application | Launches and supervises the selected agent executable. |
-| `turboism.mcp.connection.read` | application | Reads the current authenticated MCP endpoint to attach it to ACP sessions. |
+| `turboism.mcp.connection.read` | application | Reads the current authenticated MCP endpoint and subscribes to its changes, to attach it to ACP sessions. |
 
 ## Known limitations
 
 - ACP v1 only; protocol v2 (`auth/login`, `session/resume` equivalents) is not negotiated yet.
-- If the MCP server is disabled or restarted while a session is open, the attached endpoint can go stale — reconnect to rebind the current endpoint.
+- If the MCP server is disabled or restarted while a session is open, the plugin detects the endpoint change and shows a status message — reconnect to bind the new endpoint (ACP cannot rebind `mcpServers` on an existing session).
 - Host-level validation against real agent binaries is manual until a scripted ACP agent fixture replaces the retired fx probe.

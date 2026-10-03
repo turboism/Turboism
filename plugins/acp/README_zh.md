@@ -76,10 +76,10 @@ Settings → Agent 提供内置目录和自定义命令：
 | `turboism.config.plugin.write` | application | 保存上述 Turboism 自有状态；绝不存储 agent 凭据或转写数据。 |
 | `turboism.file.read` | application | 检测 `PATH` 与常见用户级安装目录中的 agent 可执行文件。 |
 | `turboism.process.run` | application | 启动并监管所选 agent 可执行文件。 |
-| `turboism.mcp.connection.read` | application | 读取当前已认证 MCP 端点并接入 ACP 会话。 |
+| `turboism.mcp.connection.read` | application | 读取当前已认证 MCP 端点并订阅其变更，用于接入 ACP 会话。 |
 
 ## 已知限制
 
 - 仅支持 ACP v1；协议 v2（`auth/login`、`session/resume` 等价方法）尚未实现协商。
-- 会话进行中若 MCP 服务器被禁用或重启，已注入的端点可能失效——重新连接即可绑定最新端点。
+- 会话进行中若 MCP 服务器被禁用或重启，插件会检测到端点变化并显示状态提示——重新连接即可绑定新端点（ACP 无法在既有会话上重新绑定 mcpServers）。
 - 针对真实 agent 二进制的宿主级验证暂为手动，直到脚本化 ACP agent 夹具替代已退役的 fx 探针。
