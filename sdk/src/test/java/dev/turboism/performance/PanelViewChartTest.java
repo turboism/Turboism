@@ -123,7 +123,8 @@ class PanelViewChartTest {
                 return null;
             }
         };
-        final PerformanceProbeService stats = minimal.performanceStats();
+        final PerformanceProbeService stats =
+                minimal.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
         assertThrows(UnsupportedOperationException.class, stats::snapshot);
     }
 }
