@@ -52,7 +52,9 @@ private val sdkBaselineAnchors = listOf(
     SdkBaselineAnchor(11, "181e9e9756e5dbb5a028c8f7f2c3c4b4ca76647d",
         "Reconstructs the reviewed v11 inline-label SDK from its pinned Git commit."),
     SdkBaselineAnchor(12, "913ada16a231ee43f22b39c4adbf767bd3cb8a37",
-        "Reconstructs the reviewed v12 selection-tool SDK from its pinned Git commit.")
+        "Reconstructs the reviewed v12 selection-tool SDK from its pinned Git commit."),
+    SdkBaselineAnchor(13, "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501",
+        "Reconstructs the reviewed v13 contract-convergence SDK from its pinned Git commit.")
 )
 
 private fun sdkExactBaseline(version: Int) =
@@ -126,9 +128,9 @@ sdkBaselineAnchors.forEach { anchor ->
     }
 }
 
-// v2–v11 audit their reconstructed historical artifact; the v12 live-JAR audit and the
+// v2–v12 audit their reconstructed historical artifact; the v13 live-JAR audit and the
 // linkage checks below are deliberately hand-written because their inputs differ.
-sdkBaselineAnchors.filter { it.version <= 11 }.forEach { anchor ->
+sdkBaselineAnchors.filter { it.version <= 12 }.forEach { anchor ->
     val version = anchor.version
     tasks.register<Exec>("checkSdkV${version}ExactApiCompatibility") {
         group = "historical verification"
@@ -149,21 +151,21 @@ sdkBaselineAnchors.filter { it.version <= 11 }.forEach { anchor ->
     }
 }
 
-val checkSdkV12ExactApiCompatibility by tasks.registering(Exec::class) {
+val checkSdkV13ExactApiCompatibility by tasks.registering(Exec::class) {
     group = "release verification"
-    description = "Verifies the live SDK's canonical API matches the reviewed v12 selection-tool anchor."
-    dependsOn(":sdk:jar", "prepareSdkV12ExactReference")
-    inputs.files(sdkApiHelperFiles, sdkExactBaseline(12), sdkExactReferenceBuilder,
-        sdkExactReferenceArtifact(12), sdkJarArtifact)
-    inputs.property("expectedCommit", "913ada16a231ee43f22b39c4adbf767bd3cb8a37")
+    description = "Verifies the live SDK's canonical API matches the reviewed v13 contract-convergence anchor."
+    dependsOn(":sdk:jar", "prepareSdkV13ExactReference")
+    inputs.files(sdkApiHelperFiles, sdkExactBaseline(13), sdkExactReferenceBuilder,
+        sdkExactReferenceArtifact(13), sdkJarArtifact)
+    inputs.property("expectedCommit", "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501")
     outputs.upToDateWhen { false }
     commandLine(
         "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
         "--input", sdkJarArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkExactReferenceArtifact(12).get().asFile.absolutePath,
+        "--reference-input", sdkExactReferenceArtifact(13).get().asFile.absolutePath,
         "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkExactBaseline(12).asFile.absolutePath,
-        "--expected-commit", "913ada16a231ee43f22b39c4adbf767bd3cb8a37"
+        "--baseline", sdkExactBaseline(13).asFile.absolutePath,
+        "--expected-commit", "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501"
     )
 }
 
