@@ -255,8 +255,23 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     @Override
     public boolean isAvailable() {
+        final boolean isActive;
         synchronized (lifecycleLock) {
-            return active && adapter.available();
+            isActive = active;
+        }
+        if (!isActive) {
+            return false;
+        }
+        // The adapter probe runs outside lifecycleLock: an outermost
+        // DynamicRuntimeHostAdapters call may run host-session teardown on
+        // this thread, and that callback must never execute while the
+        // lifecycle lock is held. A throwing probe is an unavailable host,
+        // never an escaping failure — isAvailable is a total contract.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
         }
     }
 

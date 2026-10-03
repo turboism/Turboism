@@ -58,6 +58,124 @@ class AutoBackupCoordinatorTest {
     }
 
     @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() throws Exception {
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+                stubAdapter(new IllegalStateException("host session teardown on the calling thread")),
+                ignored -> {},
+                Clock.systemUTC(),
+                60_000L);
+        try {
+            assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void anInFlightAvailabilityProbeDoesNotBlockLifecycleOperations() throws Exception {
+        final CountDownLatch probeEntered = new CountDownLatch(1);
+        final CountDownLatch releaseProbe = new CountDownLatch(1);
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+                new AutoBackupAdapter() {
+                    @Override
+                    public Snapshot settings() {
+                        return new Snapshot(false, 0, 0, null);
+                    }
+
+                    @Override
+                    public Snapshot applySettings(final Snapshot target) {
+                        return target;
+                    }
+
+                    @Override
+                    public List<Document> documents() {
+                        return List.of();
+                    }
+
+                    @Override
+                    public void triggerBackupNow() {}
+
+                    @Override
+                    public File saveDocumentFor(
+                            final File matchFile, final List<String> documentUids, final long timestampMillis) {
+                        return null;
+                    }
+
+                    @Override
+                    public boolean available() {
+                        probeEntered.countDown();
+                        try {
+                            releaseProbe.await();
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                        }
+                        return true;
+                    }
+                },
+                ignored -> {},
+                Clock.systemUTC(),
+                60_000L);
+        try {
+            final Thread probe = new Thread(service::isAvailable, "test-availability-probe");
+            probe.start();
+            assertTrue(probeEntered.await(10L, TimeUnit.SECONDS));
+            // While the probe is in flight it must hold no lifecycle lock: a
+            // lifecycle call on another thread proceeds immediately.
+            final CountDownLatch submitted = new CountDownLatch(1);
+            final Thread caller = new Thread(() -> {
+                service.backupAfterSave(snapshot("model.cmo3"));
+                submitted.countDown();
+            });
+            caller.start();
+            assertTrue(
+                    submitted.await(10L, TimeUnit.SECONDS),
+                    "backupAfterSave must not wait behind an in-flight availability probe");
+            releaseProbe.countDown();
+            probe.join(10_000L);
+            caller.join(10_000L);
+        } finally {
+            releaseProbe.countDown();
+            service.close();
+        }
+    }
+
+    /** An adapter whose {@code available()} throws the given failure; all other ops are inert stubs. */
+    private static AutoBackupAdapter stubAdapter(final RuntimeException probeFailure) {
+        return new AutoBackupAdapter() {
+            @Override
+            public Snapshot settings() {
+                return new Snapshot(false, 0, 0, null);
+            }
+
+            @Override
+            public Snapshot applySettings(final Snapshot target) {
+                return target;
+            }
+
+            @Override
+            public List<Document> documents() {
+                return List.of();
+            }
+
+            @Override
+            public void triggerBackupNow() {}
+
+            @Override
+            public File saveDocumentFor(
+                    final File matchFile, final List<String> documentUids, final long timestampMillis) {
+                return null;
+            }
+
+            @Override
+            public boolean available() {
+                // Mirrors DynamicRuntimeHostAdapters.call: an outermost adapter
+                // call may run host-session teardown on the calling thread.
+                throw probeFailure;
+            }
+        };
+    }
+
+    @Test
     void unknownDeclarationWithMatchedSelectorsCanMutateSettingsAndProduceABackup() throws Exception {
         final FakeHost host = new FakeHost();
         final VerifiedMemberResolver resolver = host.resolver(true, "5.3.99");

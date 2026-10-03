@@ -52,6 +52,40 @@ class RuntimeEditorCommandServiceTest {
     }
 
     @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final EditorCommandAdapter probeThrows = new EditorCommandAdapter() {
+            @Override
+            public Set<EditorCommand> available() {
+                return Set.of();
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.id());
+            }
+
+            @Override
+            public EditorCommandResult execute(final ResolvedEditorFileCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorParameterizedRequest command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public boolean isAvailable() {
+                // A delegate mid-teardown can throw here; the service contract
+                // is total, so the throw must become "unavailable".
+                throw new IllegalStateException("host command surface teardown");
+            }
+        };
+        final RuntimeEditorCommandService service = new RuntimeEditorCommandService(probeThrows, gate(List.of()));
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
+    @Test
     void deniesBeforeInvokingTheHostAdapter() {
         AtomicInteger calls = new AtomicInteger();
         RuntimeEditorCommandService service = new RuntimeEditorCommandService(adapter(calls), gate(List.of()));

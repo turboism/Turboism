@@ -334,34 +334,39 @@ final class McpTools {
         only(arguments, "id", "name");
         final Optional<String> idFilter = optionalString(arguments, "id");
         final Optional<String> nameFilter = optionalString(arguments, "name");
-        final List<Parameter> parameters = idFilter
-                .map(value -> activeModel()
-                        .flatMap(model -> model.parameters().findById(new ParameterId(value)))
-                        .map(List::of)
-                        .orElseGet(List::of))
-                .orElseGet(() ->
-                        activeModel().map(model -> model.parameters().all()).orElseGet(List::of))
-                .stream()
-                .filter(parameter -> nameFilter.isEmpty()
-                        || containsIgnoreCase(parameter.name().orElse(""), nameFilter.orElseThrow()))
-                .toList();
-        final List<Map<String, Object>> rows =
-                readService(() -> parameters.stream().map(McpTools::parameter).toList());
+        // Model resolution, parameter selection, name filtering and per-parameter row
+        // mapping — including the appearance reads — all run inside one UI read so the
+        // listing observes one coherent host state: a mid-list model switch can no
+        // longer split the snapshot or leak a raw stale exception past the read
+        // boundary.
+        final List<Map<String, Object>> rows = readService(() -> {
+            final Optional<CubismModel> model = activeModel();
+            final List<Parameter> parameters = idFilter
+                    .map(value -> model.flatMap(active -> active.parameters().findById(new ParameterId(value)))
+                            .map(List::of)
+                            .orElseGet(List::of))
+                    .orElseGet(
+                            () -> model.map(active -> active.parameters().all()).orElseGet(List::of))
+                    .stream()
+                    .filter(parameter -> nameFilter.isEmpty()
+                            || containsIgnoreCase(parameter.name().orElse(""), nameFilter.orElseThrow()))
+                    .toList();
+            return parameters.stream().map(McpTools::parameter).toList();
+        });
         return linked(entry("ok", true), entry("count", rows.size()), entry("parameters", rows));
     }
 
     /**
      * The active model of the object API, or empty when the session reports no model — matching
-     * the previous query plane's empty-list semantics for an absent model.
+     * the previous query plane's empty-list semantics for an absent model. Must already run
+     * inside the UI read boundary; it never dispatches on its own.
      */
     private Optional<CubismModel> activeModel() {
-        return readService(() -> {
-            try {
-                return Optional.of(cubism.model().active());
-            } catch (IllegalStateException unavailable) {
-                return Optional.empty();
-            }
-        });
+        try {
+            return Optional.of(cubism.model().active());
+        } catch (IllegalStateException unavailable) {
+            return Optional.empty();
+        }
     }
 
     private Map<String, Object> modelHierarchyGet(final Map<String, Object> arguments) {

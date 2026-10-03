@@ -78,6 +78,29 @@ final class RuntimeRecentPreviewContributionServiceTest {
     }
 
     @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final RuntimeRecentPreviewContributionService service = new RuntimeRecentPreviewContributionService(
+                RecentPreviewContributionAdapter.connected(new RecentPreviewContributionAdapter.HostOperations() {
+                    @Override
+                    public Registration contribute(final RecentPreviewRenderer renderer) {
+                        return () -> {};
+                    }
+
+                    @Override
+                    public void refresh() {}
+
+                    @Override
+                    public boolean available() {
+                        // Mirrors DynamicRuntimeHostAdapters.call: an outermost
+                        // adapter call may run session teardown on this thread.
+                        throw new IllegalStateException("host session teardown on the calling thread");
+                    }
+                }),
+                PermissionChecker.allowAll());
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
+    @Test
     void checksContributePermissionBeforeCallingAdapter() {
         final int[] calls = {0};
         final RuntimeRecentPreviewContributionService service = new RuntimeRecentPreviewContributionService(

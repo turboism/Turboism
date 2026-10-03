@@ -187,15 +187,23 @@ public final class EdtDispatch {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
         if (SwingUtilities.isEventDispatchThread()) {
-            task.run();
+            HostReadEpoch.enter();
+            try {
+                task.run();
+            } finally {
+                HostReadEpoch.exit();
+            }
             return;
         }
         SwingUtilities.invokeLater(() -> {
+            HostReadEpoch.enter();
             try {
                 task.run();
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
                 RuntimeDiagnostics.error(COMPONENT, label + " posted EDT task failed", failure);
+            } finally {
+                HostReadEpoch.exit();
             }
         });
     }
@@ -217,7 +225,12 @@ public final class EdtDispatch {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(acceptTimeout, "acceptTimeout");
         if (SwingUtilities.isEventDispatchThread()) {
-            task.run();
+            HostReadEpoch.enter();
+            try {
+                task.run();
+            } finally {
+                HostReadEpoch.exit();
+            }
             return;
         }
         final Queued<Void> queued = new Queued<>(label, () -> {
@@ -277,6 +290,9 @@ public final class EdtDispatch {
     }
 
     private static <T> T runInline(final String label, final Callable<T> task, final boolean exact) {
+        // A dispatched body is its own host-read epoch: it may mutate the host, so
+        // closing it marks any enclosing epoch as potentially stale.
+        HostReadEpoch.enter();
         try {
             return task.call();
         } catch (RuntimeException | Error failure) {
@@ -284,6 +300,8 @@ public final class EdtDispatch {
         } catch (Exception checked) {
             if (exact) throwChecked(checked);
             throw new IllegalStateException(label + " host EDT operation failed", checked);
+        } finally {
+            HostReadEpoch.exit();
         }
     }
 
@@ -382,6 +400,9 @@ public final class EdtDispatch {
                 return;
             }
             started.countDown();
+            // One queued body is one host-read epoch: it may mutate the host, so a
+            // frame keeps it coherent and its exit invalidates any enclosing epoch.
+            HostReadEpoch.enter();
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
@@ -389,6 +410,7 @@ public final class EdtDispatch {
                 failure.set(throwable);
                 FatalErrors.rethrowIfFatal(throwable);
             } finally {
+                HostReadEpoch.exit();
                 state.set(DONE);
                 done.countDown();
             }
