@@ -235,7 +235,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | Permission | Scope | Why it is requested |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | Reads active model objects, Core metadata, statistics, and texture metadata. |
-| `turboism.cubism.parameter.read` | `application` | Reads active Cubism model parameters. |
+| `turboism.cubism.parameter.read` | `application` | Declares the parameter-read intent for tooling surfaces; parameter reads themselves are enforced at runtime through `turboism.cubism.model.read`. |
 | `turboism.cubism.project.read` | `application` | Reads active project, workspace, layout, and theme state. |
 | `turboism.cubism.model.write` | `application` | Applies typed model, parameter, binding, history, and model-setting writes. |
 | `turboism.file.read` | `application` | Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint. |
