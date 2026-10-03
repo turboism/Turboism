@@ -7,8 +7,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.ProtectionDomain;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /**
  * Exact-selector transformer for indexed edge queries, membership fusion and fresh-edge searches.
@@ -26,29 +26,25 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class TriangulationEdgeIndexTransformer implements ClassFileTransformer {
 
     /** Internal name of the reviewed host class; nothing else is eligible. */
-    static final String TARGET_INTERNAL_NAME =
-            "com/live2d/graphics3d/editableMesh/triangulation/TriangleList";
+    static final String TARGET_INTERNAL_NAME = "com/live2d/graphics3d/editableMesh/triangulation/TriangleList";
     /** Binary name used for already-loaded detection. */
-    static final String TARGET_CLASS_NAME =
-            "com.live2d.graphics3d.editableMesh.triangulation.TriangleList";
-    static final String MEMBERSHIP_INTERNAL_NAME =
-            "com/live2d/graphics3d/editableMesh/triangulation/h";
+    static final String TARGET_CLASS_NAME = "com.live2d.graphics3d.editableMesh.triangulation.TriangleList";
+
+    static final String MEMBERSHIP_INTERNAL_NAME = "com/live2d/graphics3d/editableMesh/triangulation/h";
     static final String MEMBERSHIP_CLASS_NAME = MEMBERSHIP_INTERNAL_NAME.replace('/', '.');
     private static final Set<String> MEMBERSHIP_DIGESTS = Set.of(
             "ef4a5eb2f0e1b0ac0295f76146a513a326729cfe4526884104cbb27978c52543",
             "5aa7031e3726355fde25d6d4412f0a295a3725cb8e510a3076007f3270445f0d");
 
     /** SHA-256 of the 5.3.x-family class bytes (identical on 5.3.00 through 5.3.04). */
-    static final String REVIEWED_CLASS_SHA256_53X =
-            "87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29";
+    static final String REVIEWED_CLASS_SHA256_53X = "87835641dbc03a7a25ff302dd4f7c74eb9c1ac95b1e1f3a1bc987b9cf833fe29";
     /**
      * SHA-256 of the 5.0.x–5.2.x-family class bytes. All reviewed builds from 5.0.00 through
      * 5.2.03 ship identical {@code TriangleList} bytes; the four-method patch contract was
      * verified on that shared shape. Product support is still bounded to the reviewed
      * installation versions — the digest pins bytes, it does not widen the support surface.
      */
-    static final String REVIEWED_CLASS_SHA256_5203 =
-            "b0a11ffc8969e5a8d1266ca01db85dacb75ca4de64e14b9f282ba4c32169d920";
+    static final String REVIEWED_CLASS_SHA256_5203 = "b0a11ffc8969e5a8d1266ca01db85dacb75ca4de64e14b9f282ba4c32169d920";
 
     /** What the transformer concluded, for diagnostics and tests. */
     public enum Outcome {
@@ -89,17 +85,20 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), membershipReceipt);
     }
 
-    private TriangulationEdgeIndexTransformer(final Set<String> admittedDigests,
-            final Consumer<String> membershipReceipt) {
+    private TriangulationEdgeIndexTransformer(
+            final Set<String> admittedDigests, final Consumer<String> membershipReceipt) {
         this(admittedDigests, membershipReceipt, null);
     }
 
-    TriangulationEdgeIndexTransformer(final Consumer<String> receipt, final TriangulationDefinitionLifecycle lifecycle) {
+    TriangulationEdgeIndexTransformer(
+            final Consumer<String> receipt, final TriangulationDefinitionLifecycle lifecycle) {
         this(Set.of(REVIEWED_CLASS_SHA256_53X, REVIEWED_CLASS_SHA256_5203), receipt, lifecycle);
     }
 
-    private TriangulationEdgeIndexTransformer(final Set<String> admittedDigests,
-            final Consumer<String> membershipReceipt, final TriangulationDefinitionLifecycle lifecycle) {
+    private TriangulationEdgeIndexTransformer(
+            final Set<String> admittedDigests,
+            final Consumer<String> membershipReceipt,
+            final TriangulationDefinitionLifecycle lifecycle) {
         this.admittedDigests = Objects.requireNonNull(admittedDigests, "admittedDigests");
         this.membershipReceipt = Objects.requireNonNull(membershipReceipt, "membershipReceipt");
         this.lifecycle = lifecycle;
@@ -126,26 +125,43 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
     }
 
     /** Outcome for fresh-edge search elimination, separate from membership fusion. */
-    public Outcome freshEdgeOutcome() { return freshEdgeOutcome.get(); }
+    public Outcome freshEdgeOutcome() {
+        return freshEdgeOutcome.get();
+    }
 
     /** Rejection detail for the fresh-edge caller. */
-    public String freshEdgeDiagnostic() { return freshEdgeDiagnostic.get(); }
+    public String freshEdgeDiagnostic() {
+        return freshEdgeDiagnostic.get();
+    }
 
     /** Outcome for guarded temporary-edge construction, independent of the older stages. */
-    public Outcome lazyEdgeOutcome() { return lazyEdgeOutcome.get(); }
+    public Outcome lazyEdgeOutcome() {
+        return lazyEdgeOutcome.get();
+    }
 
     /** Why the guarded construction weave declined; ordinary unsupported starts do not attempt it. */
-    public String lazyEdgeDiagnostic() { return lazyEdgeDiagnostic.get(); }
+    public String lazyEdgeDiagnostic() {
+        return lazyEdgeDiagnostic.get();
+    }
 
     /** Outcome for leased local edge-list construction, independent of indexed triangle queries. */
-    public Outcome builderOutcome() { return builderOutcome.get(); }
+    public Outcome builderOutcome() {
+        return builderOutcome.get();
+    }
 
     /** Why the local edge-list construction weave declined, or empty if it was not attempted. */
-    public String builderDiagnostic() { return builderDiagnostic.get(); }
+    public String builderDiagnostic() {
+        return builderDiagnostic.get();
+    }
 
     @Override
-    public byte[] transform(final Module module, final ClassLoader loader, final String name,
-            final Class<?> redefined, final ProtectionDomain domain, final byte[] bytes) {
+    public byte[] transform(
+            final Module module,
+            final ClassLoader loader,
+            final String name,
+            final Class<?> redefined,
+            final ProtectionDomain domain,
+            final byte[] bytes) {
         return transform(loader, name, redefined, domain, bytes, module == null || !module.isNamed());
     }
 
@@ -159,8 +175,13 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         return transform(loader, className, classBeingRedefined, domain, classfileBuffer, true);
     }
 
-    private byte[] transform(final ClassLoader loader, final String className, final Class<?> classBeingRedefined,
-            final ProtectionDomain domain, final byte[] classfileBuffer, final boolean unnamedModule) {
+    private byte[] transform(
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain domain,
+            final byte[] classfileBuffer,
+            final boolean unnamedModule) {
         if (classfileBuffer == null || classBeingRedefined != null) return null;
         if (MEMBERSHIP_INTERNAL_NAME.equals(className)) {
             final String observed = sha256(classfileBuffer);
@@ -194,8 +215,10 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             if (lifecycle != null && freshPatched && membershipPatched) {
                 try {
                     if (!unnamedModule) throw new IllegalArgumentException("named host module rejected");
-                    patched = LazyTriangulationEdgePreparation.prepare(patched, domain, loader, lifecycle, this::reportMembership);
-                    lazyPatched = true; lazyEdgeOutcome.set(Outcome.PATCHED);
+                    patched = LazyTriangulationEdgePreparation.prepare(
+                            patched, domain, loader, lifecycle, this::reportMembership);
+                    lazyPatched = true;
+                    lazyEdgeOutcome.set(Outcome.PATCHED);
                 } catch (Throwable failure) {
                     FatalErrors.rethrowIfFatal(failure);
                     lazyEdgeOutcome.set(Outcome.SHAPE_REJECTED);
@@ -204,14 +227,18 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
                 }
             }
             // Each receipt binds the final returned bytes; either independent stage may decline.
-            if (freshPatched) reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256=" + observed
-                    + " outputSha256=" + sha256(patched));
-            if (membershipPatched) reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed
-                    + " outputSha256=" + sha256(patched));
-            if (lazyPatched) reportMembership("TRIANGULATION_LAZY_EDGE_PATCHED inputSha256=" + observed
-                    + " outputSha256=" + sha256(patched));
-            if (lazyPatched) reportMembership("TRIANGULATION_ANGLE_GUARD_PATCHED inputSha256=" + observed
-                    + " outputSha256=" + sha256(patched));
+            if (freshPatched)
+                reportMembership("TRIANGULATION_FRESH_EDGE_PATCHED inputSha256=" + observed + " outputSha256="
+                        + sha256(patched));
+            if (membershipPatched)
+                reportMembership("TRIANGULATION_MEMBERSHIP_PATCHED inputSha256=" + observed + " outputSha256="
+                        + sha256(patched));
+            if (lazyPatched)
+                reportMembership(
+                        "TRIANGULATION_LAZY_EDGE_PATCHED inputSha256=" + observed + " outputSha256=" + sha256(patched));
+            if (lazyPatched)
+                reportMembership("TRIANGULATION_ANGLE_GUARD_PATCHED inputSha256=" + observed + " outputSha256="
+                        + sha256(patched));
             return freshPatched || membershipPatched ? patched : null;
         }
         if (!TARGET_INTERNAL_NAME.equals(className)) return null;
@@ -223,13 +250,12 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
         }
         try {
             byte[] patched = patcher.patch(classfileBuffer);
-            if (lifecycle != null && unnamedModule
-                    && lifecycle.startupReason().equals("SUPPORTED_OWNED_PREMAIN")) {
+            if (lifecycle != null && unnamedModule && lifecycle.startupReason().equals("SUPPORTED_OWNED_PREMAIN")) {
                 try {
                     patched = TriangleListEdgeBuilderPatcher.patch(patched);
                     builderOutcome.set(Outcome.PATCHED);
-                    reportMembership("TRIANGULATION_LOCAL_BUILDER_PATCHED inputSha256=" + observed
-                            + " outputSha256=" + sha256(patched));
+                    reportMembership("TRIANGULATION_LOCAL_BUILDER_PATCHED inputSha256=" + observed + " outputSha256="
+                            + sha256(patched));
                 } catch (IllegalArgumentException rejected) {
                     builderOutcome.set(Outcome.SHAPE_REJECTED);
                     builderDiagnostic.set(rejected.getMessage());

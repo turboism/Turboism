@@ -31,79 +31,161 @@ final class FreshTriangulationEdgePatcher implements Opcodes {
         require((P + "h").equals(reader.getClassName()), "caller owner");
         final List<Op> ops = new ArrayList<>();
         final int[] methods = {0};
-        reader.accept(new ClassVisitor(ASM9) {
-            @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
-                    String signature, String[] exceptions) {
-                if (!name.equals("c") || !descriptor.equals("()V")) return null;
-                require(access == (ACC_PUBLIC | ACC_FINAL), "c access"); methods[0]++;
-                return new MethodVisitor(ASM9) {
-                    private void op(int code) { ops.add(new Op(code, -1, null)); }
-                    @Override public void visitInsn(int code) { op(code); }
-                    @Override public void visitVarInsn(int code, int local) { ops.add(new Op(code, local, null)); }
-                    @Override public void visitMethodInsn(int code, String owner, String name, String desc, boolean itf) {
-                        ops.add(new Op(code, -1, itf ? null : owner + "." + name + desc));
+        reader.accept(
+                new ClassVisitor(ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            int access, String name, String descriptor, String signature, String[] exceptions) {
+                        if (!name.equals("c") || !descriptor.equals("()V")) return null;
+                        require(access == (ACC_PUBLIC | ACC_FINAL), "c access");
+                        methods[0]++;
+                        return new MethodVisitor(ASM9) {
+                            private void op(int code) {
+                                ops.add(new Op(code, -1, null));
+                            }
+
+                            @Override
+                            public void visitInsn(int code) {
+                                op(code);
+                            }
+
+                            @Override
+                            public void visitVarInsn(int code, int local) {
+                                ops.add(new Op(code, local, null));
+                            }
+
+                            @Override
+                            public void visitMethodInsn(int code, String owner, String name, String desc, boolean itf) {
+                                ops.add(new Op(code, -1, itf ? null : owner + "." + name + desc));
+                            }
+
+                            @Override
+                            public void visitTypeInsn(int code, String type) {
+                                op(code);
+                            }
+
+                            @Override
+                            public void visitFieldInsn(int code, String owner, String name, String desc) {
+                                op(code);
+                            }
+
+                            @Override
+                            public void visitIntInsn(int code, int value) {
+                                op(code);
+                            }
+
+                            @Override
+                            public void visitJumpInsn(int code, Label label) {
+                                op(code);
+                            }
+
+                            @Override
+                            public void visitLdcInsn(Object value) {
+                                op(LDC);
+                            }
+
+                            @Override
+                            public void visitIincInsn(int local, int increment) {
+                                op(IINC);
+                            }
+
+                            @Override
+                            public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... args) {
+                                op(INVOKEDYNAMIC);
+                            }
+
+                            @Override
+                            public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+                                op(TABLESWITCH);
+                            }
+
+                            @Override
+                            public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+                                op(LOOKUPSWITCH);
+                            }
+
+                            @Override
+                            public void visitMultiANewArrayInsn(String desc, int dimensions) {
+                                op(MULTIANEWARRAY);
+                            }
+
+                            @Override
+                            public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+                                throw new IllegalArgumentException("unexpected c handler");
+                            }
+                        };
                     }
-                    @Override public void visitTypeInsn(int code, String type) { op(code); }
-                    @Override public void visitFieldInsn(int code, String owner, String name, String desc) { op(code); }
-                    @Override public void visitIntInsn(int code, int value) { op(code); }
-                    @Override public void visitJumpInsn(int code, Label label) { op(code); }
-                    @Override public void visitLdcInsn(Object value) { op(LDC); }
-                    @Override public void visitIincInsn(int local, int increment) { op(IINC); }
-                    @Override public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... args) { op(INVOKEDYNAMIC); }
-                    @Override public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) { op(TABLESWITCH); }
-                    @Override public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) { op(LOOKUPSWITCH); }
-                    @Override public void visitMultiANewArrayInsn(String desc, int dimensions) { op(MULTIANEWARRAY); }
-                    @Override public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-                        throw new IllegalArgumentException("unexpected c handler");
-                    }
-                };
-            }
-        }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                },
+                ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         require(methods[0] == 1, "exact c method");
         int sites = 0;
         for (int i = 0; i < ops.size(); i++) {
             if (!CONTAINS.equals(ops.get(i).member())) continue;
             require(i >= 2 && i + 5 < ops.size() && sites < 3, "query position");
             int argument = 12 + sites;
-            require(ops.get(i).code() == INVOKEVIRTUAL && load(ops.get(i - 2), 7)
-                    && load(ops.get(i - 1), argument), "query receiver/argument");
-            require(ops.get(i + 1).code() == IFNE && load(ops.get(i + 2), 7)
-                    && load(ops.get(i + 3), argument)
-                    && (LIST + ".add(Ljava/lang/Object;)Z").equals(ops.get(i + 4).member())
-                    && ops.get(i + 5).code() == POP, "conditional append");
+            require(
+                    ops.get(i).code() == INVOKEVIRTUAL && load(ops.get(i - 2), 7) && load(ops.get(i - 1), argument),
+                    "query receiver/argument");
+            require(
+                    ops.get(i + 1).code() == IFNE
+                            && load(ops.get(i + 2), 7)
+                            && load(ops.get(i + 3), argument)
+                            && (LIST + ".add(Ljava/lang/Object;)Z")
+                                    .equals(ops.get(i + 4).member())
+                            && ops.get(i + 5).code() == POP,
+                    "conditional append");
             int edgeStore = lastStore(ops, i, argument), listStore = lastStore(ops, i, 7);
-            require(edgeStore > 0 && INIT.equals(ops.get(edgeStore - 1).member())
-                    && ops.get(edgeStore - 1).code() == INVOKESPECIAL, "fresh edge initialization");
-            require(listStore > 0 && (LIST + ".<init>()V").equals(ops.get(listStore - 1).member())
-                    && ops.get(listStore - 1).code() == INVOKESPECIAL, "local list initialization");
+            require(
+                    edgeStore > 0
+                            && INIT.equals(ops.get(edgeStore - 1).member())
+                            && ops.get(edgeStore - 1).code() == INVOKESPECIAL,
+                    "fresh edge initialization");
+            require(
+                    listStore > 0
+                            && (LIST + ".<init>()V")
+                                    .equals(ops.get(listStore - 1).member())
+                            && ops.get(listStore - 1).code() == INVOKESPECIAL,
+                    "local list initialization");
             sites++;
         }
         require(sites == 3, "exactly three queries");
         final ClassWriter writer = new ClassWriter(reader, 0);
-        reader.accept(new ClassVisitor(ASM9, writer) {
-            @Override public MethodVisitor visitMethod(int access, String name, String descriptor,
-                    String signature, String[] exceptions) {
-                MethodVisitor output = super.visitMethod(access, name, descriptor, signature, exceptions);
-                if (!name.equals("c") || !descriptor.equals("()V")) return output;
-                return new MethodVisitor(ASM9, output) {
-                    @Override public void visitMethodInsn(int code, String owner, String name, String desc, boolean itf) {
-                        if (code == INVOKEVIRTUAL && !itf && CONTAINS.equals(owner + "." + name + desc)) {
-                            super.visitMethodInsn(INVOKESTATIC,
-                                    "dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgeSearch", "containsFresh",
-                                    "(Ljava/util/ArrayList;Ljava/lang/Object;)Z", false);
-                        } else super.visitMethodInsn(code, owner, name, desc, itf);
+        reader.accept(
+                new ClassVisitor(ASM9, writer) {
+                    @Override
+                    public MethodVisitor visitMethod(
+                            int access, String name, String descriptor, String signature, String[] exceptions) {
+                        MethodVisitor output = super.visitMethod(access, name, descriptor, signature, exceptions);
+                        if (!name.equals("c") || !descriptor.equals("()V")) return output;
+                        return new MethodVisitor(ASM9, output) {
+                            @Override
+                            public void visitMethodInsn(int code, String owner, String name, String desc, boolean itf) {
+                                if (code == INVOKEVIRTUAL && !itf && CONTAINS.equals(owner + "." + name + desc)) {
+                                    super.visitMethodInsn(
+                                            INVOKESTATIC,
+                                            "dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgeSearch",
+                                            "containsFresh",
+                                            "(Ljava/util/ArrayList;Ljava/lang/Object;)Z",
+                                            false);
+                                } else super.visitMethodInsn(code, owner, name, desc, itf);
+                            }
+                        };
                     }
-                };
-            }
-        }, 0);
+                },
+                0);
         return writer.toByteArray();
     }
 
-    private static boolean load(Op op, int local) { return op.code() == ALOAD && op.local() == local; }
+    private static boolean load(Op op, int local) {
+        return op.code() == ALOAD && op.local() == local;
+    }
+
     private static int lastStore(List<Op> ops, int before, int local) {
-        for (int i = before - 1; i >= 0; i--) if (ops.get(i).code() == ASTORE && ops.get(i).local() == local) return i;
+        for (int i = before - 1; i >= 0; i--)
+            if (ops.get(i).code() == ASTORE && ops.get(i).local() == local) return i;
         return -1;
     }
+
     private static void require(boolean condition, String message) {
         if (!condition) throw new IllegalArgumentException(message);
     }

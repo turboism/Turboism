@@ -50,8 +50,7 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
         }
 
         static Installation installed(
-                final Instrumentation instrumentation,
-                final TriangulationEdgeIndexTransformer transformer) {
+                final Instrumentation instrumentation, final TriangulationEdgeIndexTransformer transformer) {
             return new Installation(Status.INSTALLED, instrumentation, transformer);
         }
 
@@ -66,9 +65,7 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
 
         /** Outcome of the transform itself, which is only meaningful once the target was defined. */
         public TriangulationEdgeIndexTransformer.Outcome transformOutcome() {
-            return transformer == null
-                    ? TriangulationEdgeIndexTransformer.Outcome.NONE
-                    : transformer.outcome();
+            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE : transformer.outcome();
         }
 
         /** Transformer diagnostic detail, or the empty string when none was installed. */
@@ -78,7 +75,8 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
 
         /** Independent outcome for the reviewed contains/add caller. */
         public TriangulationEdgeIndexTransformer.Outcome membershipTransformOutcome() {
-            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE
+            return transformer == null
+                    ? TriangulationEdgeIndexTransformer.Outcome.NONE
                     : transformer.membershipOutcome();
         }
 
@@ -89,7 +87,8 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
 
         /** Independent outcome for fresh-edge failed-search elimination. */
         public TriangulationEdgeIndexTransformer.Outcome freshEdgeTransformOutcome() {
-            return transformer == null ? TriangulationEdgeIndexTransformer.Outcome.NONE
+            return transformer == null
+                    ? TriangulationEdgeIndexTransformer.Outcome.NONE
                     : transformer.freshEdgeOutcome();
         }
 
@@ -129,8 +128,7 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
      * @param diagnostic receives one stable outcome code; exceptions are swallowed
      * @return the installation handle; its status distinguishes installed from declined
      */
-    public static Installation install(
-            final Instrumentation instrumentation, final Consumer<String> diagnostic) {
+    public static Installation install(final Instrumentation instrumentation, final Consumer<String> diagnostic) {
         Objects.requireNonNull(instrumentation, "instrumentation");
         Objects.requireNonNull(diagnostic, "diagnostic");
 
@@ -174,14 +172,8 @@ public final class VerifiedTriangulationEdgeIndexInstaller {
     }
 
     /** Exposed so the transformer can be exercised directly by tests without an Instrumentation. */
-    public static byte[] transformForTesting(
-            final byte[] classFileBuffer, final ProtectionDomain domain) {
+    public static byte[] transformForTesting(final byte[] classFileBuffer, final ProtectionDomain domain) {
         return new TriangulationEdgeIndexTransformer()
-                .transform(
-                        null,
-                        TARGET_CLASS_NAME.replace('.', '/'),
-                        null,
-                        domain,
-                        classFileBuffer);
+                .transform(null, TARGET_CLASS_NAME.replace('.', '/'), null, domain, classFileBuffer);
     }
 }

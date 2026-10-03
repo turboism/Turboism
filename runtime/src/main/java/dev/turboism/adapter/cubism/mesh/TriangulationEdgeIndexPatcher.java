@@ -50,6 +50,7 @@ public final class TriangulationEdgeIndexPatcher {
 
     /** Owner class the patch applies to. */
     static final String OWNER = "com/live2d/graphics3d/editableMesh/triangulation/TriangleList";
+
     static final String EDGE = "com/live2d/graphics3d/editableMesh/triangulation/j";
     static final String TRIANGLE = "com/live2d/graphics3d/editableMesh/triangulation/l";
     static final String POINT = "com/live2d/graphics3d/editableMesh/triangulation/TriPoint";
@@ -125,7 +126,8 @@ public final class TriangulationEdgeIndexPatcher {
                                         return countInvoke(() -> survey.bLRemoveSites++, "remove", "(" + OBJ + ")Z");
                                     }
                                     if ("c".equals(name) && A_L_DESC.equals(desc)) {
-                                        return countInvoke(() -> survey.cLContainsSites++, "contains", "(" + OBJ + ")Z");
+                                        return countInvoke(
+                                                () -> survey.cLContainsSites++, "contains", "(" + OBJ + ")Z");
                                     }
                                     if ("c".equals(name) && "()V".equals(desc)) {
                                         survey.cFound = true;
@@ -246,12 +248,14 @@ public final class TriangulationEdgeIndexPatcher {
                                                 final String name,
                                                 final String descriptor,
                                                 final boolean isInterface) {
-                                            shift(op == Opcodes.INVOKESTATIC
-                                                            && INTRINSICS.equals(owner)
-                                                            && CHECK_NOT_NULL.equals(name)
-                                                            && ("(" + OBJ + "Ljava/lang/String;)V").equals(descriptor)
-                                                    ? 3
-                                                    : 0);
+                                            shift(
+                                                    op == Opcodes.INVOKESTATIC
+                                                                    && INTRINSICS.equals(owner)
+                                                                    && CHECK_NOT_NULL.equals(name)
+                                                                    && ("(" + OBJ + "Ljava/lang/String;)V")
+                                                                            .equals(descriptor)
+                                                            ? 3
+                                                            : 0);
                                             if (trail[0] == 1 && trail[1] == 2 && trail[2] == 3 && index <= 3) {
                                                 target.aJPrologues++;
                                             }
@@ -277,28 +281,24 @@ public final class TriangulationEdgeIndexPatcher {
         if (!survey.bLFound) throw new NotApplicable("method b(l) not found");
         if (!survey.cFound) throw new NotApplicable("method c() not found");
         if (!survey.aJFound) throw new NotApplicable("method a(j) not found");
-        if (survey.aLAddSites != 1)
-            throw new NotApplicable("a(l) LinkedHashSet.add sites=" + survey.aLAddSites);
+        if (survey.aLAddSites != 1) throw new NotApplicable("a(l) LinkedHashSet.add sites=" + survey.aLAddSites);
         if (survey.bLRemoveSites != 1)
             throw new NotApplicable("b(l) LinkedHashSet.remove sites=" + survey.bLRemoveSites);
-        if (survey.cClearSites != 1)
-            throw new NotApplicable("c() LinkedHashSet.clear sites=" + survey.cClearSites);
+        if (survey.cClearSites != 1) throw new NotApplicable("c() LinkedHashSet.clear sites=" + survey.cClearSites);
         if (survey.cLContainsSites != 1)
             throw new NotApplicable("c(l) LinkedHashSet.contains sites=" + survey.cLContainsSites);
-        if (survey.aJPrologues != 1)
-            throw new NotApplicable("a(j) leading prologue sequences=" + survey.aJPrologues);
+        if (survey.aJPrologues != 1) throw new NotApplicable("a(j) leading prologue sequences=" + survey.aJPrologues);
     }
 
     // ------------------------------------------------------------------ emit
 
     private byte[] emit(final byte[] original) {
-        final ClassWriter writer =
-                new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
-                    @Override
-                    protected String getCommonSuperClass(final String a, final String b) {
-                        return "java/lang/Object";
-                    }
-                };
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(final String a, final String b) {
+                return "java/lang/Object";
+            }
+        };
         new ClassReader(original)
                 .accept(
                         new ClassVisitor(Opcodes.ASM9, writer) {
@@ -309,8 +309,7 @@ public final class TriangulationEdgeIndexPatcher {
                                     final String desc,
                                     final String signature,
                                     final String[] exceptions) {
-                                final MethodVisitor mv =
-                                        super.visitMethod(access, name, desc, signature, exceptions);
+                                final MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
                                 if (mv == null) return null;
 
                                 if ("a".equals(name) && A_L_DESC.equals(desc)) {
@@ -503,10 +502,7 @@ public final class TriangulationEdgeIndexPatcher {
 
                                         @Override
                                         public void visitInvokeDynamicInsn(
-                                                final String n,
-                                                final String d,
-                                                final Handle h,
-                                                final Object... a) {
+                                                final String n, final String d, final Handle h, final Object... a) {
                                             anyInsn();
                                             super.visitInvokeDynamicInsn(n, d, h, a);
                                         }
@@ -518,12 +514,13 @@ public final class TriangulationEdgeIndexPatcher {
                                                 final String n,
                                                 final String d,
                                                 final boolean itf) {
-                                            shift(op == Opcodes.INVOKESTATIC
-                                                            && INTRINSICS.equals(owner)
-                                                            && CHECK_NOT_NULL.equals(n)
-                                                            && ("(" + OBJ + "Ljava/lang/String;)V").equals(d)
-                                                    ? 3
-                                                    : 0);
+                                            shift(
+                                                    op == Opcodes.INVOKESTATIC
+                                                                    && INTRINSICS.equals(owner)
+                                                                    && CHECK_NOT_NULL.equals(n)
+                                                                    && ("(" + OBJ + "Ljava/lang/String;)V").equals(d)
+                                                            ? 3
+                                                            : 0);
                                             super.visitMethodInsn(op, owner, n, d, itf);
                                             if (!injected
                                                     && trail[0] == 1
@@ -567,11 +564,7 @@ public final class TriangulationEdgeIndexPatcher {
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, EDGE, "b", "()" + POINT_DESC, false);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, POINT, "getIndex", "()I", false);
         mv.visitMethodInsn(
-                Opcodes.INVOKESTATIC,
-                BRIDGE,
-                "tryQuery",
-                "(Ljava/util/LinkedHashSet;II)Ljava/util/List;",
-                false);
+                Opcodes.INVOKESTATIC, BRIDGE, "tryQuery", "(Ljava/util/LinkedHashSet;II)Ljava/util/List;", false);
         mv.visitInsn(Opcodes.DUP);
         mv.visitJumpInsn(Opcodes.IFNULL, original);
         mv.visitInsn(Opcodes.ARETURN);

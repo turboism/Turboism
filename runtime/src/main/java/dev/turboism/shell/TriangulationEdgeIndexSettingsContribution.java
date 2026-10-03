@@ -22,7 +22,8 @@ final class TriangulationEdgeIndexSettingsContribution {
      * the settings dialog is confirmed, so a storage failure propagates instead of being reported as
      * a successful change.
      */
-    static SettingsContribution create(final PluginLocalization i18n, final TriangulationEdgeIndexSettingsService settings) {
+    static SettingsContribution create(
+            final PluginLocalization i18n, final TriangulationEdgeIndexSettingsService settings) {
         Objects.requireNonNull(i18n, "i18n");
         Objects.requireNonNull(settings, "settings");
         return new SettingsContribution(

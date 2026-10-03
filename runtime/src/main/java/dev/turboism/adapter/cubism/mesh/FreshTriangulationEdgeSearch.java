@@ -12,7 +12,8 @@ public final class FreshTriangulationEdgeSearch {
     // ClassValue does not register strong loader keys in a process-wide map. Checking the
     // actual object type avoids class loading or assuming resource bytes equal defined bytes.
     private static final ClassValue<Boolean> IDENTITY_EQUALITY = new ClassValue<>() {
-        @Override protected Boolean computeValue(final Class<?> type) {
+        @Override
+        protected Boolean computeValue(final Class<?> type) {
             if (!EDGE.equals(type.getName())) return result(type, false, "NAME_REJECTED", null);
             if (!Modifier.isFinal(type.getModifiers())) return result(type, false, "FINAL_REJECTED", null);
             if (type.getSuperclass() != Object.class) return result(type, false, "SUPERCLASS_REJECTED", null);
@@ -36,16 +37,19 @@ public final class FreshTriangulationEdgeSearch {
      * decision on nonfatal failure. No output or diagnostic metadata is constructed without
      * the exact token; fatal JVM failures retain the shared propagation policy.
      */
-    private static boolean result(final Class<?> type, final boolean admitted,
-            final String reason, final Class<?> equalsOwner) {
+    private static boolean result(
+            final Class<?> type, final boolean admitted, final String reason, final Class<?> equalsOwner) {
         try {
             if (DIAGNOSTIC_TOKEN.equals(System.getProperty(DIAGNOSTIC_PROPERTY))) {
                 final ClassLoader loader = type.getClassLoader();
                 System.err.println("TRIANGULATION_FRESH_EDGE_GUARD type=" + type.getName()
                         + " admitted=" + admitted + " reason=" + reason
                         + " equalsOwner=" + (equalsOwner == null ? "unchecked" : equalsOwner.getName())
-                        + " loader=" + (loader == null ? "bootstrap" : loader.getClass().getName()
-                                + "@" + Integer.toHexString(System.identityHashCode(loader)))
+                        + " loader="
+                        + (loader == null
+                                ? "bootstrap"
+                                : loader.getClass().getName() + "@"
+                                        + Integer.toHexString(System.identityHashCode(loader)))
                         + " finalType=" + Modifier.isFinal(type.getModifiers())
                         + " objectSuperclass=" + (type.getSuperclass() == Object.class)
                         + " coldComputation=true");
@@ -64,7 +68,9 @@ public final class FreshTriangulationEdgeSearch {
      * pinned caller, while the actual loaded equality implementation is checked here.
      */
     public static boolean containsFresh(final ArrayList<?> list, final Object edge) {
-        if (list != null && list.getClass() == ArrayList.class && edge != null
+        if (list != null
+                && list.getClass() == ArrayList.class
+                && edge != null
                 && IDENTITY_EQUALITY.get(edge.getClass())) return false;
         return list.contains(edge);
     }

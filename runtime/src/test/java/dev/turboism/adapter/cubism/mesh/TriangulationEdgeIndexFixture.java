@@ -71,43 +71,37 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         ctor.visitEnd();
 
         // boolean a(l): prologue + b.add(l)
-        final MethodVisitor add = writer.visitMethod(
-                ACC_PUBLIC, "a", "(L" + TRIANGLE + ";)Z", null, null);
+        final MethodVisitor add = writer.visitMethod(ACC_PUBLIC, "a", "(L" + TRIANGLE + ";)Z", null, null);
         add.visitCode();
         prologue(add);
         add.visitVarInsn(ALOAD, 0);
         add.visitFieldInsn(GETFIELD, LIST, "b", "Ljava/util/LinkedHashSet;");
         add.visitVarInsn(ALOAD, 1);
-        add.visitMethodInsn(
-                INVOKEVIRTUAL, "java/util/LinkedHashSet", "add", "(Ljava/lang/Object;)Z", false);
+        add.visitMethodInsn(INVOKEVIRTUAL, "java/util/LinkedHashSet", "add", "(Ljava/lang/Object;)Z", false);
         add.visitInsn(IRETURN);
         add.visitMaxs(2, 2);
         add.visitEnd();
 
         // boolean b(l): prologue + b.remove(l)
-        final MethodVisitor remove = writer.visitMethod(
-                ACC_PUBLIC, "b", "(L" + TRIANGLE + ";)Z", null, null);
+        final MethodVisitor remove = writer.visitMethod(ACC_PUBLIC, "b", "(L" + TRIANGLE + ";)Z", null, null);
         remove.visitCode();
         prologue(remove);
         remove.visitVarInsn(ALOAD, 0);
         remove.visitFieldInsn(GETFIELD, LIST, "b", "Ljava/util/LinkedHashSet;");
         remove.visitVarInsn(ALOAD, 1);
-        remove.visitMethodInsn(
-                INVOKEVIRTUAL, "java/util/LinkedHashSet", "remove", "(Ljava/lang/Object;)Z", false);
+        remove.visitMethodInsn(INVOKEVIRTUAL, "java/util/LinkedHashSet", "remove", "(Ljava/lang/Object;)Z", false);
         remove.visitInsn(IRETURN);
         remove.visitMaxs(2, 2);
         remove.visitEnd();
 
         // boolean c(l): prologue + b.contains(l)
-        final MethodVisitor contains = writer.visitMethod(
-                ACC_PUBLIC, "c", "(L" + TRIANGLE + ";)Z", null, null);
+        final MethodVisitor contains = writer.visitMethod(ACC_PUBLIC, "c", "(L" + TRIANGLE + ";)Z", null, null);
         contains.visitCode();
         prologue(contains);
         contains.visitVarInsn(ALOAD, 0);
         contains.visitFieldInsn(GETFIELD, LIST, "b", "Ljava/util/LinkedHashSet;");
         contains.visitVarInsn(ALOAD, 1);
-        contains.visitMethodInsn(
-                INVOKEVIRTUAL, "java/util/LinkedHashSet", "contains", "(Ljava/lang/Object;)Z", false);
+        contains.visitMethodInsn(INVOKEVIRTUAL, "java/util/LinkedHashSet", "contains", "(Ljava/lang/Object;)Z", false);
         contains.visitInsn(IRETURN);
         contains.visitMaxs(2, 2);
         contains.visitEnd();
@@ -123,8 +117,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         clear.visitEnd();
 
         // List a(j): prologue + insertion-ordered scan collecting triangles where l.b(j)
-        final MethodVisitor query = writer.visitMethod(
-                ACC_PUBLIC, "a", "(L" + EDGE + ";)Ljava/util/List;", null, null);
+        final MethodVisitor query = writer.visitMethod(ACC_PUBLIC, "a", "(L" + EDGE + ";)Ljava/util/List;", null, null);
         query.visitCode();
         prologue(query);
         query.visitTypeInsn(NEW, "java/util/ArrayList");
@@ -133,19 +126,16 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         query.visitVarInsn(ASTORE, 2);
         query.visitVarInsn(ALOAD, 0);
         query.visitFieldInsn(GETFIELD, LIST, "b", "Ljava/util/LinkedHashSet;");
-        query.visitMethodInsn(
-                INVOKEVIRTUAL, "java/util/LinkedHashSet", "iterator", "()Ljava/util/Iterator;", false);
+        query.visitMethodInsn(INVOKEVIRTUAL, "java/util/LinkedHashSet", "iterator", "()Ljava/util/Iterator;", false);
         query.visitVarInsn(ASTORE, 3);
         final Label loop = new Label();
         final Label done = new Label();
         query.visitLabel(loop);
         query.visitVarInsn(ALOAD, 3);
-        query.visitMethodInsn(
-                INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
+        query.visitMethodInsn(INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
         query.visitJumpInsn(IFEQ, done);
         query.visitVarInsn(ALOAD, 3);
-        query.visitMethodInsn(
-                INVOKEINTERFACE, "java/util/Iterator", "next", "()Ljava/lang/Object;", true);
+        query.visitMethodInsn(INVOKEINTERFACE, "java/util/Iterator", "next", "()Ljava/lang/Object;", true);
         query.visitTypeInsn(CHECKCAST, TRIANGLE);
         query.visitVarInsn(ASTORE, 4);
         query.visitVarInsn(ALOAD, 4);
@@ -154,8 +144,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         query.visitJumpInsn(IFEQ, loop);
         query.visitVarInsn(ALOAD, 2);
         query.visitVarInsn(ALOAD, 4);
-        query.visitMethodInsn(
-                INVOKEVIRTUAL, "java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", false);
+        query.visitMethodInsn(INVOKEVIRTUAL, "java/util/ArrayList", "add", "(Ljava/lang/Object;)Z", false);
         query.visitInsn(POP);
         query.visitJumpInsn(GOTO, loop);
         query.visitLabel(done);
@@ -173,17 +162,16 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         final ClassWriter writer = fixtureWriter();
         writer.visit(V17, ACC_PUBLIC | ACC_FINAL, TRIANGLE, null, "java/lang/Object", null);
         for (final String field : new String[] {"a", "b", "c"}) {
-            writer.visitField(ACC_PRIVATE | ACC_FINAL, field, POINT_DESC, null, null).visitEnd();
+            writer.visitField(ACC_PRIVATE | ACC_FINAL, field, POINT_DESC, null, null)
+                    .visitEnd();
         }
-        constructor(writer, TRIANGLE, "(" + POINT_DESC + POINT_DESC + POINT_DESC + ")V",
-                new String[] {"a", "b", "c"});
+        constructor(writer, TRIANGLE, "(" + POINT_DESC + POINT_DESC + POINT_DESC + ")V", new String[] {"a", "b", "c"});
         for (final String[] getter : new String[][] {{"a", "a"}, {"b", "b"}, {"c", "c"}}) {
             getter(writer, TRIANGLE, getter[0], getter[1]);
         }
 
         // boolean b(j): (ia==ja&&ib==jb)||(ia==jb&&ib==ja) for edges ab, bc, ca
-        final MethodVisitor matches = writer.visitMethod(
-                ACC_PUBLIC, "b", "(L" + EDGE + ";)Z", null, null);
+        final MethodVisitor matches = writer.visitMethod(ACC_PUBLIC, "b", "(L" + EDGE + ";)Z", null, null);
         matches.visitCode();
         for (int vertex = 0; vertex < 3; vertex++) {
             emitEndpointIndex(matches, 0, new String[] {"a", "b", "c"}[vertex]);
@@ -204,8 +192,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         matches.visitEnd();
 
         // equals: instanceof l && a.equals(o.a) && b.equals(o.b) && c.equals(o.c)
-        final MethodVisitor equals = writer.visitMethod(
-                ACC_PUBLIC, "equals", "(Ljava/lang/Object;)Z", null, null);
+        final MethodVisitor equals = writer.visitMethod(ACC_PUBLIC, "equals", "(Ljava/lang/Object;)Z", null, null);
         equals.visitCode();
         equals.visitVarInsn(ALOAD, 1);
         equals.visitTypeInsn(INSTANCEOF, TRIANGLE);
@@ -219,8 +206,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
             equals.visitFieldInsn(GETFIELD, TRIANGLE, field, POINT_DESC);
             equals.visitVarInsn(ALOAD, 2);
             equals.visitFieldInsn(GETFIELD, TRIANGLE, field, POINT_DESC);
-            equals.visitMethodInsn(
-                    INVOKEVIRTUAL, POINT, "equals", "(Ljava/lang/Object;)Z", false);
+            equals.visitMethodInsn(INVOKEVIRTUAL, POINT, "equals", "(Ljava/lang/Object;)Z", false);
             equals.visitJumpInsn(IFEQ, notTriangle);
         }
         equals.visitInsn(ICONST_1);
@@ -244,8 +230,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
     }
 
     /** Emits {@code this.<field>.getIndex()} leaving the int on the stack. */
-    private static void emitEndpointIndex(
-            final MethodVisitor mv, final int self, final String field) {
+    private static void emitEndpointIndex(final MethodVisitor mv, final int self, final String field) {
         mv.visitVarInsn(ALOAD, self);
         mv.visitFieldInsn(GETFIELD, TRIANGLE, field, POINT_DESC);
         mv.visitMethodInsn(INVOKEVIRTUAL, POINT, "getIndex", "()I", false);
@@ -255,8 +240,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
      * Emits {@code if ((l[va]==ja && l[vb]==jb) || (l[va]==jb && l[vb]==ja)) return true}.
      * Locals 5/6 hold ja/jb; on a miss control falls through to the next check.
      */
-    private static void pairCheck(
-            final MethodVisitor mv, final int firstLocal, final int secondLocal) {
+    private static void pairCheck(final MethodVisitor mv, final int firstLocal, final int secondLocal) {
         final Label reversed = new Label();
         final Label miss = new Label();
         mv.visitVarInsn(ILOAD, firstLocal);
@@ -284,7 +268,8 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         final ClassWriter writer = fixtureWriter();
         writer.visit(V17, ACC_PUBLIC | ACC_FINAL, EDGE, null, "java/lang/Object", null);
         for (final String field : new String[] {"a", "b"}) {
-            writer.visitField(ACC_PRIVATE | ACC_FINAL, field, POINT_DESC, null, null).visitEnd();
+            writer.visitField(ACC_PRIVATE | ACC_FINAL, field, POINT_DESC, null, null)
+                    .visitEnd();
         }
         constructor(writer, EDGE, "(" + POINT_DESC + POINT_DESC + ")V", new String[] {"a", "b"});
         for (final String getter : new String[] {"a", "b"}) {
@@ -321,8 +306,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
 
         for (final String[] accessor :
                 new String[][] {{"getX", "x", "F"}, {"getY", "y", "F"}, {"getIndex", "index", "I"}}) {
-            final MethodVisitor method = writer.visitMethod(
-                    ACC_PUBLIC, accessor[0], "()" + accessor[2], null, null);
+            final MethodVisitor method = writer.visitMethod(ACC_PUBLIC, accessor[0], "()" + accessor[2], null, null);
             method.visitCode();
             method.visitVarInsn(ALOAD, 0);
             method.visitFieldInsn(GETFIELD, POINT, accessor[1], accessor[2]);
@@ -332,8 +316,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         }
 
         // equals: coordinates only — the index is deliberately ignored, like the official class
-        final MethodVisitor equals = writer.visitMethod(
-                ACC_PUBLIC, "equals", "(Ljava/lang/Object;)Z", null, null);
+        final MethodVisitor equals = writer.visitMethod(ACC_PUBLIC, "equals", "(Ljava/lang/Object;)Z", null, null);
         equals.visitCode();
         equals.visitVarInsn(ALOAD, 1);
         equals.visitTypeInsn(INSTANCEOF, POINT);
@@ -394,11 +377,7 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
         mv.visitVarInsn(ALOAD, 1);
         mv.visitLdcInsn("");
         mv.visitMethodInsn(
-                INVOKESTATIC,
-                INTRINSICS,
-                "checkNotNullParameter",
-                "(Ljava/lang/Object;Ljava/lang/String;)V",
-                false);
+                INVOKESTATIC, INTRINSICS, "checkNotNullParameter", "(Ljava/lang/Object;Ljava/lang/String;)V", false);
     }
 
     /** Three-field constructor assigning each parameter to its field. */
@@ -419,10 +398,8 @@ final class TriangulationEdgeIndexFixture implements Opcodes {
     }
 
     /** Public getter returning a same-named point field. */
-    private static void getter(
-            final ClassWriter writer, final String owner, final String name, final String field) {
-        final MethodVisitor method =
-                writer.visitMethod(ACC_PUBLIC, name, "()" + POINT_DESC, null, null);
+    private static void getter(final ClassWriter writer, final String owner, final String name, final String field) {
+        final MethodVisitor method = writer.visitMethod(ACC_PUBLIC, name, "()" + POINT_DESC, null, null);
         method.visitCode();
         method.visitVarInsn(ALOAD, 0);
         method.visitFieldInsn(GETFIELD, owner, field, POINT_DESC);

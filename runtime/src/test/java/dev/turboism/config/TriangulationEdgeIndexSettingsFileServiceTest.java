@@ -37,12 +37,12 @@ class TriangulationEdgeIndexSettingsFileServiceTest {
                 JSON.readTree(home.resolve("config.json").toFile()).path(KEY).asBoolean());
         assertFalse(service.read());
         assertFalse(new TriangulationEdgeIndexSettingsFileService(home).read());
-        assertFalse(TriangulationEdgeIndexPreference.read(home),
+        assertFalse(
+                TriangulationEdgeIndexPreference.read(home),
                 "the next premain read must honor the exact value saved by the UI service");
         service.save(true);
         assertTrue(new TriangulationEdgeIndexSettingsFileService(home).read());
-        assertTrue(TriangulationEdgeIndexPreference.read(home),
-                "re-enabling must be visible to the next premain read");
+        assertTrue(TriangulationEdgeIndexPreference.read(home), "re-enabling must be visible to the next premain read");
     }
 
     @Test

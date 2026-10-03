@@ -18,8 +18,13 @@ class TriangulationEdgeIndexHookContributorTest {
 
     private static RuntimeStartupConfig policy(final boolean safeMode, final String... disabled) {
         return new RuntimeStartupConfig(
-                safeMode, false, false, false,
-                !safeMode && false, !safeMode && false, !safeMode && false,
+                safeMode,
+                false,
+                false,
+                false,
+                !safeMode && false,
+                !safeMode && false,
+                !safeMode && false,
                 Set.of(disabled));
     }
 
@@ -48,8 +53,7 @@ class TriangulationEdgeIndexHookContributorTest {
 
     @Test
     void lifecycleShapeIsPremainAndClosesOnExit() {
-        final TriangulationEdgeIndexHookContributor contributor =
-                new TriangulationEdgeIndexHookContributor();
+        final TriangulationEdgeIndexHookContributor contributor = new TriangulationEdgeIndexHookContributor();
         assertEquals(HookContributor.Phase.PREMAIN, contributor.phase());
         assertTrue(contributor.closesOnProcessExit());
         assertEquals("TURBOISM_TRIANGULATION_EDGE_INDEX", contributor.id());

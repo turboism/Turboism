@@ -41,9 +41,7 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
                 VerifiedTriangulationEdgeIndexInstaller.install(
                         instrumentation(calls, new Class<?>[] {alreadyLoaded}, false), codes::add);
 
-        assertEquals(
-                VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED,
-                installation.status());
+        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED, installation.status());
         assertEquals(List.of("TRIANGULATION_EDGE_INDEX_TARGET_ALREADY_LOADED"), codes);
         assertEquals(List.of(), calls, "no transformer may be registered for a loaded target");
     }
@@ -52,8 +50,7 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
     void declinesWhenLoadedClassEnumerationFails() {
         final List<String> calls = new ArrayList<>();
         final VerifiedTriangulationEdgeIndexInstaller.Installation installation =
-                VerifiedTriangulationEdgeIndexInstaller.install(
-                        instrumentation(calls, null, true), ignored -> {});
+                VerifiedTriangulationEdgeIndexInstaller.install(instrumentation(calls, null, true), ignored -> {});
         assertEquals(
                 VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED,
                 installation.status(),
@@ -66,8 +63,7 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
         final Class<?> loaded = loadedTarget(TriangulationEdgeIndexTransformer.MEMBERSHIP_INTERNAL_NAME);
         final var installation = VerifiedTriangulationEdgeIndexInstaller.install(
                 instrumentation(calls, new Class<?>[] {loaded}, false), ignored -> {});
-        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED,
-                installation.status());
+        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.TARGET_ALREADY_LOADED, installation.status());
         assertTrue(calls.isEmpty());
     }
 
@@ -79,8 +75,7 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
                 VerifiedTriangulationEdgeIndexInstaller.install(
                         instrumentation(calls, new Class<?>[0], true), codes::add);
 
-        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.INSTALL_FAILED,
-                installation.status());
+        assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.INSTALL_FAILED, installation.status());
         assertEquals(List.of("TRIANGULATION_EDGE_INDEX_INSTALL_FAILED"), codes);
     }
 
@@ -89,19 +84,16 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
         final List<String> calls = new ArrayList<>();
         final VerifiedTriangulationEdgeIndexInstaller.Installation installation =
                 VerifiedTriangulationEdgeIndexInstaller.install(
-                        instrumentation(calls, new Class<?>[0], false),
-                        code -> {
+                        instrumentation(calls, new Class<?>[0], false), code -> {
                             throw new IllegalStateException("broken sink");
                         });
         assertEquals(VerifiedTriangulationEdgeIndexInstaller.Status.INSTALLED, installation.status());
         installation.close();
     }
 
-    private Instrumentation instrumentation(
-            final List<String> calls, final Class<?>[] loaded, final boolean failAdd) {
+    private Instrumentation instrumentation(final List<String> calls, final Class<?>[] loaded, final boolean failAdd) {
         return (Instrumentation) Proxy.newProxyInstance(
-                getClass().getClassLoader(), new Class<?>[] {Instrumentation.class},
-                (proxy, method, arguments) -> {
+                getClass().getClassLoader(), new Class<?>[] {Instrumentation.class}, (proxy, method, arguments) -> {
                     switch (method.getName()) {
                         case "addTransformer" -> {
                             if (failAdd) throw new IllegalStateException("registration refused");
@@ -130,15 +122,12 @@ class VerifiedTriangulationEdgeIndexInstallerTest {
 
     private static Class<?> loadedTarget(final String internalName) throws Exception {
         final ClassWriter writer = new ClassWriter(0);
-        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
-                internalName,
-                null, "java/lang/Object", null);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL, internalName, null, "java/lang/Object", null);
         writer.visitEnd();
         final byte[] bytes = writer.toByteArray();
         return new ClassLoader() {
             Class<?> define() {
-                return defineClass(
-                        internalName.replace('/', '.'), bytes, 0, bytes.length);
+                return defineClass(internalName.replace('/', '.'), bytes, 0, bytes.length);
             }
         }.define();
     }
