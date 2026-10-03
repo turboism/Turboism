@@ -673,6 +673,41 @@ class PreparedStoreTest(unittest.TestCase):
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
 
+    def test_direct_nmt_hook_requires_exact_diagnostic_context(self) -> None:
+        hook = self.preview / "stage-direct-nmt-launcher.py"
+        hook.write_text("# stdlib-only reviewed fixture, never executed\n")
+        base_argv = list(self.request["argv"])
+        base_argv[base_argv.index("--name") + 1] = "atlas-image-shadow"
+        base_argv[base_argv.index("--version") + 1] = "5303"
+        argv = [*base_argv,
+                "--remote-pre-launch", str(hook), "--require-fixture-unchanged",
+                "--plugin", str(self.input) + ":probe.jar",
+                "--jvm-option", "-XX:+DisableAttachMechanism",
+                "--jvm-option", "-Dturboism.validation.atlasImageShadow.resourceObservation=true",
+                "--jvm-option", "-Dturboism.validation.observerFree.optIn=T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "atlas-image-shadow:5303")
+        captured = next(item for item in prepared["sourceInputs"] if Path(item["source"]).name == hook.name)
+        self.assertEqual(queue.file_digest(hook), prepared["inventory"][captured["path"]])
+        # A captured hook remains usable when the source changes; it is a frozen input.
+        hook.write_text("changed source\n")
+        command = self.prepared.command(prepared["digest"], self.base / "nmt-evidence")
+        self.assertIn("reviewed fixture", Path(command[command.index("--remote-pre-launch") + 1]).read_text())
+        invalid = [argv + ["--remote-pre-launch-background"], argv + ["--remote-pre-launch-args-only"],
+                   argv + ["--remote-pre-launch-arg", "extra"], argv + ["--remote-post-launch", str(hook)],
+                   [item.replace("resourceObservation=true", "resourceObservation=false") for item in argv],
+                   [item.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "other-token") for item in argv]]
+        version = list(argv); version[version.index("--version") + 1] = "5302"; invalid.append(version)
+        outside = self.base / hook.name; outside.write_text("unreviewed copy\n")
+        outside_argv = list(argv); outside_argv[outside_argv.index("--remote-pre-launch") + 1] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": outside_argv}, self.source, "atlas-image-shadow:5303")
+        for request in invalid:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({**self.request, "argv": argv}, self.source, "other:5303")
+        self.assertEqual([], self.store.jobs())
+
     def test_reviewed_plugin_management_restart_hook_is_admitted(self) -> None:
         hook = self.preview / "plugin-management-restart-remote-pre-launch.sh"
         hook.write_text("# reviewed hook fixture, never executed\n")
