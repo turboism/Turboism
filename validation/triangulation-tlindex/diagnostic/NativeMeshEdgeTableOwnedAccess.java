@@ -12,4 +12,7 @@ public final class NativeMeshEdgeTableOwnedAccess {
     }
     public static void close(Object table) { ((NativeMeshEdgeTable) table).close(); }
     public static int reservedBytes() { return NativeMeshEdgeTable.reservedBytes(); }
+    public static byte[] runtimePatch(byte[] raw) { return NativeMeshEdgePatcher.patch(raw); }
+    public static AutoCloseable begin(Object mesh) { return NativeMeshEdgeLookup.begin(mesh, () -> { }); }
+    public static AutoCloseable begin(Object mesh, AutoCloseable definition) { return NativeMeshEdgeLookup.begin(mesh, definition); }
 }

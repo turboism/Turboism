@@ -16,6 +16,7 @@ import java.util.jar.JarFile;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess;
+import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeLookup;
 
 /** Functional owned-loop differential experiment. Boxed research map; no gain claim. */
 public final class NativeMeshEdgeLoopSelfCheck {
@@ -27,6 +28,8 @@ public final class NativeMeshEdgeLoopSelfCheck {
         static boolean enabled;
         static int entries, closes, indexedCalls, nativeCalls, registrations;
         private static final boolean PRIMITIVE = Boolean.getBoolean("turboism.validation.meshPrimitiveTable");
+        private static final boolean RUNTIME = Boolean.getBoolean("turboism.validation.meshRuntimeWeave");
+        private static final ThreadLocal<AutoCloseable> RUNTIME_CURRENT = new ThreadLocal<>();
         private Control() { }
 
         private static final class Lease implements AutoCloseable {
@@ -72,6 +75,20 @@ public final class NativeMeshEdgeLoopSelfCheck {
         public static AutoCloseable enter(Object mesh) throws ReflectiveOperationException {
             entries++;
             if (!enabled) return null;
+            if (RUNTIME) {
+                AutoCloseable actual = NativeMeshEdgeTableOwnedAccess.begin(mesh);
+                if (actual == null) return null;
+                AutoCloseable previous = RUNTIME_CURRENT.get();
+                AutoCloseable wrapper = () -> {
+                    try { actual.close(); }
+                    finally {
+                        if (previous == null) RUNTIME_CURRENT.remove(); else RUNTIME_CURRENT.set(previous);
+                        closes++;
+                    }
+                };
+                RUNTIME_CURRENT.set(wrapper);
+                return wrapper;
+            }
             // Degenerate pairs invoke the native logger, whose downstream callbacks
             // are outside this append-only experiment. Preserve their native path.
             Object cached = field(mesh, "cached_indices").get(mesh);
@@ -96,6 +113,15 @@ public final class NativeMeshEdgeLoopSelfCheck {
             return lease;
         }
         public static void leave(AutoCloseable lease) throws Exception { if (lease != null) lease.close(); }
+        public static int runtimeFind(Object mesh, int first, int second, boolean filtered) {
+            int result = NativeMeshEdgeLookup.find(mesh, first, second, filtered);
+            if (result >= -1) indexedCalls++; else nativeCalls++;
+            return result;
+        }
+        public static void runtimeAppended(Object mesh) {
+            NativeMeshEdgeLookup.appended(mesh);
+            if (RUNTIME_CURRENT.get() != null) registrations++;
+        }
         public static Integer lookup(Object mesh, int first, int second, boolean filtered) throws Throwable {
             Lease lease = CURRENT.get();
             if (lease != null && lease.active && lease.mesh == mesh && !filtered
@@ -126,9 +152,10 @@ public final class NativeMeshEdgeLoopSelfCheck {
         }
         static void reset(boolean fast) {
             require(CURRENT.get() == null, "no retained prior lease");
+            require(RUNTIME_CURRENT.get() == null, "no retained runtime scope");
             enabled = fast; entries = closes = indexedCalls = nativeCalls = registrations = 0;
         }
-        static boolean active() { return CURRENT.get() != null; }
+        static boolean active() { return CURRENT.get() != null || RUNTIME_CURRENT.get() != null; }
     }
 
     static final class Loader extends URLClassLoader {
