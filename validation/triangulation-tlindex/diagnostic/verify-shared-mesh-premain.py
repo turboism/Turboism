@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--integration', action='store_true', help='compose actual SDK native mesh dependency plan and transformer')
     args = parser.parse_args()
     baseline = args.baseline.resolve()
     if sha(baseline) != BASELINE_SHA:
@@ -30,7 +31,7 @@ def main():
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
     report = {'scope': 'REAL_SOLE_PREMAIN_SHARED_BRIDGE_PROTOCOL', 'status': 'STARTED',
-              'nativeMeshAdmissionIntegrated': False, 'editorLaunched': False, 'cases': [], 'pins': {str(baseline): BASELINE_SHA}}
+              'nativeMeshAdmissionIntegrated': args.integration, 'editorLaunched': False, 'cases': [], 'pins': {str(baseline): BASELINE_SHA}}
     env = dict(os.environ)
     for key in ('JAVA_TOOL_OPTIONS', '_JAVA_OPTIONS', 'JDK_JAVA_OPTIONS', 'JDK_JAVAC_OPTIONS', 'CLASSPATH'):
         env.pop(key, None)
@@ -39,11 +40,22 @@ def main():
         classes.mkdir()
         bridge = Path('runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.java').resolve()
         lifecycle = bridge.with_name('TriangulationDefinitionLifecycle.java')
+        source_names = ['LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle']
+        if args.integration:
+            source_names.extend(['TriangulationEdgeIndexTransformer', 'LazyTriangulationEdgePreparation',
+                                 'NativeMeshEdgePreparation', 'NativeMeshEdgePatcher', 'NativeMeshEdgeLookup', 'NativeMeshEdgeTable'])
+        originals = [bridge.with_name(name + '.java') for name in source_names]
+        copies = out / 'compile-sources'
+        copies.mkdir()
+        inputs = []
+        for source in originals:
+            copy = copies / source.name
+            copy.write_text(source.read_text().replace('org.objectweb.asm', 'dev.turboism.agent.shaded.asm'))
+            inputs.append(copy)
         guard.guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', str(baseline),
-                       '-d', str(classes), str(bridge), str(lifecycle)], out / 'bridge-compile.log', env)
+                       '-d', str(classes), *map(str, inputs)], out / 'bridge-compile.log', env)
         replacements = {p.relative_to(classes).as_posix(): p.read_bytes() for p in classes.rglob('*.class')}
-        family = tuple('dev/turboism/adapter/cubism/mesh/' + name for name in
-                       ('LazyTriangulationEdgeBridge', 'TriangulationDefinitionLifecycle'))
+        family = tuple('dev/turboism/adapter/cubism/mesh/' + name for name in source_names)
         if not replacements or any(not name.startswith(family) for name in replacements):
             raise ValueError('unexpected compiled family')
         candidate = out / 'turboism-agent.jar'
@@ -65,11 +77,13 @@ def main():
         report['candidateSha256'] = sha(candidate)
         probes = [SOURCE / (name + '.java') for name in ('SharedMeshPremainSelfCheck',
                   'BorrowedEdgePremainSelfCheck', 'LocalBuilderPremainSelfCheck')]
+        if args.integration:
+            probes.append(SOURCE / 'NativeMeshPremainSelfCheck.java')
         probe_classes = out / 'probe-classes'
         probe_classes.mkdir()
         guard.guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', str(candidate),
                        '-d', str(probe_classes), *map(str, probes)], out / 'probe-compile.log', env)
-        for path in [Path(__file__).resolve(), SOURCE / 'verify-native-mesh-edge-loop.py', bridge, lifecycle, *probes]:
+        for path in [Path(__file__).resolve(), SOURCE / 'verify-native-mesh-edge-loop.py', *originals, *probes]:
             report['pins'][str(path)] = sha(path)
         for profile in ('5203', '5302', '5303'):
             template = Path('build/t053-local-builder-r1/metadata-production') / ('on' + profile)
@@ -81,6 +95,9 @@ def main():
                       ('accepted', 'revocation', 'index-getter')]
             cases += [('builder-' + control, 'LocalBuilderPremainSelfCheck', control) for control in
                       ('accepted', 'revocation')]
+            if args.integration:
+                cases += [('mesh-' + mode, 'NativeMeshPremainSelfCheck', mode) for mode in
+                          ('accepted', 'callback', 'mesh-mutation', 'revocation')]
             for key, main_class, control in cases:
                 case = out / (profile + '-' + key)
                 home = case / 'home'
@@ -96,7 +113,8 @@ def main():
                 console = (case / 'console.log').read_text()
                 marker = {'SharedMeshPremainSelfCheck': 'SHARED_MESH_PREMAIN_PASS',
                           'BorrowedEdgePremainSelfCheck': 'BORROWED_EDGE_PREMAIN_CONTROL_PASS',
-                          'LocalBuilderPremainSelfCheck': 'LOCAL_BUILDER_PREMAIN_CONTROL_PASS'}[main_class]
+                          'LocalBuilderPremainSelfCheck': 'LOCAL_BUILDER_PREMAIN_CONTROL_PASS',
+                          'NativeMeshPremainSelfCheck': 'NATIVE_MESH_PREMAIN_PASS'}[main_class]
                 if marker not in console:
                     raise ValueError('missing protocol marker: ' + profile + '-' + key)
                 report['cases'].append({'profile': profile, 'control': key, 'status': 'PASS',

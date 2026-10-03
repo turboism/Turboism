@@ -4,10 +4,10 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Thread-confined literal endpoint-to-first-slot bookkeeping for a future admitted mesh loop.
+ * Thread-confined literal endpoint-to-first-slot bookkeeping for an admitted native mesh loop.
  * No host objects, loaders or user equality callbacks enter this primitive table. This class
  * supplies storage only: a complete definition/mutation lease is required before host queries
- * may use it. It is not wired into the production transformer.
+ * may use it. Missing admission must keep the original native search.
  */
 final class NativeMeshEdgeTable implements AutoCloseable {
     static final int UNKNOWN = -2;
