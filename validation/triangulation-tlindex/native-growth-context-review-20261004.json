@@ -1,0 +1,1312 @@
+{
+  "status": "DESCRIPTIVE_CONTEXT_ONLY_NO_CAUSAL_ATTRIBUTION",
+  "formalStatusUnchanged": "FAIL_FIXED_BALANCED_GATES",
+  "legs": {
+    "baseline1": {
+      "retained": [
+        {
+          "operation": 1,
+          "heapStartBytes": 1699630824,
+          "heapEndBytes": 2042621528,
+          "rssMedianBytes": 3164127232.0,
+          "pssMedianBytes": 3096100352.0,
+          "idleProcessCpuSeconds": 6.83
+        },
+        {
+          "operation": 2,
+          "heapStartBytes": 1930556824,
+          "heapEndBytes": 2196406936,
+          "rssMedianBytes": 4250898432.0,
+          "pssMedianBytes": 4182986240.0,
+          "idleProcessCpuSeconds": 3.05
+        },
+        {
+          "operation": 3,
+          "heapStartBytes": 2691334808,
+          "heapEndBytes": 1201371688,
+          "rssMedianBytes": 4252147712.0,
+          "pssMedianBytes": 4184524288.0,
+          "idleProcessCpuSeconds": 2.99
+        }
+      ],
+      "heapEnd3Minus1Bytes": -841249840,
+      "rssMedian3Minus1Bytes": 1088020480.0,
+      "pssMedian3Minus1Bytes": 1088423936.0,
+      "idleProcessCpuSeconds": 12.870000000000001,
+      "gcRetainedWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054228233.0,
+            "gcId": 60,
+            "side": "after",
+            "committedBytes": 2516582400,
+            "usedBytes": 1186982912
+          },
+          "lastCompletedGcAgeMillis": 29165.0,
+          "pauseCount": 2,
+          "pauseOverlapMillis": 25.21484375,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054227945.0,
+              "gcId": 59,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2004M->1131M(2400M)",
+              "durationMillis": 14.055,
+              "overlapMillis": 14.054931640625
+            },
+            {
+              "epochMillis": 1791054228233.0,
+              "gcId": 60,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2019M->1131M(2400M)",
+              "durationMillis": 11.16,
+              "overlapMillis": 11.159912109375
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054299964.0,
+            "gcId": 68,
+            "side": "after",
+            "committedBytes": 3749707776,
+            "usedBytes": 1240104960
+          },
+          "lastCompletedGcAgeMillis": 29077.0,
+          "pauseCount": 1,
+          "pauseOverlapMillis": 15.98193359375,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054299965.0,
+              "gcId": 68,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2985M->1182M(3576M)",
+              "durationMillis": 15.982,
+              "overlapMillis": 15.98193359375
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054386539.0,
+            "gcId": 73,
+            "side": "after",
+            "committedBytes": 3749707776,
+            "usedBytes": 1201371136
+          },
+          "lastCompletedGcAgeMillis": 13370.0,
+          "pauseCount": 2,
+          "pauseOverlapMillis": 242.662109375,
+          "systemGcPauseCount": 1,
+          "pauses": [
+            {
+              "epochMillis": 1791054370117.0,
+              "gcId": 72,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 3022M->1237M(3576M)",
+              "durationMillis": 34.581,
+              "overlapMillis": 34.5810546875
+            },
+            {
+              "epochMillis": 1791054386539.0,
+              "gcId": 73,
+              "kind": "Pause Full (System.gc()) 2837M->1145M(3576M)",
+              "durationMillis": 208.081,
+              "overlapMillis": 208.0810546875
+            }
+          ]
+        }
+      ],
+      "gcCommandWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054224476.0,
+            "gcId": 58,
+            "side": "after",
+            "committedBytes": 2516582400,
+            "usedBytes": 1196313600
+          },
+          "lastCompletedGcAgeMillis": 2777.0,
+          "pauseCount": 4,
+          "pauseOverlapMillis": 90.328125,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054199004.0,
+              "gcId": 55,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1961M->1160M(2400M)",
+              "durationMillis": 44.514,
+              "overlapMillis": 44.513916015625
+            },
+            {
+              "epochMillis": 1791054201696.0,
+              "gcId": 56,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1952M->1123M(2400M)",
+              "durationMillis": 18.349,
+              "overlapMillis": 18.34912109375
+            },
+            {
+              "epochMillis": 1791054217710.0,
+              "gcId": 57,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1971M->1112M(2400M)",
+              "durationMillis": 6.162,
+              "overlapMillis": 6.162109375
+            },
+            {
+              "epochMillis": 1791054224476.0,
+              "gcId": 58,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1992M->1140M(2400M)",
+              "durationMillis": 21.303,
+              "overlapMillis": 21.302978515625
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054294695.0,
+            "gcId": 67,
+            "side": "after",
+            "committedBytes": 3749707776,
+            "usedBytes": 1251079168
+          },
+          "lastCompletedGcAgeMillis": 4029.0,
+          "pauseCount": 4,
+          "pauseOverlapMillis": 120.865966796875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054269863.0,
+              "gcId": 64,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2055M->1216M(2400M)",
+              "durationMillis": 49.85,
+              "overlapMillis": 49.85009765625
+            },
+            {
+              "epochMillis": 1791054273605.0,
+              "gcId": 65,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2000M->1184M(2400M)",
+              "durationMillis": 32.088,
+              "overlapMillis": 32.087890625
+            },
+            {
+              "epochMillis": 1791054273860.0,
+              "gcId": 66,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2016M->1179M(2400M)",
+              "durationMillis": 13.451,
+              "overlapMillis": 13.450927734375
+            },
+            {
+              "epochMillis": 1791054294695.0,
+              "gcId": 67,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2035M->1193M(3576M)",
+              "durationMillis": 25.477,
+              "overlapMillis": 25.47705078125
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054360612.0,
+            "gcId": 71,
+            "side": "after",
+            "committedBytes": 3749707776,
+            "usedBytes": 1282048000
+          },
+          "lastCompletedGcAgeMillis": 9172.0,
+          "pauseCount": 2,
+          "pauseOverlapMillis": 76.690185546875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054341864.0,
+              "gcId": 70,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 3052M->1245M(3576M)",
+              "durationMillis": 46.964,
+              "overlapMillis": 46.964111328125
+            },
+            {
+              "epochMillis": 1791054360612.0,
+              "gcId": 71,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 3021M->1222M(3576M)",
+              "durationMillis": 29.726,
+              "overlapMillis": 29.72607421875
+            }
+          ]
+        }
+      ],
+      "gcTotalPauseCount": 79,
+      "gcTotalHeapObservationCount": 130
+    },
+    "candidate1": {
+      "retained": [
+        {
+          "operation": 1,
+          "heapStartBytes": 1482543176,
+          "heapEndBytes": 1241103784,
+          "rssMedianBytes": 2826485760.0,
+          "pssMedianBytes": 2759011328.0,
+          "idleProcessCpuSeconds": 6.03
+        },
+        {
+          "operation": 2,
+          "heapStartBytes": 1858728256,
+          "heapEndBytes": 1896209536,
+          "rssMedianBytes": 3653062656.0,
+          "pssMedianBytes": 3585843712.0,
+          "idleProcessCpuSeconds": 5.86
+        },
+        {
+          "operation": 3,
+          "heapStartBytes": 1780974960,
+          "heapEndBytes": 1169897184,
+          "rssMedianBytes": 3998384128.0,
+          "pssMedianBytes": 3931125760.0,
+          "idleProcessCpuSeconds": 2.79
+        }
+      ],
+      "heapEnd3Minus1Bytes": -71206600,
+      "rssMedian3Minus1Bytes": 1171898368.0,
+      "pssMedian3Minus1Bytes": 1172114432.0,
+      "idleProcessCpuSeconds": 14.68,
+      "gcRetainedWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054939784.0,
+            "gcId": 82,
+            "side": "after",
+            "committedBytes": 2139095040,
+            "usedBytes": 1173994496
+          },
+          "lastCompletedGcAgeMillis": 28227.0,
+          "pauseCount": 8,
+          "pauseOverlapMillis": 46.11083984375,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054938484.0,
+              "gcId": 76,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1725M->1113M(2040M)",
+              "durationMillis": 10.537,
+              "overlapMillis": 10.537109375
+            },
+            {
+              "epochMillis": 1791054938514.0,
+              "gcId": 77,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1185M->1108M(2040M)",
+              "durationMillis": 11.007,
+              "overlapMillis": 11.007080078125
+            },
+            {
+              "epochMillis": 1791054938686.0,
+              "gcId": 78,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1732M->1108M(2040M)",
+              "durationMillis": 1.94,
+              "overlapMillis": 1.93994140625
+            },
+            {
+              "epochMillis": 1791054938771.0,
+              "gcId": 80,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1404M->1108M(2040M)",
+              "durationMillis": 1.192,
+              "overlapMillis": 1.19189453125
+            },
+            {
+              "epochMillis": 1791054939131.0,
+              "gcId": 79,
+              "kind": "Pause Remark 1176M->1176M(2040M)",
+              "durationMillis": 5.157,
+              "overlapMillis": 5.156982421875
+            },
+            {
+              "epochMillis": 1791054939203.0,
+              "gcId": 79,
+              "kind": "Pause Cleanup 1176M->1176M(2040M)",
+              "durationMillis": 0.118,
+              "overlapMillis": 0.117919921875
+            },
+            {
+              "epochMillis": 1791054939709.0,
+              "gcId": 81,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1748M->1121M(2040M)",
+              "durationMillis": 8.971,
+              "overlapMillis": 8.970947265625
+            },
+            {
+              "epochMillis": 1791054939784.0,
+              "gcId": 82,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1201M->1119M(2040M)",
+              "durationMillis": 7.189,
+              "overlapMillis": 7.18896484375
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055008071.0,
+            "gcId": 100,
+            "side": "after",
+            "committedBytes": 3263168512,
+            "usedBytes": 1216732160
+          },
+          "lastCompletedGcAgeMillis": 29273.0,
+          "pauseCount": 5,
+          "pauseOverlapMillis": 42.0732421875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055007438.0,
+              "gcId": 97,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1828M->1159M(2136M)",
+              "durationMillis": 10.141,
+              "overlapMillis": 10.14111328125
+            },
+            {
+              "epochMillis": 1791055007700.0,
+              "gcId": 99,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1831M->1160M(2136M)",
+              "durationMillis": 11.257,
+              "overlapMillis": 11.257080078125
+            },
+            {
+              "epochMillis": 1791055008056.0,
+              "gcId": 98,
+              "kind": "Pause Remark 1840M->1840M(3112M)",
+              "durationMillis": 9.218,
+              "overlapMillis": 9.218017578125
+            },
+            {
+              "epochMillis": 1791055008071.0,
+              "gcId": 100,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1840M->1160M(3112M)",
+              "durationMillis": 11.302,
+              "overlapMillis": 11.302001953125
+            },
+            {
+              "epochMillis": 1791055008190.0,
+              "gcId": 98,
+              "kind": "Pause Cleanup 1260M->1260M(3112M)",
+              "durationMillis": 0.155,
+              "overlapMillis": 0.155029296875
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055099373.0,
+            "gcId": 109,
+            "side": "after",
+            "committedBytes": 3263168512,
+            "usedBytes": 1169896448
+          },
+          "lastCompletedGcAgeMillis": 7711.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 213.452880859375,
+          "systemGcPauseCount": 1,
+          "pauses": [
+            {
+              "epochMillis": 1791055077387.0,
+              "gcId": 107,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 2650M->1195M(3112M)",
+              "durationMillis": 16.419,
+              "overlapMillis": 16.4189453125
+            },
+            {
+              "epochMillis": 1791055077430.0,
+              "gcId": 108,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1299M->1180M(3112M)",
+              "durationMillis": 15.463,
+              "overlapMillis": 15.462890625
+            },
+            {
+              "epochMillis": 1791055099373.0,
+              "gcId": 109,
+              "kind": "Pause Full (System.gc()) 2180M->1115M(3112M)",
+              "durationMillis": 181.571,
+              "overlapMillis": 181.571044921875
+            }
+          ]
+        }
+      ],
+      "gcCommandWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791054937301.0,
+            "gcId": 74,
+            "side": "after",
+            "committedBytes": 2139095040,
+            "usedBytes": 1172164608
+          },
+          "lastCompletedGcAgeMillis": 524.0,
+          "pauseCount": 14,
+          "pauseOverlapMillis": 180.48046875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054900174.0,
+              "gcId": 64,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1648M->1098M(2000M)",
+              "durationMillis": 15.144,
+              "overlapMillis": 15.14404296875
+            },
+            {
+              "epochMillis": 1791054900596.0,
+              "gcId": 65,
+              "kind": "Pause Remark 1146M->1146M(2000M)",
+              "durationMillis": 11.808,
+              "overlapMillis": 11.80810546875
+            },
+            {
+              "epochMillis": 1791054900677.0,
+              "gcId": 65,
+              "kind": "Pause Cleanup 1158M->1158M(2000M)",
+              "durationMillis": 0.167,
+              "overlapMillis": 0.1669921875
+            },
+            {
+              "epochMillis": 1791054909136.0,
+              "gcId": 66,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1666M->1136M(2000M)",
+              "durationMillis": 31.397,
+              "overlapMillis": 31.39697265625
+            },
+            {
+              "epochMillis": 1791054909384.0,
+              "gcId": 67,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1168M->1101M(2000M)",
+              "durationMillis": 10.384,
+              "overlapMillis": 10.384033203125
+            },
+            {
+              "epochMillis": 1791054913497.0,
+              "gcId": 68,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1653M->1125M(2000M)",
+              "durationMillis": 20.312,
+              "overlapMillis": 20.31201171875
+            },
+            {
+              "epochMillis": 1791054913684.0,
+              "gcId": 70,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1661M->1127M(2000M)",
+              "durationMillis": 18.86,
+              "overlapMillis": 18.860107421875
+            },
+            {
+              "epochMillis": 1791054913891.0,
+              "gcId": 71,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1679M->1127M(2000M)",
+              "durationMillis": 16.315,
+              "overlapMillis": 16.31494140625
+            },
+            {
+              "epochMillis": 1791054913936.0,
+              "gcId": 69,
+              "kind": "Pause Remark 1191M->1191M(2040M)",
+              "durationMillis": 6.429,
+              "overlapMillis": 6.428955078125
+            },
+            {
+              "epochMillis": 1791054914010.0,
+              "gcId": 69,
+              "kind": "Pause Cleanup 1191M->1191M(2040M)",
+              "durationMillis": 0.165,
+              "overlapMillis": 0.1650390625
+            },
+            {
+              "epochMillis": 1791054931458.0,
+              "gcId": 72,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1695M->1123M(2040M)",
+              "durationMillis": 16.069,
+              "overlapMillis": 16.069091796875
+            },
+            {
+              "epochMillis": 1791054932074.0,
+              "gcId": 73,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1187M->1101M(2040M)",
+              "durationMillis": 12.36,
+              "overlapMillis": 12.360107421875
+            },
+            {
+              "epochMillis": 1791054937301.0,
+              "gcId": 74,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1725M->1117M(2040M)",
+              "durationMillis": 13.851,
+              "overlapMillis": 13.85107421875
+            },
+            {
+              "epochMillis": 1791054937801.0,
+              "gcId": 75,
+              "kind": "Pause Remark 1177M->1177M(2040M)",
+              "durationMillis": 7.219,
+              "overlapMillis": 7.218994140625
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055003894.0,
+            "gcId": 96,
+            "side": "after",
+            "committedBytes": 2239758336,
+            "usedBytes": 1204416512
+          },
+          "lastCompletedGcAgeMillis": 3334.0,
+          "pauseCount": 12,
+          "pauseOverlapMillis": 126.0810546875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791054973464.0,
+              "gcId": 87,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1740M->1155M(2136M)",
+              "durationMillis": 19.609,
+              "overlapMillis": 19.60888671875
+            },
+            {
+              "epochMillis": 1791054976942.0,
+              "gcId": 88,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1219M->1146M(2136M)",
+              "durationMillis": 14.72,
+              "overlapMillis": 14.719970703125
+            },
+            {
+              "epochMillis": 1791054982264.0,
+              "gcId": 89,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1842M->1194M(2136M)",
+              "durationMillis": 31.0,
+              "overlapMillis": 31.0
+            },
+            {
+              "epochMillis": 1791054982796.0,
+              "gcId": 90,
+              "kind": "Pause Remark 1222M->1222M(2136M)",
+              "durationMillis": 6.867,
+              "overlapMillis": 6.866943359375
+            },
+            {
+              "epochMillis": 1791054982887.0,
+              "gcId": 90,
+              "kind": "Pause Cleanup 1234M->1234M(2136M)",
+              "durationMillis": 0.13,
+              "overlapMillis": 0.1298828125
+            },
+            {
+              "epochMillis": 1791054983691.0,
+              "gcId": 91,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1818M->1160M(2136M)",
+              "durationMillis": 11.297,
+              "overlapMillis": 11.297119140625
+            },
+            {
+              "epochMillis": 1791054983724.0,
+              "gcId": 92,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1248M->1150M(2136M)",
+              "durationMillis": 8.939,
+              "overlapMillis": 8.93896484375
+            },
+            {
+              "epochMillis": 1791054997751.0,
+              "gcId": 93,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 1830M->1150M(2136M)",
+              "durationMillis": 4.475,
+              "overlapMillis": 4.47509765625
+            },
+            {
+              "epochMillis": 1791054998174.0,
+              "gcId": 94,
+              "kind": "Pause Remark 1190M->1190M(2136M)",
+              "durationMillis": 5.485,
+              "overlapMillis": 5.485107421875
+            },
+            {
+              "epochMillis": 1791054998256.0,
+              "gcId": 94,
+              "kind": "Pause Cleanup 1190M->1190M(2136M)",
+              "durationMillis": 0.173,
+              "overlapMillis": 0.173095703125
+            },
+            {
+              "epochMillis": 1791055003304.0,
+              "gcId": 95,
+              "kind": "Pause Young (Prepare Mixed) (G1 Evacuation Pause) 1838M->1171M(2136M)",
+              "durationMillis": 17.148,
+              "overlapMillis": 17.14794921875
+            },
+            {
+              "epochMillis": 1791055003894.0,
+              "gcId": 96,
+              "kind": "Pause Young (Mixed) (G1 Evacuation Pause) 1243M->1148M(2136M)",
+              "durationMillis": 6.238,
+              "overlapMillis": 6.238037109375
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055074222.0,
+            "gcId": 105,
+            "side": "after",
+            "committedBytes": 3263168512,
+            "usedBytes": 1279738880
+          },
+          "lastCompletedGcAgeMillis": 2706.0,
+          "pauseCount": 5,
+          "pauseOverlapMillis": 93.889892578125,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055047055.0,
+              "gcId": 103,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2716M->1204M(3112M)",
+              "durationMillis": 26.919,
+              "overlapMillis": 26.9189453125
+            },
+            {
+              "epochMillis": 1791055053320.0,
+              "gcId": 104,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2692M->1221M(3112M)",
+              "durationMillis": 32.118,
+              "overlapMillis": 32.117919921875
+            },
+            {
+              "epochMillis": 1791055074222.0,
+              "gcId": 105,
+              "kind": "Pause Young (Concurrent Start) (G1 Evacuation Pause) 2661M->1220M(3112M)",
+              "durationMillis": 28.485,
+              "overlapMillis": 28.485107421875
+            },
+            {
+              "epochMillis": 1791055074695.0,
+              "gcId": 106,
+              "kind": "Pause Remark 1328M->1326M(3112M)",
+              "durationMillis": 6.19,
+              "overlapMillis": 6.18994140625
+            },
+            {
+              "epochMillis": 1791055074778.0,
+              "gcId": 106,
+              "kind": "Pause Cleanup 1326M->1326M(3112M)",
+              "durationMillis": 0.178,
+              "overlapMillis": 0.177978515625
+            }
+          ]
+        }
+      ],
+      "gcTotalPauseCount": 120,
+      "gcTotalHeapObservationCount": 184
+    },
+    "candidate2": {
+      "retained": [
+        {
+          "operation": 1,
+          "heapStartBytes": 1715115600,
+          "heapEndBytes": 1581370608,
+          "rssMedianBytes": 3147657216.0,
+          "pssMedianBytes": 3080614400.0,
+          "idleProcessCpuSeconds": 5.96
+        },
+        {
+          "operation": 2,
+          "heapStartBytes": 1454267600,
+          "heapEndBytes": 2092371808,
+          "rssMedianBytes": 3994476544.0,
+          "pssMedianBytes": 3927148544.0,
+          "idleProcessCpuSeconds": 5.12
+        },
+        {
+          "operation": 3,
+          "heapStartBytes": 2185300464,
+          "heapEndBytes": 1196687776,
+          "rssMedianBytes": 3995041792.0,
+          "pssMedianBytes": 3928083968.0,
+          "idleProcessCpuSeconds": 3.27
+        }
+      ],
+      "heapEnd3Minus1Bytes": -384682832,
+      "rssMedian3Minus1Bytes": 847384576.0,
+      "pssMedian3Minus1Bytes": 847469568.0,
+      "idleProcessCpuSeconds": 14.35,
+      "gcRetainedWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055315848.0,
+            "gcId": 64,
+            "side": "after",
+            "committedBytes": 3296722944,
+            "usedBytes": 1187105792
+          },
+          "lastCompletedGcAgeMillis": 28228.0,
+          "pauseCount": 4,
+          "pauseOverlapMillis": 59.97412109375,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055314293.0,
+              "gcId": 61,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1667M->1117M(1976M)",
+              "durationMillis": 11.822,
+              "overlapMillis": 11.822021484375
+            },
+            {
+              "epochMillis": 1791055314686.0,
+              "gcId": 62,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1669M->1123M(1976M)",
+              "durationMillis": 17.724,
+              "overlapMillis": 17.72412109375
+            },
+            {
+              "epochMillis": 1791055314938.0,
+              "gcId": 63,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1683M->1124M(1976M)",
+              "durationMillis": 12.376,
+              "overlapMillis": 12.3759765625
+            },
+            {
+              "epochMillis": 1791055315848.0,
+              "gcId": 64,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1692M->1132M(3144M)",
+              "durationMillis": 18.052,
+              "overlapMillis": 18.052001953125
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055387178.0,
+            "gcId": 69,
+            "side": "after",
+            "committedBytes": 3296722944,
+            "usedBytes": 1261898752
+          },
+          "lastCompletedGcAgeMillis": 29388.0,
+          "pauseCount": 1,
+          "pauseOverlapMillis": 40.5048828125,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055387178.0,
+              "gcId": 69,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2650M->1203M(3144M)",
+              "durationMillis": 40.505,
+              "overlapMillis": 40.5048828125
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055476854.0,
+            "gcId": 76,
+            "side": "after",
+            "committedBytes": 3296722944,
+            "usedBytes": 1188298752
+          },
+          "lastCompletedGcAgeMillis": 9123.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 237.403076171875,
+          "systemGcPauseCount": 1,
+          "pauses": [
+            {
+              "epochMillis": 1791055456204.0,
+              "gcId": 74,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2652M->1213M(3144M)",
+              "durationMillis": 22.519,
+              "overlapMillis": 22.51904296875
+            },
+            {
+              "epochMillis": 1791055457034.0,
+              "gcId": 75,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2661M->1211M(3144M)",
+              "durationMillis": 26.771,
+              "overlapMillis": 26.77099609375
+            },
+            {
+              "epochMillis": 1791055476854.0,
+              "gcId": 76,
+              "kind": "Pause Full (System.gc()) 1255M->1133M(3144M)",
+              "durationMillis": 188.113,
+              "overlapMillis": 188.113037109375
+            }
+          ]
+        }
+      ],
+      "gcCommandWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055311316.0,
+            "gcId": 60,
+            "side": "after",
+            "committedBytes": 2071986176,
+            "usedBytes": 1178244096
+          },
+          "lastCompletedGcAgeMillis": 2616.0,
+          "pauseCount": 7,
+          "pauseOverlapMillis": 121.479736328125,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055278113.0,
+              "gcId": 54,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1617M->1103M(1976M)",
+              "durationMillis": 13.413,
+              "overlapMillis": 13.4130859375
+            },
+            {
+              "epochMillis": 1791055287012.0,
+              "gcId": 55,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1631M->1132M(1976M)",
+              "durationMillis": 28.825,
+              "overlapMillis": 28.824951171875
+            },
+            {
+              "epochMillis": 1791055290226.0,
+              "gcId": 56,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1620M->1123M(1976M)",
+              "durationMillis": 21.153,
+              "overlapMillis": 21.153076171875
+            },
+            {
+              "epochMillis": 1791055290388.0,
+              "gcId": 57,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1635M->1122M(1976M)",
+              "durationMillis": 13.764,
+              "overlapMillis": 13.763916015625
+            },
+            {
+              "epochMillis": 1791055290561.0,
+              "gcId": 58,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1650M->1120M(1976M)",
+              "durationMillis": 14.286,
+              "overlapMillis": 14.285888671875
+            },
+            {
+              "epochMillis": 1791055307237.0,
+              "gcId": 59,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1664M->1120M(1976M)",
+              "durationMillis": 15.691,
+              "overlapMillis": 15.69091796875
+            },
+            {
+              "epochMillis": 1791055311316.0,
+              "gcId": 60,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 1664M->1123M(1976M)",
+              "durationMillis": 14.348,
+              "overlapMillis": 14.347900390625
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055360447.0,
+            "gcId": 67,
+            "side": "after",
+            "committedBytes": 3296722944,
+            "usedBytes": 1235063808
+          },
+          "lastCompletedGcAgeMillis": 25940.0,
+          "pauseCount": 2,
+          "pauseOverlapMillis": 86.50390625,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055356379.0,
+              "gcId": 66,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2714M->1204M(3144M)",
+              "durationMillis": 51.636,
+              "overlapMillis": 51.635986328125
+            },
+            {
+              "epochMillis": 1791055360447.0,
+              "gcId": 67,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2676M->1177M(3144M)",
+              "durationMillis": 34.868,
+              "overlapMillis": 34.867919921875
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055450679.0,
+            "gcId": 73,
+            "side": "after",
+            "committedBytes": 3296722944,
+            "usedBytes": 1270941696
+          },
+          "lastCompletedGcAgeMillis": 5184.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 123.89794921875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055419319.0,
+              "gcId": 71,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2667M->1181M(3144M)",
+              "durationMillis": 21.995,
+              "overlapMillis": 21.9951171875
+            },
+            {
+              "epochMillis": 1791055432202.0,
+              "gcId": 72,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2693M->1255M(3144M)",
+              "durationMillis": 62.774,
+              "overlapMillis": 62.77392578125
+            },
+            {
+              "epochMillis": 1791055450679.0,
+              "gcId": 73,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2631M->1212M(3144M)",
+              "durationMillis": 39.129,
+              "overlapMillis": 39.12890625
+            }
+          ]
+        }
+      ],
+      "gcTotalPauseCount": 78,
+      "gcTotalHeapObservationCount": 140
+    },
+    "baseline2": {
+      "retained": [
+        {
+          "operation": 1,
+          "heapStartBytes": 1188472864,
+          "heapEndBytes": 2142209920,
+          "rssMedianBytes": 3493142528.0,
+          "pssMedianBytes": 3435912192.0,
+          "idleProcessCpuSeconds": 6.25
+        },
+        {
+          "operation": 2,
+          "heapStartBytes": 2150709120,
+          "heapEndBytes": 1820425472,
+          "rssMedianBytes": 3507113984.0,
+          "pssMedianBytes": 3449974784.0,
+          "idleProcessCpuSeconds": 4.08
+        },
+        {
+          "operation": 3,
+          "heapStartBytes": 1864632448,
+          "heapEndBytes": 1179095136,
+          "rssMedianBytes": 3525816320.0,
+          "pssMedianBytes": 3468737536.0,
+          "idleProcessCpuSeconds": 2.71
+        }
+      ],
+      "heapEnd3Minus1Bytes": -963114784,
+      "rssMedian3Minus1Bytes": 32673792.0,
+      "pssMedian3Minus1Bytes": 32825344.0,
+      "idleProcessCpuSeconds": 13.04,
+      "gcRetainedWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055714452.0,
+            "gcId": 61,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1177519104
+          },
+          "lastCompletedGcAgeMillis": 29122.0,
+          "pauseCount": 1,
+          "pauseOverlapMillis": 32.89794921875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055714453.0,
+              "gcId": 61,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2293M->1122M(2784M)",
+              "durationMillis": 32.898,
+              "overlapMillis": 32.89794921875
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055786052.0,
+            "gcId": 68,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1216445440
+          },
+          "lastCompletedGcAgeMillis": 29247.0,
+          "pauseCount": 2,
+          "pauseOverlapMillis": 58.301025390625,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055785519.0,
+              "gcId": 67,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2339M->1159M(2784M)",
+              "durationMillis": 31.289,
+              "overlapMillis": 31.2890625
+            },
+            {
+              "epochMillis": 1791055786052.0,
+              "gcId": 68,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2343M->1160M(2784M)",
+              "durationMillis": 27.012,
+              "overlapMillis": 27.011962890625
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055863980.0,
+            "gcId": 76,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1170706432
+          },
+          "lastCompletedGcAgeMillis": 23521.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 276.9521484375,
+          "systemGcPauseCount": 1,
+          "pauses": [
+            {
+              "epochMillis": 1791055857787.0,
+              "gcId": 74,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2338M->1173M(2784M)",
+              "durationMillis": 17.334,
+              "overlapMillis": 17.333984375
+            },
+            {
+              "epochMillis": 1791055858390.0,
+              "gcId": 75,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2349M->1175M(2784M)",
+              "durationMillis": 28.175,
+              "overlapMillis": 28.175048828125
+            },
+            {
+              "epochMillis": 1791055863980.0,
+              "gcId": 76,
+              "kind": "Pause Full (System.gc()) 1491M->1116M(2784M)",
+              "durationMillis": 231.443,
+              "overlapMillis": 231.443115234375
+            }
+          ]
+        }
+      ],
+      "gcCommandWindows": [
+        {
+          "operation": 1,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055704839.0,
+            "gcId": 59,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1152353280
+          },
+          "lastCompletedGcAgeMillis": 8553.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 144.133056640625,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055681084.0,
+              "gcId": 57,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2225M->1132M(2784M)",
+              "durationMillis": 66.537,
+              "overlapMillis": 66.537109375
+            },
+            {
+              "epochMillis": 1791055687789.0,
+              "gcId": 58,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2236M->1126M(2784M)",
+              "durationMillis": 57.865,
+              "overlapMillis": 57.864990234375
+            },
+            {
+              "epochMillis": 1791055704839.0,
+              "gcId": 59,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2246M->1098M(2784M)",
+              "durationMillis": 19.731,
+              "overlapMillis": 19.73095703125
+            }
+          ]
+        },
+        {
+          "operation": 2,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055779636.0,
+            "gcId": 66,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1211184128
+          },
+          "lastCompletedGcAgeMillis": 5524.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 112.994140625,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055755736.0,
+              "gcId": 64,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2358M->1176M(2784M)",
+              "durationMillis": 47.529,
+              "overlapMillis": 47.529052734375
+            },
+            {
+              "epochMillis": 1791055760490.0,
+              "gcId": 65,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2336M->1165M(2784M)",
+              "durationMillis": 38.676,
+              "overlapMillis": 38.676025390625
+            },
+            {
+              "epochMillis": 1791055779636.0,
+              "gcId": 66,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2325M->1155M(2784M)",
+              "durationMillis": 26.789,
+              "overlapMillis": 26.7890625
+            }
+          ]
+        },
+        {
+          "operation": 3,
+          "lastCompletedGcHeap": {
+            "epochMillis": 1791055853808.0,
+            "gcId": 73,
+            "side": "after",
+            "committedBytes": 2919235584,
+            "usedBytes": 1252263936
+          },
+          "lastCompletedGcAgeMillis": 3575.0,
+          "pauseCount": 3,
+          "pauseOverlapMillis": 112.66796875,
+          "systemGcPauseCount": 0,
+          "pauses": [
+            {
+              "epochMillis": 1791055830596.0,
+              "gcId": 71,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2365M->1218M(2784M)",
+              "durationMillis": 56.216,
+              "overlapMillis": 56.216064453125
+            },
+            {
+              "epochMillis": 1791055832394.0,
+              "gcId": 72,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2330M->1169M(2784M)",
+              "durationMillis": 29.201,
+              "overlapMillis": 29.200927734375
+            },
+            {
+              "epochMillis": 1791055853808.0,
+              "gcId": 73,
+              "kind": "Pause Young (Normal) (G1 Evacuation Pause) 2337M->1194M(2784M)",
+              "durationMillis": 27.251,
+              "overlapMillis": 27.2509765625
+            }
+          ]
+        }
+      ],
+      "gcTotalPauseCount": 76,
+      "gcTotalHeapObservationCount": 136
+    }
+  },
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "cycles": [
+        {
+          "cycle": 1,
+          "baselineCpuSeconds": 43.28,
+          "candidateCpuSeconds": 47.04,
+          "cpuDeltaSeconds": 3.759999999999998,
+          "wallDeltaSeconds": -1.852544100000003
+        },
+        {
+          "cycle": 2,
+          "baselineCpuSeconds": 40.46,
+          "candidateCpuSeconds": 41.24,
+          "cpuDeltaSeconds": 0.7800000000000011,
+          "wallDeltaSeconds": -2.1906937999999982
+        },
+        {
+          "cycle": 3,
+          "baselineCpuSeconds": 39.3,
+          "candidateCpuSeconds": 39.03,
+          "cpuDeltaSeconds": -0.269999999999996,
+          "wallDeltaSeconds": -1.355039699999999
+        }
+      ]
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "cycles": [
+        {
+          "cycle": 1,
+          "baselineCpuSeconds": 44.94,
+          "candidateCpuSeconds": 41.65,
+          "cpuDeltaSeconds": -3.289999999999999,
+          "wallDeltaSeconds": -3.671901499999997
+        },
+        {
+          "cycle": 2,
+          "baselineCpuSeconds": 40.72,
+          "candidateCpuSeconds": 40.89,
+          "cpuDeltaSeconds": 0.1700000000000017,
+          "wallDeltaSeconds": 0.3061776999999992
+        },
+        {
+          "cycle": 3,
+          "baselineCpuSeconds": 40.51,
+          "candidateCpuSeconds": 38.22,
+          "cpuDeltaSeconds": -2.289999999999999,
+          "wallDeltaSeconds": -2.809049799999997
+        }
+      ]
+    }
+  ],
+  "inputPins": {
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/balanced-review.json": "f74beb94b3e76f9a8384dd4a85df8977f87abc32640f25f712430ae73888eb97",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/console.txt": "01511889fe5d28b64a096457e04b8dea6b11b1b7d9a60f253c590c05b83a69ff",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-review.json": "2cedaaa2baf4c394b13b0b81e8313439463dd1d92887617ddc81a4b0832a16e2",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/native-evidence/observer-free-command-cpu.tsv": "0b9b4c2602ebda5dddda22f469eedcc840e876853c15c66cdbeb4cc9f8ea6fb1",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/resource-review.json": "d8727562edaea561ec0641104c7422f994116466b4f7f2fbc3faad262d7a8395",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline1/direct-cpu-review.json": "5c5134a55d86625e7e0b167e5d4334b3b3a5d11b8e4e80742fc6eb602112f18e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/console.txt": "ace54a08d5ffaf8f79bac83b3788af41903239ff6e1093f0c4f0e785bd01532c",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-review.json": "9f77a6268cb44f84995823eb33495bd42cdd377d6d278ff6bc7fa7bf8d10fb2e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/native-evidence/observer-free-command-cpu.tsv": "31cd9ecb6488251fb55e1fe3d75cc53041501e54a1845d6c50a2cdc066a3beb5",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/resource-review.json": "26e0f728bf2ffae1d47ad973ab49a9ded4c20987ed2b2491896281acd75dfec7",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate1/direct-cpu-review.json": "73a2d8d0b4f0966b26ffc1c19e3de9bb93b1fff9c56deea89445abe799d5fd5a",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/console.txt": "6d227503024983727957fafc8ead93a61e415868d54bcd3d3d9293c07cd411f3",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-review.json": "98495591adb0ec946d0ec825b98173e2765b30283f9a89eb4c6aa6fd0ebb9c39",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/native-evidence/observer-free-command-cpu.tsv": "a99c3e0afa48beca6f6c34fdb775469b2c2a90432b7b87bd960337097ef4d55e",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/resource-review.json": "02ffc75a25b0db38f526720bcb45bb65052a036eb7466f79c12a40053a5e495d",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/candidate2/direct-cpu-review.json": "776cce964633b540ce9a3f14f698e92450c144d77e65d652392c960bf82f2805",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/console.txt": "c900e7a7594765363da73d45f1056c5a8cdb5d6188949c29cf51ac9b090d6f95",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-review.json": "46afaa96e5256e27b168ccdda87ed5529521ffd076fdf0b494b3fdfb1204df7f",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/native-evidence/observer-free-command-cpu.tsv": "dd57cf60a0b96891016e07ca7a4b4f0496d52be13ace0cbd7743ddde73acfc92",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/resource-review.json": "3d5c917debc26721aac059524cfe35c4883de50cbca2a265001cf5e51fb1b002",
+    "build/t097-growth-controlled-abba-r1/native5303-abba-r1/baseline2/direct-cpu-review.json": "e07fa3e3db8857e4aa37c13327bf528f8ad5b4ce8268fb565b4aedb3603ba57c"
+  },
+  "missingEvidence": [
+    "Contemporaneous heap committed/max and memory pool residency at all boundaries",
+    "Thread CPU attribution, including unavailable/new/exited threads; System.gc caller"
+  ],
+  "limitations": [
+    "Heap boundary observations are instantaneous, not retained live heap or window medians.",
+    "RSS/PSS medians and heap endpoints measure different quantities and times.",
+    "Idle process CPU may include GC, rendering, compiler and task observations; attribution is unavailable.",
+    "GC log heap is a sparse observation, not the heap at each resource marker. Pause elapsed time is not GC CPU.",
+    "No retry, gate exemption, performance acceptance or causal proof follows from this analysis."
+  ],
+  "analyzerSha256": "415de600b953fcf3f9223227f2eb42270d858bbfc0cf093b431bd03921fba409"
+}
