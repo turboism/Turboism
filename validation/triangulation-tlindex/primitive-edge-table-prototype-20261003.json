@@ -1,0 +1,22 @@
+{
+  "task": "T071",
+  "status": "PASS_OWNED_METADATA_PROTOTYPE_ONLY",
+  "checks": 3776818,
+  "randomOperations": 300000,
+  "nativePerformance": "NOT_MEASURED",
+  "fullIndexIntegration": "NOT_DONE",
+  "productionBaseline": "T057_UNCHANGED",
+  "verification": [
+    "Java17 release17 lint all Werror",
+    "JVM Xverify all",
+    "HashMap long-key differential, identity references, wrapped cluster deletion, grow/refill/clear/releasedslots/null-refusal"
+  ],
+  "nextWork": "Full private actual-index integration preserving ArrayList buckets, fallback/lifetime/concurrency/native removal proof; then exact premain and separately frozen native caps.",
+  "pins": {
+    "validation/triangulation-tlindex/diagnostic/PrimitiveEdgeTableSelfCheck.java": "361243c0123b82e9fac6fa760d05a93e32f30af1588989366ce05fb182218899",
+    "build/t071-primitive-edge-table-r1/selfcheck.log": "cf6335abf76b9cb6fc7e617b1ce1f5367dac3d0b0b316db5fa97b6a14806996b",
+    "build/t071-primitive-edge-table-r1/classes/PrimitiveEdgeTableSelfCheck$Hostile.class": "c7ea5958524849c2010637206e02f573e7fdc42c5f31512be50da8e1e18fd4c4",
+    "build/t071-primitive-edge-table-r1/classes/PrimitiveEdgeTableSelfCheck$Table.class": "fbf12f807fd5c0e8c3246edc10ee7612815487907a2c978dec7dff85fb695c2d",
+    "build/t071-primitive-edge-table-r1/classes/PrimitiveEdgeTableSelfCheck.class": "0b0982665d1f31cbbfe055856553874ae66bc50b39fbb2ff517860f02069c47d"
+  }
+}

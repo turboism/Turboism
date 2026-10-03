@@ -1,0 +1,373 @@
+{
+  "task": "T070",
+  "scope": "READ_ONLY_FROZEN_T069_JFR_AUDIT",
+  "summary": {
+    "baseline1": {
+      "allAllocationSampleWeightBytes": 2506299032,
+      "triangulationAllocationSampleWeightBytes": 2257087736,
+      "indexPutClassWeightsBytes": {
+        "[Ljava/lang/Object;": 83276784,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 54512976,
+        "java/util/ArrayList": 29349312,
+        "java/util/HashMap$Node": 29358056,
+        "[Ljava/util/HashMap$Node;": 4194488
+      },
+      "indexMapMetadataSampleWeightBytes": 88065520,
+      "gcEventsStartedInCommands": 2,
+      "gcPauseOverlapSeconds": 0.20268530273437502,
+      "nearestPriorFirstCommandHeap": {
+        "ageMillis": 44872.990966796875,
+        "when": "After GC",
+        "heapUsedBytes": 1259856024,
+        "committedBytes": 3699376128
+      },
+      "settleLeafSamplesByBci": {
+        "92": 44,
+        "163": 203
+      },
+      "topJavaLeaves": [
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 163,
+          "samples": 203
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+          "bci": 544,
+          "samples": 184
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+          "bci": 127,
+          "samples": 77
+        },
+        {
+          "method": "java/lang/Math.atan2(DD)D",
+          "bci": 2,
+          "samples": 62
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+          "bci": 256,
+          "samples": 58
+        },
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 92,
+          "samples": 44
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+          "bci": 127,
+          "samples": 38
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+          "bci": 766,
+          "samples": 34
+        },
+        {
+          "method": "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V",
+          "bci": 75,
+          "samples": 24
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/k.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+          "bci": 209,
+          "samples": 18
+        }
+      ],
+      "edgeVisitJavaLeaves": 0,
+      "counts": {
+        "jdk.NativeMethodSampleInCommandWindows": 1926,
+        "jdk.ExecutionSampleInCommandWindows": 1469,
+        "jdk.NativeMethodSampleTriangulationStack": 21,
+        "jdk.ExecutionSampleTriangulationStack": 877
+      }
+    },
+    "candidate1": {
+      "allAllocationSampleWeightBytes": 2619463112,
+      "triangulationAllocationSampleWeightBytes": 2445159480,
+      "indexPutClassWeightsBytes": {
+        "[Ljava/lang/Object;": 79334448,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$Bucket": 41931880,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 37737648,
+        "java/util/HashMap$Node": 33553896,
+        "[Ljava/util/HashMap$Node;": 8383296
+      },
+      "indexMapMetadataSampleWeightBytes": 79674840,
+      "gcEventsStartedInCommands": 2,
+      "gcPauseOverlapSeconds": 0.14335498046875,
+      "nearestPriorFirstCommandHeap": {
+        "ageMillis": 31959.247802734375,
+        "when": "After GC",
+        "heapUsedBytes": 1330375392,
+        "committedBytes": 3447717888
+      },
+      "settleLeafSamplesByBci": {
+        "92": 47,
+        "163": 243
+      },
+      "topJavaLeaves": [
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 163,
+          "samples": 243
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/l;Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;)Lcom/live2d/graphics3d/editableMesh/triangulation/j;",
+          "bci": 49,
+          "samples": 154
+        },
+        {
+          "method": "java/lang/Math.atan2(DD)D",
+          "bci": 2,
+          "samples": 78
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+          "bci": 127,
+          "samples": 60
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+          "bci": 256,
+          "samples": 51
+        },
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 92,
+          "samples": 47
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+          "bci": 766,
+          "samples": 38
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Z)Z",
+          "bci": 95,
+          "samples": 35
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/l.a(Lcom/live2d/graphics3d/type/GVector2;)Z",
+          "bci": 32,
+          "samples": 29
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+          "bci": 350,
+          "samples": 27
+        }
+      ],
+      "edgeVisitJavaLeaves": 154,
+      "counts": {
+        "jdk.NativeMethodSampleInCommandWindows": 1854,
+        "jdk.ExecutionSampleInCommandWindows": 1478,
+        "jdk.ExecutionSampleTriangulationStack": 930,
+        "jdk.NativeMethodSampleTriangulationStack": 11,
+        "jdk.ExecutionSampleTriangulationTruncatedStack": 1
+      }
+    },
+    "candidate2": {
+      "allAllocationSampleWeightBytes": 2370372336,
+      "triangulationAllocationSampleWeightBytes": 2161019288,
+      "indexPutClassWeightsBytes": {
+        "[Ljava/lang/Object;": 104695864,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 29354592,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$Bucket": 29274096,
+        "java/util/HashMap$Node": 53019184,
+        "[Ljava/util/HashMap$Node;": 8386368
+      },
+      "indexMapMetadataSampleWeightBytes": 90760144,
+      "gcEventsStartedInCommands": 8,
+      "gcPauseOverlapSeconds": 0.223302978515625,
+      "nearestPriorFirstCommandHeap": {
+        "ageMillis": 31075.18994140625,
+        "when": "After GC",
+        "heapUsedBytes": 1150428952,
+        "committedBytes": 2071986176
+      },
+      "settleLeafSamplesByBci": {
+        "92": 52,
+        "163": 208
+      },
+      "topJavaLeaves": [
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+          "bci": 544,
+          "samples": 218
+        },
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 163,
+          "samples": 208
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+          "bci": 127,
+          "samples": 82
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+          "bci": 313,
+          "samples": 74
+        },
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 92,
+          "samples": 52
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+          "bci": 256,
+          "samples": 50
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+          "bci": 786,
+          "samples": 41
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Ljava/util/List;[ILcom/live2d/graphics3d/type/GVector2;Z)Z",
+          "bci": 127,
+          "samples": 33
+        },
+        {
+          "method": "kotlin/SynchronizedLazyImpl.getValue()Ljava/lang/Object;",
+          "bci": 54,
+          "samples": 19
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;",
+          "bci": 366,
+          "samples": 17
+        }
+      ],
+      "edgeVisitJavaLeaves": 0,
+      "counts": {
+        "jdk.NativeMethodSampleInCommandWindows": 1904,
+        "jdk.NativeMethodSampleTriangulationStack": 13,
+        "jdk.ExecutionSampleInCommandWindows": 1498,
+        "jdk.ExecutionSampleTriangulationStack": 939,
+        "jdk.ExecutionSampleTriangulationTruncatedStack": 1
+      }
+    },
+    "baseline2": {
+      "allAllocationSampleWeightBytes": 2369793656,
+      "triangulationAllocationSampleWeightBytes": 2146876720,
+      "indexPutClassWeightsBytes": {
+        "java/util/HashMap$Node": 60353576,
+        "[Ljava/lang/Object;": 96066168,
+        "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey": 54975776,
+        "java/util/ArrayList": 37750024,
+        "[Ljava/util/HashMap$Node;": 12576192
+      },
+      "indexMapMetadataSampleWeightBytes": 127905544,
+      "gcEventsStartedInCommands": 6,
+      "gcPauseOverlapSeconds": 0.17225366210937498,
+      "nearestPriorFirstCommandHeap": {
+        "ageMillis": 37819.26904296875,
+        "when": "After GC",
+        "heapUsedBytes": 1223990352,
+        "committedBytes": 2491416576
+      },
+      "settleLeafSamplesByBci": {
+        "92": 53,
+        "163": 263
+      },
+      "topJavaLeaves": [
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 163,
+          "samples": 263
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+          "bci": 198,
+          "samples": 131
+        },
+        {
+          "method": "java/lang/Math.atan2(DD)D",
+          "bci": 2,
+          "samples": 77
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.d()V",
+          "bci": 127,
+          "samples": 71
+        },
+        {
+          "method": "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.settle(Ldev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St;Ljava/util/LinkedHashSet;)Z",
+          "bci": 92,
+          "samples": 53
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.a(Lcom/live2d/graphics3d/editableMesh/triangulation/TriPoint;Lcom/live2d/graphics3d/editableMesh/triangulation/TriangleList;Lcom/live2d/graphics3d/editableMesh/triangulation/k;)V",
+          "bci": 544,
+          "samples": 40
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/r.a(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
+          "bci": 260,
+          "samples": 37
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/j.a(Lcom/live2d/graphics3d/editableMesh/triangulation/j;Z)Z",
+          "bci": 96,
+          "samples": 32
+        },
+        {
+          "method": "com/live2d/graphics3d/editableMesh/triangulation/h.c()V",
+          "bci": 766,
+          "samples": 32
+        },
+        {
+          "method": "java/util/HashMap$HashIterator.<init>(Ljava/util/HashMap;)V",
+          "bci": 75,
+          "samples": 19
+        }
+      ],
+      "edgeVisitJavaLeaves": 0,
+      "counts": {
+        "jdk.NativeMethodSampleInCommandWindows": 1848,
+        "jdk.ExecutionSampleInCommandWindows": 1417,
+        "jdk.NativeMethodSampleTriangulationStack": 13,
+        "jdk.NativeMethodSampleTriangulationTruncatedStack": 1,
+        "jdk.ExecutionSampleTriangulationStack": 921,
+        "jdk.ExecutionSampleTriangulationTruncatedStack": 2
+      }
+    }
+  },
+  "decision": "Prototype owned primitive edge-key table; keep ArrayList buckets and native identity/geometric proof unchanged.",
+  "rejectedAlternatives": [
+    "Generic 3-8 pending scan unroll unsupported: dominant settle BCIs remain 163/92.",
+    "Edge-visit collection bypass is not a consistent baseline hotspot: Java leaf counts 0/154/0/0; no CPU-saving attribution claim.",
+    "No repeated compact-bucket host experiment or retrospective T069/T066 acceptance."
+  ],
+  "requirementsForNextPrototype": [
+    "Differential vs HashMap using long endpoint keys including zero, negative/sentinel extremes and colliding hashes.",
+    "Deletion/backshift after clusters, repeated refill/growth/clear, no retained values in free slots; exact bucket reference/value identity.",
+    "Keep detached mutable ArrayList query snapshots and nonmanifold order; preserve registry lifetime/concurrency/fallback/dead-state behavior.",
+    "Full actual-index behavior and composed sole-premain/refusal/resource closure before new frozen native comparison.",
+    "Original CPU/RSS/output/lifecycle gates and balanced direct CPU measurement apply; withdraw on no net benefit."
+  ],
+  "inputPins": {
+    "build/t070-post-balanced-hotspot-audit-r1/audit.json": "82e6ac73644ccdb45a0ac04e58fedb3ef8d80ed8a6945796cef321effd0bb7f7",
+    "build/t070-post-balanced-hotspot-audit-r1/export-pins.json": "6233a149b77e56f63c5ce53d129d74bdb66bca148fac1e82d8c45e3894ae3b6e",
+    "build/t070-post-balanced-hotspot-audit-r1/official-5303-h.javap.txt": "62af75cb058cc6644fb9181693f7f8e51fa5895c6bd71ac3c6c74ed42e284638",
+    "build/t063-vector-copy-integration-r1/allocation-gc-audit-r1/deployed-index-javap.txt": "9c69f0d4b2ef91f060c903589ff2fa23f8caedb7635c98a753bbc5249f29f858",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "2fe0f008cd71ff373e0ae0a4453707fd7b4aa6aa114df13d3ca06b426d3d52ec"
+  },
+  "limitations": [
+    "Four frozen instrumented T069 recordings, not new host measurement.",
+    "JFR allocation weights are estimates; CPU sample counts are not CPU fractions or removable time.",
+    "Java and native leaves remain separate; JIT inlining can attribute native callees to caller BCIs.",
+    "T069 gates remain failed; T057 production unchanged.",
+    "Allocation weights from put stacks are sparse estimates, not exact metadata savings, retained bytes, CPU fraction or speedup.",
+    "Four recorded sessions have different sparse precommand heap observations and JIT attribution; no causal allocation or GC claim.",
+    "Historical deployed-index javap is valid for baseline settle only after exact index class SHA equality checked.",
+    "No production changes, new host launch or acceptance. Broader performance goal remains active."
+  ],
+  "baselineIndexClassSha256": "21697f94ca6788ae38188764809da4f7c080da12807f91526b6e208f08e8cfd0"
+}
