@@ -223,7 +223,7 @@ url = "http://127.0.0.1:43123/mcp"
 | 権限 | スコープ | 要求する理由 |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | アクティブなモデルオブジェクト、Core メタデータ、統計、テクスチャメタデータを読み取ります。 |
-| `turboism.cubism.parameter.read` | `application` | ツール面でのパラメーター読み取り意図を宣言します。実際のパラメーター読み取りは実行時に `turboism.cubism.model.read` によって強制されます。 |
+| `turboism.cubism.parameter.read` | `application` | ツール面でのパラメーター読み取り意図を宣言します。実際のパラメーター読み取りは実行時に上記のモデル読み取り権限によって強制されます。 |
 | `turboism.cubism.project.read` | `application` | アクティブなプロジェクト、ワークスペース、レイアウト、テーマ状態を読み取ります。 |
 | `turboism.cubism.model.write` | `application` | 型付きのモデル、パラメーター、バインディング、履歴、モデル設定の書き込みを適用します。 |
 | `turboism.file.read` | `application` | loopback エンドポイントを公開する前に MCP 接続ファイルのメタデータ（存在、所有者、シンボリックリンク検査）を検証します。 |
