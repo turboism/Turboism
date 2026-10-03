@@ -159,6 +159,20 @@ class RuntimePerformanceProbeServiceTest {
         }
     }
 
+    @Test
+    void permissionCheckedViewForwardsDelegateAvailability() {
+        final dev.turboism.performance.PermissionCheckedPerformanceProbeService unavailable =
+                new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
+                        dev.turboism.sdk.performance.PerformanceProbeService.unavailable(),
+                        PermissionChecker.allowAll());
+        assertFalse(unavailable.isAvailable(), "a checked view of the sentinel reports unavailable");
+
+        final dev.turboism.performance.PermissionCheckedPerformanceProbeService available =
+                new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
+                        service(granted()), PermissionChecker.allowAll());
+        assertTrue(available.isAvailable(), "a checked view of the live service reports available");
+    }
+
     private static RuntimePerformanceProbeService service(final PermissionChecker checker) {
         return new RuntimePerformanceProbeService("perf-stats", checker, Clock.systemUTC());
     }

@@ -46,10 +46,14 @@ public final class RuntimeTextureAtlasLayoutService
         this.nativeInvocations = Objects.requireNonNull(nativeInvocations, "nativeInvocations");
     }
 
-    /** Both implemented service interfaces declare this probe; one override settles the diamond. */
+    /**
+     * Both implemented service interfaces declare this probe; one override settles the diamond.
+     * Reports whether a backend can serve layout calls: a connected coordinator provider or an
+     * in-flight native invocation.
+     */
     @Override
     public boolean isAvailable() {
-        return true;
+        return coordinator.hasProvider() || nativeInvocations.current().isPresent();
     }
 
     @Override
