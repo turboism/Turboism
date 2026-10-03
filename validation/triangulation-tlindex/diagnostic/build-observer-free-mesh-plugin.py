@@ -15,6 +15,8 @@ def main():
     parser.add_argument('--production-agent', type=Path,
                         help='Exact T057 or T075 JAR for offline real inspector/plugin-loader check')
     parser.add_argument('--source-only', action='store_true')
+    parser.add_argument('--jfr-clock-events', action='store_true',
+                        help='Distinct diagnostic build with same-recording invocation envelopes')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[3]
     diag = Path(__file__).resolve().parent
@@ -26,6 +28,8 @@ def main():
     pins = {}
     helpers = ['NativeObserverFreeAutoConnect.java', 'NativeAutoConnect.java', 'NativeCancelPrompt.java',
                'MeshResultSnapshot.java', 'CommandCpuBoundary.java', 'ObserverFreeEvidenceWriter.java']
+    if args.jfr_clock_events:
+        helpers.append('NativeCommandJfrClock.java')
     names = ['FixedEdt.java', 'StageEvidence.java', 'ShadowPayloadStore.java', 'ShadowSceneContract.java',
              'T040ShadowSceneDriverAgent.java']
     for path in [scene / name for name in names] + [diag / name for name in helpers]:
@@ -184,8 +188,27 @@ def main():
     text = native.read_text()
     assert text.count('"CUB3-0009"') == 2
     native.write_text(text.replace('"CUB3-0009"', '"CUB3-4362"'))
+    if args.jfr_clock_events:
+        native = src / 'NativeObserverFreeAutoConnect.java'
+        text = native.read_text()
+        old = 'List<String> expectedIds, CommandCpuBoundary cpu) throws Exception {'
+        assert text.count(old) == 1
+        text = text.replace(old, 'List<String> expectedIds, CommandCpuBoundary cpu, int cycle) throws Exception {')
+        old = 'Interval interval = invokeMeasured(command, controller, doc, cpu);'
+        assert text.count(old) == 1
+        native.write_text(text.replace(old,
+            'Interval interval = NativeCommandJfrClock.invokeMeasured(command, controller, doc, cpu, cycle);'))
+        text = driver.read_text()
+        loop = 'for (int cycle = 1; cycle <= 3; cycle++) {'
+        assert text.count(loop) == 1
+        text = text.replace(loop, loop + '\n                final int commandCycle = cycle;')
+        old = 'NativeObserverFreeAutoConnect.connect(controller, binding, ids, cpu)'
+        assert text.count(old) == 1
+        driver.write_text(text.replace(old,
+            'NativeObserverFreeAutoConnect.connect(controller, binding, ids, cpu, commandCycle)'))
     pins[str(Path(__file__).resolve().relative_to(root))] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     report = {'status': 'SOURCE_ONLY_NOT_COMPILED', 'profile': '5303', 'inputs': pins,
+              'jfrClockEvents': args.jfr_clock_events,
               'generatedSources': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(src.glob('*.java'))},
               'hostPreparedOrSubmitted': False, 'productionAcceptance': 'NOT_GRANTED'}
     if args.source_only:
@@ -267,6 +290,8 @@ def main():
     check_classes.mkdir()
     checks = ['NativeObserverFreeAutoConnectSelfCheck.java', 'CommandCpuBoundarySelfCheck.java',
               'MeshResultSnapshotSelfCheck.java', 'ObserverFreeEvidenceWriterSelfCheck.java']
+    if args.jfr_clock_events:
+        checks.append('NativeCommandJfrClockSelfCheck.java')
     for name in checks:
         raw = (diag / name).read_bytes()
         report['inputs'][str((diag / name).relative_to(root))] = hashlib.sha256(raw).hexdigest()
@@ -280,6 +305,8 @@ def main():
                    'dev.turboism.validation.atlasimage.shadow.' + name.removesuffix('.java')]
         if name == 'ObserverFreeEvidenceWriterSelfCheck.java':
             command.append(str(out / 'writer-run'))
+        if name == 'NativeCommandJfrClockSelfCheck.java':
+            command.append(str(out / 'clock-scope-selfcheck.jfr'))
         checked = subprocess.run(command, env=env, text=True, capture_output=True)
         (out / (name.removesuffix('.java') + '.log')).write_text(checked.stdout + checked.stderr)
         checked.check_returncode()
