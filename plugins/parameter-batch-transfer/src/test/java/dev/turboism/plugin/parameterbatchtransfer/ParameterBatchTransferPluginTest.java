@@ -473,11 +473,6 @@ class ParameterBatchTransferPluginTest {
         }
 
         @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public CubismModelAccess model() {
             accessed = true;
             return () -> model;

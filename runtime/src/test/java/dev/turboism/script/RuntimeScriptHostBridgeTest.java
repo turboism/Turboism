@@ -492,11 +492,6 @@ final class RuntimeScriptHostBridgeTest {
                         return model;
                     };
                 }
-
-                @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException();
-                }
             };
         }
     }

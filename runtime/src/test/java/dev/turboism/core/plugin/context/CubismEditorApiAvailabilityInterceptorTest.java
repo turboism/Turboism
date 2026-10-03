@@ -201,11 +201,6 @@ class CubismEditorApiAvailabilityInterceptorTest {
                 calls.incrementAndGet();
                 return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
             }
-
-            @Override
-            public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                return null;
-            }
         };
         final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(
                         () -> Optional.of("5.2.03"),
@@ -726,11 +721,6 @@ class CubismEditorApiAvailabilityInterceptorTest {
             @Override
             public dev.turboism.sdk.cubism.history.CubismHistory history() {
                 return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                return null;
             }
         };
         final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(

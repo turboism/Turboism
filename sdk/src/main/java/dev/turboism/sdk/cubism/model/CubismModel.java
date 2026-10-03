@@ -8,7 +8,17 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import java.util.List;
 import java.util.Optional;
 
-/** One Cubism model exposed as natural objects and methods. */
+/**
+ * One Cubism model exposed as natural objects and methods.
+ *
+ * <p>The object graph is the single recommended parameter read/write plane:
+ * {@link #parameters()} yields live {@link Parameter} objects whose {@link Parameter#getValue()} /
+ * {@link Parameter#setValue(float)} read and write the Editor authoring value. Immutable
+ * point-in-time views exist elsewhere — {@link dev.turboism.sdk.cubism.ParameterSnapshot} inside
+ * facade snapshots, {@link dev.turboism.sdk.cubism.service.query.ParameterSummary} from the
+ * parameter query service, and {@link dev.turboism.sdk.cubism.core.OwnedParameter} inside the
+ * detached owned model — but none of them is a write handle.
+ */
 public interface CubismModel {
 
     /** Returns this model's stable identity when the model-read contract is admitted. */
@@ -151,7 +161,12 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism model profile is unavailable.");
     }
 
-    /** Returns the model's parameter collection. */
+    /**
+     * Returns the model's parameter collection.
+     *
+     * <p>This is the recommended read/write entry: {@code parameters().find(id).setValue(v)}
+     * performs a single validated, undoable Editor write.
+     */
     Parameters parameters();
 
     /**

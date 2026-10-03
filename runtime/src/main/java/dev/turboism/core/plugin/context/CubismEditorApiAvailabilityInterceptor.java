@@ -71,7 +71,6 @@ final class CubismEditorApiAvailabilityInterceptor {
         required.put(
                 dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.class,
                 Set.of("cubism.editor-model.write"));
-        required.put(dev.turboism.sdk.cubism.transaction.TransactionManager.class, Set.of("cubism.editor-model.write"));
         required.put(
                 dev.turboism.sdk.cubism.edit.EditSessionService.class,
                 Set.of("cubism.editor-model.edit.session.edit-begin"));

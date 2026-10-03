@@ -24,7 +24,6 @@ import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.IntSequence;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -795,11 +794,6 @@ final class PsdClipMaskImportServiceTest {
 
                 @Override
                 public CubismModelAccess model() {
-                    throw new UnsupportedOperationException();
-                }
-
-                @Override
-                public TransactionManager transactionManager() {
                     throw new UnsupportedOperationException();
                 }
             };

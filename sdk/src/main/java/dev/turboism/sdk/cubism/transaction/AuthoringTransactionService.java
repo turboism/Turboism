@@ -9,6 +9,10 @@ import java.util.Objects;
  * grouping, abort and recovery, and transaction diagnostics. The callback receives no transaction
  * handle and may interact only through normal SDK services available to the plugin.</p>
  *
+ * <p>This is the one recommended transaction entry for plugin writes. Use it when several
+ * writes must commit or roll back together or share a single Undo entry; a lone {@code
+ * Parameter.setValue} call needs no transaction wrapper.
+ *
  * <p>The callback runs on the host's UI thread (the Cubism Editor Swing event dispatch thread).
  * It must be brief and must not block or wait for other UI-thread tasks — doing so deadlocks the
  * host. SDK writes inside the callback that produce an admissible native Undo object — both

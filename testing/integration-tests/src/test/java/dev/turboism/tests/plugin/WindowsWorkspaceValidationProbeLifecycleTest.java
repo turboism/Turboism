@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -383,11 +382,6 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 @Override
                 public boolean isHostPresent() {
                     return false;
-                }
-
-                @Override
-                public TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException();
                 }
             };
         }

@@ -1,45 +1,22 @@
 package dev.turboism.adapter.cubism;
 
-import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
-import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
-import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
-import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer;
 
 /** Facade-level adapter factories: permission-checked views and unavailable fallbacks. */
 final class CubismFacadeAdapters {
 
     private CubismFacadeAdapters() {}
 
-    static TransactionManager unavailableTransactionManager() {
-        return (ctx, docId) -> {
-            throw new UnsupportedOperationException("transaction manager is not available");
-        };
-    }
-
     static CubismModelAccess unavailableModelAccess() {
         return () -> {
             throw new UnsupportedOperationException("Unified Cubism model access is unavailable");
         };
-    }
-
-    static RuntimeScheduler defaultScheduler() {
-        final Consumer<PluginWorkBudgetEvent> diagnostics = ignored -> {};
-        return new RuntimeScheduler(
-                new DefaultWorkBudgetPolicy(),
-                new PluginWorkExecutorRegistry(1, 16, diagnostics, Clock.systemUTC()),
-                SidecarDispatcher.noop(),
-                diagnostics);
     }
 
     static dev.turboism.sdk.cubism.core.CoreRuntimeInfo unavailableCoreRuntime() {
