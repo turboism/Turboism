@@ -112,6 +112,85 @@ class RuntimeBackupArtifactHandleTest {
     }
 
     @Test
+    void issueReportsTheSymbolicLinkSizeNotTheTargetSize() throws IOException {
+        final Path dir = Files.createDirectories(temporary.resolve("backup"));
+        final Path outside = Files.writeString(temporary.resolve("secret.txt"), "a much longer secret body");
+        final Path link = dir.resolve("linked.cmo3");
+        try {
+            Files.createSymbolicLink(link, outside);
+        } catch (UnsupportedOperationException | IOException | SecurityException unavailable) {
+            Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
+        final BackupArtifactHandle handle =
+                RuntimeBackupArtifactHandle.issue(link, dir, false, PermissionChecker.allowAll());
+
+        assertEquals(
+                Files.readAttributes(
+                                link,
+                                java.nio.file.attribute.BasicFileAttributes.class,
+                                java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                        .size(),
+                handle.sizeBytes(),
+                "issue must stat the link itself, never the link target");
+        assertThrows(IOException.class, handle::openStream);
+    }
+
+    @Test
+    void openStreamRejectsAnArtifactBehindALinkedDirectory() throws IOException {
+        final Path dir = Files.createDirectories(temporary.resolve("backup"));
+        final Path outside = Files.createDirectories(temporary.resolve("outside"));
+        Files.writeString(outside.resolve("artifact.cmo3"), "secret");
+        final Path linkedSubdir = dir.resolve("linked-subdir");
+        try {
+            Files.createSymbolicLink(linkedSubdir, outside);
+        } catch (UnsupportedOperationException | IOException | SecurityException unavailable) {
+            Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
+        // The artifact resolves through a linked directory that escapes the
+        // issuing root: containment must be checked against the real parent,
+        // not the literal path.
+        final Path artifact = linkedSubdir.resolve("artifact.cmo3");
+        final BackupArtifactHandle handle =
+                RuntimeBackupArtifactHandle.issue(artifact, dir, false, PermissionChecker.allowAll());
+
+        assertThrows(IOException.class, handle::openStream);
+    }
+
+    @Test
+    void openStreamRejectsAnArtifactReplacedByASymbolicLink() throws IOException {
+        final Path dir = Files.createDirectories(temporary.resolve("backup"));
+        final Path file = Files.writeString(dir.resolve("model_backup.cmo3"), "artifact-bytes");
+        final Path outside = Files.writeString(temporary.resolve("secret.txt"), "secret");
+        final BackupArtifactHandle handle =
+                RuntimeBackupArtifactHandle.issue(file, dir, false, PermissionChecker.allowAll());
+        Files.delete(file);
+        try {
+            Files.createSymbolicLink(file, outside);
+        } catch (UnsupportedOperationException | IOException | SecurityException unavailable) {
+            Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
+        assertThrows(IOException.class, handle::openStream);
+    }
+
+    @Test
+    void openStreamReadsThroughASymbolicLinkIssuingRoot() throws IOException {
+        final Path real = Files.createDirectories(temporary.resolve("real-backup"));
+        final Path file = Files.writeString(real.resolve("model_backup.cmo3"), "artifact-bytes");
+        final Path linkedRoot = temporary.resolve("linked-root");
+        try {
+            Files.createSymbolicLink(linkedRoot, real);
+        } catch (UnsupportedOperationException | IOException | SecurityException unavailable) {
+            Assumptions.assumeTrue(false, "symbolic links are not creatable on this platform");
+        }
+        final BackupArtifactHandle handle = RuntimeBackupArtifactHandle.issue(
+                linkedRoot.resolve("model_backup.cmo3"), linkedRoot, false, PermissionChecker.allowAll());
+
+        try (var in = handle.openStream()) {
+            assertEquals("artifact-bytes", new String(in.readAllBytes(), StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     void discardRejectsHostOwnedArtifacts() throws IOException {
         final Path dir = Files.createDirectories(temporary.resolve("backup"));
         final Path file = Files.writeString(dir.resolve("model_backup.cmo3"), "host-owned");
