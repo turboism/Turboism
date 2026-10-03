@@ -370,13 +370,9 @@ public final class TriangulationEdgeIndex {
     public static boolean contains(final LinkedHashSet s, final Object tri) {
         try {
             final St t = st(s);
-            // Unknown identities and unresolved removal arguments always need
-            // native equality. Settling cannot make either eligible for the
-            // positive shortcut, so retain the batch for an indexed answer.
-            if (!t.dead && !t.dirty && t.keys.containsKey(tri) && !isPending(t, tri)) {
-                if (t.pendingSize > 0) settle(t, s);
-                if (!t.dirty && t.sz == s.size() && t.keys.size() == s.size() && t.keys.containsKey(tri)) return true;
-            }
+            if (!t.dead && t.pendingSize > 0) settle(t, s);
+            if (!t.dead && !t.dirty && t.sz == s.size() && t.keys.size() == s.size() && t.keys.containsKey(tri))
+                return true;
         } catch (Throwable bookkeeping) {
             FatalErrors.rethrowIfFatal(bookkeeping);
             if (s != null) invalidate(s); // settle may have partially changed bookkeeping
