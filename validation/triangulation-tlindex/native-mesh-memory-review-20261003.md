@@ -1,5 +1,7 @@
 # T089 独立内存诊断审查
 
+后续只读调用栈补证见 [原生命令缓存刷新路径审查](native-cache-refresh-review-20261003.md)：已确认 T089 实际动态刷新调用者；下文保留当时结论，冻结输出失败不变。
+
 FAIL_FROZEN_REFERENCE_PARITY。FIFO2632仅一次，正常退出、身份/模型/内核清理PASS；输出不等价，因此不是有效的历史T088内存归因证据，没有重试，也不更改冻结判据。
 
 2133行的source/pointCount/positionValues/positionsHash全部一致；378行indicesHash不同（每轮126行），其中18行indices数量不同。原正式T088及T087返回缓存版本全部为−1，T089全部与edgeVersion同步。第一轮711源的edgeVersion额外变化等于该源indices数量；后续初始边版本也改变。当前只能确认返回边界缓存状态不同，不能证明是哪条实际UI路径触发。
