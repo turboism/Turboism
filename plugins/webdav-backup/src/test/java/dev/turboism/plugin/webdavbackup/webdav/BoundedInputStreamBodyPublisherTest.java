@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -47,7 +48,7 @@ class BoundedInputStreamBodyPublisherTest {
     }
 
     /** Records items, bytes, and terminal signals; all onNext traffic arrives on the drain thread. */
-    private static final class RecordingSubscriber implements Flow.Subscriber<ByteBuffer> {
+    private static class RecordingSubscriber implements Flow.Subscriber<ByteBuffer> {
         final AtomicReference<Flow.Subscription> subscription = new AtomicReference<>();
         final AtomicLong emittedBytes = new AtomicLong();
         final AtomicInteger items = new AtomicInteger();
@@ -384,6 +385,158 @@ class BoundedInputStreamBodyPublisherTest {
         subscriber.awaitTerminal();
         assertInstanceOf(UncheckedIOException.class, subscriber.failure.get());
         assertEquals(0, subscriber.completions.get());
+    }
+
+    @Test
+    void anOnNextThrowClosesTheStreamAndStopsAllSignals() throws Exception {
+        final byte[] data = content(2 * CHUNK);
+        final AtomicBoolean closed = new AtomicBoolean();
+        final InputStream stream = new ByteArrayInputStream(data) {
+            @Override
+            public void close() throws IOException {
+                closed.set(true);
+                super.close();
+            }
+        };
+        final HttpRequest.BodyPublisher publisher = new BoundedInputStreamBodyPublisher(() -> stream, data.length);
+        final AtomicInteger nextCalls = new AtomicInteger();
+        final AtomicInteger terminalSignals = new AtomicInteger();
+        publisher.subscribe(new Flow.Subscriber<>() {
+            @Override
+            public void onSubscribe(final Flow.Subscription subscription) {
+                subscription.request(Long.MAX_VALUE);
+            }
+
+            @Override
+            public void onNext(final ByteBuffer item) {
+                if (nextCalls.incrementAndGet() == 1) {
+                    throw new IllegalStateException("subscriber is broken");
+                }
+            }
+
+            @Override
+            public void onError(final Throwable throwable) {
+                terminalSignals.incrementAndGet();
+            }
+
+            @Override
+            public void onComplete() {
+                terminalSignals.incrementAndGet();
+            }
+        });
+        assertTrue(waitFor(closed::get), "a throwing onNext must close the stream");
+        Thread.sleep(150L);
+        assertEquals(1, nextCalls.get(), "rule 2.13: no further onNext after a subscriber throws");
+        assertEquals(0, terminalSignals.get(), "a throwing onNext must not be followed by a terminal signal");
+    }
+
+    @Test
+    void anOnSubscribeThrowClosesTheStreamAndPropagates() throws Exception {
+        final AtomicBoolean closed = new AtomicBoolean();
+        final InputStream stream = new ByteArrayInputStream(content(10)) {
+            @Override
+            public void close() throws IOException {
+                closed.set(true);
+                super.close();
+            }
+        };
+        final HttpRequest.BodyPublisher publisher = new BoundedInputStreamBodyPublisher(() -> stream, 10);
+        final IllegalStateException thrown = new IllegalStateException("subscriber rejected the subscription");
+        final RuntimeException surfaced = assertThrows(
+                RuntimeException.class,
+                () -> publisher.subscribe(new Flow.Subscriber<>() {
+                    @Override
+                    public void onSubscribe(final Flow.Subscription subscription) {
+                        throw thrown;
+                    }
+
+                    @Override
+                    public void onNext(final ByteBuffer item) {}
+
+                    @Override
+                    public void onError(final Throwable throwable) {}
+
+                    @Override
+                    public void onComplete() {}
+                }));
+        assertEquals(thrown, surfaced, "subscribe must rethrow the onSubscribe failure");
+        assertTrue(closed.get(), "a rejected subscription must close the stream");
+    }
+
+    @Test
+    void reentrantRequestsInsideOnNextExtendDemandWithoutCorruptingSignals() throws Exception {
+        final byte[] data = content(3 * CHUNK + 11);
+        final HttpRequest.BodyPublisher publisher =
+                new BoundedInputStreamBodyPublisher(() -> new ByteArrayInputStream(data), data.length);
+        final RecordingSubscriber subscriber = new RecordingSubscriber(0L) {
+            @Override
+            public void onNext(final ByteBuffer item) {
+                super.onNext(item);
+                // One unit of demand per item, requested from inside onNext.
+                subscription.get().request(1L);
+            }
+        };
+        publisher.subscribe(subscriber);
+        subscriber.subscription.get().request(1L);
+        subscriber.awaitTerminal();
+        assertEquals(1, subscriber.completions.get());
+        assertNull(subscriber.failure.get());
+        assertEquals(4, subscriber.items.get(), "3*CHUNK+11 bytes must emit four items");
+        assertEquals(sha256(data), sha256(subscriber.body()));
+    }
+
+    @Test
+    void concurrentRequestsStillSerializeEverySignalOntoOneDrainThread() throws Exception {
+        final byte[] data = content(4 * CHUNK);
+        final HttpRequest.BodyPublisher publisher =
+                new BoundedInputStreamBodyPublisher(() -> new ByteArrayInputStream(data), data.length);
+        final AtomicBoolean concurrentSignal = new AtomicBoolean();
+        final AtomicBoolean inSignal = new AtomicBoolean();
+        final RecordingSubscriber serialized = new RecordingSubscriber(0L) {
+            private void guard() {
+                if (!inSignal.compareAndSet(false, true)) {
+                    concurrentSignal.set(true);
+                }
+            }
+
+            private void release() {
+                inSignal.set(false);
+            }
+
+            @Override
+            public void onNext(final ByteBuffer item) {
+                guard();
+                super.onNext(item);
+                release();
+            }
+        };
+        publisher.subscribe(serialized);
+        final int requesters = 4;
+        final java.util.concurrent.ExecutorService threads =
+                java.util.concurrent.Executors.newFixedThreadPool(requesters);
+        for (int i = 0; i < requesters; i++) {
+            threads.execute(() -> serialized.subscription.get().request(1L));
+        }
+        serialized.awaitTerminal();
+        threads.shutdown();
+        assertTrue(threads.awaitTermination(10L, TimeUnit.SECONDS));
+        assertEquals(1, serialized.completions.get());
+        assertNull(serialized.failure.get());
+        assertTrue(!concurrentSignal.get(), "signals must never run concurrently");
+        assertEquals(4 * CHUNK, serialized.emittedBytes.get());
+        assertEquals(sha256(data), sha256(serialized.body()));
+    }
+
+    @Test
+    void aShutDownReaderPoolFailsTheUploadInsteadOfHanging() throws Exception {
+        final java.util.concurrent.ExecutorService readers = java.util.concurrent.Executors.newSingleThreadExecutor();
+        readers.shutdown();
+        final HttpRequest.BodyPublisher publisher =
+                new BoundedInputStreamBodyPublisher(() -> new ByteArrayInputStream(content(10)), 10, readers);
+        final RecordingSubscriber subscriber = new RecordingSubscriber(Long.MAX_VALUE);
+        publisher.subscribe(subscriber);
+        assertTrue(waitFor(() -> subscriber.errors.get() > 0), "a rejected drain must surface onError");
+        assertInstanceOf(java.util.concurrent.RejectedExecutionException.class, subscriber.failure.get());
     }
 
     @Test

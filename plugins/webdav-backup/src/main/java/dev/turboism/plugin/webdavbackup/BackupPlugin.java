@@ -61,7 +61,31 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private final Set<BackupArtifactHandle> pendingTempArtifacts = ConcurrentHashMap.newKeySet();
     private final Set<String> scannedArtifacts = ConcurrentHashMap.newKeySet();
     private final AtomicLong uploadSequence = new AtomicLong();
-    private volatile Thread scannerThread;
+
+    /**
+     * Plugin-scoped worker lifecycle: every reader, retry and scanner thread
+     * the plugin ever spawns lives on one of these two executors, created in
+     * {@link #enable()} and shut down (with a bounded wait) in
+     * {@link #disable()}. No thread survives a plugin disable, so a reload can
+     * never leave the old plugin classloader pinned behind live workers.
+     */
+    private final Object workersLock = new Object();
+
+    /** Delays and periods: target retries and the auto-backup scanner. */
+    private java.util.concurrent.ScheduledExecutorService scheduler;
+
+    /** Blocking upload work: publisher drains and HTTP client dependent tasks. */
+    private java.util.concurrent.ExecutorService uploadWorkers;
+
+    /** Set while the worker executors are stopped; guards late rebuilds. */
+    private boolean workersShutdown = true;
+
+    private volatile java.util.concurrent.ScheduledFuture<?> scannerFuture;
+    private volatile java.util.concurrent.ScheduledFuture<?> retryFuture;
+    private final AtomicLong workerSequence = new AtomicLong();
+
+    /** Bound on draining the plugin worker executors during disable(). */
+    static final long WORKER_SHUTDOWN_BOUND_MILLIS = 5_000L;
 
     @Override
     public void init(final PluginContext context) {
@@ -84,6 +108,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     @Override
     public void enable() {
+        startWorkers();
         binding.enable();
         refreshTarget();
         registerMenuAndAction();
@@ -100,6 +125,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         cancelTargetRetry();
         cleanupPendingTempArtifacts();
         closeRegistrations();
+        shutdownWorkers();
     }
 
     @Override
@@ -144,6 +170,9 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             }
             targetRetryAttempts = 0;
             target = buildTarget(config);
+            if (target == null) {
+                return; // the plugin workers are stopped — nothing can upload
+            }
             logger.info("WEBDAV_TARGET_READY url=" + sanitizedUrl(config)
                     + " remotePath=" + config.remotePath()
                     + " enabled=" + config.enabled());
@@ -168,16 +197,103 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         syncTriggerMode(config);
     }
 
-    /** Shared target construction with the put-ok/error diagnostics routing. */
+    /**
+     * Shared target construction with the put-ok/error diagnostics routing.
+     * Returns {@code null} when the plugin workers are stopped — a late
+     * target rebuild after disable() must degrade to the unavailable path
+     * instead of resurrecting threads.
+     */
     private WebDavSyncTarget buildTarget(final WebDavConfig config) {
+        final java.util.concurrent.ExecutorService workers = uploadWorkers();
+        if (workers == null) {
+            return null;
+        }
         final PluginLogger logger = requireContext().logger();
-        return new WebDavSyncTarget(config, reason -> {
-            if (reason.startsWith("webdav:put-ok")) {
-                logger.info("webdav-sync " + reason);
-            } else {
-                logger.warn("webdav-sync " + reason);
+        return new WebDavSyncTarget(
+                config,
+                reason -> {
+                    if (reason.startsWith("webdav:put-ok")) {
+                        logger.info("webdav-sync " + reason);
+                    } else {
+                        logger.warn("webdav-sync " + reason);
+                    }
+                },
+                workers);
+    }
+
+    /**
+     * The plugin-scoped upload reader executor: its threads drain
+     * {@link dev.turboism.plugin.webdavbackup.webdav.BoundedInputStreamBodyPublisher}
+     * chunks and run the HTTP client's dependent work, and they only ever exist
+     * while the plugin is enabled. {@code null} once the workers are stopped.
+     */
+    private java.util.concurrent.ExecutorService uploadWorkers() {
+        synchronized (workersLock) {
+            if (workersShutdown) {
+                return null;
             }
-        });
+            if (uploadWorkers == null || uploadWorkers.isShutdown()) {
+                uploadWorkers = java.util.concurrent.Executors.newFixedThreadPool(
+                        2, runnable -> workerThread(runnable, "webdav-upload-reader-"));
+            }
+            return uploadWorkers;
+        }
+    }
+
+    private Thread workerThread(final Runnable runnable, final String namePrefix) {
+        final Thread thread = new Thread(runnable, namePrefix + workerSequence.incrementAndGet());
+        thread.setDaemon(true);
+        return thread;
+    }
+
+    private void startWorkers() {
+        synchronized (workersLock) {
+            workersShutdown = false;
+            if (scheduler == null || scheduler.isShutdown()) {
+                scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+                        runnable -> workerThread(runnable, "turboism-webdav-tasks-"));
+            }
+            if (uploadWorkers == null || uploadWorkers.isShutdown()) {
+                uploadWorkers = java.util.concurrent.Executors.newFixedThreadPool(
+                        2, runnable -> workerThread(runnable, "webdav-upload-reader-"));
+            }
+        }
+    }
+
+    /**
+     * Interrupts and joins the plugin worker executors within a bounded wait.
+     * In-flight publisher drains exit as soon as their current chunk finishes
+     * because the interrupted {@code client.send} cancels the subscription.
+     */
+    private void shutdownWorkers() {
+        final java.util.concurrent.ScheduledExecutorService sched;
+        final java.util.concurrent.ExecutorService workers;
+        synchronized (workersLock) {
+            workersShutdown = true;
+            sched = scheduler;
+            scheduler = null;
+            workers = uploadWorkers;
+            uploadWorkers = null;
+        }
+        shutdownAndAwait(sched);
+        shutdownAndAwait(workers);
+    }
+
+    private void shutdownAndAwait(final java.util.concurrent.ExecutorService executor) {
+        if (executor == null) {
+            return;
+        }
+        executor.shutdownNow();
+        try {
+            if (!executor.awaitTermination(WORKER_SHUTDOWN_BOUND_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                final PluginContext active = context;
+                if (active != null) {
+                    active.logger().warn("WEBDAV_WORKER_SHUTDOWN_TIMEOUT");
+                }
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Bounded target-rebuild retry backoff (ms); five attempts, ~15.5s total. */
@@ -203,27 +319,36 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         targetRetryAttempts = attempt + 1;
         logger.info(
                 "WEBDAV_TARGET_RETRY attempt=" + (attempt + 1) + " backoffMs=" + TARGET_RETRY_BACKOFF_MILLIS[attempt]);
-        final Thread retry = new Thread(
-                () -> {
-                    try {
-                        Thread.sleep(TARGET_RETRY_BACKOFF_MILLIS[attempt]);
-                    } catch (InterruptedException interrupted) {
-                        Thread.currentThread().interrupt();
+        final java.util.concurrent.ScheduledExecutorService sched;
+        synchronized (workersLock) {
+            sched = workersShutdown ? null : scheduler;
+        }
+        if (sched == null) {
+            targetRetryPending.set(false);
+            return;
+        }
+        try {
+            retryFuture = sched.schedule(
+                    () -> {
                         targetRetryPending.set(false);
-                        return;
-                    }
-                    targetRetryPending.set(false);
-                    if (!enabled || context == null) {
-                        return; // cancelled by disable()/shutdown()
-                    }
-                    refreshTarget();
-                },
-                "turboism-webdav-target-retry");
-        retry.setDaemon(true);
-        retry.start();
+                        if (!enabled || context == null) {
+                            return; // cancelled by disable()/shutdown()
+                        }
+                        refreshTarget();
+                    },
+                    TARGET_RETRY_BACKOFF_MILLIS[attempt],
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException stopped) {
+            targetRetryPending.set(false);
+        }
     }
 
     private void cancelTargetRetry() {
+        final java.util.concurrent.ScheduledFuture<?> pending = retryFuture;
+        retryFuture = null;
+        if (pending != null) {
+            pending.cancel(false);
+        }
         targetRetryAttempts = 0;
         targetRetryPending.set(false);
     }
@@ -475,35 +600,37 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private void startScanner() {
         stopScanner();
         scannedArtifacts.clear();
-        final Thread scanner = new Thread(this::scanLoop, "turboism-webdav-auto-backup-scanner");
-        scannerThread = scanner;
-        scanner.setDaemon(true);
-        scanner.start();
-    }
-
-    private void stopScanner() {
-        final Thread scanner = scannerThread;
-        scannerThread = null;
-        if (scanner != null) {
-            scanner.interrupt();
+        final java.util.concurrent.ScheduledExecutorService sched;
+        synchronized (workersLock) {
+            sched = workersShutdown ? null : scheduler;
+        }
+        if (sched == null) {
+            return;
+        }
+        try {
+            scannerFuture = sched.scheduleWithFixedDelay(
+                    this::scanPeriod, 0L, AUTO_BACKUP_SCAN_INTERVAL_MILLIS, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException stopped) {
+            scannerFuture = null;
         }
     }
 
-    private void scanLoop() {
-        while (scannerThread == Thread.currentThread()) {
-            try {
-                scanOnce();
-            } catch (RuntimeException | Error failure) {
-                requireContext()
-                        .logger()
-                        .warn("WEBDAV_AUTO_SCAN_FAILED " + failure.getClass().getSimpleName());
-            }
-            try {
-                Thread.sleep(AUTO_BACKUP_SCAN_INTERVAL_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                return;
-            }
+    private void stopScanner() {
+        final java.util.concurrent.ScheduledFuture<?> pending = scannerFuture;
+        scannerFuture = null;
+        if (pending != null) {
+            pending.cancel(false);
+        }
+    }
+
+    /** One scanner period; runs on the plugin's scheduled worker thread. */
+    private void scanPeriod() {
+        try {
+            scanOnce();
+        } catch (RuntimeException | Error failure) {
+            requireContext()
+                    .logger()
+                    .warn("WEBDAV_AUTO_SCAN_FAILED " + failure.getClass().getSimpleName());
         }
     }
 
