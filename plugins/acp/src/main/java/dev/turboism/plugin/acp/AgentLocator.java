@@ -2,7 +2,6 @@ package dev.turboism.plugin.acp;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -84,7 +83,7 @@ final class AgentLocator {
     }
 
     private static Path validate(final Path path) {
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Files.isRegularFile(path)) {
             throw new IllegalArgumentException("executable is not a regular file: " + path);
         }
         return path;
@@ -92,7 +91,7 @@ final class AgentLocator {
 
     private static boolean usable(final Path candidate) {
         try {
-            if (!Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS)) return false;
+            if (!Files.isRegularFile(candidate)) return false;
             if (isWindows()) return true;
             return Files.isExecutable(candidate);
         } catch (SecurityException failure) {
