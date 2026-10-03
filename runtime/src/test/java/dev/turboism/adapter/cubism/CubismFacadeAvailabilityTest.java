@@ -76,9 +76,6 @@ class CubismFacadeAvailabilityTest {
                 RuntimeTextureAtlasEditorSession.unavailable(),
                 new RuntimeTextureAtlasLayoutAlgorithmRegistry());
         assertFalse(unavailableFacade.isModelAccessAvailable());
-        assertFalse(new dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl(
-                        unavailableFacade, permissionGate())
-                .isAvailable());
         assertFalse(new dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl(
                         unavailableFacade, permissionGate())
                 .isAvailable());
@@ -95,8 +92,6 @@ class CubismFacadeAvailabilityTest {
                 RuntimeTextureAtlasEditorSession.unavailable(),
                 new RuntimeTextureAtlasLayoutAlgorithmRegistry());
         assertTrue(liveFacade.isModelAccessAvailable());
-        assertTrue(new dev.turboism.adapter.cubism.service.query.ParameterQueryServiceImpl(liveFacade, permissionGate())
-                .isAvailable());
         assertTrue(new dev.turboism.adapter.cubism.service.query.ModelHierarchyQueryServiceImpl(
                         liveFacade, permissionGate())
                 .isAvailable());

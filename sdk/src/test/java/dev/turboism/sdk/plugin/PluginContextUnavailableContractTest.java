@@ -29,7 +29,6 @@ import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
@@ -83,7 +82,6 @@ class PluginContextUnavailableContractTest {
             PluginService.STORAGE,
             PluginService.SCRIPTS,
             PluginService.USER_FILES,
-            PluginService.PARAMETER_QUERY,
             PluginService.SELECTION_QUERY,
             PluginService.MODEL_HIERARCHY_QUERY,
             PluginService.CUBISM_READ,
@@ -156,7 +154,6 @@ class PluginContextUnavailableContractTest {
         assertSame(ScriptService.unavailable(), context.scripts());
         assertSame(UserFileAccessService.unavailable(), context.userFiles());
 
-        assertSame(ParameterQueryService.unavailable(), context.parameterQuery());
         assertSame(SelectionQueryService.unavailable(), context.selectionQuery());
         assertSame(ModelHierarchyQueryService.unavailable(), context.modelHierarchyQuery());
         assertSame(CubismReadCapabilityService.unavailable(), context.cubismRead());
@@ -172,7 +169,6 @@ class PluginContextUnavailableContractTest {
         assertFalse(context.storage().isAvailable());
         assertFalse(context.scripts().isAvailable());
         assertFalse(context.userFiles().isAvailable());
-        assertFalse(context.parameterQuery().isAvailable());
         assertFalse(context.selectionQuery().isAvailable());
         assertFalse(context.modelHierarchyQuery().isAvailable());
         assertFalse(context.cubismRead().isAvailable());
