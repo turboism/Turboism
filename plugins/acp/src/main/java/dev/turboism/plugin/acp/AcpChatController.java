@@ -66,6 +66,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             new AtomicReference<>();
     private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
             new AtomicReference<>(java.util.Optional.empty());
+    private final AtomicBoolean mcpReconnectQueued = new AtomicBoolean();
 
     AcpChatController(final PluginContext context, final AcpPluginSettings settings, final View view) {
         this(context, settings, view, AcpClient::start);
@@ -1172,19 +1173,46 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     }
 
     /**
-     * Updates the endpoint used by future session binds and warns when the live session's bound
-     * endpoint drifted, since ACP cannot rebind mcpServers on an existing session.
+     * Updates the endpoint used by future session binds and reconnects when the live session's
+     * bound endpoint drifted, since ACP cannot rebind mcpServers on an existing session. Runs on
+     * the serial executor; durable sessions are restored by the reconnect's normal
+     * load/resume path.
      */
     private void applyMcpConnectionChange(final McpHttpConnection latest) {
         if (closed.get()) return;
-        final McpHttpConnection bound = mcpConnection;
-        mcpConnection = latest;
+        final AcpSession current = session;
+        final boolean liveMcpSession =
+                client.get() != null && current != null && current.capabilities().mcpHttp();
+        final java.net.URI boundEndpoint =
+                mcpConnection == null ? null : mcpConnection.endpoint();
+        final java.net.URI latestEndpoint = latest == null ? null : latest.endpoint();
+        if (!liveMcpSession || Objects.equals(boundEndpoint, latestEndpoint)) {
+            mcpConnection = latest;
+            return;
+        }
+        ui(() -> view.showSessionFailure("status.mcp-endpoint-changed"));
+        // Coalesce restart bursts (publish→revoke→publish) into one reconnect to the final endpoint.
+        if (mcpReconnectQueued.compareAndSet(false, true)) {
+            try {
+                serial.execute(this::reconnectForMcpDrift);
+            } catch (java.util.concurrent.RejectedExecutionException ignored) {
+                mcpReconnectQueued.set(false);
+            }
+        }
+    }
+
+    private void reconnectForMcpDrift() {
+        mcpReconnectQueued.set(false);
+        if (closed.get()) return;
         final AcpSession current = session;
         if (client.get() == null || current == null || !current.capabilities().mcpHttp()) return;
-        final java.net.URI boundEndpoint = bound == null ? null : bound.endpoint();
-        final java.net.URI latestEndpoint = latest == null ? null : latest.endpoint();
+        final java.net.URI boundEndpoint =
+                mcpConnection == null ? null : mcpConnection.endpoint();
+        final java.net.URI latestEndpoint = lastMcpSnapshot.get()
+                .map(McpHttpConnection::endpoint)
+                .orElse(null);
         if (Objects.equals(boundEndpoint, latestEndpoint)) return;
-        ui(() -> view.showSessionFailure("status.mcp-endpoint-changed"));
+        connectNow();
     }
 
     private void disconnectNow() {
