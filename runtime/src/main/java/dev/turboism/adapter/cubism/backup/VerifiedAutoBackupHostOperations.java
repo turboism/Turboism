@@ -278,9 +278,10 @@ public final class VerifiedAutoBackupHostOperations implements AutoBackupAdapter
      * a pure file copy — no saveDocument, no host UI, no reference switch. The
      * artifact is a TEMPORARY file (created under a {@code turboism-backup-}
      * temp directory with the regular {@code <name>_backup<ts>.<ext>} name):
-     * the plugin uploads it and deletes it, so no backup file ever remains in
-     * the host backup directory. The copy retries briefly because the host may
-     * still hold the file; any failure fails closed.
+     * the plugin uploads it and discards it through its artifact handle, so no
+     * backup file ever remains in the host backup directory. The copy retries
+     * briefly because the host may still hold the file; any failure fails
+     * closed.
      */
     private File copyBackupFile(final Object content, final long timestampMillis) {
         final File source = (File) resolver.invoke(Aliases.FILE_CONTENT_FILE, content);
