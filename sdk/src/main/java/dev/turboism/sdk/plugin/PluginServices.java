@@ -16,7 +16,7 @@ import java.util.function.Supplier;
  * <p>{@link #of(PluginContext)} backs the {@link PluginContext#services()} default: it
  * resolves the context's remaining optional accessors ({@code localization},
  * {@code tasks}, {@code hostReads}, {@code storage}, {@code scripts}, {@code userFiles},
- * {@code parameterQuery}, {@code selectionQuery}, {@code modelHierarchyQuery},
+ * {@code selectionQuery}, {@code modelHierarchyQuery},
  * {@code cubismRead}, {@code modelObjects} and {@code config}) so contexts that only
  * override those accessors resolve them through the directory too. Services that have no
  * {@link PluginContext} accessor resolve to empty here; a context that installs them must
@@ -194,10 +194,6 @@ public final class PluginServices {
             case STORAGE -> available(context.storage(), dev.turboism.sdk.storage.PluginStorage.unavailable());
             case SCRIPTS -> available(context.scripts(), dev.turboism.sdk.script.ScriptService.unavailable());
             case USER_FILES -> available(context.userFiles(), dev.turboism.sdk.ui.UserFileAccessService.unavailable());
-            case PARAMETER_QUERY ->
-                available(
-                        context.parameterQuery(),
-                        dev.turboism.sdk.cubism.service.query.ParameterQueryService.unavailable());
             case SELECTION_QUERY ->
                 available(
                         context.selectionQuery(),

@@ -1,78 +1,74 @@
 package dev.turboism.tests.cubism;
 
 import static dev.turboism.tests.cubism.CubismQueryIntegrationSupport.MODEL_READ_PERMISSION;
-import static dev.turboism.tests.cubism.CubismQueryIntegrationSupport.PARAMETER_READ_PERMISSION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.adapter.cubism.HostSnapshotSource;
-import dev.turboism.sdk.cubism.CubismServiceException;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.id.ParameterId;
-import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class QueryServiceCacheInvalidationTest {
 
     @Test
-    void sameVersionReturnsCachedSnapshotDerivedResult() throws CubismServiceException {
+    void eachReadObservesTheCurrentHostData() {
         final CubismQueryIntegrationSupport.VersionedSource source = CubismQueryIntegrationSupport.versionedSource(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
-                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION, PARAMETER_READ_PERMISSION);
+                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
-        final List<ParameterSummary> first =
-                environment.context().parameterQuery().listAll();
+        final List<ParameterSnapshot> first = environment.context().cubismRead().parameters();
         source.replaceParametersWithoutInvalidation(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
-        final List<ParameterSummary> cached =
-                environment.context().parameterQuery().listAll();
+        final List<ParameterSnapshot> reread = environment.context().cubismRead().parameters();
 
-        assertSame(first, cached);
         assertEquals(
-                List.of(new ParameterId("param-angle-x")),
-                cached.stream().map(ParameterSummary::id).toList());
+                List.of("param-angle-x"),
+                first.stream().map(ParameterSnapshot::id).toList());
+        assertEquals(
+                List.of("param-opacity"),
+                reread.stream().map(ParameterSnapshot::id).toList());
     }
 
     @Test
-    void hostInvalidationAdvancesTokenAndRefreshesDerivedData() throws CubismServiceException {
+    void hostInvalidationAdvancesTokenAndRefreshesDerivedData() {
         final CubismQueryIntegrationSupport.VersionedSource source = CubismQueryIntegrationSupport.versionedSource(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
-                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION, PARAMETER_READ_PERMISSION);
+                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
-        environment.context().parameterQuery().listAll();
+        environment.context().cubismRead().parameters();
         source.replaceParametersWithoutInvalidation(
                 List.of(CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         source.advanceInvalidationToken();
-        final List<ParameterSummary> refreshed =
-                environment.context().parameterQuery().listAll();
+        final List<ParameterSnapshot> refreshed = environment.context().cubismRead().parameters();
 
         assertEquals(
-                List.of(new ParameterId("param-opacity")),
-                refreshed.stream().map(ParameterSummary::id).toList());
+                List.of("param-opacity"),
+                refreshed.stream().map(ParameterSnapshot::id).toList());
     }
 
     @Test
-    void staleSnapshotIsNotMergedWithNewHostData() throws CubismServiceException {
+    void staleSnapshotIsNotMergedWithNewHostData() {
         final CubismQueryIntegrationSupport.VersionedSource source =
                 CubismQueryIntegrationSupport.versionedSource(List.of(
                         CubismQueryIntegrationSupport.hostParameter("param-angle-x", "Angle X"),
                         CubismQueryIntegrationSupport.hostParameter("param-opacity", "Opacity")));
         final CubismQueryIntegrationSupport.QueryEnvironment environment =
-                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION, PARAMETER_READ_PERMISSION);
+                CubismQueryIntegrationSupport.environment(source, MODEL_READ_PERMISSION);
 
-        environment.context().parameterQuery().listAll();
+        environment.context().cubismRead().parameters();
         source.replaceParametersWithoutInvalidation(List.of(
                 new HostSnapshotSource.HostParameter("param-angle-y", "Angle Y", 0.0, 0.0, -30.0, 30.0, true, true)));
         source.advanceInvalidationToken();
-        final List<ParameterSummary> refreshed =
-                environment.context().parameterQuery().listAll();
+        final List<ParameterSnapshot> refreshed = environment.context().cubismRead().parameters();
 
         assertEquals(
-                List.of(new ParameterId("param-angle-y")),
-                refreshed.stream().map(ParameterSummary::id).toList());
-        assertTrue(refreshed.stream().noneMatch(parameter -> parameter.id().equals(new ParameterId("param-opacity"))));
+                List.of("param-angle-y"),
+                refreshed.stream().map(ParameterSnapshot::id).toList());
+        assertTrue(refreshed.stream()
+                .noneMatch(parameter -> parameter.id().equals("param-opacity")));
     }
 }
