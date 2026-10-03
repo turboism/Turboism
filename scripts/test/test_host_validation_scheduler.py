@@ -32,10 +32,10 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "animation-timeline", "atlas", "backup", "backup-interactive", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition",
+            "animation-timeline", "atlas", "backup", "backup-interactive", "backup-webdav", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition",
             "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
             "parameter-batch-transfer", "protected-export", "psd-clip-mask",
-            "recent-preview", "selection-lag", "separate-save-path",
+            "recent-preview", "selection-brush", "selection-lag", "separate-save-path",
             "startup-suppression", "status-bar", "theme", "update-check", "warp-deformer-alt-symmetry", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
