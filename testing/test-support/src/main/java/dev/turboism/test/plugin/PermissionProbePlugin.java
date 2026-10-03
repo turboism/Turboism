@@ -98,7 +98,9 @@ public class PermissionProbePlugin implements TurboismPlugin {
         });
 
         tryRegister("mainToolbar", () -> {
-            Registration registration = context.mainToolbar()
+            Registration registration = context.services()
+                    .find(MainToolbarRegistry.class)
+                    .orElse(MainToolbarRegistry.unavailable())
                     .contribute(new MainToolbarRegistry.MainToolbarContribution(
                             "probe.toolbar", "probe.action", "probe.toolbar.label", "/probe/icon.png", "end", 100));
             disposableScope.register(registration);
@@ -106,7 +108,9 @@ public class PermissionProbePlugin implements TurboismPlugin {
         });
 
         tryRegister("paletteToolbar", () -> {
-            Registration registration = context.paletteToolbar()
+            Registration registration = context.services()
+                    .find(PaletteToolbarRegistry.class)
+                    .orElse(PaletteToolbarRegistry.unavailable())
                     .contribute(new PaletteToolbarRegistry.PaletteToolbarContribution(
                             "probe.palette",
                             "probe.action",
@@ -120,7 +124,9 @@ public class PermissionProbePlugin implements TurboismPlugin {
         });
 
         tryRegister("contextMenu", () -> {
-            Registration registration = context.contextMenu()
+            Registration registration = context.services()
+                    .find(ContextMenuRegistry.class)
+                    .orElse(ContextMenuRegistry.unavailable())
                     .contribute(new ContextMenuRegistry.ContextMenuContribution(
                             "probe.context", "Probe Context", null, "parameter", 100));
             disposableScope.register(registration);
