@@ -60,16 +60,19 @@ def guarded(argv, output, env):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--complete', action='store_true')
     args = parser.parse_args()
     out = args.output.resolve()
     out.mkdir(parents=True, exist_ok=False)
-    report = {'scope': 'OWNED_NATIVE_SUFFIX_ONLY', 'productionChanged': False, 'editorLaunched': False,
+    report = {'scope': 'OWNED_COMPLETE_AUTOCONNECT' if args.complete else 'OWNED_NATIVE_SUFFIX_ONLY', 'productionChanged': False, 'editorLaunched': False,
               'hostGain': 'UNPROVEN', 'status': 'STARTED', 'pins': {}}
     try:
         if quiet_jobs():
             raise RuntimeError('shared performance work pending')
         source = Path(__file__).resolve().parent
         sources = [source / (name + '.java') for name in ('NativeMeshEdgeLoopPrototype', 'NativeMeshEdgeLoopSelfCheck')]
+        if args.complete:
+            sources.append(source / 'NativeMeshAutoConnectSelfCheck.java')
         jars = []
         for version, expected in PINS.items():
             argv = json.loads(Path(f'build/t053-local-builder-r1/metadata-production/on{version}/command.json').read_text())['argv']
@@ -91,14 +94,16 @@ def main():
             env.pop(key, None)
         guarded(['javac', '--release', '17', '-Xlint:all', '-Werror', '-cp', os.pathsep.join(map(str, [asm, tree])),
                  '-d', str(classes), *map(str, sources)], out / 'compile.log', env)
+        main_class = 'NativeMeshAutoConnectSelfCheck' if args.complete else 'NativeMeshEdgeLoopSelfCheck'
+        marker = 'NATIVE_MESH_AUTOCONNECT_' if args.complete else 'NATIVE_MESH_EDGE_LOOP_'
         guarded(['java', '-Djava.awt.headless=true', '-Xverify:all', '-XX:+DisableAttachMechanism', '-cp',
-                 os.pathsep.join(map(str, [classes, asm, tree])), 'NativeMeshEdgeLoopSelfCheck', *map(str, jars)],
+                 os.pathsep.join(map(str, [classes, asm, tree])), main_class, *map(str, jars)],
                 out / 'execution.log', env)
         console = (out / 'execution.log').read_text()
-        if console.count('NATIVE_MESH_EDGE_LOOP_PASS ') != 6 or 'NATIVE_MESH_EDGE_LOOP_FINISHED ' not in console:
+        if console.count(marker + 'PASS ') != 6 or marker + 'FINISHED ' not in console:
             raise ValueError('missing complete three-version assertion controls')
         report['status'] = 'PASS'
-        report['results'] = [line for line in console.splitlines() if line.startswith('NATIVE_MESH_EDGE_LOOP_')]
+        report['results'] = [line for line in console.splitlines() if line.startswith(marker)]
     except Exception as failure:
         report['status'] = 'FAILED_OR_GUARDED_STOP'
         report['failure'] = str(failure)

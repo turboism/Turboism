@@ -13,6 +13,10 @@ final class NativeMeshEdgeLoopPrototype implements Opcodes {
     private NativeMeshEdgeLoopPrototype() { }
 
     static byte[] patch(byte[] raw, boolean candidate) throws Exception {
+        return patch(raw, candidate, false);
+    }
+
+    static byte[] patch(byte[] raw, boolean candidate, boolean complete) throws Exception {
         String pin = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(raw));
         require(pin.equals("734b9bde593f27816b72f63c585a371d724507f21c97ac41980cbf3f347c57ad")
                 || pin.equals("d6fe4e690399d767019d113e82c62414da0d82d9a54aa799a74919d9e8693f7a"), "exact native class pin");
@@ -42,6 +46,7 @@ final class NativeMeshEdgeLoopPrototype implements Opcodes {
         owned.maxLocals = nativeLoop.maxLocals;
         if (candidate) wrapLease(owned);
         type.methods.add(owned);
+        if (candidate && complete) wrapSuffix(nativeLoop, first);
         if (candidate) {
             int lookups = 0, appends = 0;
             for (MethodNode method : type.methods) {
@@ -72,6 +77,32 @@ final class NativeMeshEdgeLoopPrototype implements Opcodes {
         };
         type.accept(writer);
         return writer.toByteArray();
+    }
+
+    private static void wrapSuffix(MethodNode method, AbstractInsnNode first) {
+        int lease = method.maxLocals, failure = lease + 1;
+        LabelNode start = new LabelNode(), end = new LabelNode(), done = new LabelNode(), failed = new LabelNode();
+        InsnList enter = new InsnList();
+        enter.add(new VarInsnNode(ALOAD, 0));
+        enter.add(new MethodInsnNode(INVOKESTATIC, CONTROL, "enter", "(Ljava/lang/Object;)Ljava/lang/AutoCloseable;", false));
+        enter.add(new VarInsnNode(ASTORE, lease)); enter.add(start);
+        method.instructions.insertBefore(first, enter);
+        int returns = 0;
+        for (AbstractInsnNode n = first; n != null; ) {
+            AbstractInsnNode next = n.getNext();
+            if (n.getOpcode() == RETURN) {
+                method.instructions.set(n, new JumpInsnNode(GOTO, done)); returns++;
+            }
+            n = next;
+        }
+        require(returns == 1, "one suffix return; earlier native return untouched");
+        method.instructions.add(end); method.instructions.add(done);
+        leave(method.instructions, lease); method.instructions.add(new InsnNode(RETURN));
+        method.instructions.add(failed); method.instructions.add(new VarInsnNode(ASTORE, failure));
+        leave(method.instructions, lease); method.instructions.add(new VarInsnNode(ALOAD, failure));
+        method.instructions.add(new InsnNode(ATHROW));
+        method.tryCatchBlocks.add(new TryCatchBlockNode(start, end, failed, "java/lang/Throwable"));
+        method.maxLocals = failure + 1;
     }
 
     private static void wrapLease(MethodNode method) {
