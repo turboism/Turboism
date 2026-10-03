@@ -1,0 +1,253 @@
+{
+  "status": "PASS_BOUND_HISTORICAL_ALLOCATION_DIAGNOSTIC_ONLY",
+  "legs": {
+    "baseline": {
+      "taskId": "queue-0c0cc889ac52475b8be2b25e4d943dd4",
+      "totalSampleWeightMiB": 10617.530364990234,
+      "gvector2SampleWeightMiB": 6237.338920593262,
+      "pointInTriangleVectorSampleWeightMiB": 5864.213165283203,
+      "pointInTriangleSharePercent": 55.23142353912728,
+      "counts": {
+        "samples": 3188,
+        "emptyStack": 0,
+        "truncatedStack": 184
+      },
+      "callerPartitionWeightMiB": {
+        "otherOrUnknown": 6004.197364807129,
+        "otherTriangulation": 2086.6402740478516,
+        "fullRedrawCacheChain": 2470.790946960449,
+        "otherCacheRefresh": 55.90177917480469
+      },
+      "inclusiveOwnerWeightMiB": {
+        "triangulation": 4581.363510131836,
+        "cacheRefresh": 2526.692726135254,
+        "fullRedrawCacheChain": 2470.790946960449,
+        "TriangulationEdgeIndex": 1450.9900588989258,
+        "NativeMeshEdgeLookup": 0.0,
+        "NativeMeshEdgeTable": 0.0
+      },
+      "topClassesMiB": [
+        [
+          "com.live2d.graphics3d.type.GVector2",
+          6237.338920593262
+        ],
+        [
+          "[Ljava.lang.Object;",
+          724.4944076538086
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.j",
+          644.7247314453125
+        ],
+        [
+          "java.util.LinkedHashMap$Entry",
+          568.2812957763672
+        ],
+        [
+          "java.util.ArrayList",
+          374.6029815673828
+        ],
+        [
+          "kotlin.SynchronizedLazyImpl",
+          304.24473571777344
+        ],
+        [
+          "[J",
+          233.3663101196289
+        ],
+        [
+          "kotlin.Pair",
+          184.96270751953125
+        ],
+        [
+          "java.util.HashMap$Node",
+          176.5859832763672
+        ],
+        [
+          "java.util.LinkedHashMap$LinkedKeyIterator",
+          153.46572875976562
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.l",
+          151.71829223632812
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.m",
+          132.98172760009766
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.n",
+          121.9331283569336
+        ],
+        [
+          "java.lang.invoke.MemberName",
+          111.82673645019531
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.o",
+          95.88162994384766
+        ]
+      ]
+    },
+    "candidate": {
+      "taskId": "queue-9997da69a6af48cd90cab2a265c149f9",
+      "totalSampleWeightMiB": 10636.289016723633,
+      "gvector2SampleWeightMiB": 6055.57453918457,
+      "pointInTriangleVectorSampleWeightMiB": 5665.22673034668,
+      "pointInTriangleSharePercent": 53.26318908257514,
+      "counts": {
+        "samples": 3024,
+        "emptyStack": 0,
+        "truncatedStack": 166
+      },
+      "callerPartitionWeightMiB": {
+        "otherTriangulation": 2057.1468963623047,
+        "otherOrUnknown": 5860.218925476074,
+        "helperOnly": 55.749664306640625,
+        "otherCacheRefresh": 67.98382568359375,
+        "fullRedrawCacheChain": 2595.1897048950195
+      },
+      "inclusiveOwnerWeightMiB": {
+        "triangulation": 4700.329055786133,
+        "cacheRefresh": 2663.1735305786133,
+        "fullRedrawCacheChain": 2595.1897048950195,
+        "TriangulationEdgeIndex": 1262.1924896240234,
+        "NativeMeshEdgeLookup": 55.749664306640625,
+        "NativeMeshEdgeTable": 31.98468780517578
+      },
+      "topClassesMiB": [
+        [
+          "com.live2d.graphics3d.type.GVector2",
+          6055.57453918457
+        ],
+        [
+          "java.util.LinkedHashMap$Entry",
+          731.247314453125
+        ],
+        [
+          "[Ljava.lang.Object;",
+          700.7930297851562
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.j",
+          650.9770355224609
+        ],
+        [
+          "java.util.ArrayList",
+          386.87017822265625
+        ],
+        [
+          "kotlin.SynchronizedLazyImpl",
+          337.21826934814453
+        ],
+        [
+          "[J",
+          295.66593170166016
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.l",
+          219.87633514404297
+        ],
+        [
+          "kotlin.Pair",
+          199.84906768798828
+        ],
+        [
+          "java.lang.invoke.MemberName",
+          163.67926025390625
+        ],
+        [
+          "java.util.LinkedHashMap$LinkedKeyIterator",
+          131.8996353149414
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.n",
+          127.77991485595703
+        ],
+        [
+          "com.live2d.graphics3d.editableMesh.triangulation.m",
+          95.7306137084961
+        ],
+        [
+          "[I",
+          67.9186782836914
+        ],
+        [
+          "java.util.HashMap$Node",
+          67.8880386352539
+        ]
+      ]
+    }
+  },
+  "task": "T102",
+  "testsPassed": 5,
+  "sourceAuditCounts": {
+    "raw": 109,
+    "saved": 48,
+    "cached": 10
+  },
+  "productionChanged": false,
+  "newHostSubmitted": false,
+  "performanceAcceptance": "NOT_GRANTED",
+  "acceptedDelivery": "T057",
+  "historicalFailures": "UNCHANGED",
+  "nextTarget": "PointInTriangleD$a.a invocation-local corner vector reuse, with arithmetic and callback/escape closure preserved",
+  "inputPins": {
+    "build/t102-bound-allocation-sites-r1/run-analysis.py": "234931a892cc3cf787fc86d2897fbde61ac04afc9ea96e66096a9158fca01a1f",
+    "build/t102-bound-allocation-sites-r1/input-audit.json": "7413da577c51e3aa3f2aa622c299b2b7952a19b11bfe5fc791f4d20c297053ae",
+    "build/t102-bound-allocation-sites-r1/baseline-analysis.log": "852e3f3574d537b2c35d48ed79ac7516530f0cf0785c01d37ed054d9801063d5",
+    "build/t102-bound-allocation-sites-r1/baseline-analysis.process.json": "7489c5562eb0859f2d57aed85aeae5e2e2b6b32ac5e8376220bf25c5e265393b",
+    "build/t102-bound-allocation-sites-r1/baseline-allocation-sites.json": "36d309b8b563f2ed175d2dd7bc2a1de7145b5f3b5383f21ae33cb5a756747dd9",
+    "build/t102-bound-allocation-sites-r1/candidate-analysis.log": "9e7aa244d22f8aefe33a3662ef4c447e89f0ae03e374adb1c349768985c37d7d",
+    "build/t102-bound-allocation-sites-r1/candidate-analysis.process.json": "5d4a1dd790c4e6b1be6cd4147ba68a679732c0716ac11208642c2f0b0762d376",
+    "build/t102-bound-allocation-sites-r1/candidate-allocation-sites.json": "3045f56127f69b807df8156798aa19ab00863976c8c9e366154b7bcabeb9c393",
+    "build/t102-bound-allocation-sites-r1/read-host-methods.py": "6a0111b8d9eab5599a325280ad7434803171edc205f0fa7fe7440f6585ad4f92",
+    "build/t102-bound-allocation-sites-r1/point-5203.javap": "bc5bf672d53ed2d21e8367ff47c54e3dbd1fb8a4b31602d7a2781874943876bd",
+    "build/t102-bound-allocation-sites-r1/point-5203.process.json": "33ac57f33412178a3e57716cf9ffd1439195c4ea7db5364763bd705cbf653520",
+    "build/t102-bound-allocation-sites-r1/vector-5203.javap": "9dd3e49caebb39173b6e403e5f3fed46b35e3569381984a64d66ae9c93093da5",
+    "build/t102-bound-allocation-sites-r1/vector-5203.process.json": "50699835b2af9ece4e3454263814c847e782fbd20491011a07ba7f9b642a20b2",
+    "build/t102-bound-allocation-sites-r1/point-5302.javap": "bc5bf672d53ed2d21e8367ff47c54e3dbd1fb8a4b31602d7a2781874943876bd",
+    "build/t102-bound-allocation-sites-r1/point-5302.process.json": "a42bf909431100af6f4bee322ac5df57d4e6046c32cb3a05742e9ad4431d949b",
+    "build/t102-bound-allocation-sites-r1/vector-5302.javap": "9dd3e49caebb39173b6e403e5f3fed46b35e3569381984a64d66ae9c93093da5",
+    "build/t102-bound-allocation-sites-r1/vector-5302.process.json": "0a9ba812e881bd368af3c1b66770f3fab05cfb59f7c596918503190eb5f2c83b",
+    "build/t102-bound-allocation-sites-r1/point-5303.javap": "bc5bf672d53ed2d21e8367ff47c54e3dbd1fb8a4b31602d7a2781874943876bd",
+    "build/t102-bound-allocation-sites-r1/point-5303.process.json": "82d6e2748e02fe0faeb6dc386fa84ea415f48e7db85e6a67ae03e29a93eb6a1c",
+    "build/t102-bound-allocation-sites-r1/vector-5303.javap": "9dd3e49caebb39173b6e403e5f3fed46b35e3569381984a64d66ae9c93093da5",
+    "build/t102-bound-allocation-sites-r1/vector-5303.process.json": "ae17adc1126c66094025bdb02836438809c8f98ca61e89bfb7f35d969c598373",
+    "build/t102-bound-allocation-sites-r1/read-companion.py": "f16a4011cb023017f0a2518f06d4ce475567fe764e9b40e42cb64e9aa0fdbc41",
+    "build/t102-bound-allocation-sites-r1/companion-5203.javap": "4a0007ba57464e380a8808afe690dfabc4bcdbacd6eb5ed56401d9c2cc9dc600",
+    "build/t102-bound-allocation-sites-r1/companion-5203.process.json": "8347833985ff90501ff8cfdfca7e4dce858e411094b4b68a2964505ef5bd9189",
+    "build/t102-bound-allocation-sites-r1/companion-5302.javap": "369001b2606733f764112ddb6b29d10446c0088393764f87ad37638cb8bf15c8",
+    "build/t102-bound-allocation-sites-r1/companion-5302.process.json": "ad81a1d1f068e7d166a630214bbb12108d92d09bf3f7fbb9e2e245a1cf8df1c5",
+    "build/t102-bound-allocation-sites-r1/companion-5303.javap": "369001b2606733f764112ddb6b29d10446c0088393764f87ad37638cb8bf15c8",
+    "build/t102-bound-allocation-sites-r1/companion-5303.process.json": "fb157b9309c14ab50f6b40cc4c34c757fcab2ae1487445e6300b47fd8ddbb468",
+    "build/t102-bound-allocation-sites-r1/summary.json": "f77be91796c625404055ad72789864fe3db9bd8fbcbe94290cfda2f86fcd539b",
+    "build/t102-bound-allocation-sites-r1/host-class-pins.json": "a53fdc8de8c429abdf80f5b13467db10e938a1f59375149ef781345b082fbf98"
+  },
+  "officialClassPins": {
+    "5203": {
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD$a": "677d39e3eb6e7e3eccb161c01c36749ff14630ec704367ddb68ed784700769be",
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD": "c6a5d1fd5377f549fd5aea905c62e1be0b810c568f45e410adc3f509c48fbccf",
+      "com.live2d.graphics3d.type.GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+      "com.live2d.graphics3d.type.GVector2$a": "bad5f7259d64bf414d3662ed425434d6264fd03b6b320b207b567f1b05b188e1"
+    },
+    "5302": {
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD$a": "677d39e3eb6e7e3eccb161c01c36749ff14630ec704367ddb68ed784700769be",
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD": "c6a5d1fd5377f549fd5aea905c62e1be0b810c568f45e410adc3f509c48fbccf",
+      "com.live2d.graphics3d.type.GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+      "com.live2d.graphics3d.type.GVector2$a": "84c6861f999e514fa2d544225ebca1bf50c75e4d164761a592dff707895242f9"
+    },
+    "5303": {
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD$a": "677d39e3eb6e7e3eccb161c01c36749ff14630ec704367ddb68ed784700769be",
+      "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD": "c6a5d1fd5377f549fd5aea905c62e1be0b810c568f45e410adc3f509c48fbccf",
+      "com.live2d.graphics3d.type.GVector2": "91d06613e29fe8d0b1b03a30594cbc28d9e2a49adcdcd544be60e2576e0aac31",
+      "com.live2d.graphics3d.type.GVector2$a": "84c6861f999e514fa2d544225ebca1bf50c75e4d164761a592dff707895242f9"
+    }
+  },
+  "limitations": [
+    "JFR sample weights are estimates, not exact allocation bytes, retained heap, calls or performance gains.",
+    "T092/T095 recordings are independent historical diagnostics; not T101 causal attribution or paired formal acceptance.",
+    "Full redraw-chain partition and inclusive owners overlap; exclusive caller precedence and raw truncated stacks retained.",
+    "SDK bytecode readout identifies local corner constructions and native mathematical calls, not a completed production admission or lifecycle proof."
+  ]
+}
