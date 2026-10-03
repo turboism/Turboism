@@ -58,6 +58,13 @@ public final class NativeMeshEdgeLoopSelfCheck {
         public static AutoCloseable enter(Object mesh) throws ReflectiveOperationException {
             entries++;
             if (!enabled) return null;
+            // Degenerate pairs invoke the native logger, whose downstream callbacks
+            // are outside this append-only experiment. Preserve their native path.
+            Object cached = field(mesh, "cached_indices").get(mesh);
+            if (!(cached instanceof int[] indices) || indices.length % 3 != 0) return null;
+            for (int i = 0; i < indices.length; i += 3)
+                if (indices[i] == indices[i + 1] || indices[i + 1] == indices[i + 2]
+                        || indices[i + 2] == indices[i]) return null;
             Object raw = field(mesh, "_edges").get(mesh);
             if (!(raw instanceof List<?> list) || !raw.getClass().getName().equals(NativeMeshEdgeLoopPrototype.LIST.replace('/', '.')))
                 return null;
@@ -182,6 +189,8 @@ public final class NativeMeshEdgeLoopSelfCheck {
         Object normal = type.getField("NORMAL").get(null);
         Object auto = type.getField("AUTO_TRIANGULATION").get(null);
         Object mesh = meshClass.getConstructor().newInstance(), other = meshClass.getConstructor().newInstance();
+        declared(meshClass, "cached_indices").set(mesh, new int[] {0, 1, 2});
+        declared(meshClass, "cached_indices").set(other, new int[] {0, 1, 2});
         List<Object> edges = (List<Object>) declared(meshClass, "_edges").get(mesh);
         edges.add(edgeClass.getConstructor(int.class, int.class, type).newInstance(0, 1, auto));
         edges.add(edgeClass.getConstructor(int.class, int.class, type).newInstance(0, 1, normal));
@@ -216,6 +225,13 @@ public final class NativeMeshEdgeLoopSelfCheck {
             require(version == declared(meshClass, "_edge_edit_version").getInt(mesh), "external set also preserves mesh version");
         }
         require(Control.CURRENT.get() == null, "counterexample lease cleaned");
+
+        for (int[] indices : new int[][] {null, {0}, {0, 1, 2, 3}, {0, 0, 1}, {0, 1, 1}, {0, 1, 0}}) {
+            declared(meshClass, "cached_indices").set(mesh, indices);
+            Control.reset(true);
+            require(Control.enter(mesh) == null && Control.CURRENT.get() == null,
+                    "null/truncated/degenerate suffix must decline before native callback/error path");
+        }
     }
 
     private static String controlLookup(Object mesh, int first, int second, boolean filtered) throws Exception {
@@ -254,6 +270,11 @@ public final class NativeMeshEdgeLoopSelfCheck {
         else {
             triangles = new int[3 * (fixture == 0 ? 0 : 6 + fixture % 17)];
             for (int i = 0; i < triangles.length; i++) triangles[i] = random.nextInt(12);
+            if (fixture >= 11) for (int i = 0; i < triangles.length; i += 3) {
+                while (triangles[i + 1] == triangles[i]) triangles[i + 1] = random.nextInt(12);
+                while (triangles[i + 2] == triangles[i] || triangles[i + 2] == triangles[i + 1])
+                    triangles[i + 2] = random.nextInt(12);
+            }
         }
         if (fixture == 8 || fixture == 9) declared(edges.getClass(), "immutable").setBoolean(edges, true);
         declared(meshClass, "cached_indices").set(mesh, triangles);
