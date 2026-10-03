@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.PartId;
 import java.util.Objects;
@@ -13,6 +14,7 @@ import java.util.Optional;
  * list of lattice cells; {@code BezierDivH}/{@code BezierDivV} are nullable and are absent
  * when the deformer has no bezier subdivision extension.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditWarpDeformerData(
         String name,

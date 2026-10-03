@@ -33,7 +33,6 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 import java.time.Duration;
@@ -718,11 +717,6 @@ final class McpGlueDomainTest {
                     throw new UnsupportedOperationException();
                 }
             };
-        }
-
-        @Override
-        public TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
     }
 

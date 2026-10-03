@@ -403,11 +403,6 @@ class ClipMaskReadCapabilityServiceTest {
         public boolean isHostPresent() {
             return true;
         }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
-        }
     }
 
     private static final class UncheckedFacade implements CubismFacade {
@@ -434,11 +429,6 @@ class ClipMaskReadCapabilityServiceTest {
         @Override
         public boolean isHostPresent() {
             return false;
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
     }
 
