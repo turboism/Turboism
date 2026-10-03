@@ -2,6 +2,7 @@ package dev.turboism.sdk.i18n;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -116,6 +117,39 @@ class PluginLocalizationContractTest {
                 }.text("present", "fallback"));
         assertEquals("fallback", localization.text("missing", "fallback"));
         assertEquals("fallback", localization.text("blank", "fallback"));
+    }
+
+    @Test
+    void textWithFallbackIsTotalForNullAndBlankKeysAndNullFallback() {
+        final PluginLocalization localization = new PluginLocalization() {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
+                return "value";
+            }
+
+            @Override
+            public String format(final String key, final Object... arguments) {
+                return text(key);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                if (key == null || key.isBlank()) {
+                    throw new IllegalArgumentException("key must be non-blank");
+                }
+                return "present".equals(key);
+            }
+        };
+
+        assertEquals("fallback", localization.text(null, "fallback"), "a null key yields the fallback");
+        assertEquals("fallback", localization.text("  ", "fallback"), "a blank key yields the fallback");
+        assertEquals("value", localization.text("present", "fallback"), "a present key resolves normally");
+        assertNull(localization.text("missing", null), "a null fallback may be returned as null");
     }
 
     private static Object invokeDefault(final Object proxy, final Method method, final Object[] arguments)

@@ -27,6 +27,17 @@ import org.junit.jupiter.api.Test;
 
 class PhysicsEditorCoordinatorTest {
 
+    @Test
+    void pluginScopedServiceForwardsDelegateAvailability() {
+        final PluginScopedPhysicsEditorService unavailable = new PluginScopedPhysicsEditorService(
+                PhysicsEditorService.unavailable(), new DisposableScope(), () -> true);
+        assertFalse(unavailable.isAvailable(), "a scoped view of the sentinel reports unavailable");
+
+        final PluginScopedPhysicsEditorService available =
+                new PluginScopedPhysicsEditorService(new PhysicsEditorCoordinator(), new DisposableScope(), () -> true);
+        assertTrue(available.isAvailable(), "a scoped view of the live coordinator reports available");
+    }
+
     private static final PhysicsEditorHostProfile PROFILE = new PhysicsEditorHostProfile(
             Panel.class.getName().replace('.', '/'),
             "getTableArea",

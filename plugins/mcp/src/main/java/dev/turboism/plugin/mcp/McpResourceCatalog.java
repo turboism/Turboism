@@ -77,13 +77,13 @@ final class McpResourceCatalog {
         if (contents.size() != 1) return;
         final Object textValue = contents.get(0).get("text");
         if (!(textValue instanceof String text)) return;
-        final Object parsed;
+        final Map<String, ?> output;
         try {
-            parsed = Json.parse(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            output = Json.parseObject(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         } catch (RuntimeException ignored) {
             return;
         }
-        if (!(parsed instanceof Map<?, ?> output) || !Boolean.FALSE.equals(output.get("ok"))) return;
+        if (!Boolean.FALSE.equals(output.get("ok"))) return;
         if (!(output.get("error") instanceof Map<?, ?> error)) return;
         final Object codeValue = error.get("code");
         final Object messageValue = error.get("message");

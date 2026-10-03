@@ -668,7 +668,7 @@ final class McpTextureDomainTest {
     void dimensionsAcceptIntegralJsonNumbersAfterWireRoundTrip() {
         final TextureHarness harness = TextureHarness.create();
         final Map<String, Object> arguments =
-                object(dev.turboism.sdk.json.Json.parse(dev.turboism.sdk.json.Json.bytes(Map.of(
+                object(dev.turboism.sdk.json.Json.parseObject(dev.turboism.sdk.json.Json.bytes(Map.of(
                         "operation",
                         "add_texture_atlas",
                         "expectedState",
