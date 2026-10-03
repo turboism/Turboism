@@ -10,6 +10,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Reworked the development-only agent chat plugin into the generic `Turboism ACP` plugin
+  (`dev.turboism.plugin.acp`): it launches user-installed ACP-compatible agents (Claude Agent ACP,
+  Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command), detects
+  executables on PATH, drives ACP authentication and durable sessions, and still attaches the
+  authenticated Turboism MCP endpoint when the agent advertises HTTP MCP support.
+
 - Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
   project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
   apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
@@ -82,6 +88,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `Ctrl+Alt+S`, Plugins `Ctrl+Alt+P`, Logs `Ctrl+Alt+L`, Keybindings `Ctrl+Shift+K`), and the
   first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
   examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
+
+### Removed
+
+- Removed the managed fx runtime entirely: no bundled or downloaded agent binaries, no runtime
+  manifest/hash pinning, no Turboism-managed provider profiles or credential store, and no
+  Gateway/OpenAI adapter — agent authentication, provider, and model stay with the agent itself.
+  The development-only `turboism-with-fx` plugin id is retired, and release tooling no longer
+  references fx packaging or validation fixtures.
 
 ### Changed
 

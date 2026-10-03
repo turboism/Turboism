@@ -108,18 +108,6 @@ tasks.register<Exec>("checkHistoryValidationProbePackaging") {
     commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
 }
 
-tasks.register<Exec>("checkFxValidationBrokerArguments") {
-    group = "verification"
-    description = "Verifies bounded validation-only fx broker accept lifetimes offline."
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/test_fx_validation_broker_arguments.py",
-        "scripts/preview/fx-validation-bridge/fx_validation_broker.py"
-    )
-    verificationStamp()
-    commandLine("python3", "scripts/test/test_fx_validation_broker_arguments.py")
-}
-
 tasks.register<Exec>("checkGraalScriptHostValidationDryRun") {
     group = "verification"
     description = "Verifies the Graal script host-validation wrapper uses configurable Java and packaged wildcard classpath."
@@ -150,7 +138,6 @@ tasks.register("checkGraalScriptHostValidation") {
     dependsOn(
         "checkCubismHostValidationArguments",
         "checkCubismHostValidationJavaEvidence",
-        "checkFxValidationBrokerArguments",
         "checkGraalScriptHostValidationDryRun",
         "checkGraalPreviewLauncherContract"
     )
@@ -847,7 +834,6 @@ val devCheck by tasks.registering {
     description = "Fast production compilation and permanent structural boundaries for an implementation slice."
     dependsOn(
         productionClasses,
-        "checkFxValidationBrokerArguments",
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
