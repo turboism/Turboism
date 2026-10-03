@@ -62,6 +62,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private volatile McpHttpConnection mcpConnection;
     private volatile AgentLaunchSpec launchSpec;
     private volatile boolean prompting;
+    private final AtomicReference<dev.turboism.sdk.plugin.Registration> mcpSubscription =
+            new AtomicReference<>();
+    private final AtomicReference<java.util.Optional<McpHttpConnection>> lastMcpSnapshot =
+            new AtomicReference<>(java.util.Optional.empty());
 
     AcpChatController(final PluginContext context, final AcpPluginSettings settings, final View view) {
         this(context, settings, view, AcpClient::start);
@@ -255,11 +259,13 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         context.logger().info("ACP connection: starting");
         disconnectNow();
         try {
-            final McpHttpConnection connection = context.services()
+            final McpConnectionService mcpConnections = context.services()
                     .find(McpConnectionService.class)
-                    .orElseGet(McpConnectionService::unavailable)
-                    .current()
-                    .orElse(null);
+                    .orElseGet(McpConnectionService::unavailable);
+            ensureMcpSubscription(mcpConnections);
+            final McpHttpConnection connection = mcpSubscription.get() != null
+                    ? lastMcpSnapshot.get().orElse(null)
+                    : mcpConnections.current().orElse(null);
             final AgentLaunchSpec spec;
             try {
                 spec = resolveLaunchSpec();
@@ -1136,6 +1142,51 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
+    /**
+     * Subscribes once to MCP connection changes so an established session cannot silently keep a
+     * stale endpoint after the MCP server restarts. The subscription lives until {@link #close()}.
+     */
+    private void ensureMcpSubscription(final McpConnectionService service) {
+        if (closed.get() || mcpSubscription.get() != null || !service.isAvailable()) return;
+        final dev.turboism.sdk.plugin.Registration registration;
+        try {
+            registration = service.subscribe(this::onMcpConnectionChanged);
+        } catch (RuntimeException failure) {
+            context.logger().warn("ACP could not subscribe to MCP connection changes");
+            return;
+        }
+        mcpSubscription.compareAndSet(null, registration);
+    }
+
+    /**
+     * Records the newest endpoint snapshot for future session binds and hops the publisher-thread
+     * notification onto the serial executor for drift detection.
+     */
+    private void onMcpConnectionChanged(final java.util.Optional<McpHttpConnection> snapshot) {
+        lastMcpSnapshot.set(snapshot);
+        try {
+            serial.execute(() -> applyMcpConnectionChange(snapshot.orElse(null)));
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // The controller is shutting down; the notification is obsolete.
+        }
+    }
+
+    /**
+     * Updates the endpoint used by future session binds and warns when the live session's bound
+     * endpoint drifted, since ACP cannot rebind mcpServers on an existing session.
+     */
+    private void applyMcpConnectionChange(final McpHttpConnection latest) {
+        if (closed.get()) return;
+        final McpHttpConnection bound = mcpConnection;
+        mcpConnection = latest;
+        final AcpSession current = session;
+        if (client.get() == null || current == null || !current.capabilities().mcpHttp()) return;
+        final java.net.URI boundEndpoint = bound == null ? null : bound.endpoint();
+        final java.net.URI latestEndpoint = latest == null ? null : latest.endpoint();
+        if (Objects.equals(boundEndpoint, latestEndpoint)) return;
+        ui(() -> view.showSessionFailure("status.mcp-endpoint-changed"));
+    }
+
     private void disconnectNow() {
         discardLoadTransaction();
         final AcpClient active = client.getAndSet(null);
@@ -1169,6 +1220,10 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             saveSettingsNow(pending.agentId(), pending.customCommand(), pending.initialPrompt());
         }
         if (!closed.compareAndSet(false, true)) return;
+        final dev.turboism.sdk.plugin.Registration subscription = mcpSubscription.getAndSet(null);
+        if (subscription != null) {
+            subscription.close();
+        }
         discardLoadTransaction();
         synchronized (uiLock) {
             pendingUi.clear();

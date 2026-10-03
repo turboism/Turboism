@@ -30,6 +30,22 @@ public interface McpConnectionService {
     Registration publish(McpHttpConnection connection);
 
     /**
+     * Subscribes to connection changes under the same read permission as {@link #current()}.
+     * The listener first receives the current snapshot (possibly empty) before this method
+     * returns, then every subsequent publish and revoke. Listeners are invoked synchronously on
+     * the publisher's thread and must return quickly without calling back into this service.
+     *
+     * @param listener receives the detached connection snapshots; empty signals revocation
+     * @return idempotent unsubscription handle
+     */
+    default Registration subscribe(
+            final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+        java.util.Objects.requireNonNull(listener, "listener");
+        listener.accept(current());
+        return () -> {};
+    }
+
+    /**
      * Reports whether a live runtime surface backs this instance.
      *
      * @return {@code false} only for the {@link #unavailable()} sentinel
@@ -60,6 +76,13 @@ public interface McpConnectionService {
         @Override
         public Registration publish(final McpHttpConnection connection) {
             throw new UnsupportedOperationException("MCP connection service is not available");
+        }
+
+        @Override
+        public Registration subscribe(
+                final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+            java.util.Objects.requireNonNull(listener, "listener").accept(Optional.empty());
+            return () -> {};
         }
     }
 }

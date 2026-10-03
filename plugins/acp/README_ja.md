@@ -76,10 +76,10 @@ Settings → Agent で内蔵カタログまたはカスタムコマンドを選�
 | `turboism.config.plugin.write` | application | その Turboism 管理の状態を保存します。エージェント資格情報やトランスクリプトは保存しません。 |
 | `turboism.file.read` | application | PATH と一般的なユーザー別インストールディレクトリにあるエージェント実行ファイルを検出します。 |
 | `turboism.process.run` | application | 選択されたエージェント実行ファイルを起動・監視します。 |
-| `turboism.mcp.connection.read` | application | 現在の認証済み MCP エンドポイントを読み取り、ACP セッションへ接続します。 |
+| `turboism.mcp.connection.read` | application | 現在の認証済み MCP エンドポイントを読み取り、その変更を購読して ACP セッションへ接続します。 |
 
 ## 既知の制限
 
 - ACP v1 のみ対応。プロトコル v2（`auth/login`、`session/resume` 相当）はまだ交渉しません。
-- セッション中に MCP サーバーを無効化・再起動すると接続済みエンドポイントが古くなる場合があります。再接続で最新エンドポイントへ再バインドされます。
+- セッション中に MCP サーバーを無効化・再起動すると、プラグインがエンドポイント変更を検知してステータスを表示します。再接続で新しいエンドポイントにバインドされます（ACP は既存セッションの `mcpServers` を再バインドできません）。
 - 実エージェントバイナリに対するホストレベル検証は、廃止された fx プローブに代わるスクリプト化 ACP エージェントフィクスチャが用意されるまで手動です。

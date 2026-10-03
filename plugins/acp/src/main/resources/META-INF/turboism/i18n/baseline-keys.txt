@@ -67,6 +67,7 @@ status.detecting
 status.detection-complete
 status.disconnected
 status.executable-start-failed
+status.mcp-endpoint-changed
 status.mcp-unavailable
 status.not-connected
 status.process-terminated
