@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.jar.JarFile;
+import dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTableOwnedAccess;
 
 /** Complete official autoConnect invocation in isolated owned loaders; no Editor. */
 public final class NativeMeshAutoConnectSelfCheck {
@@ -174,5 +175,9 @@ public final class NativeMeshAutoConnectSelfCheck {
                 checks, indexed, nativeCalls, appended);
         System.out.printf("NATIVE_MESH_AUTOCONNECT_CONTROLS preEntryEdits=%d immutableFailures=%d callbackFailures=%d suffixFailures=%d%n",
                 preEntryEdits, immutableFailures, callbackFailures, suffixFailures);
+        if (Boolean.getBoolean("turboism.validation.meshPrimitiveTable")) {
+            require(NativeMeshEdgeTableOwnedAccess.reservedBytes() == 0, "all primitive reservations released");
+            System.out.println("NATIVE_MESH_AUTOCONNECT_PRIMITIVE reservedBytes=0 productionStorage=ACTUAL hostGain=UNPROVEN");
+        }
     }
 }
