@@ -339,9 +339,8 @@ final class McpTools {
                         .flatMap(model -> model.parameters().findById(new ParameterId(value)))
                         .map(List::of)
                         .orElseGet(List::of))
-                .orElseGet(() -> activeModel()
-                        .map(model -> model.parameters().all())
-                        .orElseGet(List::of))
+                .orElseGet(() ->
+                        activeModel().map(model -> model.parameters().all()).orElseGet(List::of))
                 .stream()
                 .filter(parameter -> nameFilter.isEmpty()
                         || containsIgnoreCase(parameter.name().orElse(""), nameFilter.orElseThrow()))

@@ -102,11 +102,9 @@ class ModelAppearanceContractTest {
         assertEquals(Optional.empty(), projection.visible());
         assertEquals(Optional.empty(), projection.editable());
         assertEquals(
-                Optional.class,
-                ParameterAppearance.class.getMethod("visible").getReturnType());
+                Optional.class, ParameterAppearance.class.getMethod("visible").getReturnType());
         assertEquals(
-                Optional.class,
-                ParameterAppearance.class.getMethod("editable").getReturnType());
+                Optional.class, ParameterAppearance.class.getMethod("editable").getReturnType());
     }
 
     @Test

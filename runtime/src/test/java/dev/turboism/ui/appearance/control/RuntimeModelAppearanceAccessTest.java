@@ -238,8 +238,7 @@ class RuntimeModelAppearanceAccessTest {
     void parameterPaletteStateReadsUseTheSdkShapedObservationVerbatim() {
         final Fixture fixture = new Fixture("content-a", "model-a", 7L);
         fixture.sdkSource = true;
-        fixture.parameters = List.of(
-                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, false));
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, false));
         final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, new PaletteAppearanceCoordinator());
 
         final ParameterAppearance appearance = access.parameter("model-a", "ParamA", 3L);
@@ -267,8 +266,7 @@ class RuntimeModelAppearanceAccessTest {
     @Test
     void parameterPaletteStateReadsCheckTheModelReadPermission() {
         final Fixture fixture = new Fixture("content-a", "model-a", 7L);
-        fixture.parameters = List.of(
-                new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
+        fixture.parameters = List.of(new ParameterSnapshot("ParamA", "Angle X", 0.5, 0.0, -30.0, 30.0, true, true));
         final java.util.List<String> checked = new java.util.ArrayList<>();
         final RuntimeModelAppearanceAccess denied = fixture.access(
                 "plugin-denied",
