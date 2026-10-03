@@ -1104,41 +1104,52 @@ final class AcpChatControllerTest {
     }
 
     @Test
-    void mcpEndpointDriftWarnsWithoutKillingTheLiveSession() throws Exception {
+    void mcpEndpointDriftReconnectsToBindTheLatestEndpoint() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.mcpConnection = Optional.of(testMcpConnection());
+        final java.util.concurrent.atomic.AtomicInteger launches =
+                new java.util.concurrent.atomic.AtomicInteger();
         try (AcpClient source = inactiveClient();
                 AcpChatController controller = fixture.controller((configuration, listener) -> {
+                    launches.incrementAndGet();
                     throw new java.io.IOException("no agent in test");
                 })) {
             // connectNow subscribes before the launch fails, so the listener stays live.
             controller.connect("custom", temporaryExecutable().toString(), "");
             fixture.view.awaitFailure("status.executable-start-failed");
             assertEquals(1, fixture.mcpListeners.size());
+            assertEquals(1, launches.get());
 
             set(controller, "client", source);
             set(controller, "session", new AcpSession("sess-1", List.of(),
                     new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
             set(controller, "mcpConnection", testMcpConnection());
 
+            // A same-endpoint republish must not reconnect.
             fixture.pushMcpConnection(Optional.of(testMcpConnection()));
             fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
                     java.net.URI.create("http://127.0.0.1:49999/mcp"), "2025-06-18")));
 
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
+            awaitSerial(controller);
+            assertEquals(2, launches.get(),
+                    "failures=" + fixture.view.failures + " infos=" + fixture.logger.infos);
+            assertTrue(atomicClient(controller) == null);
+            assertTrue(session(controller) == null);
             assertEquals(1, fixture.view.failures.stream()
                     .filter("status.mcp-endpoint-changed"::equals)
                     .count());
-            assertEquals(source, atomicClient(controller));
-            assertTrue(session(controller) != null);
         }
     }
 
     @Test
-    void mcpEndpointRevocationWarnsAndNotificationsStopAfterClose() throws Exception {
+    void mcpEndpointRevocationReconnectsAndNotificationsStopAfterClose() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.mcpConnection = Optional.of(testMcpConnection());
+        final java.util.concurrent.atomic.AtomicInteger launches =
+                new java.util.concurrent.atomic.AtomicInteger();
         final AcpChatController controller = fixture.controller((configuration, listener) -> {
+            launches.incrementAndGet();
             throw new java.io.IOException("no agent in test");
         });
         try (AcpClient source = inactiveClient()) {
@@ -1151,14 +1162,14 @@ final class AcpChatControllerTest {
 
             fixture.pushMcpConnection(Optional.empty());
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
+            awaitSerial(controller);
+            assertEquals(2, launches.get());
         }
         controller.close();
         fixture.pushMcpConnection(Optional.of(testMcpConnection()));
 
         assertEquals(0, fixture.mcpListeners.size());
-        assertEquals(1, fixture.view.failures.stream()
-                .filter("status.mcp-endpoint-changed"::equals)
-                .count());
+        assertEquals(2, launches.get());
     }
 
     private static AcpSession configuredSession(final String sessionId) {
