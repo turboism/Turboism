@@ -94,8 +94,11 @@ dev.turboism.core.runtime.sidecar
 ```
 
 Deprecated package shapes such as `sdk.event.cubism`, `sdk.cubism.callback`, feature-local
-`DocumentId`, and callback-named plugin work executors are not compatibility
-surfaces and must not be reintroduced.
+`DocumentId`, callback-named plugin work executors, the `dev.turboism.protocol.json`
+codec (superseded by `dev.turboism.sdk.json`), and the retired queued-write path —
+the `sdk.cubism.write` package and the `sdk.cubism.transaction` queue types
+(`TransactionManager`, `ModelTransaction`, queue exceptions; `AuthoringTransaction*`
+stays) — are not compatibility surfaces and must not be reintroduced.
 
 The `b1/` migration-wave package tree has fully graduated: former `b1/domain`
 and `b1/application` code now lives in stable plugin-owned `domain/` and
