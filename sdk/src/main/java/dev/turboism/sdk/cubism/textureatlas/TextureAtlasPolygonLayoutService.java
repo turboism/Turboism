@@ -25,4 +25,50 @@ public interface TextureAtlasPolygonLayoutService {
      * @return the apply outcome; a rejected plan leaves the page untouched
      */
     TextureAtlasLayoutApplyResult apply(TextureAtlasLayoutTarget target, TextureAtlasPolygonPlan plan);
+
+    /**
+     * Reports whether a live runtime backend backs this service.
+     *
+     * @return {@code false} only for the {@link #unavailable()} sentinel
+     */
+    default boolean isAvailable() {
+        return true;
+    }
+
+    /**
+     * Returns this service's fail-closed {@code Unavailable} sentinel.
+     *
+     * @return the shared singleton; {@link #isAvailable()} is {@code false} only for it
+     */
+    static TextureAtlasPolygonLayoutService unavailable() {
+        return Unavailable.INSTANCE;
+    }
+
+    /**
+     * Sentinel returned by {@link #unavailable()}: reads report empty and applies fail with
+     * {@link TextureAtlasLayoutFailureCode#CAPABILITY_UNAVAILABLE}.
+     */
+    enum Unavailable implements TextureAtlasPolygonLayoutService {
+        INSTANCE;
+
+        @Override
+        public boolean isAvailable() {
+            return false;
+        }
+
+        @Override
+        public Optional<TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
+            return Optional.empty();
+        }
+
+        @Override
+        public TextureAtlasLayoutApplyResult apply(
+                final TextureAtlasLayoutTarget target, final TextureAtlasPolygonPlan plan) {
+            java.util.Objects.requireNonNull(target, "target");
+            java.util.Objects.requireNonNull(plan, "plan");
+            return TextureAtlasLayoutApplyResult.failed(
+                    TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE,
+                    "texture atlas polygon layout service is unavailable");
+        }
+    }
 }
