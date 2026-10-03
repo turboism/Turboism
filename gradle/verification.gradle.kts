@@ -1418,6 +1418,7 @@ val checkCompletedCommit by tasks.registering {
         checkVerificationRecordIndex,
         checkVerificationSources,
         "checkSdkApiBaselineTool",
+        "checkSdkBaselineAnchorConsistency",
         "checkModuleBoundariesSelfTest",
         checkCodeQualitySelfTest,
         checkThrowableContainmentSelfTest,
@@ -1463,6 +1464,10 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
     )
 }
 
+// Published by gradle/sdk-api.gradle.kts: one checkSdkV<N>ExactApiCompatibility task
+// per anchor-table row, so this gate tracks the anchored versions automatically.
+val sdkExactCompatibilityCheckTasks = extra["sdkExactCompatibilityCheckTasks"] as List<*>
+
 tasks.register("checkRelease") {
     group = "verification"
     description = "Runs completed-commit verification plus supply-chain and historical release audits."
@@ -1471,18 +1476,7 @@ tasks.register("checkRelease") {
         checkReleaseTooling,
         "checkInstallerVersion",
         "checkSdkApiReferenceBuilder",
-        "checkSdkV2ExactApiCompatibility",
-        "checkSdkV3ExactApiCompatibility",
-        "checkSdkV4ExactApiCompatibility",
-        "checkSdkV5ExactApiCompatibility",
-        "checkSdkV6ExactApiCompatibility",
-        "checkSdkV7ExactApiCompatibility",
-        "checkSdkV8ExactApiCompatibility",
-        "checkSdkV9ExactApiCompatibility",
-        "checkSdkV10ExactApiCompatibility",
-        "checkSdkV11ExactApiCompatibility",
-        "checkSdkV12ExactApiCompatibility",
-        "checkSdkV13ExactApiCompatibility",
+        sdkExactCompatibilityCheckTasks,
         "checkSdkV8Linkage",
         "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,
