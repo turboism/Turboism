@@ -149,15 +149,17 @@ public final class CorePluginContext implements PluginContext {
         }
 
         @Override
-        public <T> T get(final Class<T> serviceType) {
+        public <T> java.util.Optional<T> find(final Class<T> serviceType) {
             Objects.requireNonNull(serviceType, "serviceType");
             if (serviceType == MeshToolRegistry.class) {
-                return serviceType.cast(disposableScope().isSealed() ? null : meshTools);
+                return java.util.Optional.ofNullable(
+                        serviceType.cast(disposableScope().isSealed() ? null : meshTools));
             }
             if (serviceType == dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class) {
-                return serviceType.cast(disposableScope().isSealed() ? null : modelingTools);
+                return java.util.Optional.ofNullable(
+                        serviceType.cast(disposableScope().isSealed() ? null : modelingTools));
             }
-            return legacyServices.get(serviceType);
+            return legacyServices.find(serviceType);
         }
     };
 

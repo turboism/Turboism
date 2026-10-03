@@ -32,14 +32,14 @@ public final class PluginServices {
             }
 
             @Override
-            public <T> T get(final Class<T> serviceType) {
+            public <T> java.util.Optional<T> find(final Class<T> serviceType) {
                 Objects.requireNonNull(serviceType, "serviceType");
                 for (PluginService member : PluginService.values()) {
                     if (member.type() == serviceType) {
-                        return serviceType.cast(member.resolve(context));
+                        return java.util.Optional.ofNullable(serviceType.cast(member.resolve(context)));
                     }
                 }
-                return null;
+                return java.util.Optional.empty();
             }
         };
     }

@@ -2,6 +2,7 @@ package dev.turboism.sdk.plugin;
 
 import dev.turboism.sdk.Incubating;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Thrown by {@link PluginServiceDirectory#require(Class)} when the requested optional
@@ -38,12 +39,12 @@ public final class PluginServiceUnavailableException extends UnsupportedOperatio
     }
 
     /**
-     * Returns the catalog member naming the required type, or {@code null} when none maps it.
+     * Returns the catalog member naming the required type, or empty when none maps it.
      *
      * @return the matching {@link PluginService} member
      */
-    public PluginService service() {
-        return service;
+    public Optional<PluginService> service() {
+        return Optional.ofNullable(service);
     }
 
     private static String message(final Class<?> serviceType, final PluginService service) {

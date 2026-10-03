@@ -254,12 +254,16 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
             final MeshToolRegistry registry = current.services().require(MeshToolRegistry.class);
             toolRegistration = registry.register(tool);
             sliderRegistration = registry.contributeSlider(slider);
-            final var ordinary = current.services().get(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class);
-            if (ordinary != null && ordinary.isAvailable()) {
-                modelingRegistration = ordinary.register(
-                        modelingTool,
-                        dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement.after(
-                                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Anchor.HOST_BRUSH_SELECTION_TOOL));
+            final var ordinary = current.services()
+                    .find(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry.class)
+                    .filter(dev.turboism.sdk.cubism.modeling.ModelingToolRegistry::isAvailable);
+            if (ordinary.isPresent()) {
+                modelingRegistration = ordinary.get()
+                        .register(
+                                modelingTool,
+                                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Placement.after(
+                                        dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.Anchor
+                                                .HOST_BRUSH_SELECTION_TOOL));
                 current.disposableScope().register(modelingRegistration);
             }
             current.disposableScope().register(toolRegistration);
@@ -291,8 +295,7 @@ public final class SelectionBrushPlugin implements TurboismPlugin {
             current = context;
         }
         if (current == null) return fallback;
-        final var localization = current.services().get(dev.turboism.sdk.i18n.PluginLocalization.class);
-        return localization == null ? fallback : localization.text(key);
+        return current.localization().text(key, fallback);
     }
 
     private void closeActiveBrush() {

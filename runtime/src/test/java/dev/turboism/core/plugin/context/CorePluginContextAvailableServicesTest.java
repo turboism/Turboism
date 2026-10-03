@@ -174,14 +174,18 @@ class CorePluginContextAvailableServicesTest {
         assertEquals(context.availableServices(), context.services().installed());
         assertEquals(
                 context.parameterQuery(),
-                context.services().get(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class));
-        // Absent services resolve to null rather than the unavailable sentinel.
+                context.services()
+                        .find(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class)
+                        .orElse(null));
+        // Absent services resolve to empty rather than the unavailable sentinel.
         context.services()
                 .installed()
-                .forEach(service -> org.junit.jupiter.api.Assertions.assertNotNull(
-                        context.services().get(service.type()),
-                        service + " is installed but the directory returned null"));
-        assertEquals(null, context.services().get(dev.turboism.sdk.storage.PluginStorage.class));
+                .forEach(service -> org.junit.jupiter.api.Assertions.assertTrue(
+                        context.services().find(service.type()).isPresent(),
+                        service + " is installed but the directory returned empty"));
+        org.junit.jupiter.api.Assertions.assertTrue(context.services()
+                .find(dev.turboism.sdk.storage.PluginStorage.class)
+                .isEmpty());
     }
 
     @Test
