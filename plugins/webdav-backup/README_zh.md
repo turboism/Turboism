@@ -62,14 +62,12 @@ interface: swing
 |---|---|---|
 | `turboism.config.plugin.read` | `application` | 读取 backup/webdav.cfg 端点配置。 |
 | `turboism.event.subscribe` | `application` | 订阅 BackupCompletedEvent 以便上传新的备份构件。 |
-| `turboism.cubism.backup.observe` | `application` | 观察隐私安全的运行时备份完成事实；精确构件仍保留在发起命令的结果中。 |
+| `turboism.cubism.backup.observe` | `application` | 观察备份完成事实，并通过受权限控制的 `BackupArtifactHandle` 读取运行时签发的构件字节；临时构件也经由同一柄删除。 |
 | `turboism.config.plugin.write` | `application` | 通过 backup/webdav.cfg 写入路径持久保存 WebDAV 端点设置，并进行回读确认。 |
 | `turboism.action.register` | `application` | 注册 Turboism 菜单项背后的 backup.webdav.settings.open 操作。 |
 | `turboism.ui.menu.contribute` | `application` | 通过 Turboism 菜单公开 WebDAV 备份设置对话框。 |
 | `turboism.cubism.model.observe` | `application` | 观察模型和动画的保存生命周期，以触发由保存触发的备份。 |
 | `turboism.network.fetch` | `application` | 通过 JDK HttpClient（MKCOL/PROPFIND/PUT/DELETE）将备份构件上传到用户配置的 WebDAV 端点；绝不跟随重定向。 |
-| `turboism.file.read` | `application` | 读取运行时签发的备份构件用于上传，并扫描已配置的宿主自动备份目录以发现新的 `_backup*.cmo3` 文件。 |
-| `turboism.file.write` | `application` | 上传完成后删除插件自有的、由保存触发的临时备份文件及其空目录。 |
 
 ## 隐私与数据
 

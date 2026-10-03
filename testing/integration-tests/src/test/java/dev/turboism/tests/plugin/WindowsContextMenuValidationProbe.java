@@ -85,7 +85,9 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
                                                 "deep", "Deep Action", "context-menu.deep")))))),
                 ContextMenuRegistry.Placement.first());
         context.disposableScope()
-                .register(context.contextMenu()
+                .register(context.services()
+                        .find(ContextMenuRegistry.class)
+                        .orElse(ContextMenuRegistry.unavailable())
                         .contribute(new ContextMenuRegistry.ContextMenuContribution(
                                 "context-menu-validation-" + id, location, kinds, 0, entry)));
     }

@@ -76,7 +76,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
                 });
         final var service = new CubismEditorApiAvailabilityInterceptor(version::get, capabilities::get)
                 .wrapForTesting(delegate, dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class);
-        final var target = new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, null);
+        final var target =
+                new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, java.util.Optional.empty());
 
         assertEquals(target, service.updateSettings(target));
         capabilities.set(java.util.Set.of("cubism.autobackup.settings"));
@@ -200,11 +201,6 @@ class CubismEditorApiAvailabilityInterceptorTest {
             public dev.turboism.sdk.cubism.history.CubismHistory history() {
                 calls.incrementAndGet();
                 return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                return null;
             }
         };
         final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(
@@ -726,11 +722,6 @@ class CubismEditorApiAvailabilityInterceptorTest {
             @Override
             public dev.turboism.sdk.cubism.history.CubismHistory history() {
                 return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
-            }
-
-            @Override
-            public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                return null;
             }
         };
         final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(

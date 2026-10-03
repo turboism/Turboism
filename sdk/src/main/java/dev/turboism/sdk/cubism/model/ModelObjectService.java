@@ -7,7 +7,12 @@ import java.util.Objects;
  * Typed model-object automation surface shared by plugins, MCP, and other frontends.
  *
  * <p>Implementations use the active Editor authoring model as the write source of truth and fail
- * before mutation when the current host route is unavailable.</p>
+ * before mutation when the current host route is unavailable.
+ *
+ * <p>This service covers structural operations on model objects (rename, reparent, create,
+ * delete). It is not the parameter value-write path — use {@link Parameter#setValue(float)},
+ * optionally grouped through {@link
+ * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
  */
 public interface ModelObjectService {
 

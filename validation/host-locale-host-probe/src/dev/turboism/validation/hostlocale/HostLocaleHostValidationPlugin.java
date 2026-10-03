@@ -3,6 +3,7 @@ package dev.turboism.validation.hostlocale;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -101,7 +102,7 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         final List<String> failures = new ArrayList<>();
         final Locale actual;
         try {
-            actual = context.uiHost().hostLocale();
+            actual = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).hostLocale();
         } catch (RuntimeException failure) {
             writeResult("hostLocale-call", "FAIL", "non-throwing", failure.getClass().getSimpleName(), List.of(
                 "hostLocale threw " + failure.getClass().getSimpleName()
@@ -218,7 +219,7 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
 
     private String hostLocaleTag() {
         try {
-            final Locale locale = context.uiHost().hostLocale();
+            final Locale locale = context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()).hostLocale();
             return locale == null ? "null" : locale.toLanguageTag();
         } catch (RuntimeException failure) {
             return "error:" + failure.getClass().getSimpleName();

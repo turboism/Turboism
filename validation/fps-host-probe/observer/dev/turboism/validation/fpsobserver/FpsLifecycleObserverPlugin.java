@@ -36,7 +36,7 @@ public final class FpsLifecycleObserverPlugin implements TurboismPlugin {
         final AtomicLong frames = new AtomicLong();
         try {
             if (runId.isBlank()) throw new IllegalStateException("Missing task identity");
-            final PerformanceProbeService stats = context.performanceStats();
+            final PerformanceProbeService stats = context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
             stats.sample(Duration.ofMillis(100), sample -> {
                 count.incrementAndGet();
                 frames.accumulateAndGet(sample.renderedFrames(), Math::max);

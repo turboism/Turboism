@@ -1,9 +1,11 @@
 package dev.turboism.sdk.script;
 
+import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Terminal result of one script execution. */
+@Incubating
 public record ScriptRunResult(
         ScriptExecutionId executionId, ScriptRunStatus status, String output, Optional<ScriptFailure> failure) {
 

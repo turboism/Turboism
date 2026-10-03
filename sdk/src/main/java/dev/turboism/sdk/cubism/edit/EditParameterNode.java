@@ -1,13 +1,18 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 
 /**
  * A parameter leaf in the parameter-structure tree, matching the official {@code Parameter} entry
  * of {@code GetParameterStructure}.
+ *
+ * <p>This is a protocol DTO of the incubating edit-session surface, not a value handle. Ordinary
+ * value writes use {@link dev.turboism.sdk.cubism.model.Parameter#setValue(float)}.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditParameterNode(
         ParameterId id, String name, double min, double defaultValue, double max, boolean repeat, boolean blendShape)

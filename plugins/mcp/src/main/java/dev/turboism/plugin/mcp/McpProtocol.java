@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -164,7 +165,8 @@ final class McpProtocol {
     }
 
     static java.util.Optional<String> negotiatedVersion(final Outcome outcome) {
-        if (!(outcome.body() instanceof Map<?, ?> envelope)) return java.util.Optional.empty();
+        final Map<String, ?> envelope = outcome.body();
+        if (envelope == null) return java.util.Optional.empty();
         if (!(envelope.get("result") instanceof Map<?, ?> result)) return java.util.Optional.empty();
         final Object value = result.get("protocolVersion");
         return value instanceof String version && SUPPORTED_VERSIONS.contains(version)
@@ -385,12 +387,12 @@ final class McpProtocol {
         return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
     }
 
-    record Outcome(int status, Object body) {
+    record Outcome(int status, Map<String, ?> body) {
         static Outcome accepted() {
             return new Outcome(202, null);
         }
 
-        static Outcome response(final int status, final Object body) {
+        static Outcome response(final int status, final Map<String, ?> body) {
             return new Outcome(status, Objects.requireNonNull(body, "body"));
         }
     }

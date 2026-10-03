@@ -9,7 +9,6 @@ import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.menu.MenuRegistry;
@@ -353,8 +352,11 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
         }
 
         @Override
-        public WorkspaceService workspace() {
-            return workspace;
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(WorkspaceService.class, workspace)
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
 
         @Override
@@ -383,11 +385,6 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 @Override
                 public boolean isHostPresent() {
                     return false;
-                }
-
-                @Override
-                public TransactionManager transactionManager() {
-                    throw new UnsupportedOperationException();
                 }
             };
         }

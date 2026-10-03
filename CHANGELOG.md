@@ -19,8 +19,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   services the runtime actually installed, so plugins no longer have to probe getters or guess at
   `unavailable()` sentinels; the default fails closed with an empty set.
 - `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
-  optional context services the runtime actually installed (`services().get(ServiceType.class)`
-  returns `null` when absent); each `PluginService` member now carries its service type. The
+  optional context services the runtime actually installed (`services().find(ServiceType.class)`
+  returns an empty `Optional` when absent); each `PluginService` member now carries its service type. The
   pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
   compatibility, and new optional services land on the directory instead of growing the context.
 - `@Incubating` marks SDK types and members that are published for early adopters but not yet
@@ -131,6 +131,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `dev.turboism.sdk.cubism.event`; the retired package is rejected by the boundary and
   package-layout checks so the deprecated shape cannot regress. **Plugin API migration may be
   required:** update event imports.
+- The pre-1.0 SDK contract convergence removes the deprecated per-service `PluginContext`
+  accessors (the 34 bridges deprecated in v12 plus `actionCatalog()`), `availableServices()`,
+  `CubismFacade.transactionManager()`, the `dev.turboism.sdk.cubism.write` command queue and the
+  `cubism.transaction` queue types (`TransactionManager`, `ModelTransaction`, `TransactionStatus`,
+  queue exceptions). `ctx.services().find/require(Class)` is now the single service entry point
+  (`availableServices()` → `services().installed()`); writes go through `Parameter.setValue` and
+  `authoringTransactions()`. The internal `dev.turboism.protocol.json.StrictJson` codec is
+  replaced by `dev.turboism.sdk.json.Json` (`Map<String,?>`/`List<?>` roots), and the backup
+  file-path surfaces (`BackupSyncTarget.sync(List<File>)`, `BackupRunResult.newBackupFiles()`,
+  `EditorAutoBackupSettings.backupDir()`, `EditorAutoBackupStatus.filePath`) are replaced by
+  `BackupArtifactHandle`/`BackupArtifact` metadata with `artifacts()`/`backupDirDisplay()`.
+  `CubismFacade.model()`/`coreRuntime()` and the texture-atlas accessors now return `unavailable()`
+  sentinels instead of throwing. The `cubism.edit` and `sdk.script` surfaces and the
+  `PluginService` constants `SCRIPTS`, `MESH_TOOLS`, `MODELING_TOOLS` and `MCP_CONNECTIONS` are
+  `@Incubating` and leave the stable exact-API gate; the reviewed exact baseline is now v13, with
+  v2–v12 retained as historical audits. **Plugin API migration is required:** resolve services
+  through `ctx.services()`, route writes through `Parameter.setValue`/authoring transactions,
+  and read backup artifacts via handles.
 - Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
   instead of being hand-wired: each `HookContributor` checks its own admission and forwards
   install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a

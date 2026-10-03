@@ -54,6 +54,11 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
     }
 
     @Override
+    public synchronized boolean isAvailable() {
+        return !closed;
+    }
+
+    @Override
     public synchronized TextureAtlasEditorPanel attach() {
         if (closed) {
             throw new IllegalStateException("Texture-atlas editor UI is closed.");

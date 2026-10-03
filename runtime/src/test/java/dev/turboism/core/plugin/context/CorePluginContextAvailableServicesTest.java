@@ -13,6 +13,14 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditService;
+import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
+import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
@@ -29,13 +37,16 @@ import dev.turboism.sdk.script.ScriptId;
 import dev.turboism.sdk.script.ScriptRunHandle;
 import dev.turboism.sdk.script.ScriptRunRequest;
 import dev.turboism.sdk.script.ScriptService;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
+import dev.turboism.sdk.ui.dialog.HostDialogAutomationService;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -51,7 +62,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Covers {@link CorePluginContext#availableServices()}: the reported set must reflect what the
+ * Covers {@link CorePluginContext#services()}'s {@code installed()}: the reported set must reflect what the
  * context installed — null-installed and {@code unavailable()}-sentinel slots are absent even
  * behind the version-gating proxy, and late installs become visible on the next call.
  */
@@ -62,7 +73,7 @@ class CorePluginContextAvailableServicesTest {
     @Test
     void safeModeReportsSentinelsAndNullsAbsentAndInstalledServicesPresent() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
-        final Set<PluginService> available = context.availableServices();
+        final Set<PluginService> available = context.services().installed();
 
         final Set<PluginService> expectedAbsent = Set.of(
                 PluginService.LOCALIZATION,
@@ -132,8 +143,8 @@ class CorePluginContextAvailableServicesTest {
     @Test
     void lateServiceInstallsBecomeVisibleWithoutContextReconstruction() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
-        assertFalse(context.availableServices().contains(PluginService.SCRIPTS));
-        assertFalse(context.availableServices().contains(PluginService.MCP_CONNECTIONS));
+        assertFalse(context.services().installed().contains(PluginService.SCRIPTS));
+        assertFalse(context.services().installed().contains(PluginService.MCP_CONNECTIONS));
 
         context.installScriptService(new ScriptService() {
             @Override
@@ -163,25 +174,29 @@ class CorePluginContextAvailableServicesTest {
             }
         });
 
-        assertTrue(context.availableServices().contains(PluginService.SCRIPTS));
-        assertTrue(context.availableServices().contains(PluginService.MCP_CONNECTIONS));
+        assertTrue(context.services().installed().contains(PluginService.SCRIPTS));
+        assertTrue(context.services().installed().contains(PluginService.MCP_CONNECTIONS));
     }
 
     @Test
     void serviceDirectoryMirrorsAccessorsAndInstalledSet() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
 
-        assertEquals(context.availableServices(), context.services().installed());
+        assertEquals(context.services().installed(), context.services().installed());
         assertEquals(
                 context.parameterQuery(),
-                context.services().get(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class));
-        // Absent services resolve to null rather than the unavailable sentinel.
+                context.services()
+                        .find(dev.turboism.sdk.cubism.service.query.ParameterQueryService.class)
+                        .orElse(null));
+        // Absent services resolve to empty rather than the unavailable sentinel.
         context.services()
                 .installed()
-                .forEach(service -> org.junit.jupiter.api.Assertions.assertNotNull(
-                        context.services().get(service.type()),
-                        service + " is installed but the directory returned null"));
-        assertEquals(null, context.services().get(dev.turboism.sdk.storage.PluginStorage.class));
+                .forEach(service -> org.junit.jupiter.api.Assertions.assertTrue(
+                        context.services().find(service.type()).isPresent(),
+                        service + " is installed but the directory returned empty"));
+        org.junit.jupiter.api.Assertions.assertTrue(context.services()
+                .find(dev.turboism.sdk.storage.PluginStorage.class)
+                .isEmpty());
     }
 
     @Test
@@ -195,7 +210,7 @@ class CorePluginContextAvailableServicesTest {
                 null,
                 null,
                 FileChooserHistoryService.unavailable());
-        assertFalse(context.availableServices().contains(PluginService.FILE_CHOOSER_HISTORY));
+        assertFalse(context.services().installed().contains(PluginService.FILE_CHOOSER_HISTORY));
     }
 
     @Test
@@ -203,7 +218,7 @@ class CorePluginContextAvailableServicesTest {
         final UiResourceService installed = reference -> UiIconAvailability.AVAILABLE;
         final CorePluginContext context = new CorePluginContext(
                 dependencies(TEMP), RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), installed));
-        assertTrue(context.availableServices().contains(PluginService.UI_RESOURCES));
+        assertTrue(context.services().installed().contains(PluginService.UI_RESOURCES));
     }
 
     @Test
@@ -233,7 +248,7 @@ class CorePluginContextAvailableServicesTest {
                         base.cubismAuditSink(),
                         base.clock()),
                 RuntimeHostAdapters.safeMode());
-        final Set<PluginService> available = context.availableServices();
+        final Set<PluginService> available = context.services().installed();
         assertFalse(available.contains(PluginService.MAIN_TOOLBAR));
         assertFalse(available.contains(PluginService.PALETTE_TOOLBAR));
         assertFalse(available.contains(PluginService.PALETTE_FILTER));
@@ -243,27 +258,62 @@ class CorePluginContextAvailableServicesTest {
 
     /**
      * Pins why these members are reported without an {@code installed(...)} probe: every
-     * accessor below resolves to a runtime object the context constructs unconditionally
+     * slot below resolves to a runtime object the context constructs unconditionally
      * (the {@code Authorized*} delegates, {@code uiHost}, {@code hostDialogs}) or lazily
      * materializes on demand ({@code performanceStats}), so none of them can be an
      * {@code unavailable()} sentinel.
      */
     @Test
-    @SuppressWarnings("deprecation") // Exercises the deprecated accessor bridges deliberately.
     void unconditionalMembersAreBackedByRealImplementations() {
         final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
-        assertTrue(context.meshMirrorAxis().isAvailable());
-        assertTrue(context.meshEdit().isAvailable());
-        assertTrue(context.meshEditParticipation().isAvailable());
-        assertTrue(context.meshMirrorCounterparts().isAvailable());
-        assertTrue(context.meshMirrorToolEligibility().isAvailable());
-        assertTrue(context.meshMirrorMoveParticipation().isAvailable());
-        assertTrue(context.meshEditUi().isAvailable());
-        assertTrue(context.warpAltMirrorParticipation().isAvailable());
-        assertTrue(context.viewContextMenu().isAvailable());
-        assertTrue(context.uiHost().isAvailable());
-        assertTrue(context.hostDialogs().isAvailable());
-        assertTrue(context.performanceStats().isAvailable());
+        assertTrue(context.services()
+                .find(MeshMirrorAxisService.class)
+                .orElse(MeshMirrorAxisService.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshEditService.class)
+                .orElse(MeshEditService.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshEditParticipation.class)
+                .orElse(MeshEditParticipation.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshMirrorCounterparts.class)
+                .orElse(MeshMirrorCounterparts.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshMirrorToolEligibility.class)
+                .orElse(MeshMirrorToolEligibility.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshMirrorMoveParticipation.class)
+                .orElse(MeshMirrorMoveParticipation.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(MeshEditUiService.class)
+                .orElse(MeshEditUiService.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(WarpAltMirrorParticipation.class)
+                .orElse(WarpAltMirrorParticipation.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(ViewContextMenuRegistry.class)
+                .orElse(ViewContextMenuRegistry.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(UiHostCapabilityService.class)
+                .orElse(UiHostCapabilityService.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(HostDialogAutomationService.class)
+                .orElse(HostDialogAutomationService.unavailable())
+                .isAvailable());
+        assertTrue(context.services()
+                .find(PerformanceProbeService.class)
+                .orElse(PerformanceProbeService.unavailable())
+                .isAvailable());
     }
 
     @Test
@@ -275,7 +325,8 @@ class CorePluginContextAvailableServicesTest {
                 .observationBaseline(PerformanceProbeService.class)
                 .set(shared);
         final CorePluginContext context = new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode());
-        final PerformanceProbeService retained = context.performanceStats();
+        final PerformanceProbeService retained =
+                context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable());
         try {
             retained.sample(Duration.ofSeconds(1), ignored -> {});
             assertEquals(1, shared.consumers.size());
@@ -301,10 +352,12 @@ class CorePluginContextAvailableServicesTest {
         final AtomicInteger secondCalls = new AtomicInteger();
         try {
             new CorePluginContext(first, RuntimeHostAdapters.safeMode())
-                    .performanceStats()
+                    .services()
+                    .require(PerformanceProbeService.class)
                     .sample(Duration.ofSeconds(1), ignored -> firstCalls.incrementAndGet());
             new CorePluginContext(second, RuntimeHostAdapters.safeMode())
-                    .performanceStats()
+                    .services()
+                    .require(PerformanceProbeService.class)
                     .sample(Duration.ofSeconds(1), ignored -> secondCalls.incrementAndGet());
             first.disposableScope().close();
             shared.emit();
@@ -328,8 +381,9 @@ class CorePluginContextAvailableServicesTest {
                 .eventBroker()
                 .observationBaseline(PerformanceProbeService.class)
                 .set(shared);
-        final PerformanceProbeService service =
-                new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode()).performanceStats();
+        final PerformanceProbeService service = new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode())
+                .services()
+                .require(PerformanceProbeService.class);
         shared.onAdmission = () -> {
             try {
                 dependencies.disposableScope().close();
@@ -351,13 +405,18 @@ class CorePluginContextAvailableServicesTest {
         final CorePluginContext.Dependencies dependencies = performanceDependencies(TEMP);
         final CorePluginContext context = new CorePluginContext(dependencies, RuntimeHostAdapters.safeMode());
         try {
-            final PerformanceProbeService fallback = context.performanceStats();
+            final PerformanceProbeService fallback = context.services()
+                    .find(PerformanceProbeService.class)
+                    .orElse(PerformanceProbeService.unavailable());
             fallback.sample(Duration.ofHours(1), ignored -> {});
             dependencies.disposableScope().close();
             assertThrows(IllegalStateException.class, fallback::snapshot);
             assertThrows(
                     IllegalStateException.class,
-                    () -> context.performanceStats().sample(Duration.ofHours(1), ignored -> {}));
+                    () -> context.services()
+                            .find(PerformanceProbeService.class)
+                            .orElse(PerformanceProbeService.unavailable())
+                            .sample(Duration.ofHours(1), ignored -> {}));
         } finally {
             dependencies.disposableScope().close();
             dependencies.runtimeScheduler().shutdown();

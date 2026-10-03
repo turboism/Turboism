@@ -41,6 +41,11 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
     }
 
     @Override
+    public boolean isAvailable() {
+        return binding.get() != null;
+    }
+
+    @Override
     public Optional<TextureAtlasSummary> summary() {
         final GenerationBinding current = binding.get();
         if (current == null) return Optional.empty();

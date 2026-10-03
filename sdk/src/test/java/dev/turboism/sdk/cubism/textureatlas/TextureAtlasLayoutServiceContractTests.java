@@ -1,6 +1,8 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,7 +29,14 @@ class TextureAtlasLayoutServiceContractTests {
                 List.of(TextureAtlasLayoutService.class
                         .getAnnotation(CubismEditor.class)
                         .value()));
-        assertThrows(UnsupportedOperationException.class, () -> new NoOpFacade().textureAtlasLayouts());
+        final TextureAtlasLayoutService service = new NoOpFacade().textureAtlasLayouts();
+        assertSame(TextureAtlasLayoutService.unavailable(), service);
+        assertFalse(service.isAvailable());
+        assertEquals(Optional.empty(), service.current());
+        final TextureAtlasLayoutPlan emptyPlan = new TextureAtlasLayoutPlan(1, 1, 1, List.of());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE),
+                service.apply(new TextureAtlasLayoutTarget() {}, emptyPlan).failureCode());
     }
 
     @Test
@@ -117,11 +126,6 @@ class TextureAtlasLayoutServiceContractTests {
         @Override
         public boolean isHostPresent() {
             return false;
-        }
-
-        @Override
-        public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
         }
     }
 }

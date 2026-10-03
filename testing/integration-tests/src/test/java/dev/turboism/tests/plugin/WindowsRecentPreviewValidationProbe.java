@@ -3,9 +3,11 @@ package dev.turboism.tests.plugin;
 import dev.turboism.sdk.cubism.CubismPlugin;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
+import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.storage.StoragePath;
@@ -187,7 +189,11 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private void validateRecentList() throws Exception {
         phase = "recent-list";
         final RecentFileSummary fixture = awaitRecentListFixture();
-        recentCount = context.recentFiles().list().size();
+        recentCount = context.services()
+                .find(RecentFileService.class)
+                .orElse(RecentFileService.unavailable())
+                .list()
+                .size();
         final String idValue = fixture.id().value();
         idOpaque = isOpaqueHexId(idValue);
         if (!idOpaque) {
@@ -211,7 +217,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
     private RecentFileSummary awaitRecentListFixture() throws Exception {
         final long deadline = System.nanoTime() + RECENT_LIST_DEADLINE_MILLIS * 1_000_000L;
         while (System.nanoTime() < deadline) {
-            final List<RecentFileSummary> files = context.recentFiles().list();
+            final List<RecentFileSummary> files = context.services()
+                    .find(RecentFileService.class)
+                    .orElse(RecentFileService.unavailable())
+                    .list();
             for (RecentFileSummary file : files) {
                 if (fixtureName.equals(file.displayName())) {
                     return file;
@@ -229,7 +238,10 @@ public final class WindowsRecentPreviewValidationProbe implements CubismPlugin {
         final ScreenshotCaptureResult capture;
         try {
             capture = await(
-                    context.screenshots().capture(new ScreenshotCaptureRequest(id, TARGET_SIZE, TARGET_SIZE)),
+                    context.services()
+                            .find(ScreenshotCaptureService.class)
+                            .orElse(ScreenshotCaptureService.unavailable())
+                            .capture(new ScreenshotCaptureRequest(id, TARGET_SIZE, TARGET_SIZE)),
                     CAPTURE_DEADLINE_MILLIS,
                     TimeUnit.MILLISECONDS);
         } catch (Exception failure) {

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -80,10 +81,11 @@ final class McpCapabilitiesDomain {
     }
 
     private static Map<String, Object> envelope(final Map<String, Object> output) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return immutableMap(
-                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(output))))),
-                entry("structuredContent", output),
-                entry("isError", !Boolean.TRUE.equals(output.get("ok"))));
+                entry("content", List.of(immutableMap(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
+                entry("isError", !Boolean.TRUE.equals(safe.get("ok"))));
     }
 
     private static Map<String, Object> definition() {

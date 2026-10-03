@@ -6,8 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.io.BoundedLineReader;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.mcp.McpHttpConnection;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -1094,7 +1094,7 @@ final class FxAcpClientTest {
                             new BufferedWriter(new OutputStreamWriter(serverStderr, StandardCharsets.UTF_8))) {
                 final ScriptOutput writer = new ScriptOutput(output, errors);
                 for (String line; (line = lines.readLine()) != null; ) {
-                    script.handle(object(StrictJson.parse(line.getBytes(StandardCharsets.UTF_8))), writer);
+                    script.handle(object(Json.parseObject(line.getBytes(StandardCharsets.UTF_8))), writer);
                     handled++;
                 }
             } catch (Exception failure) {
@@ -1191,8 +1191,8 @@ final class FxAcpClientTest {
             output.close();
         }
 
-        private void line(final Object value) throws IOException {
-            output.write(StrictJson.stringify(value));
+        private void line(final Map<String, ?> value) throws IOException {
+            output.write(Json.stringify(value));
             output.write('\n');
             output.flush();
         }
