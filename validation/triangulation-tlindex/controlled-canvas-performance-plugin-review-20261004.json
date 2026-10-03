@@ -1,0 +1,35 @@
+{
+  "task": "T096",
+  "status": "PASS_OFFLINE_NON_JFR_CONTROLLED_INPUT_AND_CPU_BOUNDARY",
+  "pluginSha256": "e03edb6d6d54fd3aa5869a7204cf19694ed4bc2a6d95b69553a9f45e82ae4b8a",
+  "helperChecks": 6,
+  "productionLoaderChecks": 2,
+  "jfrDependency": false,
+  "sameDirectCpuMeasurementSource": true,
+  "byteIdenticalHelperClassCount": 10,
+  "byteIdenticalHelperClasses": [
+    "dev/turboism/validation/atlasimage/shadow/CommandCpuBoundary$Sample.class",
+    "dev/turboism/validation/atlasimage/shadow/CommandCpuBoundary.class",
+    "dev/turboism/validation/atlasimage/shadow/NativeCanvasInputDispatch.class",
+    "dev/turboism/validation/atlasimage/shadow/NativeInputStateObservation$Pair.class",
+    "dev/turboism/validation/atlasimage/shadow/NativeInputStateObservation$Snapshot.class",
+    "dev/turboism/validation/atlasimage/shadow/NativeInputStateObservation.class",
+    "dev/turboism/validation/atlasimage/shadow/ObserverFreeEvidenceWriter.class",
+    "dev/turboism/validation/atlasimage/shadow/MeshResultSnapshot$CacheNotReady.class",
+    "dev/turboism/validation/atlasimage/shadow/MeshResultSnapshot$Result.class",
+    "dev/turboism/validation/atlasimage/shadow/MeshResultSnapshot.class"
+  ],
+  "historicalBuildFailure": "plugin-r1 used Cubism archive where Turboism SDK API was required; preserved compile.log; corrected argument in plugin-r2; no host retry",
+  "hostSubmitted": false,
+  "performanceAcceptance": "NOT_GRANTED",
+  "inputPins": {
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/build.json": "b875038f4f49a92fb635210352e9a60fcaec784a27fecad30ef26b91cb409ca1",
+    "build/t091-native-canvas-input-r1/plugin-r1/template/src/NativeObserverFreeAutoConnect.java": "06239bc97674d11ebe1ee4d6428c11efcd45d78b0f55099126f85b8b0d9d4a1a",
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/template/src/NativeObserverFreeAutoConnect.java": "4cf63357ae4ed31abcc24259bcc292e84054e95791bca9480523e683f9730c7e",
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/native-controlled-canvas-probe.jar": "e03edb6d6d54fd3aa5869a7204cf19694ed4bc2a6d95b69553a9f45e82ae4b8a",
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/native-bytecode.txt": "5d2c3bd84f9a7ba6715f34c92abefe92e3b39a3f43219e711c1851690cd41087",
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/loader-check.log": "27f01a6e705035c978d0578c10efbf2fd3aaf11035ddf1221e6b9516303bedc0",
+    "build/t096-controlled-canvas-performance-r1/plugin-r2/final-loader-check.log": "27f01a6e705035c978d0578c10efbf2fd3aaf11035ddf1221e6b9516303bedc0",
+    "validation/triangulation-tlindex/diagnostic/controlled-performance-r1/build-controlled-canvas-performance-plugin.py": "39cb9969023996520e87f406179a209cc8f3d89ada0c1d0b4334726b93c8ceb0"
+  }
+}
