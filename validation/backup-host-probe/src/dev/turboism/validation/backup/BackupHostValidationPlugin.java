@@ -10,6 +10,9 @@ import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
+import dev.turboism.sdk.cubism.command.EditorCommand;
+import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -20,6 +23,8 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import javax.swing.SwingUtilities;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -27,14 +32,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -58,7 +69,13 @@ import java.util.stream.Stream;
 public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     private static final String RESULT = "backup-validation-result.properties";
+    private static final String REQUEST_LOG = "webdav-requests.jsonl";
     private static final String FIXTURE_PROPERTY = "turboism.validation.fixture";
+    private static final String WEBDAV_PORT_PROPERTY = "turboism.validation.webdav.port";
+    private static final String WEBDAV_EXPECT_PLUGIN_PROPERTY = "turboism.validation.webdav.expect-plugin";
+    private static final String WEBDAV_PLUGIN_PATH_PROPERTY = "turboism.validation.webdav.plugin-path";
+    private static final String HEAP_BYTES_PROPERTY = "turboism.validation.heap-bytes";
+    private static final String WEBDAV_PLUGIN_ID = "dev.turboism.plugin.webdav";
     private static final String UU_KEY = "autoBackupIntervalMinute";
     // On the exact host the fixture takes ~2.5 min to become a modeling
     // document (peer precedent: mirror/clipmask probes use 240 s); 360 s gives
@@ -228,6 +245,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
 
     private void runMatrix(final CubismModel model, final String hostVersion, final List<String> failures) {
         logger.info("BACKUP_VALIDATION_BEGIN hostVersion=" + hostVersion);
+        WebDavProbe webDav = null;
         try {
             final EditorAutoBackupService backup = context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable());
             identityBanner(hostVersion, model, failures);
@@ -236,20 +254,40 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             settingsWriteReadback(backup, failures);
             final Path fixture = resolveFixture(failures);
             final String fixtureHashBefore = fixture == null ? "missing" : sha256(fixture);
-            final WebDavProbe webDav = webDavSyncFlow(backup, failures);
+            webDav = webDavSyncFlow(backup, failures);
             backupNowFlow(backup, model, fixture, webDav, failures);
+            final boolean pluginExpected =
+                "1".equals(System.getProperty(WEBDAV_EXPECT_PLUGIN_PROPERTY, ""));
+            if (pluginExpected && webDav != null) {
+                pluginSaveUploadFlow(backup, model, fixture, webDav, failures);
+            }
+            final long heapBytes = parseLongProperty(HEAP_BYTES_PROPERTY, 0L);
+            if (heapBytes > 0 && webDav != null) {
+                heapUploadObservationFlow(backup, webDav, heapBytes, failures);
+            }
+            if (pluginExpected) {
+                permissionAuditFlow(failures);
+            }
             if (fixture != null) {
                 final String fixtureHashAfter = sha256(fixture);
-                if (!fixtureHashBefore.equals(fixtureHashAfter)) {
+                // The save-triggered phase deliberately rewrites the copied
+                // fixture; only the no-save matrix keeps the unchanged check.
+                if (!pluginExpected && !fixtureHashBefore.equals(fixtureHashAfter)) {
                     failures.add("fixture hash changed: " + fixtureHashBefore + " -> " + fixtureHashAfter);
+                } else {
+                    logger.info("BACKUP_FIXTURE_HASH before=" + fixtureHashBefore
+                        + " after=" + fixtureHashAfter
+                        + " savePhase=" + pluginExpected);
                 }
             }
             restoreSettings(backup, originalSettings, failures);
-            if (webDav != null) {
-                webDav.server.stop(0);
-            }
         } catch (RuntimeException | Error failure) {
             failures.add("matrix failed safely: " + failure.getClass().getName());
+        } finally {
+            if (webDav != null) {
+                writeRequestLog(webDav);
+                webDav.server.stop(0);
+            }
         }
         final boolean pass = failures.isEmpty();
         writeResult(pass, "full", failures);
@@ -508,20 +546,38 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             }
             if (webDav != null) {
                 final String expected = artifacts.get(0).fileName();
-                final boolean matched = webDav.receivedPuts.stream()
-                    .anyMatch(path -> path.endsWith("/" + expected));
-                if (!matched) {
+                final List<RequestRecord> puts = webDav.putsUnder("/turboism-backup-probe/", expected);
+                if (puts.isEmpty()) {
                     failures.add("webdav mock did not receive the matching PUT for " + expected
                         + "; received=" + webDav.receivedPuts);
                 } else {
+                    final RequestRecord success = puts.get(puts.size() - 1);
+                    final String artifactSha = sha256Stream(artifacts.get(0));
+                    if (success.status != 201 && success.status != 200) {
+                        failures.add("webdav backupNow PUT did not succeed: status=" + success.status);
+                    }
+                    if (!success.sha256.equals(artifactSha)) {
+                        failures.add("webdav backupNow PUT bytes differ from artifact: put="
+                            + success.sha256 + " artifact=" + artifactSha);
+                    }
+                    if (success.contentLengthHeader != artifacts.get(0).sizeBytes()
+                        || success.bodyBytes != artifacts.get(0).sizeBytes()) {
+                        failures.add("webdav backupNow PUT length mismatch: contentLength="
+                            + success.contentLengthHeader + " bodyBytes=" + success.bodyBytes
+                            + " artifact=" + artifacts.get(0).sizeBytes());
+                    }
                     logger.info("BACKUP_WEBDAV_PUT_MATCHED file=" + expected
-                        + " attempts=" + webDav.putCalls.get());
-                }
-                if (webDav.putCalls.get() < 2) {
-                    failures.add("webdav 500-injection retry was not exercised: putCalls="
-                        + webDav.putCalls.get());
-                } else {
-                    logger.info("BACKUP_WEBDAV_RETRY_OK putCalls=" + webDav.putCalls.get());
+                        + " attempts=" + puts.size()
+                        + " sha256=" + success.sha256
+                        + " contentLength=" + success.contentLengthHeader
+                        + " bodyBytes=" + success.bodyBytes);
+                    if (puts.size() < 2 || puts.get(0).status != 500) {
+                        failures.add("webdav 500-injection retry was not exercised: puts=" + puts.size());
+                    } else {
+                        logger.info("BACKUP_WEBDAV_RETRY_OK puts=" + puts.size()
+                            + " first=" + puts.get(0).status + " final=" + success.status
+                            + " reopenedStreamBytes=" + success.bodyBytes);
+                    }
                 }
             }
         } catch (RuntimeException failure) {
@@ -576,21 +632,31 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
     }
 
     /**
-     * Starts an in-JVM WebDAV mock (MKCOL/PROPFIND/PUT, one injected 500 on the
-     * first PUT to exercise the plugin retry), wires the production
+     * Starts the in-JVM WebDAV recording mock (MKCOL/PROPFIND/PUT/DELETE on
+     * 127.0.0.1 only; one injected 500 on the first PUT per collection so every
+     * uploader's retry path is exercised), wires the production
      * {@link WebDavSyncTarget} against it through the sync-target registry, and
-     * re-triggers a backup. The mock must receive the matching PUT (retried
-     * after the injected 500).
+     * re-triggers a backup. The port comes from
+     * {@code turboism.validation.webdav.port} when the production webdav-backup
+     * plugin shares this server (fixed port so its seeded config resolves); 0
+     * keeps the legacy ephemeral binding. Every request is recorded with its
+     * method, path, Content-Length header, actual received byte count and body
+     * SHA-256; the records land in {@code webdav-requests.jsonl} under the
+     * plugin state directory.
      */
     private WebDavProbe webDavSyncFlow(final EditorAutoBackupService backup, final List<String> failures) {
         final HttpServer server;
         final List<String> receivedPuts = new CopyOnWriteArrayList<>();
-        final AtomicInteger putCalls = new AtomicInteger();
+        final List<RequestRecord> records = new CopyOnWriteArrayList<>();
+        final Set<String> injectedCollections = ConcurrentHashMap.newKeySet();
+        final AtomicLong sequence = new AtomicLong();
         try {
-            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-            server.createContext("/", exchange -> handleWebDav(exchange, receivedPuts, putCalls));
+            final int port = (int) parseLongProperty(WEBDAV_PORT_PROPERTY, 0L);
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+            server.createContext("/", exchange -> handleWebDav(exchange, receivedPuts, records, injectedCollections, sequence));
             server.setExecutor(Executors.newCachedThreadPool());
             server.start();
+            logger.info("BACKUP_WEBDAV_SERVER port=" + server.getAddress().getPort());
         } catch (IOException failure) {
             failures.add("webdav mock start failed: " + failure.getClass().getSimpleName());
             return null;
@@ -609,7 +675,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             );
             final WebDavSyncTarget target = new WebDavSyncTarget(config,
                 reason -> logger.warn("BACKUP_WEBDAV_DIAG " + reason));
-            return new WebDavProbe(target, receivedPuts, putCalls, server);
+            return new WebDavProbe(target, receivedPuts, records, server);
         } catch (RuntimeException failure) {
             failures.add("webdav target construction failed: " + failure.getClass().getSimpleName());
             server.stop(0);
@@ -617,44 +683,644 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
         }
     }
 
+    /** One observed HTTP request on the recording mock. */
+    record RequestRecord(
+        long sequence, String method, String path, long contentLengthHeader,
+        long bodyBytes, String sha256, int status) {
+    }
+
     private static final class WebDavProbe {
         final WebDavSyncTarget target;
         final List<String> receivedPuts;
-        final AtomicInteger putCalls;
+        final List<RequestRecord> records;
         final HttpServer server;
 
         WebDavProbe(final WebDavSyncTarget target, final List<String> receivedPuts,
-                    final AtomicInteger putCalls, final HttpServer server) {
+                    final List<RequestRecord> records, final HttpServer server) {
             this.target = target;
             this.receivedPuts = receivedPuts;
-            this.putCalls = putCalls;
+            this.records = records;
             this.server = server;
         }
+
+        /** PUTs whose path starts with {@code prefix} and ends with {@code fileName}, in order. */
+        List<RequestRecord> putsUnder(final String prefix, final String fileName) {
+            final List<RequestRecord> matched = new ArrayList<>();
+            for (RequestRecord record : records) {
+                if ("PUT".equals(record.method) && record.path.startsWith(prefix)
+                    && record.path.endsWith(fileName)) {
+                    matched.add(record);
+                }
+            }
+            return matched;
+        }
+    }
+
+    /** First path segment — the remote collection — used for per-collection 500 injection. */
+    private static String collectionOf(final String path) {
+        final String trimmed = path.startsWith("/") ? path.substring(1) : path;
+        final int slash = trimmed.indexOf('/');
+        return slash < 0 ? trimmed : trimmed.substring(0, slash);
     }
 
     private static void handleWebDav(
         final HttpExchange exchange,
         final List<String> receivedPuts,
-        final AtomicInteger putCalls
+        final List<RequestRecord> records,
+        final Set<String> injectedCollections,
+        final AtomicLong sequence
     ) throws IOException {
         final String method = exchange.getRequestMethod();
         final String path = exchange.getRequestURI().getPath();
+        // Drain and hash the request body in bounded chunks so a large upload
+        // never occupies the heap inside this JVM either.
+        final MessageDigest digest = newSha256Digest();
+        long bodyBytes = 0;
+        try (InputStream body = exchange.getRequestBody()) {
+            final byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = body.read(buffer)) >= 0) {
+                bodyBytes += read;
+                digest.update(buffer, 0, read);
+            }
+        }
+        final String sha256 = hex(digest.digest());
+        final long contentLengthHeader = parseLongSafe(
+            exchange.getRequestHeaders().getFirst("Content-Length"), -1L);
+        final int status;
         switch (method) {
-            case "MKCOL" -> exchange.sendResponseHeaders(405, -1); // collection already exists
-            case "PROPFIND" -> exchange.sendResponseHeaders(207, -1);
+            case "MKCOL" -> status = 405; // collection already exists
+            case "PROPFIND" -> status = 207;
             case "PUT" -> {
-                final int attempt = putCalls.incrementAndGet();
-                if (attempt == 1) {
-                    // inject one 500 to force the plugin's retry path
-                    exchange.sendResponseHeaders(500, -1);
+                if (injectedCollections.add(collectionOf(path))) {
+                    // inject one 500 per collection to force the retry path
+                    status = 500;
                 } else {
                     receivedPuts.add(path);
-                    exchange.sendResponseHeaders(201, -1);
+                    status = 201;
                 }
             }
-            default -> exchange.sendResponseHeaders(501, -1);
+            default -> status = 501;
         }
+        records.add(new RequestRecord(
+            sequence.incrementAndGet(), method, path, contentLengthHeader, bodyBytes, sha256, status));
+        exchange.sendResponseHeaders(status, -1);
         exchange.close();
+    }
+
+    /**
+     * Save-triggered end-to-end phase against the production
+     * {@code dev.turboism.plugin.webdav} plugin (seeded config points it at the
+     * shared recording mock on the fixed port). Dirties the copied fixture,
+     * executes the semantic {@link EditorCommand#SAVE}, then waits for the
+     * plugin's save hook → {@code backupAfterSave} → streaming PUT → temp
+     * discard chain. Asserts wire bytes equal the post-save fixture bytes, the
+     * injected 500 forced a stream-reopening retry, the {@code turboism-backup-*}
+     * temp directory is pruned, and the host backup directory artifacts (the
+     * earlier {@code backupNow} product included) survive untouched.
+     */
+    private void pluginSaveUploadFlow(
+        final EditorAutoBackupService backup,
+        final CubismModel model,
+        final Path fixture,
+        final WebDavProbe webDav,
+        final List<String> failures
+    ) {
+        // Captured before any save so the task-scoped copy can be restored in
+        // the finally block regardless of where the phase fails.
+        final byte[] fixtureBytes = fixture == null ? null : readAll(fixture);
+        final String fixtureHashPreSave = fixture == null ? "missing" : sha256(fixture);
+        if (fixture != null && fixtureBytes == null) {
+            failures.add("could not capture fixture bytes for the post-save restore: " + fixture);
+            return;
+        }
+        try {
+            final String pluginCollection =
+                System.getProperty(WEBDAV_PLUGIN_PATH_PROPERTY, "/turboism-backup") + "/";
+            if (!awaitRuntimeLogLine(
+                line -> line.contains(WEBDAV_PLUGIN_ID)
+                    && line.contains("WEBDAV_TARGET_READY")
+                    && line.contains("127.0.0.1:" + webDav.server.getAddress().getPort()),
+                90_000L)) {
+                failures.add("webdav plugin target never became ready (WEBDAV_TARGET_READY absent)");
+                return;
+            }
+            logger.info("BACKUP_PLUGIN_TARGET_READY port=" + webDav.server.getAddress().getPort());
+            final Map<String, String> artifactsBefore = artifactSnapshot(backup, failures);
+            // The save deliberately rewrites the copied fixture; the runner
+            // verifies the copy's hash, so the original bytes are restored
+            // after every assertion has consumed the post-save content.
+            dirtyModel(model, failures);
+            final EditorCommandService commands = context.services()
+                .find(EditorCommandService.class)
+                .orElse(EditorCommandService.unavailable());
+            final EditorCommandResult saveResult = commands.execute(EditorCommand.SAVE);
+            logger.info("BACKUP_SAVE_COMMAND status=" + saveResult.status()
+                + " command=" + saveResult.commandId());
+            if (!saveResult.executed()) {
+                failures.add("SAVE command was not executed: status=" + saveResult.status());
+                return;
+            }
+            final List<RequestRecord> pluginPuts = awaitPluginPut(webDav, pluginCollection, 180_000L);
+            if (pluginPuts == null) {
+                failures.add("no successful plugin PUT under " + pluginCollection + " within timeout");
+                return;
+            }
+            final RequestRecord first = pluginPuts.get(0);
+            final RequestRecord success = pluginPuts.get(pluginPuts.size() - 1);
+            if (pluginPuts.size() != 2 || first.status != 500) {
+                failures.add("plugin PUT retry shape unexpected: puts="
+                    + describePuts(pluginPuts));
+            }
+            final String fixtureHashPostSave = fixture == null ? "missing" : sha256(fixture);
+            if (!success.sha256.equals(fixtureHashPostSave)) {
+                failures.add("plugin PUT bytes differ from saved fixture: put=" + success.sha256
+                    + " fixture=" + fixtureHashPostSave);
+            }
+            final long fixtureSize = fixture == null ? -1L : fileSize(fixture);
+            if (success.contentLengthHeader != success.bodyBytes
+                || (fixtureSize >= 0 && success.bodyBytes != fixtureSize)) {
+                failures.add("plugin PUT length mismatch: contentLength=" + success.contentLengthHeader
+                    + " bodyBytes=" + success.bodyBytes + " fixtureSize=" + fixtureSize);
+            }
+            logger.info("BACKUP_PLUGIN_PUT_OK path=" + success.path
+                + " attempts=" + pluginPuts.size()
+                + " sha256=" + success.sha256
+                + " contentLength=" + success.contentLengthHeader
+                + " bodyBytes=" + success.bodyBytes
+                + " fixtureSha256=" + fixtureHashPostSave
+                + " fixtureChanged=" + !fixtureHashPreSave.equals(fixtureHashPostSave));
+            if (!awaitRuntimeLogLine(
+                line -> line.contains(WEBDAV_PLUGIN_ID) && line.contains("WEBDAV_SYNC_COMPLETED"),
+                120_000L)) {
+                failures.add("webdav plugin never logged WEBDAV_SYNC_COMPLETED");
+            }
+            if (!awaitRuntimeLogLine(
+                line -> line.contains(WEBDAV_PLUGIN_ID) && line.contains("WEBDAV_TEMP_CLEANUP"),
+                120_000L)) {
+                failures.add("webdav plugin never logged WEBDAV_TEMP_CLEANUP (temp artifact not discarded)");
+            }
+            final List<String> tempLeftovers = listTempBackupDirs();
+            if (!tempLeftovers.isEmpty()) {
+                failures.add("turboism-backup-* temp directories remain: " + tempLeftovers);
+            } else {
+                logger.info("BACKUP_TEMP_ARTIFACTS_CLEAN tmpdir="
+                    + System.getProperty("java.io.tmpdir"));
+            }
+            final Map<String, String> artifactsAfter = artifactSnapshot(backup, failures);
+            if (!artifactsBefore.equals(artifactsAfter)) {
+                failures.add("host backup directory artifacts changed across the save-triggered flow: before="
+                    + artifactsBefore.keySet() + " after=" + artifactsAfter.keySet());
+            } else {
+                logger.info("BACKUP_HOST_DIR_PRESERVED artifacts=" + artifactsAfter.keySet());
+            }
+        } catch (RuntimeException failure) {
+            failures.add("save-triggered plugin flow failed: " + failure.getClass().getName());
+        } finally {
+            if (fixtureBytes != null) {
+                restoreFixture(fixture, fixtureBytes, fixtureHashPreSave, failures);
+            }
+        }
+    }
+
+    /**
+     * Writes the captured pre-save bytes back to the copied fixture and
+     * verifies the restored hash, so the runner's copied-fixture integrity
+     * check still holds after the save-triggered phase. The immutable source
+     * fixture is never touched — only the task-scoped copy.
+     */
+    private void restoreFixture(
+        final Path fixture, final byte[] original, final String expectedHash,
+        final List<String> failures) {
+        try {
+            Files.write(fixture, original);
+            final String restored = sha256(fixture);
+            logger.info("BACKUP_FIXTURE_RESTORED sha256=" + restored
+                + " matches=" + restored.equals(expectedHash));
+            if (!restored.equals(expectedHash)) {
+                failures.add("fixture restore produced a different hash: " + restored);
+            }
+        } catch (IOException | RuntimeException failure) {
+            failures.add("fixture restore failed: " + failure.getClass().getSimpleName());
+        }
+    }
+
+    private static byte[] readAll(final Path path) {
+        try {
+            return Files.readAllBytes(path);
+        } catch (IOException failure) {
+            return null;
+        }
+    }
+
+    /** Waits for the first successful PUT under the plugin collection; returns all its PUT records. */
+    private List<RequestRecord> awaitPluginPut(
+        final WebDavProbe webDav, final String collectionPrefix, final long timeoutMillis) {
+        final long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline) {
+            final List<RequestRecord> puts = new ArrayList<>();
+            for (RequestRecord record : webDav.records) {
+                if ("PUT".equals(record.method) && record.path.startsWith(collectionPrefix)) {
+                    puts.add(record);
+                }
+            }
+            if (puts.stream().anyMatch(record -> record.status == 200 || record.status == 201)) {
+                return puts;
+            }
+            try {
+                Thread.sleep(500L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static String describePuts(final List<RequestRecord> puts) {
+        final StringBuilder text = new StringBuilder("[");
+        for (RequestRecord put : puts) {
+            if (text.length() > 1) {
+                text.append(',');
+            }
+            text.append(put.status).append(':').append(put.path);
+        }
+        return text.append(']').toString();
+    }
+
+    /** name -> "size:sha256" content fingerprint of every listed backup-dir artifact. */
+    private Map<String, String> artifactSnapshot(final EditorAutoBackupService backup, final List<String> failures) {
+        final Map<String, String> snapshot = new LinkedHashMap<>();
+        try {
+            for (BackupArtifactHandle artifact : backup.artifacts()) {
+                snapshot.put(artifact.fileName(),
+                    artifact.sizeBytes() + ":" + sha256Stream(artifact));
+            }
+        } catch (RuntimeException failure) {
+            failures.add("artifact snapshot failed: " + failure.getClass().getSimpleName());
+        }
+        return snapshot;
+    }
+
+    /**
+     * Heap-observation phase: drops a large {@code _backup*.cmo3}-shaped file
+     * into the host backup directory, uploads it through the production
+     * streaming {@link WebDavSyncTarget} (probe-registered target) while a
+     * sampler records the Editor JVM heap, then asserts the peak heap delta
+     * stays below the file size — a buffered upload would have to grow the
+     * heap by the full artifact size. Deletes its own file afterwards; host
+     * artifacts are never touched.
+     */
+    private void heapUploadObservationFlow(
+        final EditorAutoBackupService backup,
+        final WebDavProbe webDav,
+        final long bytes,
+        final List<String> failures
+    ) {
+        Path heapFile = null;
+        try {
+            final String backupDirText = backup.settings().backupDirDisplay().orElse(null);
+            if (backupDirText == null) {
+                failures.add("heap phase: host backup directory is not exposed");
+                return;
+            }
+            final File backupDir = new File(backupDirText);
+            heapFile = new File(backupDir, "heap-probe_backup2099_0101_0000.cmo3").toPath();
+            final String expectedSha = writeDeterministicFile(heapFile, bytes);
+            settleHeap();
+            final long baseline = heapUsed();
+            final AtomicLong peak = new AtomicLong(baseline);
+            final AtomicBoolean sampling = new AtomicBoolean(true);
+            final Thread sampler = new Thread(() -> {
+                while (sampling.get()) {
+                    final long used = heapUsed();
+                    peak.accumulateAndGet(used, Math::max);
+                    try {
+                        Thread.sleep(25L);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }, "backup-heap-sampler");
+            sampler.setDaemon(true);
+            sampler.start();
+            RuntimeException uploadFailure = null;
+            BackupArtifactHandle handle = null;
+            try {
+                for (BackupArtifactHandle candidate : backup.artifacts()) {
+                    if (candidate.fileName().equals(heapFile.getFileName().toString())) {
+                        handle = candidate;
+                        break;
+                    }
+                }
+                if (handle == null) {
+                    failures.add("heap phase: generated artifact not listed by artifacts()");
+                } else {
+                    webDav.target.upload(handle);
+                }
+            } catch (RuntimeException failure) {
+                uploadFailure = failure;
+            } finally {
+                sampling.set(false);
+                sampler.join(5_000L);
+            }
+            final long peakDelta = peak.get() - baseline;
+            settleHeap();
+            final long postGc = heapUsed();
+            final List<RequestRecord> puts =
+                webDav.putsUnder("/turboism-backup-probe/", heapFile.getFileName().toString());
+            final String observedSha = puts.isEmpty() ? "<none>" : puts.get(puts.size() - 1).sha256;
+            logger.info("BACKUP_HEAP_OBSERVATION bytes=" + bytes
+                + " baselineHeap=" + baseline
+                + " peakHeap=" + peak.get()
+                + " peakDelta=" + peakDelta
+                + " postGcHeap=" + postGc
+                + " putRecords=" + puts.size()
+                + " putSha256=" + observedSha);
+            if (uploadFailure != null) {
+                failures.add("heap phase upload failed: " + uploadFailure.getClass().getSimpleName());
+            } else if (puts.isEmpty() || !expectedSha.equals(observedSha)) {
+                failures.add("heap phase PUT bytes differ from generated artifact: expected="
+                    + expectedSha + " observed=" + observedSha);
+            } else if (peakDelta >= bytes) {
+                failures.add("heap grew by the full artifact size during upload: peakDelta="
+                    + peakDelta + " bytes=" + bytes);
+            }
+        } catch (IOException | RuntimeException | InterruptedException failure) {
+            if (failure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            failures.add("heap phase failed: " + failure.getClass().getSimpleName());
+        } finally {
+            if (heapFile != null) {
+                try {
+                    Files.deleteIfExists(heapFile);
+                    logger.info("BACKUP_HEAP_ARTIFACT_REMOVED path=" + heapFile);
+                } catch (IOException failure) {
+                    failures.add("heap phase could not remove its generated artifact: " + heapFile);
+                }
+            }
+        }
+    }
+
+    /**
+     * Evidence for the no-{@code turboism.file.*} manifest requirement: the
+     * production plugin must have loaded/enabled (plugin-load-report lists it
+     * as ENABLED), produced WEBDAV_TARGET_READY + WEBDAV_SYNC_COMPLETED, and
+     * the runtime log must carry no permission-denied or failed lines for the
+     * plugin component.
+     */
+    private void permissionAuditFlow(final List<String> failures) {
+        try {
+            final Path report = stateDir.getParent().getParent()
+                .resolve("state/runtime/plugin-load-report.json");
+            if (Files.isRegularFile(report)) {
+                String json;
+                try {
+                    json = Files.readString(report, StandardCharsets.UTF_8);
+                } catch (IOException unreadable) {
+                    json = null;
+                }
+                if (json == null || !json.contains(WEBDAV_PLUGIN_ID)) {
+                    failures.add("plugin-load-report does not list " + WEBDAV_PLUGIN_ID);
+                } else {
+                    final int start = json.indexOf("\"pluginId\":\"" + WEBDAV_PLUGIN_ID + "\"");
+                    final int end = json.indexOf("\"pluginId\"", start + 1);
+                    final String entry = start < 0 ? ""
+                        : json.substring(start, end < 0 ? json.length() : end);
+                    if (!entry.contains("\"lifecycleState\":\"ENABLED\"")
+                        || !entry.contains("\"failures\":[]")) {
+                        failures.add("plugin-load-report entry for " + WEBDAV_PLUGIN_ID
+                            + " is not cleanly ENABLED");
+                    } else {
+                        logger.info("BACKUP_PLUGIN_LOAD_REPORT contains=" + WEBDAV_PLUGIN_ID
+                            + " lifecycleState=ENABLED failures=0");
+                    }
+                }
+            } else {
+                logger.info("BACKUP_PLUGIN_LOAD_REPORT absent=" + report);
+            }
+            final List<String> pluginLines = runtimeLogLines(line -> line.contains(WEBDAV_PLUGIN_ID));
+            int denied = 0;
+            int failed = 0;
+            for (String line : pluginLines) {
+                final String lowered = line.toLowerCase(java.util.Locale.ROOT);
+                if (lowered.contains("permission") || lowered.contains("denied")
+                    || lowered.contains("missing required")) {
+                    denied++;
+                }
+                if (line.contains("WEBDAV_SYNC_FAILED") || line.contains("SAVE_BACKUP_FAILED")
+                    || line.contains("WEBDAV_TEMP_CLEANUP_FAILED")
+                    || line.contains("WEBDAV_TARGET_UNAVAILABLE")) {
+                    failed++;
+                }
+            }
+            logger.info("BACKUP_PLUGIN_AUDIT lines=" + pluginLines.size()
+                + " denied=" + denied + " failed=" + failed);
+            if (denied > 0 || failed > 0) {
+                failures.add("webdav plugin produced " + denied + " permission-denied and "
+                    + failed + " failed log lines");
+            }
+        } catch (RuntimeException failure) {
+            failures.add("permission audit failed: " + failure.getClass().getSimpleName());
+        }
+    }
+
+    /** {@code turboism-backup-*} directories currently under the JVM temp dir. */
+    private static List<String> listTempBackupDirs() {
+        final String tmp = System.getProperty("java.io.tmpdir");
+        if (tmp == null) {
+            return List.of("<no java.io.tmpdir>");
+        }
+        try (Stream<Path> stream = Files.list(Path.of(tmp))) {
+            return stream
+                .map(path -> path.getFileName().toString())
+                .filter(name -> name.startsWith("turboism-backup-"))
+                .sorted()
+                .toList();
+        } catch (IOException failure) {
+            return List.of("<unreadable:" + failure.getClass().getSimpleName() + ">");
+        }
+    }
+
+    /** Latest runtime session log under the task home's logs/runtime/<date>/ tree, or null. */
+    private Path latestRuntimeLog() {
+        final Path logs = stateDir.getParent().getParent().resolve("logs/runtime");
+        if (!Files.isDirectory(logs)) {
+            return null;
+        }
+        try (Stream<Path> stream = Files.walk(logs, 2)) {
+            return stream
+                .filter(path -> path.getFileName().toString().endsWith(".log"))
+                .filter(Files::isRegularFile)
+                .max(java.util.Comparator.comparing(path -> {
+                    try {
+                        return Files.getLastModifiedTime(path);
+                    } catch (IOException failure) {
+                        return java.nio.file.attribute.FileTime.fromMillis(0L);
+                    }
+                }))
+                .orElse(null);
+        } catch (IOException failure) {
+            return null;
+        }
+    }
+
+    private List<String> runtimeLogLines(final java.util.function.Predicate<String> filter) {
+        final Path log = latestRuntimeLog();
+        if (log == null) {
+            return List.of();
+        }
+        try {
+            final List<String> matched = new ArrayList<>();
+            for (String line : Files.readAllLines(log, StandardCharsets.UTF_8)) {
+                if (filter.test(line)) {
+                    matched.add(line);
+                }
+            }
+            return matched;
+        } catch (IOException | RuntimeException failure) {
+            return List.of();
+        }
+    }
+
+    private boolean awaitRuntimeLogLine(
+        final java.util.function.Predicate<String> predicate, final long timeoutMillis) {
+        final long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline) {
+            if (!runtimeLogLines(predicate).isEmpty()) {
+                return true;
+            }
+            try {
+                Thread.sleep(500L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+        }
+        return false;
+    }
+
+    /** Writes one JSON object per observed request into the plugin state dir (archived with state/). */
+    private void writeRequestLog(final WebDavProbe webDav) {
+        final StringBuilder out = new StringBuilder();
+        for (RequestRecord record : webDav.records) {
+            out.append("{\"seq\":").append(record.sequence)
+                .append(",\"method\":\"").append(record.method).append('"')
+                .append(",\"path\":\"").append(jsonEscape(record.path)).append('"')
+                .append(",\"contentLength\":").append(record.contentLengthHeader)
+                .append(",\"bodyBytes\":").append(record.bodyBytes)
+                .append(",\"sha256\":\"").append(record.sha256).append('"')
+                .append(",\"status\":").append(record.status)
+                .append("}\n");
+        }
+        try {
+            Files.writeString(stateDir.resolve(REQUEST_LOG), out.toString(), StandardCharsets.UTF_8);
+            logger.info("BACKUP_WEBDAV_REQUEST_LOG records=" + webDav.records.size()
+                + " path=" + stateDir.resolve(REQUEST_LOG));
+        } catch (IOException failure) {
+            logger.warn("BACKUP_WEBDAV_REQUEST_LOG_WRITE_FAILED " + failure.getClass().getSimpleName());
+        }
+    }
+
+    private static String jsonEscape(final String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static long parseLongProperty(final String name, final long fallback) {
+        final String value = System.getProperty(name);
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException invalid) {
+            return fallback;
+        }
+    }
+
+    private static long parseLongSafe(final String value, final long fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException invalid) {
+            return fallback;
+        }
+    }
+
+    private static MessageDigest newSha256Digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (java.security.NoSuchAlgorithmException failure) {
+            throw new IllegalStateException("SHA-256 unavailable", failure);
+        }
+    }
+
+    private static String hex(final byte[] bytes) {
+        final StringBuilder hex = new StringBuilder(bytes.length * 2);
+        for (byte value : bytes) {
+            hex.append(String.format("%02x", value & 0xFF));
+        }
+        return hex.toString();
+    }
+
+    /** Streams the artifact bytes through the permission-gated handle and hashes them. */
+    private static String sha256Stream(final BackupArtifactHandle artifact) {
+        final MessageDigest digest = newSha256Digest();
+        try (InputStream in = artifact.openStream()) {
+            final byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) >= 0) {
+                digest.update(buffer, 0, read);
+            }
+            return hex(digest.digest());
+        } catch (IOException | RuntimeException failure) {
+            return "unreadable:" + failure.getClass().getSimpleName();
+        }
+    }
+
+    private static long fileSize(final Path path) {
+        try {
+            return Files.size(path);
+        } catch (IOException failure) {
+            return -1L;
+        }
+    }
+
+    private static long heapUsed() {
+        return ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
+    }
+
+    private static void settleHeap() throws InterruptedException {
+        System.gc();
+        Thread.sleep(400L);
+        System.gc();
+    }
+
+    /**
+     * Writes {@code bytes} of deterministic content (position-derived pattern),
+     * returning the content SHA-256. Chunked so the write itself never grows
+     * the heap by the file size.
+     */
+    private static String writeDeterministicFile(final Path target, final long bytes) throws IOException {
+        final MessageDigest digest = newSha256Digest();
+        final byte[] chunk = new byte[1024 * 1024];
+        try (var out = Files.newOutputStream(target)) {
+            long written = 0;
+            while (written < bytes) {
+                final int length = (int) Math.min(chunk.length, bytes - written);
+                for (int index = 0; index < length; index++) {
+                    chunk[index] = (byte) ((written + index) * 31L + 7L);
+                }
+                out.write(chunk, 0, length);
+                digest.update(chunk, 0, length);
+                written += length;
+            }
+        }
+        return hex(digest.digest());
     }
 
     private boolean writeResult(final boolean pass, final String phase, final List<String> failures) {
