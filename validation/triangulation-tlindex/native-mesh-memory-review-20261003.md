@@ -1,0 +1,13 @@
+# T089 独立内存诊断审查
+
+FAIL_FROZEN_REFERENCE_PARITY。FIFO2632仅一次，正常退出、身份/模型/内核清理PASS；输出不等价，因此不是有效的历史T088内存归因证据，没有重试，也不更改冻结判据。
+
+2133行的source/pointCount/positionValues/positionsHash全部一致；378行indicesHash不同（每轮126行），其中18行indices数量不同。原正式T088及T087返回缓存版本全部为−1，T089全部与edgeVersion同步。第一轮711源的edgeVersion额外变化等于该源indices数量；后续初始边版本也改变。当前只能确认返回边界缓存状态不同，不能证明是哪条实际UI路径触发。
+
+冻结失败后的只读JFR会计分析通过，但不覆盖输出FAIL：每轮711成功scope，实际303291/303894/303738次表查询全命中，UNKNOWN/追加/丢弃为零，声明buffer总字节16681728/16706304/16706304（约15.9MiB/轮）；helper+suffix线程分配26079992/26054224/26046704（约24.8MiB/轮，包含诊断开销）。这些数据来自新运行，不能外推到失败的原正式腿。原始JFR有73个GC及146个堆摘要，分配sample weights仅为估计。
+
+较小真实SDK几何控制三版本/双断言288记录一致；针对验证缺口新增248/312/376点较大场景，三版本/双断言另288记录逐字节一致，仍没有复现Windows真实UI缓存刷新差异。只读快照getCached_indices没有调用/写入；原native getGlIndices会调用updateMesh，继而updateIndices写cache_version_gl_indices并调用三角化路径。这只是静态可达路径，不是T089实际动态调用证明。
+
+请求相对T087还包含重复的同值GC日志选项；冻结输入保留，不能把多变量差异说成已证明由单一计数调用导致。观察器首次初始化和gate/generation不在scope线程分配差中；诊断速度显著变慢，禁止解释为正式性能。
+
+下一步最小化观察器及真实命令缓存刷新路径，先解决输出边界不等价，再考虑有证据支持的内存实现。按initialEntries估算容量的设计节省尚未实现/验证，不作为优化完成。T088的RSS失败、T086失败、T057已接受交付保持不变；三版本真实宿主、长期和LaneC仍开放。原证据 build/t089-native-mesh-memory-diagnostic-r1。
