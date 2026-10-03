@@ -1,0 +1,53 @@
+{
+  "task": "T087",
+  "status": "PASS_DIAGNOSTIC_INDEXED_SCOPE_EACH_COMMAND",
+  "sequence": 2626,
+  "jobId": "d3e16fa4-b352-42a4-971e-6cb9e018f9bc",
+  "runId": "queue-f2c7d9855aa74558b3ccb5f4a0bbb0ba",
+  "productionCandidateSha256": "eb6875699d3fdb92e3340a0a0af106fcf30f2985d490389f81fe3a0823c209f8",
+  "diagnosticAgentSha256": "81840bf2fca8e991edfb59fba53b91220b373a237c7fccd283849ce471e760b8",
+  "cycles": {
+    "1": {
+      "scopes": 711,
+      "tableCalls": 303291,
+      "hits": 303291,
+      "absent": 0,
+      "unknown": 0,
+      "appended": 0,
+      "discardedScopes": 0
+    },
+    "2": {
+      "scopes": 711,
+      "tableCalls": 303894,
+      "hits": 303894,
+      "absent": 0,
+      "unknown": 0,
+      "appended": 0,
+      "discardedScopes": 0
+    },
+    "3": {
+      "scopes": 711,
+      "tableCalls": 303738,
+      "hits": 303738,
+      "absent": 0,
+      "unknown": 0,
+      "appended": 0,
+      "discardedScopes": 0
+    }
+  },
+  "outputRows": 2133,
+  "referenceMismatchCount": 0,
+  "standardGates": "PASS",
+  "kernelScopeDestroyed": true,
+  "geometryRecordCount": 288,
+  "outsideCommandScopesExcluded": 0,
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC",
+  "T086VerdictUnchanged": true,
+  "inputPins": {
+    "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/native-review.json": "1677219ab8a9a18ead20a6dfcda1e110c8363d1d3ae0b4b346e61c0651bc9b4f",
+    "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/scope-review.json": "8bdf298c0358ebdd0b8b6898c3f3a94fb1ec4b33cf2596571d199146acaeea33",
+    "build/t087-native-mesh-path-events-r1/native5303-scope-events-r1/scope-review.events.json": "5069bd993b8b2bf3998754dbeffed3f35ed64109b79bd17b27cb5d004d75b31f",
+    "build/t087-native-mesh-path-events-r1/geometry-events-r1/review.json": "da727d6f92f25c390859bfed403e27fad61c3174c43e629dd90c517cee59fff1",
+    "build/t087-native-mesh-path-events-r1/diagnostic-overlay-r2/review.json": "b327a712e31760b9c20b45dc7153d1d98513ee5115a6ed1f3c9578113c14ab6d"
+  }
+}
