@@ -3,15 +3,12 @@ package dev.turboism.sdk.cubism.backup;
 /**
  * Immutable per-document auto-backup snapshot (host {@code IFileContent} view).
  *
- * <p>Times are epoch milliseconds. {@code filePath} is the document's host file
- * path; it is {@code null} when the host document exposes no file (fail closed).</p>
+ * <p>Times are epoch milliseconds. The projection stays privacy-safe like its
+ * event counterpart {@link BackupDocumentStatus}: it names the document but
+ * never exposes the document's host file path.</p>
  */
 public record EditorAutoBackupStatus(
-        String documentName,
-        String filePath,
-        long lastAutoBackupTimeMillis,
-        long lastSavedTimeMillis,
-        boolean modifiedAfterSaving) {
+        String documentName, long lastAutoBackupTimeMillis, long lastSavedTimeMillis, boolean modifiedAfterSaving) {
 
     public EditorAutoBackupStatus {
         if (documentName == null || documentName.isBlank()) {

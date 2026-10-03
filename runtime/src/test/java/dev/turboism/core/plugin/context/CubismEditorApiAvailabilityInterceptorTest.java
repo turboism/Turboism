@@ -76,7 +76,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
                 });
         final var service = new CubismEditorApiAvailabilityInterceptor(version::get, capabilities::get)
                 .wrapForTesting(delegate, dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class);
-        final var target = new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, null);
+        final var target =
+                new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, java.util.Optional.empty());
 
         assertEquals(target, service.updateSettings(target));
         capabilities.set(java.util.Set.of("cubism.autobackup.settings"));

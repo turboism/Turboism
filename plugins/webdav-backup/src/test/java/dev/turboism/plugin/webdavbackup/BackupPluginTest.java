@@ -152,7 +152,7 @@ final class BackupPluginTest {
                 "the dialog-persisted config must build the target without any binding read");
         final java.nio.file.Path artifact = java.nio.file.Files.createTempFile("turboism-backup-test-", ".cmo3");
         java.nio.file.Files.writeString(artifact, "backup");
-        context.backupFiles = List.of(artifact.toFile());
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
         plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
                 "model:test",
                 "model.cmo3",
@@ -181,7 +181,7 @@ final class BackupPluginTest {
         assertTrue(context.awaitLog("WEBDAV_TARGET_READY", Duration.ofSeconds(2)));
         final java.nio.file.Path artifact = java.nio.file.Files.createTempFile("turboism-backup-rejected-", ".cmo3");
         java.nio.file.Files.writeString(artifact, "backup");
-        context.backupFiles = List.of(artifact.toFile());
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
         plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
                 "model:test",
                 "model.cmo3",
@@ -207,7 +207,7 @@ final class BackupPluginTest {
         Thread.sleep(900L);
         final java.nio.file.Path artifact = java.nio.file.Files.createTempFile("turboism-backup-lazy-", ".cmo3");
         java.nio.file.Files.writeString(artifact, "backup");
-        context.backupFiles = List.of(artifact.toFile());
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
         plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
                 "model:test",
                 "model.cmo3",
@@ -305,7 +305,7 @@ final class BackupPluginTest {
         java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("turboism-backup-");
         java.nio.file.Path artifact = tempDir.resolve("model_backup2026_08_08_120000.cmo3");
         java.nio.file.Files.writeString(artifact, "temp-content");
-        context.backupFiles = List.of(artifact.toFile());
+        context.backupArtifacts = List.of(TestBackupArtifactHandle.of(artifact));
         plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
                 "model:test",
                 "model.cmo3",
@@ -358,7 +358,7 @@ final class BackupPluginTest {
         final GatedRegistry registry = new GatedRegistry();
         final RecordingEventBus bus = new RecordingEventBus();
         java.nio.file.Path hostBackupDir;
-        List<java.io.File> backupFiles = List.of();
+        List<dev.turboism.sdk.cubism.backup.BackupArtifactHandle> backupArtifacts = List.of();
         CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave;
         final List<dev.turboism.sdk.task.PluginTaskKind> submittedTaskKinds = new CopyOnWriteArrayList<>();
         volatile boolean rejectTasks;
@@ -470,7 +470,7 @@ final class BackupPluginTest {
                 @Override
                 public dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings settings() {
                     return new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(
-                            true, 5, 50, hostBackupDir == null ? null : hostBackupDir.toString());
+                            true, 5, 50, Optional.ofNullable(hostBackupDir).map(java.nio.file.Path::toString));
                 }
 
                 @Override
@@ -487,7 +487,7 @@ final class BackupPluginTest {
                 @Override
                 public CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupNow() {
                     return CompletableFuture.completedFuture(
-                            new dev.turboism.sdk.cubism.backup.BackupRunResult(1_000L, backupFiles, List.of()));
+                            new dev.turboism.sdk.cubism.backup.BackupRunResult(1_000L, backupArtifacts, List.of()));
                 }
 
                 @Override
@@ -497,7 +497,21 @@ final class BackupPluginTest {
                         return backupAfterSave;
                     }
                     return CompletableFuture.completedFuture(
-                            new dev.turboism.sdk.cubism.backup.BackupRunResult(1_000L, backupFiles, List.of()));
+                            new dev.turboism.sdk.cubism.backup.BackupRunResult(1_000L, backupArtifacts, List.of()));
+                }
+
+                @Override
+                public List<dev.turboism.sdk.cubism.backup.BackupArtifactHandle> artifacts() {
+                    if (hostBackupDir == null) {
+                        return List.of();
+                    }
+                    try (var stream = java.nio.file.Files.list(hostBackupDir)) {
+                        return stream.filter(java.nio.file.Files::isRegularFile)
+                                .<dev.turboism.sdk.cubism.backup.BackupArtifactHandle>map(TestBackupArtifactHandle::of)
+                                .toList();
+                    } catch (java.io.IOException failure) {
+                        throw new IllegalStateException("fake artifact listing failed", failure);
+                    }
                 }
 
                 @Override

@@ -240,7 +240,7 @@ public final class CoreShell implements ShellHandle {
                                     current.maxMB(),
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
-                            current.backupDir()));
+                            current.backupDirDisplay()));
                     logger.info("auto-backup reduced for this session (opt-in)");
                 }
             } else {
@@ -256,7 +256,7 @@ public final class CoreShell implements ShellHandle {
                                     Integer.parseInt(baseline.getProperty("maxMB", "50")),
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
                                     dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
-                            baseline.getProperty("backupDir")));
+                            java.util.Optional.ofNullable(baseline.getProperty("backupDir"))));
                     java.nio.file.Files.deleteIfExists(baselineFile());
                     logger.info("auto-backup baseline restored");
                 }
@@ -285,9 +285,7 @@ public final class CoreShell implements ShellHandle {
         props.setProperty("enabled", Boolean.toString(current.enabled()));
         props.setProperty("intervalMinutes", Integer.toString(current.intervalMinutes()));
         props.setProperty("maxMB", Integer.toString(current.maxMB()));
-        if (current.backupDir() != null) {
-            props.setProperty("backupDir", current.backupDir());
-        }
+        current.backupDirDisplay().ifPresent(dir -> props.setProperty("backupDir", dir));
         java.nio.file.Files.createDirectories(file.getParent());
         try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(file)) {
             props.store(out, "host auto-backup settings before Turboism opt-in reduction");
