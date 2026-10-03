@@ -1,0 +1,17 @@
+{
+  "status": "PASS_TASK_CONFIG_PRESERVATION_WRONG_OWNER_RESTAGE_AND_SYMLINK_CONTROLS",
+  "officialBatSha256": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b",
+  "proxyBeforeSha256": "c9b924644749a5e3fc8131443a8ff162278791a7e64e8dd8756625a5a9e2b9e4",
+  "proxyAfterSha256": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+  "liveHostStarted": false,
+  "inputPins": {
+    "validation/triangulation-tlindex/diagnostic/stage-direct-nmt-launcher.py": "cac821be7da130bfe03269ee6c87f0ecb4a2a83696a7be008b351a43758ce9c0",
+    "build/t100-direct-nmt-startup-r1/stage-selfcheck-r1/reproduce.py": "868513b934fa9b4364f6ccd6ff53f0ea964056448b231a269b174b56b458730f",
+    "build/t100-direct-nmt-startup-r1/stage-selfcheck-r1/task/evidence/nmt-proxy-before.bin": "c9b924644749a5e3fc8131443a8ff162278791a7e64e8dd8756625a5a9e2b9e4",
+    "build/t100-direct-nmt-startup-r1/stage-selfcheck-r1/task/evidence/nmt-proxy-after.bin": "5504a03576a3bc6e193d95cbe00317af338c3ac54c4ed5b4837022f90e054d9d",
+    "build/t100-direct-nmt-startup-r1/stage-selfcheck-r1/task/evidence/direct-nmt-launcher.json": "764fad644529eed02ddc6fd3d2d1145e0f2b53f9a03b83ca9a046ad991efe110",
+    "build/t100-direct-nmt-startup-r1/stage-selfcheck-r1/task/prefix/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/CubismEditor5.bat": "4da7e34e346280cdce02527fc7746cfd563d449033e018b7f3af1205e7b2ca5b"
+  },
+  "hostJvmCompatibility": "NOT_YET_VALIDATED",
+  "scope": "NEW_TASK_ONLY_DIRECT_LAUNCHER_FEASIBILITY_NOT_T099_RETRY"
+}
