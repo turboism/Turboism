@@ -296,7 +296,6 @@ final class PsdClipMaskImportPluginTest {
             return scope;
         }
 
-        @Override
         public UiHostCapabilityService uiHost() {
             return new UiHostCapabilityService() {
                 @Override
@@ -371,6 +370,14 @@ final class PsdClipMaskImportPluginTest {
                     throw new UnsupportedOperationException();
                 }
             };
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 

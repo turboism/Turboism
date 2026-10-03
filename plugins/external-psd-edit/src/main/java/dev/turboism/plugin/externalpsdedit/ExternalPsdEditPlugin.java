@@ -122,7 +122,9 @@ public final class ExternalPsdEditPlugin implements CubismPlugin {
 
     private void registerContextMenu(final String id, final ContextMenuRegistry.Location location) {
         context.disposableScope()
-                .register(context.contextMenu()
+                .register(context.services()
+                        .find(ContextMenuRegistry.class)
+                        .orElse(ContextMenuRegistry.unavailable())
                         .contribute(new ContextMenuRegistry.ContextMenuContribution(
                                 id,
                                 OPEN_ACTION_ID,
