@@ -92,10 +92,10 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
     }
 
     /**
-     * Opens a fresh read stream for one upload attempt. {@code ofInputStream}
-     * suppliers cannot throw checked exceptions, so an {@link IOException} is
-     * wrapped; the request fails (and enters the normal retry path) instead of
-     * silently uploading nothing.
+     * Opens a fresh read stream for one upload attempt. {@link
+     * BoundedInputStreamBodyPublisher} stream suppliers cannot throw checked
+     * exceptions, so an {@link IOException} is wrapped; the request fails (and
+     * enters the normal retry path) instead of silently uploading nothing.
      */
     private static InputStream openStreamUnchecked(final BackupArtifactHandle artifact) {
         try {
@@ -147,19 +147,20 @@ public final class WebDavSyncTarget implements BackupSyncTarget {
         IOException lastNetwork = null;
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
-                // Stream the artifact: a fixed Content-Length keeps the request
-                // honest while the supplier reopens the artifact on every
-                // attempt, so a mid-upload mutation or a stale stream fails the
-                // send instead of corrupting it — and large artifacts never
-                // occupy the heap.
+                // Stream the artifact through the bounded demand-driven
+                // publisher: a fixed Content-Length keeps the request honest
+                // while the supplier reopens the artifact on every attempt,
+                // so a mid-upload mutation or a stale stream fails the send
+                // instead of corrupting it. Unlike ofInputStream — which
+                // drags the whole artifact through the managed heap as fresh
+                // per-item garbage — the payload moves through direct
+                // buffers, so the heap footprint stays bounded.
                 final HttpResponse<Void> response = client.send(
                         request(
                                         "PUT",
                                         target,
-                                        HttpRequest.BodyPublishers.fromPublisher(
-                                                HttpRequest.BodyPublishers.ofInputStream(
-                                                        () -> openStreamUnchecked(artifact)),
-                                                artifact.sizeBytes()))
+                                        new BoundedInputStreamBodyPublisher(
+                                                () -> openStreamUnchecked(artifact), artifact.sizeBytes()))
                                 .header("Content-Type", "application/octet-stream")
                                 .build(),
                         HttpResponse.BodyHandlers.discarding());
