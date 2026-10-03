@@ -356,9 +356,7 @@ final class BackupPluginTest {
             assertTrue(
                     context.hasLog("WEBDAV_TEMP_CLEANUP file=model_backup2026_08_08_120000.cmo3"),
                     "disable must discard the pending temp artifact");
-            assertFalse(
-                    java.nio.file.Files.exists(artifact),
-                    "the pending temp file must be deleted during disable");
+            assertFalse(java.nio.file.Files.exists(artifact), "the pending temp file must be deleted during disable");
         } finally {
             putGate.countDown();
             putGate = null;
