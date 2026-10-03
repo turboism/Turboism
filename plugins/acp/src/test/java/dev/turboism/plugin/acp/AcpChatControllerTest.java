@@ -1103,6 +1103,64 @@ final class AcpChatControllerTest {
         }
     }
 
+    @Test
+    void mcpEndpointDriftWarnsWithoutKillingTheLiveSession() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        try (AcpClient source = inactiveClient();
+                AcpChatController controller = fixture.controller((configuration, listener) -> {
+                    throw new java.io.IOException("no agent in test");
+                })) {
+            // connectNow subscribes before the launch fails, so the listener stays live.
+            controller.connect("custom", temporaryExecutable().toString(), "");
+            fixture.view.awaitFailure("status.executable-start-failed");
+            assertEquals(1, fixture.mcpListeners.size());
+
+            set(controller, "client", source);
+            set(controller, "session", new AcpSession("sess-1", List.of(),
+                    new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+            set(controller, "mcpConnection", testMcpConnection());
+
+            fixture.pushMcpConnection(Optional.of(testMcpConnection()));
+            fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
+                    java.net.URI.create("http://127.0.0.1:49999/mcp"), "2025-06-18")));
+
+            fixture.view.awaitFailure("status.mcp-endpoint-changed");
+            assertEquals(1, fixture.view.failures.stream()
+                    .filter("status.mcp-endpoint-changed"::equals)
+                    .count());
+            assertEquals(source, atomicClient(controller));
+            assertTrue(session(controller) != null);
+        }
+    }
+
+    @Test
+    void mcpEndpointRevocationWarnsAndNotificationsStopAfterClose() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final AcpChatController controller = fixture.controller((configuration, listener) -> {
+            throw new java.io.IOException("no agent in test");
+        });
+        try (AcpClient source = inactiveClient()) {
+            controller.connect("custom", temporaryExecutable().toString(), "");
+            fixture.view.awaitFailure("status.executable-start-failed");
+            set(controller, "client", source);
+            set(controller, "session", new AcpSession("sess-1", List.of(),
+                    new AcpClient.AcpCapabilities(true, false, false, false, false, true, false)));
+            set(controller, "mcpConnection", testMcpConnection());
+
+            fixture.pushMcpConnection(Optional.empty());
+            fixture.view.awaitFailure("status.mcp-endpoint-changed");
+        }
+        controller.close();
+        fixture.pushMcpConnection(Optional.of(testMcpConnection()));
+
+        assertEquals(0, fixture.mcpListeners.size());
+        assertEquals(1, fixture.view.failures.stream()
+                .filter("status.mcp-endpoint-changed"::equals)
+                .count());
+    }
+
     private static AcpSession configuredSession(final String sessionId) {
         return new AcpSession(
                 sessionId,
@@ -1282,6 +1340,15 @@ final class AcpChatControllerTest {
                 new java.util.concurrent.atomic.AtomicInteger();
         private boolean uiRejects;
         private Optional<dev.turboism.sdk.mcp.McpHttpConnection> mcpConnection = Optional.empty();
+        private final java.util.List<
+                        java.util.function.Consumer<Optional<dev.turboism.sdk.mcp.McpHttpConnection>>>
+                mcpListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        private void pushMcpConnection(
+                final Optional<dev.turboism.sdk.mcp.McpHttpConnection> connection) {
+            mcpConnection = connection;
+            mcpListeners.forEach(listener -> listener.accept(connection));
+        }
 
         private AcpChatController controller() {
             return controller(AcpClient::start);
@@ -1356,6 +1423,17 @@ final class AcpChatControllerTest {
                                                 public Registration publish(
                                                         final dev.turboism.sdk.mcp.McpHttpConnection connection) {
                                                     throw new UnsupportedOperationException("not used");
+                                                }
+
+                                                @Override
+                                                public Registration subscribe(
+                                                        final java.util.function.Consumer<
+                                                                        Optional<dev.turboism.sdk.mcp
+                                                                                .McpHttpConnection>>
+                                                                listener) {
+                                                    mcpListeners.add(listener);
+                                                    listener.accept(mcpConnection);
+                                                    return () -> mcpListeners.remove(listener);
                                                 }
                                             })
                                     .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
