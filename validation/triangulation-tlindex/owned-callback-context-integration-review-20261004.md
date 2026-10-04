@@ -1,0 +1,11 @@
+# T108 owned callback上下文热路径
+
+新最终生产候选为6a7aa03b362e100a4a6db2a273da82e63119aa877a6d1dbb38e56aee9b071c13。相对T104678bb3fd，仅生命周期类族与framework版本元数据变化，无条目删除；新增Callback包装类。编译类经shading后常量池布局不同，不能要求原始字节相同；五个变化类的完整静态指纹一致，原始与打包SHA分别保存。工件canonical premain与生产类检查通过，诊断类不进入生产包。
+
+所有owned gateway transformer注册，以及内部raw临时捕获collector，都在实际JVM回调期间设置线程深度标记，finally恢复/移除。Gate.acquire热路径只读标记，定义互斥、公平读写锁、完整操作租约、永久撤销和native回退保持；cold定义变更仍保留StackWalker检查。标记不持有应用对象。重复注册同一个delegate复用包装器身份，由原JDK选择capability组与对应注册进行remove/prefix；成功移除后释放登记引用。
+
+最初每次注册创建独立包装器的实现改变了真实JDK跨capability组重复移除行为，raw差分控制red-r1失败，编译源/类/jar/log保留。修复复用identity后，r2控制因raw参考运行时已有owned计数回调而污染计数失败；参考移到owned注册前，r3通过。r4把嵌套拒绝结果的断言移到JVM callback之外，避免JDK吞异常造成假阳性，56 supported检查PASS；attach/multiple各6检查PASS。不把旧快照升级为最终源证据。
+
+三SDK实际canonical sole-premain矩阵66场景全部PASS，包括edge/mesh/point准入、顺序、callback、永久revocation、完整fallback和冷logger/nested查询。该矩阵编译源与最终源只有格式/import排序差异，逐项核验并保留原pins。60 focused runtime tests、devCheck、previewBundle PASS。独立自有JVM经warmup后1万次租约入口线程分配：旧7680000字节、新240000字节；仅证明该入口分配减少，不证明实际编辑器CPU/耗时/RSS收益。
+
+信任边界仍是唯一可信premain在安装任何hook前只交出owned gateway；raw handle逃逸/JNI/敌意代码不在保证范围。手动调用未登记transformer不是实际JVM callback，cold mutation检查仍拒绝其栈上下文。T106性能FAIL不追认，T057交付不变。下一步新的最终工件实机预检，再以冻结正式门槛评价；多版本/长期/LaneC保持开放。
