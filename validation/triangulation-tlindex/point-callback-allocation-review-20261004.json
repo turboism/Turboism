@@ -1,0 +1,411 @@
+{
+  "task": "T107",
+  "status": "PASS_ALLOCATION_ATTRIBUTION_DIAGNOSTIC_ONLY",
+  "recordings": {
+    "T057": {
+      "totalSampleWeightMiB": 10617.530364990234,
+      "pointCornerLeafWeightMiB": 5864.213165283203,
+      "callbackStackWalkInclusiveMiB": 207.7416534423828,
+      "pointEntryCallbackStackWalkInclusiveMiB": 0.0,
+      "topObjectWeightsMiB": {
+        "com.live2d.graphics3d.type.GVector2": 6237.338920593262,
+        "[Ljava.lang.Object;": 724.4944076538086,
+        "com.live2d.graphics3d.editableMesh.triangulation.j": 644.7247314453125,
+        "java.util.LinkedHashMap$Entry": 568.2812957763672,
+        "java.util.ArrayList": 374.6029815673828,
+        "kotlin.SynchronizedLazyImpl": 304.24473571777344,
+        "[J": 233.3663101196289,
+        "kotlin.Pair": 184.96270751953125,
+        "java.util.HashMap$Node": 176.5859832763672,
+        "java.util.LinkedHashMap$LinkedKeyIterator": 153.46572875976562,
+        "com.live2d.graphics3d.editableMesh.triangulation.l": 151.71829223632812,
+        "com.live2d.graphics3d.editableMesh.triangulation.m": 132.98172760009766
+      }
+    },
+    "T093": {
+      "totalSampleWeightMiB": 10636.289016723633,
+      "pointCornerLeafWeightMiB": 5665.22673034668,
+      "callbackStackWalkInclusiveMiB": 255.5620346069336,
+      "pointEntryCallbackStackWalkInclusiveMiB": 0.0,
+      "topObjectWeightsMiB": {
+        "com.live2d.graphics3d.type.GVector2": 6055.57453918457,
+        "java.util.LinkedHashMap$Entry": 731.247314453125,
+        "[Ljava.lang.Object;": 700.7930297851562,
+        "com.live2d.graphics3d.editableMesh.triangulation.j": 650.9770355224609,
+        "java.util.ArrayList": 386.87017822265625,
+        "kotlin.SynchronizedLazyImpl": 337.21826934814453,
+        "[J": 295.66593170166016,
+        "com.live2d.graphics3d.editableMesh.triangulation.l": 219.87633514404297,
+        "kotlin.Pair": 199.84906768798828,
+        "java.lang.invoke.MemberName": 163.67926025390625,
+        "java.util.LinkedHashMap$LinkedKeyIterator": 131.8996353149414,
+        "com.live2d.graphics3d.editableMesh.triangulation.n": 127.77991485595703
+      }
+    },
+    "T104": {
+      "totalSampleWeightMiB": 7212.13557434082,
+      "pointCornerLeafWeightMiB": 27.90886688232422,
+      "callbackStackWalkInclusiveMiB": 2748.846748352051,
+      "pointEntryCallbackStackWalkInclusiveMiB": 2513.026527404785,
+      "topObjectWeightsMiB": {
+        "java.lang.invoke.MemberName": 1562.7283096313477,
+        "java.lang.StackFrameInfo": 914.6361236572266,
+        "com.live2d.graphics3d.editableMesh.triangulation.j": 674.9680862426758,
+        "[Ljava.lang.Object;": 547.1969528198242,
+        "java.util.LinkedHashMap$Entry": 538.2799224853516,
+        "java.util.ArrayList": 450.5085220336914,
+        "com.live2d.graphics3d.type.GVector2": 423.4882049560547,
+        "kotlin.SynchronizedLazyImpl": 319.57493591308594,
+        "[J": 315.46405029296875,
+        "com.live2d.graphics3d.editableMesh.triangulation.l": 195.6200942993164,
+        "[Ljava.lang.StackFrameInfo;": 191.5499267578125,
+        "kotlin.Pair": 179.75452423095703
+      }
+    }
+  },
+  "pointCallbackStackExample": {
+    "objectClass": "java.lang.invoke.MemberName",
+    "observedCallerPartition": "otherOrUnknown",
+    "frames": [
+      {
+        "method": "java.lang.invoke.MethodHandleImpl$1.newMemberName",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 0
+      },
+      {
+        "method": "java.lang.StackFrameInfo.<init>",
+        "descriptor": "(Ljava/lang/StackWalker;)V",
+        "bci": 16
+      },
+      {
+        "method": "java.lang.StackStreamFactory$StackFrameTraverser$StackFrameBuffer.resize",
+        "descriptor": "(II)V",
+        "bci": 127
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.fetchStackFrames",
+        "descriptor": "(I)I",
+        "bci": 14
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.getNextBatch",
+        "descriptor": "()I",
+        "bci": 61
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.peekFrame",
+        "descriptor": "()Ljava/lang/Class;",
+        "bci": 32
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.hasNext",
+        "descriptor": "()Z",
+        "bci": 1
+      },
+      {
+        "method": "java.lang.StackStreamFactory$StackFrameTraverser.tryAdvance",
+        "descriptor": "(Ljava/util/function/Consumer;)Z",
+        "bci": 16
+      },
+      {
+        "method": "java.util.stream.ReferencePipeline.forEachWithCancel",
+        "descriptor": "(Ljava/util/Spliterator;Ljava/util/stream/Sink;)Z",
+        "bci": 13
+      },
+      {
+        "method": "java.util.stream.AbstractPipeline.copyIntoWithCancel",
+        "descriptor": "(Ljava/util/stream/Sink;Ljava/util/Spliterator;)Z",
+        "bci": 32
+      },
+      {
+        "method": "java.util.stream.AbstractPipeline.copyInto",
+        "descriptor": "(Ljava/util/stream/Sink;Ljava/util/Spliterator;)V",
+        "bci": 49
+      },
+      {
+        "method": "java.util.stream.AbstractPipeline.wrapAndCopyInto",
+        "descriptor": "(Ljava/util/stream/Sink;Ljava/util/Spliterator;)Ljava/util/stream/Sink;",
+        "bci": 13
+      },
+      {
+        "method": "java.util.stream.MatchOps$MatchOp.evaluateSequential",
+        "descriptor": "(Ljava/util/stream/PipelineHelper;Ljava/util/Spliterator;)Ljava/lang/Boolean;",
+        "bci": 14
+      },
+      {
+        "method": "java.util.stream.MatchOps$MatchOp.evaluateSequential",
+        "descriptor": "(Ljava/util/stream/PipelineHelper;Ljava/util/Spliterator;)Ljava/lang/Object;",
+        "bci": 3
+      },
+      {
+        "method": "java.util.stream.AbstractPipeline.evaluate",
+        "descriptor": "(Ljava/util/stream/TerminalOp;)Ljava/lang/Object;",
+        "bci": 88
+      },
+      {
+        "method": "java.util.stream.ReferencePipeline.anyMatch",
+        "descriptor": "(Ljava/util/function/Predicate;)Z",
+        "bci": 8
+      },
+      {
+        "method": "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.lambda$inTransformerCallback$7",
+        "descriptor": "(Ljava/util/stream/Stream;)Ljava/lang/Boolean;",
+        "bci": 6
+      },
+      {
+        "method": "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle$$Lambda$70+0x0000000800c98df0.280744458.apply",
+        "descriptor": "(Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 4
+      },
+      {
+        "method": "java.lang.StackStreamFactory$StackFrameTraverser.consumeFrames",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 25
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.doStackWalk",
+        "descriptor": "(JIIII)Ljava/lang/Object;",
+        "bci": 78
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.callStackWalk",
+        "descriptor": "(JIII[Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 0
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.beginStackWalk",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 31
+      },
+      {
+        "method": "java.lang.StackStreamFactory$AbstractStackWalker.walk",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 8
+      },
+      {
+        "method": "java.lang.StackWalker.walk",
+        "descriptor": "(Ljava/util/function/Function;)Ljava/lang/Object;",
+        "bci": 10
+      },
+      {
+        "method": "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.inTransformerCallback",
+        "descriptor": "()Z",
+        "bci": 8
+      },
+      {
+        "method": "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle$Gate.acquire",
+        "descriptor": "()Ldev/turboism/adapter/cubism/mesh/TriangulationDefinitionLifecycle$Lease;",
+        "bci": 7
+      },
+      {
+        "method": "dev.turboism.adapter.cubism.mesh.LazyTriangulationEdgeBridge.enterPoint",
+        "descriptor": "(Ljava/lang/Class;)Ljava/lang/AutoCloseable;",
+        "bci": 94
+      },
+      {
+        "method": "com.live2d.cubism.doc.model.drawable.artMesh.PointInTriangleD$a.a",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;[F[IIZ)Lcom/live2d/cubism/doc/model/drawable/artMesh/PointInTriangleD;",
+        "bci": 20
+      },
+      {
+        "method": "com.live2d.cubism.doc.model.extension.meshGenerator.a.a.transform",
+        "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;I)Lcom/live2d/graphics3d/type/GVector2;",
+        "bci": 83
+      },
+      {
+        "method": "com.live2d.doc.selection.d$b.a",
+        "descriptor": "(Lcom/live2d/doc/selection/d;[F[F)[F",
+        "bci": 95
+      },
+      {
+        "method": "com.live2d.cubism.doc.model.extension.meshGenerator.a.a.transform",
+        "descriptor": "([F[F)[F",
+        "bci": 3
+      },
+      {
+        "method": "com.live2d.doc.selection.d$b.a",
+        "descriptor": "(Lcom/live2d/doc/selection/d;[F[FILjava/lang/Object;)[F",
+        "bci": 29
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.ac.a",
+        "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+        "bci": 20
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.ac.invoke",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 1
+      },
+      {
+        "method": "kotlin.SynchronizedLazyImpl.getValue",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 54
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.Z$c.c",
+        "descriptor": "()Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;",
+        "bci": 6
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.aA.a",
+        "descriptor": "()Lcom/live2d/doc/selection/m;",
+        "bci": 71
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.aA.invoke",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 1
+      },
+      {
+        "method": "kotlin.SynchronizedLazyImpl.getValue",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 54
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.Z.aW",
+        "descriptor": "()Lcom/live2d/doc/selection/m;",
+        "bci": 6
+      },
+      {
+        "method": "com.live2d.cubism.view.context.action.action_meshEditor.CEAct_ModelingView_MeshEditor_Point_DragSelect$a.a",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/Z;Lcom/live2d/cubism/view/context/action/Z;Z)Lcom/live2d/cubism/view/context/actionManager/a;",
+        "bci": 13
+      },
+      {
+        "method": "com.live2d.cubism.view.context.action.action_meshEditor.CEAct_ModelingView_MeshEditor_Point_DragSelect$a.a",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Lcom/live2d/cubism/view/context/action/Z;Z)Lcom/live2d/cubism/view/context/actionManager/a;",
+        "bci": 7
+      },
+      {
+        "method": "com.live2d.cubism.view.context.actionManager.CEActionManager.decideAction",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Z)Lcom/live2d/cubism/view/context/actionManager/a;",
+        "bci": 691
+      },
+      {
+        "method": "com.live2d.cubism.view.context.CEViewContext_ModelingView.decideAction",
+        "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Z)V",
+        "bci": 60
+      },
+      {
+        "method": "com.live2d.cubism.view.context.CEViewContext.onInputEvent_exe",
+        "descriptor": "(Lcom/live2d/ui/event/h;)V",
+        "bci": 1207
+      },
+      {
+        "method": "com.live2d.cubism.view.context.CEViewContext.onInputEvent",
+        "descriptor": "(Lcom/live2d/ui/event/h;)V",
+        "bci": 13
+      },
+      {
+        "method": "com.live2d.cubism.T.a",
+        "descriptor": "()V",
+        "bci": 11
+      },
+      {
+        "method": "com.live2d.cubism.T.invoke",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 1
+      },
+      {
+        "method": "com.live2d.util.aD.c",
+        "descriptor": "(Lkotlin/jvm/functions/Function0;)V",
+        "bci": 13
+      },
+      {
+        "method": "com.live2d.cubism.CEUpdateManager.repaintCanvas",
+        "descriptor": "(Lcom/live2d/cubism/CEUpdateManager$b;)V",
+        "bci": 135
+      },
+      {
+        "method": "com.live2d.cubism.pack.CECompletePack.repaintCanvas",
+        "descriptor": "(Lcom/live2d/cubism/CEUpdateManager$b;)V",
+        "bci": 14
+      },
+      {
+        "method": "com.live2d.cubism.pack.CECompletePack.repaintCanvas",
+        "descriptor": "(Z)V",
+        "bci": 14
+      },
+      {
+        "method": "com.live2d.cubism.doc.modeling.CModelingEditMode_MeshEditor.commandAutoConnect",
+        "descriptor": "()V",
+        "bci": 279
+      },
+      {
+        "method": "com.live2d.cubism.appCtrlImpl.ar.z",
+        "descriptor": "(Lcom/live2d/cubism/CEAppCtrl;Lcom/live2d/cubism/doc/IDocument;)V",
+        "bci": 82
+      },
+      {
+        "method": "com.live2d.cubism.CEAppCtrl.command_meshEditConnectAuto",
+        "descriptor": "(Lcom/live2d/cubism/doc/IDocument;)V",
+        "bci": 5
+      },
+      {
+        "method": "jdk.internal.reflect.NativeMethodAccessorImpl.invoke0",
+        "descriptor": "(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 0
+      },
+      {
+        "method": "jdk.internal.reflect.NativeMethodAccessorImpl.invoke",
+        "descriptor": "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 133
+      },
+      {
+        "method": "jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke",
+        "descriptor": "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 6
+      },
+      {
+        "method": "java.lang.reflect.Method.invoke",
+        "descriptor": "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
+        "bci": 59
+      },
+      {
+        "method": "dev.turboism.validation.atlasimage.shadow.NativeObserverFreeAutoConnect.invokeMeasured",
+        "descriptor": "(Ljava/lang/reflect/Method;Ljava/lang/Object;Ljava/lang/Object;Ldev/turboism/validation/atlasimage/shadow/CommandCpuBoundary;)Ldev/turboism/validation/atlasimage/shadow/NativeObserverFreeAutoConnect$Interval;",
+        "bci": 27
+      },
+      {
+        "method": "dev.turboism.validation.atlasimage.shadow.NativeCommandJfrClock.invokeMeasured",
+        "descriptor": "(Ljava/lang/reflect/Method;Ljava/lang/Object;Ljava/lang/Object;Ldev/turboism/validation/atlasimage/shadow/CommandCpuBoundary;I)Ldev/turboism/validation/atlasimage/shadow/NativeObserverFreeAutoConnect$Interval;",
+        "bci": 127
+      },
+      {
+        "method": "dev.turboism.validation.atlasimage.shadow.NativeObserverFreeAutoConnect.connect",
+        "descriptor": "(Ljava/lang/Object;Ldev/turboism/validation/atlasimage/shadow/NativeAutoConnect$Binding;Ljava/util/List;Ldev/turboism/validation/atlasimage/shadow/CommandCpuBoundary;I)Ldev/turboism/validation/atlasimage/shadow/NativeObserverFreeAutoConnect$Observation;",
+        "bci": 445
+      },
+      {
+        "method": "dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent$FixedDriver.lambda$observerFreeCommands$4",
+        "descriptor": "(Ljava/lang/Object;Ldev/turboism/validation/atlasimage/shadow/NativeAutoConnect$Binding;Ljava/util/List;Ldev/turboism/validation/atlasimage/shadow/CommandCpuBoundary;I)Ldev/turboism/validation/atlasimage/shadow/NativeObserverFreeAutoConnect$Observation;",
+        "bci": 6
+      },
+      {
+        "method": "dev.turboism.validation.atlasimage.shadow.T040ShadowSceneDriverAgent$FixedDriver$$Lambda$1440+0x0000000801749b18.84901382.call",
+        "descriptor": "()Ljava/lang/Object;",
+        "bci": 20
+      }
+    ],
+    "truncated": true,
+    "sampledWeightBytes": 255623944
+  },
+  "inputPins": {
+    "build/t102-bound-allocation-sites-r1/baseline-allocation-sites.json": "36d309b8b563f2ed175d2dd7bc2a1de7145b5f3b5383f21ae33cb5a756747dd9",
+    "build/t102-bound-allocation-sites-r1/candidate-allocation-sites.json": "3045f56127f69b807df8156798aa19ab00863976c8c9e366154b7bcabeb9c393",
+    "build/t107-point-bound-allocation-r1/sites.json": "e886519a7e786581885b6a67f3e9d5ae2d44a626cde308caf854f0ebff5a47d6",
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationDefinitionLifecycle.java": "d74bd44619ad7e45238eb395c7833671c9102973686fbad777670974687de27b",
+    "build/t107-point-bound-allocation-r1/analysis.log": "20bc26f28f33bee22245f54ba2cc25afe2df7664dc651de0a6fa4ae05e8bce1a"
+  },
+  "formalPerformanceResult": "T106_FAIL_UNCHANGED",
+  "acceptedDelivery": "T057_UNCHANGED",
+  "performanceAcceptance": "NOT_GRANTED",
+  "nextDirection": "Reduce hot point callback-context detection overhead while preserving transformer callback refusal, owned mutation exclusion, permanent revocation and native fallback. Verify complete callback coverage before choosing a fast path.",
+  "limitations": [
+    "JFR sample weights are estimates, not exact bytes or CPU fractions.",
+    "Inclusive stack owners overlap; do not add to object totals.",
+    "Independent historical diagnostics are not a paired formal test or proof of T106 regression cause.",
+    "No new production implementation or new host run in T107."
+  ]
+}
