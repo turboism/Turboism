@@ -10,6 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.objectweb.asm.*;
 
 /** Executes only owned classes in a real JVM; does not load official Cubism code. */
@@ -205,6 +206,67 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
     }
 
     private record Released(WeakReference<ClassLoader> loader, TriangulationDefinitionLifecycle.Gate gate) {}
+
+    private static void callbackRegistrationIdentity(TriangulationDefinitionLifecycle owner) throws Exception {
+        Instrumentation instrumentation = owner.instrumentation(); AtomicInteger invoked = new AtomicInteger();
+        int expectedRetransforms = duplicateRetransformCount(DefinitionAdmissionSelfCheckAgent.instrumentation());
+        ClassFileTransformer duplicate = new ClassFileTransformer() {
+            @Override public byte[] transform(ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes) {
+                if (NAME.equals(name)) invoked.incrementAndGet();
+                return null;
+            }
+        };
+        instrumentation.addTransformer(duplicate, false); instrumentation.addTransformer(duplicate, true);
+        try {
+            Class<?> probe = define(); require(invoked.getAndSet(0) == 2, "duplicate registrations were collapsed");
+            require(instrumentation.removeTransformer(duplicate), "most recent duplicate not removed");
+            instrumentation.retransformClasses(probe);
+            require(invoked.getAndSet(0) == expectedRetransforms,
+                    "duplicate removal changed actual raw capability-group selection");
+            define(); require(invoked.getAndSet(0) == 1, "duplicate removal removed both registrations");
+            require(instrumentation.removeTransformer(duplicate), "remaining duplicate not removed");
+            define(); require(invoked.getAndSet(0) == 0, "removed callback retained in JVM");
+            require(!instrumentation.removeTransformer(duplicate), "unknown transformer falsely removed");
+        } finally { while (instrumentation.removeTransformer(duplicate)) { } }
+    }
+
+    private static int duplicateRetransformCount(Instrumentation raw) throws Exception {
+        AtomicInteger count = new AtomicInteger();
+        ClassFileTransformer duplicate = new ClassFileTransformer() {
+            @Override public byte[] transform(ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes) {
+                if (NAME.equals(name)) count.incrementAndGet();
+                return null;
+            }
+        };
+        Class<?> probe = define();raw.addTransformer(duplicate, false);raw.addTransformer(duplicate, true);
+        try {
+            require(raw.removeTransformer(duplicate), "raw duplicate removal");raw.retransformClasses(probe);return count.get();
+        } finally { while (raw.removeTransformer(duplicate)) { } }
+    }
+
+    private static void throwingCallbackRestoresContext(TriangulationDefinitionLifecycle owner) {
+        Instrumentation instrumentation = owner.instrumentation(); AtomicBoolean refused = new AtomicBoolean();
+        AtomicBoolean nestedRefused = new AtomicBoolean();
+        AtomicReference<TriangulationDefinitionLifecycle.Gate> previous = new AtomicReference<>();
+        ClassFileTransformer callback = new ClassFileTransformer() {
+            @Override public byte[] transform(ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes) {
+                if (type == null && NAME.equals(name) && previous.get() != null) {
+                    refused.set(!admitted(previous.get()));
+                    define();
+                    nestedRefused.set(!admitted(previous.get()));
+                    throw new IllegalStateException("owned callback failure control");
+                }
+                return null;
+            }
+        };
+        instrumentation.addTransformer(callback, true);
+        try {
+            var gate = capture(owner, define()); previous.set(gate);
+            define(); require(refused.get(), "throwing initial callback acquired lease");
+            require(nestedRefused.get(), "nested class load cleared callback context");
+            require(admitted(gate), "callback exception retained context outside JVM callback");
+        } finally { instrumentation.removeTransformer(callback); }
+    }
     private static Released releaseFixture(TriangulationDefinitionLifecycle owner) {
         Class<?> type = define(); var gate = capture(owner, type); require(admitted(gate), "release fixture denied");
         return new Released(new WeakReference<>(type.getClassLoader()), gate);
@@ -238,6 +300,7 @@ public final class OwnedDefinitionLifecycleSelfCheck implements Opcodes {
                 require(!admitted(owner.capture(new Class<?>[] {first}, reviewed(), bytes -> { throw new IllegalArgumentException("owned rejection"); })), "fingerprint failure admitted");
                 require(!admitted(cloned), "failed capture did not retire old gate");
                 registrationDuringCapture(owner); operationLease(owner); callbacksCannotWait(owner); inheritedCallbackCannotMutate(owner);
+                callbackRegistrationIdentity(owner); throwingCallbackRestoresContext(owner);
                 Released released = releaseFixture(owner);
                 for (int attempt = 0; attempt < 80 && released.loader.get() != null; attempt++) { System.gc(); Thread.sleep(10); }
                 require(released.loader.get() == null && admitted(released.gate), "retained gate kept application loader alive");
