@@ -69,6 +69,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
     private long attachFailureCount;
     private long drainRequestCount;
     private long drainCount;
+    private long bindingEpoch;
 
     /**
      * Creates a session that never resolves a manager by itself.
@@ -240,6 +241,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
                 manager = resolved;
                 this.generation = request.generation();
                 bindCount++;
+                bindingEpoch++;
                 RuntimeDiagnostics.info(
                     COMPONENT,
                     "Native edit ingress listening on " + resolved.getClass().getName()
@@ -314,6 +316,49 @@ public final class NativeEditIngressSession implements AutoCloseable {
     public long drainCount() {
         synchronized (bindLock) {
             return drainCount;
+        }
+    }
+
+    /**
+     * Off-EDT stamp for the history snapshot skip gate.
+     *
+     * <p>The stamp covers listener notifications, executed drains and the identity of the bound
+     * undo manager: when the currently resolvable manager differs from the one the listener is
+     * attached to — or the active document can no longer be resolved — the stamp moves so a
+     * reader rebuilds rather than serving the previous document's history, and a coalesced
+     * rebind is posted so the listener follows the active document. Returns {@code -1} while
+     * no listener is attached or no binding request was ever recorded.</p>
+     *
+     * @return the change stamp, or {@code -1} when the gate must stay on the full projection
+     */
+    public long changeStamp() {
+        final VerifiedMemberResolver resolver;
+        synchronized (bindLock) {
+            if (ingress == null || requested == null) return -1L;
+            resolver = requested.resolver();
+        }
+        boolean rebind = false;
+        try {
+            final Object resolved = EditorHistoryNativeBindings.undoManager(resolver);
+            synchronized (bindLock) {
+                if (!closed.get() && ingress != null && resolved != manager) {
+                    // The active document now exposes a different undo manager: move the stamp
+                    // and follow the new manager with the existing coalesced rebind path.
+                    bindingEpoch++;
+                    rebind = true;
+                }
+            }
+        } catch (RuntimeException unavailable) {
+            // No Modeling document or manager is resolvable right now; the cached projection
+            // cannot be trusted to describe the active document either.
+            synchronized (bindLock) {
+                if (!closed.get() && ingress != null) bindingEpoch++;
+            }
+        }
+        if (rebind) retryBinding();
+        synchronized (bindLock) {
+            final long notifications = ingress == null ? 0 : ingress.notificationCount();
+            return notifications + drainCount + bindingEpoch;
         }
     }
 

@@ -859,16 +859,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     /**
-     * Off-EDT signal for the history snapshot skip gate: notification and drain
-     * counters together cover undo admissions and the deferred metadata they
-     * publish, so any native or facade edit moves the stamp. A detached ingress
-     * reports -1 and the snapshot falls back to the full EDT projection.
+     * Off-EDT signal for the history snapshot skip gate: listener notifications,
+     * executed drains and the bound undo-manager epoch together cover undo
+     * admissions, the deferred metadata they publish and active-document
+     * switches, so any of those moves the stamp. A detached ingress reports -1
+     * and the snapshot falls back to the full EDT projection.
      */
     private long historyChangeStamp() {
-        if (!nativeEditIngress.isAttached()) {
-            return -1L;
-        }
-        return nativeEditIngress.notificationCount() + nativeEditIngress.drainCount();
+        return nativeEditIngress.changeStamp();
     }
 
     private void bindTextureAtlasEditorSession(

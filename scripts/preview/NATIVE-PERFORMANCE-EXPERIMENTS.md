@@ -1831,3 +1831,18 @@ unrelated to this change and unreproduced on CI. Real-host run: agent loaded,
 all perf hooks COMPLETE, model rendered, resize driver completed 850 steps,
 runtime log shows no new ERROR/WARN beyond the known demo enable failure and
 single recent-preview capture-diag line.
+
+Review follow-up (same change set):
+
+- The stamp now also covers bound-document drift: `changeStamp()` re-resolves
+  the active document's undo manager off-EDT (the same verified selector path
+  `attemptBind` uses). A different manager — or an unresolvable active document
+  — bumps a binding epoch so a cached projection from a previous document can
+  never be served, and posts one coalesced rebind so the listener follows the
+  active document. Verified by a new unit test that switches the active
+  document without any edit and asserts the stamp moves and the listener
+  re-attaches.
+- texture-atlas-stats cache is generation-tied under one lock: a poll that
+  finishes after `disable()` cannot fill `lastText` for the next enable, so a
+  re-enabled panel can no longer sit on its placeholder until the counts
+  change.

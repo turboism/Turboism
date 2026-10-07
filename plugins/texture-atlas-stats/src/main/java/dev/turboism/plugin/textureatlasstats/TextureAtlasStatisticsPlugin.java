@@ -25,6 +25,9 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     private ScheduledExecutorService scheduler;
     private TextureAtlasEditorPanel panel;
     private String lastText = "";
+    /** Guards generation and lastText together so a late poll can never fill a stale cache. */
+    private final Object textLock = new Object();
+    private int generation;
     private boolean enabled;
 
     @Override
@@ -42,6 +45,10 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             final TextureAtlasEditorSession session = context.cubism().textureAtlasEditorSession();
             final TextureAtlasEditorUi editorUi = context.cubism().textureAtlasEditorUi();
             final PluginLocalization i18n = context.localization();
+            final int active;
+            synchronized (textLock) {
+                active = ++generation;
+            }
             final TextureAtlasEditorPanel attached = editorUi.attach();
             panel = attached;
             attached.setText(i18n.text("texture-atlas-stats.line"));
@@ -59,9 +66,9 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                         .map(TextureAtlasSummary::imageCount)
                         .orElse(0);
                     final String text = i18n.format("texture-atlas-stats.line", whole, selected);
-                    update(attached, text);
+                    update(active, attached, text);
                 } catch (Throwable failure) {
-                    update(attached, i18n.text("texture-atlas-stats.unavailable"));
+                    update(active, attached, i18n.text("texture-atlas-stats.unavailable"));
                 }
             }, 1, 1, TimeUnit.SECONDS);
         } catch (Throwable failure) {
@@ -76,11 +83,14 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             scheduler.shutdownNow();
             scheduler = null;
         }
+        synchronized (textLock) {
+            generation++;
+            lastText = "";
+        }
         if (panel != null) {
             panel.close();
             panel = null;
         }
-        lastText = "";
         enabled = false;
     }
 
@@ -90,12 +100,14 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
         context = null;
     }
 
-    /** Posts to the EDT only when the rendered line actually changed. */
-    private void update(final TextureAtlasEditorPanel attached, final String text) {
-        if (text.equals(lastText)) {
-            return;
+    /** Posts to the EDT only for the live enable generation and only on a text change. */
+    private void update(final int active, final TextureAtlasEditorPanel attached, final String text) {
+        synchronized (textLock) {
+            if (active != generation || text.equals(lastText)) {
+                return;
+            }
+            lastText = text;
         }
-        lastText = text;
         SwingUtilities.invokeLater(() -> attached.setText(text));
     }
 

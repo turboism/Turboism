@@ -16,6 +16,7 @@ import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserv
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -88,6 +89,34 @@ public class NativeEditIngressSessionTest {
         assertEquals(2, fixture.session.bindCount());
         assertEquals(0, previous.listenerCount(), "the previous listener must be gone");
         assertEquals(1, fixture.manager.listenerCount());
+    }
+
+    @Test
+    void changeStampFollowsTheActiveDocumentsManagerAndPostsARebind() {
+        assertEquals(-1L, new Fixture().session.changeStamp(), "an unbound session has no gate");
+        final Fixture fixture = new Fixture();
+        new App(fixture.manager);
+        assertTrue(fixture.session.bind(1L, fixture.resolver));
+
+        final long bound = fixture.session.changeStamp();
+        assertTrue(bound >= 0L);
+        assertEquals(bound, fixture.session.changeStamp(), "a quiet document must not move the stamp");
+
+        final NativeUndoIngressObserverTest.Manager previous = fixture.manager;
+        fixture.replaceManager();
+        new App(fixture.manager);
+
+        assertNotEquals(bound, fixture.session.changeStamp(),
+            "a document switch must move the stamp even without an edit");
+        fixture.runPosted();
+        assertEquals(0, previous.listenerCount(), "the stale listener must be detached");
+        assertEquals(1, fixture.manager.listenerCount(), "the listener followed the active document");
+
+        final long rebound = fixture.session.changeStamp();
+        App.current = null;
+        assertNotEquals(rebound, fixture.session.changeStamp(),
+            "an unresolvable active document must also move the stamp");
+        fixture.session.close();
     }
 
     @Test
