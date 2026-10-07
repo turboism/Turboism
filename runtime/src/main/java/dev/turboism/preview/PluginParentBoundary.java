@@ -24,10 +24,16 @@ import java.util.Enumeration;
  * </ul>
  *
  * <p>Resource lookups filter agent-JAR internals by name so bundled verification records
- * and internal metadata stay unreadable to plugins. Plugin classes never resolve through
- * this loader — they come from the child loader's own JAR — and the runtime-owned shell
- * is constructed on the application classpath by the composition's shell admission, so
- * its contract access is unaffected.
+ * and internal metadata stay unreadable to plugins. {@code META-INF/services/} lookups
+ * are hidden as well: the agent JAR carries classpath SPI registrations whose provider
+ * classes are implementation-internal, so letting the parent enumerate them would both
+ * leak the registrations and break {@link java.util.ServiceLoader} iteration inside
+ * plugins. A plugin's own service files resolve through the child loader's
+ * {@code findResources}, and named-module services resolve through the module system
+ * rather than classpath resources. Plugin classes never resolve through this loader —
+ * they come from the child loader's own JAR — and the runtime-owned shell is constructed
+ * on the application classpath by the composition's shell admission, so its contract
+ * access is unaffected.
  */
 final class PluginParentBoundary extends ClassLoader {
     private static final String[] ALLOWED_FRAMEWORK_PREFIXES = {
@@ -103,6 +109,7 @@ final class PluginParentBoundary extends ClassLoader {
         }
         return path.startsWith("com/live2d/")
             || path.startsWith("jp/noids/")
-            || path.startsWith("META-INF/turboism/");
+            || path.startsWith("META-INF/turboism/")
+            || path.startsWith("META-INF/services/");
     }
 }
