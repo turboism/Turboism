@@ -1,5 +1,6 @@
 button.copy-agent-prompt
 button.copy-endpoint
+button.copy-stdio-config
 button.refresh
 history.client
 history.detail
@@ -12,6 +13,7 @@ history.event.session-initialized
 history.time
 label.agent-prompt
 label.endpoint
+label.stdio-config
 menu.connection
 plugin.description
 plugin.name
@@ -20,4 +22,5 @@ section.connection
 section.history
 status.agent-prompt-copied
 status.endpoint-copied
+status.stdio-config-copied
 window.connection-title
