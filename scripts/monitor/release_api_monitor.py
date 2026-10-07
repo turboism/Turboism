@@ -20,6 +20,10 @@ import urllib.request
 ORIGIN = 'https://api.turboism.dev'
 REPOSITORY = 'turboism/Turboism'
 RECIPIENT = os.environ.get('TURBOISM_MONITOR_RECIPIENT', '')
+# Fail closed on a malformed login: an injected value carrying whitespace or
+# extra '@' handles would otherwise leak mentions into the issue body.
+if not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?', RECIPIENT):
+    RECIPIENT = ''
 CHANNELS = ('stable', 'beta', 'nightly')
 ENDPOINTS = ('/health', *(f'/v1/releases/{c}.json' for c in CHANNELS))
 MARKER = '<!-- turboism-release-api-monitor:v1 -->'
