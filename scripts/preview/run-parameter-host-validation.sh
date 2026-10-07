@@ -47,6 +47,9 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" 
   # containment cleanup owns process teardown. JFR duration is bounded below
   # the window so the dump lands even though the JVM is killed afterwards.
   native_tuned_options=()
+  # Managed GraalVM staged under the validation host's home is addressed through
+  # the Proton Z: mapping; derive it from $HOME rather than a fixed username.
+  graal_java_windows="Z:${HOME//\//\\}\\TurboismValidation\\tools\\graalvm-25.2.4\\bin\\java.exe"
   if [ "$mode" = 'native-tuned' ]; then
     # Direction-A JVM flag A/B: same stock host, tuned GC/heap flags. Target
     # the two n2 findings: a 1.4s max GC pause during heavy-model load and
@@ -89,7 +92,7 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" 
     # managed pinned GraalVM (Graal is its default top-tier JIT — no
     # compiler flag needed). JDK 25 vs bundled 17 compat is the risk.
     native_tuned_options=(
-      --cubism-java 'Z:\home\rain\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
+      --cubism-java "$graal_java_windows"
       --cubism-java-console-marker 'GraalVM'
     )
   elif [ "$mode" = 'native-tuned6' ]; then
@@ -97,7 +100,7 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" 
     # host fine; ZGC (available in GraalVM 25) erases the remaining
     # G1 pause ceiling (n8 max 245ms).
     native_tuned_options=(
-      --cubism-java 'Z:\home\rain\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
+      --cubism-java "$graal_java_windows"
       --cubism-java-console-marker 'GraalVM'
       --jvm-option '-XX:+UseZGC'
     )
