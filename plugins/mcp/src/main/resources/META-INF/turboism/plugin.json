@@ -26,7 +26,7 @@
     {
       "id": "turboism.mcp.connection.publish",
       "scope": "application",
-      "reason": "Publishes the active credential-free loopback endpoint (guarded by Origin checks) to permission-approved automation plugins without exposing MCP private state files."
+      "reason": "Publishes the active token-gated loopback endpoint (guarded by Origin checks; bearer token required for mutating operations) to permission-approved automation plugins without exposing MCP private state files."
     },
     {
       "id": "turboism.action.register",

@@ -47,6 +47,12 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
+- MCP 插件：回环服务器现在要求变更类 `tools/call` 调用与会话关闭携带 `Authorization: Bearer`
+  令牌（以仅所有者权限持久化于 `<插件状态目录>/mcp.token`），并在同目录发布
+  `TurboismMcpBridge.java` stdio↔HTTP 桥接器，使 MCP 客户端仅需一行
+  `{"command":"java","args":[...]}` 即可连接、无需手工处理令牌。只读方法仍保持免认证，
+  仅受回环/Origin/会话检查保护。
+
 - 常规 CI 现在对每次 pull request 和推送到 `main` 都同时运行 `devCheck` 与完整的
   `checkCompletedCommit` 套件，显示相关测试使用 Xvfb。覆盖率守卫拒绝跳过、过滤或
   软性失败的门禁；渠道检查现在跟随 `main` 并纳入根构建输入。
