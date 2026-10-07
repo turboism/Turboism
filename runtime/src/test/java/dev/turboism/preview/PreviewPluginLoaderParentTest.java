@@ -217,6 +217,16 @@ class PreviewPluginLoaderParentTest {
                 "META-INF/turboism/verification/"));
             assertNull(loader.getResource(
                 "META-INF/turboism/plugin.json"));
+            // Classpath SPI registrations from the agent JAR (or, in dev layout,
+            // sibling plugin jars) must stay invisible: their provider classes are
+            // implementation-internal and ServiceLoader would die on the CNFE.
+            assertNull(loader.getResource(
+                "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"));
+            assertEquals(
+                List.of(),
+                Collections.list(loader.getResources(
+                    "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"))
+            );
 
             assertEquals(
                 List.of(),
