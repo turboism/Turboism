@@ -121,10 +121,11 @@ public final class McpPlugin implements TurboismPlugin {
     private synchronized McpConnectionWindow.McpConnectionSnapshot connectionSnapshot() {
         final McpHttpServer current = server;
         if (current == null) {
-            return new McpConnectionWindow.McpConnectionSnapshot(null, java.util.List.of());
+            return new McpConnectionWindow.McpConnectionSnapshot(null, null, java.util.List.of());
         }
         return new McpConnectionWindow.McpConnectionSnapshot(
             current.endpoint(),
+            current.stdioClientConfig(),
             current.connectionHistory()
         );
     }

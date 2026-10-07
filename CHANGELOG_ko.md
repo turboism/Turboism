@@ -59,6 +59,12 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 변경
 
+- MCP 플러그인: 루프백 서버가 변경 도구 `tools/call` 및 세션 종료에 `Authorization: Bearer`
+  토큰(`<plugin-state>/mcp.token`, 소유자 전용 저장)을 요구하도록 변경하고, 같은 디렉터리에
+  `TurboismMcpBridge.java` stdio↔HTTP 릴레이를 게시합니다. MCP 클라이언트는
+  `{"command":"java","args":[...]}` 한 줄로 연결되며 토큰을 직접 다루지 않습니다.
+  읽기 전용 메서드는 계속 인증이 필요 없습니다.
+
 - 일반 CI가 이제 모든 pull request와 `main`으로의 push에서 `devCheck`와 전체
   `checkCompletedCommit` 스위트를 모두 실행하며, 디스플레이 의존 테스트에는 Xvfb를
   사용합니다. 커버리지 가드는 건너뛰거나 필터링되거나 소프트 실패한 게이트를 거부하고,

@@ -13,28 +13,32 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class McpConnectionWindowTest {
 
+    private static final String STDIO_CONFIG = "{\"command\":\"java\",\"args\":[\"/bridge.java\"]}";
+
     @Test
-    void codingAgentPromptNeedsOnlyTheLoopbackEndpoint() {
+    void codingAgentPromptCarriesEndpointAndStdioConfig() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
             URI.create("http://127.0.0.1:43123/mcp"),
+            STDIO_CONFIG,
             List.of()
         );
 
         final String prompt = McpConnectionWindow.codingAgentPrompt(
-            localization("连接到 {0}。无需认证。"),
+            localization("端点 {0} 配置 {1}"),
             snapshot
         );
 
-        assertEquals("连接到 http://127.0.0.1:43123/mcp。无需认证。", prompt);
-        assertFalse(prompt.contains("Authorization"));
-        assertFalse(prompt.contains("Bearer"));
-        assertFalse(prompt.contains("local-token"));
+        assertEquals(
+            "端点 http://127.0.0.1:43123/mcp 配置 " + STDIO_CONFIG,
+            prompt
+        );
     }
 
     @Test
     void codingAgentPromptFallsBackToACompleteEnglishInstruction() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
             URI.create("http://127.0.0.1:43123/mcp"),
+            STDIO_CONFIG,
             List.of()
         );
 
@@ -45,10 +49,9 @@ final class McpConnectionWindowTest {
 
         assertTrue(prompt.startsWith("This is the Turboism MCP server."));
         assertTrue(prompt.contains("http://127.0.0.1:43123/mcp"));
-        assertTrue(prompt.contains("No authentication is required"));
-        assertFalse(prompt.contains("Authorization"));
-        assertFalse(prompt.contains("Bearer"));
-        assertFalse(prompt.contains("local-token"));
+        assertTrue(prompt.contains(STDIO_CONFIG));
+        assertTrue(prompt.contains("Bearer"));
+        assertFalse(prompt.contains("mcp.token value"));
     }
 
     private static PluginLocalization localization(final String pattern) {
