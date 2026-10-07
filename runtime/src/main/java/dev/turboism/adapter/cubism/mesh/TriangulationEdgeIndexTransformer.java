@@ -195,19 +195,6 @@ public final class TriangulationEdgeIndexTransformer implements ClassFileTransfo
             final byte[] classfileBuffer,
             final boolean unnamedModule) {
         if (classfileBuffer == null || classBeingRedefined != null) return null;
-        if (PointTriangleReusePatcher.OWNER.equals(className)) {
-            if (lifecycle == null || !unnamedModule) return null;
-            try {
-                byte[] patched = PointTriangleReusePreparation.prepare(classfileBuffer, domain, loader, lifecycle);
-                reportMembership("TRIANGULATION_POINT_REUSE_PATCHED");
-                return patched;
-            } catch (Throwable failure) {
-                FatalErrors.rethrowIfFatal(failure);
-                reportMembership("TRIANGULATION_POINT_REUSE_DECLINED reason="
-                        + failure.getClass().getSimpleName());
-                return null;
-            }
-        }
         if (NativeMeshEdgePatcher.MESH.equals(className)) {
             // Mesh availability is optional. A late/unavailable mesh must not disable
             // the original h/builder/angle plan or cause an independent capture.

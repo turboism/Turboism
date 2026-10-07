@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.mesh;
 
 import com.sun.management.HotSpotDiagnosticMXBean;
 import java.lang.instrument.ClassFileTransformer;
-import java.lang.instrument.IllegalClassFormatException;
 import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
 import java.lang.ref.WeakReference;
@@ -39,16 +38,11 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
     }
 
     private static final StackWalker STACK = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
-    // The sole premain hands out only the owned gateway before registering installers.
-    // Every gateway registration and the internal capture callback uses this wrapper.
-    // A marker contains no application object and is removed on every callback exit.
-    private static final ThreadLocal<Integer> CALLBACK_DEPTH = new ThreadLocal<>();
     private final Instrumentation raw;
     private final Instrumentation owned;
     private final String startupReason;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
     private final List<WeakReference<Gate>> gates = new ArrayList<>();
-    private final List<Callback> callbacks = new ArrayList<>();
     private boolean closed;
     private boolean captureBroken;
 
@@ -83,33 +77,6 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                     }
                     try {
                         if (mutation) revokeAll("OWNED_DEFINITION_MUTATION");
-                        if (method.getName().equals("addTransformer") && arguments[0] != null) {
-                            ClassFileTransformer transformer = (ClassFileTransformer) arguments[0];
-                            // Reuse identity across registrations: the JVM chooses its
-                            // capability group and latest matching registration itself.
-                            Callback callback = registered(transformer);
-                            if (callback == null) callback = new Callback(transformer);
-                            Object[] wrapped = arguments.clone();
-                            wrapped[0] = callback;
-                            invokeRaw(method, wrapped);
-                            callbacks.add(callback);
-                            return null;
-                        }
-                        if (method.getName().equals("removeTransformer") && arguments[0] != null) {
-                            Callback callback = registered((ClassFileTransformer) arguments[0]);
-                            if (callback == null) return false;
-                            boolean removed = raw.removeTransformer(callback);
-                            if (removed) callbacks.remove(callback);
-                            return removed;
-                        }
-                        if (method.getName().equals("setNativeMethodPrefix") && arguments[0] != null) {
-                            Callback callback = registered((ClassFileTransformer) arguments[0]);
-                            if (callback != null) {
-                                Object[] wrapped = arguments.clone();
-                                wrapped[0] = callback;
-                                return invokeRaw(method, wrapped);
-                            }
-                        }
                         try {
                             return method.invoke(raw, arguments);
                         } catch (InvocationTargetException failure) {
@@ -119,60 +86,6 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
                         if (mutation) lock.writeLock().unlock();
                     }
                 });
-    }
-
-    private Object invokeRaw(java.lang.reflect.Method method, Object[] arguments) throws Throwable {
-        try {
-            return method.invoke(raw, arguments);
-        } catch (InvocationTargetException failure) {
-            throw failure.getCause();
-        }
-    }
-
-    private Callback registered(ClassFileTransformer transformer) {
-        for (int i = callbacks.size() - 1; i >= 0; i--) {
-            Callback callback = callbacks.get(i);
-            if (callback.delegate == transformer) return callback;
-        }
-        return null;
-    }
-
-    private static final class Callback implements ClassFileTransformer {
-        private final ClassFileTransformer delegate;
-
-        private Callback(ClassFileTransformer delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public byte[] transform(ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes)
-                throws IllegalClassFormatException {
-            Integer previous = CALLBACK_DEPTH.get();
-            CALLBACK_DEPTH.set(previous == null ? 1 : previous + 1);
-            try {
-                return delegate.transform(loader, name, type, domain, bytes);
-            } finally {
-                restore(previous);
-            }
-        }
-
-        @Override
-        public byte[] transform(
-                Module module, ClassLoader loader, String name, Class<?> type, ProtectionDomain domain, byte[] bytes)
-                throws IllegalClassFormatException {
-            Integer previous = CALLBACK_DEPTH.get();
-            CALLBACK_DEPTH.set(previous == null ? 1 : previous + 1);
-            try {
-                return delegate.transform(module, loader, name, type, domain, bytes);
-            } finally {
-                restore(previous);
-            }
-        }
-
-        private static void restore(Integer previous) {
-            if (previous == null) CALLBACK_DEPTH.remove();
-            else CALLBACK_DEPTH.set(previous);
-        }
     }
 
     /** Call only from the sole trusted Agent's premain, before any installer receives a handle. */
@@ -261,7 +174,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
 
         /** Null means native fallback. The lease is confined to its acquiring thread. */
         public Lease acquire() {
-            if (!admitted || CALLBACK_DEPTH.get() != null) return null;
+            if (!admitted || inTransformerCallback()) return null;
             owner.lock.readLock().lock();
             if (!admitted || owner.closed || owner.captureBroken) {
                 owner.lock.readLock().unlock();
@@ -325,7 +238,6 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
         }
         lock.writeLock().lock();
         Capture collector = new Capture(fingerprinter);
-        Callback callback = new Callback(collector);
         boolean registered = false;
         try {
             if (closed || captureBroken) {
@@ -352,7 +264,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
             // A retransform can change earlier dependencies even when this capture fails.
             // Retire old gates before entering the JVM, while no operation holds a lease.
             revokeAll("OWNED_CAPTURE_RETRANSFORM");
-            raw.addTransformer(callback, true);
+            raw.addTransformer(collector, true);
             registered = true;
             raw.retransformClasses(actual);
             if (collector.fatal instanceof VirtualMachineError failure) throw failure;
@@ -371,7 +283,7 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
             gate.revoke("CAPTURE_FAILED");
         } finally {
             try {
-                if (registered && !raw.removeTransformer(callback)) {
+                if (registered && !raw.removeTransformer(collector)) {
                     captureBroken = true;
                     gate.revoke("CAPTURE_REMOVAL_FAILED");
                     revokeAll("CAPTURE_REMOVAL_FAILED");
@@ -447,7 +359,6 @@ public final class TriangulationDefinitionLifecycle implements AutoCloseable {
     }
 
     static boolean inTransformerCallback() {
-        if (CALLBACK_DEPTH.get() != null) return true;
         return STACK.walk(frames -> frames.anyMatch(frame -> {
             Class<?> type = frame.getDeclaringClass();
             // Module-aware implementations can be inherited from a base which does

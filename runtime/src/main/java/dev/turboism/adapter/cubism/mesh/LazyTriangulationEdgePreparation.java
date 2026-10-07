@@ -78,7 +78,6 @@ final class LazyTriangulationEdgePreparation {
         byte[] output;
         Map<String, String> expected = fingerprints(family52);
         Map<String, String> meshDependencies = new LinkedHashMap<>();
-        Map<String, String> pointDependencies = new LinkedHashMap<>();
         try (ZipFile host = new ZipFile(hostPath.toFile());
                 ZipFile kotlin = new ZipFile(kotlinPath.toFile())) {
             Map<String, byte[]> metadata = new HashMap<>();
@@ -105,12 +104,6 @@ final class LazyTriangulationEdgePreparation {
                 meshDependencies.clear();
             }
         }
-        try (ZipFile host = new ZipFile(hostPath.toFile())) {
-            PointTriangleReusePreparation.extend(pointDependencies, host);
-        } catch (Throwable unavailable) {
-            FatalErrors.rethrowIfFatal(unavailable);
-            pointDependencies.clear();
-        }
         // Managed host inventories are immutable; also refuse a changed input during preparation.
         require(
                 HostArtifactDigest.from(hostPath).equals(hostArtifact)
@@ -121,7 +114,6 @@ final class LazyTriangulationEdgePreparation {
                 lifecycle,
                 Map.copyOf(expected),
                 Map.copyOf(meshDependencies),
-                Map.copyOf(pointDependencies),
                 hostOrigin,
                 kotlinPath.toUri().normalize(),
                 receipt);
@@ -167,59 +159,33 @@ final class LazyTriangulationEdgePreparation {
             TriangulationDefinitionLifecycle lifecycle,
             Map<String, String> expected,
             Map<String, String> meshDependencies,
-            Map<String, String> pointDependencies,
             URI hostOrigin,
             URI kotlinOrigin,
             Consumer<String> receipt) {
         LazyTriangulationEdgeBridge.Admission captureShared(Class<?> owner) {
-            Map<String, String> extended = new LinkedHashMap<>(expected);
-            boolean meshIncluded = false, pointIncluded = false;
-            ClassLoader loader = owner.getClassLoader();
-            try {
-                if (!meshDependencies.isEmpty()) {
+            if (!meshDependencies.isEmpty()) {
+                try {
+                    ClassLoader loader = owner.getClassLoader();
                     Class<?> mesh = Class.forName(NativeMeshEdgePreparation.MESH, false, loader);
                     if (mesh.getClassLoader() == loader
                             && LazyTriangulationEdgeBridge.meshPreparedMatches(
                                     loader, meshDependencies.get(NativeMeshEdgePreparation.MESH))) {
+                        Map<String, String> extended = new LinkedHashMap<>(expected);
                         extended.putAll(meshDependencies);
-                        meshIncluded = true;
+                        var gate = capture(owner, extended, true);
+                        if (gate != null && gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"))
+                            return new LazyTriangulationEdgeBridge.Admission(gate, true);
                     }
+                } catch (Throwable unavailable) {
+                    FatalErrors.rethrowIfFatal(unavailable);
                 }
-            } catch (Throwable unavailable) {
-                FatalErrors.rethrowIfFatal(unavailable);
-            }
-            try {
-                if (!pointDependencies.isEmpty()) {
-                    Class<?> point = Class.forName(PointTriangleReusePreparation.OWNER, false, loader);
-                    if (point.getClassLoader() == loader
-                            && LazyTriangulationEdgeBridge.pointPreparedMatches(
-                                    loader, pointDependencies.get(PointTriangleReusePreparation.OWNER))) {
-                        extended.putAll(pointDependencies);
-                        pointIncluded = true;
-                    }
-                }
-            } catch (Throwable unavailable) {
-                FatalErrors.rethrowIfFatal(unavailable);
-            }
-            if (meshIncluded || pointIncluded) {
-                var gate = capture(owner, extended, meshIncluded, pointIncluded);
-                if (gate != null && gate.reason().equals("OWNED_FINAL_DEFINITION_MATCH"))
-                    return new LazyTriangulationEdgeBridge.Admission(gate, meshIncluded, pointIncluded);
-            }
-            if (!meshDependencies.isEmpty())
                 report(receipt, "TRIANGULATION_NATIVE_MESH_ADMISSION reason=EXTENDED_DECLINED");
-            if (!pointDependencies.isEmpty())
-                report(receipt, "TRIANGULATION_POINT_REUSE_ADMISSION reason=EXTENDED_DECLINED");
+            }
             return new LazyTriangulationEdgeBridge.Admission(capture(owner, expected, false), false);
         }
 
         TriangulationDefinitionLifecycle.Gate capture(
                 Class<?> owner, Map<String, String> dependencies, boolean meshIncluded) {
-            return capture(owner, dependencies, meshIncluded, false);
-        }
-
-        TriangulationDefinitionLifecycle.Gate capture(
-                Class<?> owner, Map<String, String> dependencies, boolean meshIncluded, boolean pointIncluded) {
             try {
                 require(owner.getName().equals(H) && !owner.getModule().isNamed(), "host identity/module rejected");
                 ClassLoader loader = owner.getClassLoader();
@@ -244,7 +210,6 @@ final class LazyTriangulationEdgePreparation {
                         LazyTriangulationEdgePreparation::dependencyFingerprint);
                 report(receipt, "TRIANGULATION_LAZY_EDGE_ADMISSION reason=" + gate.reason());
                 if (meshIncluded) report(receipt, "TRIANGULATION_NATIVE_MESH_ADMISSION reason=" + gate.reason());
-                if (pointIncluded) report(receipt, "TRIANGULATION_POINT_REUSE_ADMISSION reason=" + gate.reason());
                 return gate;
             } catch (Throwable failure) {
                 FatalErrors.rethrowIfFatal(failure);
