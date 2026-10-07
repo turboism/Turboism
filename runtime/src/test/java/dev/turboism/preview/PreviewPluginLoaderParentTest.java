@@ -4,8 +4,13 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Collections;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -16,6 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * then delegate to the JDK platform class loader so JDK platform modules stay visible.
  * The returned parent is the {@link PluginParentBoundary} wrapper — delegation behavior,
  * not identity, is asserted.
+ *
+ * <p>The boundary is an allow-list: {@code dev.turboism.sdk.*} and
+ * {@code dev.turboism.protocol.*} resolve, every other {@code dev.turboism.*} name —
+ * including every runtime implementation namespace the fat agent JAR exposes on
+ * Boot-Class-Path — is refused, and agent-JAR resource lookups are filtered the same
+ * way so bundled verification records stay unreadable to plugins.
  */
 class PreviewPluginLoaderParentTest {
 
@@ -84,6 +95,40 @@ class PreviewPluginLoaderParentTest {
     }
 
     @Test
+    void runtimeImplementationNamespacesAreDenied() throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[0],
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            // Public runtime classes that really exist on the test classpath: the deny
+            // comes from the boundary, not from an absent type.
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "dev.turboism.core.event.PluginEventBus"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "dev.turboism.adapter.RuntimeHostAdapters"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "dev.turboism.userfile.RuntimeUserFileAccessService"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "dev.turboism.preview.PreviewPluginLoader"));
+        }
+    }
+
+    @Test
+    void hostNamespacesAreDenied() throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[0],
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "com.live2d.cubism.editor.CubismEditor"));
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "jp.noids.util.UtCache"));
+        }
+    }
+
+    @Test
     void sdkIdentityIsPreservedThroughTheBoundary() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(
             new URL[0],
@@ -95,6 +140,98 @@ class PreviewPluginLoaderParentTest {
             assertSame(
                 dev.turboism.sdk.plugin.TurboismPlugin.class,
                 loader.loadClass("dev.turboism.sdk.plugin.TurboismPlugin")
+            );
+        }
+    }
+
+    @Test
+    void protocolIdentityIsPreservedThroughTheBoundary() throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[0],
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            assertSame(
+                dev.turboism.protocol.json.StrictJson.class,
+                loader.loadClass("dev.turboism.protocol.json.StrictJson")
+            );
+        }
+    }
+
+    @Test
+    void pluginClassesUnderDeniedNamespacesStillLoadFromOwnJar() throws Exception {
+        // A plugin may legitimately own classes under dev.turboism.plugin.*: the
+        // boundary CNFE must fall through to the child loader's findClass, never
+        // preempt it. This test class is itself a dev.turboism.* type, so loading it
+        // through a child over the same classes root exercises that exact path.
+        final URL classesRoot = PreviewPluginLoaderParentTest.class
+            .getProtectionDomain().getCodeSource().getLocation();
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[]{classesRoot},
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            final Class<?> pluginOwned = loader.loadClass(
+                "dev.turboism.preview.PreviewPluginLoaderParentTest");
+            assertEquals(
+                PreviewPluginLoaderParentTest.class.getName(),
+                pluginOwned.getName()
+            );
+            // Resolved by the child's own findClass, not shared through the parent.
+            assertNotSame(PreviewPluginLoaderParentTest.class, pluginOwned);
+        }
+    }
+
+    @Test
+    void classpathClassesOutsideJdkModulesAreDenied() throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[0],
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            // Resolves through the parent on the test classpath (unnamed module), so
+            // the java.*/jdk.* named-module gate is what refuses it — exactly what
+            // keeps host classes and unrelocated copies off a plugin's classpath.
+            assertThrows(ClassNotFoundException.class, () -> loader.loadClass(
+                "org.junit.jupiter.api.Test"));
+        }
+    }
+
+    @Test
+    void sdkResourcesResolveButInternalResourcesAreDenied() throws Exception {
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[0],
+            PreviewPluginLoader.resolvePluginParent(
+                PreviewPluginLoaderParentTest.class.getClassLoader())
+        )) {
+            assertNotNull(loader.getResource(
+                "dev/turboism/sdk/plugin/TurboismPlugin.class"));
+            assertNotNull(loader.getResource(
+                "dev/turboism/protocol/json/StrictJson.class"));
+
+            assertNull(loader.getResource(
+                "dev/turboism/core/event/PluginEventBus.class"));
+            assertNull(loader.getResource(
+                "dev/turboism/adapter/RuntimeHostAdapters.class"));
+            assertNull(loader.getResource(
+                "META-INF/turboism/verification/"));
+            assertNull(loader.getResource(
+                "META-INF/turboism/plugin.json"));
+            // Classpath SPI registrations from the agent JAR (or, in dev layout,
+            // sibling plugin jars) must stay invisible: their provider classes are
+            // implementation-internal and ServiceLoader would die on the CNFE.
+            assertNull(loader.getResource(
+                "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"));
+            assertEquals(
+                List.of(),
+                Collections.list(loader.getResources(
+                    "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"))
+            );
+
+            assertEquals(
+                List.of(),
+                Collections.list(loader.getResources(
+                    "dev/turboism/core/event/PluginEventBus.class"))
             );
         }
     }
