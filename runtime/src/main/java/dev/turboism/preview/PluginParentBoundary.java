@@ -1,23 +1,38 @@
 package dev.turboism.preview;
 
+import java.io.IOException;
+import java.net.URL;
+import java.util.Collections;
+import java.util.Enumeration;
+
 /**
  * Narrow parent-boundary filter for external plugin classloaders. Plugin loaders delegate
- * parent-first, so without this filter an external plugin could link against implementation
- * namespaces carried by the agent jar: {@code dev.turboism.internal.*} management contracts
- * (built-in-only services), {@code dev.turboism.shell.*} runtime-owned shell UI classes,
- * the retired {@code dev.turboism.plugin.core.*} core plugin namespace, and
- * {@code dev.turboism.agent.shaded.*} relocated private libraries. The wrapper refuses those
- * names before delegation; every other class — SDK types, JDK platform modules — resolves
- * exactly as before. The runtime-owned shell never loads through this loader: it is
- * constructed on the application classpath by the composition's shell admission, so its
- * contract access is unaffected.
+ * parent-first and the whole agent fat JAR — runtime implementation, adapters, management
+ * contracts, shell UI and relocated private libraries — rides one Boot-Class-Path entry,
+ * so without this filter a plugin could link against or read any class/resource on it.
+ * The boundary therefore mirrors {@code dev.turboism.core.event.SdkContractParent} and
+ * works from an allow-list instead of a prefix deny-list:
+ *
+ * <ul>
+ *   <li>{@code dev.turboism.sdk.*} and {@code dev.turboism.protocol.*} resolve normally —
+ *       the plugin-facing framework surface. Every other {@code dev.turboism.*} name is
+ *       implementation-internal and refused before delegation;</li>
+ *   <li>every other name resolves through the parent <em>and</em> is accepted only when
+ *       it belongs to a named {@code java.*}/{@code jdk.*} module. Classpath and
+ *       boot-classpath classes — host {@code com.live2d.*}/{@code jp.noids.*} types in
+ *       non-bootstrap layouts, test classpath, unrelocated library copies — never pass.</li>
+ * </ul>
+ *
+ * <p>Resource lookups filter agent-JAR internals by name so bundled verification records
+ * and internal metadata stay unreadable to plugins. Plugin classes never resolve through
+ * this loader — they come from the child loader's own JAR — and the runtime-owned shell
+ * is constructed on the application classpath by the composition's shell admission, so
+ * its contract access is unaffected.
  */
 final class PluginParentBoundary extends ClassLoader {
-    private static final String[] DENIED_PREFIXES = {
-        "dev.turboism.internal.",
-        "dev.turboism.shell.",
-        "dev.turboism.plugin.core.",
-        "dev.turboism.agent.shaded."
+    private static final String[] ALLOWED_FRAMEWORK_PREFIXES = {
+        "dev.turboism.sdk.",
+        "dev.turboism.protocol."
     };
 
     private PluginParentBoundary(final ClassLoader delegate) {
@@ -31,13 +46,63 @@ final class PluginParentBoundary extends ClassLoader {
     @Override
     protected Class<?> loadClass(final String name, final boolean resolve)
         throws ClassNotFoundException {
-        for (final String prefix : DENIED_PREFIXES) {
-            if (name.startsWith(prefix)) {
-                throw new ClassNotFoundException(
-                    name + " is implementation-internal, not a plugin-facing API"
-                );
+        if (name.startsWith("dev.turboism.")) {
+            if (allowedFrameworkName(name)) {
+                return super.loadClass(name, resolve);
+            }
+            throw new ClassNotFoundException(
+                name + " is implementation-internal, not a plugin-facing API"
+            );
+        }
+        final Class<?> candidate = super.loadClass(name, resolve);
+        final Module module = candidate.getModule();
+        if (module == null || !isJdkModule(module)) {
+            throw new ClassNotFoundException(
+                name + " is outside the JDK platform modules and the plugin-facing SDK"
+            );
+        }
+        return candidate;
+    }
+
+    @Override
+    public URL getResource(final String name) {
+        if (deniedResourceName(name)) {
+            return null;
+        }
+        return super.getResource(name);
+    }
+
+    @Override
+    public Enumeration<URL> getResources(final String name) throws IOException {
+        if (deniedResourceName(name)) {
+            return Collections.emptyEnumeration();
+        }
+        return super.getResources(name);
+    }
+
+    private static boolean allowedFrameworkName(final String name) {
+        for (final String allowed : ALLOWED_FRAMEWORK_PREFIXES) {
+            if (name.startsWith(allowed)) {
+                return true;
             }
         }
-        return super.loadClass(name, resolve);
+        return false;
+    }
+
+    private static boolean isJdkModule(final Module module) {
+        return module.isNamed()
+            && (module.getName().startsWith("java.")
+                || module.getName().startsWith("jdk."));
+    }
+
+    private static boolean deniedResourceName(final String name) {
+        final String path = name.startsWith("/") ? name.substring(1) : name;
+        if (path.startsWith("dev/turboism/")) {
+            return !(path.startsWith("dev/turboism/sdk/")
+                || path.startsWith("dev/turboism/protocol/"));
+        }
+        return path.startsWith("com/live2d/")
+            || path.startsWith("jp/noids/")
+            || path.startsWith("META-INF/turboism/");
     }
 }
