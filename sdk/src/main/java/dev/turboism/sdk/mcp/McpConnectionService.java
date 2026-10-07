@@ -10,6 +10,10 @@ import java.util.Optional;
  * <p>The runtime supplies a permission-scoped view to each plugin. A server plugin publishes one
  * connection for the lifetime of its returned registration; an automation plugin reads a detached
  * immutable snapshot.</p>
+ *
+ * <p>The published endpoint is a loopback address guarded by Origin validation plus a bearer token
+ * for mutating operations; the token itself lives owner-only in the plugin state directory and is
+ * never part of the published connection material.</p>
  */
 @Incubating
 public interface McpConnectionService {
@@ -38,8 +42,7 @@ public interface McpConnectionService {
      * @param listener receives the detached connection snapshots; empty signals revocation
      * @return idempotent unsubscription handle
      */
-    default Registration subscribe(
-            final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+    default Registration subscribe(final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
         java.util.Objects.requireNonNull(listener, "listener");
         listener.accept(current());
         return () -> {};
@@ -79,8 +82,7 @@ public interface McpConnectionService {
         }
 
         @Override
-        public Registration subscribe(
-                final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
+        public Registration subscribe(final java.util.function.Consumer<Optional<McpHttpConnection>> listener) {
             java.util.Objects.requireNonNull(listener, "listener").accept(Optional.empty());
             return () -> {};
         }

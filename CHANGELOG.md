@@ -99,6 +99,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- MCP plugin: the loopback server now requires `Authorization: Bearer` for mutating
+  `tools/call` effects and session close, backed by a per-user token persisted owner-only at
+  `<plugin-state>/mcp.token`, and publishes a `TurboismMcpBridge.java` stdio-to-HTTP relay next
+  to it so MCP clients connect with a single `{"command":"java","args":[...]}` line without
+  handling the token. Read-only methods stay credential-free behind the existing
+  loopback/Origin/session checks.
+
 - Ordinary CI now runs both `devCheck` and the complete `checkCompletedCommit` suite on every pull
   request and push to `main`, using Xvfb for display-dependent tests. Coverage guards reject skipped,
   filtered or soft-failed gates; channel checks now follow `main` and include root build inputs.
@@ -187,6 +194,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
   so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely
   instead of starting on a real host.
+- Removed machine-specific literals from tooling: preview launch scripts no longer probe a
+  personal `F:\Live2D` install path, the parameter-validation GraalVM probe derives its Proton
+  `Z:` path from `$HOME` instead of a hardcoded username, the release API monitor reads its
+  incident recipient from `TURBOISM_MONITOR_RECIPIENT` (fed by the `RELEASE_MONITOR_RECIPIENT`
+  repository variable), and the remote-hygiene gate now also rejects `Users\`/`home\` spellings
+  of the developer home directory, not only `/home/`.
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign
   sources while preserving valid copies between active views owned by the same plugin.

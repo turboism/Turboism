@@ -72,6 +72,12 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 变更
 
+- MCP 插件：回环服务器现在要求变更类 `tools/call` 调用与会话关闭携带 `Authorization: Bearer`
+  令牌（以仅所有者权限持久化于 `<插件状态目录>/mcp.token`），并在同目录发布
+  `TurboismMcpBridge.java` stdio↔HTTP 桥接器，使 MCP 客户端仅需一行
+  `{"command":"java","args":[...]}` 即可连接、无需手工处理令牌。只读方法仍保持免认证，
+  仅受回环/Origin/会话检查保护。
+
 - 常规 CI 现在对每次 pull request 和推送到 `main` 都同时运行 `devCheck` 与完整的
   `checkCompletedCommit` 套件，显示相关测试使用 Xvfb。覆盖率守卫拒绝跳过、过滤或
   软性失败的门禁；渠道检查现在跟随 `main` 并纳入根构建输入。
@@ -122,6 +128,10 @@ Turboism 的所有重要变更都记录在本文件中。
 - `ClassPinTable.load` 现在在代理类没有定义类加载器时回退到系统类加载器：发行版 agent 的
   `Boot-Class-Path` 清单项使这些类由引导类加载器加载，pin 表查找在 premain 期间解引用 null，
   导致整个运行时在真实宿主上以安全方式失败而非正常启动。
+- 清除工具链中机器特定的字面值：预览启动脚本不再探测个人 `F:\Live2D` 安装路径；参数验证的
+  GraalVM 探测改为从 `$HOME` 推导 Proton `Z:` 路径而非写死用户名；发布 API 巡检的故障接收人
+  改由 `TURBOISM_MONITOR_RECIPIENT` 提供（工作流从 `RELEASE_MONITOR_RECIPIENT` 仓库变量注入）；
+  远程卫生检查在 `/home/` 之外还会拒绝 `Users\`、`home\` 形式的开发者主目录写法。
 - 动画文档、场景、轨道与属性现在在整个对象图中强制插件权限、作用域存活性和文档世代。
   关键帧复制拒绝过期或外来来源，同时保留同一插件拥有的活动视图之间的有效复制。
 - 动画时间缩放现在对关键帧及其贝塞尔控制柄时间应用相同的仿射变换，而不是仅平移控制柄。

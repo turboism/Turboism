@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Task-local credential-free raw HTTP MCP client for exact-host validation."""
+"""Task-local bearer-token raw HTTP MCP client for exact-host validation."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -75,7 +76,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class McpClient:
-    def __init__(self, endpoint: str, advertised_version: str) -> None:
+    def __init__(self, endpoint: str, advertised_version: str, token: str) -> None:
         parsed = urllib.parse.urlsplit(endpoint)
         if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
                 or parsed.username is not None or parsed.password is not None
@@ -88,6 +89,7 @@ class McpClient:
             raise ValidationFailure("connection protocol version is unexpected")
         self.endpoint = endpoint
         self.protocol_version = advertised_version
+        self.token = token
         self.session_id: str | None = None
         self.next_id = 1
 
@@ -136,6 +138,7 @@ class McpClient:
             return
         request = urllib.request.Request(self.endpoint, method="DELETE")
         request.add_header("MCP-Session-Id", self.session_id)
+        request.add_header("Authorization", "Bearer " + self.token)
         try:
             with self.opener.open(request, timeout=15) as response:
                 require(response.status == 200, f"DELETE session HTTP status={response.status}")
@@ -163,6 +166,7 @@ class McpClient:
         )
         request.add_header("Accept", "application/json, text/event-stream")
         request.add_header("Content-Type", "application/json")
+        request.add_header("Authorization", "Bearer " + self.token)
         if include_version:
             request.add_header("MCP-Protocol-Version", self.protocol_version)
         if include_session and self.session_id is not None:
@@ -904,6 +908,7 @@ def main() -> int:
     state_root = home / "state"
     result_path = state_root / "mcp-host-validation.properties"
     connection_path = state_root / "dev.turboism.plugin.mcp" / "mcp-connection.json"
+    token_path = state_root / "dev.turboism.plugin.mcp" / "mcp.token"
     report = ["schemaVersion=1", f"runId={task_id}", "client=python-stdlib-http"]
     status = "FAIL"
     client: McpClient | None = None
@@ -912,10 +917,14 @@ def main() -> int:
         connection = await_connection(connection_path, 300)
         endpoint = text_value(connection.get("endpoint"), "endpoint")
         require("authorization" not in connection, "connection file contains authorization material")
+        token = token_path.read_text(encoding="utf-8").strip()
+        require(bool(re.fullmatch(r"[0-9a-f]{64}", token)), "mcp.token is malformed")
+        require(token not in connection_path.read_text(encoding="utf-8"),
+                "connection file leaks the bearer token")
         advertised_version = text_value(connection.get("protocolVersion"), "protocolVersion")
         report.append("assertion.connectionFile.status=PASS")
-        report.append("assertion.credentialFreeConnection.status=PASS")
-        client = McpClient(endpoint, advertised_version)
+        report.append("assertion.tokenGatedConnection.status=PASS")
+        client = McpClient(endpoint, advertised_version, token)
         initialized = client.initialize()
         report.append("assertion.initialize.status=PASS")
         report.append(f"serverVersion={sanitize(str(initialized.get('protocolVersion')))}")
@@ -1149,7 +1158,7 @@ def main() -> int:
                 client.delete_session()
             except Exception as failure:
                 report.append(f"cleanupError={sanitize(failure.__class__.__name__)}")
-        report.append("authentication=NONE")
+        report.append("authentication=bearer-write-gated")
         report.append(
             "modelMutation="
             + sanitize(",".join(mutations) if mutations else "NONE")
