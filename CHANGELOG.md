@@ -120,6 +120,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Removed machine-specific literals from tooling: preview launch scripts no longer probe a
+  personal `F:\Live2D` install path, the parameter-validation GraalVM probe derives its Proton
+  `Z:` path from `$HOME` instead of a hardcoded username, the release API monitor reads its
+  incident recipient from `TURBOISM_MONITOR_RECIPIENT` (fed by the `RELEASE_MONITOR_RECIPIENT`
+  repository variable), and the remote-hygiene gate now also rejects `Users\`/`home\` spellings
+  of the developer home directory, not only `/home/`.
 - Animation documents, scenes, tracks and attributes now enforce plugin permissions, scope liveness
   and document generations throughout the object graph. Keyframe copies reject stale or foreign
   sources while preserving valid copies between active views owned by the same plugin.

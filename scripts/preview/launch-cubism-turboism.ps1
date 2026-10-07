@@ -30,7 +30,6 @@ function Resolve-CubismRoot {
         $candidates += $env:CUBISM_ROOT
     }
     $candidates += @(
-        "F:\Live2D\Live2D Cubism 5.3.02",
         "C:\Program Files\Live2D Cubism 5.3.02",
         "C:\Program Files (x86)\Live2D Cubism 5.3.02"
     )
@@ -135,8 +134,8 @@ function Test-CompatibleGraalJava {
         $bin = Split-Path -Parent (Resolve-Path -LiteralPath $JavaPath).Path
         $graalHome = Split-Path -Parent $bin
         $release = Join-Path $graalHome "release"
-        if (-not (Test-Path -LiteralPath $release -PathType Leaf)
-            -or (Get-Item -LiteralPath $release).Length -gt 65536) {
+        if (-not (Test-Path -LiteralPath $release -PathType Leaf) -or
+            (Get-Item -LiteralPath $release).Length -gt 65536) {
             return $false
         }
         $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop

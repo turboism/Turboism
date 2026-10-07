@@ -64,7 +64,7 @@ class SaveDirectoryHistoryProviderTest {
     @Test
     void windowsBackslashesRoundTripThroughPropertiesEscaping() {
         final SaveDirectoryHistoryProvider provider = provider();
-        final Path windowsPath = Path.of("C:\\Users\\rain\\My Documents\\saves");
+        final Path windowsPath = Path.of("C:\\Users\\tester\\My Documents\\saves");
 
         provider.saveExportDirectory(windowsPath);
 
