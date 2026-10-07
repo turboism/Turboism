@@ -48,10 +48,15 @@ final class FxShellLauncherTest {
 
     @Test
     void linuxLaunchQuotesExecutableAndWorkspaceWithoutJoiningUntrustedInput() {
+        // A workspace carrying a space and an apostrophe; resolved through the
+        // same absolute-normalized form the launcher emits so the quoting
+        // contract holds on every host OS.
+        final Path workspace = directory.resolve("work space's copy")
+            .toAbsolutePath().normalize();
         final List<String> command = FxShellLauncher.linuxCommand(
             "/usr/bin/gnome-terminal",
             "/opt/fx runtime/fx",
-            Path.of("/tmp/work space's copy"),
+            workspace,
             FxInteractiveAction.LOGIN_GROK
         );
 
@@ -59,7 +64,8 @@ final class FxShellLauncherTest {
             "/usr/bin/gnome-terminal", "--", "/bin/sh", "-lc"
         ), command.subList(0, 4));
         assertTrue(command.get(4).contains("'/opt/fx runtime/fx' 'login' 'grok'"));
-        assertTrue(command.get(4).contains("'/tmp/work space'\"'\"'s copy'"));
+        assertTrue(command.get(4).contains(
+            "'" + workspace.toString().replace("'", "'\"'\"'") + "'"));
         assertTrue(command.get(4).contains("exec \"${SHELL:-/bin/sh}\" -l"));
     }
 
@@ -84,17 +90,19 @@ final class FxShellLauncherTest {
 
     @Test
     void macLaunchPassesWorkspaceExecutableAndArgumentsAsSeparateValues() throws Exception {
+        final Path workspace = directory.resolve("work space")
+            .toAbsolutePath().normalize();
         final FxShellLauncher.LaunchPlan plan = FxShellLauncher.plan(
             "Mac OS X",
             "/Applications/fx runtime/fx",
-            Path.of("/tmp/work space"),
+            workspace,
             FxInteractiveAction.SETUP_GATEWAY_KEY,
             Map.of()
         );
 
         assertEquals("/usr/bin/osascript", plan.command().get(0));
         assertEquals("--", plan.command().get(3));
-        assertEquals("/tmp/work space", plan.command().get(4));
+        assertEquals(workspace.toString(), plan.command().get(4));
         assertEquals("/Applications/fx runtime/fx", plan.command().get(5));
         assertEquals("setup", plan.command().get(6));
     }

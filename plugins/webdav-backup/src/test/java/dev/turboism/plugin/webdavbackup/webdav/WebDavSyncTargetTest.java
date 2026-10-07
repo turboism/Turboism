@@ -3,6 +3,7 @@ package dev.turboism.plugin.webdavbackup.webdav;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -263,15 +264,30 @@ class WebDavSyncTargetTest {
     void encodesEachUriSegmentWhenUploadingArtifacts() throws Exception {
         WebDavSyncTarget target = new WebDavSyncTarget(
             config(true, 0, 0, "/turbo ism/备份", "", ""), diagnostics::add);
-        File artifact = artifact("model 备份 #1?.cmo3");
+        File artifact = artifact("model 备份 #1.cmo3");
         target.sync(List.of(artifact));
         assertTrue(rawRequests.contains("MKCOL /turbo%20ism/%E5%A4%87%E4%BB%BD"),
             "collection segments must be percent-encoded, got " + rawRequests);
         assertTrue(rawRequests.contains(
-                "PUT /turbo%20ism/%E5%A4%87%E4%BB%BD/model%20%E5%A4%87%E4%BB%BD%20%231%3F.cmo3"),
+                "PUT /turbo%20ism/%E5%A4%87%E4%BB%BD/model%20%E5%A4%87%E4%BB%BD%20%231.cmo3"),
             "file name segments must be percent-encoded, got " + rawRequests);
-        assertTrue(requests.contains("PUT /turbo ism/备份/model 备份 #1?.cmo3"),
+        assertTrue(requests.contains("PUT /turbo ism/备份/model 备份 #1.cmo3"),
             "the decoded resource name must be the original file name");
+    }
+
+    @Test
+    void encodesQueryMarkSegmentsOnPosixHosts() throws Exception {
+        // '?' is a reserved NTFS character: such artifact names can only exist
+        // on POSIX hosts, so the lane is gated to them.
+        Assumptions.assumeTrue(File.separatorChar == '/',
+            "file names containing '?' cannot exist on this file system");
+        WebDavSyncTarget target = new WebDavSyncTarget(
+            config(true, 0, 0, "/turbo ism/备份", "", ""), diagnostics::add);
+        File artifact = artifact("model 备份 #1?.cmo3");
+        target.sync(List.of(artifact));
+        assertTrue(rawRequests.contains(
+                "PUT /turbo%20ism/%E5%A4%87%E4%BB%BD/model%20%E5%A4%87%E4%BB%BD%20%231%3F.cmo3"),
+            "a literal '?' must be percent-encoded, got " + rawRequests);
     }
 
     @Test
