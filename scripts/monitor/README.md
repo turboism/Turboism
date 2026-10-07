@@ -24,7 +24,8 @@ service account or stored secret.
 A confirmed incident opens an issue titled `[API monitor] api.turboism.dev 异常`,
 assigns and mentions the GitHub login from `TURBOISM_MONITOR_RECIPIENT` (the
 workflow feeds it from the `RELEASE_MONITOR_RECIPIENT` repository variable; when
-unset the issue is still opened, just unassigned and without an @-mention), and
+unset — or when the value is not a single valid GitHub login — the issue is
+still opened, just unassigned and without an @-mention), and
 includes the failing paths, HTTP statuses,
 check time and Actions run link. Notifications arrive through GitHub; email and
 mobile delivery depend on the recipient's GitHub notification settings. This is
