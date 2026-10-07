@@ -88,14 +88,10 @@ final class NativeMeshEdgeTableTest {
                 }
                 if (i % 1000 == 0)
                     for (var row : expected.entrySet())
-                        assertEquals(
-                                row.getValue().intValue(),
-                                table.find(row.getKey().first(), row.getKey().second()));
+                        assertEquals(row.getValue().intValue(), table.find(row.getKey().first(), row.getKey().second()));
             }
             for (var row : expected.entrySet())
-                assertEquals(
-                        row.getValue().intValue(),
-                        table.find(row.getKey().first(), row.getKey().second()));
+                assertEquals(row.getValue().intValue(), table.find(row.getKey().first(), row.getKey().second()));
         }
         assertEquals(initial, NativeMeshEdgeTable.reservedBytes());
     }
@@ -131,10 +127,7 @@ final class NativeMeshEdgeTableTest {
                 assertNotNull(growing);
                 boolean refused = false;
                 for (int i = 0; i < NativeMeshEdgeTable.MAX_ENTRIES; i++) {
-                    if (!growing.putFirst(i, -i, i)) {
-                        refused = true;
-                        break;
-                    }
+                    if (!growing.putFirst(i, -i, i)) { refused = true; break; }
                     assertTrue(NativeMeshEdgeTable.reservedBytes() <= NativeMeshEdgeTable.PROCESS_BUDGET_BYTES);
                 }
                 assertTrue(refused, "replacement plus old buffers must fit the process budget");
