@@ -332,8 +332,9 @@ public interface PluginContext {
      * Returns the process-local MCP connection publication boundary.
      *
      * <p>The runtime permission-scopes publication and reads independently. The published
-     * endpoint is a credential-free loopback address guarded only by Origin validation, so it
-     * carries no credentials or authorization material.</p>
+     * endpoint is a loopback address guarded by Origin validation plus a bearer token for
+     * mutating operations; the token itself lives owner-only in the plugin state directory
+     * and is never part of the published connection material.</p>
      *
      * @return the current plugin's MCP connection service
      */

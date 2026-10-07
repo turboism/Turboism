@@ -63,6 +63,12 @@ Turboism のすべての重要な変更はこのファイルに記録されて�
 
 ### 変更
 
+- MCP プラグイン: ループバックサーバーは変更系 `tools/call` およびセッション終了に
+  `Authorization: Bearer` トークン（`<plugin-state>/mcp.token` に所有者限定で永続化）を
+  必須化し、同ディレクトリに `TurboismMcpBridge.java` stdio↔HTTP リレーを発行します。
+  MCP クライアントは `{"command":"java","args":[...]}` 一行で接続でき、トークンを意識しません。
+  読み取り専用メソッドは従来どおり認証不要です。
+
 - 通常 CI がすべての pull request と `main` への push で `devCheck` と完全な
   `checkCompletedCommit` スイートの両方を実行するようになり、表示依存テストには Xvfb を
   使用します。カバレッジガードはスキップ、フィルタ、ソフトフェイルされたゲートを拒否し、
