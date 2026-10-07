@@ -70,6 +70,8 @@ public final class NativeEditIngressSession implements AutoCloseable {
     private long drainRequestCount;
     private long drainCount;
     private long bindingEpoch;
+    /** Notifications folded in when an ingress is replaced, so the stamp never moves backward. */
+    private long retiredNotificationCount;
 
     /**
      * Creates a session that never resolves a manager by itself.
@@ -322,8 +324,10 @@ public final class NativeEditIngressSession implements AutoCloseable {
     /**
      * Off-EDT stamp for the history snapshot skip gate.
      *
-     * <p>The stamp covers listener notifications, executed drains and the identity of the bound
-     * undo manager: when the currently resolvable manager differs from the one the listener is
+     * <p>The stamp covers listener notifications (cumulative across ingress replacements, so a
+     * rebind can never return the stamp to a value a reader already saw), executed drains and the
+     * identity of the bound undo manager: when the currently resolvable manager differs from the
+     * one the listener is
      * attached to — or the active document can no longer be resolved — the stamp moves so a
      * reader rebuilds rather than serving the previous document's history, and a coalesced
      * rebind is posted so the listener follows the active document. Returns {@code -1} while
@@ -357,7 +361,8 @@ public final class NativeEditIngressSession implements AutoCloseable {
         }
         if (rebind) retryBinding();
         synchronized (bindLock) {
-            final long notifications = ingress == null ? 0 : ingress.notificationCount();
+            final long notifications = retiredNotificationCount
+                + (ingress == null ? 0 : ingress.notificationCount());
             return notifications + drainCount + bindingEpoch;
         }
     }
@@ -564,6 +569,11 @@ public final class NativeEditIngressSession implements AutoCloseable {
         manager = null;
         generation = -1;
         drainScheduled.set(false);
-        if (current != null) current.close();
+        if (current != null) {
+            // The replacement starts at zero, so the stamp keeps this count under a
+            // cumulative base and cannot reproduce a stamp a reader already saw.
+            retiredNotificationCount += current.notificationCount();
+            current.close();
+        }
     }
 }

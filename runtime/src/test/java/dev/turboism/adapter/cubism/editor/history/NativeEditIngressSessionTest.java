@@ -120,6 +120,27 @@ public class NativeEditIngressSessionTest {
     }
 
     @Test
+    void changeStampDoesNotFallBackAcrossARebind() {
+        final Fixture fixture = new Fixture();
+        new App(fixture.manager);
+        assertTrue(fixture.session.bind(1L, fixture.resolver));
+
+        fixture.manager.commit(new PartMembershipEntry("BodyMesh", true));
+        fixture.manager.commit(new PartMembershipEntry("OtherMesh", true));
+        fixture.runPosted();
+        final long cached = fixture.session.changeStamp();
+
+        fixture.replaceManager();
+        new App(fixture.manager);
+        assertNotEquals(cached, fixture.session.changeStamp());
+        fixture.runPosted(); // the rebind replaces the ingress and resets its notification count
+
+        assertNotEquals(cached, fixture.session.changeStamp(),
+            "notifications reset by a rebind must not reproduce a stamp a reader already cached");
+        fixture.session.close();
+    }
+
+    @Test
     void deactivatingForATemporaryDisconnectStillAllowsARebind() {
         final Fixture fixture = new Fixture();
         fixture.session.bind(1L, fixture.resolver);
