@@ -19,7 +19,7 @@ import urllib.request
 
 ORIGIN = 'https://api.turboism.dev'
 REPOSITORY = 'turboism/Turboism'
-RECIPIENT = 'RainTrap341'
+RECIPIENT = os.environ.get('TURBOISM_MONITOR_RECIPIENT', '')
 CHANNELS = ('stable', 'beta', 'nightly')
 ENDPOINTS = ('/health', *(f'/v1/releases/{c}.json' for c in CHANNELS))
 MARKER = '<!-- turboism-release-api-monitor:v1 -->'
@@ -187,12 +187,15 @@ def notify(report, api, run_url):
     if not report['healthy']:
         if incidents:
             return {'action': 'ongoing', 'issues': [r['number'] for r in incidents]}
-        body = (f'{MARKER}\n@{RECIPIENT} 检测到发布 API 异常，失败端点已重试确认。\n\n'
+        mention = f'@{RECIPIENT} ' if RECIPIENT else ''
+        body = (f'{MARKER}\n{mention}检测到发布 API 异常，失败端点已重试确认。\n\n'
                 + summary(report) + f'\n\n[巡检运行]({run_url})\n\n'
                 '同一次故障不重复发送提醒；恢复后自动关闭此记录。'
                 '仅检查公开 JSON，不下载文件，也不会自动重启、部署或修改发布数据。')
-        issue = api('POST', '/issues', {'title': '[API monitor] api.turboism.dev 异常',
-                                       'body': body, 'assignees': [RECIPIENT]})
+        payload = {'title': '[API monitor] api.turboism.dev 异常', 'body': body}
+        if RECIPIENT:
+            payload['assignees'] = [RECIPIENT]
+        issue = api('POST', '/issues', payload)
         return {'action': 'opened', 'issues': [issue['number']]}
     for issue in incidents:
         body = (issue['body'] + f"\n\n## 已恢复\n\n{report['checkedAt']} (UTC)\n\n"

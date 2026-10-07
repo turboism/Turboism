@@ -206,6 +206,12 @@ def scan_repository_content(path, data):
     personal_user = "r" + "ain"
     if "/home/" + personal_user in text:
         rules.append("local-machine-home")
+    # The \Users\ spelling of the developer home is absent from reachable
+    # history, so it can be rejected outright. \home\rain and the
+    # Java-escaped \\Users\\rain already exist in history and --all has
+    # no baseline, so gating those spellings needs a history rewrite.
+    if re.search(r"[\\/]Users[\\/]" + personal_user + r"(?:[\\/]|$)", text):
+        rules.append("local-machine-home")
     if re.search(r"/workspace/projects/" + "turboism" + r"(?:/|$)", text):
         rules.append("local-machine-workspace")
     if personal_user + "@172.17.0.1" in text:
