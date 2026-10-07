@@ -1846,3 +1846,10 @@ Review follow-up (same change set):
   finishes after `disable()` cannot fill `lastText` for the next enable, so a
   re-enabled panel can no longer sit on its placeholder until the counts
   change.
+
+Re-verified on the reviewed 5.3.02 host at 917998ad: two documents open
+(fixture + a duplicate), repeated tab switches, clean agent log (no new
+ERROR/WARN beyond the pre-existing demo-plugin and recent-preview
+environmental entries), probe CSV flowing, ~15 turboism-named threads
+with workers inside the 60 s retire window, probe idle CPU ~0.5 %
+(idle and docswitch phases alike).
