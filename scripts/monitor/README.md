@@ -22,7 +22,11 @@ service account or stored secret.
 ## Notifications and recovery
 
 A confirmed incident opens an issue titled `[API monitor] api.turboism.dev 异常`,
-assigns and mentions `RainTrap341`, and includes the failing paths, HTTP statuses,
+assigns and mentions the GitHub login from `TURBOISM_MONITOR_RECIPIENT` (the
+workflow feeds it from the `RELEASE_MONITOR_RECIPIENT` repository variable; when
+unset — or when the value is not a single valid GitHub login — the issue is
+still opened, just unassigned and without an @-mention), and
+includes the failing paths, HTTP statuses,
 check time and Actions run link. Notifications arrive through GitHub; email and
 mobile delivery depend on the recipient's GitHub notification settings. This is
 not a ChatGPT scheduled notification or a Discord webhook.

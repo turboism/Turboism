@@ -16,7 +16,7 @@ interface: swing
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Runs a credential-free MCP Streamable HTTP server on the local loopback interface.
+Runs a token-gated MCP Streamable HTTP server on the local loopback interface, plus a stdio bridge so MCP clients need no credential handling.
 
 | Detail | Value |
 |---|---|
@@ -33,6 +33,7 @@ Runs a credential-free MCP Streamable HTTP server on the local loopback interfac
 - Exposes active-document, model, workspace, Cubism Core, and sanitized runtime diagnostics as JSON resources.
 - Provides workflow prompts for inspection, diagnostics, editing, recovery, and bounded Editor automation.
 - Serves only loopback clients and enforces origin, body-size, protocol, session, and rate limits.
+- Gates mutating tool calls and session close behind a per-user bearer token that the stdio bridge supplies automatically.
 
 ## Requirements and compatibility
 
@@ -46,7 +47,7 @@ Runs a credential-free MCP Streamable HTTP server on the local loopback interfac
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
 2. Open **Turboism → MCP Connection**. This window shows the current local address and bounded process-local connection/request history.
-3. Copy the address into a local coding agent. The default is `http://127.0.0.1:43123/mcp`; no authentication header is required.
+3. Copy the **Stdio client config** line into a local MCP client (recommended), or the HTTP **Address** into a direct-HTTP client. The default is `http://127.0.0.1:43123/mcp`. Stdio clients never see the token; direct-HTTP clients must send `Authorization: Bearer <token>` (contents of `mcp.token` in the plugin state directory) for mutating tool calls and session close.
 4. Keep the window open when diagnosing a client connection; use **Refresh** to load the newest history entries.
 5. Programmatic local consumers may still read the owner-protected `mcp-connection.json` from the per-user plugin state directory.
 6. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.
@@ -55,16 +56,31 @@ Turboism binds the transport to loopback, rejects unsafe connection-file paths, 
 
 ## How to use
 
-Connect a local MCP client with the address shown in **Turboism → MCP Connection**, initialize the session, then use the catalog below. Start with read resources and prompts; invoke write tools only after reviewing the requested operations and their permission scope.
+Connect a local MCP client with the configuration shown in **Turboism → MCP Connection**, initialize the session, then use the catalog below. Start with read resources and prompts; invoke write tools only after reviewing the requested operations and their permission scope.
 
 ### Common coding agents
 
-**Claude Code**
+**stdio (recommended)** — the plugin publishes `TurboismMcpBridge.java` next to `mcp.token` in its state directory; the bridge relays stdio frames to the loopback endpoint with the bearer token attached. The connection window shows the exact, copyable line:
+
+```json
+{
+  "mcpServers": {
+    "turboism": {
+      "command": "java",
+      "args": ["<plugin-state-dir>/TurboismMcpBridge.java"]
+    }
+  }
+}
+```
+
+**Claude Code (HTTP)**
 
 ```bash
 claude mcp add --transport http turboism \
   http://127.0.0.1:43123/mcp
 ```
+
+Direct-HTTP clients keep working for read-only methods; mutating tool calls and session close also need the header `Authorization: Bearer <token>`, where `<token>` is the contents of `mcp.token` in the plugin state directory.
 
 Equivalent Claude Code JSON configuration:
 
@@ -215,7 +231,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 
 | Capability | User effect |
 |---|---|
-| `mcp.streamable-http` | Serves credential-free MCP Streamable HTTP on numeric loopback. |
+| `mcp.streamable-http` | Serves token-gated MCP Streamable HTTP on numeric loopback (bearer required for mutating operations). |
 | `mcp.tools` | Publishes the thirteen typed tool workflows. |
 | `mcp.resources` | Publishes static and templated JSON resources. |
 | `mcp.prompts` | Publishes user-controlled workflow prompts. |
@@ -242,7 +258,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command and writes the owner-only loopback connection file under the MCP state directory. |
 | `turboism.network.fetch` | `application` | Allows the typed external-application settings command and binds the Origin-guarded loopback HTTP transport. |
 | `turboism.process.run` | `application` | Allows the typed external-application settings command. |
-| `turboism.mcp.connection.publish` | `application` | Publishes the active loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
+| `turboism.mcp.connection.publish` | `application` | Publishes the active token-gated loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
 | `turboism.action.register` | `application` | Registers the local MCP Connection window action. |
 | `turboism.ui.menu.contribute` | `application` | Adds **MCP Connection** to the Turboism menu. |
 
@@ -252,11 +268,11 @@ The diagnostic expansion adds no `host.unsafe`, performance, file-read, config, 
 
 ### Network
 
-The server listens only on `127.0.0.1`. Requests require an accepted loopback origin, a body no larger than 1 MiB, the negotiated MCP session/protocol headers, and the configured rate limit. No authentication header is required. It is not designed for remote access.
+The server listens only on `127.0.0.1`. Requests require an accepted loopback origin, a body no larger than 1 MiB, the negotiated MCP session/protocol headers, and the configured rate limit. Mutating tool calls and session close additionally require `Authorization: Bearer <token>` (contents of `mcp.token`); read-only methods need no credential. It is not designed for remote access.
 
 ### Local data
 
-The plugin writes only its connection metadata in plugin state storage. The bounded connection/request history is process-local and is not persisted. On POSIX systems it attempts owner-only permissions. Diagnostic and model resources do not expose raw filesystem paths, native host objects, or image bytes.
+The plugin writes only its connection metadata, a per-user bearer token, and the stdio bridge source in plugin state storage, each with owner-only permissions. The bounded connection/request history is process-local and is not persisted. On POSIX systems it attempts owner-only permissions. Diagnostic and model resources do not expose raw filesystem paths, native host objects, or image bytes.
 
 `turboism://environment/diagnostics` omits `DiagnosticReport.Problem.path()`, bounds the problem list, converts messages to one line, caps message length, and redacts Unix paths, Windows paths, and `file:` URIs.
 
