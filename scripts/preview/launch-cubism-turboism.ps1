@@ -30,7 +30,6 @@ function Resolve-CubismRoot {
         $candidates += $env:CUBISM_ROOT
     }
     $candidates += @(
-        "F:\Live2D\Live2D Cubism 5.3.02",
         "C:\Program Files\Live2D Cubism 5.3.02",
         "C:\Program Files (x86)\Live2D Cubism 5.3.02"
     )

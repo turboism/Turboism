@@ -204,7 +204,7 @@ def scan_repository_content(path, data):
         return rules
     text = data.decode("utf-8", errors="replace")
     personal_user = "r" + "ain"
-    if "/home/" + personal_user in text:
+    if re.search(r"[\\/](?:home|Users)[\\/]" + personal_user + r"(?:[\\/]|$)", text):
         rules.append("local-machine-home")
     if re.search(r"/workspace/projects/" + "turboism" + r"(?:/|$)", text):
         rules.append("local-machine-workspace")
