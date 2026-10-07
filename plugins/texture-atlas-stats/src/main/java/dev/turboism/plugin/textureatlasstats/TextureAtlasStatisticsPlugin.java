@@ -24,6 +24,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     private PluginContext context;
     private ScheduledExecutorService scheduler;
     private TextureAtlasEditorPanel panel;
+    private String lastText = "";
     private boolean enabled;
 
     @Override
@@ -58,10 +59,9 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
                         .map(TextureAtlasSummary::imageCount)
                         .orElse(0);
                     final String text = i18n.format("texture-atlas-stats.line", whole, selected);
-                    SwingUtilities.invokeLater(() -> attached.setText(text));
+                    update(attached, text);
                 } catch (Throwable failure) {
-                    final String unavailable = i18n.text("texture-atlas-stats.unavailable");
-                    SwingUtilities.invokeLater(() -> attached.setText(unavailable));
+                    update(attached, i18n.text("texture-atlas-stats.unavailable"));
                 }
             }, 1, 1, TimeUnit.SECONDS);
         } catch (Throwable failure) {
@@ -80,6 +80,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
             panel.close();
             panel = null;
         }
+        lastText = "";
         enabled = false;
     }
 
@@ -87,6 +88,15 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     public void shutdown() {
         disable();
         context = null;
+    }
+
+    /** Posts to the EDT only when the rendered line actually changed. */
+    private void update(final TextureAtlasEditorPanel attached, final String text) {
+        if (text.equals(lastText)) {
+            return;
+        }
+        lastText = text;
+        SwingUtilities.invokeLater(() -> attached.setText(text));
     }
 
     private void requireContext() {

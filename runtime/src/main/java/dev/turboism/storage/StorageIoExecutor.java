@@ -20,6 +20,8 @@ import java.util.function.Supplier;
 final class StorageIoExecutor implements AutoCloseable {
 
     private static final long CLOSE_TIMEOUT_SECONDS = 5L;
+    /** Idle I/O worker retires after this delay; the next submission respawns it. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final RuntimePluginTaskScheduler taskScheduler;
     private final ThreadPoolExecutor executor;
@@ -49,6 +51,8 @@ final class StorageIoExecutor implements AutoCloseable {
             },
             new ThreadPoolExecutor.AbortPolicy()
         );
+        this.executor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.executor.allowCoreThreadTimeOut(true);
         try {
             Objects.requireNonNull(disposableScope, "disposableScope").register(this);
         } catch (RuntimeException exception) {

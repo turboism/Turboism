@@ -97,6 +97,12 @@ Turboism 的所有重要变更都记录在本文件中。
   新增钩子只需要一行清单加一个 contributor 类，而不必修改 agent。已验证/失败关闭准入、
   原子记录提取、mesh-mirror premain/bind 生命周期以及 `installation=`/`cleanup=` 报告行
   均保持不变。
+- 降低编辑热路径上的 agent 常驻开销：撤销历史快照改由原生 undo-ingress 变更戳门控，
+  历史面板 1 Hz 轮询在无变更时不再付出 `invokeAndWait` EDT 往返和全量撤销条目投影；
+  插件 work/event/long 车道、storage 与 config I/O 车道、legacy-config 车道以及每插件 UI
+  计时器的空闲线程在 60 秒后退休、随下次提交自动重建 —— 在已审查的 5.3.02 宿主、29 个
+  插件下，空闲 turboism 线程数从 46 降至 13，空闲 CPU 中位数从 0.8% 降至 0.0%。
+  texture-atlas-stats 面板也仅在显示文本变化时才向 EDT 投递。
 
 ### 修复
 

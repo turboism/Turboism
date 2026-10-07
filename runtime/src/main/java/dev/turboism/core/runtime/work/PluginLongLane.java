@@ -39,6 +39,8 @@ public final class PluginLongLane {
 
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
     private static final String DIAGNOSTIC_COMPONENT = "turboism.plugin.long-lane";
+    /** Idle long-lane workers and the monitor retire after this delay; submissions respawn them. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final String pluginId;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
@@ -74,11 +76,15 @@ public final class PluginLongLane {
             new PluginWorkThreadFactory(this.pluginId + "-long"),
             new ThreadPoolExecutor.AbortPolicy()
         );
+        this.worker.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.worker.allowCoreThreadTimeOut(true);
         this.monitor = new ScheduledThreadPoolExecutor(
             1,
             new PluginWorkThreadFactory(this.pluginId + "-long-monitor")
         );
         this.monitor.setRemoveOnCancelPolicy(true);
+        this.monitor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.monitor.allowCoreThreadTimeOut(true);
     }
 
     /**

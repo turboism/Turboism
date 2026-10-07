@@ -1,0 +1,33 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.perf-metrics",
+  "name": "Exact-Host Performance Metrics Probe",
+  "version": "0.1.0",
+  "description": "SDK probe that appends live CPU/FPS/JVM memory snapshots to state/perf-metrics.csv for exact-host performance A/B evidence.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.PerformanceMetricsProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.performance.stats.read",
+      "scope": "application",
+      "reason": "Samples the Cubism process CPU, viewport FPS, and JVM memory snapshots written as CSV evidence rows."
+    }
+  ],
+  "environment": {
+    "requiresCubism": true
+  }
+}

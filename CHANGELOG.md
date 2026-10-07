@@ -117,6 +117,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   contributor class rather than an edit to the agent. Verified/fail-closed admission, atomic
   record extraction, the mesh-mirror premain/bind lifecycle, and the `installation=`/`cleanup=`
   report lines are unchanged.
+- Resident agent overhead is reduced on the editing hot path. Undo-history snapshots are now
+  gated on the native undo-ingress change stamp, so the 1 Hz history poll no longer pays an
+  `invokeAndWait` EDT round trip plus a full undo-entry projection while nothing changed.
+  Plugin work/event/long lanes, storage and config I/O lanes, the legacy-config lane and the
+  per-plugin UI timer retire idle workers after 60 s and respawn them on the next submission —
+  on the reviewed 5.3.02 host with 29 plugins this dropped the idle turboism thread count from
+  46 to 13 and idle CPU from 0.8% to 0.0% median. The texture-atlas-stats panel also posts to
+  the EDT only when its rendered line changes.
 
 ### Fixed
 

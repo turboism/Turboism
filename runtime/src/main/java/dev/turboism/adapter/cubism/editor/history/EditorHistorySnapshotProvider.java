@@ -32,6 +32,13 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
 
     private final Supplier<Optional<VerifiedMemberResolver>> resolver;
     private final LongSupplier generation;
+    /**
+     * Off-EDT history-change counter: monotonically increases whenever the native
+     * undo listener reports a state change or a drain that publishes deferred
+     * metadata completes. A negative value means no listener is attached, in
+     * which case the snapshot never skips the EDT projection.
+     */
+    private final LongSupplier changeStamp;
     private final Object revisionLock = new Object();
     private final BindingIdentityTracker documentIdentities;
     private final NativeHistoryDecoderRegistry nativeDecoders = new NativeHistoryDecoderRegistry();
@@ -39,16 +46,32 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private long revisionGeneration = -1;
     private long revision;
     private HistorySnapshot lastSnapshot;
+    private long stampGeneration = -1;
+    private long lastChangeStamp = Long.MIN_VALUE;
 
     public EditorHistorySnapshotProvider(
         final Supplier<Optional<VerifiedMemberResolver>> resolver,
         final LongSupplier generation
     ) {
+        this(resolver, generation, () -> -1L);
+    }
+
+    /**
+     * @param changeStamp off-EDT signal described above; supply a negative value
+     *                    when no native undo listener is attached so reads stay
+     *                    on the full projection path.
+     */
+    public EditorHistorySnapshotProvider(
+        final Supplier<Optional<VerifiedMemberResolver>> resolver,
+        final LongSupplier generation,
+        final LongSupplier changeStamp
+    ) {
         this(
             resolver,
             generation,
             new BindingIdentityTracker("history-document-"),
-            new BindingIdentityTracker("history-manager-")
+            new BindingIdentityTracker("history-manager-"),
+            changeStamp
         );
     }
 
@@ -58,10 +81,27 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final BindingIdentityTracker documentIdentities,
         final BindingIdentityTracker managerIdentities
     ) {
+        this(
+            resolver,
+            generation,
+            documentIdentities,
+            managerIdentities,
+            () -> -1L
+        );
+    }
+
+    EditorHistorySnapshotProvider(
+        final Supplier<Optional<VerifiedMemberResolver>> resolver,
+        final LongSupplier generation,
+        final BindingIdentityTracker documentIdentities,
+        final BindingIdentityTracker managerIdentities,
+        final LongSupplier changeStamp
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.generation = Objects.requireNonNull(generation, "generation");
         this.documentIdentities = Objects.requireNonNull(documentIdentities, "documentIdentities");
         this.managerIdentities = Objects.requireNonNull(managerIdentities, "managerIdentities");
+        this.changeStamp = Objects.requireNonNull(changeStamp, "changeStamp");
     }
 
     @Override
@@ -74,9 +114,36 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             EditorHistoryReadSelectorContract.CAPABILITY_ID,
             EditorHistoryReadSelectorContract.REQUIRED_ALIASES
         )) return HistorySnapshot.unavailable();
+        // The stamp is read strictly before the EDT round trip, so a change that
+        // lands during the projection records a stale (lower) stamp and the next
+        // read rebuilds instead of skipping a real mutation.
+        final long stamp = changeStamp.getAsLong();
+        synchronized (revisionLock) {
+            if (stamp >= 0
+                && stamp == lastChangeStamp
+                && stampGeneration == expectedGeneration
+                && lastSnapshot != null) {
+                return lastSnapshot;
+            }
+        }
         try {
-            return onEdt(() -> project(available.orElseThrow(), expectedGeneration));
+            final HistorySnapshot snapshot =
+                onEdt(() -> project(available.orElseThrow(), expectedGeneration));
+            synchronized (revisionLock) {
+                if (snapshot.availability() == HistorySnapshot.Availability.AVAILABLE) {
+                    stampGeneration = expectedGeneration;
+                    lastChangeStamp = stamp;
+                } else {
+                    // Never let an unavailable result pin the skip gate on the
+                    // last good snapshot; the next poll retries the full read.
+                    lastChangeStamp = Long.MIN_VALUE;
+                }
+            }
+            return snapshot;
         } catch (Exception exception) {
+            synchronized (revisionLock) {
+                lastChangeStamp = Long.MIN_VALUE;
+            }
             return HistorySnapshot.unavailable();
         }
     }
