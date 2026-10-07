@@ -44,6 +44,12 @@ public final class TurboismMcpBridge {
     private String sessionId;
     private String protocolVersion;
 
+    /**
+     * Entry point launched by the MCP client (`java TurboismMcpBridge.java`).
+     * Relays stdin JSON-RPC frames to the loopback endpoint until stdin closes.
+     *
+     * @param arguments ignored; configuration comes from the plugin state directory
+     */
     public static void main(final String[] arguments) {
         try {
             new TurboismMcpBridge().run();
