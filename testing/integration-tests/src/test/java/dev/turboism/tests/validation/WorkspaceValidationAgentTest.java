@@ -18,8 +18,10 @@ class WorkspaceValidationAgentTest {
 
     @Test
     void optionsParseWithDefaultsAndOverrides() {
+        // Options.parse absolutizes and normalizes every path it stores; compare
+        // against the same host-normalized form so the contract holds on any OS.
         final Options defaults = Options.parse(null, Path.of("/default/home"));
-        assertEquals(Path.of("/default/home"), defaults.home());
+        assertEquals(Path.of("/default/home").toAbsolutePath().normalize(), defaults.home());
         assertEquals("com.live2d.cubism.CEAppCtrl", defaults.hostClassName());
         assertEquals(Duration.ofSeconds(180), defaults.timeout());
         assertNull(defaults.recordOverride());
@@ -31,9 +33,10 @@ class WorkspaceValidationAgentTest {
                 + "allowDegradedRuntime=true",
             Path.of("/ignored")
         );
-        assertEquals(Path.of("/tmp/val"), configured.home());
+        assertEquals(Path.of("/tmp/val").toAbsolutePath().normalize(), configured.home());
         assertEquals(Duration.ofSeconds(90), configured.timeout());
-        assertEquals(Path.of("/bundle/cubism-5.2.03-workspace-control.json"),
+        assertEquals(Path.of("/bundle/cubism-5.2.03-workspace-control.json")
+                .toAbsolutePath().normalize(),
             configured.recordOverride());
         assertTrue(configured.allowDegradedRuntime());
 
