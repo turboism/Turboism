@@ -200,7 +200,7 @@ class ContentRuleTest(unittest.TestCase):
         cases = {
             "fixture=" + "/home/" + "r" + "ain/project.cmo3": "local-machine-home",
             "winhome=" + "C:\\Users\\" + "r" + "ain\\docs": "local-machine-home",
-            "protonhome=" + "Z:\\home\\" + "r" + "ain\\tools\\java.exe": "local-machine-home",
+            "machome=" + "/Users/" + "r" + "ain/Documents": "local-machine-home",
             "ssh=" + "r" + "ain" + "@172.17.0.1": "local-machine-ssh-host",
             "key=id_ed25519_" + "turboism_arch_rebuild": "local-machine-ssh-key-name",
             "cwd=/workspace/projects/" + "turboism/.worktrees/release": "local-machine-workspace",
