@@ -16,7 +16,7 @@ interface: swing
 
 > **Turboism 官方插件** · **状态：预览**
 
-在本地回环接口上运行无需认证的 MCP Streamable HTTP 服务器。
+在本地回环接口上运行令牌门控的 MCP Streamable HTTP 服务器；stdio 桥接器会自动携带令牌。
 
 | 详情 | 值 |
 |---|---|
@@ -46,7 +46,7 @@ interface: swing
 
 1. 通过 Turboism 的官方发布包和**插件管理**安装并启用插件。
 2. 打开 **Turboism → MCP 连接**。该窗口集中显示当前本地地址以及有界的进程内连接/请求历史。
-3. 将地址复制到本地编码智能体。默认地址为 `http://127.0.0.1:43123/mcp`，无需认证请求头。
+3. 将 **stdio 客户端配置** 行复制到本地 MCP 客户端（推荐），或将 HTTP **地址** 复制到直连 HTTP 客户端。默认地址为 `http://127.0.0.1:43123/mcp`。stdio 客户端无需感知令牌；直连 HTTP 客户端进行写操作工具调用或关闭会话时，必须携带 `Authorization: Bearer <令牌>`（即插件状态目录中 `mcp.token` 的内容）。
 4. 排查连接时可保持窗口打开，并点击**刷新**读取最新历史记录。
 5. 程序化本地使用者仍可读取每用户插件状态目录中受所有者权限保护的 `mcp-connection.json`。
 6. 完成 `initialize`，保留 `MCP-Session-Id`，发送 `notifications/initialized`，并在后续请求中包含协商后的协议版本。
@@ -55,7 +55,7 @@ interface: swing
 
 ## 使用方法
 
-使用 **Turboism → MCP 连接** 中显示的地址连接本地客户端，无需额外认证配置。
+使用 **Turboism → MCP 连接** 中显示的配置连接本地客户端；经 stdio 桥接时无需额外认证配置。
 
 ### 常见编码智能体
 
@@ -203,7 +203,7 @@ url = "http://127.0.0.1:43123/mcp"
 
 | 能力 | 对用户的作用 |
 |---|---|
-| `mcp.streamable-http` | 在数字回环接口上提供无需认证的 MCP Streamable HTTP 服务。 |
+| `mcp.streamable-http` | 在数字回环接口上提供令牌门控的 MCP Streamable HTTP 服务（写操作需 Bearer）。 |
 | `mcp.tools` | 发布十一个类型化工具工作流。 |
 | `mcp.resources` | 发布静态和模板化 JSON 资源。 |
 | `mcp.prompts` | 发布由用户控制的工作流提示词。 |
@@ -239,11 +239,11 @@ url = "http://127.0.0.1:43123/mcp"
 
 ### 网络
 
-服务器仅监听 `127.0.0.1`。请求仍需满足回环来源、MCP 协议与会话、1 MiB 正文上限和速率限制，但无需认证请求头。它并非为远程访问而设计。
+服务器仅监听 `127.0.0.1`。请求仍需满足回环来源、MCP 协议与会话、1 MiB 正文上限和速率限制；写操作工具调用与会话关闭还要求 `Authorization: Bearer <令牌>`（即 `mcp.token` 的内容），只读方法无需凭据。它并非为远程访问而设计。
 
 ### 本地数据
 
-插件仅将其连接元数据写入插件状态存储。在 POSIX 系统上，它会尝试设置仅所有者权限。诊断和模型资源不会公开原始文件系统路径、原生宿主对象或图像字节。
+插件仅将连接元数据、每用户 Bearer 令牌和 stdio 桥接源文件写入插件状态存储，均以仅所有者权限发布。在 POSIX 系统上，它会尝试设置仅所有者权限。诊断和模型资源不会公开原始文件系统路径、原生宿主对象或图像字节。
 
 `turboism://environment/diagnostics` 会省略 `DiagnosticReport.Problem.path()`，限制问题列表，将消息转换为单行，限制消息长度，并脱敏 Unix 路径、Windows 路径和 `file:` URI。
 
