@@ -101,7 +101,8 @@ final class WorkspaceValidationUi {
                     final List<Component> contents = components(window);
                     final String text = describe(contents);
                     if (observed.add(window)) append(evidence, "nativeDialog=" + text);
-                    if (!text.contains(name) || !(text.contains("初始布局") || text.contains("default layout"))) continue;
+                    if (!text.contains(name) || !(text.contains("初始布局") || text.contains("default layout")
+                            || text.contains("initial layout"))) continue;
                     final AbstractButton yes = button(contents, "是", "是(Y)", "Yes", "Yes(Y)", "确定", "OK");
                     if (yes != null) {
                         append(evidence, "confirmedDefaultSave=true");

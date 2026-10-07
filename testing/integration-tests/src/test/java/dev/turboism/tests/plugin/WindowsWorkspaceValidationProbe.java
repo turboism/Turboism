@@ -378,9 +378,21 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
                 WorkspaceOperationResult.Outcome.CHANGED, alternateId);
             final var layoutBeforeSave = currentLayout();
             perturbLayout(stateDir);
-            final var savedLayout = currentLayout();
+            if (currentLayout().equals(layoutBeforeSave)) {
+                perturbLayout(stateDir);
+            }
+            var savedLayout = currentLayout();
             require(report, "updateDefault.layoutChanged", !savedLayout.equals(layoutBeforeSave),
                 "native palette toggle did not change the dock tree");
+            if (!isCurrent(workspace, alternate.id())) {
+                requireOperation(report, "updateDefault.reswitch", switchTo(workspace, alternate.id()),
+                    WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+                perturbLayout(stateDir);
+                if (currentLayout().equals(layoutBeforeSave)) {
+                    perturbLayout(stateDir);
+                }
+                savedLayout = currentLayout();
+            }
             final WorkspaceOperationResult updatedAlternate = updateDefault(workspace);
             recordOperation(report, "updateDefault.alternate", updatedAlternate);
             requireOperation(report, "updateDefault.alternate", updatedAlternate,
@@ -400,6 +412,17 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
             requireOperation(report, "resetDefault.prepare", resetBack,
                 WorkspaceOperationResult.Outcome.CHANGED, alternateId);
             perturbLayout(stateDir);
+            if (currentLayout().equals(savedLayout)) {
+                perturbLayout(stateDir);
+            }
+            if (!isCurrent(workspace, alternate.id())) {
+                requireOperation(report, "resetDefault.reswitch", switchTo(workspace, alternate.id()),
+                    WorkspaceOperationResult.Outcome.CHANGED, alternateId);
+                perturbLayout(stateDir);
+                if (currentLayout().equals(savedLayout)) {
+                    perturbLayout(stateDir);
+                }
+            }
             require(report, "resetDefault.layoutPerturbed", !currentLayout().equals(savedLayout),
                 "reset requires a layout different from the saved default");
             final WorkspaceOperationResult resetAlternate = resetDefault(workspace);
@@ -533,9 +556,24 @@ public final class WindowsWorkspaceValidationProbe implements CubismPlugin {
     }
 
     private static WorkspaceStatus awaitCurrent(final WorkspaceService workspace) throws Exception {
-        return workspace.current().toCompletableFuture().get(
-            SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS
-        );
+        final long deadline = System.nanoTime() + SDK_CALL_TIMEOUT.toNanos();
+        WorkspaceStatus status = null;
+        while (System.nanoTime() < deadline) {
+            status = workspace.current().toCompletableFuture().get(
+                SDK_CALL_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS
+            );
+            if (status.availability() == WorkspaceStatus.Availability.AVAILABLE) {
+                return status;
+            }
+            Thread.sleep(250L);
+        }
+        return status;
+    }
+
+    private boolean isCurrent(final WorkspaceService workspace, final WorkspaceId id) throws Exception {
+        return awaitCurrent(workspace).current()
+            .map(info -> info.id().equals(id))
+            .orElse(false);
     }
 
     private dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot currentLayout() throws Exception {
