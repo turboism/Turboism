@@ -2,6 +2,7 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteNoAlphaCompositionSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
@@ -20,6 +21,9 @@ class EditorInspectorDrawableSelectorContractTest {
 
     @Test
     void exact5302RecordVerifiesTheCompleteInspectorDrawableWriteContract() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final var resolver = new VerifiedEditorModelResolverFactory()
                 .create(
                         PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -38,6 +42,9 @@ class EditorInspectorDrawableSelectorContractTest {
 
     @Test
     void exact5203RecordVerifiesThe52InspectorDrawableWriteContractWithoutAlpha() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory()
                 .create(
@@ -57,6 +64,9 @@ class EditorInspectorDrawableSelectorContractTest {
 
     @Test
     void setIdAliasesBindAsInstanceMethodsOnBothReviewedRecords() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         // Regression guard for the r2 real-host failure
         // ("Verified alias is not an instance method."): every setId alias in the
         // inspector write family must declare static access as forbidden so the
