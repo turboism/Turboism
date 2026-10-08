@@ -1350,7 +1350,8 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             if (in == null) {
                 throw new IllegalStateException("bundled managed-graal manifest is missing");
             }
-            final JsonNode document = PROTOCOL_JSON.readTree(in);
+            // A fresh mapper: PROTOCOL_JSON is initialized later in the class body.
+            final JsonNode document = new ObjectMapper().readTree(in);
             if (document == null
                     || !"turboism.managed-graal".equals(document.path("format").asText(null))
                     || document.path("schemaVersion").asInt(-1) != 1
