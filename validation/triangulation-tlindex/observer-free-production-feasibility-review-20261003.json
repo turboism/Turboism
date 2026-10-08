@@ -1,0 +1,108 @@
+{
+  "task": "T076",
+  "status": "PARTIAL_NATIVE_EVIDENCE_COMPLETE_FROZEN_DESTRUCTION_GATE_REFUSED",
+  "sequence": 2588,
+  "jobId": "9d34e5d3-1b26-41cd-940a-2fba87df7922",
+  "preparedId": "8799d53126aa8d7b17690a4677aa0db637a451594b5d25c4c4cba49d933883e7",
+  "runId": "queue-5a981ae7f26948fca709845cb9bf12e5",
+  "implementationCommit": "0d45e8882",
+  "protocolCommitBeforeSubmission": "b97878c51",
+  "probeCount": 1,
+  "replacementOrRetry": false,
+  "queueOutcome": "succeeded",
+  "normalExit": true,
+  "fixtureUnchanged": true,
+  "identityVerified": true,
+  "queueCleanup": "safe",
+  "frozenReviewerStatus": "REFUSED_FROZEN_REVIEW_CGROUP_DESTRUCTION_GATE",
+  "originalReviewerUnchanged": true,
+  "kernelFinalReading": {
+    "events": "populated 0\nfrozen 0\n",
+    "kind": "same",
+    "populated": 0
+  },
+  "kernelCleanupMethod": "populated=0",
+  "existingQueueContractAcceptsBoundEmptyScope": true,
+  "sourcesPerCommand": 711,
+  "commands": 3,
+  "outputRows": 2133,
+  "referenceParityFieldsPerRow": 7,
+  "referenceMismatchCount": 0,
+  "exactProductionAgentSha256": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+  "singleProductionPremain": true,
+  "producerRecordersOrTransformers": false,
+  "kernelCpuUnitProof": {
+    "status": "PASS_SAME_PROCESS_NANOSECOND_UNITS",
+    "javaIdentity": [
+      2565325,
+      "7410599"
+    ],
+    "ticksPerSecond": 100,
+    "comparisons": [
+      {
+        "phase": "auto-connect-start",
+        "cycle": 1,
+        "providerCpuSeconds": 173.92,
+        "kernelLowerSeconds": 173.31,
+        "kernelUpperSeconds": 176.57
+      },
+      {
+        "phase": "auto-connect-returned",
+        "cycle": 1,
+        "providerCpuSeconds": 195.39,
+        "kernelLowerSeconds": 195.27,
+        "kernelUpperSeconds": 198.98
+      },
+      {
+        "phase": "auto-connect-start",
+        "cycle": 2,
+        "providerCpuSeconds": 202.05,
+        "kernelLowerSeconds": 201.73,
+        "kernelUpperSeconds": 202.92
+      },
+      {
+        "phase": "auto-connect-returned",
+        "cycle": 2,
+        "providerCpuSeconds": 214.97,
+        "kernelLowerSeconds": 214.06,
+        "kernelUpperSeconds": 215.37
+      },
+      {
+        "phase": "auto-connect-start",
+        "cycle": 3,
+        "providerCpuSeconds": 220.16,
+        "kernelLowerSeconds": 219.92,
+        "kernelUpperSeconds": 221.1
+      },
+      {
+        "phase": "auto-connect-returned",
+        "cycle": 3,
+        "providerCpuSeconds": 232.3,
+        "kernelLowerSeconds": 231.44,
+        "kernelUpperSeconds": 232.96
+      }
+    ],
+    "quantizationAllowanceSeconds": 0.02
+  },
+  "productionPerformanceAcceptance": "NOT_GRANTED",
+  "allVersionOrLongRunAcceptance": "NOT_GRANTED",
+  "limitations": [
+    "Frozen original review remains refused; this separate read-only postmortem does not amend that gate or grant the frozen protocol PASS.",
+    "Existing queue contract supports bound same-empty scope; original reviewer demanded physical destruction.",
+    "One5303 exact-production feasibility run only; no baseline/candidate performance comparison.",
+    "CPU provider granularity is distinct from units/timer resolution; no statistical timing claim.",
+    "All-version/long-run performance and human review remain pending."
+  ],
+  "nextAction": "Retain original refusal. Review all-version native publication/startup; any future protocol must explicitly match authoritative kernel empty-or-destroyed identity contract before submission. No retry of FIFO2588. Separate balanced production comparison and human review remain pending.",
+  "pins": {
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/postmortem-review.py": "82a501e0baf5c50460ac6cca69322f1275e50203b7e4d9dc688714aba7d7eea1",
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/postmortem-review.json": "0550953c87dbc2672aa6abc6c8996965711a6ddccd69548caf47f71a643f9d37",
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/frozen-review-refusal.json": "be83624a1618fb4de3ef5aacbeba20ba72caff69b553eeedcae367e9eb764c36",
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/review-native.py": "5534bf77ff9750d6d48500f04fda4cc894b94d7e7f3f231139f58696e3224a93",
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/run.json": "4812c2ff7e5161d7f6b60db185ffc20dac3cdcca8d306ad78010c4a38cbde78d",
+    "build/t076-production-acceptance-preflight-r1/native5303-observer-free-feasibility-r1/outcome.json": "9c90c862e4b7d464a23ca974437704f8149195c9f73412f4a615ea868d8f4d2d",
+    "scripts/preview/host_validation_queue.py": "af8074e1f9b73965bbe82dfeba5374a8a73442f414e1fa838a903ac8e486cb42",
+    "scripts/preview/host_validation_containment.py": "fca77c287053f9600b732d71481f554b400a40268c8732fdfccd660a790c0bbc",
+    "scripts/test/test_host_validation_containment.py": "b11583345d7f5eae2e31dd4d68aa644e4838e731ad358d6e1b94640d042817d2"
+  }
+}

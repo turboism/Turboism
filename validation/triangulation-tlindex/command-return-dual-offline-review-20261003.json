@@ -1,0 +1,323 @@
+{
+  "status": "PASS_THREE_PROFILE_OFFLINE_BUILD_AND_OWN_FIXTURES",
+  "outputs": {
+    "5203": {
+      "driverSha256": "eaba654f6c681c01fca82b7fd73acf3dfc2336e48af0690c1b961b750e03a53f",
+      "folder": "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1",
+      "scope": "OFFLINE_OWN_FIXTURES_NOT_HOST_VALIDATED"
+    },
+    "5302": {
+      "driverSha256": "73e585b5d5ce98b74d0e07849cfca546c6d002d6c620baa6889ac31f3ec3bf19",
+      "folder": "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1",
+      "scope": "OFFLINE_OWN_FIXTURES_NOT_HOST_VALIDATED"
+    },
+    "5303": {
+      "driverSha256": "c8aaeb4e4ce35d66a2d368b8cd53efba04e3e5c62c2e2a87789a8c198ae460e1",
+      "folder": "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2",
+      "scope": "OFFLINE_OWN_FIXTURES_NOT_HOST_VALIDATED"
+    }
+  },
+  "pins": {
+    "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1/capture-wait-selfcheck.log": "260a95f847761a3ab6828108a637296ccf98d1ed482f0f415fa1d54cec482fb0",
+    "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1/writer-selfcheck.log": "175cc4e326a5acd771f250d50e7266b8411a155061f87118235197efd0dc9787",
+    "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1/command-return-selfcheck.log": "425b65f7c6c070cc76bef02feaf2f8530151eab83a39ff4e05f4ced4a5431ae9",
+    "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1/command-return-writer-selfcheck.log": "a175b7448cfed893f8922ff4208efe92aa1ea002a344ec821d35071ea52787cd",
+    "build/t076-production-acceptance-preflight-r1/driver5203-dual-r1/build.json": "448c3513220353a2cd86351b031bae93588c6398eb71fb202d67f0fa1f4d8bb1",
+    "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1/capture-wait-selfcheck.log": "260a95f847761a3ab6828108a637296ccf98d1ed482f0f415fa1d54cec482fb0",
+    "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1/writer-selfcheck.log": "175cc4e326a5acd771f250d50e7266b8411a155061f87118235197efd0dc9787",
+    "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1/command-return-selfcheck.log": "425b65f7c6c070cc76bef02feaf2f8530151eab83a39ff4e05f4ced4a5431ae9",
+    "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1/command-return-writer-selfcheck.log": "a175b7448cfed893f8922ff4208efe92aa1ea002a344ec821d35071ea52787cd",
+    "build/t076-production-acceptance-preflight-r1/driver5302-dual-r1/build.json": "77dd08a96db9098e5f002aeac81455404b8b1462396a5f6ccc25d4fdc931558f",
+    "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2/capture-wait-selfcheck.log": "260a95f847761a3ab6828108a637296ccf98d1ed482f0f415fa1d54cec482fb0",
+    "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2/writer-selfcheck.log": "175cc4e326a5acd771f250d50e7266b8411a155061f87118235197efd0dc9787",
+    "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2/command-return-selfcheck.log": "425b65f7c6c070cc76bef02feaf2f8530151eab83a39ff4e05f4ced4a5431ae9",
+    "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2/command-return-writer-selfcheck.log": "a175b7448cfed893f8922ff4208efe92aa1ea002a344ec821d35071ea52787cd",
+    "build/t076-production-acceptance-preflight-r1/driver5303-dual-r2/build.json": "4257bc4a52d25133afc37ae38c8938d1ae58cbc819849e0f7b8a54a52135e85e",
+    "validation/triangulation-tlindex/diagnostic/NativeCommandReturnSnapshot.java": "29a5c301de5b4a19cfd214889198b6d134d52762abb6f49bced24bb1c26968ef",
+    "validation/triangulation-tlindex/diagnostic/NativeCommandReturnSnapshotSelfCheck.java": "93911fd36d91a28369128be87d4d9caede578d03ba0c9ea0f01cbbded4fe0927",
+    "validation/triangulation-tlindex/diagnostic/NativeCommandReturnAutoConnect.java": "9cbebe2760ac11e40357586a3fab39e7dd6218f43c9af5f2d1586a166b96f4a3",
+    "validation/triangulation-tlindex/diagnostic/CommandReturnWriterSelfCheck.java": "b290e2cf085eb737d6adef789cbc5bfa710b299b51f27c502c10e83883461248",
+    "validation/triangulation-tlindex/diagnostic/build-auto-connect-driver.py": "fb4beab81c8c452bf7d3117c5bd2e6f6a80928af4613795922ee37ada9b3c7c7",
+    "build/t076-production-acceptance-preflight-r1/completed-gate-r3/result.json": "37df4378ab30df5dc476ea6467dcef10c817578e8cd267181b262582cbc1e88a",
+    "build/t076-production-acceptance-preflight-r1/completed-gate-r3/gradle.log": "2bd6a6ef90acbd5db02cd994084aa6b1297365833fd42e06c060f03d65b3cb73"
+  },
+  "sourceOnlyDefaultParityEvidence": "source-generation-review-r2.json",
+  "fullRepositoryGate": {
+    "status": "PASS",
+    "exitCode": 0,
+    "wallSeconds": 923.974404335022,
+    "jobs": [],
+    "command": [
+      "xvfb-run",
+      "-a",
+      "./gradlew",
+      "--no-daemon",
+      "--max-workers=1",
+      "--offline",
+      "checkCompletedCommit",
+      "--console=plain"
+    ],
+    "resultPath": "build/t076-production-acceptance-preflight-r1/completed-gate-r3/result.json",
+    "actionableTasks": {
+      "executed": 136,
+      "upToDate": 191
+    }
+  },
+  "hostPreparedOrSubmitted": false,
+  "task": "T076",
+  "purpose": "DUAL_BOUNDARY_FEASIBILITY_ONLY",
+  "checks": {
+    "snapshotOwnFixtures": 20,
+    "commandReturnWriterOwnFixtures": 10,
+    "captureWaitExistingFixtures": 17,
+    "producerWriterExistingFixtures": 11,
+    "profileBuilds": [
+      "5203",
+      "5302",
+      "5303"
+    ],
+    "counting": "Repeated per-profile fixture runs do not add independent coverage."
+  },
+  "legacyDefaultSourcesByteExactCount": 13,
+  "formattingReview": {
+    "bootstrap/src/main/java/dev/turboism/bootstrap/TriangulationEdgeIndexHookContributor.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "e4749d3435e207f81b49983f64ceeaa37b48ae25ca5367631197bd82a725214c",
+      "afterSha256": "2dc88180e71858b1ae7c7afe3a7a2f5271bdc8bbb65255b2cfafdb0929e9a3fc"
+    },
+    "bootstrap/src/main/java/dev/turboism/bootstrap/TurboismAgent.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "7cdf3ec27ad1e05064f3a62918a9062ba831c809a93d6532f4e33bdb06f30869",
+      "afterSha256": "36258faae042ebd411c761b3d787d85e77c18a1e3f2bf02a22a7d718428a3888"
+    },
+    "bootstrap/src/test/java/dev/turboism/bootstrap/TriangulationEdgeIndexHookContributorTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "5c19efd94e4e59686ae14131f97ff93a0ef0e37f1a1cec549d0f1fdba0dea48a",
+      "afterSha256": "e5f185674bb62ea18e7cc98b0b4c06cf68036643fedde617dc3d9f2e032914d4"
+    },
+    "core-contract/src/main/java/dev/turboism/internal/core/ShellServices.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "9d1749ca030ae7d4097f2ade138479e416db420bbf95eeeecea68d58fc9b5edb",
+      "afterSha256": "4a4b0260f72cbdf648c5949bd299270fe3124167be138338bba37f6afc4af918"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgePatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "16f9b186c1af8f6db7a0d35ef709b49c0916fca34e686ec0b9e1e9093ceea323",
+      "afterSha256": "344936b3fbeb2b5fb7124effd50c1f491d67d2f2efaa65bdbf2032d3e4b09038"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgeSearch.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "b3a717278795ec26d5031c373cf0d46ca79ec190406d977b28efad6d89349781",
+      "afterSha256": "8cc9e442dd6debb27e852522e1c2ac3cf638082587dc6139b7e606e0e74d5383"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgeBridge.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "13faf013670a24d44c4c96548c8b6ce8bdd72b86fb61bc59c872911f85a79fb1",
+      "afterSha256": "bd570b4a6a9b23a379d9c4efe512d5eea1778b474ceea8157ad481e286560c6e"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "940ccd9ed4c765d94cf1f57c68bf01898c998fac6da83cd7a614774cac3ff8d6",
+      "afterSha256": "e489bfbef6ded80393306e010f8d7efa4573fff4f190814e9ea0016f84ad8ffc"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "2730a0eefc461418b352d56963586a46a71db81201a1f43cdd26a3d6089554b9",
+      "afterSha256": "ed906b0c6cae94436af501ed821d483b3a53cad5b53bb1e60a01f7a335e82a5e"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangleListEdgeBuilderPatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "f60cef1ec75cd6a5e7be652ca2d0c2724a1f747a5f0b32bd04626def0f47f10d",
+      "afterSha256": "b0b076d535da68d6ec474681b36dd6ac907e6d0ca43ca60c479aecb17709783e"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationAngleGuard.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "2baa69f53ffc82d71475ff7efa68b3d92ac3fddad5a71f36dd3d6d0ac299488a",
+      "afterSha256": "176697fe0db2818b6c225c3e9f2dc057a0454a5d02d2ee2c62aaff35e5bddc16"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationAngleGuardPatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "35b575260727652b4434cb06bf6c413719a3d02b7d23139a0b4a0442a7c39da4",
+      "afterSha256": "4e82a94bbb08662b49f65d0d02bfbf6958523f951ad7a968d6449a8013e25026"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationBuilderEdges.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "193d0c0caeb2ee9f5fe51594781087bb60da433f293b316bfe1f5092d57ad6cd",
+      "afterSha256": "bed35842d3a45d79a11e150f51e1fec2d8d6bcddfb0af33b7feafaa4c0b2e7f7"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationDefinitionFingerprint.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "3513e33e876a53391d3fa27f0e26d5fefd7836b49b47e85aa9ec967f744c84bf",
+      "afterSha256": "715296890d35d86f8bcc101e2ae232beaf4db1aa755f726250b9f604d135076b"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationDefinitionLifecycle.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": true,
+      "beforeSha256": "fcd27aa5fa4228d890bcde25d5a25be5808c1e4830e444ccc69ee854d2faf426",
+      "afterSha256": "b9b3b2b7dea81a5a54f383728e8bd9f1465e4c16ddd2a8119ddb82fdee1d5d1d"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "eeb294999e4147e726495772b61c1458a2e1dd1ea4f7b7b8375e67451c1c8051",
+      "afterSha256": "20b4042e21d4c2699a8898022ace6dc2c49343085a689a8cbc66afe200848da3"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexPatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "3fb2e7901e2e73bbff8f4146897ca152cbef3df245ba2b40239be2a67f6525f7",
+      "afterSha256": "b33fde02587d5ad7621f28762eaa0fcdc61dc132cf2f736e74e8cd36cb2bcceb"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTransformer.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": true,
+      "beforeSha256": "5fd8b3de6a13eb4f5f3ab9438ebbb59fa1f6594ce223af942416203df9f13ebc",
+      "afterSha256": "ae4199606297769f828355c3e6a125d90a50a5e66caa9188c0c2e356d072eeb5"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationMembershipPatcher.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "94440aeeaf97421f9747ef2a73e4e92064bccf37f46f19a8da6ba3d207bf5501",
+      "afterSha256": "0bdc171d3690dd5c3fd022a0dc40b90cf33389c7de4f8f1dc76b7d6f933dbee8"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/VerifiedTriangulationEdgeIndexInstaller.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "5ed361678acce76eaebf1d44cd82c9ca54c52a75f60c1a49e268c81619d5cb51",
+      "afterSha256": "6d3b6b7227252507824558fe1cd2941b27fe01c7757a3bccb1ddbeed665e73d7"
+    },
+    "runtime/src/main/java/dev/turboism/adapter/cubism/startup/StartupSuppressionInstaller.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "312a8f86f629b4508cddfac765e7aa73965cb7940cf77b8a96b950b97aa62305",
+      "afterSha256": "2ec24799fe98b1817f85cd25cba4e2944681288907624178972eb7c8860a74de"
+    },
+    "runtime/src/main/java/dev/turboism/bootstrap/atlascache/AtlasCacheReuseDelegate.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "3042b229f2e8d84edfbdcab711ac6ee752cf1ed20ea70a0e386dd0e8352c0de5",
+      "afterSha256": "71ccbb4e2e33b1423f55787bf0a9d10f05dfb582cab7453d53b6bc711a161f98"
+    },
+    "runtime/src/main/java/dev/turboism/config/TriangulationEdgeIndexSettingsFileService.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "c6606a8283ded10fbdaef664d126d69e705dc9ed58052f75c2776300c17aa868",
+      "afterSha256": "7ccbccdb3402c5afac1545d00a950c35b4a3ceb37d0df1501cadd28a6bca3ef8"
+    },
+    "runtime/src/main/java/dev/turboism/shell/TriangulationEdgeIndexSettingsContribution.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "0bbe3dbcb3fa0ecaebd2206d6a1e3b3f089374ba4926a08a94efd1bf941e3395",
+      "afterSha256": "9b06975d5937b6a6200b027f019399782261976a8c237f3262cbcd9ea422c38d"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgePatcherTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "c810aa184a79701310d1fb4195973c755c28c6935c6cdc18ade053fe6bb4deb1",
+      "afterSha256": "b0befe4af45ad29b451705f6bc33e677390c4b76747eed249e1f8df05e5d70c7"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/FreshTriangulationEdgeSearchTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "e663a0b8704b5ea99fe4459d9e7f0b9bca334e6bc23de8e88714bab6306e00c7",
+      "afterSha256": "abea5aaafd2c0666b9c40278e794eb37feac714785ad897c429c62633a4d8c6b"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexExactHostShapeTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": true,
+      "beforeSha256": "4819d3d74c32d2554cd68569dfc260510f5ab74578a333ee3b71c57eb16aeffe",
+      "afterSha256": "c50fb3d41ab19b1457dba9da36ae24af8b71f2652bd0363d5d844285fd838dad"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexFixture.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "277f1e18bec94318fbb2f4b065d652be7da5b9dc6952a50d631db4445a577eb1",
+      "afterSha256": "3acf4eb8b82239e33e0ecdffa0acfd2d4bb5420ed85821e4761e01e9dcd44c3b"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "613db42ee5c11b82513b4656927cc4056a919c1b8a2bebeac294b1dba3f0fe3b",
+      "afterSha256": "0a15375b07c067673fcd68b39a5031bbd1717a2fb962e8e186093dad748c3752"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTransformerTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "1871fa64bff03ef9202eef698827e77bcbc3b523687799586b5d40d18e8736e0",
+      "afterSha256": "489829d73871b3b53287182de3d596508b26a8f02e7889c5d0b072840e2f1cc0"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationMembershipPatcherTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "862489c86f534044cabbd540edad4b391145e7776fbf3dcbb0fecc27b9f25044",
+      "afterSha256": "bee2c8eac14c5556debf2de05f110b604efe626d8c6646345f33ddf763362a45"
+    },
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/VerifiedTriangulationEdgeIndexInstallerTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "11fc1f9de26252fd1e752e3b71eba406195b5f96c8ad2c32137593c09a5201c6",
+      "afterSha256": "9331ed9640f4205b0a97b8fc1f4a2d8a0c4a970b526fc109a01fe9f053ef8be0"
+    },
+    "runtime/src/test/java/dev/turboism/bootstrap/atlascache/AtlasCacheReuseDelegateTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "5df87108e75512e2b4b61bc2073884d8f72d757248dfadf046a3e1f498892c43",
+      "afterSha256": "875cd97faa6ffd0d5e475f7e4114ee3794c07cb93ef3c88a9910830701bf4a97"
+    },
+    "runtime/src/test/java/dev/turboism/config/TriangulationEdgeIndexPreferenceTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "b1c50d7c527bd24b377eb099e0f1cc5cdd6dcd1134ba3fca28362848c1c9ba5c",
+      "afterSha256": "76d354cfbb9a2a1549c5ca456eb503b091667524faf6251d818f41d24cca3bf2"
+    },
+    "runtime/src/test/java/dev/turboism/config/TriangulationEdgeIndexSettingsFileServiceTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "ddab8f10d72c7e6963767ade6a39480e19a13eb23fb8079b2d3c75ab795d631f",
+      "afterSha256": "abb725f7a56cbef23be243036f753ca9eabca8648097c3930773f7878cd4a1e5"
+    },
+    "runtime/src/test/java/dev/turboism/shell/TriangulationEdgeIndexSettingsContributionTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "56da2d2401acbff9e9890fad36693561cad6df3be65bee35780db1b11f694518",
+      "afterSha256": "9092e6cc29d8394e0384a800c1f0c433f0ce178c6b31de14a163a4ea209d1c31"
+    },
+    "testing/integration-tests/src/test/java/dev/turboism/tests/config/RuntimeInstallerConfigRoundTripTest.java": {
+      "status": "PASS_BODY_TOKENS_AND_IMPORT_SET_IDENTICAL",
+      "importOrderChanged": false,
+      "beforeSha256": "af3736c7613c60a7f75f4f1db52160bd12a08fd44830adbb8e45884add92db86",
+      "afterSha256": "ae90bc95d1cdc9ec9139c58d246477646cf07c0b2013b078de49ed9c53eaf02b"
+    }
+  },
+  "limitations": [
+    "Own fixtures are not actual host execution or observer-free admission.",
+    "Producer recorder remains installed in this feasibility mode.",
+    "Frozen T075 artifacts and its four-leg result remain unchanged.",
+    "Source formatting changes debug/source bytes; no claim of byte-identical rebuilt artifact.",
+    "All-version native validation, observer-free performance acceptance and Lane C human review remain pending."
+  ],
+  "hostInputPrepared": true,
+  "preparedId": "5813b8e5b0d7a348a6fe5432518f48de65f551f9f8028d31a9f71d1a92040f95",
+  "freshJUnitReports": {
+    "count": 940,
+    "tests": 6454,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 58,
+    "scope": "Only reports modified during r3; cached tasks are not counted as rerun."
+  }
+}

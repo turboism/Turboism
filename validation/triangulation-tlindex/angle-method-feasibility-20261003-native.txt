@@ -1,0 +1,4 @@
+FULL_NATIVE_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar fixtures=128 checks=15451 guardCalls=8375 bypasses=7734
+FULL_NATIVE_D_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar fixtures=128 checks=15259 guardCalls=8039 bypasses=7606
+FULL_NATIVE_D_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar fixtures=128 checks=15259 guardCalls=8039 bypasses=7606
+FULL_NATIVE_D_FINISHED checks=45970 scope=OWNED_LEASE_ONLY hostGain=UNPROVEN

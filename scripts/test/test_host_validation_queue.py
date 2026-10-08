@@ -717,6 +717,61 @@ class PreparedStoreTest(unittest.TestCase):
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
 
+    def test_direct_nmt_hook_requires_exact_diagnostic_context(self) -> None:
+        hook = self.preview / "stage-direct-nmt-launcher.py"
+        hook.write_text("# stdlib-only reviewed fixture, never executed\n")
+        base_argv = list(self.request["argv"])
+        base_argv[base_argv.index("--name") + 1] = "atlas-image-shadow"
+        base_argv[base_argv.index("--version") + 1] = "5303"
+        argv = [*base_argv,
+                "--remote-pre-launch", str(hook), "--require-fixture-unchanged",
+                "--plugin", str(self.input) + ":probe.jar",
+                "--jvm-option", "-XX:+DisableAttachMechanism",
+                "--jvm-option", "-Dturboism.validation.atlasImageShadow.resourceObservation=true",
+                "--jvm-option", "-Dturboism.validation.observerFree.optIn=T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "atlas-image-shadow:5303")
+        captured = next(item for item in prepared["sourceInputs"] if Path(item["source"]).name == hook.name)
+        self.assertEqual(queue.file_digest(hook), prepared["inventory"][captured["path"]])
+        # A captured hook remains usable when the source changes; it is a frozen input.
+        hook.write_text("changed source\n")
+        command = self.prepared.command(prepared["digest"], self.base / "nmt-evidence")
+        self.assertIn("reviewed fixture", Path(command[command.index("--remote-pre-launch") + 1]).read_text())
+        invalid = [argv + ["--remote-pre-launch-background"], argv + ["--remote-pre-launch-args-only"],
+                   argv + ["--remote-pre-launch-arg", "extra"], argv + ["--remote-post-launch", str(hook)],
+                   [item.replace("resourceObservation=true", "resourceObservation=false") for item in argv],
+                   [item.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "other-token") for item in argv]]
+        version = list(argv); version[version.index("--version") + 1] = "5302"; invalid.append(version)
+        outside = self.base / hook.name; outside.write_text("unreviewed copy\n")
+        outside_argv = list(argv); outside_argv[outside_argv.index("--remote-pre-launch") + 1] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": outside_argv}, self.source, "atlas-image-shadow:5303")
+        for request in invalid:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({**self.request, "argv": argv}, self.source, "other:5303")
+        final_hook = self.preview / "capture-direct-nmt-launcher.py"
+        final_hook.write_text("# stdlib-only final capture fixture, never executed\n")
+        final_argv = [*argv, "--remote-pre-cleanup", str(final_hook)]
+        captured_final = self.prepared.capture({**self.request, "argv": final_argv}, self.source, "atlas-image-shadow:5303")
+        final_hook.write_text("changed final hook\n")
+        command = self.prepared.command(captured_final["digest"], self.base / "final-nmt-evidence")
+        self.assertIn("final capture fixture", Path(command[command.index("--remote-pre-cleanup") + 1]).read_text())
+        invalid_final = [final_argv + ["--remote-pre-launch-background"],
+                         [x.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "wrong") for x in final_argv]]
+        without_launch = list(final_argv)
+        index = without_launch.index("--remote-pre-launch"); del without_launch[index:index + 2]
+        invalid_final.append(without_launch)
+        wrong_stage = list(final_argv); wrong_stage[wrong_stage.index("--remote-pre-cleanup")] = "--remote-post-launch"
+        invalid_final.append(wrong_stage)
+        outside_final = self.base / final_hook.name; outside_final.write_text("unreviewed\n")
+        wrong_path = list(final_argv); wrong_path[wrong_path.index("--remote-pre-cleanup") + 1] = str(outside_final)
+        invalid_final.append(wrong_path)
+        for request in invalid_final:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        self.assertEqual([], self.store.jobs())
+
     def test_external_psd_rss_hook_protocol_and_dependency_snapshot(self) -> None:
         hook = self.source / queue.EXTERNAL_PSD_RSS_HOOK
         hook.parent.mkdir(parents=True)

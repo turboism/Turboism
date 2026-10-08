@@ -1,8 +1,9 @@
 # validation/atlas-image-timing — per-call atlas-path timing agent
 
 Validation-only timing instrumentation for spec 020 (T029/FR-01). Weaves
-stack-neutral enter/exit calls into seven reviewed Cubism 5.3.03 methods and
-records per-call durations + thread attribution inside the task home.
+stack-neutral enter/exit calls into reviewed Cubism methods (5.3.03 and 5.2.03
+target lists) and records per-call durations + thread attribution inside the
+task home.
 
 ## Targets (exact-signature, 5303-verified)
 
@@ -15,6 +16,20 @@ records per-call durations + thread attribution inside the task home.
 | editorInit | `TAE_DataModel.z()V` | edit-layer construction loop |
 | setupEditLayer | `TAE__EditLayer_ModelImage.setupEditLayer()V` | per-ModelImage layer setup |
 | updateMesh | `GEditableMesh2.updateMesh(Lcom/live2d/util/j/a;Z)V` | per-mesh triangulation |
+| updateVertices | `GEditableMesh2.updateVertices()V` | vertex-position buffer rebuild inside updateMesh |
+| updateIndices | `GEditableMesh2.updateIndices(Lcom/live2d/util/j/a;)V` | edge-version-gated index rebuild inside updateMesh |
+| delaunayCompute | `editableMesh.b.b(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;)Ljava/util/List;` | Delaunay candidate-triangle computation |
+| delaunayApply | `editableMesh.b.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Ljava/util/List;ZLcom/live2d/util/j/a;)V` | Delaunay apply (edge/indices mutation) |
+| autoTriangulate | `editableMesh.triangulation.g.a(Lcom/live2d/graphics3d/editableMesh/GEditableMesh2;Lcom/live2d/util/j/a;)V` | fused non-Delaunay auto-triangulation |
+
+The last five metrics (ids 11–15, T029-P3A) decompose `updateMesh` by call
+structure: `updateMesh` invokes `updateVertices`, a cancellation check, then
+`updateIndices`, and `updateIndices` invokes either
+`delaunayCompute`+`delaunayApply` or `autoTriangulate`. Inclusive durations
+overlap by design and each method carries its own gating and instrumentation
+overhead — do not read the structure as an exact time equation. On 5.2.03 the
+`com.live2d.util.j.a` context type is `com.live2d.util.i.a`; all other
+descriptors are identical between versions.
 
 Design: `enter(I)/exit(I)` push/pop a ThreadLocal stack — zero new locals,
 exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
@@ -23,9 +38,35 @@ exception-table-neutral, unmatched exits counted as `unpaired`. Opt-in token
 (their reflective digest inside updateMesh distorts timing).
 
 Offline gates (build.sh): selfcheck (nesting/exceptions/unrelated-class
-pass-through), official-JAR non-execution shape probe (7/7 owner×desc exactly
-once, owner SHA256s recorded), live-JVM harness, opt-in gate. Agent jar sha256
-`03002299fc7b1b22a204d37fc84027e1216047d8c0ad7b54840962697e5ebeaa`.
+pass-through), official-JAR non-execution shape probe (per-profile owner×desc
+exactly-once, owner SHA256s recorded), live-JVM harness, opt-in gate. The agent
+jar is not reproducible — every build emits a different archive; build.sh
+prints `agentSha256` per run (e.g. `9f9d5be9…` for the P3A build, `b638a39a…`
+for the reviewer's rebuild), so tie evidence to the run's printed hash rather
+than to a fixed value here.
+
+## Known measurement limits
+
+This agent's output is decomposition evidence only — never performance
+acceptance evidence.
+
+- **Inclusive timing only.** Records carry a millisecond `startEpochMs` and the
+  thread name, so nanosecond-level nesting cannot be reconstructed
+  unambiguously (same-named threads, wall-clock adjustments). Report per-method
+  inclusive statistics and call counts; do not derive precise exclusive time
+  from differences.
+- **Exceptional exits are invisible, not timed.** `exit` scans the thread stack
+  for a matching metric; a frame abandoned by recursion or an exception inside
+  the same metric can pair with an older entry, and `enter` pushes dropped at
+  stack depth ≥512 can let a later `exit` mis-pair with a stale frame.
+  `unpaired` counts discarded entries but is an incompleteness indicator, not
+  attribution.
+- **Recording is not fully asynchronous.** `record()` flushes to disk on the
+  host thread every 64 records in addition to the daemon flusher, and the two
+  writers share a `timing-summary.properties.tmp`→rename window — observer
+  overhead may only be estimated from off/on paired legs.
+- Reliable nested pairing and exceptional-completion semantics (call id,
+  thread id, monotonic timestamps, invalidation) are a separate follow-up task.
 
 ## Real-host baseline — job 245, queue-a9578d5ef86741c18aeadceca5734b1e
 
@@ -135,3 +176,94 @@ Page-level parallelism ceiling ≈ 115.3/92.5 ≈ **1.25×** — one page holds 
 Export path remains unmeasured (scene driver has no export action).
 
 Evidence: `TurboismValidation/atlas-image-shadow/5303-t020-timing-01-heavy-nolayout-atlastiming-jfr/queue-a9578d5ef86741c18aeadceca5734b1e/turboism-home/atlas-timing/`
+
+## T029-STACK — entry-side stack sampling (ids 0/1 only)
+
+Optional second opt-in: `-Dturboism.validation.atlasTiming.stackOptIn=ATLAS_STACK_SAMPLE_EXPLICIT_OPT_IN`
+on top of the base `atlasTiming.optIn` token. Only the `updateTexture` (0) and
+`setupCacheImage` (1) entries are sampled; sampling is independent of the
+enter/exit pairing (an entry that later exits by throwing still lands its
+sample) and shares no queue, flush, or file with the timing records.
+
+`StackSamples` (single class, not a framework):
+
+- Budget reserved **before** collecting: ≤512 reservations total; `seq` is the
+  unique reservation id. Over-cap attempts are counted (`droppedBudget`),
+  never collected.
+- JDK 17 `StackWalker` with a walk limit of 97 frames, keeping at most 96
+  (`truncated=1` past that). Only `getClassName()`/`getMethodName()` strings —
+  no `RETAIN_CLASS_REFERENCE`, no host getters, no retained host objects.
+- The producer never waits for queue capacity: the bounded queue (≤512) is
+  guarded by one short lock that also owns every counter mutation, so queue
+  ownership transfer and accounting linearise together and every
+  `snapshot()`/status build reads a consistent point in time. The lock itself
+  is still a short wait; it is never held while walking a stack or performing
+  file IO. Overflow is `droppedQueue`.
+- One daemon writer drains to `timing-stacks.txt` and keeps a single-writer
+  `timing-stacks.status` fresh through its own temp file + atomic rename
+  (independent of the timing probe's `.tmp` window). A batch whose write threw
+  is `unconfirmedWrites` — a partial append may already be on disk; reconcile
+  by `seq` rather than trusting counts alone, and the run is `incomplete=1`.
+- Status accounting has two counters: `statusErrors` is cumulative and never
+  resets; `statusWriteFailures` counts the consecutive run and resets on a
+  successful write. The first status failure already sets `incomplete=1`
+  (sticky). After 8 consecutive failures, `statusDisabled=1` stops further
+  status attempts only — record sampling and draining continue normally.
+- Status counters: `attempted / reserved / sampleError / queued / droppedQueue
+  / droppedBudget / droppedStopped / droppedInFlight / dequeued / written /
+  unconfirmedWrites / truncated / namesTruncated / statusErrors /
+  statusWriteFailures / statusDisabled / pending / inFlight / inWrite /
+  queueDepth / incomplete / state`. Invariants at every snapshot:
+  `attempted = reserved + droppedBudget + droppedStopped`,
+  `reserved = sampleError + droppedQueue + droppedInFlight + queued +
+  inFlight`, `queued = dequeued + pending`, `dequeued = written +
+  unconfirmedWrites + inWrite`. In-flight work is never counted as lost — it
+  stays visible as `inFlight`/`pending`/`inWrite`.
+- If the writer dies (any failure outside the write path), the terminal reason
+  is recorded in memory under the same lock that sets `incomplete=1`, and a
+  best-effort `state=TERMINATED:<reason>` status is attempted. Once terminal,
+  the reservation gate refuses new entries as `droppedStopped` (no stack walk,
+  no seq consumed), and samples still in flight at that moment are dropped at
+  the offer point as `droppedInFlight` — bounded and accounted, never retried.
+- Record line: `stack seq=<n> metric=<name> tid=<id> thread="<name>" depth=<d>
+  truncated=<0|1> frames="a.b;c.d;…" truncNames=<n>`. Names are length-capped
+  on the raw value first, then separators/control characters are neutralised
+  (`"`→`'`, `;`→`,`, `\`→`/`, CR/LF/control → space); a truncated name carries
+  a trailing `..` and is counted in `truncNames`.
+- Disabled = no writer thread, no walker, no files; an in-memory state only.
+  A missing/wrong stack token must not poison `blocked`, and the stack token
+  can never enable anything without the base token.
+
+Offline legs (build.sh): selfcheck drives direct/worker/deep/exceptional
+entries, over-budget (clamped injected caps), gated full-queue, unconfirmed
+writes, a throwing collector, a gate-controlled mid-write interleave with
+concurrent consistent snapshots, and writer death with terminal accounting —
+all deterministic, no timing races; harness legs run both tokens,
+base-only, wrong-token, and stack-token-only. Marker fixtures
+(`appCtrlImpl.ap`/`al`, `exporter/w`) only place their owner.method names on
+the sampled stacks.
+
+### Stack-sampling evidence limits
+
+- Records are **raw frames only**. The tool never classifies callers and never
+  claims who initiated or scheduled a call — a marker frame only proves the
+  sampled entry ran underneath it. Under a nested event pump (SecondaryLoop),
+  unrelated EDT work can carry the same marker frames; read stacks as
+  "executed under", never "caused by".
+- This slice does not exercise any real nested pump; marker frames in fixtures
+  are name-shape evidence, not pump semantics.
+- There is no collection-boundary or final-confirmation marker: a native host
+  exit can drop undrained samples **and** the final status, a drained-queue
+  status is only a momentary state, and `TERMINATED` also covers abnormal
+  exits. This slice only ever provides the positive stack samples that reached
+  the file — it never proves full coverage or absence of tail loss.
+  `incomplete=0` merely means no fault had been recorded at that snapshot. A
+  missing `timing-stacks.txt`, a missing/stale status file, or zero samples
+  never proves a path did not run (sampling may have been disabled, or the
+  writer lost).
+- Budget and queue caps bound *output*, not per-sample cost — each accepted
+  sample still walks up to 97 frames. Host-side overhead is unmeasured; use
+  on/off paired legs before reading anything into timings.
+- Frame names are interpreted against the 5303 mapping; that says nothing
+  about other versions, and the JDK-side sampler itself does not verify host
+  version.

@@ -1,0 +1,223 @@
+{
+  "status": "READ_ONLY_CPU_BOUNDARY_AUDIT",
+  "legs": {
+    "baseline": {
+      "javaIdentity": [
+        1602150,
+        "4811327"
+      ],
+      "cgroupIdentity": [
+        "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-b5863aac8f0ea077e62984608b56eae3.scope",
+        1236207
+      ],
+      "ticksPerSecond": 100,
+      "terminalNoHostBatchesExcluded": 1,
+      "commands": [
+        {
+          "cycle": 1,
+          "startEpochMillis": 1790979816734,
+          "endEpochMillis": 1790979831030,
+          "epochMinusMonotonicDurationMillis": -0.40099999999983993,
+          "originalInsideSampleCpuSeconds": 23.12,
+          "startOmittedMillis": 315,
+          "endOmittedMillis": 1000,
+          "conditionalSerializedBatchLowerCpuSeconds": 19.22,
+          "conditionalSerializedBatchUpperCpuSeconds": 30.42,
+          "startCounterRangeTicks": [
+            19254,
+            19820
+          ],
+          "endCounterRangeTicks": [
+            21742,
+            22296
+          ],
+          "outerBatchEpochs": [
+            1790979816029,
+            1790979818046,
+            1790979830030,
+            1790979832050
+          ]
+        },
+        {
+          "cycle": 2,
+          "startEpochMillis": 1790979864730,
+          "endEpochMillis": 1790979877868,
+          "epochMinusMonotonicDurationMillis": -0.5254000000004453,
+          "originalInsideSampleCpuSeconds": 13.41,
+          "startOmittedMillis": 305,
+          "endOmittedMillis": 831,
+          "conditionalSerializedBatchLowerCpuSeconds": 12.14,
+          "conditionalSerializedBatchUpperCpuSeconds": 18.71,
+          "startCounterRangeTicks": [
+            22598,
+            22829
+          ],
+          "endCounterRangeTicks": [
+            24043,
+            24469
+          ],
+          "outerBatchEpochs": [
+            1790979864037,
+            1790979866034,
+            1790979877037,
+            1790979879038
+          ]
+        },
+        {
+          "cycle": 3,
+          "startEpochMillis": 1790979911527,
+          "endEpochMillis": 1790979924005,
+          "epochMinusMonotonicDurationMillis": 0.6103000000002794,
+          "originalInsideSampleCpuSeconds": 11.68,
+          "startOmittedMillis": 514,
+          "endOmittedMillis": 965,
+          "conditionalSerializedBatchLowerCpuSeconds": 10.63,
+          "conditionalSerializedBatchUpperCpuSeconds": 16.07,
+          "startCounterRangeTicks": [
+            24741,
+            24946
+          ],
+          "endCounterRangeTicks": [
+            26009,
+            26348
+          ],
+          "outerBatchEpochs": [
+            1790979911039,
+            1790979913039,
+            1790979923040,
+            1790979925061
+          ]
+        }
+      ],
+      "originalInsideCpuSeconds": 48.21,
+      "conditionalLowerCpuSeconds": 41.99,
+      "conditionalUpperCpuSeconds": 65.2,
+      "omittedWallMillis": 3930
+    },
+    "candidate": {
+      "javaIdentity": [
+        1614650,
+        "4846348"
+      ],
+      "cgroupIdentity": [
+        "/user.slice/user-1000.slice/user@1000.service/app.slice/turboism-queue-ef906d11a55a55ec8aeff6e5226006e1.scope",
+        1245887
+      ],
+      "ticksPerSecond": 100,
+      "terminalNoHostBatchesExcluded": 0,
+      "commands": [
+        {
+          "cycle": 1,
+          "startEpochMillis": 1790980173333,
+          "endEpochMillis": 1790980187072,
+          "epochMinusMonotonicDurationMillis": -0.11549999999988358,
+          "originalInsideSampleCpuSeconds": 24.93,
+          "startOmittedMillis": 148,
+          "endOmittedMillis": 605,
+          "conditionalSerializedBatchLowerCpuSeconds": 21.37,
+          "conditionalSerializedBatchUpperCpuSeconds": 31.97,
+          "startCounterRangeTicks": [
+            19894,
+            20376
+          ],
+          "endCounterRangeTicks": [
+            22513,
+            23091
+          ],
+          "outerBatchEpochs": [
+            1790980172466,
+            1790980174499,
+            1790980186467,
+            1790980188488
+          ]
+        },
+        {
+          "cycle": 2,
+          "startEpochMillis": 1790980220669,
+          "endEpochMillis": 1790980232793,
+          "epochMinusMonotonicDurationMillis": 0.09599999999954889,
+          "originalInsideSampleCpuSeconds": 11.86,
+          "startOmittedMillis": 804,
+          "endOmittedMillis": 289,
+          "conditionalSerializedBatchLowerCpuSeconds": 10.53,
+          "conditionalSerializedBatchUpperCpuSeconds": 18.24,
+          "startCounterRangeTicks": [
+            23401,
+            23692
+          ],
+          "endCounterRangeTicks": [
+            24745,
+            25225
+          ],
+          "outerBatchEpochs": [
+            1790980220470,
+            1790980222473,
+            1790980232504,
+            1790980234517
+          ]
+        },
+        {
+          "cycle": 3,
+          "startEpochMillis": 1790980267067,
+          "endEpochMillis": 1790980278928,
+          "epochMinusMonotonicDurationMillis": 0.08820000000014261,
+          "originalInsideSampleCpuSeconds": 11.73,
+          "startOmittedMillis": 411,
+          "endOmittedMillis": 450,
+          "conditionalSerializedBatchLowerCpuSeconds": 10.41,
+          "conditionalSerializedBatchUpperCpuSeconds": 15.88,
+          "startCounterRangeTicks": [
+            25574,
+            25807
+          ],
+          "endCounterRangeTicks": [
+            26848,
+            27162
+          ],
+          "outerBatchEpochs": [
+            1790980266476,
+            1790980268477,
+            1790980278478,
+            1790980280477
+          ]
+        }
+      ],
+      "originalInsideCpuSeconds": 48.519999999999996,
+      "conditionalLowerCpuSeconds": 42.31,
+      "conditionalUpperCpuSeconds": 66.09,
+      "omittedWallMillis": 2707
+    }
+  },
+  "pins": {
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/native-evidence/resource-windows.tsv": "1478d79a9357d08fd57d3ac0d67202325f970aaee05dc8320fd2ce9348de118e",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/native-evidence/resources.jsonl": "92ce38a746d028ba16bf04730c4d2b08e2f3e20905387cb62ce41bdaee245d68",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/observe-resources.py": "355abd49fb6b21d2559e6bb259dd139cf53f0ab30c2921720acb03f06d62ea21",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/native-evidence/resource-windows.tsv": "d98dd71f1916d26f9d210b1a6fc264836c1e161b83ab062b8f806ee9e0a25c12",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/native-evidence/resources.jsonl": "35f6d48ccf3e00795b88bb745f824c94454fe276be5aa97278546269ca962fcb",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/observe-resources.py": "355abd49fb6b21d2559e6bb259dd139cf53f0ab30c2921720acb03f06d62ea21",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/pair-review.json": "90823e569762535d616911b79ed4c482b465b0d8fe6506904bc89f8fe29852a7",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/analyze-command-cpu-boundaries.py": "bbb7b4feb3848fb0cdeb455e55e09df7f29e404b332a3d15018aa05f9c2487d8",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/test-command-cpu-boundaries.py": "f2c7e78e55aa4bcfe1f3602be0fa02b957ffaca5bd629a9dccd4d6100d3b18ea",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t067-cpu-boundary-audit-r1/review.json": "a492f6a0141e63385f93dfbe5ba03095b8e0f87630a61e8bfa3758a92fea1205"
+  },
+  "limitations": [
+    "Conditional brackets assume monotonic recorded epoch time and serialized observer batches.",
+    "CPU stat reads occur between previous/current batch stamps; per-read clocks were not recorded.",
+    "Ticks are kernel accounting units, not exact continuous CPU duration or a confidence interval.",
+    "No proportional interpolation or assumption of uniform boundary CPU usage.",
+    "These intervals do not replace the original point-estimate acceptance gate.",
+    "A single diagnostic pair cannot establish stable or causal performance changes."
+  ],
+  "candidateMinusBaselineConditionalCpuSeconds": [
+    -22.89,
+    24.1
+  ],
+  "originalResourceGatesUnchanged": {
+    "javaCpuTotalNoRegression": false,
+    "absoluteRssGrowthWithin20Percent": true,
+    "rssAboveOwnBaselineWithin80MiB": true,
+    "retained3Minus1Within64MiB": true
+  },
+  "decision": "RETAIN_T066_REJECTION; NEXT_EXPLICIT_COMMAND_BOUNDARY_CPU_INSTRUMENTATION",
+  "regressionTests": 6
+}

@@ -126,9 +126,19 @@ public final class TurboismAgent {
                 System.err.println("Turboism agent start rejected: shutdown hook is unavailable");
                 return;
             }
-            JvmShims.install(attachmentMode, instrumentation, options);
+            // Only a verified sole-Agent/attach-disabled premain can own definitions.
+            // All installers and the bootstrap thread receive the same gateway; the
+            // raw handle remains local to this entry segment. Ordinary/attach starts
+            // retain their previous instrumentation and cannot admit lazy-edge leases.
+            final Instrumentation hookInstrumentation =
+                    attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN && instrumentation != null
+                            ? dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle.forPremain(
+                                            instrumentation, TurboismAgent.class.getName())
+                                    .instrumentation()
+                            : instrumentation;
+            JvmShims.install(attachmentMode, hookInstrumentation, options);
             final HookEnvironment premainEnvironment = HookEnvironment.builder()
-                    .instrumentation(instrumentation)
+                    .instrumentation(hookInstrumentation)
                     .attachmentMode(attachmentMode)
                     .options(options)
                     .classPath(System.getProperty("java.class.path", ""))
@@ -146,7 +156,7 @@ public final class TurboismAgent {
                 }
             }
             bootstrapThreadStarter.accept(
-                    () -> start(options, instrumentation, attachmentMode, List.copyOf(premainInstalled), contributors));
+                    () -> start(options, hookInstrumentation, attachmentMode, List.copyOf(premainInstalled), contributors));
         } catch (Throwable failure) {
             FatalErrors.rethrowIfFatal(failure);
             failStartSafely(failure);

@@ -1,0 +1,160 @@
+{
+  "task": "T056",
+  "status": "complete_owned_method_feasibility_production_pending",
+  "production_changed": false,
+  "host_launched": false,
+  "checks": 45970,
+  "native": [
+    {
+      "jar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar",
+      "fixtures": 128,
+      "checks": 15451,
+      "guard_calls": 8375,
+      "bypasses": 7734
+    },
+    {
+      "jar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar",
+      "fixtures": 128,
+      "checks": 15259,
+      "guard_calls": 8039,
+      "bypasses": 7606
+    },
+    {
+      "jar": "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar",
+      "fixtures": 128,
+      "checks": 15259,
+      "guard_calls": 8039,
+      "bypasses": 7606
+    }
+  ],
+  "cost": {
+    "plain": [
+      {
+        "distribution": "uniformFinite",
+        "inputs": 4096,
+        "predicate_bypasses": 4096,
+        "native_ns": 22179402,
+        "guarded_ns": 2605051,
+        "change_percent": -88.255
+      },
+      {
+        "distribution": "halfNearRay",
+        "inputs": 4096,
+        "predicate_bypasses": 2048,
+        "native_ns": 18689590,
+        "guarded_ns": 9723608,
+        "change_percent": -47.973
+      },
+      {
+        "distribution": "allFallbackNearRay",
+        "inputs": 4096,
+        "predicate_bypasses": 0,
+        "native_ns": 12307295,
+        "guarded_ns": 16191504,
+        "change_percent": 31.56
+      },
+      {
+        "distribution": "allFallbackZeroCross",
+        "inputs": 4096,
+        "predicate_bypasses": 0,
+        "native_ns": 6647552,
+        "guarded_ns": 7527109,
+        "change_percent": 13.231
+      }
+    ],
+    "adaptive": [
+      {
+        "distribution": "uniformFinite",
+        "inputs": 4096,
+        "predicate_bypasses": 4096,
+        "native_ns": 16692764,
+        "guarded_ns": 2497673,
+        "change_percent": -85.037
+      },
+      {
+        "distribution": "halfNearRay",
+        "inputs": 4096,
+        "predicate_bypasses": 2048,
+        "native_ns": 12893033,
+        "guarded_ns": 6741620,
+        "change_percent": -47.711
+      },
+      {
+        "distribution": "allFallbackNearRay",
+        "inputs": 4096,
+        "predicate_bypasses": 0,
+        "native_ns": 15558173,
+        "guarded_ns": 16177946,
+        "change_percent": 3.984
+      },
+      {
+        "distribution": "allFallbackZeroCross",
+        "inputs": 4096,
+        "predicate_bypasses": 0,
+        "native_ns": 7846967,
+        "guarded_ns": 8387102,
+        "change_percent": 6.883
+      }
+    ]
+  },
+  "archived_logs": {
+    "native": "validation/triangulation-tlindex/angle-method-feasibility-20261003-native.txt",
+    "adaptive": "validation/triangulation-tlindex/angle-method-feasibility-20261003-adaptive.txt",
+    "plain": "validation/triangulation-tlindex/angle-method-feasibility-20261003-plain.txt"
+  },
+  "pins": {
+    "build/t056-angle-method-r1/native-execution-final-r5.txt": "b48898433da0d02cb877d56beb976e3f07e2aae19ecc21775a4328c5e650b9c0",
+    "build/t056-angle-method-r1/scalar-cost-adaptive-r3.txt": "539e3826bc2afd318f8dde07910a19d92c375359e286c573dc631d47ccbf480b",
+    "build/t056-angle-method-r1/scalar-cost-plain-final-r4.txt": "4317679cf584aa9f0f2ff4ececec97f293f819b8772e1dac12ad591a7fabed14",
+    "validation/triangulation-tlindex/angle-method-feasibility-20261003-native.txt": "e6e9ea6f4ef78591f23425d226962c227d7aa493a3bbfe6b39777eef13f4a536",
+    "validation/triangulation-tlindex/angle-method-feasibility-20261003-adaptive.txt": "539e3826bc2afd318f8dde07910a19d92c375359e286c573dc631d47ccbf480b",
+    "validation/triangulation-tlindex/angle-method-feasibility-20261003-plain.txt": "4317679cf584aa9f0f2ff4ececec97f293f819b8772e1dac12ad591a7fabed14",
+    "validation/triangulation-tlindex/diagnostic/AngleGuardMath.java": "e9859efa45e35cfdc96050684bac832a4a14fdc583a36e49087863eb33004c46",
+    "validation/triangulation-tlindex/diagnostic/AngleGuardBytecodePrototype.java": "f09a614f4bb5032729bcc6b636c54b1eb3b9d1b2860163d06b7b7e41252ae731",
+    "validation/triangulation-tlindex/diagnostic/AngleGuardNativeSelfCheck.java": "45e92aae578160bfec71aab1d32eda69f33f6314ca8b5e797c45cc02a4a8ec04",
+    "validation/triangulation-tlindex/diagnostic/AngleGuardCostSelfCheck.java": "2582935bd1772f7fb32fcbcb4fe1a8f2947f21f9e239e781b270a9fa0f24efae",
+    "build/t056-angle-method-r1/command.json": "f1fb20a8765dfea276fb7ce80c53665c3eb0613c3232e676b73ade098f9a16ff",
+    "build/t056-angle-method-r1/classpath.txt": "f73d0f241b56c4217f302def917aa60746306a9b520edb2d4d685cd81f45a3d8",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "build/t056-angle-method-r1/classes/AngleGuardMath.class": "7b9627e18e813a9b8252c90db446ab46fc8071890ddf997afaf971837f0005a7",
+    "build/t056-angle-method-r1/classes/AngleGuardBytecodePrototype$1.class": "1dc94cc32777bb0fcfa3592488f3e00195b8acb129bc8e9256aa966d33c14912",
+    "build/t056-angle-method-r1/classes/AngleGuardBytecodePrototype.class": "648d85ea94604c8a43148c5f17414e27a2a72db5eb2d3b86a96ab64bbc5ebac3",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$Control.class": "524617d103dd9931849ef82927b209f3a0bf55af8eb5d5c8b6d1bef5c6ff54da",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$Loader$1$1.class": "b2a3bb16aca5b3ca274f6db463480331614ad96f51a90ee39a0c520ae8e95a54",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$Loader$1.class": "94d543c72aada3aefba2239ff4b9d7198a1452a6b82b1e8822c34e0ca17eb02a",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$Loader.class": "20375b9cb57dc5afad34c9694fc51d860801fd888bc7de5c46536aecdd865710",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$Result.class": "af060bc224a19fffbbdc9acd4b10aebc3aea767bd60cb62c37aaf45e9db984da",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck$1.class": "6ce9a5ae3d16eb8a10fc5cd24068bb7c415968ca8a9eddf89b2ca773245974c4",
+    "build/t056-angle-method-r1/classes/AngleGuardNativeSelfCheck.class": "157c0e1804c1725dbbd739e47cabe799d343364fdf63c265258a357c63746a97",
+    "build/t056-angle-method-r1/classes/AngleGuardCostSelfCheck.class": "45a7d27476ccc9702124fdfaefd43b029e068862fa7dee6fc8fb4375ccd1f268",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar": "9929881f59eb6b840e86d54570c77b59ce721d104e6dfd7a40978991c2d3b41f"
+  },
+  "jdk": "OpenJDK17.0.20+8",
+  "bound": "eight consecutive failed guard attempts disables guard for the rest of h.d invocation; proved rejection resets misses",
+  "controls": [
+    "128 full native d fixtures/profile",
+    "native baseline vs null lease vs leased full method",
+    "ordered endpoint index/coordinate raw-bit outputs and fixture point identities",
+    "post-triangle-construction coordinate mutation, collinear, near-ray, zero/subnormal, NaN/infinity, empty",
+    "first angle always native",
+    "injected list failure original Throwable identity and exceptional lease close",
+    "wrong access/unknown class bytes refusal",
+    "non-d algorithms and nondebug/nonframe class/field metadata canonical fingerprint preservation",
+    "all-collinear guardAttempts<=8"
+  ],
+  "limitations": [
+    "Owned substitute lease; no actual premain gate/lifecycle admission",
+    "Original r instrumented identically in both loaders to count native calls; not production admission bytes",
+    "Output comparisons cover ordered endpoint tuples/coordinate bits; not all Editor semantic fields",
+    "Cold class-initialization failures not fault-injected",
+    "Prototype recomputes all class frames; non-target byte-for-byte attribute preservation not claimed",
+    "Separate JVM scalar benchmarks have substantial variance and do not establish stable percentages or Editor benefit",
+    "Scalar excludes lease/vector allocations/class-init/getters and uses4096 inputs per invocation",
+    "Predicate bypass counts are from owned fixtures, not actual Editor input distribution",
+    "Adaptive limit bounds expensive guard attempts, not all added branch overhead",
+    "Full production resources/original CPU and RSS gates remain pending"
+  ]
+}

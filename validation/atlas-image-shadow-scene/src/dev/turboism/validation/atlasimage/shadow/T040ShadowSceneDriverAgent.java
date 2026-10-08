@@ -69,7 +69,7 @@ public final class T040ShadowSceneDriverAgent {
         final long timeoutSeconds;
         final String version;
         final String scene;
-        /** The 5303 profile carries the T039 shadow capture; 5203 has no T039 agent. */
+        /** The 5303 profile carries the T039 shadow capture; other profiles have none. */
         final boolean shadow;
         final String profile;
         final String layoutScalePercent;
@@ -82,6 +82,8 @@ public final class T040ShadowSceneDriverAgent {
         final boolean exportProbe;
         final boolean exportAfterEditor;
         final boolean editorReopen;
+        final boolean higherVersionLoadAllowed;
+        final long resourceObservationSeconds;
 
         private DriverConfig(final Path home, final String taskId, final Path fixture,
                              final String fixtureName, final String fixtureSha256,
@@ -92,7 +94,7 @@ public final class T040ShadowSceneDriverAgent {
                              final long closePollSeconds, final long layoutDialogSeconds,
                              final long editorSettleSeconds, final boolean menuDump,
                              final boolean exportProbe, final boolean exportAfterEditor,
-                             final boolean editorReopen) {
+                             final boolean editorReopen, final long resourceObservationSeconds) {
             this.home = home;
             this.taskId = taskId;
             this.fixture = fixture;
@@ -113,6 +115,12 @@ public final class T040ShadowSceneDriverAgent {
             this.exportProbe = exportProbe;
             this.exportAfterEditor = exportAfterEditor;
             this.editorReopen = editorReopen;
+            this.resourceObservationSeconds = resourceObservationSeconds;
+            this.higherVersionLoadAllowed = ShadowSceneContract.VERSION_5203.equals(version)
+                && ShadowSceneContract.TLPROD_OPT_IN.equals(System.getProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn"))
+                && (taskId + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME).equals(fixtureName)
+                && ShadowSceneContract.FIXTURE_HEAVY_SHA256.equals(fixtureSha256);
         }
 
         static DriverConfig fromSystemProperties() throws Exception {
@@ -210,7 +218,23 @@ public final class T040ShadowSceneDriverAgent {
                 ShadowSceneContract.booleanProperty(
                     ShadowSceneContract.EXPORT_AFTER_EDITOR_PROPERTY, false),
                 ShadowSceneContract.booleanProperty(
-                    ShadowSceneContract.EDITOR_REOPEN_PROPERTY, false));
+                    ShadowSceneContract.EDITOR_REOPEN_PROPERTY, false),
+                resourceObservationSeconds(taskId, fixtureName, fixtureSha256));
+        }
+
+        static long resourceObservationSeconds(final String taskId, final String fixtureName,
+                final String fixtureSha256) {
+            if (!ShadowSceneContract.booleanProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "resourceObservation", false)) return 0L;
+            if (!ShadowSceneContract.TLPROD_OPT_IN.equals(System.getProperty(
+                    ShadowSceneContract.NAMED_PREFIX + "tlprodOptIn"))
+                    || !(taskId + "-" + ShadowSceneContract.FIXTURE_HEAVY_NAME).equals(fixtureName)
+                    || !ShadowSceneContract.FIXTURE_HEAVY_SHA256.equals(fixtureSha256)
+                    || !ShadowSceneContract.LAYOUT_MODE_PRESERVE.equals(ShadowSceneContract.layoutMode())
+                    || ShadowSceneContract.booleanProperty(ShadowSceneContract.EXPORT_PROBE_PROPERTY, false)) {
+                throw new IllegalArgumentException("resource observation requires explicit heavy TLPROD without layout/export");
+            }
+            return 30L;
         }
 
         static DriverConfig forSelfCheck(final Path home, final String taskId,
@@ -242,7 +266,15 @@ public final class T040ShadowSceneDriverAgent {
                 ShadowSceneContract.STARTUP_TIMEOUT_SECONDS,
                 ShadowSceneContract.CLOSE_POLL_TIMEOUT_SECONDS,
                 ShadowSceneContract.LAYOUT_DIALOG_TIMEOUT_SECONDS, 0L, false, false, false,
-                false);
+                false, 0L);
+        }
+
+        static DriverConfig forResourceSelfCheck(final Path home, final String taskId,
+                final Path fixture, final String fixtureName, final String fixtureSha256) {
+            return new DriverConfig(home, taskId, fixture, fixtureName, fixtureSha256,
+                30L, ShadowSceneContract.VERSION_5203, ShadowSceneContract.VERSION_5203,
+                ShadowSceneContract.LAYOUT_SCALE_KERNEL_PERCENT, ShadowSceneContract.LAYOUT_MODE_PRESERVE,
+                20L, 20L, 20L, 0L, false, false, false, false, 1L);
         }
 
         static DriverConfig forSelfCheck(final Path home, final String taskId,
@@ -379,8 +411,10 @@ public final class T040ShadowSceneDriverAgent {
                 main = awaitHostReady();
                 evidence.stage("MAIN", "READY");
                 captureBaseline();
+                observeResources("baseline", 0);
                 if (config.menuDump) dumpMenuTree();
                 if (config.exportProbe && !config.exportAfterEditor) probeExportDialog();
+                resourceMarker("operation-start", 1);
                 final EditorMenuDispatch menuDispatch = new EditorMenuDispatch(main, evidence);
                 menuDispatch.dispatch();
                 evidence.stage("EDITOR", "REQUESTED");
@@ -420,25 +454,32 @@ public final class T040ShadowSceneDriverAgent {
                 evidence.stage("EDITOR", "OK_COMPLETED");
                 awaitMenuCompletion(menuDispatch);
                 evidence.stage("EDITOR", "ACTION_COMPLETE");
+                resourceMarker("operation-end", 1);
+                observeResources("retained", 1);
                 if (config.exportProbe && config.exportAfterEditor) probeExportDialog();
-                if (config.editorReopen) {
+                final int operationCount = config.resourceObservationSeconds > 0 ? 3
+                    : config.editorReopen ? 2 : 1;
+                for (int operation = 2; operation <= operationCount; operation++) {
                     // Second open→OK round-trip: the "user reopens the atlas" path. The
                     // host hands the editor fresh atlas instances (deep copies); whether
                     // the second open still rebuilds every page is exactly what the
                     // cache-reuse verdicts answer.
                     final EditorMenuDispatch reopenDispatch =
                         new EditorMenuDispatch(main, evidence);
+                    resourceMarker("operation-start", operation);
                     reopenDispatch.dispatch();
-                    evidence.stage("EDITOR2", "REQUESTED");
+                    evidence.stage("EDITOR" + operation, "REQUESTED");
                     final Editor editor2 = waitForEditor(main);
-                    evidence.stage("EDITOR2", "CONFIRMED");
+                    evidence.stage("EDITOR" + operation, "CONFIRMED");
                     final OkDispatch ok2 =
                         new OkDispatch(editor2, main, evidence, baselineWindows);
                     ok2.dispatch();
                     waitForEditorClosed(editor2, main);
                     awaitOkCompletion(ok2);
                     awaitMenuCompletion(reopenDispatch);
-                    evidence.stage("EDITOR2", "ACTION_COMPLETE");
+                    evidence.stage("EDITOR" + operation, "ACTION_COMPLETE");
+                    resourceMarker("operation-end", operation);
+                    observeResources("retained", operation);
                 }
 
                 final Map<String, String> freeze;
@@ -468,6 +509,35 @@ public final class T040ShadowSceneDriverAgent {
                 System.err.println("ATLAS_IMAGE_SHADOW_DRIVER_BLOCKED "
                     + failure.getClass().getSimpleName());
             }
+        }
+
+        private void resourceMarker(final String phase, final int operation) throws Exception {
+            if (config.resourceObservationSeconds == 0) return;
+            final Path target = run.resolve("resource-windows.tsv");
+            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                Files.writeString(target, "phase\toperation\tepochMillis\tmonotonicNanos\theapUsedBytes\n",
+                    StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+            }
+            if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+                throw new IllegalStateException("resource window log is not a regular file");
+            }
+            final long heapUsed = java.lang.management.ManagementFactory.getMemoryMXBean()
+                .getHeapMemoryUsage().getUsed();
+            Files.writeString(target, phase + "\t" + operation + "\t" + System.currentTimeMillis()
+                + "\t" + System.nanoTime() + "\t" + heapUsed + "\n", StandardCharsets.UTF_8,
+                StandardOpenOption.APPEND, StandardOpenOption.WRITE);
+        }
+
+        private void observeResources(final String phase, final int operation) throws Exception {
+            if (config.resourceObservationSeconds == 0) return;
+            resourceMarker(phase + "-start", operation);
+            final long duration = TimeUnit.SECONDS.toNanos(config.resourceObservationSeconds);
+            final long deadline = System.nanoTime() + duration;
+            if (deadline > runDeadlineNanos) throw new IllegalStateException("resource observation exceeds run budget");
+            while (System.nanoTime() < deadline) {
+                sleep(Math.min(250L, remainingMillis(deadline)));
+            }
+            resourceMarker(phase + "-end", operation);
         }
 
         /**
@@ -534,6 +604,7 @@ public final class T040ShadowSceneDriverAgent {
         private Window awaitHostReady() throws Exception {
             final long startupDeadline = Math.min(runDeadlineNanos,
                 System.nanoTime() + TimeUnit.SECONDS.toNanos(config.startupSeconds));
+            final Dialog[] loadWarningAnswered = new Dialog[1];
             int readyRounds = 0;
             int slowRounds = 0;
             while (System.nanoTime() < startupDeadline) {
@@ -541,7 +612,15 @@ public final class T040ShadowSceneDriverAgent {
                 final long roundStartedNanos = System.nanoTime();
                 try {
                     found = FixedEdt.call(
-                        () -> findMainWindow(config.fixtureName), FixedEdt.Operation.MAIN_LOOKUP, evidence);
+                        () -> {
+                            final boolean previouslyAnswered = loadWarningAnswered[0] != null;
+                            final boolean warning = answerHigherVersionLoadWarning(config,
+                                Window.getWindows(), loadWarningAnswered);
+                            if (!previouslyAnswered && loadWarningAnswered[0] != null) {
+                                evidence.higherVersionLoadAcknowledged();
+                            }
+                            return warning ? null : findMainWindow(config.fixtureName);
+                        }, FixedEdt.Operation.MAIN_LOOKUP, evidence);
                 } catch (FixedEdt.Timeout timeout) {
                     if (timeout.operation != FixedEdt.Operation.MAIN_LOOKUP
                             || timeout.state != FixedEdt.State.TIMED_OUT) throw timeout;
@@ -1450,6 +1529,93 @@ public final class T040ShadowSceneDriverAgent {
             if (oks.size() != 1) throw new IllegalStateException("expected exactly one layout OK");
             oks.get(0).doClick(50);
             return null;
+        }
+    }
+
+    // Exact 5.2.03 zh resource text (COR3-0327..0333), reviewed against the real popup.
+    static final String HIGHER_VERSION_LOAD_TEXT = "<html><body>您试图加载的文件由更高版本的编辑器所创建。<br><br>使用新版本的编辑器创建或保存的模板文件/动画文件<br>无法通过旧版本的编辑器正确打开<span class='caution'>并且可能会</span>导致文件损坏。<br>尝试使用旧版本的编辑器编辑由新版本编辑器创建的数据时，<br><span class='caution'>请您</span>自担风险。<br><br>正在启动的编辑器版本：Cubism 5.2.3 <br>试图加载的文件的保存版本：Cubism 5.3.0</body></html>";
+
+    /** Only the explicitly admitted, hashed heavy task copy may answer this load-only prompt. */
+    static boolean answerHigherVersionLoadWarning(final DriverConfig config,
+            final Window[] windows, final Dialog[] answered) {
+        if (!config.higherVersionLoadAllowed) return false;
+        final List<Dialog> warnings = new ArrayList<>();
+        final List<Frame> mains = new ArrayList<>();
+        for (Window window : windows) {
+            if (!window.isShowing()) continue;
+            if (window instanceof Frame frame
+                    && frame.getTitle().startsWith("Live2D Cubism Editor 5.2.03 ")) mains.add(frame);
+            if (window instanceof Dialog dialog && "警告".equals(dialog.getTitle())) warnings.add(dialog);
+        }
+        if (warnings.isEmpty()) return false;
+        if (warnings.size() != 1 || mains.size() != 1) {
+            throw new IllegalStateException("ambiguous higher-version load warning/main");
+        }
+        final Dialog dialog = warnings.get(0);
+        Window owner = dialog.getOwner();
+        while (owner != null && owner != mains.get(0)) owner = owner.getOwner();
+        // UUSerialize passes O.e(), which can be null during startup. JOptionPane then
+        // uses its hidden shared owner frame (observed in real host seq2052). This is
+        // still bound to the unique 5.2.03 main in this JVM and the exact task fixture.
+        final Window directOwner = dialog.getOwner();
+        final boolean sharedOwner = directOwner instanceof Frame frame
+            && "javax.swing.SwingUtilities$SharedOwnerFrame".equals(frame.getClass().getName())
+            && !frame.isShowing() && "".equals(frame.getTitle()) && frame.getOwner() == null;
+        if ((owner == null && !sharedOwner)
+                || dialog.getModalityType() != Dialog.ModalityType.APPLICATION_MODAL) {
+            throw new IllegalStateException("higher-version warning has unexpected owner/modality"
+                + " modal=" + dialog.isModal() + " owner="
+                + (dialog.getOwner() == null ? "null" : dialog.getOwner().getClass().getName())
+                + " ownerTitle=" + (dialog.getOwner() instanceof Frame frame
+                    ? boundedTitle(frame.getTitle()) : "not-frame")
+                + " mainClass=" + mains.get(0).getClass().getName());
+        }
+        if (answered[0] != null) {
+            if (answered[0] != dialog) throw new IllegalStateException("repeated higher-version warning");
+            return true;
+        }
+        final List<JLabel> messages = new ArrayList<>();
+        final List<AbstractButton> buttons = new ArrayList<>();
+        if (!(dialog instanceof javax.swing.JDialog swingDialog)) {
+            throw new IllegalStateException("higher-version warning is not a Swing option dialog");
+        }
+        // The host decorates the root pane with a title label and blank close button.
+        // Review the option content, never title-bar/default/close controls (seq2054).
+        collectLoadWarningControls(swingDialog.getContentPane(), messages, buttons,
+            new IdentityHashMap<>());
+        final List<AbstractButton> loads = buttons.stream()
+            .filter(button -> "加载".equals(button.getText()) && button.isEnabled()).toList();
+        final List<AbstractButton> cancels = buttons.stream()
+            .filter(button -> "取消".equals(button.getText()) && button.isEnabled()).toList();
+        if (messages.size() != 1 || !HIGHER_VERSION_LOAD_TEXT.equals(messages.get(0).getText())
+                || buttons.size() != 2 || loads.size() != 1 || cancels.size() != 1) {
+            final String actual = messages.isEmpty() ? "NONE" : messages.get(0).getText();
+            int mismatch = 0;
+            while (mismatch < actual.length() && mismatch < HIGHER_VERSION_LOAD_TEXT.length()
+                    && actual.charAt(mismatch) == HIGHER_VERSION_LOAD_TEXT.charAt(mismatch)) mismatch++;
+            throw new IllegalStateException("load form labels=" + messages.size() + " buttons="
+                + buttons.stream().map(button -> button.getText() + ":" + button.isEnabled()).toList()
+                + " textDiff=" + mismatch + " actual="
+                + actual.substring(mismatch, Math.min(actual.length(), mismatch + 70)));
+        }
+        answered[0] = dialog;
+        SwingUtilities.invokeLater(loads.get(0)::doClick);
+        return true;
+    }
+
+    private static void collectLoadWarningControls(final Component component,
+            final List<JLabel> messages, final List<AbstractButton> buttons,
+            final Map<Component, Boolean> seen) {
+        if (seen.size() >= 256) throw new IllegalStateException("load warning component limit");
+        if (seen.put(component, Boolean.TRUE) != null || !component.isShowing()) return;
+        if (component instanceof JLabel label && label.getText() != null && !label.getText().isBlank()) {
+            messages.add(label);
+        }
+        if (component instanceof AbstractButton button) buttons.add(button);
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                collectLoadWarningControls(child, messages, buttons, seen);
+            }
         }
     }
 

@@ -1840,6 +1840,12 @@ function Get-CubismManagedJdkOptionTokens {
     if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
         $tokens += "-XX:+UseZGC"
     }
+    # Lazy edge materialization requires sole-premain definition ownership.
+    # The saved edge-index setting owns this startup requirement; turning it
+    # off restores the VM's normal dynamic-attach behavior on managed restart.
+    if (Read-CubismMeshTriangulationEdgeIndexPreference -TurboismHome $TurboismHome) {
+        $tokens += "-XX:+DisableAttachMechanism"
+    }
     # Memory-profile tiers are opt-in: "system" emits nothing, so the official
     # BAT's -XX:MaxRAMPercentage=100 remains the only heap sizing and a default
     # install is byte-identical in behavior. The capped tiers set an explicit
@@ -1877,6 +1883,25 @@ function Get-CubismManagedJdkOptionTokens {
         $tokens += "-Dturboism.optimization.mesaGlThread=false"
     }
     return $tokens
+}
+
+function Read-CubismMeshTriangulationEdgeIndexPreference {
+    param([string]$TurboismHome)
+    # This is a root-level runtime preference, not launcher.*. Match the
+    # settings page: missing config/key defaults on; explicit false persists.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    if ($document -isnot [System.Management.Automation.PSCustomObject]) {
+        throw "Turboism config must be an object"
+    }
+    $setting = $document.PSObject.Properties["meshTriangulationEdgeIndex"]
+    if ($null -eq $setting) { return $true }
+    if ($setting.Value -isnot [bool]) { throw "Turboism meshTriangulationEdgeIndex setting is invalid" }
+    return [bool]$setting.Value
 }
 
 function Read-CubismOptimizationPreference {

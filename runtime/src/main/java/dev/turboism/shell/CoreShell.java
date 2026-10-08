@@ -186,6 +186,11 @@ public final class CoreShell implements ShellHandle {
         context.disposableScope()
                 .register(context.services()
                         .require(UiHostCapabilityService.class)
+                        .contributeSettings(TriangulationEdgeIndexSettingsContribution.create(
+                                localization(context), services.triangulationEdgeIndexSettings())));
+        context.disposableScope()
+                .register(context.services()
+                        .require(UiHostCapabilityService.class)
                         .contributeSettings(AtlasTileBboxSettingsContribution.create(
                                 localization(context), services.atlasTileBboxSettings())));
         context.disposableScope()

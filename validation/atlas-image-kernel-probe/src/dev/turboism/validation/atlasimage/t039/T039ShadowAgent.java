@@ -56,6 +56,9 @@ public final class T039ShadowAgent {
     private static final String SHADOW_READY_MODE = "shadow-ready";
     private static final String OWNED_MODE = "owned";
     private static final String SHADOW_OPT_IN_TOKEN = "T039_SHADOW_EXPLICIT_OPT_IN";
+    private static final String OWNER_COLD_OPT_IN_TOKEN = "T039_OWNED_COLD_REMOVAL_V1";
+    private static final StackWalker CALLBACK_STACK =
+        StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE);
     private static final String[] PRIVATE_ASM_RUNTIME_CLASSES = {
         "dev.turboism.validation.atlasimage.shaded.asm97.ClassReader",
         "dev.turboism.validation.atlasimage.shaded.asm97.ClassVisitor",
@@ -80,10 +83,89 @@ public final class T039ShadowAgent {
     }
 
     /** The agent intentionally accepts no agent argument; all input is named JVM properties. */
-    public static void premain(final String agentArgs, final Instrumentation instrumentation) {
+    public static synchronized void premain(final String agentArgs, final Instrumentation instrumentation) {
+        if (session != null && session.ownerColdRemoval) {
+            throw new IllegalStateException("T039 owner-cold session already installed");
+        }
         final Session next = new Session();
         session = next;
         next.arm(agentArgs, instrumentation);
+    }
+
+    /**
+     * Explicit validation-only entry for the sole owner's premain. The callback
+     * stays registered and cannot authorize a freeze until cold removal completes.
+     * Register before production Atlas, then define the target only after Atlas
+     * registration, and complete removal before any lazy definition capture.
+     */
+    public static synchronized void premainForOwnerColdRemoval(
+        final String agentArgs, final Instrumentation instrumentation
+    ) {
+        requireOutsideCallback();
+        if (!OWNER_COLD_OPT_IN_TOKEN.equals(
+                System.getProperty(PROPERTY_PREFIX + "ownerColdRemovalOptIn"))) {
+            throw new IllegalArgumentException("T039 owner-cold opt-in missing");
+        }
+        if (session != null) {
+            throw new IllegalStateException("T039 session already installed");
+        }
+        requireOwnedPremain(instrumentation);
+        final Session next = new Session(true);
+        session = next;
+        next.arm(agentArgs, instrumentation);
+    }
+
+    /** Real one-shot removal outside JVM callbacks; a failed target stays blocked. */
+    public static void completeOwnerColdRemoval(final String expectedRunId) {
+        requireOutsideCallback();
+        final Session current = session;
+        if (current == null) {
+            throw new IllegalStateException("T039 owner-cold session not installed");
+        }
+        current.completeOwnerColdRemoval(expectedRunId);
+    }
+
+    /**
+     * Startup-failure cleanup, including before any target is observed. A still
+     * registered session becomes BLOCKED before one bounded cleanup attempt.
+     * An already removed session needs no mutation; cleanup never authorizes freeze.
+     */
+    public static void abortOwnerColdRemoval(final String expectedRunId) {
+        requireOutsideCallback();
+        final Session current = session;
+        if (current == null) {
+            throw new IllegalStateException("T039 owner-cold session not installed");
+        }
+        current.abortOwnerColdRemoval(expectedRunId);
+    }
+
+    private static void requireOwnedPremain(final Instrumentation instrumentation) {
+        try {
+            final Class<?> type = Class.forName(
+                "dev.turboism.adapter.cubism.mesh.TriangulationDefinitionLifecycle",
+                false, T039ShadowAgent.class.getClassLoader());
+            final Object owner = type.getMethod("ownedBy", Instrumentation.class)
+                .invoke(null, instrumentation);
+            if (owner == null
+                    || !"SUPPORTED_OWNED_PREMAIN".equals(type.getMethod("startupReason").invoke(owner))
+                    || type.getMethod("instrumentation").invoke(owner) != instrumentation) {
+                throw new IllegalArgumentException("T039 owned premain gateway required");
+            }
+        } catch (final ReflectiveOperationException exception) {
+            throw new IllegalArgumentException("T039 owned premain gateway unavailable", exception);
+        }
+    }
+
+    private static void requireOutsideCallback() {
+        final boolean callback = CALLBACK_STACK.walk(frames -> frames.anyMatch(frame -> {
+            final Class<?> type = frame.getDeclaringClass();
+            return ClassFileTransformer.class.isAssignableFrom(type)
+                || (type.getModule() == ClassFileTransformer.class.getModule()
+                    && frame.getMethodName().equals("transform"));
+        }));
+        if (callback) {
+            throw new IllegalStateException("T039 owner-cold removal requires an ordinary owner call");
+        }
     }
 
     public static Snapshot snapshot() {
@@ -667,6 +749,18 @@ public final class T039ShadowAgent {
     }
 
     private static final class Session {
+        private final boolean ownerColdRemoval;
+        private String pendingRemovalReason;
+        private boolean abortAttempted;
+        private final AtomicInteger activeTargetCallbacks = new AtomicInteger();
+
+        private Session() {
+            this(false);
+        }
+
+        private Session(final boolean ownerColdRemoval) {
+            this.ownerColdRemoval = ownerColdRemoval;
+        }
         private final Object lifecycleLock = new Object();
         private final AtomicBoolean targetSeen = new AtomicBoolean();
         private final AtomicInteger targetEvents = new AtomicInteger();
@@ -812,6 +906,21 @@ public final class T039ShadowAgent {
                     || !current.internalName().equals(className)) {
                 return null;
             }
+            activeTargetCallbacks.incrementAndGet();
+            try {
+                return transformTarget(current, loader, classBeingRedefined, protectionDomain, classfileBuffer);
+            } finally {
+                activeTargetCallbacks.decrementAndGet();
+            }
+        }
+
+        private byte[] transformTarget(
+            final Config current,
+            final ClassLoader loader,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer
+        ) {
             if (state != State.ARMED) {
                 incrementBounded(lateCallbacks, MAX_SESSION_EVENTS);
                 return null;
@@ -896,8 +1005,7 @@ public final class T039ShadowAgent {
                     if (SHADOW_READY_MODE.equals(current.shadowMode())
                             && current.shadowOptIn()) {
                         unregister(State.SHADOW_READY, "official-shadow-ready-candidate");
-                        if (state != State.SHADOW_READY
-                                || removalStatus != RemovalStatus.REMOVED) {
+                        if (!candidateMayReturn(State.SHADOW_READY)) {
                             return null;
                         }
                         if (!verifyRuntimeSourceBeforeReturn(
@@ -922,7 +1030,7 @@ public final class T039ShadowAgent {
                 }
                 candidateCount.incrementAndGet();
                 unregister(State.PATCHED, "owned-shadow-patched");
-                if (state != State.PATCHED || removalStatus != RemovalStatus.REMOVED) {
+                if (!candidateMayReturn(State.PATCHED)) {
                     return null;
                 }
                 candidateReturnedCount.incrementAndGet();
@@ -973,37 +1081,104 @@ public final class T039ShadowAgent {
             unregister(nextState, nextReason);
         }
 
+        private boolean candidateMayReturn(final State expectedState) {
+            return state == expectedState && (ownerColdRemoval
+                ? removalStatus == RemovalStatus.NOT_ATTEMPTED && transformerRegistered
+                : removalStatus == RemovalStatus.REMOVED);
+        }
+
+        private void completeOwnerColdRemoval(final String expectedRunId) {
+            synchronized (lifecycleLock) {
+                if (!ownerColdRemoval) {
+                    throw new IllegalStateException("T039 session is not owner-cold");
+                }
+                if (expectedRunId == null || !expectedRunId.equals(runId)) {
+                    throw new IllegalArgumentException("T039 owner-cold runId mismatch");
+                }
+                if (!isTerminal(state) || pendingRemovalReason == null
+                        || removalStatus != RemovalStatus.NOT_ATTEMPTED
+                        || activeTargetCallbacks.get() != 0
+                        || !transformerRegistered || instrumentation == null || transformer == null) {
+                    throw new IllegalStateException("T039 owner-cold completion unavailable or already attempted");
+                }
+                removeRegistered(pendingRemovalReason + ":owner-cold-removal");
+                if (!transformerRegistered) {
+                    instrumentation = null;
+                    transformer = null;
+                    transformerRemover = DEFAULT_REMOVER;
+                }
+            }
+        }
+
+        private void abortOwnerColdRemoval(final String expectedRunId) {
+            synchronized (lifecycleLock) {
+                if (!ownerColdRemoval) {
+                    throw new IllegalStateException("T039 session is not owner-cold");
+                }
+                if (expectedRunId == null || !expectedRunId.equals(runId)) {
+                    throw new IllegalArgumentException("T039 owner-cold runId mismatch");
+                }
+                if (activeTargetCallbacks.get() != 0) {
+                    throw new IllegalStateException("T039 target callback still active");
+                }
+                if (!transformerRegistered) {
+                    return;
+                }
+                if (abortAttempted) {
+                    throw new IllegalStateException("T039 owner-cold abort already attempted");
+                }
+                abortAttempted = true;
+                state = State.BLOCKED;
+                removeRegistered("owner-cold-abandoned");
+                if (!transformerRegistered) {
+                    instrumentation = null;
+                    transformer = null;
+                    transformerRemover = DEFAULT_REMOVER;
+                }
+            }
+        }
+
         private void unregister(final State nextState, final String nextReason) {
             synchronized (lifecycleLock) {
                 if (isTerminal(state)) {
                     return;
                 }
-                final Instrumentation currentInstrumentation = instrumentation;
-                final ClassFileTransformer currentTransformer = transformer;
-                String finalReason = nextReason;
                 // Freeze callbacks before removal; removal does not drain callbacks already dispatched.
                 state = nextState;
-                if (currentInstrumentation != null && currentTransformer != null
-                        && transformerRegistered) {
-                    try {
-                        final boolean removed = transformerRemover.remove(
-                            currentInstrumentation, currentTransformer);
-                        removalStatus = classifyRemoval(Boolean.valueOf(removed), null);
-                        transformerRegistered = !removed;
-                        if (!removed) {
-                            state = State.BLOCKED;
-                            finalReason = nextReason + ":remove-not-confirmed";
-                        }
-                    } catch (final RuntimeException exception) {
-                        removalStatus = RemovalStatus.FAILED;
-                        state = State.BLOCKED;
-                        finalReason = nextReason + ":remove-failed";
-                    }
-                } else if (removalStatus == RemovalStatus.NOT_ATTEMPTED) {
-                    removalStatus = RemovalStatus.NOT_ATTEMPTED;
+                if (ownerColdRemoval && transformerRegistered) {
+                    pendingRemovalReason = nextReason;
+                    reason = nextReason + ":owner-cold-removal-pending";
+                    return;
                 }
-                reason = finalReason;
+                removeRegistered(nextReason);
             }
+        }
+
+        // Called only while holding lifecycleLock. Never upgrades a failed target to success.
+        private void removeRegistered(final String nextReason) {
+            final Instrumentation currentInstrumentation = instrumentation;
+            final ClassFileTransformer currentTransformer = transformer;
+            String finalReason = nextReason;
+            if (currentInstrumentation != null && currentTransformer != null
+                    && transformerRegistered) {
+                try {
+                    final boolean removed = transformerRemover.remove(
+                        currentInstrumentation, currentTransformer);
+                    removalStatus = classifyRemoval(Boolean.valueOf(removed), null);
+                    transformerRegistered = !removed;
+                    if (!removed) {
+                        state = State.BLOCKED;
+                        finalReason = nextReason + ":remove-not-confirmed";
+                    }
+                } catch (final RuntimeException exception) {
+                    removalStatus = RemovalStatus.FAILED;
+                    state = State.BLOCKED;
+                    finalReason = nextReason + ":remove-failed";
+                }
+            } else if (removalStatus == RemovalStatus.NOT_ATTEMPTED) {
+                removalStatus = RemovalStatus.NOT_ATTEMPTED;
+            }
+            reason = finalReason;
         }
 
         private Snapshot snapshot() {

@@ -1,0 +1,37 @@
+{
+  "task": "T110",
+  "status": "FAILED_HOST_READINESS_NO_USER_GRAPHIC_SESSION",
+  "leg": "baseline1",
+  "sequence": 2676,
+  "jobId": "907cdcab-f925-4a15-ba00-507d83640ef1",
+  "agentSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "hostResult": {
+    "validationStatus": "FAIL",
+    "cleanup": "safe",
+    "normalExit": false,
+    "readiness": "timeout after 240s"
+  },
+  "diagnosis": {
+    "symptom": "Cubism never reached readiness markers; launcher exited code 1 after readiness timeout",
+    "workerRestarted": "serve started by this session after previous worker died; XDG_SESSION_TYPE=tty, no DISPLAY",
+    "displayServer": "Xwayland :0 owned by greeter uid 948, started 00:59 UTC (login-screen session); no rain desktop session present (who: ssh only)",
+    "launchScript": "launch.sh exports DISPLAY=:0; xprop/xdo connect now fails with \"Authorization required\"",
+    "conclusion": "Host GUI cannot start without the user desktop session; environment blocker, not artifact/protocol regression."
+  },
+  "controllerRefusalsPreserved": [
+    "controller-initial-refusal-r1",
+    "controller-initial-refusal-r2",
+    "controller-start-refusals-r1",
+    "initial-partial-r1"
+  ],
+  "replacementOrRetry": "PENDING_USER_DESKTOP_SESSION",
+  "evidencePins": {
+    "build/t110-callback-controlled-abba-r1/native5303-abba-r1/baseline1/run.json": "3d6a50da1aaf52c7bcd1cf881960a63e58e0b6fa1f45faffc5ab932da4520c0b",
+    "build/t110-callback-controlled-abba-r1/native5303-abba-r1/baseline1/outcome.json": "6d63c4f5acea3afd3340dcacbdb5ab1a0bc8ded0a91132a12359e0d967243b80",
+    "build/t110-callback-controlled-abba-r1/native5303-abba-r1/baseline1/runner-input.json": "341bab01aba8ca47b4d9741b55fe0fcf628c55372bb013d2c84dcf2c8b99cd8e",
+    "build/t110-callback-controlled-abba-r1/native5303-abba-r1/baseline1/prepared.json": "61157eac64180188546f54b1c385d57b1a24de274141d84404952bd638a4cfaa",
+    "failure-evidence/runner.log": "0a5f45abf073755cd84c0617586ee8059ffbe6dab863dfe0055925d64f07057e",
+    "failure-evidence/evidence/launch-environment.properties": "baa700ed0724cba5773abd994bc597eb19c244da2ac80e8ba007ca40d2490af6"
+  },
+  "performanceAcceptance": "NOT_GRANTED"
+}

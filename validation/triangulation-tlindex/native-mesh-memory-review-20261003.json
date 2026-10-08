@@ -1,0 +1,111 @@
+{
+  "task": "T089",
+  "status": "FAIL_FROZEN_REFERENCE_PARITY",
+  "sequence": 2632,
+  "jobId": "24381fd4-3e96-4180-8180-2477cf1b0164",
+  "runId": "queue-e917b0bf14474d03a3398012da1f30a5",
+  "standardGates": {
+    "validationStatus": "PASS",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true
+  },
+  "mismatchCountByField": {
+    "cycle": 0,
+    "sourceIdBase64": 0,
+    "pointCount": 0,
+    "positionValues": 0,
+    "indexValues": 18,
+    "positionsSha256": 0,
+    "indicesSha256": 378
+  },
+  "mismatchRows": 378,
+  "mismatchRowsEachCycle": 126,
+  "postFailureCounterAnalysisOnly": {
+    "cycles": {
+      "1": {
+        "scopes": 711,
+        "tableCalls": 303291,
+        "hits": 303291,
+        "absent": 0,
+        "unknown": 0,
+        "appended": 0,
+        "discardedScopes": 0,
+        "declaredBufferBytes": 16681728,
+        "helperAndSuffixAllocatedBytes": 26079992,
+        "rawPrimitiveArrayBytes": 15953664,
+        "hypotheticalInitialSizeBufferBytes": 6259584,
+        "initialEntries": 166267,
+        "maximumBufferBytes": 394240
+      },
+      "2": {
+        "scopes": 711,
+        "tableCalls": 303894,
+        "hits": 303894,
+        "absent": 0,
+        "unknown": 0,
+        "appended": 0,
+        "discardedScopes": 0,
+        "declaredBufferBytes": 16706304,
+        "helperAndSuffixAllocatedBytes": 26054224,
+        "rawPrimitiveArrayBytes": 15978240,
+        "hypotheticalInitialSizeBufferBytes": 6259584,
+        "initialEntries": 166492,
+        "maximumBufferBytes": 394240
+      },
+      "3": {
+        "scopes": 711,
+        "tableCalls": 303738,
+        "hits": 303738,
+        "absent": 0,
+        "unknown": 0,
+        "appended": 0,
+        "discardedScopes": 0,
+        "declaredBufferBytes": 16706304,
+        "helperAndSuffixAllocatedBytes": 26046704,
+        "rawPrimitiveArrayBytes": 15978240,
+        "hypotheticalInitialSizeBufferBytes": 6259584,
+        "initialEntries": 166423,
+        "maximumBufferBytes": 394240
+      }
+    },
+    "gcEventCount": 73,
+    "gcHeapSummaryCount": 146,
+    "status": "PASS_DIAGNOSTIC_TABLE_MEMORY_AND_GC_BINDING",
+    "outputEquivalence": "FAILED_DO_NOT_USE_FOR_T088_CAUSALITY"
+  },
+  "cacheBoundaryComparison": {
+    "T087AndT088CacheMinusOneRows": 2133,
+    "T089CacheEqualsEdgeVersionRows": 2133,
+    "snapshotReadOnlyStaticAudit": true,
+    "nativeGetGlIndicesCallsUpdateMesh": true,
+    "causeOfRefresh": "UNPROVEN"
+  },
+  "geometryControls": {
+    "originalSmallRecordsByteIdentical": 288,
+    "newLargeRecordsByteIdentical": 288,
+    "newLargePointCounts": [
+      248,
+      312,
+      376
+    ],
+    "windowsLiveUiReproduction": "MISSING"
+  },
+  "requestConfound": "T089 includes duplicate identical -Xlog option; frozen input retained, not silently deduplicated.",
+  "performanceAcceptance": "NOT_APPLICABLE_DIAGNOSTIC",
+  "historicalT088Failure": "UNCHANGED",
+  "retryPerformed": false,
+  "nextAction": "Inspect/miminise native cache-refresh path and diagnostic observer; no production geometry change justified.",
+  "evidencePins": {
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/failure-review.json": "f8ffaed837107678ed514a91f14e5d35c515a9b332155d218047fcfc1743ebd4",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/post-failure-memory-analysis.json": "364aeaa32fe051a008bd8fea6bc984920a49941bd314cdd3739e95cca27d0183",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/post-failure-evidence/pins.json": "8c23b7b550150ea30f5205b6df78f410476b096a6e87ed3e04ca8db92637cea0",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/run.json": "ee8f24754060bca7babd33f6829fe4fc3313c5f08e351dccac9093b74dddb20b",
+    "build/t089-native-mesh-memory-diagnostic-r1/native5303-memory-r1/outcome.json": "a11cdc98960747771b155f7fe77741aabb8a7df00e41738e48727622a73729a5",
+    "build/t089-native-mesh-memory-diagnostic-r1/large-geometry-memory-r1/review.json": "dc59556fa7a31a1441cc5bb1afd028455153d6c0a83c196eb51586fd37f161e0",
+    "build/t089-native-mesh-memory-diagnostic-r1/geometry-memory-r1/review.json": "f15c40de4b7e7072255541c8bc772c3accfd0e5beeb123f7bfe59913cf8a5db9",
+    "build/t089-native-mesh-memory-diagnostic-r1/index-getter-static-audit.json": "ed32e8e377b66f48ae22bb9ad6905634f000df6e4781b0b53f767ada4cff0945",
+    "build/t089-native-mesh-memory-diagnostic-r1/cache-refresh-static-audit.json": "3a90741c9ca1a660ff420014d198adeb9946d6652f3feb33eade6455fa90605a"
+  }
+}

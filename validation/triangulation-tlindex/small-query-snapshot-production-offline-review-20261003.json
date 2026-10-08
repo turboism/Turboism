@@ -1,0 +1,128 @@
+{
+  "task": "T075",
+  "status": "PASS_OFFLINE_HOST_PROTOCOL_NOT_FROZEN",
+  "purpose": "SMALL_MUTABLE_DETACHED_SNAPSHOT_CANDIDATE_NOT_HOST_ACCEPTED",
+  "runtimeJUnitTests": 60,
+  "bootstrapTests": 5,
+  "devCheck": "PASS",
+  "bootstrapJarLicenses": "PASS",
+  "actualFrozenSnapshotChecks": 1709997,
+  "solePremainCases": 39,
+  "nativeComposedFixtureGroups": 6,
+  "fixturesPerGroup": 128,
+  "actualNativeQuerySnapshotProfiles": 3,
+  "captureStartupProfiles": 3,
+  "captureStartupScope": "NO_GEOMETRY",
+  "artifacts": {
+    "canonicalSha256": "907322d5d82c2e3676701dc173774be491e12617eeafd9604fc83ccd9b42030b",
+    "familyClasses": [
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$QuerySnapshot.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+      "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class"
+    ],
+    "outputs": {
+      "production-candidate-r1": {
+        "sha256": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+        "baseSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$QuerySnapshot.class"
+        ],
+        "removed": []
+      },
+      "candidate-producer-r1": {
+        "sha256": "d1d6596462cb539b49e56114e5de833ab9ec2c2127fa4067a7f26410f918836c",
+        "baseSha256": "30fb9f66a2e469e0cda465c677e8287e73d07d6393fceb0c80b79b242b6724d7",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$QuerySnapshot.class"
+        ],
+        "removed": []
+      },
+      "candidate-producer-capture-r1": {
+        "sha256": "dc09b3d06e7e2a999d349adff51bfa07a26e6ff3b14345d4afc3b830d9d8a2da",
+        "baseSha256": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+        "changed": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$EdgeLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetKey.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$SetLookup.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$St.class",
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.class"
+        ],
+        "added": [
+          "dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex$QuerySnapshot.class"
+        ],
+        "removed": []
+      }
+    },
+    "tests": {
+      "TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTransformerTest.xml": {
+        "tests": 12,
+        "sha256": "dbd22fae4a5d27610954bc9619c8c41c8850d8083a35353002f5183b0b60601b"
+      },
+      "TEST-dev.turboism.adapter.cubism.mesh.VerifiedTriangulationEdgeIndexInstallerTest.xml": {
+        "tests": 6,
+        "sha256": "0b944baf187fe62123da76df71730ffee82e83b77b6ce3db70c166ce4633203d"
+      },
+      "TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexTest.xml": {
+        "tests": 35,
+        "sha256": "9df15b046e02ba48ac3bebe745eec7cdf1806fdcba6347417d400fb9ca3ddb95"
+      },
+      "TEST-dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest.xml": {
+        "tests": 7,
+        "sha256": "3f1363212b9caba4a2626005ae7e34018a7416828ba69d66c772f0e1e81a4a9d"
+      },
+      "TEST-dev.turboism.bootstrap.TriangulationEdgeIndexHookContributorTest.xml": {
+        "tests": 5,
+        "sha256": "d7e189f540ed0c4463e6d427a05d7f023b9680a4567e188896244ed646c6e301"
+      }
+    }
+  },
+  "productionBaseline": "T057",
+  "sourceIntegration": "OWNED_UNCOMMITTED_CONTINGENT_ON_FIXED_HOST_GATES",
+  "canonicalJarStatus": "EXPERIMENTAL_CANDIDATE_DO_NOT_DELIVER",
+  "hostJobsSubmitted": 0,
+  "protocolStatus": "NOT_FROZEN",
+  "limitations": [
+    "No CPU/RSS/retainedheap/production acceptance from offline checks.",
+    "Candidate changes concrete List result class for0\u20132hits; actual three-profile native path and mutability/detachment verified, not arbitrary external plugins/reflection.",
+    "Initial focused command misspelled two test filters; bootstrap missing class refused. Corrected all actual four runtime/one bootstrap classes in r2; first log retained.",
+    "Current uncommitted source/tests owned candidate; restore onlythese tobaseline if fixedhostgates fail. No historical candidate retry/gatechanges/merge/push/release;LaneC review pending."
+  ],
+  "pins": {
+    "build/t075-small-query-snapshot-integration-r1/artifact-review.json": "fead506a49b463d0015240262b34b6bcc2f767f60f86c7ac194d7c66f1ea93d4",
+    "build/t075-small-query-snapshot-integration-r1/premain-r1/review.json": "f272dc2904b7ccb232670fd6f743a1fb5668f8b6e774aa90bad850934cd44c0e",
+    "build/t075-small-query-snapshot-integration-r1/capture-premain-r1/review.json": "7ae402a2a3d4559d557c04f229de8c90a824f8c02009deb2c797cff685eea378",
+    "build/t075-small-query-snapshot-integration-r1/native-query-snapshot-r1/review.json": "dce57efc65c118859eb7148c96c5edcc3a8957c875af90887ba5167a58189419",
+    "build/t075-small-query-snapshot-integration-r1/native-query-snapshot-r1/NativeQuerySnapshotCheck.java": "461e409f83f4170f5dfcd0dbee7a69b09a85f65b44d1981cf07a30c35e488e11",
+    "build/t075-small-query-snapshot-integration-r1/verify-native-query-snapshot.py": "4f556e5532b7c2a04d816d0f4b1c08f10e2c2c7abea13d0c6fdf24b18487ec9c",
+    "build/t075-small-query-snapshot-integration-r1/verify-capture-startup.py": "bb6e37ebce119120334e2a932ab0061cd98de7aebb0456af8781c5a8379ce00d",
+    "build/t075-small-query-snapshot-integration-r1/verify-frozen-premain.py": "0dcaab4dd065aae7d9d202bb8c9af09218c79f7585396fe7fa523c1f7c3d215a",
+    "build/t075-small-query-snapshot-integration-r1/actual-snapshot-selfcheck-r1/ActualSmallQuerySnapshotSelfCheck.java": "d31d5a0cb32a28f12621f656e3a4420835e4572958ddce365a9bded3dac553e8",
+    "build/t075-small-query-snapshot-integration-r1/actual-snapshot-selfcheck-r1/selfcheck.log": "d39d7de806d8d8bdbe5a0d3dbaa06c3f84b5ad7d650dfdb1aba60b9ed19d3840",
+    "build/t075-small-query-snapshot-integration-r1/focused-tests.log": "11f85b3f32b703227ae07165164d7eca9852a015fcd089a6bfd8eaca35330979",
+    "build/t075-small-query-snapshot-integration-r1/offline-gates-r2.log": "eecd438d0e35c046736c27e9f8d76889bc9717eb327c6e59592c3e337588854f",
+    "build/t075-small-query-snapshot-integration-r1/baseline-source-pins.json": "f443ede4c0a20da3d3bf64a216649c0f2d078834c86873bdc9e1c1ccfa8cde88",
+    "build/t075-small-query-snapshot-integration-r1/TriangulationEdgeIndex.java": "eeb294999e4147e726495772b61c1458a2e1dd1ea4f7b7b8375e67451c1c8051",
+    "build/t075-small-query-snapshot-integration-r1/TriangulationEdgeIndexTest.java": "613db42ee5c11b82513b4656927cc4056a919c1b8a2bebeac294b1dba3f0fe3b"
+  }
+}

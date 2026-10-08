@@ -1,0 +1,159 @@
+{
+  "task": "T068",
+  "status": "PASS_WINDOWS_PROCESS_CPU_COUNTER_FEASIBILITY",
+  "productionAcceptance": "NOT_EVALUATED_BASELINE_ONLY",
+  "sequence": 2548,
+  "jobId": "ba375b23-7478-4324-a2ab-578e9335aadf",
+  "preparedId": "9f40e0d5f71f3822ff7ffe31e0fe0515b238fd1c9dfe3cbbea9e8d911c8d2f7b",
+  "runId": "queue-3e95947ebe6b41b281626626a633fb0f",
+  "baselineProductionSha256": "17b2a71456917776faa5e91fea52acfa886c3d81cf3314c0b824f2dd7a25e295",
+  "baselineCaptureSha256": "82c0ecbaacf4c10c5fec8214a0fcee6fb1d680be970e1ad7bc189e9c5585d869",
+  "sceneDriverSha256": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+  "offline": {
+    "counterSelfchecks": 14,
+    "counterAnalyzerRegressionTests": 5,
+    "procReadRegressionTests": 3,
+    "compositionExistingMethods": 427,
+    "compositionChangedMethods": 1
+  },
+  "native": {
+    "standardGates": {
+      "validationStatus": "PASS",
+      "cleanup": "safe",
+      "normalExit": true,
+      "identityVerified": true,
+      "fixtureUnchanged": true
+    },
+    "producerEventRows": 2133,
+    "selectedSources": 711,
+    "outputReview": "PASS_BOUNDED_NATIVE_PRODUCER_OUTPUT",
+    "normalCancelAfterMeasurement": {
+      "nativeResponder": {
+        "status": "PASS",
+        "resource": "CUB3-4362",
+        "answer": "YES_CANCEL_MESH_EDIT",
+        "answers": "1"
+      },
+      "afterAllMeasurementWindows": true,
+      "cancelWaitSeconds": 0.592411,
+      "externalWindowAction": false
+    },
+    "kernelCleanupMethod": "cgroup-destroyed",
+    "sidecarBoundToReviewedRun": true
+  },
+  "cpuCounter": {
+    "status": "PASS_DIRECT_PROCESS_CPU_EVIDENCE",
+    "osName": "Windows 10",
+    "cycles": [
+      {
+        "cycle": 1,
+        "processCpuSeconds": 24.81,
+        "startReadSpanNanos": 62200,
+        "endReadSpanNanos": 37000,
+        "cpuBoundaryWallSpanSeconds": 13.7968602
+      },
+      {
+        "cycle": 2,
+        "processCpuSeconds": 13.57,
+        "startReadSpanNanos": 47100,
+        "endReadSpanNanos": 45900,
+        "cpuBoundaryWallSpanSeconds": 12.0094647
+      },
+      {
+        "cycle": 3,
+        "processCpuSeconds": 13.55,
+        "startReadSpanNanos": 60300,
+        "endReadSpanNanos": 38800,
+        "cpuBoundaryWallSpanSeconds": 12.6553266
+      }
+    ],
+    "totalCommandProcessCpuSeconds": 51.93,
+    "maximumReadSpanNanos": 109200,
+    "limitations": [
+      "Diagnostic evidence only; does not decide or replace original acceptance gates.",
+      "Provider counter granularity and read intervals are not exact continuous CPU duration.",
+      "Boundary CPU span includes common driver/dispatch work between reads.",
+      "Native Windows/Wine evidence and an independently declared comparison are required."
+    ],
+    "kernelUnitVerification": {
+      "status": "PASS_SAME_PROCESS_NANOSECOND_UNITS",
+      "javaIdentity": [
+        1686961,
+        "5070273"
+      ],
+      "ticksPerSecond": 100,
+      "comparisons": [
+        {
+          "phase": "auto-connect-start",
+          "cycle": 1,
+          "providerCpuSeconds": 193.5,
+          "kernelLowerSeconds": 192.94,
+          "kernelUpperSeconds": 195.19
+        },
+        {
+          "phase": "auto-connect-returned",
+          "cycle": 1,
+          "providerCpuSeconds": 218.31,
+          "kernelLowerSeconds": 217.94,
+          "kernelUpperSeconds": 222.27
+        },
+        {
+          "phase": "auto-connect-start",
+          "cycle": 2,
+          "providerCpuSeconds": 226.88,
+          "kernelLowerSeconds": 225.88,
+          "kernelUpperSeconds": 226.94
+        },
+        {
+          "phase": "auto-connect-returned",
+          "cycle": 2,
+          "providerCpuSeconds": 240.45,
+          "kernelLowerSeconds": 239.39,
+          "kernelUpperSeconds": 240.55
+        },
+        {
+          "phase": "auto-connect-start",
+          "cycle": 3,
+          "providerCpuSeconds": 247.37,
+          "kernelLowerSeconds": 246.8,
+          "kernelUpperSeconds": 247.84
+        },
+        {
+          "phase": "auto-connect-returned",
+          "cycle": 3,
+          "providerCpuSeconds": 260.92,
+          "kernelLowerSeconds": 260.69,
+          "kernelUpperSeconds": 262.69
+        }
+      ],
+      "quantizationAllowanceSeconds": 0.02
+    },
+    "pins": {
+      "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/native-evidence/command-cpu-boundaries.tsv": "6fb029f177b06e18c34d5dead2d8dbe76a5a533a3959acdb1b6f57c7aa830363",
+      "${WORKSPACE}/validation/triangulation-tlindex/diagnostic/analyze-command-cpu-counters.py": "e083dd50bf0d1fb87895d4323cd0ed799eaba363c7a5ce6eb5b5a7b0e87209ab",
+      "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/native-evidence/resources.jsonl": "d1cb0be67360b1c46bdc2f978b553be19ceec8ee41dbe5e21ed0ff366a28fb01"
+    }
+  },
+  "limitations": [
+    "Single T057 baseline-only instrumented Windows/Wine 5303 feasibility leg; no candidate or performance acceptance.",
+    "Provider granularity is not established by its nanosecond return unit. Maximum read span is not an accuracy/confidence bound.",
+    "Process-wide counter includes all Java threads and common command driver/dispatch work; CPU seconds can exceed wall seconds.",
+    "Kernel cross-validation brackets cumulative counters with two-field tick quantization allowance of 0.02 seconds, solely for unit/process-scope verification.",
+    "T066 remains withdrawn with its original CPU gate FAIL; T057 production is unchanged.",
+    "Future comparisons require a separately frozen predeclared balanced protocol and retain original CPU/RSS/output/lifecycle gates. No retry until favorable, merge, push or release."
+  ],
+  "evidencePins": {
+    "build/t068-command-cpu-boundaries-r1/offline-review.json": "5fa091bc8f1be5de7f31a567fb3ee78130797ae9012f36f54766f6749cc71f35",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/native-review.json": "3941589b851a5aae8b882835074bfc6fc9dc2953c7ff9908534bf49048c284b6",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/direct-cpu-review.json": "fe497039bf9110e4b4d5094a520fe74a29df8bf2ae8d9854b407239239e310ce",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/run.json": "1629960597ef44b5d7e3a85450f1c6cd996a2647e11c939e6261923fb4c9cb1c",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/outcome.json": "e63db09420acc192ad9d2538d806f945131eb76daca095b4185e60a91b3d6750",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/native-evidence/command-cpu-boundaries.tsv": "6fb029f177b06e18c34d5dead2d8dbe76a5a533a3959acdb1b6f57c7aa830363",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/baseline/native-evidence/resources.jsonl": "d1cb0be67360b1c46bdc2f978b553be19ceec8ee41dbe5e21ed0ff366a28fb01",
+    "build/t068-command-cpu-boundaries-r1/observe-resources.py": "78665b6ddaf60e5e6d8e8d1d5cf5e8ff2071b59ea9d88e364b3b5ce6293a8060",
+    "build/t068-command-cpu-boundaries-r1/composition-check/review.json": "9daf0b3dcbfcaeac69f3c4aff44281d6bbb3b77aa80594c2759948933adefeda",
+    "build/t068-command-cpu-boundaries-r1/driver5303/auto-connect-diagnostic-driver.jar": "83054c5add0c82eddb0a846cd2973dd6eb980fe67c9d1cd4acd8c4a4e68f663e",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/run-one.py": "ef0713b777bb27310aea29425fb7ceff2c199fb2699324ba9bf6d6513734d70c",
+    "build/t068-command-cpu-boundaries-r1/native5303-probe1/review-native-r3.py": "585896b75922d0cc6336d20d952236d68a2303f718833e2f0c9c27183831232b"
+  }
+}
