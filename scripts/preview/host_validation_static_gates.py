@@ -91,18 +91,21 @@ def load_verified_capabilities(version: str) -> tuple[set[str], str | None]:
 # no readable FREE/PRO marker, so this table is fixed from observed job
 # outcomes (FREE cancellation message: per-object parameter limit exceeded).
 #   5100/5200/5300: FREE cancellation observed on multi-parameter fixtures.
-#   5301: FREE cancellation observed once; other scenarios passed. Kept FREE —
-#   the cancellation is the documented license behavior, not an API refusal.
+#   5301 is deliberately absent: it produced a one-off FREE cancellation on
+#   animation-timeline yet passed core-acquisition/owned-moc on the same
+#   fixture — conflicting evidence, so the gate stays silent there.
 INSTALL_LICENSE_TIER: dict[str, str] = {
     "5100": "free",
     "5200": "free",
     "5300": "free",
-    "5301": "free",
 }
 
-# Tasks whose fixtures provably exceed the FREE per-object parameter limit
-# (observed runtime cancellations on the installs above).
-FREE_LIMIT_EXCEEDED_TASKS = {"parameter-batch-transfer", "animation-timeline"}
+# Fixture digests provably exceeding the FREE per-object parameter limit
+# (native cancellation observed on the installs above). The shared
+# 测试 混合模式.cmo3 carries 3 params per object across multiple deformers.
+FREE_LIMIT_EXCEEDED_FIXTURES = {
+    "57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +239,8 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
     task, version = request.task, request.version
     notes: list[str] = []
 
-    if task.name in FREE_LIMIT_EXCEEDED_TASKS and INSTALL_LICENSE_TIER.get(version) == "free":
+    doc_version, digest = fixture_doc_version(fixture_path_for(task.name, version, environment))
+    if INSTALL_LICENSE_TIER.get(version) == "free" and digest in FREE_LIMIT_EXCEEDED_FIXTURES:
         raise StaticGateRefusal(
             "SKIP_LICENSE",
             "license",
@@ -256,8 +260,6 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
             f"{request.spec}: no VERIFIED_STATIC evidence for {', '.join(missing)} "
             f"on Cubism {dotted(version)}; the runtime admission wall will refuse this write path",
         )
-
-    doc_version, digest = fixture_doc_version(fixture_path_for(task.name, version, environment))
     routed = False
     if doc_version and _semver_tuple(doc_version) > _semver_tuple(dotted(version)):
         assisted = assisted_variant(task, request.variant)

@@ -45,8 +45,9 @@ class StaticGateTest(unittest.TestCase):
             self.assertIn("assisted", request.variant)
 
     def test_free_license_refusal(self):
+        environment = self._fixture_environment()
         with self.assertRaises(gates.StaticGateRefusal) as caught:
-            self.evaluate("parameter-batch-transfer:5100@assisted")
+            self.evaluate("parameter-batch-transfer:5100@assisted", environment)
         self.assertEqual("SKIP_LICENSE", caught.exception.skip)
         self.assertEqual("license", caught.exception.reason)
 
@@ -95,6 +96,11 @@ class StaticGateTest(unittest.TestCase):
         patcher = mock.patch.dict(gates.FIXTURE_DOC_VERSION, table, clear=True)
         patcher.start()
         self.addCleanup(patcher.stop)
+        free = set(gates.FREE_LIMIT_EXCEEDED_FIXTURES)
+        free.add(digest)
+        patcher2 = mock.patch.object(gates, "FREE_LIMIT_EXCEEDED_FIXTURES", free)
+        patcher2.start()
+        self.addCleanup(patcher2.stop)
         return environment
 
 
