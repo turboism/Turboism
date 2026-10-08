@@ -15,6 +15,7 @@ final class EditorSelectorContractTestPaths {
         return PROJECT_ROOT;
     }
 
+    /** Returns the staged legacy evidence directory, or {@code null} when it is not staged. */
     static Path legacyEvidence() {
         return LEGACY_EVIDENCE;
     }
@@ -47,6 +48,8 @@ final class EditorSelectorContractTestPaths {
             }
             current = current.getParent();
         }
-        throw new IllegalStateException("legacy Cubism evidence directory is unavailable");
+        // Unstaged evidence is not an error: consumers gate exact-artifact
+        // tests with Assumptions, matching the other selector contract tests.
+        return null;
     }
 }

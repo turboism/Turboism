@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
 import java.nio.file.Files;
@@ -13,8 +14,9 @@ import org.junit.jupiter.api.Test;
 
 /** Static exact-JAR evidence for the internal T015 native replace seam. */
 class EditorRawImagePsdReplaceSelectorContractTest {
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
     private static final Path ARTIFACT =
-            Path.of("/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar");
+            LEGACY_EVIDENCE == null ? null : LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
     private static final HostArtifactFingerprint FINGERPRINT = new HostArtifactFingerprint(
             ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
             ReviewedHostArtifacts.CUBISM_5_3_02.size(),
@@ -22,7 +24,9 @@ class EditorRawImagePsdReplaceSelectorContractTest {
 
     @Test
     void exact5302JarVerifiesReplaceReceiverStateAndFiveArgumentEntry() throws Exception {
-        assertTrue(Files.isRegularFile(ARTIFACT), "exact Cubism 5.3.02 JAR is required");
+        assumeTrue(
+                ARTIFACT != null && Files.isRegularFile(ARTIFACT),
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final List<StaticSelector> selectors = exactSelectors();
         final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
 
@@ -40,6 +44,9 @@ class EditorRawImagePsdReplaceSelectorContractTest {
 
     @Test
     void verifiesNativeTransactionEvidenceSeparatelyWithoutAdmittingUnusedAliases() throws Exception {
+        assumeTrue(
+                ARTIFACT != null && Files.isRegularFile(ARTIFACT),
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final List<StaticSelector> selectors = transactionEvidenceSelectors();
         final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
 

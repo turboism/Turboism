@@ -3,6 +3,7 @@ package dev.turboism.mapping.verification;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -18,12 +19,18 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void admitsPinnedCoreArtifactsForBothSupportedProfiles() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         assertAdmitted("5.2.03", "5.2.03");
         assertAdmitted("5.3.02", "5.3.02");
     }
 
     @Test
     void rejectsArtifactForTheWrongProfile() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         Path artifact = coreArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(
@@ -33,6 +40,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void rejectsRuntimeClassesFromAnotherCoreArtifact() throws Exception {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         Path reviewed = coreArtifact("5.3.02");
         try (URLClassLoader wrongLoader = loader(coreArtifact("5.2.03"))) {
             assertThrows(
@@ -43,6 +53,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
 
     @Test
     void rejectsUnknownProfileBeforeReadingEvidence() {
+        assumeTrue(
+                LEGACY_EVIDENCE != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         assertThrows(
                 IllegalArgumentException.class,
                 () -> factory.create(

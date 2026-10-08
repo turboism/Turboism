@@ -2,6 +2,7 @@ package dev.turboism.mapping.verification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import java.net.URL;
@@ -17,6 +18,9 @@ class EditorTextureRelationsSelectorContractTest {
     void exact5302RecordVerifiesTheReadOnlyRelationContract() throws Exception {
         final Path projectRoot = locateProjectRoot();
         final Path legacyEvidence = locateLegacyEvidence();
+        assumeTrue(
+                legacyEvidence != null,
+                "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
         final Path artifact = legacyEvidence.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final Path recordPath =
                 projectRoot.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json");
@@ -69,8 +73,6 @@ class EditorTextureRelationsSelectorContractTest {
     }
 
     private static Path locateLegacyEvidence() {
-        final Path explicit = Path.of("/opt/dev/projects/turboism-legacy/cubism-ref");
-        if (Files.isDirectory(explicit)) return explicit;
         return EditorSelectorContractTestPaths.legacyEvidence();
     }
 
