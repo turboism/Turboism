@@ -2,8 +2,6 @@ package dev.turboism.validation.acp;
 
 import dev.turboism.sdk.action.ActionCatalogService;
 import dev.turboism.sdk.action.ActionDescriptor;
-import dev.turboism.sdk.cubism.history.CubismHistory;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
@@ -171,25 +169,17 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
     }
 
     private void crossRead(final Ledger ledger, final Map<String, String> agent) {
-        final Optional<CubismHistory> history = context.services().find(CubismHistory.class);
         final Optional<ModelObjectService> objects = context.services().find(ModelObjectService.class);
-        if (history.isEmpty() || objects.isEmpty()) {
-            ledger.fail("crossHistoryPosition", "sdk_history_or_object_service_unavailable");
+        if (objects.isEmpty()) {
+            ledger.fail("crossRenameCleanedUp", "sdk_model_object_service_unavailable");
             return;
         }
-        final HistorySnapshot snapshot = history.get().snapshot();
-        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
-            ledger.fail("crossHistoryPosition", "history_unavailable_in_host");
-            return;
-        }
-        final String expected = agent.get("historyPositionBefore");
-        if (expected == null || snapshot.position() != Long.parseLong(expected.strip())) {
-            ledger.fail(
-                    "crossHistoryPosition",
-                    "probe_position_" + snapshot.position() + "_agent_" + String.valueOf(expected));
-            return;
-        }
-        ledger.pass("crossHistoryPosition");
+        // The SDK service directory does not expose CubismHistory; the native history balance is
+        // covered by the agent's own turboism.history.read assertions (historyPositionBalanced).
+        ledger.data("assertion.crossHistoryPosition.status", "NOT_APPLICABLE");
+        ledger.data(
+                "assertion.crossHistoryPosition.reason",
+                "cubism_history_not_in_service_directory_covered_by_agent_historyPositionBalanced");
 
         final boolean renamedLeftover = objects.get().list().stream()
                 .anyMatch(descriptor -> descriptor.name().startsWith(RENAME_PREFIX));
