@@ -333,7 +333,8 @@ public final class MappingReviewService {
                     }
                     if (!path.toString().endsWith(".json")) continue;
                     final JsonNode record = parse(
-                            FileSafety.readAllBytesNoFollow(path, "STATIC_VERIFICATION_RECORD_INVALID"),
+                            FileSafety.readAllBytesNoFollow(
+                                    path, "STATIC_VERIFICATION_RECORD_INVALID", StrictJson.MAX_DOCUMENT_BYTES),
                             "STATIC_VERIFICATION_RECORD_INVALID");
                     if (!staticVerificationRecordValidator
                             .validate(record, root.relativize(path).toString())
@@ -665,7 +666,8 @@ public final class MappingReviewService {
     }
 
     private static byte[] readBytes(final Path path, final String code) {
-        return FileSafety.readAllBytesNoFollow(path.toAbsolutePath().normalize(), code);
+        return FileSafety.readAllBytesNoFollow(
+                path.toAbsolutePath().normalize(), code, StrictJson.MAX_DOCUMENT_BYTES);
     }
 
     private static FileAttribute<?>[] privateDirectoryAttributes() {

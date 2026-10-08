@@ -59,6 +59,13 @@ final class PluginGenerationGuard {
 
     // Idempotent detach/release verbs used across the SDK surface (Registration.close,
     // FileChooserHistoryService.Registration.unregister, task cancel, handle release/dispose).
+    //
+    // The match is intentionally name + zero-arity only, never widened further: the SDK's
+    // terminal surface spans dozens of interfaces with heterogeneous return types (void,
+    // boolean, EditSessionCloseResult), so no signature- or type-based allowlist can express
+    // it without risking a missed release — and a missed terminal call leaks a resource,
+    // which is a worse failure than over-admitting a coincidental same-named no-arg method.
+    // A method taking any argument is never terminal and stays fenced.
     private static final Set<String> TERMINAL_OPERATIONS =
             Set.of("close", "cancel", "dispose", "release", "unregister");
 

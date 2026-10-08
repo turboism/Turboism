@@ -126,6 +126,31 @@ class HostSessionCleanupErrorTest {
         assertEquals(2, closes.get());
     }
 
+    @Test
+    void coordinatorCleanupFailureDoesNotTruncateChainAndRemainsRetryable() {
+        AtomicReference<HostInstanceDescriptor> current =
+                new AtomicReference<>(HostSessionTest.descriptor("session-a"));
+        AtomicInteger first = new AtomicInteger();
+        AtomicInteger second = new AtomicInteger();
+        HostSession session = new HostSession(
+                () -> Optional.ofNullable(current.get()),
+                ignored -> HostAdapterConnection.of(HostSessionTest.adapters("session-a")));
+        session.coordinatorCleanupStepsForTest = java.util.List.of(
+                () -> failFirst(first), second::incrementAndGet);
+        session.refresh();
+
+        assertThrows(AssertionError.class, session::close);
+        // A throwing coordinator must not truncate the chain: the step after it still ran.
+        assertEquals(1, first.get());
+        assertEquals(1, second.get());
+        assertCleanupFailed(session);
+
+        session.close();
+        assertEquals(2, first.get());
+        assertEquals(2, second.get());
+        assertEquals(HostSession.State.CLOSED, session.state());
+    }
+
     private static void failFirst(final AtomicInteger attempts) {
         if (attempts.incrementAndGet() == 1) {
             throw new AssertionError("first cleanup failed");
