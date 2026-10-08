@@ -72,10 +72,10 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
 
     private byte[] readBounded(Path path) throws Exception {
         try (InputStream input = access.open(path)) {
-            byte[] bytes = input.readNBytes((int) ArchivePolicy.PACKAGE_MAX + 1);
-            if (bytes.length > ArchivePolicy.PACKAGE_MAX) {
-                throw ArchivePolicy.problem("PACKAGE_TOO_LARGE", "Package exceeds 64 MiB", path.toString());
-            }
+            byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                    input,
+                    ArchivePolicy.PACKAGE_MAX,
+                    () -> ArchivePolicy.problem("PACKAGE_TOO_LARGE", "Package exceeds 64 MiB", path.toString()));
             return bytes;
         }
     }

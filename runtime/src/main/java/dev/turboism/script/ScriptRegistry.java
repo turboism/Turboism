@@ -272,10 +272,10 @@ class ScriptRegistry {
         final FileIdentity identity = regularFileIdentity(path, label);
         final byte[] bytes;
         try (InputStream input = fileOpener.open(path)) {
-            bytes = input.readNBytes(maxBytes + 1);
-        }
-        if (bytes.length > maxBytes) {
-            throw new IllegalArgumentException("Script " + label + " exceeded " + maxBytes + " bytes");
+            bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                    input,
+                    maxBytes,
+                    () -> new IllegalArgumentException("Script " + label + " exceeded " + maxBytes + " bytes"));
         }
         return new StableFile(path, identity, digest(bytes), bytes);
     }
@@ -462,7 +462,10 @@ class ScriptRegistry {
             }
             final byte[] current;
             try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
-                current = input.readNBytes(bytes.length + 1);
+                current = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                        input,
+                        bytes.length,
+                        () -> new IllegalArgumentException("Script " + label + " changed while reading"));
             }
             if (current.length != bytes.length || !MessageDigest.isEqual(digest, ScriptRegistry.digest(current))) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");

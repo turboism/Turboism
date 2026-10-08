@@ -878,37 +878,69 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 finishCleanupFailure(cleanup, true);
                 return;
             }
-            appearanceCoordinator.close();
-            paletteAppearanceCoordinator.close();
-            paletteSurfaceCoordinator.close();
-            // close() keeps palette cleanup here (matching main's unified palette-surface path);
-            // sceneTableHost.disconnect() runs exactly once inside cleanupOwnedResources() above.
-            if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
-                host.close();
+            final CleanupOutcome coordinatorCleanup = closeSessionCoordinators();
+            if (!coordinatorCleanup.succeeded()) {
+                finishCleanupFailure(coordinatorCleanup, true);
+                return;
             }
-            workspaceCoordinator.close();
-            physicsEditorCoordinator.close();
-            editorLifecycleEvents.close();
-            projectFileLifecycle.close();
-            editorObjectLifecycle.close();
-            nativeEditIngress.close();
-            partLifecycle.close();
-            textureAtlasLayouts.close();
-            textureAtlasNativeInvocations.close();
-            textureAtlasEditorUi.close();
-            parameterLifecycle.close();
-            meshEditUiService.resetSession();
-            meshMirrorAxisService.resetSession();
-            modelingToolCoordinator.close();
-            meshToolCoordinator.close();
-            editorUiPluginResources.close();
-            editorUiActionRouter.close();
-            embeddedPanelActivation.close();
-            editorUiContributions.close();
-            editorUiLifecycle.close();
             commit(State.CLOSED, Optional.empty());
         } finally {
             endTransition();
+        }
+    }
+
+    /**
+     * Closes every session coordinator, collecting failures so the first throwing coordinator
+     * cannot truncate the chain or skip the terminal commit — the same fault-tolerant contract
+     * {@link #cleanupOwnedResources()} already follows. A collected failure reports through the
+     * shared sanitized lifecycle path, which keeps {@code close()} retryable.
+     */
+    private CleanupOutcome closeSessionCoordinators() {
+        CleanupOutcome outcome = CleanupOutcome.success();
+        outcome = outcome.combine(runCoordinator(appearanceCoordinator::close));
+        outcome = outcome.combine(runCoordinator(paletteAppearanceCoordinator::close));
+        outcome = outcome.combine(runCoordinator(paletteSurfaceCoordinator::close));
+        // close() keeps palette cleanup here (matching main's unified palette-surface path);
+        // sceneTableHost.disconnect() runs exactly once inside cleanupOwnedResources() above.
+        if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
+            outcome = outcome.combine(runCoordinator(host::close));
+        }
+        outcome = outcome.combine(runCoordinator(workspaceCoordinator::close));
+        outcome = outcome.combine(runCoordinator(physicsEditorCoordinator::close));
+        outcome = outcome.combine(runCoordinator(editorLifecycleEvents::close));
+        outcome = outcome.combine(runCoordinator(projectFileLifecycle::close));
+        outcome = outcome.combine(runCoordinator(editorObjectLifecycle::close));
+        outcome = outcome.combine(runCoordinator(nativeEditIngress::close));
+        outcome = outcome.combine(runCoordinator(partLifecycle::close));
+        outcome = outcome.combine(runCoordinator(textureAtlasLayouts::close));
+        outcome = outcome.combine(runCoordinator(textureAtlasNativeInvocations::close));
+        outcome = outcome.combine(runCoordinator(textureAtlasEditorUi::close));
+        outcome = outcome.combine(runCoordinator(parameterLifecycle::close));
+        outcome = outcome.combine(runCoordinator(meshEditUiService::resetSession));
+        outcome = outcome.combine(runCoordinator(meshMirrorAxisService::resetSession));
+        outcome = outcome.combine(runCoordinator(modelingToolCoordinator::close));
+        outcome = outcome.combine(runCoordinator(meshToolCoordinator::close));
+        outcome = outcome.combine(runCoordinator(editorUiPluginResources::close));
+        outcome = outcome.combine(runCoordinator(editorUiActionRouter::close));
+        outcome = outcome.combine(runCoordinator(embeddedPanelActivation::close));
+        outcome = outcome.combine(runCoordinator(editorUiContributions::close));
+        outcome = outcome.combine(runCoordinator(editorUiLifecycle::close));
+        for (final AutoCloseable step : coordinatorCleanupStepsForTest) {
+            outcome = outcome.combine(runCoordinator(step));
+        }
+        return outcome;
+    }
+
+    /** Test-only coordinator steps appended to the close chain; empty in production. */
+    volatile java.util.List<AutoCloseable> coordinatorCleanupStepsForTest = java.util.List.of();
+
+    private static CleanupOutcome runCoordinator(final AutoCloseable step) {
+        try {
+            step.close();
+            return CleanupOutcome.success();
+        } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
+            return CleanupOutcome.failed(throwable);
         }
     }
 

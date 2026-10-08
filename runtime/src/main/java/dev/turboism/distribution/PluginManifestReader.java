@@ -27,8 +27,8 @@ final class PluginManifestReader {
     private PluginManifestReader() {}
 
     static JsonNode read(InputStream input) throws Exception {
-        byte[] bytes = input.readNBytes(PluginArchiveLimits.JSON_MAX + 1);
-        require(bytes.length <= PluginArchiveLimits.JSON_MAX, "MANIFEST_TOO_LARGE", NAME);
+        byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                input, PluginArchiveLimits.JSON_MAX, () -> problem("MANIFEST_TOO_LARGE", NAME));
         require(!bom(bytes), "MANIFEST_BOM", NAME);
         JsonNode root = parse(bytes);
         unknown(root, TOP, "");
