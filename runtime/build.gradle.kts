@@ -249,6 +249,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
         )
         includeTestsMatching(
@@ -267,7 +270,13 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
@@ -306,6 +315,9 @@ tasks.named<Test>("test") {
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
+        )
+        excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
         )
         excludeTestsMatching(
@@ -324,7 +336,13 @@ tasks.named<Test>("test") {
             "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
         )
         excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+        )
+        excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
         )
         excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
