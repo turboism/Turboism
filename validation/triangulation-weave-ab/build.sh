@@ -165,6 +165,8 @@ printf 'shadowClassSha256=%s\nshadowHClassSha256=%s\nbadshapeClassSha256=%s\nbad
 javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   -cp "$work/classes:$work/shadow:$deps/asm-9.7.1.jar" -d "$work/selfcheck" \
   $(find "$scene_dir/selfcheck" -name '*.java' | sort) \
+  "$root/validation/shared/src/dev/turboism/validation/shared/fixture/FixtureLoader.java" \
+  "$root/validation/shared/src/dev/turboism/validation/shared/fixture/CodeSourceUrl.java" \
   || fail 'selfcheck did not compile'
 
 # --- private ASM shading ------------------------------------------------------------
@@ -173,17 +175,17 @@ javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
 mkdir -p "$work/tool"
 javac --release 17 -proc:none -implicit:none -Xlint:all -Werror \
   -cp "$tool_asm:$tool_asm_commons:$tool_asm_tree" -d "$work/tool" \
-  "$scene_dir/tools/dev/turboism/validation/triweave/tools/RelocateJar.java" \
+  "$root/validation/shared/src/dev/turboism/validation/shared/tools/RelocateJar.java" \
   || fail 'relocation tool did not compile'
 
 jar --create --file "$work/agent-classes.jar" -C "$work/classes" .
 mkdir -p "$work/shaded" "$work/relocated"
 java -cp "$work/tool:$tool_asm:$tool_asm_commons:$tool_asm_tree" \
-  dev.turboism.validation.triweave.tools.RelocateJar \
+  dev.turboism.validation.shared.tools.RelocateJar \
   "$deps/asm-9.7.1.jar" "$work/shaded/asm-relocated.jar" \
   org/objectweb/asm "$shaded_prefix" || fail 'asm relocation failed'
 java -cp "$work/tool:$tool_asm:$tool_asm_commons:$tool_asm_tree" \
-  dev.turboism.validation.triweave.tools.RelocateJar \
+  dev.turboism.validation.shared.tools.RelocateJar \
   "$work/agent-classes.jar" "$work/relocated/agent-relocated.jar" \
   org/objectweb/asm "$shaded_prefix" || fail 'agent relocation failed'
 

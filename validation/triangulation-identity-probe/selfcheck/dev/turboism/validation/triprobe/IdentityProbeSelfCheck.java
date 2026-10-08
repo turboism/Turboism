@@ -12,7 +12,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import dev.turboism.validation.triprobe.fixture.FixtureLoader;
+import dev.turboism.validation.shared.fixture.FixtureLoader;
 
 /**
  * Scenario driver. Each scenario runs in a fresh JVM launched by run.sh with
@@ -89,7 +89,7 @@ public final class IdentityProbeSelfCheck {
         String use = read(useLog);
         check(use.contains("setClass=com.live2d.graphics3d.editableMesh.triangulation.SentinelSet"),
                 "use-site lacks actual set class: " + use);
-        check(use.contains("setLoader=dev.turboism.validation.triprobe.fixture.FixtureLoader@"),
+        check(use.contains("setLoader=dev.turboism.validation.shared.fixture.FixtureLoader@"),
                 "use-site lacks loader token: " + use);
         check(use.contains("setModule="), "use-site lacks module field: " + use);
         check(use.contains("ownerModule="), "use-site lacks owner module: " + use);
