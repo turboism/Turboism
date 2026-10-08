@@ -100,7 +100,8 @@ public final class CubismNativeIconResolver implements AutoCloseable {
                     || expected.get().size() > MAX_ARTIFACT_BYTES) return unverified();
             final byte[] snapshot;
             try (var stream = Files.newInputStream(artifact)) {
-                snapshot = dev.turboism.sdk.io.BoundedInput.readNBytes(stream, expected.get().size());
+                snapshot = dev.turboism.sdk.io.BoundedInput.readNBytes(
+                        stream, expected.get().size());
             }
             // Decode precisely these measured bytes, never reopen the path after validation.
             if (snapshot.length != expected.get().size()
