@@ -374,6 +374,7 @@ final class AcpChatControllerTest {
             fixture.view.awaitTimeline("agent:restored");
 
             assertEquals(List.of("connected", "agent:restored"), fixture.view.timeline);
+            assertEquals(AcpClient.McpAttachment.HTTP_READ_ONLY, fixture.view.lastMcpAttachment);
             assertEquals("saved-session", fixture.config.value("acpSessionId"));
             assertEquals(
                     List.of(temporaryExecutable().toString()), captured.get().command());
