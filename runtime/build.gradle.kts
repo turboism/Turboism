@@ -273,6 +273,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
         )
         includeTestsMatching(
@@ -312,6 +315,9 @@ tasks.named<Test>("test") {
             "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
         )
         excludeTestsMatching(
+            "dev.turboism.adapter.cubism.mesh.TriangulationEdgeIndexExactHostShapeTest"
+        )
+        excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         excludeTestsMatching(
@@ -337,6 +343,9 @@ tasks.named<Test>("test") {
         )
         excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
         )
         excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
