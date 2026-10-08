@@ -53,6 +53,25 @@ final class RuntimeMcpConnectionServiceTest {
         assertTrue(seen.get(2).isEmpty());
     }
 
+    @Test
+    void publishedSnapshotsPreserveTheStdioLaunchDescriptor() {
+        final McpConnectionRegistry registry = new McpConnectionRegistry();
+        final RuntimeMcpConnectionService service =
+                new RuntimeMcpConnectionService("mcp", (permission, operation) -> {}, registry);
+        final dev.turboism.sdk.mcp.McpStdioLaunch launch = new dev.turboism.sdk.mcp.McpStdioLaunch(
+                java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                        .toAbsolutePath()
+                        .toString(),
+                java.util.List.of("-cp", "plugin.jar", "dev.turboism.plugin.mcp.TurboismMcpBridge", "/state"));
+        final java.util.List<Optional<dev.turboism.sdk.mcp.McpHttpConnection>> seen = new java.util.ArrayList<>();
+
+        service.subscribe(seen::add);
+        service.publish(new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", launch));
+
+        assertEquals(launch, service.current().orElseThrow().stdioLaunch().orElseThrow());
+        assertEquals(launch, seen.get(1).orElseThrow().stdioLaunch().orElseThrow());
+    }
+
     private static McpHttpConnection connection() {
         return new McpHttpConnection(URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25");
     }
