@@ -82,6 +82,21 @@ class PluginGenerationGuardTest {
     }
 
     @Test
+    void terminalBypassIsExactVerbAndZeroArgumentOnly() {
+        // The documented surface: a zero-arg terminal verb reaches the delegate after
+        // fencing; the same verb with an argument and ordinary work stay fenced.
+        final FixtureService service = new FixtureService();
+        final PluginGenerationGuard guard = new PluginGenerationGuard("p");
+        final GuardedServiceFixture guarded = guard.wrapForTesting(service, GuardedServiceFixture.class);
+        guard.fence();
+
+        guarded.close();
+        assertEquals(1, service.closes.get());
+        assertThrows(IllegalStateException.class, () -> guarded.close("reason"));
+        assertThrows(IllegalStateException.class, () -> guarded.mutate("x"));
+    }
+
+    @Test
     void inFlightAdmittedCallsKeepDrainedFalse() throws Exception {
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);

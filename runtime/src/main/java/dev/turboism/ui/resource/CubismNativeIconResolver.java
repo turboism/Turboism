@@ -100,7 +100,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
                     || expected.get().size() > MAX_ARTIFACT_BYTES) return unverified();
             final byte[] snapshot;
             try (var stream = Files.newInputStream(artifact)) {
-                snapshot = stream.readNBytes((int) expected.get().size() + 1);
+                snapshot = dev.turboism.sdk.io.BoundedInput.readNBytes(stream, expected.get().size());
             }
             // Decode precisely these measured bytes, never reopen the path after validation.
             if (snapshot.length != expected.get().size()
@@ -129,7 +129,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
                 }
                 if (entry.isDirectory() || entry.getSize() > MAX_PNG_BYTES) continue;
                 try {
-                    final byte[] bytes = zip.readNBytes(MAX_PNG_BYTES + 1);
+                    final byte[] bytes = dev.turboism.sdk.io.BoundedInput.readNBytes(zip, MAX_PNG_BYTES);
                     prepared.put(
                             key,
                             decodePng(bytes, CubismNativeIconCatalog.resources().get(key), key.physicalSize()));
