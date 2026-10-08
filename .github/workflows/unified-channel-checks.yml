@@ -62,12 +62,16 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
       - name: Check local metadata and successive channel inputs without cleaning
         run: |
           ./gradlew --no-daemon -q printBuildInfo
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
       - name: Install Windows installer compiler
         run: |
           sudo apt-get update

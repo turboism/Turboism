@@ -14,9 +14,7 @@ import org.junit.jupiter.api.Test;
 
 /** Static exact-JAR evidence for the internal T015 native replace seam. */
 class EditorRawImagePsdReplaceSelectorContractTest {
-    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
-    private static final Path ARTIFACT =
-            LEGACY_EVIDENCE == null ? null : LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.resolveLegacyEvidence();
     private static final HostArtifactFingerprint FINGERPRINT = new HostArtifactFingerprint(
             ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
             ReviewedHostArtifacts.CUBISM_5_3_02.size(),
@@ -25,10 +23,12 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     @Test
     void exact5302JarVerifiesReplaceReceiverStateAndFiveArgumentEntry() throws Exception {
         assumeTrue(
-                ARTIFACT != null && Files.isRegularFile(ARTIFACT),
+                LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
+        assertTrue(Files.isRegularFile(artifact), "exact Cubism 5.3.02 JAR is required");
         final List<StaticSelector> selectors = exactSelectors();
-        final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
+        final StaticVerificationReport report = new StaticSelectorVerifier().verify(artifact, FINGERPRINT, selectors);
 
         assertTrue(
                 report.allSelectorsVerified(),
@@ -45,10 +45,11 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     @Test
     void verifiesNativeTransactionEvidenceSeparatelyWithoutAdmittingUnusedAliases() throws Exception {
         assumeTrue(
-                ARTIFACT != null && Files.isRegularFile(ARTIFACT),
+                LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final List<StaticSelector> selectors = transactionEvidenceSelectors();
-        final StaticVerificationReport report = new StaticSelectorVerifier().verify(ARTIFACT, FINGERPRINT, selectors);
+        final StaticVerificationReport report = new StaticSelectorVerifier().verify(artifact, FINGERPRINT, selectors);
 
         assertTrue(
                 report.allSelectorsVerified(),

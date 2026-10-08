@@ -599,6 +599,22 @@ val checkPackageLayout by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_package_layout.py", rootDir.absolutePath)
 }
 
+/*
+ * The validation probes share one toolbox (jar relocator, child-first fixture
+ * loader, code-source printer) compiled from validation/shared/src at build
+ * time. Per-probe copies once forked this toolbox, so the basename and the
+ * declared class are pinned to the shared path.
+ */
+tasks.register<Exec>("checkValidationToolsSync") {
+    group = "verification"
+    description = "Rejects duplicated validation probe tool sources outside validation/shared/src."
+    workingDir(rootDir)
+    inputs.file("scripts/test/check_validation_tools_sync.py")
+    inputs.files(fileTree("validation") { include("**/*.java") })
+    verificationStamp()
+    commandLine("python3", "scripts/test/check_validation_tools_sync.py", rootDir.absolutePath)
+}
+
 val checkModuleBoundariesSelfTest by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs negative fixtures for fail-closed module-boundary enforcement."
@@ -839,6 +855,7 @@ val devCheck by tasks.registering {
         "checkModuleBoundaries",
         "checkCodeQuality",
         "checkThrowableContainment",
+        "checkValidationToolsSync",
         "checkPythonLint",
         checkRepositoryHygiene,
         checkEditorModelAliases,

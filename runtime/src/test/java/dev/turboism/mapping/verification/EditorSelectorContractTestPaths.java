@@ -7,7 +7,7 @@ import java.nio.file.Path;
 final class EditorSelectorContractTestPaths {
 
     private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
+    private static Path legacyEvidence;
 
     private EditorSelectorContractTestPaths() {}
 
@@ -15,9 +15,27 @@ final class EditorSelectorContractTestPaths {
         return PROJECT_ROOT;
     }
 
-    /** Returns the staged legacy evidence directory, or {@code null} when it is not staged. */
-    static Path legacyEvidence() {
-        return LEGACY_EVIDENCE;
+    static synchronized Path legacyEvidence() {
+        if (legacyEvidence == null) {
+            legacyEvidence = locateLegacyEvidence();
+        }
+        return legacyEvidence;
+    }
+
+    /**
+     * Resolves the external evidence directory, or {@code null} when none is provisioned.
+     * An explicitly configured but missing directory still fails loudly.
+     */
+    static synchronized Path resolveLegacyEvidence() {
+        try {
+            return legacyEvidence();
+        } catch (final IllegalStateException unavailable) {
+            final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
+            if (configured != null && !configured.isBlank()) {
+                throw unavailable;
+            }
+            return null;
+        }
     }
 
     private static Path locateProjectRoot() {
@@ -48,8 +66,6 @@ final class EditorSelectorContractTestPaths {
             }
             current = current.getParent();
         }
-        // Unstaged evidence is not an error: consumers gate exact-artifact
-        // tests with Assumptions, matching the other selector contract tests.
-        return null;
+        throw new IllegalStateException("legacy Cubism evidence directory is unavailable");
     }
 }

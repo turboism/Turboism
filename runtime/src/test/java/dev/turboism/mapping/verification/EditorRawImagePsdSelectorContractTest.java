@@ -26,17 +26,16 @@ class EditorRawImagePsdSelectorContractTest {
             PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json");
     private static final Path DRAFT_PACK_PATH =
             PROJECT_ROOT.resolve("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-editor-model-read.json");
-    private static final Path ARTIFACT =
-            LEGACY_EVIDENCE == null ? null : LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
 
     @Test
     void exact5302RecordVerifiesEveryPsdExportAndParseSelector() throws Exception {
         assumeTrue(
-                ARTIFACT != null && Files.isRegularFile(ARTIFACT),
+                LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+        final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var loaded = new StaticVerificationRecordLoader().load(RECORD_PATH);
         final var report = new StaticSelectorVerifier()
-                .verify(ARTIFACT, loaded.record().artifact(), loaded.record().selectors());
+                .verify(artifact, loaded.record().artifact(), loaded.record().selectors());
 
         assertTrue(
                 report.allSelectorsVerified(),
@@ -46,7 +45,7 @@ class EditorRawImagePsdSelectorContractTest {
                         .toList()
                         .toString());
 
-        final var resolver = new VerifiedEditorModelResolverFactory().create(RECORD_PATH, ARTIFACT, loader(ARTIFACT));
+        final var resolver = new VerifiedEditorModelResolverFactory().create(RECORD_PATH, artifact, loader(artifact));
         assertTrue(resolver.isExactCubismVersion(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSION));
         assertTrue(resolver.authorizesFeature(
                 EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
@@ -249,18 +248,8 @@ class EditorRawImagePsdSelectorContractTest {
     }
 
     private static Path locateLegacyEvidence() {
-        final String configured = System.getenv("TURBOISM_LEGACY_CUBISM_REF");
-        if (configured != null && !configured.isBlank()) {
-            final Path candidate = Path.of(configured).toAbsolutePath().normalize();
-            if (Files.isDirectory(candidate)) return candidate;
-            throw new IllegalStateException("configured legacy Cubism evidence directory is unavailable: " + candidate);
-        }
-        Path current = PROJECT_ROOT;
-        while (current != null) {
-            final Path candidate = current.resolveSibling("turboism-legacy/cubism-ref");
-            if (Files.isDirectory(candidate)) return candidate;
-            current = current.getParent();
-        }
+        final Path explicit = Path.of("/opt/dev/projects/turboism-legacy/cubism-ref");
+        if (Files.isDirectory(explicit)) return explicit;
         return null;
     }
 

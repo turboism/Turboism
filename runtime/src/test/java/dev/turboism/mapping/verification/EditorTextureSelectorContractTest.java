@@ -71,7 +71,7 @@ class EditorTextureSelectorContractTest {
             if (Files.isDirectory(candidate)) return candidate;
             current = current.getParent();
         }
-        throw new IllegalStateException("legacy Cubism evidence directory is unavailable");
+        return null;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

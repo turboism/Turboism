@@ -73,7 +73,7 @@ class EditorTextureRelationsSelectorContractTest {
     }
 
     private static Path locateLegacyEvidence() {
-        return EditorSelectorContractTestPaths.legacyEvidence();
+        return EditorSelectorContractTestPaths.resolveLegacyEvidence();
     }
 
     private static Path locateProjectRoot() {

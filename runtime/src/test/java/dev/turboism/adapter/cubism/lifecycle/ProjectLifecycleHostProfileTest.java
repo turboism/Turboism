@@ -25,6 +25,7 @@ class ProjectLifecycleHostProfileTest {
         assumeTrue(
                 LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
         for (String version : List.of("Cubism-5.2", "Cubism-5.3.02")) {
             final Path artifact = LEGACY_EVIDENCE.resolve(version + "/jars/Live2D_Cubism.jar");
             final ProjectLifecycleHostProfile profile = ProjectLifecycleHostProfile.forArtifact(
@@ -50,6 +51,7 @@ class ProjectLifecycleHostProfileTest {
         assumeTrue(
                 LEGACY_EVIDENCE != null,
                 "legacy Cubism evidence is not staged on this machine; exact-artifact verification skips");
+
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         try (URLClassLoader loader = loader(artifact)) {
             final Class<?> document = Class.forName("com.live2d.cubism.doc.IDocument", false, loader);
