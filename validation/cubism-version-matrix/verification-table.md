@@ -28,7 +28,7 @@
 | 5.3.01 | 129 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；完整MCP场景含非空Editor Glue／参数／绑定恢复、五类纹理保存重开及Screen／Multiply Color准备恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
 | 5.3.02 | 128 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
 | 5.3.03 | 127 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.3.04 | 131 | owned-MOC结构getter／生命周期（限Haru；Core非空Glue待证）；完整MCP场景含Editor非空Glue、参数／绑定／纹理写入恢复与保存重开、命令执行恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察；参数批量迁移keyform行（含真实重映射、撤销/重做、关联、预变更拒绝路径）除多点morph夹具外场景；动画时间线；工作区 | 参数批量迁移多点morph行因夹具缺失BLOCKED（夹具缺口，非产品拒绝）；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.3.04 | 131 | owned-MOC结构getter／生命周期（限Haru；Core非空Glue待证）；完整MCP场景含Editor非空Glue、参数／绑定／纹理写入恢复与保存重开、命令执行恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察；参数批量迁移全场景（keyform行含真实重映射、morph行含scaffold夹具wide/narrow/invert三行迁移+撤销/重做+存储态form关联+还原，narrow行实证morph按契约"原样搬移不clamp"）；动画时间线；工作区 | 其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
 
 5.3.04 MCP free-r6通过范围见[mcp-texture-coverage.json](mcp-texture-coverage.json)及原始client结果；Workspace control为UNAVAILABLE，Core诊断与验证专用native保存不能折算为对应完整生产能力。5.3.01 free-r2也已完整场景PASS（含Multiply Color）。5.2.02 free-r2停在现有Trial欢迎modal，复测待终态；旧owned-MOC通过仅对其当时冻结产物有效。
 
