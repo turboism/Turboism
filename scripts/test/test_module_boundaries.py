@@ -11,9 +11,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GRADLEW = ROOT / "gradlew"
 BOUNDARY_SCRIPT = ROOT / "gradle/module-boundaries.gradle.kts"
+STAMP_HELPER = ROOT / "buildSrc/src/main/java/dev/turboism/gradle/internal/VerificationStamps.java"
 
 
-def write_project(project: Path, dependency: str = "", source: str = "") -> None:
+def write_buildsrc(root: Path) -> None:
+    """The boundary script calls into buildSrc; fixtures replicate the helper."""
+    stamp = root / "buildSrc/src/main/java/dev/turboism/gradle/internal/VerificationStamps.java"
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_bytes(STAMP_HELPER.read_bytes())
+
+
+def write_project(
+    project: Path, dependency: str = "", source: str = "", resource_source: str = "",
+) -> None:
     project.mkdir(parents=True, exist_ok=True)
     (project / "build.gradle.kts").write_text(
         "plugins {\n    `java-library`\n}\n" + dependency,
@@ -23,11 +33,16 @@ def write_project(project: Path, dependency: str = "", source: str = "") -> None
         source_file = project / "src/main/java/Fixture.java"
         source_file.parent.mkdir(parents=True, exist_ok=True)
         source_file.write_text(source, encoding="utf-8")
+    if resource_source:
+        resource_file = project / "src/main/resources/Fixture.java"
+        resource_file.parent.mkdir(parents=True, exist_ok=True)
+        resource_file.write_text(resource_source, encoding="utf-8")
 
 
 def run_fixture(
     name: str, sdk_dependency: str = "", plugin_dependency: str = "", source: str = "",
     expected: str = "", *, runtime_dependency: str = "", contract_dependency: str = "",
+    resource_source: str = "",
 ) -> None:
     with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
         root = Path(directory)
@@ -36,6 +51,7 @@ def run_fixture(
         policy = root / "gradle/module-boundaries.gradle.kts"
         policy.parent.mkdir()
         policy.write_bytes(BOUNDARY_SCRIPT.read_bytes())
+        write_buildsrc(root)
         (root / "settings.gradle.kts").write_text(
             'rootProject.name = "boundary-fixture"\n'
             'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
@@ -49,7 +65,9 @@ def run_fixture(
         write_project(root / "sdk", sdk_dependency)
         write_project(root / "runtime", runtime_dependency)
         write_project(root / "core-contract", contract_dependency)
-        write_project(root / "plugins/fixture", plugin_dependency, source)
+        write_project(
+            root / "plugins/fixture", plugin_dependency, source, resource_source,
+        )
         if "files(" in plugin_dependency:
             (root / "plugins/fixture/bad.jar").write_bytes(b"not-a-jar")
 
@@ -65,6 +83,42 @@ def run_fixture(
             raise AssertionError(f"{name}: boundary task unexpectedly passed\n{output}")
         if expected and expected not in output:
             raise AssertionError(f"{name}: expected {expected!r} in Gradle output\n{output}")
+        print(f"PASS {name}")
+
+
+def run_clean_fixture(name: str, source: str = "", resource_source: str = "") -> None:
+    """Assert that a plugin fixture source passes the boundary task."""
+    with tempfile.TemporaryDirectory(prefix=f"turboism-boundary-{name}-") as directory:
+        root = Path(directory)
+        policy = root / "gradle/module-boundaries.gradle.kts"
+        policy.parent.mkdir()
+        policy.write_bytes(BOUNDARY_SCRIPT.read_bytes())
+        write_buildsrc(root)
+        (root / "settings.gradle.kts").write_text(
+            'rootProject.name = "boundary-fixture"\n'
+            'include(":sdk", ":runtime", ":core-contract", ":plugins:fixture")\n',
+            encoding="utf-8",
+        )
+        (root / "build.gradle.kts").write_text(
+            'tasks.register("checkSdkV4ExactApiCompatibility")\n'
+            'apply(from = "gradle/module-boundaries.gradle.kts")\n',
+            encoding="utf-8",
+        )
+        write_project(root / "sdk")
+        write_project(root / "runtime")
+        write_project(root / "core-contract")
+        write_project(root / "plugins/fixture", source=source, resource_source=resource_source)
+
+        result = subprocess.run(
+            [str(GRADLEW), "-p", str(root), "--offline", "--no-daemon", "checkModuleBoundaries", "--console=plain"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        output = result.stdout + result.stderr
+        if result.returncode != 0:
+            raise AssertionError(f"{name}: boundary task unexpectedly failed\n{output}")
         print(f"PASS {name}")
 
 
@@ -106,6 +160,13 @@ def main() -> None:
             "Forbidden import",
         ),
         (
+            "forbidden-static-import",
+            "",
+            "",
+            "import static com.live2d.foo.Bar.baz;\nclass Fixture { void call() { baz(); } }\n",
+            "Forbidden import",
+        ),
+        (
             "forbidden-qualified-reference",
             "",
             "",
@@ -122,6 +183,23 @@ def main() -> None:
     ]
     for fixture in fixtures:
         run_fixture(fixture[0], *fixture[1:])
+    run_fixture(
+        "forbidden-import-in-resources",
+        expected="Forbidden import",
+        resource_source="import com.live2d.foo.Bar;\nclass Fixture {}\n",
+    )
+    run_fixture(
+        "plugin-host-ui-traversal-whitespace",
+        source="import javax.swing.SwingUtilities;\n"
+        "class Fixture { void inspect(javax.swing.JComponent c) "
+        "{ java.awt.Window w = SwingUtilities . getWindowAncestor(c); } }\n",
+        expected="must not discover or mutate host UI trees",
+    )
+    run_clean_fixture(
+        "host-ui-traversal-comment-ok",
+        source="class Fixture { // SwingUtilities.getWindowAncestor( stays a comment\n"
+        "    String note = \"SwingUtilities.getRoot(\";\n}\n",
+    )
     for configuration in ("implementation", "runtimeOnly"):
         run_fixture(
             f"runtime-plugin-{configuration}",

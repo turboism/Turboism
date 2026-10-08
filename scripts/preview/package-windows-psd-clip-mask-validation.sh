@@ -5,9 +5,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-main}"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-psd-clip-mask-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 # Exact artifact of the current :plugins:psd-clip-mask-import:jar task, exported
@@ -31,7 +33,7 @@ fi
 [ -f "$probe_descriptor" ] || { printf 'error: validation descriptor not found: %s\n' "$probe_descriptor" >&2; exit 1; }
 [ -f "$probe_i18n_base" ] || { printf 'error: validation probe i18n base catalog not found: %s\n' "$probe_i18n_base" >&2; exit 1; }
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$plugin_jar" "$bundle_root/plugins/psd-clip-mask-import.jar"

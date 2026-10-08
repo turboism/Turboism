@@ -2,9 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-main}"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-workspace-validation}"
 # The bundle must carry the agent freshly built by :bootstrap:jar for THIS worktree.
 # The legacy build/preview/<worktree>/turboism-agent.jar copy is stale by design and must
@@ -93,7 +95,7 @@ for pair in \
 done
 rm -rf "$freshness_tmp"
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state" "$bundle_root/plugin-data"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$launcher_template" "$bundle_root/launch-workspace-validation.bat.template"

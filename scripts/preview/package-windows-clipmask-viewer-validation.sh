@@ -6,6 +6,8 @@ set -euo pipefail
 # exerciser jar, a README, and SHA256SUMS. Nothing here is part of the
 # production preview bundle or product build.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
@@ -30,7 +32,7 @@ if [ ! -f "$probe_jar" ]; then
   exit 1
 fi
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"
 cp "$preview_root/turboism-agent.jar" "$bundle_root/turboism-agent.jar"
 cp "${clipmask_jars[0]}" "$bundle_root/plugins/clipmask-viewer.jar"
