@@ -87,22 +87,17 @@ def load_verified_capabilities(version: str) -> tuple[set[str], str | None]:
 
 
 # ---------------------------------------------------------------------------
-# L0 license: runtime-observed install tiers. The WINE license store exposes
-# no readable FREE/PRO marker, so this table is fixed from observed job
-# outcomes (FREE cancellation message: per-object parameter limit exceeded).
-#   5100/5200/5300: FREE cancellation observed on multi-parameter fixtures.
-#   5301 is deliberately absent: it produced a one-off FREE cancellation on
-#   animation-timeline yet passed core-acquisition/owned-moc on the same
-#   fixture — conflicting evidence, so the gate stays silent there.
-INSTALL_LICENSE_TIER: dict[str, str] = {
-    "5100": "free",
-    "5200": "free",
-    "5300": "free",
-}
-
-# Fixture digests provably exceeding the FREE per-object parameter limit
-# (native cancellation observed on the installs above). The shared
-# 测试 混合模式.cmo3 carries 3 params per object across multiple deformers.
+# License observations (NOT a gate).
+#
+# Every install runs in FREE-start mode: the startup assistance agent selects
+# "Start as FREE version" whenever the license dialog appears, on ALL versions
+# including ones where parameter-batch-transfer passes fully. The native
+# "FREE version - max parameters per object: 2" dialog is acknowledged and the
+# model still loads — it is a convenience-limit notice, not a load rejection.
+# The earlier FAIL_LICENSE classification (5100/5200/5300 PBT, 5300/5301
+# timeline) was re-attributed to `Runtime-owned shell failed to start`, an
+# infra failure. The tables stay as documentation; nothing refuses on them.
+INSTALL_LICENSE_TIER: dict[str, str] = {}
 FREE_LIMIT_EXCEEDED_FIXTURES = {
     "57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4",
 }
@@ -241,6 +236,9 @@ def evaluate(request: Any, request_type: Any, manifest: Any,
 
     doc_version, digest = fixture_doc_version(fixture_path_for(task.name, version, environment))
     if INSTALL_LICENSE_TIER.get(version) == "free" and digest in FREE_LIMIT_EXCEEDED_FIXTURES:
+        # Currently unreachable: no install is proven FREE-locked, and the
+        # FREE parameter limit is a non-blocking notice. Kept so a genuinely
+        # observed FREE-locked install can be refused by adding it to the table.
         raise StaticGateRefusal(
             "SKIP_LICENSE",
             "license",
