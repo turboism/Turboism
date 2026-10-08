@@ -161,3 +161,5 @@ Core真实产物启动回归复现5.2.00–.02基础/完整profile共存时owned
 
 5.3.04参数批量迁移r1的row.clamped.duplicate FAIL经复查为探针语义过期：探针按纯clamp预测[0,0,1]重复值，文档与实现为源范围线性重映射后clamp得[0,0.5,1]，实现正确。修正探针mapPoints后r2：keyform行全过（含真实重映射传输/撤销/重做/关联/还原），duplicate正确SKIPPED，仅apply.morph.transfer因多点morph夹具缺失仍BLOCKED（夹具缺口）。5.0.03纹理关系retry-r2 PASS，纹理关系图覆盖全部20版。全能力验收仍远未完成。
 
+apply.morph.transfer经r3–r10诊断-修正-复测收敛至PASS（job fdec41d5，95断言全过、3项SKIPPED：无combined参数、fallback快路径未用、无碰撞候选）。诊断链：①raw-owner反射被main合并引入的JDK代理层拦截（jdk.proxy1.$Proxy77，逐候选诊断定位handler=PluginGenerationGuard$Handler，探针按白名单解包guard/availability两层代理）；②PermissionCheckedDrawable/SessionDrawable已由内部类迁移为顶层类，白名单类名更新；③scaffold夹具成功搭建后r7实证morph迁移写入源值[-30,0,30]到[-10,50]目标参数——SDK契约"transferMorphClamped原样搬移，仅invert取负"，探针morph期望模型（目的范围clamp）再次过期并修正；④narrow行改为选取排除源点的目标范围以实证不clamp；⑤唯一遗留FAIL为association读回依赖参数扫描、对超范围点无效，改为raw morph target→getKeyForm→positions的存储态form关联校验。morph/keyform语义分离保持：keyform仍验证重映射+clamp，morph验证原样搬移+取负。夹具任务域内搭建、黄金安装与fixture哈希均未变。
+
