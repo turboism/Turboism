@@ -22,6 +22,7 @@ class PluginLocalizationContractTest {
     @Test
     void exposesTheFrozenJava17OnlyInterfaceShape() {
         final Set<String> methods = Arrays.stream(PluginLocalization.class.getDeclaredMethods())
+                .filter(method -> !method.isSynthetic())
                 .map(PluginLocalizationContractTest::signature)
                 .collect(Collectors.toSet());
 

@@ -3,15 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
-sanitize_turboism_worktree_id() {
-  local raw="$1"
-  local sanitized
-  sanitized="$(printf '%s' "$raw" \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed -E 's/[^a-z0-9.-]+/-/g; s/^-+//; s/-+$//; s/-{2,}/-/g')"
-  printf '%s\n' "$sanitized"
-}
+# shellcheck source=worktree-id-lib.sh
+. "${SCRIPT_DIR}/worktree-id-lib.sh"
 
 resolve_worktree_id() {
   local wt_root="${REPO_ROOT}"
@@ -35,21 +28,6 @@ resolve_worktree_id() {
   candidate="$(sanitize_turboism_worktree_id "$candidate")"
   [ -n "$candidate" ] || candidate="worktree"
   printf '%s\n' "$candidate"
-}
-
-validate_id() {
-  local id="$1"
-  if [[ ! "${id}" =~ ^[a-z][a-z0-9-]{2,63}$ ]]; then
-    echo "Invalid worktree ID: ${id} (must match [a-z][a-z0-9-]{2,63})" >&2
-    return 1
-  fi
-  case "${id}" in
-    test|tmp|new|main-copy|my-work)
-      echo "Forbidden worktree ID: ${id}" >&2
-      return 1
-      ;;
-  esac
-  return 0
 }
 
 resolve_only=0

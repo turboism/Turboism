@@ -85,12 +85,6 @@ def _record_failure(removed, added, exact):
     return "\n".join(details)
 
 
-def _verify_exact_artifact(baseline, sha, size):
-    expected = baseline["artifact"]
-    if sha != expected["sha256"] or size != expected["size"]:
-        raise BaselineError(f"SDK artifact binding mismatch: expected {expected['sha256']}/{expected['size']}, found {sha}/{size}")
-
-
 def _print_success(exact, baseline_lines, current_lines, added):
     mode = "exact" if exact else "compatible"
     print(f"SDK API baseline {mode} verification passed: baseline={len(baseline_lines)} current={len(current_lines)} additions={len(added)}")

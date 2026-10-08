@@ -30,9 +30,8 @@ done < <(
 )
 
 # User production directories must not be written.
-for forbidden in "${HOME}/.turboism"; do
-  [ ! -e "${forbidden}" ] || fail "must not write user production directory: ${forbidden}"
-done
+forbidden="${HOME}/.turboism"
+[ ! -e "${forbidden}" ] || fail "must not write user production directory: ${forbidden}"
 
 # Worktree artifact naming must include the worktree ID for every Gradle project,
 # including official plugin subprojects added after M1. Projects that publish

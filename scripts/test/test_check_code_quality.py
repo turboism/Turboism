@@ -545,6 +545,9 @@ def case_non_version_digits_pass(root: Path) -> None:
         "Utf8PluginCatalog",
         "Sha256Thing",
         "Manifest52030Overflow",
+        "Moc5000",
+        "V55Component",
+        "Moc500Helper",
     ):
         write(
             root,
@@ -555,11 +558,48 @@ def case_non_version_digits_pass(root: Path) -> None:
     assert result.returncode == 0, f"non-version digit names must pass, got:\n{result.stdout}"
 
 
+def case_version_token_in_declared_type(root: Path) -> None:
+    """A version token in any declared type name fails, not only in the file stem."""
+    write(
+        root,
+        "runtime/src/main/java/dev/turboism/sample/Helper.java",
+        "package dev.turboism.sample;\n\n/** Doc. */\nfinal class Helper {\n"
+        "    static final class inner5302 { }\n"
+        "    static final String S = \"class Fake5302\"; // class Fake520\n"
+        "}\n",
+    )
+    result = run(root, "naming")
+    assert result.returncode == 1, "a version-shaped declared type name must fail"
+    assert result.stdout.count("encodes a Cubism version") == 1
+
+
+def case_version_token_in_new_production_roots(root: Path) -> None:
+    """core-contract/event-processor/graal-host are production roots too."""
+    for module in ("core-contract", "event-processor", "graal-host"):
+        write(
+            root,
+            f"{module}/src/main/java/dev/turboism/sample/ThingManifest52.java",
+            "package dev.turboism.sample;\n\n/** Doc. */\npublic final class ThingManifest52 { }\n",
+        )
+    result = run(root, "naming")
+    assert result.returncode == 1, "new production roots must be scanned"
+    assert result.stdout.count("encodes a Cubism version") == 3
+
+
 def case_retired_asset_token(root: Path) -> None:
     write(root, "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-thing.json", "{}\n")
     result = run(root, "assets")
     assert result.returncode == 1, "retired governance token must fail"
     assert "retired governance token" in result.stdout
+
+
+def case_retired_asset_token_variants(root: Path) -> None:
+    """Token variants inside a dash segment or with different case must fail."""
+    write(root, "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-x-m14x.json", "{}\n")
+    write(root, "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-thing-M15.json", "{}\n")
+    result = run(root, "assets")
+    assert result.returncode == 1, "retired token variants must fail"
+    assert result.stdout.count("retired governance token") == 2
 
 
 def case_literal_control_character(root: Path) -> None:
@@ -719,6 +759,9 @@ CASES = (
     case_version_token_inside_type,
     case_non_version_digits_pass,
     case_retired_asset_token,
+    case_retired_asset_token_variants,
+    case_version_token_in_declared_type,
+    case_version_token_in_new_production_roots,
     case_literal_control_character,
     case_control_character_in_script_and_kts,
     case_unknown_rule,

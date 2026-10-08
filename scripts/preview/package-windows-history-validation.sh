@@ -2,9 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
@@ -19,7 +21,7 @@ launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 [ -f "$test_classes/$probe_class_dir/$probe_class.class" ] || { printf 'error: probe class missing\n' >&2; exit 1; }
 [ -f "$test_classes/$probe_class_dir/$seed_class.class" ] || { printf 'error: seed class missing\n' >&2; exit 1; }
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"
 cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$launcher" "$bundle_root/"

@@ -38,7 +38,7 @@ val probedWorktreeIdError = runCatching {
 // Best-effort name mangling for the no-bash fallback only; the authoritative
 // verdict stays with the script, so consumers fail closed when it cannot run.
 fun sanitizeWorktreeId(raw: String): String = raw.lowercase()
-    .replace(Regex("[^a-z0-9.-]+"), "-")
+    .replace(Regex("[^a-z0-9-]+"), "-")
     .trim('-')
     .replace(Regex("-{2,}"), "-")
 
