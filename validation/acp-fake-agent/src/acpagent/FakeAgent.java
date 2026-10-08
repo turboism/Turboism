@@ -258,7 +258,7 @@ public final class FakeAgent {
                 return;
             }
             if (!Boolean.TRUE.equals(rename.get("ok")) || !"APPLIED".equals(rename.get("outcome"))) {
-                failRenameChain("rename_not_applied");
+                failRenameChain(sanitize("rename_not_applied_" + Json.stringify(rename)));
                 return;
             }
             ledger.pass("renameApplied");
