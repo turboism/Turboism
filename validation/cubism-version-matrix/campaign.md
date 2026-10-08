@@ -156,3 +156,8 @@ Core真实产物启动回归复现5.2.00–.02基础/完整profile共存时owned
 追加5个修复后MCP新包复测（5.2.02 r4、5.0.02/5.1.03/5.2.00/5.2.01 r2），本轮共40项冻结提交。126项runtime回归+38项MCP回归全部PASS、无跳过；MCP新增HTTP transport启动/连接发布/关闭清理回归，旧版optional事务不可用不会执行工作，SecurityException和未知backend故障不隐藏。Python generator2/调度32/覆盖索引9项通过，开发与Core门禁PASS。终态仍待持续收取，见capability-admission-regression.json。
 
 检查点证据审计更新：59组sanitized lifecycle SHA及门禁、62份properties与官方源字节一致。最新devCheck PASS；本轮40项新任务中五项已终态（PSD save-only5304 PASS；MCP5202/5002/5103/5200旧冻结包FAIL），35项仍运行/排队，包括五版修复后新冻结包复测。未停止或干预其他会话，未把queued、readiness或UNAVAILABLE当作支持。
+
+本批35项全部终态：30成功5失败。MCP完整场景新增5.2.00/5.2.01/5.2.02/5.2.03/5.3.00/5.3.02/5.3.03，连同5.3.01/5.3.04共9版；纹理关系图新增16版达19/20（5.0.03夹具就绪超时、宿主WebKit对话框异常，非能力拒绝）；PSD保存观察5.3.00–04五版（SAVED_UNVERIFIED，不含内容验证）；动画时间线、工作区5.3.04通过。5.0.02/5.1.03 MCP其余断言全过但authoring事务execute返回UNAVAILABLE（旧版能力缺口，整体FAIL）。5.2.01 MCP r1失败被r2 PASS取代，旧记录保留。
+
+5.3.04参数批量迁移r1的row.clamped.duplicate FAIL经复查为探针语义过期：探针按纯clamp预测[0,0,1]重复值，文档与实现为源范围线性重映射后clamp得[0,0.5,1]，实现正确。修正探针mapPoints后r2：keyform行全过（含真实重映射传输/撤销/重做/关联/还原），duplicate正确SKIPPED，仅apply.morph.transfer因多点morph夹具缺失仍BLOCKED（夹具缺口）。5.0.03纹理关系retry-r2 PASS，纹理关系图覆盖全部20版。全能力验收仍远未完成。
+
