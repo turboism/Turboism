@@ -214,7 +214,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not support version"):
             scheduler.parse_request("workspace:9999", "test-run", self.manifest)
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not define variants"):
-            scheduler.parse_request("edit:5302@matrix", "test-run", self.manifest)
+            scheduler.parse_request("core-owned-moc:5302@matrix", "test-run", self.manifest)
 
     def test_planner_serializes_all_versions_in_fifo_order(self) -> None:
         requests = [

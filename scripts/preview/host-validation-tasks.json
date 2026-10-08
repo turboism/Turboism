@@ -1479,13 +1479,28 @@
         "5303",
         "5304"
       ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
-      ],
       "resources": {
         "host-slot": 1,
         "display-input": 1
+      },
+      "defaultVariant": "standard",
+      "variants": {
+        "standard": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "assisted": [
+          "{version}",
+          "{runLabel}",
+          "--aux-agent",
+          "build/native-startup-assistance-agent.jar:native-startup-assistance-agent.jar",
+          "--jvm-option",
+          "-Dturboism.validation.startupAssistance=true",
+          "--jvm-option",
+          "-Dturboism.optimization.mesaGlThread=false",
+          "--linux-env",
+          "mesa_glthread=false"
+        ]
       }
     },
     "edit-protocol": {

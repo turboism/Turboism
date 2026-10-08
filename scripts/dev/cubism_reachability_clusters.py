@@ -484,27 +484,45 @@ def load_graphs(ref: Path, cache: Path):
     return graphs
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--family")
-    ap.add_argument("--cache", default="/tmp/cubism-jar-graphs-m.pkl")
-    args = ap.parse_args()
+def shallow_fingerprint(graph, roots):
+    """Fingerprint only the family's own selector members: method code hashes,
+    field constants and owner hierarchy signature — no reachable closure."""
+    classes = graph["classes"]
+    h = hashlib.sha256()
+    for owner, name, desc in sorted(roots["methods"]):
+        info = classes.get(owner)
+        rec = info["methods"].get((name, desc)) if info else None
+        h.update(b"m\0")
+        h.update(f"{owner}\0{name}\0{desc}\0".encode())
+        h.update((rec[0] if rec else None) or b"\x00" * 32)
+    for owner, name, desc in sorted(roots["fields"]):
+        h.update(b"f\0")
+        h.update(f"{owner}\0{name}\0{desc}\0".encode())
+        info = classes.get(owner)
+        const = info["fields"].get((name, desc)) if info else None
+        h.update(hashlib.sha256(const or b"").digest())
+    for owner, _, _ in sorted(roots["methods"] | roots["fields"]):
+        info = classes.get(owner)
+        if not info:
+            continue
+        h.update(b"c\0")
+        h.update(owner.encode())
+        h.update((info["super"] or "").encode())
+        for it in sorted(info["interfaces"]):
+            h.update(it.encode())
+    return h.hexdigest()
 
-    ref = cubism_ref_dir()
-    print(f"cubism-ref: {ref}", file=sys.stderr)
-    graphs = load_graphs(ref, Path(args.cache))
-    versions = sorted(graphs)
-    print(f"versions: {len(versions)}", file=sys.stderr)
 
-    fams = family_roots()
-    if args.family:
-        fams = {args.family: fams[args.family]}
-
+def cluster_report(graphs, versions, fams):
+    """Per family: strict (reachable-closure) and shallow (member-only) clusters."""
+    report: dict[str, dict] = {}
+    details: dict[str, tuple] = {}
     for fam, roots in sorted(fams.items()):
         nroots = len(roots["methods"]) + len(roots["fields"])
         if not nroots:
             continue
-        clusters: dict[str, list[str]] = {}
+        strict: dict[str, list[str]] = {}
+        shallow: dict[str, list[str]] = {}
         missing: dict[str, list[str]] = {}
         sizes = {}
         for v in versions:
@@ -522,14 +540,67 @@ def main() -> int:
             if miss:
                 missing[v] = miss
             m_done, f_seen, c_seen = closure(g, roots)
-            fp = fingerprint(g, m_done, f_seen, c_seen)
-            clusters.setdefault(fp, []).append(v)
+            strict.setdefault(fingerprint(g, m_done, f_seen, c_seen), []).append(v)
+            shallow.setdefault(shallow_fingerprint(g, roots), []).append(v)
             sizes[v] = len(m_done)
-        print(f"\n=== {fam} (roots={nroots}) -> {len(clusters)} clusters")
-        for vs in sorted(clusters.values(), key=lambda x: x[0]):
+
+        def emit(clusters):
+            out = []
+            for members in sorted(clusters.values(), key=lambda x: x[0]):
+                out.append({
+                    "rep": members[0],
+                    "members": members,
+                    "missingRoots": {v: missing[v] for v in members if v in missing},
+                })
+            return out
+
+        report[fam] = {"strict": emit(strict), "shallow": emit(shallow)}
+        details[fam] = (roots, strict, missing, sizes)
+    return report, details
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--family")
+    ap.add_argument("--cache", default="/tmp/cubism-jar-graphs-m.pkl")
+    ap.add_argument(
+        "--emit-json",
+        metavar="PATH",
+        help="write the cluster table as JSON: "
+        "{family: {strict: [{rep, members, missingRoots}], shallow: [...]}}",
+    )
+    args = ap.parse_args()
+
+    ref = cubism_ref_dir()
+    print(f"cubism-ref: {ref}", file=sys.stderr)
+    graphs = load_graphs(ref, Path(args.cache))
+    versions = sorted(graphs)
+    print(f"versions: {len(versions)}", file=sys.stderr)
+
+    fams = family_roots()
+    if args.family:
+        fams = {args.family: fams[args.family]}
+
+    table, details = cluster_report(graphs, versions, fams)
+    for fam, (roots, strict, missing, sizes) in sorted(details.items()):
+        nroots = len(roots["methods"]) + len(roots["fields"])
+        print(f"\n=== {fam} (roots={nroots}) -> {len(strict)} clusters")
+        for vs in sorted(strict.values(), key=lambda x: x[0]):
             print(f"  rep={vs[0]} methods={sizes[vs[0]]}  members: {', '.join(vs)}")
         for v, miss in sorted(missing.items()):
             print(f"  {v}: {len(miss)} missing roots, e.g. {miss[:3]}")
+
+    if args.emit_json:
+        payload = {
+            "format": "turboism.cubism.reachability-clusters",
+            "schemaVersion": 1,
+            "versions": versions,
+            "families": table,
+        }
+        path = Path(args.emit_json)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=1) + "\n")
+        print(f"\nemitted {path}", file=sys.stderr)
     return 0
 
 
