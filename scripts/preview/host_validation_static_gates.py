@@ -63,6 +63,10 @@ TASK_REQUIRED_CAPABILITIES: dict[str, tuple[str, ...]] = {
     # parameter panel write legs go through the same Parameter.setValue slice
     # the batch-transfer probes proved admission-blocked on 5.0.x/5.1.x.
     "parameter": ("cubism.editor-model.write",),
+    # backup's probe dirties the model via Parameter.setValue first
+    # (observed runtime failure "dirty via Parameter.setValue failed:
+    # IllegalStateException" on 5.1.x — the same admission wall).
+    "backup": ("cubism.editor-model.write",),
     "animation-timeline": ("cubism.editor-model.animation-timeline.write",),
 }
 
