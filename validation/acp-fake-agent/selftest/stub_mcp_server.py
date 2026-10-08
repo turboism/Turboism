@@ -63,9 +63,28 @@ def handle_tools_call(name, arguments):
         with LOCK:
             LAST_RENAME = {"id": target["id"], "previous": target["name"]}
             target["name"] = operation.get("name")
+            renamed = dict(target)
             HISTORY["revision"] += 1
             HISTORY["position"] += 1
-        return tool_result({"ok": True, "outcome": "APPLIED", "succeeded": 1, "failed": 0, "partialSuccess": False})
+        return tool_result({
+            "ok": True,
+            "partialSuccess": False,
+            "stopOnError": False,
+            "stopped": False,
+            "succeeded": 1,
+            "failed": 0,
+            "results": [{
+                "index": 0,
+                "operation": "rename",
+                "ok": True,
+                "result": {
+                    "ok": True,
+                    "object": {"kind": renamed["kind"], "id": renamed["id"], "name": renamed["name"]},
+                    "retryable": False,
+                    "outcome": "APPLIED",
+                },
+            }],
+        })
     if name == "turboism.history.undo":
         with LOCK:
             expected_generation = arguments.get("expectedGeneration")
