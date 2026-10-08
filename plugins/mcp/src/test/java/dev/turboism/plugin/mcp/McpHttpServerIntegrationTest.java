@@ -848,7 +848,11 @@ final class McpHttpServerIntegrationTest {
             assertEquals(Boolean.FALSE, result.get("retryable"));
             assertEquals("PartCommitted", result.get("createdObjectId"));
             assertEquals("part", result.get("kind"));
-            assertEquals("descriptor readback failed", result.get("readbackWarning"));
+            // The wire warning is sanitized fixed text; the internal exception
+            // detail stays in the server-side log.
+            assertEquals(
+                    "The create applied but post-commit verification reported a warning",
+                    result.get("readbackWarning"));
             assertNotNull(result.get("diagnosticId"));
 
             final Map<String, Object> diagnostics = resourceJson(request(

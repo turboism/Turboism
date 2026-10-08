@@ -302,20 +302,19 @@ final class McpTools {
         } catch (CancellationException failure) {
             throw failure;
         } catch (ToolInputException failure) {
+            // ToolInputException messages are authored client-facing argument feedback.
             return toolFailure("INVALID_ARGUMENT", failure.getMessage(), failure, false);
         } catch (ModelObjectOperationException failure) {
             if (failure.code() == ModelObjectOperationException.Code.COMMITTED && CREATE.equals(toolName)) {
                 return committedCreate(failure);
             }
-            return toolFailure(failure.code().name(), safeMessage(failure), failure, false);
+            return toolFailure(failure.code().name(), "The model object operation failed", failure, false);
         } catch (ReadServiceException failure) {
-            return toolFailure("FAILED", failure.getMessage(), failure, false);
-        } catch (CubismPermissionException failure) {
-            return toolFailure("PERMISSION_DENIED", safeMessage(failure), failure, false);
-        } catch (SecurityException failure) {
-            return toolFailure("PERMISSION_DENIED", safeMessage(failure), failure, false);
+            return toolFailure("FAILED", "The read operation failed", failure, false);
+        } catch (CubismPermissionException | SecurityException failure) {
+            return toolFailure("PERMISSION_DENIED", "The plugin lacks the required permission", failure, false);
         } catch (RuntimeException failure) {
-            return toolFailure("FAILED", safeMessage(failure), failure, true);
+            return toolFailure("FAILED", "The tool call failed unexpectedly", failure, true);
         }
     }
 
@@ -718,17 +717,19 @@ final class McpTools {
                         entry("retryable", false),
                         entry("createdObjectId", reference.id()),
                         entry("kind", wire(reference.kind())),
-                        entry("readbackWarning", safeMessage(failure)),
+                        entry("readbackWarning", "The create applied but post-commit verification reported a warning"),
                         entry("diagnosticId", diagnosticId)),
                 false);
     }
 
     private Map<String, Object> toolFailure(
             final String code, final String message, final RuntimeException failure, final boolean logStack) {
+        // The wire message is a fixed per-code text; the internal exception detail
+        // (paths, class names, host internals) stays in the server-side log only.
         if (logStack) {
-            logger.error("MCP tool execution failed: " + code + ": " + message, failure);
+            logger.error("MCP tool execution failed: " + code + ": " + safeMessage(failure), failure);
         } else {
-            logger.warn("MCP tool rejected: " + code + ": " + message);
+            logger.warn("MCP tool rejected: " + code + ": " + safeMessage(failure));
         }
         return toolResult(
                 linked(entry("ok", false), entry("error", linked(entry("code", code), entry("message", message)))),

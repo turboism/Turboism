@@ -73,11 +73,11 @@ No capabilities are declared in the plugin manifest.
 
 ### Network
 
-Connects to the user-configured WebDAV HTTP(S) endpoint and uses `MKCOL`, `PROPFIND`, and `PUT`. Optional Basic authentication sends the configured username and password to that endpoint. Transfers can run automatically after the configured save or auto-backup trigger. Disabling TLS verification weakens transport security and is intended only for trusted private endpoints.
+Connects to the user-configured WebDAV HTTP(S) endpoint and uses `MKCOL`, `PROPFIND`, and `PUT`. Optional Basic authentication sends the configured username and password to that endpoint. Transfers can run automatically after the configured save or auto-backup trigger. Disabling TLS verification makes the client accept any certificate, so a network attacker can intercept the backup traffic (MITM); keep it enabled except for trusted private endpoints.
 
 ### Local data
 
-Stores endpoint settings and credentials in plugin configuration at `backup/webdav.cfg`. Password values are masked in the dialog and redacted from logs and object rendering. The plugin reads eligible backup files in order to upload them.
+Stores endpoint settings and credentials in plugin configuration at `backup/webdav.cfg`. The password is stored as plaintext — the config store has no credential vault — and relies on owner-only file permissions; it is masked in the dialog and redacted from logs and object rendering. The plugin reads eligible backup files in order to upload them.
 
 ### Telemetry
 
