@@ -1118,6 +1118,23 @@
     "host-slot": 1,
     "display-input": 1
    }
+  },
+  "acp": {
+   "description": "ACP agent-window stdio MCP validation: the probe opens the Agent window via the action catalog, a scripted fake agent asserts the credential-free stdio attachment and performs one rename through the TurboismMcpBridge with guarded undo restoration, then the host closes normally.",
+   "command": "scripts/preview/run-acp-host-validation.sh",
+   "versions": [
+    "5203",
+    "5302",
+    "5303"
+   ],
+   "arguments": [
+    "{version}",
+    "{runLabel}"
+   ],
+   "resources": {
+    "host-slot": 1,
+    "display-input": 1
+   }
   }
  }
 }
