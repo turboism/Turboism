@@ -62,6 +62,8 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
       - name: Check local metadata and successive channel inputs without cleaning
         run: |
           ./gradlew --no-daemon -q printBuildInfo

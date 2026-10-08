@@ -249,6 +249,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
+        )
+        includeTestsMatching(
             "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
         )
         includeTestsMatching(
@@ -267,19 +270,19 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
             "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
         )
         includeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
         )
         includeTestsMatching(
             "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
@@ -318,6 +321,9 @@ tasks.named<Test>("test") {
             "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
         )
         excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorEditSelectorContractTest"
+        )
+        excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
         )
         excludeTestsMatching(
@@ -336,19 +342,19 @@ tasks.named<Test>("test") {
             "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
         )
         excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
         )
         excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorRawImagePsdSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorRawImagePsdReplaceSelectorContractTest"
         )
         excludeTestsMatching(
             "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
         )
         excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
         )
         excludeTestsMatching(
-            "dev.turboism.mapping.verification.EditorTextureRelationsSelectorContractTest"
+            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
         )
         excludeTestsMatching(
             "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
