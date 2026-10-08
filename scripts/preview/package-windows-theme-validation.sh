@@ -2,9 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=bundle-safety.sh
+. "$repo_root/scripts/preview/bundle-safety.sh"
 cd "$repo_root"
 
-worktree_id="${TURBOISM_WORKTREE_ID:-$(git branch --show-current | tr '/_' '--')}"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-theme-validation}"
 preview_root="$repo_root/build/preview/$worktree_id"
 
@@ -15,7 +17,7 @@ for file in \
   [ -f "$file" ] || { printf 'error: required theme validation artifact missing: %s\n' "$file" >&2; exit 1; }
 done
 
-rm -rf "$bundle_root"
+preview_bundle_safe_remove_tree "$bundle_root" "$repo_root/build"
 mkdir -p "$bundle_root/plugins" "$bundle_root/logs" "$bundle_root/state"
 cp "$preview_root/turboism-agent.jar" "$bundle_root/"
 cp "$preview_root/plugins/ui-theme.jar" "$bundle_root/plugins/"

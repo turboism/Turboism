@@ -4,19 +4,25 @@
 #
 # Compares every dev.turboism.sdk.cubism.model interface method against the
 # methods declared by the two wrapper layers:
-#   PC layer      runtime/src/main/java/dev/turboism/adapter/cubism/CubismFacadeImpl.java
-#   Session layer runtime/src/main/java/dev/turboism/adapter/host/DynamicCubismModelAccess.java
+#   PC layer      runtime/src/main/java/dev/turboism/adapter/cubism/PermissionChecked*.java
+#   Session layer runtime/src/main/java/dev/turboism/adapter/host/Session*.java
+#
+# Also wired as the Gradle task :checkForwardingAudit (part of devCheck).
 #
 # Exit code 0 = no missing methods (except the SDK self-derived defaults that
-# are intentionally not forwarded: FloatSequence/IntSequence.isEmpty() and the
-# non-throwing ui() appearance defaults on the Warp/Rotation wrappers).
+# are intentionally not forwarded: FloatSequence/IntSequence.isEmpty(), the
+# non-throwing ui() appearance defaults on the Warp/Rotation wrappers, and
+# getMorphParameterBindings() which filters the already-forwarded
+# getParameterBindings()).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-WORKTREE_ID="$(bash scripts/dev/worktree-id.sh 2>/dev/null || basename "$ROOT")"
-SDK_CLASSES="build/worktree/$WORKTREE_ID/sdk/classes/java/main"
+if [ -z "${SDK_CLASSES:-}" ]; then
+  WORKTREE_ID="$(bash scripts/dev/worktree-id.sh 2>/dev/null || basename "$ROOT")"
+  SDK_CLASSES="build/worktree/$WORKTREE_ID/sdk/classes/java/main"
+fi
 
 if [ ! -d "$SDK_CLASSES" ]; then
   echo "SDK classes missing; compiling :sdk:compileJava ..." >&2
@@ -25,6 +31,7 @@ fi
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 "$PYTHON_BIN" - "$SDK_CLASSES" <<'PYEOF'
+import glob
 import json
 import os
 import re
@@ -32,8 +39,8 @@ import subprocess
 import sys
 
 sdk_classes = sys.argv[1]
-pc_file = "runtime/src/main/java/dev/turboism/adapter/cubism/CubismFacadeImpl.java"
-session_file = "runtime/src/main/java/dev/turboism/adapter/host/DynamicCubismModelAccess.java"
+pc_glob = "runtime/src/main/java/dev/turboism/adapter/cubism/PermissionChecked*.java"
+session_glob = "runtime/src/main/java/dev/turboism/adapter/host/Session*.java"
 model_pkg = "dev/turboism/sdk/cubism/model"
 
 def javap_methods(cls):
@@ -121,14 +128,15 @@ def methods_in_body(src, start, end):
         methods[f'{name}({params})'] = True
     return methods
 
-def wrapper_methods(path):
-    src = strip_comments(open(path).read())
+def wrapper_methods(pattern):
     result = {}
     extends = {}
-    for m in re.finditer(r'class\s+(\w+)[^{]*?\bextends\s+(\w+)', src):
-        extends[m.group(1)] = m.group(2)
-    for name, start, end in class_bodies(src):
-        result[name] = methods_in_body(src, start, end)
+    for path in sorted(glob.glob(pattern)):
+        src = strip_comments(open(path).read())
+        for m in re.finditer(r'class\s+(\w+)[^{]*?\bextends\s+(\w+)', src):
+            extends[m.group(1)] = m.group(2)
+        for name, start, end in class_bodies(src):
+            result[name] = methods_in_body(src, start, end)
     # merge superclass methods so subclass-only declarations are not reported missing
     for name in result:
         merged = dict(result[name])
@@ -139,8 +147,8 @@ def wrapper_methods(path):
         result[name] = merged
     return result
 
-pc = wrapper_methods(pc_file)
-session = wrapper_methods(session_file)
+pc = wrapper_methods(pc_glob)
+session = wrapper_methods(session_glob)
 
 def split_params(p):
     parts, depth, cur = [], 0, ''
@@ -195,8 +203,12 @@ mapping = {
         'PermissionCheckedDrawable': 'Drawable', 'PermissionCheckedDeformer': 'Deformer',
         'PermissionCheckedGlue': 'Glue', 'PermissionCheckedParameterGroup': 'ParameterGroup',
         'PermissionCheckedParameter': 'Parameter', 'PermissionCheckedPart': 'Part',
-        'PermissionCheckedWarpDeformer': 'Deformer',
-        'PermissionCheckedRotationDeformer': 'Deformer',
+        'PermissionCheckedWarpDeformer': ('WarpDeformer', 'Deformer'),
+        'PermissionCheckedRotationDeformer': ('RotationDeformer', 'Deformer'),
+        'PermissionCheckedAnimationDocument': 'AnimationDocument',
+        'PermissionCheckedAnimationScene': 'AnimationScene',
+        'PermissionCheckedAnimationTrack': 'AnimationTrack',
+        'PermissionCheckedAnimationAttribute': 'AnimationAttribute',
     },
     'SESSION': {
         'SessionModel': 'CubismModel', 'SessionModelTextures': 'ModelTextures',
@@ -207,30 +219,38 @@ mapping = {
         'SessionDrawable': 'Drawable', 'SessionFloatSequence': 'FloatSequence',
         'SessionIntSequence': 'IntSequence', 'SessionDeformers': 'Deformers',
         'SessionDeformer': 'Deformer', 'SessionWarpDeformers': 'WarpDeformers',
-        'SessionWarpDeformer': 'WarpDeformer', 'SessionRotationDeformers': 'RotationDeformers',
-        'SessionRotationDeformer': 'RotationDeformer', 'SessionGlues': 'Glues',
-        'SessionGlue': 'Glue',
-        'SessionWarpDeformer': 'Deformer',
-        'SessionRotationDeformer': 'Deformer',
+        'SessionWarpDeformer': ('WarpDeformer', 'Deformer'),
+        'SessionRotationDeformers': 'RotationDeformers',
+        'SessionRotationDeformer': ('RotationDeformer', 'Deformer'),
+        'SessionGlues': 'Glues', 'SessionGlue': 'Glue',
+        'SessionAnimationDocument': 'AnimationDocument',
+        'SessionAnimationScene': 'AnimationScene',
+        'SessionAnimationTrack': 'AnimationTrack',
+        'SessionAnimationAttribute': 'AnimationAttribute',
     },
 }
 
 missing = 0
 for layer, layer_map in mapping.items():
     pool = pc_n if layer == 'PC' else session_n
-    for wrapper, iface in sorted(layer_map.items()):
+    for wrapper, iface_spec in sorted(layer_map.items()):
         declared = pool.get(wrapper, set())
-        for sig, is_default in sorted(ifaces[iface].items()):
-            if norm_sig(sig) not in declared:
-                # Intentional non-forwardings:
-                #  - SDK self-derived defaults (size() == 0) compose through size().
-                #  - ui() defaults return *Appearance.unavailable() (non-throwing) and the
-                #    Warp/Rotation wrappers cannot compute the real appearance (no modelId).
-                if sig.startswith('isEmpty()') or sig.startswith('ui()'):
-                    continue
-                missing += 1
-                print(f"MISSING {layer} {wrapper} implements {iface}: "
-                      f"{'default' if is_default else 'abstract'} {sig}")
+        iface_list = iface_spec if isinstance(iface_spec, tuple) else (iface_spec,)
+        for iface in iface_list:
+            for sig, is_default in sorted(ifaces[iface].items()):
+                if norm_sig(sig) not in declared:
+                    # Intentional non-forwardings:
+                    #  - SDK self-derived defaults (size() == 0) compose through size().
+                    #  - ui() defaults return *Appearance.unavailable() (non-throwing) and the
+                    #    Warp/Rotation wrappers cannot compute the real appearance (no modelId).
+                    #  - getMorphParameterBindings() filters getParameterBindings(), which the
+                    #    wrappers forward; the default already dispatches correctly.
+                    if (sig.startswith('isEmpty()') or sig.startswith('ui()')
+                            or sig.startswith('getMorphParameterBindings()')):
+                        continue
+                    missing += 1
+                    print(f"MISSING {layer} {wrapper} implements {iface}: "
+                          f"{'default' if is_default else 'abstract'} {sig}")
 
 if missing:
     print(f"\n{missing} missing forwarding(s) found.")

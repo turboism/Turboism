@@ -13,8 +13,9 @@ Six rules, all fail-closed:
    source file cannot be parsed.
 2. The reviewed Cubism digests appear only in their single production declaration and its guard
    test. A second copy can drift from the reviewed record and silently widen admission.
-3. No production type name encodes a Cubism version. Versions are declared as data so that no
-   type can quietly mean "the other version".
+3. No production type name (file name or declared class/interface/enum/record name)
+   encodes a Cubism version. Versions are declared as data so that no type can quietly
+   mean "the other version".
 4. No retired governance token (``m14``/``m15``) survives in ``compatibility/cubism/`` asset filenames.
 5. Runtime production code never calls ``invokeAndWait`` directly: synchronous EDT handoffs go
    through ``EdtDispatch`` so an interrupted or timed-out caller can never leave a queued
@@ -41,6 +42,9 @@ PRODUCTION_ROOTS = (
     "sdk/src/main/java",
     "runtime/src/main/java",
     "bootstrap/src/main/java",
+    "core-contract/src/main/java",
+    "event-processor/src/main/java",
+    "graal-host/src/main/java",
     # Generated verification manifests/contracts are authored as templates here;
     # scanning them keeps Javadoc and naming coverage on the production source
     # of truth instead of the byte-identical build output.
@@ -90,12 +94,84 @@ GRANDFATHERED_ASSETS = (
     "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
 )
 
-# A Cubism version fused into a type name appears as a digit run that starts with the major
-# version 5: "52"/"53" encode major.minor, "520" a single-digit patch, "5203"/"5302"/"5303"
-# a two-digit patch. Any maximal digit run of shape 5X, 5XY or 5XYY is a version token no
-# matter where it sits in the name; unrelated digit runs (Point2, M12ReadSnapshotSource,
-# Utf8PluginCatalog) do not start with 5 and stay legal.
-CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5\d{1,3}(?!\d)")
+# A Cubism version fused into a type name appears as a digit run shaped like the governed
+# versions: "52"/"53" encode major.minor and may be followed by a one- or two-digit patch
+# ("520", "5203", "5302", "5303"). Runs of other shapes are not version claims and stay
+# legal: non-52/53 minors (v55, Moc500, Sha256), digit runs longer than four digits
+# (Manifest52030Overflow), and runs not starting with 5 (Point2, M12ReadSnapshotSource).
+# A bare "52"/"53" still counts even at the end of a name -- it is the exact major.minor
+# shape, so a Vector53-style suffix remains flagged by design.
+CUBISM_VERSION_TOKEN = re.compile(r"(?<!\d)5[23]\d{0,2}(?!\d)")
+
+# Type declarations are matched after stripping comments and string/char literals so only
+# real class/interface/enum/record names count (mirrors the Gradle-side stripping rules).
+JAVA_TYPE_DECLARATION = re.compile(
+    r"\b(?:class|interface|enum|record|@interface)\s+([A-Za-z_$][\w$]*)"
+)
+
+
+def _strip_java_comments_and_strings(source: str) -> str:
+    """Blank out // and /* */ comments plus string/char literals, preserving newlines."""
+    output = []
+    state = "code"
+    escaped = False
+    index = 0
+    length = len(source)
+    while index < length:
+        character = source[index]
+        if state == "code":
+            if source.startswith("//", index):
+                output.append(" ")
+                state = "line"
+                index += 2
+            elif source.startswith("/*", index):
+                output.append(" ")
+                state = "block"
+                index += 2
+            elif character == '"':
+                output.append(" ")
+                state = "string"
+                index += 1
+            elif character == "'":
+                output.append(" ")
+                state = "char"
+                index += 1
+            else:
+                output.append(character)
+                index += 1
+        elif state == "line":
+            if character == "\n":
+                output.append("\n")
+                state = "code"
+            index += 1
+        elif state == "block":
+            if source.startswith("*/", index):
+                output.append(" ")
+                state = "code"
+                index += 2
+            else:
+                if character == "\n":
+                    output.append("\n")
+                index += 1
+        else:
+            closing = '"' if state == "string" else "'"
+            if character == "\\" and not escaped:
+                escaped = True
+                index += 1
+            elif escaped:
+                escaped = False
+                index += 1
+            elif character == closing:
+                output.append(" ")
+                state = "code"
+                index += 1
+            elif character == "\n":
+                output.append("\n")
+                state = "code"
+                index += 1
+            else:
+                index += 1
+    return "".join(output)
 
 ALL_RULES = ("javadoc", "digests", "naming", "assets", "edt-dispatch", "controlchars")
 
@@ -239,10 +315,21 @@ def check_naming(root: Path) -> list[str]:
     failures = []
     for relative in PRODUCTION_ROOTS + (PLUGIN_ROOT,):
         for source in java_sources(root, relative):
+            display = source.relative_to(root).as_posix()
             if CUBISM_VERSION_TOKEN.search(source.stem):
                 failures.append(
-                    "production type name encodes a Cubism version: "
-                    f"{source.relative_to(root).as_posix()}"
+                    f"production type name encodes a Cubism version: {display}"
+                )
+                continue
+            stripped = _strip_java_comments_and_strings(
+                source.read_text(encoding="utf-8")
+            )
+            if any(
+                CUBISM_VERSION_TOKEN.search(name)
+                for name in JAVA_TYPE_DECLARATION.findall(stripped)
+            ):
+                failures.append(
+                    f"production type name encodes a Cubism version: {display}"
                 )
     return failures
 
@@ -256,8 +343,8 @@ def check_assets(root: Path) -> list[str]:
         relative = asset.relative_to(root).as_posix()
         if relative in GRANDFATHERED_ASSETS:
             continue
-        parts = asset.stem.split("-")
-        if any(token in parts for token in RETIRED_ASSET_TOKENS):
+        parts = asset.stem.lower().split("-")
+        if any(token in part for part in parts for token in RETIRED_ASSET_TOKENS):
             failures.append(f"retired governance token in asset name: {relative}")
     return failures
 

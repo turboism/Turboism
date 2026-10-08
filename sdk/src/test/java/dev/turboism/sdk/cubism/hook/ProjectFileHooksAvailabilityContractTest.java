@@ -21,6 +21,9 @@ class ProjectFileHooksAvailabilityContractTest {
         assertNull(EditorLifecycleHooks.class.getAnnotation(CubismEditor.class));
 
         for (Method method : ModelFileHooks.class.getDeclaredMethods()) {
+            if (method.isSynthetic()) {
+                continue;
+            }
             if (UNPROVEN_MODEL_CREATE.contains(method.getName())) {
                 assertNull(method.getAnnotation(CubismEditor.class), method.getName());
             } else {
@@ -28,9 +31,15 @@ class ProjectFileHooksAvailabilityContractTest {
             }
         }
         for (Method method : AnimationFileHooks.class.getDeclaredMethods()) {
+            if (method.isSynthetic()) {
+                continue;
+            }
             assertExact53(method);
         }
         for (Method method : EditorLifecycleHooks.class.getDeclaredMethods()) {
+            if (method.isSynthetic()) {
+                continue;
+            }
             if (method.getName().equals("beforeEditorExit")) {
                 assertExact53(method);
             } else {
