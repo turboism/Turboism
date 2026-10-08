@@ -188,7 +188,7 @@ public final class FakeAgent {
             try {
                 initialized = bridge.request("initialize", initializeParams, timeout);
             } catch (IOException failure) {
-                ledger.fail("bridgeMcpInitialize", "initialize_failed");
+                ledger.fail("bridgeMcpInitialize", describe("initialize", failure, bridge));
                 return;
             }
             if (String.valueOf(initialized.get("protocolVersion")).isBlank()) {
@@ -330,6 +330,22 @@ public final class FakeAgent {
 
     private void failRenameChain(final String reason) {
         ledger.fail("renameApplied", reason);
+    }
+
+    private String describe(final String step, final Exception failure, final BridgeClient bridge) {
+        final String stderr = bridge == null ? "" : bridge.stderrText();
+        final String message = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+        return sanitize(step + "_" + message + (stderr.isBlank() ? "" : "_stderr_" + firstLine(stderr)));
+    }
+
+    private static String firstLine(final String text) {
+        final int newline = text.indexOf('\n');
+        final String line = newline < 0 ? text : text.substring(0, newline);
+        return line.length() > 200 ? line.substring(0, 200) : line;
+    }
+
+    private static String sanitize(final String text) {
+        return text.replaceAll("[\s\"]+", "_").substring(0, Math.min(400, text.length()));
     }
 
     private Map<String, Object> readOverview(final BridgeClient bridge, final long timeout) throws IOException {
