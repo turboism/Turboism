@@ -18,10 +18,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Exact-host performance evidence probe: a manual-test-only SDK plugin that
- * subscribes to {@link PluginContext#performanceStats()} and appends every
- * snapshot to {@code state/perf-metrics.csv} as one CSV row.
+ * resolves {@link PerformanceProbeService} through {@link PluginContext#services()}
+ * and appends every snapshot to {@code state/perf-metrics.csv} as one CSV row.
  *
- * <p>The probe touches only {@code performanceStats()}, {@code paths()},
+ * <p>The probe touches only the performance service, {@code paths()},
  * {@code logger()}, and {@code tasks()}; it never touches runtime, reflection,
  * or host objects. Sampling starts on {@link #enable()} and stops on
  * {@link #disable()}/{@link #shutdown()}; closing the registration also
@@ -86,7 +86,9 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
                 writer.newLine();
                 writer.flush();
             }
-            final PerformanceProbeService stats = current.performanceStats();
+            final PerformanceProbeService stats = current.services()
+                .find(PerformanceProbeService.class)
+                .orElseGet(PerformanceProbeService::unavailable);
             sampling = stats.sample(interval(), this::append);
             current.logger().info("Performance metrics sampling -> " + metricsPath);
         } catch (RuntimeException | IOException failure) {
