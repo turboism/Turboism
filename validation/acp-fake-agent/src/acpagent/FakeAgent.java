@@ -335,13 +335,7 @@ public final class FakeAgent {
     private String describe(final String step, final Exception failure, final BridgeClient bridge) {
         final String stderr = bridge == null ? "" : bridge.stderrText();
         final String message = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
-        return sanitize(step + "_" + message + (stderr.isBlank() ? "" : "_stderr_" + firstLine(stderr)));
-    }
-
-    private static String firstLine(final String text) {
-        final int newline = text.indexOf('\n');
-        final String line = newline < 0 ? text : text.substring(0, newline);
-        return line.length() > 200 ? line.substring(0, 200) : line;
+        return sanitize(step + "_" + message + (stderr.isBlank() ? "" : "_stderr_" + stderr));
     }
 
     private static String sanitize(final String text) {
