@@ -55,7 +55,7 @@ public record UiActionEvent(String sourceId, Value value) {
     }
 
     /** The closed set of values a panel control can emit. */
-    public sealed interface Value permits TextValue, SelectionValue, ToggleValue { }
+    public sealed interface Value permits TextValue, SelectionValue, ToggleValue {}
 
     /**
      * Free text entered by the user.
@@ -86,7 +86,7 @@ public record UiActionEvent(String sourceId, Value value) {
      *
      * @param value the new state
      */
-    public record ToggleValue(boolean value) implements Value { }
+    public record ToggleValue(boolean value) implements Value {}
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);

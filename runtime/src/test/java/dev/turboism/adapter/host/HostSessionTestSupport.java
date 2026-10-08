@@ -2,7 +2,6 @@ package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
-
 import java.nio.file.Path;
 
 /**
@@ -11,40 +10,48 @@ import java.nio.file.Path;
  */
 public final class HostSessionTestSupport {
 
-    private HostSessionTestSupport() {
-    }
+    private HostSessionTestSupport() {}
 
     public static HostSession connectedSession(
-        final HostInstanceSource source,
-        final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters
-    ) {
+            final HostInstanceSource source,
+            final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters) {
         return new HostSession(source, descriptor -> HostAdapterConnection.of(adapters.apply(descriptor)));
     }
 
     /** Test-only variant that supplies a synthetic exact-version resolver for lifecycle gates. */
     public static HostSession connectedSession(
-        final HostInstanceSource source,
-        final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters,
-        final java.util.function.Function<HostInstanceDescriptor, VerifiedMemberResolver> editorModelResolvers
-    ) {
+            final HostInstanceSource source,
+            final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters,
+            final java.util.function.Function<HostInstanceDescriptor, VerifiedMemberResolver> editorModelResolvers) {
         return new HostSession(
-            source,
-            descriptor -> HostAdapterConnection.of(
-                adapters.apply(descriptor),
-                UnavailableCubismModelAccess.INSTANCE,
-                editorModelResolvers.apply(descriptor)
-            )
-        );
+                source,
+                descriptor -> HostAdapterConnection.of(
+                        adapters.apply(descriptor),
+                        UnavailableCubismModelAccess.INSTANCE,
+                        editorModelResolvers.apply(descriptor)));
+    }
+
+    /** Test-only composition variant with a real Editor model-access fixture. */
+    public static HostSession connectedSession(
+            final HostInstanceSource source,
+            final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters,
+            final java.util.function.Function<HostInstanceDescriptor, dev.turboism.sdk.cubism.model.CubismModelAccess>
+                    modelAccess,
+            final java.util.function.Function<HostInstanceDescriptor, VerifiedMemberResolver> editorModelResolvers) {
+        return new HostSession(
+                source,
+                descriptor -> HostAdapterConnection.of(
+                        adapters.apply(descriptor),
+                        modelAccess.apply(descriptor),
+                        editorModelResolvers.apply(descriptor)));
     }
 
     public static HostInstanceDescriptor descriptor(final String sessionId) {
         return new HostInstanceDescriptor(
-            sessionId,
-            HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
-                Path.of("records/reviewed-project.json"),
-                Path.of("host/Live2D_Cubism.jar"),
-                HostSessionTestSupport.class.getClassLoader()
-            ))
-        );
+                sessionId,
+                HostVerificationEvidence.projectOnly(new HostVerificationEvidence.Slice(
+                        Path.of("records/reviewed-project.json"),
+                        Path.of("host/Live2D_Cubism.jar"),
+                        HostSessionTestSupport.class.getClassLoader())));
     }
 }

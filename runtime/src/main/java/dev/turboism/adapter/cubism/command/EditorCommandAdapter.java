@@ -3,7 +3,6 @@ package dev.turboism.adapter.cubism.command;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-
 import java.util.Set;
 
 /** Versioned host seam for safe no-argument Editor commands. */
@@ -37,6 +36,14 @@ public interface EditorCommandAdapter {
      * @return the structured result
      */
     EditorCommandResult execute(EditorParameterizedRequest command);
+
+    /**
+     * @return {@code true} while a live host command surface backs this adapter;
+     *         {@code false} for the {@link #unavailable()} adapter
+     */
+    default boolean isAvailable() {
+        return true;
+    }
 
     /**
      * An adapter for when no host command surface is attached.
@@ -77,6 +84,11 @@ public interface EditorCommandAdapter {
         public EditorCommandResult execute(final EditorParameterizedRequest command) {
             java.util.Objects.requireNonNull(command, "command");
             return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+        }
+
+        @Override
+        public boolean isAvailable() {
+            return false;
         }
     }
 }

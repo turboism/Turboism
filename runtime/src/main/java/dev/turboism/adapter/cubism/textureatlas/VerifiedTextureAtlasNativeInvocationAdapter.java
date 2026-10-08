@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
-
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -41,8 +40,7 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
     static final String ITEM_HEIGHT = "cubism.texture-atlas.native.item.height";
     static final String ITEM_TRANSFORM = "cubism.texture-atlas.native.item.transform";
     static final String ITEM_EDIT_LAYER = "cubism.texture-atlas.native.item.edit-layer";
-    static final String EDIT_LAYER_DRAW_DATA_SHAPES =
-        "cubism.texture-atlas.native.edit-layer.draw-data-shapes";
+    static final String EDIT_LAYER_DRAW_DATA_SHAPES = "cubism.texture-atlas.native.edit-layer.draw-data-shapes";
     static final String ITEM_CURRENT_TRANSFORM = "cubism.texture-atlas.native.item.current-transform";
     static final String RECT_X = "cubism.texture-atlas.native.rect.x";
     static final String RECT_Y = "cubism.texture-atlas.native.rect.y";
@@ -67,11 +65,7 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
     }
 
     TextureAtlasNativeInvocationCoordinator.Invocation open(
-        final Object ownerToken,
-        final long generation,
-        final Object receiver,
-        final Thread thread
-    ) {
+            final Object ownerToken, final long generation, final Object receiver, final Thread thread) {
         if (!resolver.isInstance(RECEIVER_CLASS, receiver)) {
             throw new IllegalArgumentException("Native texture atlas receiver is unavailable.");
         }
@@ -80,7 +74,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         final Object overflowRaw = resolver.readField(RECEIVER_OVERFLOW, receiver);
         final List<?> nativeItems = list(resolver.invoke(DATA_ITEMS, data));
         final boolean modelImage = bool(resolver.invoke(SETTINGS_MODEL_IMAGE, settings));
-        final double requestedScale = number(resolver.invoke(SETTINGS_SCALE, settings)).doubleValue();
+        final double requestedScale =
+                number(resolver.invoke(SETTINGS_SCALE, settings)).doubleValue();
         if (!Double.isFinite(requestedScale)) throw new IllegalArgumentException("Invalid native scale.");
         final boolean allowRotation = bool(resolver.invoke(SETTINGS_ROTATE, settings));
         final int width = integer(resolver.invoke(DATA_WIDTH, data));
@@ -113,7 +108,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         }
         if (byId.isEmpty()) throw new IllegalArgumentException("Native texture atlas invocation has no items.");
         final List<Object> overflow = mutableList(overflowRaw);
-        final double originalScale = number(resolver.readField(DATA_CURRENT_SCALE, data)).doubleValue();
+        final double originalScale =
+                number(resolver.readField(DATA_CURRENT_SCALE, data)).doubleValue();
         final Object impl = resolver.invoke(DATA_IMPL, data);
         final Object container = resolver.invoke(IMPL_CONTAINER, impl);
         final Object childrenRaw = resolver.invoke(CONTAINER_CHILDREN, container);
@@ -123,13 +119,24 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
             originalLayerTransforms.put(child, copyTransform(resolver.invoke(LAYER_REF_TRANSFORM, child)));
         }
         final Session session = new Session(
-            resolver, data, modelImage, width, height, margin, Math.max(0D, requestedScale), allowRotation, byId, sourceRects,
-            overflow, List.copyOf(overflow), originalTransforms, originalScale,
-            children, originalLayerTransforms
-        );
+                resolver,
+                data,
+                modelImage,
+                width,
+                height,
+                margin,
+                Math.max(0D, requestedScale),
+                allowRotation,
+                byId,
+                sourceRects,
+                overflow,
+                List.copyOf(overflow),
+                originalTransforms,
+                originalScale,
+                children,
+                originalLayerTransforms);
         return new TextureAtlasNativeInvocationCoordinator.Invocation(
-            ownerToken, generation, receiver, thread, session
-        );
+                ownerToken, generation, receiver, thread, session);
     }
 
     static final class Session {
@@ -149,30 +156,30 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         private final double originalScale;
         private final IdentityHashMap<Object, Object> layerByItem = new IdentityHashMap<>();
         private final java.util.Set<Object> touchedItems = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        private final java.util.Set<Object> touchedLayers = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        private final java.util.Set<Object> touchedLayers =
+                java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         private final IdentityHashMap<Object, Object> originalLayerTransforms;
         private final IdentityHashMap<Object, java.util.List<java.awt.Shape>> drawShapesByItem =
-            new IdentityHashMap<>();
+                new IdentityHashMap<>();
         private boolean mutated;
 
         Session(
-            final VerifiedMemberResolver resolver,
-            final Object data,
-            final boolean modelImage,
-            final int width,
-            final int height,
-            final int margin,
-            final double requestedScale,
-            final boolean allowRotation,
-            final LinkedHashMap<String, Object> byId,
-            final Map<String, SourceRect> sourceRects,
-            final List<Object> overflow,
-            final List<Object> originalOverflow,
-            final IdentityHashMap<Object, Object> originalTransforms,
-            final double originalScale,
-            final Object[] children,
-            final IdentityHashMap<Object, Object> originalLayerTransforms
-        ) {
+                final VerifiedMemberResolver resolver,
+                final Object data,
+                final boolean modelImage,
+                final int width,
+                final int height,
+                final int margin,
+                final double requestedScale,
+                final boolean allowRotation,
+                final LinkedHashMap<String, Object> byId,
+                final Map<String, SourceRect> sourceRects,
+                final List<Object> overflow,
+                final List<Object> originalOverflow,
+                final IdentityHashMap<Object, Object> originalTransforms,
+                final double originalScale,
+                final Object[] children,
+                final IdentityHashMap<Object, Object> originalLayerTransforms) {
             this.resolver = resolver;
             this.data = data;
             this.modelImage = modelImage;
@@ -190,7 +197,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
             final IdentityHashMap<Object, Object> refsByLayer = new IdentityHashMap<>();
             for (Object child : children) {
                 final Object layer = resolver.invoke(LAYER_REF_LAYER, child);
-                if (refsByLayer.put(layer, child) != null) throw new IllegalArgumentException("Ambiguous native layer reference.");
+                if (refsByLayer.put(layer, child) != null)
+                    throw new IllegalArgumentException("Ambiguous native layer reference.");
             }
             for (Object item : byId.values()) {
                 final Object editLayer = resolver.invoke(ITEM_EDIT_LAYER, item);
@@ -235,11 +243,13 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                 items.add(new TextureAtlasLayoutItem(entry.getKey(), itemWidth, itemHeight));
             }
             return new TextureAtlasAuthoringState(
-                "native-invocation", "native-model", "native-atlas", 0,
-                TextureAtlasLayoutConstraints.currentPage(width, height, margin, allowRotation, requestedScale),
-                items,
-                new TextureAtlasLayoutPlan(width, height, 1, List.of())
-            );
+                    "native-invocation",
+                    "native-model",
+                    "native-atlas",
+                    0,
+                    TextureAtlasLayoutConstraints.currentPage(width, height, margin, allowRotation, requestedScale),
+                    items,
+                    new TextureAtlasLayoutPlan(width, height, 1, List.of()));
         }
 
         /**
@@ -249,10 +259,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
          * policies can be enforced.
          */
         PolygonSessionState polygonState() {
-            final List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem> items =
-                new ArrayList<>();
-            final List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement> current =
-                new ArrayList<>();
+            final List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem> items = new ArrayList<>();
+            final List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement> current = new ArrayList<>();
             boolean anyHolesFilled = false;
             for (Map.Entry<String, Object> entry : byId.entrySet()) {
                 final Object item = entry.getValue();
@@ -260,64 +268,74 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                 final int itemWidth = roundedUp(rect.width());
                 final int itemHeight = roundedUp(rect.height());
                 final TextureAtlasOutlineExtractor.Extraction extraction =
-                    TextureAtlasOutlineExtractor.extract(drawShapesByItem.get(item));
+                        TextureAtlasOutlineExtractor.extract(drawShapesByItem.get(item));
                 final dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline outline;
                 final dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource source;
                 if (extraction != null) {
                     outline = extraction.outline();
-                    source = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource
-                        .DRAW_DATA_SHAPES;
+                    source = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource.DRAW_DATA_SHAPES;
                     anyHolesFilled |= extraction.holesFilled();
                 } else {
-                    outline = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline
-                        .rect(itemWidth, itemHeight);
-                    source = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource
-                        .BOUNDS_FALLBACK;
+                    outline = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutline.rect(itemWidth, itemHeight);
+                    source = dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource.BOUNDS_FALLBACK;
                 }
                 final double[] matrix = currentMatrix(item);
                 final boolean placed = !overflow.contains(item);
                 items.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem(
-                    entry.getKey(), itemWidth, itemHeight, outline,
-                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy
-                        .participating(entry.getKey()),
-                    source, matrix, placed));
+                        entry.getKey(),
+                        itemWidth,
+                        itemHeight,
+                        outline,
+                        dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy.participating(entry.getKey()),
+                        source,
+                        matrix,
+                        placed));
                 if (placed && matrix != null) {
                     current.add(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement(
-                        entry.getKey(), matrix[4], matrix[5],
-                        Math.toDegrees(Math.atan2(matrix[1], matrix[0])),
-                        Math.sqrt(Math.abs(matrix[0] * matrix[3] - matrix[1] * matrix[2]))));
+                            entry.getKey(),
+                            matrix[4],
+                            matrix[5],
+                            Math.toDegrees(Math.atan2(matrix[1], matrix[0])),
+                            Math.sqrt(Math.abs(matrix[0] * matrix[3] - matrix[1] * matrix[2]))));
                 }
             }
             final java.util.Map<String, String> diagnostics = new java.util.LinkedHashMap<>();
             final long shapeCount = items.stream()
-                .filter(i -> i.outlineSource()
-                    == dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource
-                        .DRAW_DATA_SHAPES)
-                .count();
-            diagnostics.put("outlineSource", shapeCount == items.size()
-                ? "drawDataShapes" : (shapeCount == 0 ? "boundsFallback" : "mixed"));
+                    .filter(i -> i.outlineSource()
+                            == dev.turboism.sdk.cubism.textureatlas.TextureAtlasOutlineSource.DRAW_DATA_SHAPES)
+                    .count();
+            diagnostics.put(
+                    "outlineSource",
+                    shapeCount == items.size() ? "drawDataShapes" : (shapeCount == 0 ? "boundsFallback" : "mixed"));
             if (anyHolesFilled) {
                 diagnostics.put("holesFilled", "true");
             }
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan currentPlan =
-                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(width, height,
-                    1.0, List.copyOf(current), List.of(),
-                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.HOST_NATIVE,
-                    diagnostics);
+                    new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan(
+                            width,
+                            height,
+                            1.0,
+                            List.copyOf(current),
+                            List.of(),
+                            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.HOST_NATIVE,
+                            diagnostics);
             // The polygon write-back composes full T·R·S item affines, so once the
             // host dialog grants rotation the issued bound is the write capability:
             // FREE. Callers plan under their own requested mode (stamped on the
             // plan's rotationMode diagnostic) and per-item locks still apply.
             return new PolygonSessionState(
-                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints(
-                    width, height, margin,
-                    allowRotation
-                        ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE
-                        : dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE,
-                    requestedScale > 0 ? requestedScale : 0,
-                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.AUTO,
-                    dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality.BALANCED),
-                items, currentPlan);
+                    new dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints(
+                            width,
+                            height,
+                            margin,
+                            allowRotation
+                                    ? dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.FREE
+                                    : dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode.NONE,
+                            requestedScale > 0 ? requestedScale : 0,
+                            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutBackend.AUTO,
+                            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutQuality.BALANCED),
+                    items,
+                    currentPlan);
         }
 
         /** Issued item transform as a 2x3 matrix, or {@code null} when unreadable. */
@@ -340,11 +358,10 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
          * the page. Any failure restores the original state.
          */
         TextureAtlasLayoutProvider.ApplyOutcome applyPolygon(
-            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan) {
-            final Map<String, dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement>
-                placements = new LinkedHashMap<>();
-            for (dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement placement
-                : plan.placements()) {
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan plan) {
+            final Map<String, dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement> placements =
+                    new LinkedHashMap<>();
+            for (dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement placement : plan.placements()) {
                 placements.put(placement.textureId(), placement);
             }
             if (!byId.keySet().containsAll(placements.keySet())) {
@@ -359,11 +376,10 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                     final double cos = Math.cos(rad);
                     final double sin = Math.sin(rad);
                     final double s = placement.scale();
-                    final AffineTransform transform = new AffineTransform(
-                        s * cos, s * sin, -s * sin, s * cos,
-                        placement.x(), placement.y());
+                    final AffineTransform transform =
+                            new AffineTransform(s * cos, s * sin, -s * sin, s * cos, placement.x(), placement.y());
                     if (!Double.isFinite(transform.getDeterminant())
-                        || transform.getDeterminant() <= 9.99999993922529e-9) {
+                            || transform.getDeterminant() <= 9.99999993922529e-9) {
                         return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
                     }
                     staged.put(entry.getValue(), resolver.construct(AFFINE_CREATE, transform));
@@ -382,8 +398,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                 overflow.addAll(stagedOverflow);
                 resolver.invoke(DATA_SCALE, data, plan.scale());
                 return same(staged, stagedOverflow, plan.scale())
-                    ? TextureAtlasLayoutProvider.ApplyOutcome.APPLIED
-                    : TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
+                        ? TextureAtlasLayoutProvider.ApplyOutcome.APPLIED
+                        : TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
             } catch (RuntimeException failure) {
                 restore();
                 return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
@@ -400,7 +416,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
             final List<Object> stagedOverflow = new ArrayList<>();
             for (Map.Entry<String, Object> entry : byId.entrySet()) {
                 final TextureAtlasPlacement placement = placements.get(entry.getKey());
-                if (placement != null && placement.rotated() && !allowRotation) return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
+                if (placement != null && placement.rotated() && !allowRotation)
+                    return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
                 if (placement != null) {
                     final Object item = entry.getValue();
                     final SourceRect rect = sourceRects.get(entry.getKey());
@@ -409,12 +426,24 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                     final double sourceHeight = rect.height();
                     final double scale = plan.scale();
                     final AffineTransform transform = placement.rotated()
-                        ? new AffineTransform(0, scale, -scale, 0,
-                            placement.x() + scale * (sourceY + sourceHeight), placement.y() - scale * sourceX)
-                        : new AffineTransform(scale, 0, 0, scale,
-                            placement.x() - scale * sourceX, placement.y() - scale * sourceY);
-                    if (!Double.isFinite(transform.getDeterminant()) || transform.getDeterminant() <= 9.99999993922529e-9
-                        || !sameTransform(transform, transform)) return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
+                            ? new AffineTransform(
+                                    0,
+                                    scale,
+                                    -scale,
+                                    0,
+                                    placement.x() + scale * (sourceY + sourceHeight),
+                                    placement.y() - scale * sourceX)
+                            : new AffineTransform(
+                                    scale,
+                                    0,
+                                    0,
+                                    scale,
+                                    placement.x() - scale * sourceX,
+                                    placement.y() - scale * sourceY);
+                    if (!Double.isFinite(transform.getDeterminant())
+                            || transform.getDeterminant() <= 9.99999993922529e-9
+                            || !sameTransform(transform, transform))
+                        return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
                     staged.put(item, resolver.construct(AFFINE_CREATE, transform));
                 } else {
                     stagedOverflow.add(entry.getValue());
@@ -431,8 +460,8 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                 overflow.addAll(stagedOverflow);
                 resolver.invoke(DATA_SCALE, data, plan.scale());
                 return same(staged, stagedOverflow, plan.scale())
-                    ? TextureAtlasLayoutProvider.ApplyOutcome.APPLIED
-                    : TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
+                        ? TextureAtlasLayoutProvider.ApplyOutcome.APPLIED
+                        : TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
             } catch (RuntimeException failure) {
                 restore();
                 return TextureAtlasLayoutProvider.ApplyOutcome.REJECTED;
@@ -444,13 +473,19 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
             RuntimeException failure = null;
             for (Map.Entry<Object, Object> entry : originalTransforms.entrySet()) {
                 if (!touchedItems.contains(entry.getKey())) continue;
-                failure = restoreStep(failure, () -> resolver.invoke(ITEM_TRANSFORM, entry.getKey(),
-                    restoredTransform(AFFINE_CREATE, entry.getValue())));
+                failure = restoreStep(
+                        failure,
+                        () -> resolver.invoke(
+                                ITEM_TRANSFORM, entry.getKey(), restoredTransform(AFFINE_CREATE, entry.getValue())));
             }
             for (Map.Entry<Object, Object> entry : originalLayerTransforms.entrySet()) {
                 if (!touchedLayers.contains(entry.getKey())) continue;
-                failure = restoreStep(failure, () -> resolver.invoke(LAYER_REF_SET_TRANSFORM, entry.getKey(),
-                    restoredTransform(EDITOR_AFFINE_CREATE, entry.getValue())));
+                failure = restoreStep(
+                        failure,
+                        () -> resolver.invoke(
+                                LAYER_REF_SET_TRANSFORM,
+                                entry.getKey(),
+                                restoredTransform(EDITOR_AFFINE_CREATE, entry.getValue())));
             }
             failure = restoreStep(failure, () -> resolver.invoke(DATA_SCALE, data, originalScale));
             failure = restoreStep(failure, () -> {
@@ -474,25 +509,28 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         }
 
         private Object restoredTransform(final String constructor, final Object value) {
-            return value == null
-                ? null
-                : resolver.construct(constructor, copyTransform(value));
+            return value == null ? null : resolver.construct(constructor, copyTransform(value));
         }
 
         private void updateLayer(final Object item, final Object affine) {
             final Object child = layerByItem.get(item);
             touchedLayers.add(child);
-            resolver.invoke(LAYER_REF_SET_TRANSFORM, child,
-                resolver.construct(EDITOR_AFFINE_CREATE, copyTransform(affine)));
+            resolver.invoke(
+                    LAYER_REF_SET_TRANSFORM, child, resolver.construct(EDITOR_AFFINE_CREATE, copyTransform(affine)));
         }
 
-        private boolean same(final IdentityHashMap<Object, Object> staged, final List<Object> stagedOverflow,
-            final double expectedScale) {
+        private boolean same(
+                final IdentityHashMap<Object, Object> staged,
+                final List<Object> stagedOverflow,
+                final double expectedScale) {
             if (!overflow.equals(stagedOverflow)
-                || number(resolver.readField(DATA_CURRENT_SCALE, data)).doubleValue() != expectedScale) return false;
+                    || number(resolver.readField(DATA_CURRENT_SCALE, data)).doubleValue() != expectedScale)
+                return false;
             for (Map.Entry<Object, Object> entry : staged.entrySet()) {
                 if (!sameTransform(entry.getValue(), resolver.readField(ITEM_CURRENT_TRANSFORM, entry.getKey()))
-                    || !sameTransform(entry.getValue(), resolver.invoke(LAYER_REF_TRANSFORM, layerByItem.get(entry.getKey())))) return false;
+                        || !sameTransform(
+                                entry.getValue(),
+                                resolver.invoke(LAYER_REF_TRANSFORM, layerByItem.get(entry.getKey())))) return false;
             }
             return true;
         }
@@ -504,8 +542,9 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         left.getMatrix(a);
         right.getMatrix(b);
         for (int i = 0; i < a.length; i++) {
-            if (!Double.isFinite(a[i]) || !Double.isFinite(b[i])
-                || Math.abs(a[i] - b[i]) > 1e-8 + 32D * Math.max(Math.ulp(a[i]), Math.ulp(b[i]))) return false;
+            if (!Double.isFinite(a[i])
+                    || !Double.isFinite(b[i])
+                    || Math.abs(a[i] - b[i]) > 1e-8 + 32D * Math.max(Math.ulp(a[i]), Math.ulp(b[i]))) return false;
         }
         return true;
     }
@@ -513,19 +552,24 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
     private static SourceRect sourceRect(VerifiedMemberResolver resolver, Object item, boolean modelImage) {
         if (modelImage) {
             // ITEM_MODEL_RECT returns CRect, not GRectF. Do not invoke GRectF getters on it.
-            return new SourceRect(0, 0, number(resolver.invoke(ITEM_WIDTH, item)).doubleValue(),
-                number(resolver.invoke(ITEM_HEIGHT, item)).doubleValue());
+            return new SourceRect(
+                    0,
+                    0,
+                    number(resolver.invoke(ITEM_WIDTH, item)).doubleValue(),
+                    number(resolver.invoke(ITEM_HEIGHT, item)).doubleValue());
         }
         final Object rect = resolver.invoke(ITEM_RECT, item);
-        return new SourceRect(number(resolver.invoke(RECT_X, rect)).doubleValue(),
-            number(resolver.invoke(RECT_Y, rect)).doubleValue(),
-            number(resolver.invoke(RECT_WIDTH, rect)).doubleValue(),
-            number(resolver.invoke(RECT_HEIGHT, rect)).doubleValue());
+        return new SourceRect(
+                number(resolver.invoke(RECT_X, rect)).doubleValue(),
+                number(resolver.invoke(RECT_Y, rect)).doubleValue(),
+                number(resolver.invoke(RECT_WIDTH, rect)).doubleValue(),
+                number(resolver.invoke(RECT_HEIGHT, rect)).doubleValue());
     }
 
     private record SourceRect(double x, double y, double width, double height) {
         SourceRect {
-            if (!Double.isFinite(x) || !Double.isFinite(y)) throw new IllegalArgumentException("Invalid native origin.");
+            if (!Double.isFinite(x) || !Double.isFinite(y))
+                throw new IllegalArgumentException("Invalid native origin.");
             roundedUp(width);
             roundedUp(height);
         }
@@ -543,19 +587,26 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
         return Math.max(1, (int) Math.ceil(number));
     }
 
-    private static int integer(final Object value) { return number(value).intValue(); }
+    private static int integer(final Object value) {
+        return number(value).intValue();
+    }
+
     private static Number number(final Object value) {
         if (!(value instanceof Number number)) throw new IllegalArgumentException("Native number is unavailable.");
         return number;
     }
+
     private static boolean bool(final Object value) {
-        if (!(value instanceof Boolean booleanValue)) throw new IllegalArgumentException("Native boolean is unavailable.");
+        if (!(value instanceof Boolean booleanValue))
+            throw new IllegalArgumentException("Native boolean is unavailable.");
         return booleanValue;
     }
+
     private static List<?> list(final Object value) {
         if (!(value instanceof List<?> list)) throw new IllegalArgumentException("Native list is unavailable.");
         return list;
     }
+
     @SuppressWarnings("unchecked")
     private static List<Object> mutableList(final Object value) {
         if (!(value instanceof List<?> list)) throw new IllegalArgumentException("Native mutable list is unavailable.");
@@ -564,10 +615,9 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
 
     /** Polygon-aware session state consumed by the layout service. */
     record PolygonSessionState(
-        dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints constraints,
-        List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem> items,
-        dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan currentPlan
-    ) {
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints constraints,
+            List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem> items,
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan currentPlan) {
         PolygonSessionState {
             constraints = java.util.Objects.requireNonNull(constraints, "constraints");
             items = List.copyOf(java.util.Objects.requireNonNull(items, "items"));

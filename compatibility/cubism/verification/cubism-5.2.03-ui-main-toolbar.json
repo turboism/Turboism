@@ -4,7 +4,8 @@
   "verificationId": "cubism-5.2.03.ui-main-toolbar.static",
   "adapterSliceId": "adapter.editor-ui.main-toolbar",
   "capabilityIds": [
-    "cubism.editor-ui.main-toolbar"
+    "cubism.editor-ui.main-toolbar",
+    "ui.mesh-toolbar.contribute"
   ],
   "cubismVersion": "5.2.03",
   "profileId": "cubism-5.2.03",
@@ -328,10 +329,244 @@
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.field.mesh_tool_mode_instance",
+      "alias": "cubism.ui-main-toolbar.mesh-tool-mode.instance",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
+      "memberName": "INSTANCE",
+      "descriptor": "Lcom/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual;",
+      "requiredAccessFlags": 25,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.mesh_tool_mode_tool_panel",
+      "alias": "cubism.ui-main-toolbar.mesh-tool-mode.tool-panel",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolMode_MeshEdit_Manual",
+      "memberName": "getToolPanel",
+      "descriptor": "()Lcom/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.mesh_tool_panel_arrow_button",
+      "alias": "cubism.ui-main-toolbar.mesh-tool-panel.arrow-button",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "memberName": "getBtn_arrow",
+      "descriptor": "()Lcom/live2d/ui/control/CIconButton;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.mesh_tool_panel_panel",
+      "alias": "cubism.ui-main-toolbar.mesh-tool-panel.panel",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/palette/tool/toolMode/meshEditor/ToolPanel_MeshEdit",
+      "memberName": "getPanel",
+      "descriptor": "()Lcom/live2d/ui/container/CVBox;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.class.abstract_button",
+      "alias": "cubism.ui-main-toolbar.abstract-button.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1025,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.get-jabstract-button",
+      "descriptor": "()Ljavax/swing/AbstractButton;",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_get_j_abstract_button",
+      "memberName": "getJAbstractButton",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_selected",
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-selected",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "memberName": "setSelected",
+      "descriptor": "(Z)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-icon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_icon",
+      "memberName": "setIcon",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-pressed-icon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_pressed_icon",
+      "memberName": "setPressedIcon",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-selected-icon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_selected_icon",
+      "memberName": "setSelectedIcon",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-disabled-icon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_disabled_icon",
+      "memberName": "setDisabledIcon",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.ui-main-toolbar.abstract-button.set-disabled-selected-icon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "forbiddenAccessFlags": 8,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_2_03.ui_main_toolbar.method.abstract_button_set_disabled_selected_icon",
+      "memberName": "setDisabledSelectedIcon",
+      "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+      "requiredAccessFlags": 17,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.class.slider",
+      "alias": "cubism.ui-main-toolbar.slider.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.constructor.slider",
+      "alias": "cubism.ui-main-toolbar.slider.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "<init>",
+      "descriptor": "(IIII)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_value",
+      "alias": "cubism.ui-main-toolbar.slider.value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "getValue",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_set_value",
+      "alias": "cubism.ui-main-toolbar.slider.set-value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "setValue",
+      "descriptor": "(I)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_min",
+      "alias": "cubism.ui-main-toolbar.slider.min",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "getMin",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_set_min",
+      "alias": "cubism.ui-main-toolbar.slider.set-min",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "setMin",
+      "descriptor": "(I)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_max",
+      "alias": "cubism.ui-main-toolbar.slider.max",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "getMax",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_set_max",
+      "alias": "cubism.ui-main-toolbar.slider.set-max",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "setMax",
+      "descriptor": "(I)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5.2.ui_main_toolbar.method.slider_set_on_changed",
+      "alias": "cubism.ui-main-toolbar.slider.set-on-changed",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CSlider",
+      "memberName": "setOnChanged",
+      "descriptor": "(Lkotlin/jvm/functions/Function1;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
     }
   ],
   "capabilityConditions": {
     "cubism.editor-ui.main-toolbar": [
+      "hook:editor-ui"
+    ],
+    "ui.mesh-toolbar.contribute": [
       "hook:editor-ui"
     ]
   }

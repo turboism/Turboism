@@ -10,10 +10,7 @@ import java.util.Optional;
  * @param lastRunOutcome outcome of the most recent completed run, empty before the first one
  *     completes; its run number may not exceed {@code runCount}
  */
-public record TaskProgress(
-    long runCount,
-    Optional<TaskRunOutcome> lastRunOutcome
-) {
+public record TaskProgress(long runCount, Optional<TaskRunOutcome> lastRunOutcome) {
     /**
      * Validates the record components.
      *
@@ -26,8 +23,7 @@ public record TaskProgress(
             throw new IllegalArgumentException("runCount must not be negative");
         }
         lastRunOutcome = TaskContracts.requireOptional(lastRunOutcome, "lastRunOutcome");
-        if (lastRunOutcome.isPresent()
-            && lastRunOutcome.orElseThrow().runNumber() > runCount) {
+        if (lastRunOutcome.isPresent() && lastRunOutcome.orElseThrow().runNumber() > runCount) {
             throw new IllegalArgumentException("lastRunOutcome exceeds runCount");
         }
     }

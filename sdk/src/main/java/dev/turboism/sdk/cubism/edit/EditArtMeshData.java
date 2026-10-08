@@ -1,9 +1,10 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import java.util.Optional;
  * block reports the mesh's {@code Vertices} as a vertex <em>count</em> — it does not
  * return UVs, triangles, or per-vertex coordinates.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditArtMeshData(
         String name,

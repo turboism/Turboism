@@ -15,12 +15,12 @@ public interface PhysicsEditorService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
     }
-
 
     /** Safe-mode instance: every contribution is refused (fail closed). */
     static PhysicsEditorService unavailable() {
@@ -31,11 +31,13 @@ public interface PhysicsEditorService {
     enum Unavailable implements PhysicsEditorService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final PhysicsEditorContribution contribution) {
+        @Override
+        public Registration contribute(final PhysicsEditorContribution contribution) {
             throw new UnsupportedOperationException("physics editor service is not available");
         }
     }

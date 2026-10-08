@@ -1,7 +1,6 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.protocol.json.StrictJson;
-
+import dev.turboism.sdk.json.Json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -9,7 +8,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /** Loads the build-guarded, machine-readable MCP decision ledger bundled with the plugin. */
@@ -17,35 +15,27 @@ final class McpSdkCoverageLedger {
 
     static final String RESOURCE = "META-INF/turboism/mcp-sdk-coverage.json";
     private static final Set<String> CLASSIFICATIONS = Set.of(
-        "MCP_READ",
-        "MCP_WRITE_UNDOABLE",
-        "MCP_WRITE_STANDALONE_UNDO",
-        "MCP_COMMAND_NON_UNDOABLE",
-        "MCP_LEGACY_WRITE",
-        "RUNTIME_UNAVAILABLE",
-        "EXCLUDED_WITH_REASON"
-    );
+            "MCP_READ",
+            "MCP_WRITE_UNDOABLE",
+            "MCP_WRITE_STANDALONE_UNDO",
+            "MCP_COMMAND_NON_UNDOABLE",
+            "MCP_LEGACY_WRITE",
+            "RUNTIME_UNAVAILABLE",
+            "EXCLUDED_WITH_REASON");
 
-    private McpSdkCoverageLedger() {
-    }
+    private McpSdkCoverageLedger() {}
 
     static Map<String, Object> snapshot() {
         return Holder.SNAPSHOT;
     }
 
     private static Map<String, Object> load() {
-        try (InputStream input = McpSdkCoverageLedger.class.getClassLoader()
-            .getResourceAsStream(RESOURCE)) {
+        try (InputStream input = McpSdkCoverageLedger.class.getClassLoader().getResourceAsStream(RESOURCE)) {
             if (input == null) {
                 throw new IllegalStateException("MCP SDK coverage ledger is missing: " + RESOURCE);
             }
-            final Object parsed = StrictJson.parse(input.readAllBytes());
-            if (!(parsed instanceof Map<?, ?> map)) {
-                throw new IllegalStateException("MCP SDK coverage ledger must be a JSON object");
-            }
-            final Map<String, Object> ledger = stringMap(map);
-            if (!(ledger.get("schemaVersion") instanceof Number version)
-                || version.intValue() != 1) {
+            final Map<String, ?> ledger = Json.parseObject(input.readAllBytes());
+            if (!(ledger.get("schemaVersion") instanceof Number version) || version.intValue() != 1) {
                 throw new IllegalStateException("Unsupported MCP SDK coverage schema version");
             }
             requireStringArray(ledger, "trackedOwners", false);
@@ -69,23 +59,17 @@ final class McpSdkCoverageLedger {
             final boolean sdkMethod = entry.get("sdkMethod") instanceof String;
             final boolean semantic = entry.get("semanticCapability") instanceof String;
             if (sdkMethod == semantic) {
-                throw new IllegalStateException(
-                    "MCP SDK coverage entry requires exactly one identity"
-                );
+                throw new IllegalStateException("MCP SDK coverage entry requires exactly one identity");
             }
             final String classification = requireString(entry, "classification");
             if (!CLASSIFICATIONS.contains(classification)) {
-                throw new IllegalStateException(
-                    "Unknown MCP SDK coverage classification: " + classification
-                );
+                throw new IllegalStateException("Unknown MCP SDK coverage classification: " + classification);
             }
             requireString(entry, "endpoint");
             requireString(entry, "operation");
             requireString(entry, "effect");
             if (!(entry.get("transactionEligible") instanceof Boolean)) {
-                throw new IllegalStateException(
-                    "MCP SDK coverage transactionEligible must be boolean"
-                );
+                throw new IllegalStateException("MCP SDK coverage transactionEligible must be boolean");
             }
             requireString(entry, "undoVerification");
             requireStringArray(entry, "supportedVersions", true);
@@ -95,9 +79,7 @@ final class McpSdkCoverageLedger {
 
     private static void validateExceptions(final Object value) {
         if (!(value instanceof List<?> exceptions)) {
-            throw new IllegalStateException(
-                "MCP SDK coverage temporaryPublicExceptions must be an array"
-            );
+            throw new IllegalStateException("MCP SDK coverage temporaryPublicExceptions must be an array");
         }
         for (Object raw : exceptions) {
             if (!(raw instanceof Map<?, ?> map)) {
@@ -111,10 +93,7 @@ final class McpSdkCoverageLedger {
     }
 
     private static List<String> requireStringArray(
-        final Map<String, Object> object,
-        final String field,
-        final boolean emptyAllowed
-    ) {
+            final Map<String, ?> object, final String field, final boolean emptyAllowed) {
         final Object value = object.get(field);
         if (!(value instanceof List<?> values) || (!emptyAllowed && values.isEmpty())) {
             throw new IllegalStateException(field + " must be a string array");
@@ -129,19 +108,13 @@ final class McpSdkCoverageLedger {
         return List.copyOf(result);
     }
 
-    private static String requireNonBlank(
-        final Map<String, Object> object,
-        final String field
-    ) {
+    private static String requireNonBlank(final Map<String, Object> object, final String field) {
         final String value = requireString(object, field);
         if (value.isBlank()) throw new IllegalStateException(field + " must not be blank");
         return value;
     }
 
-    private static String requireString(
-        final Map<String, Object> object,
-        final String field
-    ) {
+    private static String requireString(final Map<String, Object> object, final String field) {
         final Object value = object.get(field);
         if (!(value instanceof String text)) {
             throw new IllegalStateException(field + " must be a string");

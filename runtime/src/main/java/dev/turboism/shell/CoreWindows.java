@@ -1,15 +1,31 @@
 package dev.turboism.shell;
 
+import dev.turboism.core.net.HttpLinks;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
-import dev.turboism.sdk.ui.settings.SettingsContributionSource;
-import dev.turboism.sdk.ui.settings.SettingsSnapshot;
-import dev.turboism.sdk.ui.settings.SettingsControl;
 import dev.turboism.sdk.ui.settings.SettingsChangeDecision;
-
+import dev.turboism.sdk.ui.settings.SettingsContributionSource;
+import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.sdk.ui.settings.SettingsSnapshot;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Desktop;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.io.IOException;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -19,31 +35,15 @@ import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
-import javax.swing.JSpinner;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.RowFilter;
+import javax.swing.SpinnerNumberModel;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableRowSorter;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Desktop;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.util.function.Consumer;
-import java.io.IOException;
-import java.net.URI;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Runtime-owned core windows; plugins never receive Swing objects. */
 final class CoreWindows implements AutoCloseable {
@@ -52,18 +52,20 @@ final class CoreWindows implements AutoCloseable {
     private final SettingsContributionSource settingsContributions;
     private final CorePluginManagement plugins;
     private final CoreLogWindow logWindow;
+    private final KeybindingsWindow keybindingsWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog pluginDetailsDialog;
     private JDialog aboutDialog;
     private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
-        java.util.concurrent.Executors.newSingleThreadExecutor(new PluginDetailsThreadFactory());
+            java.util.concurrent.Executors.newSingleThreadExecutor(new PluginDetailsThreadFactory());
     private final AtomicBoolean closed = new AtomicBoolean();
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
     private long pluginRefreshRequest;
     /** Fixed first-party download page; the client never opens a URL taken from the feed. */
     static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
+
     private static volatile Consumer<String> testUpdateUrlObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_GITHUB = "https://github.com/turboism/Turboism";
@@ -75,20 +77,18 @@ final class CoreWindows implements AutoCloseable {
     private JLabel pluginStatus;
 
     CoreWindows(
-        final PluginLocalization i18n,
-        final RuntimeSettingsService settings,
-        final SettingsContributionSource settingsContributions,
-        final CorePluginManagement plugins,
-        final RuntimeLogReader logs
-    ) {
+            final PluginLocalization i18n,
+            final RuntimeSettingsService settings,
+            final SettingsContributionSource settingsContributions,
+            final CorePluginManagement plugins,
+            final RuntimeLogReader logs,
+            final dev.turboism.internal.core.KeybindingService keybindings) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
-        this.settingsContributions = Objects.requireNonNull(
-            settingsContributions,
-            "settingsContributions"
-        );
+        this.settingsContributions = Objects.requireNonNull(settingsContributions, "settingsContributions");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.logWindow = new CoreLogWindow(i18n, logs);
+        this.keybindingsWindow = new KeybindingsWindow(i18n, keybindings);
     }
 
     void showSettings() {
@@ -111,6 +111,10 @@ final class CoreWindows implements AutoCloseable {
         logWindow.show();
     }
 
+    void showKeybindings() {
+        keybindingsWindow.show();
+    }
+
     void showAbout() {
         CoreDialogs.onEdt(() -> {
             if (aboutDialog == null) aboutDialog = createAboutDialog();
@@ -124,6 +128,7 @@ final class CoreWindows implements AutoCloseable {
         pluginDetailsExecutor.shutdownNow();
         CoreDialogs.onEdt(() -> {
             logWindow.close();
+            keybindingsWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;
             activeSettingsAction = null;
             if (active != null) {
@@ -149,36 +154,38 @@ final class CoreWindows implements AutoCloseable {
         dialog.setLayout(new BorderLayout());
 
         final JCheckBox safeMode = new JCheckBox(text("settings.safe-mode"), value.safeMode());
-        final JComboBox<String> logLevel = new JComboBox<>(new String[]{"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
+        final JComboBox<String> logLevel =
+                new JComboBox<>(new String[] {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"});
         final JComboBox<String> locale = new JComboBox<>(RuntimeSettings.LOCALE_OPTIONS.toArray(String[]::new));
         locale.setSelectedItem(value.locale());
         logLevel.setSelectedItem(value.logLevel());
         final JSpinner maxLogStorage = new JSpinner(new SpinnerNumberModel(
-            value.maxLogStorageMiB(),
-            RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB,
-            RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
-            10
-        ));
+                value.maxLogStorageMiB(),
+                RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB,
+                RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
+                10));
         final JCheckBox skipUpdate = new JCheckBox(text("settings.skip-update"), value.skipStartupUpdateCheck());
         final JCheckBox skipSplash = new JCheckBox(text("settings.skip-splash"), value.skipStartupSplash());
-        final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
+        final JCheckBox skipInformation =
+                new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
         final JCheckBox separateExportSaveDirectory =
-            new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
+                new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
         final JCheckBox useTextIcon = createUseTextIconCheckBox(value);
 
         final Map<String, BuiltinTab> builtins = new LinkedHashMap<>();
         final JPanel runtime = form();
         add(runtime, 0, new JLabel(text("settings.log-level")), logLevel);
         add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
-        add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
+        add(
+                runtime,
+                2,
+                new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"),
+                locale);
         add(runtime, 3, safeMode, new JLabel());
         add(runtime, 4, useTextIcon, new JLabel());
         builtins.put("runtime", new BuiltinTab(text("settings.tab.runtime"), 100, runtime));
 
-        builtins.put(
-            "performance",
-            new BuiltinTab(text("settings.tab.performance"), 200, form())
-        );
+        builtins.put("performance", new BuiltinTab(text("settings.tab.performance"), 200, form()));
 
         final JPanel startup = form();
         add(startup, 0, skipUpdate, new JLabel());
@@ -190,13 +197,9 @@ final class CoreWindows implements AutoCloseable {
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
         final JButton clean = new JButton(text("settings.clean-empty-docks"));
         clean.addActionListener(ignored -> CoreDialogs.message(
-            dialog, text("common.turboism"), settings.cleanEmptyDocks().message()
-        ));
+                dialog, text("common.turboism"), settings.cleanEmptyDocks().message()));
         maintenance.add(clean);
-        builtins.put(
-            "maintenance",
-            new BuiltinTab(text("settings.tab.maintenance"), 400, maintenance)
-        );
+        builtins.put("maintenance", new BuiltinTab(text("settings.tab.maintenance"), 400, maintenance));
 
         final RenderedSettings rendered = renderSettings(dialog, builtins);
         final JTabbedPane tabs = rendered.tabs();
@@ -210,19 +213,22 @@ final class CoreWindows implements AutoCloseable {
                     return false;
                 }
                 settings.save(settingsFromControls(
-                    safeMode.isSelected(), (String) logLevel.getSelectedItem(),
-                    ((Number) maxLogStorage.getValue()).intValue(),
-                    skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
-                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem(), useTextIcon.isSelected()
-                ));
+                        safeMode.isSelected(),
+                        (String) logLevel.getSelectedItem(),
+                        ((Number) maxLogStorage.getValue()).intValue(),
+                        skipUpdate.isSelected(),
+                        skipSplash.isSelected(),
+                        skipInformation.isSelected(),
+                        separateExportSaveDirectory.isSelected(),
+                        (String) locale.getSelectedItem(),
+                        useTextIcon.isSelected()));
                 CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
                 return true;
             } catch (RuntimeException failure) {
                 CoreDialogs.message(
-                    dialog,
-                    text("common.turboism"),
-                    Objects.toString(failure.getMessage(), "Settings could not be saved.")
-                );
+                        dialog,
+                        text("common.turboism"),
+                        Objects.toString(failure.getMessage(), "Settings could not be saved."));
                 return false;
             }
         };
@@ -243,61 +249,60 @@ final class CoreWindows implements AutoCloseable {
     }
 
     static RuntimeSettings settingsFromControls(
-        final boolean safeMode,
-        final String logLevel,
-        final int maxLogStorageMiB,
-        final boolean skipStartupUpdateCheck,
-        final boolean skipStartupSplash,
-        final boolean skipStartupInformation,
-        final boolean separateExportSaveDirectory,
-        final String locale,
-        final boolean useTextIcon
-    ) {
+            final boolean safeMode,
+            final String logLevel,
+            final int maxLogStorageMiB,
+            final boolean skipStartupUpdateCheck,
+            final boolean skipStartupSplash,
+            final boolean skipStartupInformation,
+            final boolean separateExportSaveDirectory,
+            final String locale,
+            final boolean useTextIcon) {
         return new RuntimeSettings(
-            safeMode, logLevel, maxLogStorageMiB, skipStartupUpdateCheck,
-            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, locale, useTextIcon
-        );
+                safeMode,
+                logLevel,
+                maxLogStorageMiB,
+                skipStartupUpdateCheck,
+                skipStartupSplash,
+                skipStartupInformation,
+                separateExportSaveDirectory,
+                locale,
+                useTextIcon);
     }
 
-    static void saveAndClose(
-        final java.util.function.BooleanSupplier save,
-        final Runnable close
-    ) {
+    static void saveAndClose(final java.util.function.BooleanSupplier save, final Runnable close) {
         if (Objects.requireNonNull(save, "save").getAsBoolean()) {
             Objects.requireNonNull(close, "close").run();
         }
     }
 
-    private RenderedSettings renderSettings(
-        final JDialog owner,
-        final Map<String, BuiltinTab> builtins
-    ) {
+    private RenderedSettings renderSettings(final JDialog owner, final Map<String, BuiltinTab> builtins) {
         final List<RenderedTab> renderedTabs = new ArrayList<>();
         for (Map.Entry<String, BuiltinTab> entry : builtins.entrySet()) {
             renderedTabs.add(new RenderedTab(
-                entry.getKey(), entry.getValue().title(), entry.getValue().index(), entry.getValue().panel()
-            ));
+                    entry.getKey(),
+                    entry.getValue().title(),
+                    entry.getValue().index(),
+                    entry.getValue().panel()));
         }
         final List<java.util.function.BooleanSupplier> saves = new ArrayList<>();
         for (SettingsSnapshot.Tab tab : settingsContributions.snapshot()) {
             RenderedTab rendered = renderedTabs.stream()
-                .filter(candidate -> candidate.id().equals(tab.id()))
-                .findFirst()
-                .orElseGet(() -> {
-                    final RenderedTab created = new RenderedTab(
-                        tab.id(), tab.title(), tab.index().orElse(Integer.MAX_VALUE), form()
-                    );
-                    renderedTabs.add(created);
-                    return created;
-                });
+                    .filter(candidate -> candidate.id().equals(tab.id()))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        final RenderedTab created = new RenderedTab(
+                                tab.id(), tab.title(), tab.index().orElse(Integer.MAX_VALUE), form());
+                        renderedTabs.add(created);
+                        return created;
+                    });
             int row = rendered.panel().getComponentCount() / 2;
             for (SettingsSnapshot.Entry entry : tab.contributions()) {
-                saves.add(renderControl(owner, rendered.panel(), row++, entry.contribution().control()));
+                saves.add(renderControl(
+                        owner, rendered.panel(), row++, entry.contribution().control()));
             }
         }
-        renderedTabs.sort(java.util.Comparator
-            .comparingInt(RenderedTab::index)
-            .thenComparing(RenderedTab::id));
+        renderedTabs.sort(java.util.Comparator.comparingInt(RenderedTab::index).thenComparing(RenderedTab::id));
         final JTabbedPane tabs = new JTabbedPane();
         tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         for (RenderedTab tab : renderedTabs) {
@@ -316,31 +321,23 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private java.util.function.BooleanSupplier renderControl(
-        final JDialog owner,
-        final JPanel panel,
-        final int row,
-        final SettingsControl control
-    ) {
+            final JDialog owner, final JPanel panel, final int row, final SettingsControl control) {
         if (control instanceof SettingsControl.Choice choice) {
-            final JComboBox<SettingsControl.Option> combo = new JComboBox<>(
-                choice.options().toArray(SettingsControl.Option[]::new)
-            );
+            final JComboBox<SettingsControl.Option> combo =
+                    new JComboBox<>(choice.options().toArray(SettingsControl.Option[]::new));
             final String initial = requireChoiceValue(choice, choice.binding().read());
             select(combo, initial);
             final String[] accepted = {initial};
             final boolean[] changing = {false};
             combo.addActionListener(ignored -> {
                 if (changing[0]) return;
-                final SettingsControl.Option selected =
-                    (SettingsControl.Option) combo.getSelectedItem();
+                final SettingsControl.Option selected = (SettingsControl.Option) combo.getSelectedItem();
                 if (selected == null) return;
                 if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(choice.id())) {
                     accepted[0] = selected.value();
                     return;
                 }
-                final SettingsChangeDecision decision = choice.validator().validate(
-                    accepted[0], selected.value()
-                );
+                final SettingsChangeDecision decision = choice.validator().validate(accepted[0], selected.value());
                 if (decision.accepted()) {
                     accepted[0] = selected.value();
                     return;
@@ -356,9 +353,7 @@ final class CoreWindows implements AutoCloseable {
             add(panel, row, new JLabel(choice.label()), combo);
             return () -> {
                 if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(choice.id())) {
-                    final SettingsChangeDecision decision = choice.validator().validate(
-                        initial, accepted[0]
-                    );
+                    final SettingsChangeDecision decision = choice.validator().validate(initial, accepted[0]);
                     if (!decision.accepted()) {
                         showRejectedChange(owner, decision);
                         return false;
@@ -377,9 +372,7 @@ final class CoreWindows implements AutoCloseable {
             checkbox.addActionListener(ignored -> {
                 if (changing[0]) return;
                 final boolean proposed = checkbox.isSelected();
-                final SettingsChangeDecision decision = toggle.validator().validate(
-                    accepted[0], proposed
-                );
+                final SettingsChangeDecision decision = toggle.validator().validate(accepted[0], proposed);
                 if (decision.accepted()) {
                     accepted[0] = proposed;
                     return;
@@ -425,26 +418,20 @@ final class CoreWindows implements AutoCloseable {
             add(panel, row, caption, new JLabel());
             return () -> true;
         }
-        throw new IllegalArgumentException("unsupported settings control: " + control.getClass().getName());
+        throw new IllegalArgumentException(
+                "unsupported settings control: " + control.getClass().getName());
     }
 
-    private static String requireChoiceValue(
-        final SettingsControl.Choice choice,
-        final String value
-    ) {
-        final boolean present = choice.options().stream().anyMatch(option -> option.value().equals(value));
+    private static String requireChoiceValue(final SettingsControl.Choice choice, final String value) {
+        final boolean present =
+                choice.options().stream().anyMatch(option -> option.value().equals(value));
         if (!present) {
-            throw new IllegalStateException(
-                "settings binding returned an unknown choice for " + choice.id()
-            );
+            throw new IllegalStateException("settings binding returned an unknown choice for " + choice.id());
         }
         return value;
     }
 
-    private static void select(
-        final JComboBox<SettingsControl.Option> combo,
-        final String value
-    ) {
+    private static void select(final JComboBox<SettingsControl.Option> combo, final String value) {
         for (int index = 0; index < combo.getItemCount(); index++) {
             if (combo.getItemAt(index).value().equals(value)) {
                 combo.setSelectedIndex(index);
@@ -454,17 +441,10 @@ final class CoreWindows implements AutoCloseable {
         throw new IllegalArgumentException("unknown settings choice: " + value);
     }
 
-    private void showRejectedChange(
-        final JDialog owner,
-        final SettingsChangeDecision decision
-    ) {
+    private void showRejectedChange(final JDialog owner, final SettingsChangeDecision decision) {
         if (decision.action().isEmpty() && decision.link().isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(
-                owner,
-                decision.message(),
-                decision.title(),
-                javax.swing.JOptionPane.WARNING_MESSAGE
-            );
+                    owner, decision.message(), decision.title(), javax.swing.JOptionPane.WARNING_MESSAGE);
             return;
         }
         final List<Object> options = new ArrayList<>();
@@ -472,15 +452,14 @@ final class CoreWindows implements AutoCloseable {
         decision.link().ifPresent(link -> options.add(link.label()));
         options.add(text("common.cancel"));
         final int choice = javax.swing.JOptionPane.showOptionDialog(
-            owner,
-            decision.message(),
-            decision.title(),
-            javax.swing.JOptionPane.DEFAULT_OPTION,
-            javax.swing.JOptionPane.WARNING_MESSAGE,
-            null,
-            options.toArray(),
-            options.get(0)
-        );
+                owner,
+                decision.message(),
+                decision.title(),
+                javax.swing.JOptionPane.DEFAULT_OPTION,
+                javax.swing.JOptionPane.WARNING_MESSAGE,
+                null,
+                options.toArray(),
+                options.get(0));
         if (choice < 0) return;
         if (decision.action().isPresent()) {
             if (choice == 0) {
@@ -498,20 +477,14 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void runSettingsAction(
-        final JDialog owner,
-        final dev.turboism.sdk.ui.settings.SettingsDecisionAction action
-    ) {
+            final JDialog owner, final dev.turboism.sdk.ui.settings.SettingsDecisionAction action) {
         final ActiveSettingsAction existing = activeSettingsAction;
         if (closed.get() || existing != null && !existing.finished().get()) return;
         final dev.turboism.sdk.ui.settings.SettingsActionHandle handle;
         try {
             handle = action.action().start();
         } catch (RuntimeException failure) {
-            CoreDialogs.message(
-                owner,
-                text("common.turboism"),
-                text("settings.action.start-failed")
-            );
+            CoreDialogs.message(owner, text("common.turboism"), text("settings.action.start-failed"));
             return;
         }
         if (closed.get()) {
@@ -553,20 +526,15 @@ final class CoreWindows implements AutoCloseable {
             } else {
                 progress.setIndeterminate(false);
                 progress.setMaximum(1000);
-                progress.setValue((int) Math.min(
-                    1000L,
-                    (value.completed() * 1000L) / value.total()
-                ));
+                progress.setValue((int) Math.min(1000L, (value.completed() * 1000L) / value.total()));
             }
         };
         final javax.swing.Timer timer = new javax.swing.Timer(150, ignored -> refresh.run());
-        activeSettingsAction = new ActiveSettingsAction(
-            handle, progressDialog, timer, finished
-        );
+        activeSettingsAction = new ActiveSettingsAction(handle, progressDialog, timer, finished);
         refresh.run();
-        handle.completion().whenComplete((result, failure) -> CoreDialogs.onEdt(() ->
-            finishSettingsAction(owner, result, failure, finished, timer, progressDialog)
-        ));
+        handle.completion()
+                .whenComplete((result, failure) -> CoreDialogs.onEdt(
+                        () -> finishSettingsAction(owner, result, failure, finished, timer, progressDialog)));
         if (!finished.get()) {
             timer.start();
             CoreDialogs.show(progressDialog);
@@ -574,27 +542,21 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void finishSettingsAction(
-        final JDialog owner,
-        final dev.turboism.sdk.ui.settings.SettingsActionResult result,
-        final Throwable failure,
-        final AtomicBoolean finished,
-        final javax.swing.Timer timer,
-        final JDialog progressDialog
-    ) {
+            final JDialog owner,
+            final dev.turboism.sdk.ui.settings.SettingsActionResult result,
+            final Throwable failure,
+            final AtomicBoolean finished,
+            final javax.swing.Timer timer,
+            final JDialog progressDialog) {
         if (!finished.compareAndSet(false, true)) return;
         timer.stop();
         progressDialog.dispose();
-        if (activeSettingsAction != null
-            && activeSettingsAction.dialog() == progressDialog) {
+        if (activeSettingsAction != null && activeSettingsAction.dialog() == progressDialog) {
             activeSettingsAction = null;
         }
         if (closed.get()) return;
         if (failure != null || result == null) {
-            CoreDialogs.message(
-                owner,
-                text("common.turboism"),
-                text("settings.action.failed")
-            );
+            CoreDialogs.message(owner, text("common.turboism"), text("settings.action.failed"));
             return;
         }
         CoreDialogs.message(owner, result.title(), result.message());
@@ -607,8 +569,7 @@ final class CoreWindows implements AutoCloseable {
 
     private void openSettingsLink(final dev.turboism.sdk.ui.settings.SettingsLink link) {
         try {
-            if (!Desktop.isDesktopSupported()
-                || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+            if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 throw new IOException("desktop browsing is unavailable");
             }
             Desktop.getDesktop().browse(link.uri());
@@ -618,21 +579,16 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private record ActiveSettingsAction(
-        dev.turboism.sdk.ui.settings.SettingsActionHandle handle,
-        JDialog dialog,
-        javax.swing.Timer timer,
-        AtomicBoolean finished
-    ) {
-    }
+            dev.turboism.sdk.ui.settings.SettingsActionHandle handle,
+            JDialog dialog,
+            javax.swing.Timer timer,
+            AtomicBoolean finished) {}
 
-    record BuiltinTab(String title, int index, JPanel panel) {
-    }
+    record BuiltinTab(String title, int index, JPanel panel) {}
 
-    private record RenderedTab(String id, String title, int index, JPanel panel) {
-    }
+    private record RenderedTab(String id, String title, int index, JPanel panel) {}
 
-    record RenderedSettings(JTabbedPane tabs, java.util.function.BooleanSupplier save) {
-    }
+    record RenderedSettings(JTabbedPane tabs, java.util.function.BooleanSupplier save) {}
 
     private JDialog createPluginsDialog() {
         final JDialog dialog = CoreDialogs.create(text("window.plugins.title"), 900, 560);
@@ -644,7 +600,8 @@ final class CoreWindows implements AutoCloseable {
         pluginTable.setRowSorter(pluginSorter);
         pluginTable.setToolTipText(text("plugins.details.hint"));
         pluginTable.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override public void mouseClicked(final java.awt.event.MouseEvent event) {
+            @Override
+            public void mouseClicked(final java.awt.event.MouseEvent event) {
                 if (pluginDetailsDoubleClick(event)) {
                     final int row = pluginTable.rowAtPoint(event.getPoint());
                     if (row >= 0) {
@@ -654,10 +611,12 @@ final class CoreWindows implements AutoCloseable {
                 }
             }
         });
-        pluginTable.getInputMap(javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
-            .put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0), "plugin-details");
+        pluginTable
+                .getInputMap(javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+                .put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0), "plugin-details");
         pluginTable.getActionMap().put("plugin-details", new javax.swing.AbstractAction() {
-            @Override public void actionPerformed(final java.awt.event.ActionEvent event) {
+            @Override
+            public void actionPerformed(final java.awt.event.ActionEvent event) {
                 showSelectedPluginDetails();
             }
         });
@@ -666,19 +625,31 @@ final class CoreWindows implements AutoCloseable {
         final JTextField filter = new JTextField(20);
         filter.setToolTipText(text("plugins.filter.tooltip"));
         filter.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            @Override public void insertUpdate(final javax.swing.event.DocumentEvent event) { filter(); }
-            @Override public void removeUpdate(final javax.swing.event.DocumentEvent event) { filter(); }
-            @Override public void changedUpdate(final javax.swing.event.DocumentEvent event) { filter(); }
+            @Override
+            public void insertUpdate(final javax.swing.event.DocumentEvent event) {
+                filter();
+            }
+
+            @Override
+            public void removeUpdate(final javax.swing.event.DocumentEvent event) {
+                filter();
+            }
+
+            @Override
+            public void changedUpdate(final javax.swing.event.DocumentEvent event) {
+                filter();
+            }
+
             private void filter() {
                 final String value = filter.getText().trim();
-                pluginSorter.setRowFilter(value.isEmpty() ? null : RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(value)));
+                pluginSorter.setRowFilter(
+                        value.isEmpty() ? null : RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote(value)));
             }
         });
 
         final JButton install = new JButton(text("plugins.install"));
-        install.addActionListener(ignored -> plugins.requestInstall(result ->
-            CoreDialogs.onEdt(() -> operationCompleted(result))
-        ));
+        install.addActionListener(
+                ignored -> plugins.requestInstall(result -> CoreDialogs.onEdt(() -> operationCompleted(result))));
         final JButton enable = new JButton(text("plugins.enable"));
         enable.addActionListener(ignored -> setSelectedEnabled(true));
         final JButton disable = new JButton(text("plugins.disable"));
@@ -717,9 +688,7 @@ final class CoreWindows implements AutoCloseable {
     }
 
     static boolean pluginDetailsDoubleClick(final java.awt.event.MouseEvent event) {
-        return event != null
-            && event.getClickCount() == 2
-            && javax.swing.SwingUtilities.isLeftMouseButton(event);
+        return event != null && event.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(event);
     }
 
     private void showSelectedPluginDetails() {
@@ -732,7 +701,7 @@ final class CoreWindows implements AutoCloseable {
                 final CorePluginManagement.PluginDetails details;
                 try {
                     details = plugins.details(plugin.id())
-                        .orElseGet(() -> CorePluginManagement.PluginDetails.summary(plugin));
+                            .orElseGet(() -> CorePluginManagement.PluginDetails.summary(plugin));
                 } catch (RuntimeException failure) {
                     CoreDialogs.onEdt(() -> pluginDetailsFailed(request));
                     return;
@@ -744,10 +713,7 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
-    private void showPluginDetails(
-        final long request,
-        final CorePluginManagement.PluginDetails details
-    ) {
+    private void showPluginDetails(final long request, final CorePluginManagement.PluginDetails details) {
         if (closed.get() || request != pluginDetailsRequest) return;
         pluginStatus.setText(text("plugins.restart-hint"));
         if (pluginDetailsDialog != null) pluginDetailsDialog.dispose();
@@ -764,9 +730,7 @@ final class CoreWindows implements AutoCloseable {
     private JDialog createPluginDetailsDialog(final CorePluginManagement.PluginDetails details) {
         ensureSwingUis();
         final CorePluginManagement.PluginInfo plugin = details.plugin();
-        final JDialog dialog = CoreDialogs.create(
-            i18n.format("window.plugin-details.title", plugin.name()), 760, 620
-        );
+        final JDialog dialog = CoreDialogs.create(i18n.format("window.plugin-details.title", plugin.name()), 760, 620);
         dialog.setLayout(new BorderLayout(8, 8));
 
         final JPanel metadata = form();
@@ -777,35 +741,51 @@ final class CoreWindows implements AutoCloseable {
         row = detail(metadata, row, "plugins.details.description", plugin.description());
         row = detail(metadata, row, "plugins.details.state", plugin.effectiveState());
         row = detail(metadata, row, "plugins.details.desired", plugin.desiredState());
-        row = detail(metadata, row, "plugins.details.pending", plugin.pendingOperation().orElse(text("common.none")));
+        row = detail(
+                metadata,
+                row,
+                "plugins.details.pending",
+                plugin.pendingOperation().orElse(text("common.none")));
         row = detail(metadata, row, "plugins.details.category", text("plugin.category." + plugin.category()));
         row = detail(metadata, row, "plugins.details.tags", valueOrNone(String.join(", ", plugin.tags())));
         row = detail(metadata, row, "plugins.details.api", valueOrNone(details.turboismApi()));
         row = detail(metadata, row, "plugins.details.authors", valueOrNone(formatAuthors(details.authors())));
         row = detail(metadata, row, "plugins.details.license", valueOrNone(details.license()));
         row = detail(metadata, row, "plugins.details.website", details.website().orElse(text("common.none")));
-        row = detail(metadata, row, "plugins.details.dependencies", valueOrNone(formatDependencies(details.dependencies())));
-        row = detail(metadata, row, "plugins.details.permissions", valueOrNone(formatPermissions(details.permissions())));
-        row = detail(metadata, row, "plugins.details.capabilities", valueOrNone(String.join(", ", details.capabilities())));
-        row = detail(metadata, row, "plugins.details.requires-cubism", details.requiresCubism() ? text("common.yes") : text("common.no"));
+        row = detail(
+                metadata, row, "plugins.details.dependencies", valueOrNone(formatDependencies(details.dependencies())));
+        row = detail(
+                metadata, row, "plugins.details.permissions", valueOrNone(formatPermissions(details.permissions())));
+        row = detail(
+                metadata, row, "plugins.details.capabilities", valueOrNone(String.join(", ", details.capabilities())));
+        row = detail(
+                metadata,
+                row,
+                "plugins.details.requires-cubism",
+                details.requiresCubism() ? text("common.yes") : text("common.no"));
         row = detail(metadata, row, "plugins.details.ui", details.ui());
-        row = detail(metadata, row, "plugins.details.entrypoints", valueOrNone(String.join("\n", details.entrypoints())));
+        row = detail(
+                metadata, row, "plugins.details.entrypoints", valueOrNone(String.join("\n", details.entrypoints())));
         row = detail(metadata, row, "plugins.details.resources", valueOrNone(String.join("\n", details.resources())));
         row = detail(metadata, row, "plugins.details.i18n-base", valueOrNone(details.i18nBaseName()));
         row = detail(metadata, row, "plugins.details.locales", valueOrNone(String.join(", ", details.locales())));
-        row = detail(metadata, row, "plugins.details.event-exports", valueOrNone(formatEventExports(details.eventExports())));
+        row = detail(
+                metadata,
+                row,
+                "plugins.details.event-exports",
+                valueOrNone(formatEventExports(details.eventExports())));
         detail(metadata, row, "plugins.details.event-imports", valueOrNone(formatEventImports(details.eventImports())));
 
         final JEditorPane readme = new JEditorPane(
-            "text/html",
-            details.readme().map(PluginReadmeRenderer::render)
-                .orElseGet(() -> PluginReadmeRenderer.render(text("plugins.details.readme-unavailable")))
-        );
+                "text/html",
+                details.readme()
+                        .map(PluginReadmeRenderer::render)
+                        .orElseGet(() -> PluginReadmeRenderer.render(text("plugins.details.readme-unavailable"))));
         readme.setEditable(false);
         readme.setCaretPosition(0);
         readme.addHyperlinkListener(event -> {
             if (event.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED
-                && event.getURL() != null) {
+                    && event.getURL() != null) {
                 openExternal(event.getURL().toString());
             }
         });
@@ -840,54 +820,70 @@ final class CoreWindows implements AutoCloseable {
 
     private static String formatAuthors(final List<CorePluginManagement.Author> authors) {
         return authors.stream()
-            .map(author -> author.email().map(email -> author.name() + " <" + email + ">").orElse(author.name()))
-            .collect(java.util.stream.Collectors.joining(", "));
+                .map(author -> author.email()
+                        .map(email -> author.name() + " <" + email + ">")
+                        .orElse(author.name()))
+                .collect(java.util.stream.Collectors.joining(", "));
     }
 
     private static String formatDependencies(final List<CorePluginManagement.Dependency> dependencies) {
-        return dependencies.stream().map(dependency -> {
-            final StringBuilder value = new StringBuilder(dependency.id());
-            if (!dependency.version().isBlank()) value.append(' ').append(dependency.version());
-            if (!dependency.type().isBlank()) value.append(" [").append(dependency.type()).append(']');
-            dependency.reason().filter(reason -> !reason.isBlank()).ifPresent(reason -> value.append(" — ").append(reason));
-            return value.toString();
-        }).collect(java.util.stream.Collectors.joining("\n"));
+        return dependencies.stream()
+                .map(dependency -> {
+                    final StringBuilder value = new StringBuilder(dependency.id());
+                    if (!dependency.version().isBlank()) value.append(' ').append(dependency.version());
+                    if (!dependency.type().isBlank())
+                        value.append(" [").append(dependency.type()).append(']');
+                    dependency
+                            .reason()
+                            .filter(reason -> !reason.isBlank())
+                            .ifPresent(reason -> value.append(" — ").append(reason));
+                    return value.toString();
+                })
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static String formatPermissions(final List<CorePluginManagement.Permission> permissions) {
-        return permissions.stream().map(permission -> {
-            final StringBuilder value = new StringBuilder(permission.id());
-            if (!permission.scope().isBlank()) value.append(" [").append(permission.scope()).append(']');
-            permission.reason().filter(reason -> !reason.isBlank()).ifPresent(reason -> value.append(" — ").append(reason));
-            return value.toString();
-        }).collect(java.util.stream.Collectors.joining("\n"));
+        return permissions.stream()
+                .map(permission -> {
+                    final StringBuilder value = new StringBuilder(permission.id());
+                    if (!permission.scope().isBlank())
+                        value.append(" [").append(permission.scope()).append(']');
+                    permission
+                            .reason()
+                            .filter(reason -> !reason.isBlank())
+                            .ifPresent(reason -> value.append(" — ").append(reason));
+                    return value.toString();
+                })
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static String formatEventExports(final List<CorePluginManagement.EventExport> exports) {
-        return exports.stream().map(exported -> exported.id() + " " + exported.contractVersion()
-            + " [" + exported.eventType() + "] — " + exported.abiSha256())
-            .collect(java.util.stream.Collectors.joining("\n"));
+        return exports.stream()
+                .map(exported -> exported.id() + " " + exported.contractVersion() + " [" + exported.eventType() + "] — "
+                        + exported.abiSha256())
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static String formatEventImports(final List<CorePluginManagement.EventImport> imports) {
-        return imports.stream().map(imported -> imported.providerId() + ":" + imported.eventId()
-            + " " + imported.contractVersion() + " [" + imported.eventType() + "]"
-            + (imported.required() ? " required" : " optional") + " — " + imported.abiSha256())
-            .collect(java.util.stream.Collectors.joining("\n"));
+        return imports.stream()
+                .map(imported -> imported.providerId() + ":" + imported.eventId()
+                        + " " + imported.contractVersion() + " [" + imported.eventType() + "]"
+                        + (imported.required() ? " required" : " optional") + " — " + imported.abiSha256())
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static String escapeHtml(final String value) {
-        return (value == null ? "" : value).replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+        return (value == null ? "" : value)
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     private void openExternal(final String value) {
         if (!openHttpLink(value)) {
-            CoreDialogs.message(
-                pluginDetailsDialog,
-                text("common.turboism"),
-                text("plugins.details.open-failed")
-            );
+            CoreDialogs.message(pluginDetailsDialog, text("common.turboism"), text("plugins.details.open-failed"));
         }
     }
 
@@ -902,7 +898,7 @@ final class CoreWindows implements AutoCloseable {
         content.setBackground(Color.WHITE);
         content.addHyperlinkListener(event -> {
             if (event.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED
-                && event.getURL() != null) {
+                    && event.getURL() != null) {
                 openAboutLink(event.getURL().toString());
             }
         });
@@ -940,42 +936,36 @@ final class CoreWindows implements AutoCloseable {
      */
     static String aboutHtml(final PluginLocalization i18n, final String version) {
         return "<html><head><meta charset=\"UTF-8\"><style>"
-            + "body{margin:0;width:" + ABOUT_BODY_WIDTH + "px;"
-            + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
-            + "background:#ffffff;color:#1f2937;}"
-            + ".name{font-size:22px;font-weight:bold;text-align:center;}"
-            + ".version{margin-top:4px;font-size:13px;color:#6b7280;text-align:center;}"
-            + ".tagline{margin-top:10px;font-size:11px;color:#9ca3af;text-align:center;}"
-            + ".links{margin-top:14px;font-size:12px;text-align:center;}"
-            + ".links a{color:#155dfc;text-decoration:none;}"
-            + "</style></head><body>"
-            + "<table width=\"" + ABOUT_BODY_WIDTH + "\" cellpadding=\"0\" cellspacing=\"0\">"
-            + "<tr><td align=\"center\">"
-            + "<div class=\"name\">" + escapeHtml(i18n.text("common.turboism")) + "</div>"
-            + "<div class=\"version\">" + escapeHtml(version) + "</div>"
-            + "<div class=\"tagline\">" + escapeHtml(i18n.text("about.tagline")) + "</div>"
-            + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
-            + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
-            + "<a href=\"" + ABOUT_GITHUB + "\">"
-            + escapeHtml(i18n.text("about.github")) + "</a> &nbsp;·&nbsp; "
-            + "<a href=\"" + ABOUT_EULA + "\">"
-            + escapeHtml(i18n.text("about.eula")) + "</a></div>"
-            + "</td></tr></table>"
-            + "</body></html>";
+                + "body{margin:0;width:" + ABOUT_BODY_WIDTH + "px;"
+                + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
+                + "background:#ffffff;color:#1f2937;}"
+                + ".name{font-size:22px;font-weight:bold;text-align:center;}"
+                + ".version{margin-top:4px;font-size:13px;color:#6b7280;text-align:center;}"
+                + ".tagline{margin-top:10px;font-size:11px;color:#9ca3af;text-align:center;}"
+                + ".links{margin-top:14px;font-size:12px;text-align:center;}"
+                + ".links a{color:#155dfc;text-decoration:none;}"
+                + "</style></head><body>"
+                + "<table width=\"" + ABOUT_BODY_WIDTH + "\" cellpadding=\"0\" cellspacing=\"0\">"
+                + "<tr><td align=\"center\">"
+                + "<div class=\"name\">" + escapeHtml(i18n.text("common.turboism")) + "</div>"
+                + "<div class=\"version\">" + escapeHtml(version) + "</div>"
+                + "<div class=\"tagline\">" + escapeHtml(i18n.text("about.tagline")) + "</div>"
+                + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
+                + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
+                + "<a href=\"" + ABOUT_GITHUB + "\">"
+                + escapeHtml(i18n.text("about.github")) + "</a> &nbsp;·&nbsp; "
+                + "<a href=\"" + ABOUT_EULA + "\">"
+                + escapeHtml(i18n.text("about.eula")) + "</a></div>"
+                + "</td></tr></table>"
+                + "</body></html>";
     }
 
     private void openAboutLink(final String value) {
-        if (!ABOUT_HOMEPAGE.equals(value)
-            && !ABOUT_GITHUB.equals(value)
-            && !ABOUT_EULA.equals(value)) {
+        if (!ABOUT_HOMEPAGE.equals(value) && !ABOUT_GITHUB.equals(value) && !ABOUT_EULA.equals(value)) {
             return;
         }
         if (!openHttpLink(value)) {
-            CoreDialogs.message(
-                aboutDialog,
-                text("common.turboism"),
-                text("about.open-failed")
-            );
+            CoreDialogs.message(aboutDialog, text("common.turboism"), text("about.open-failed"));
         }
     }
 
@@ -1008,21 +998,14 @@ final class CoreWindows implements AutoCloseable {
     }
 
     static boolean httpLinkAllowed(final String value) {
-        try {
-            final URI uri = URI.create(value);
-            return ("http".equalsIgnoreCase(uri.getScheme())
-                || "https".equalsIgnoreCase(uri.getScheme()))
-                && uri.getHost() != null;
-        } catch (IllegalArgumentException invalid) {
-            return false;
-        }
+        return HttpLinks.isAllowed(value);
     }
 
     private static boolean openHttpLink(final String value) {
         try {
             if (!httpLinkAllowed(value)
-                || !Desktop.isDesktopSupported()
-                || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    || !Desktop.isDesktopSupported()
+                    || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
                 return false;
             }
             Desktop.getDesktop().browse(URI.create(value));
@@ -1037,18 +1020,20 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private static String packagedVersionProperty(final String key, final String fallback) {
-        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
+        try (java.io.InputStream stream =
+                CoreWindows.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
             if (stream == null) return fallback;
             final java.util.Properties properties = new java.util.Properties();
             properties.load(stream);
             return properties.getProperty(key, fallback);
-        } catch (java.io.IOException unavailable) { return fallback; }
+        } catch (java.io.IOException unavailable) {
+            return fallback;
+        }
     }
 
     static String frameworkVersion() {
-        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream(
-            "/META-INF/turboism/framework-version.properties"
-        )) {
+        try (java.io.InputStream stream =
+                CoreWindows.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
             if (stream == null) return "unknown";
             final java.util.Properties properties = new java.util.Properties();
             properties.load(stream);
@@ -1068,9 +1053,8 @@ final class CoreWindows implements AutoCloseable {
         final CorePluginManagement.PluginInfo plugin = selectedPlugin();
         if (plugin == null || plugin.core()) return;
         if (CoreDialogs.confirm(
-            pluginsDialog, text("plugins.uninstall"),
-            i18n.format("plugins.uninstall.confirm", plugin.name())
-        )) operationCompleted(plugins.uninstall(plugin.id()));
+                pluginsDialog, text("plugins.uninstall"), i18n.format("plugins.uninstall.confirm", plugin.name())))
+            operationCompleted(plugins.uninstall(plugin.id()));
     }
 
     private CorePluginManagement.PluginInfo selectedPlugin() {
@@ -1121,7 +1105,8 @@ final class CoreWindows implements AutoCloseable {
         return panel;
     }
 
-    private static void add(final JPanel panel, final int row, final java.awt.Component left, final java.awt.Component right) {
+    private static void add(
+            final JPanel panel, final int row, final java.awt.Component left, final java.awt.Component right) {
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridy = row;
         constraints.insets = new Insets(6, 6, 6, 6);
@@ -1152,11 +1137,13 @@ final class CoreWindows implements AutoCloseable {
         panel.add(javax.swing.Box.createGlue(), filler);
     }
 
-
-    private String text(final String key) { return i18n.text(key); }
+    private String text(final String key) {
+        return i18n.text(key);
+    }
 
     private static final class PluginDetailsThreadFactory implements java.util.concurrent.ThreadFactory {
-        @Override public Thread newThread(final Runnable task) {
+        @Override
+        public Thread newThread(final Runnable task) {
             final Thread thread = new Thread(task, "turboism-plugin-details");
             thread.setDaemon(true);
             return thread;
@@ -1167,27 +1154,52 @@ final class CoreWindows implements AutoCloseable {
         private final PluginLocalization i18n;
         private List<CorePluginManagement.PluginInfo> rows = List.of();
         private final String[] columns;
+
         PluginTableModel(final PluginLocalization i18n) {
             this.i18n = i18n;
-            columns = new String[]{
+            columns = new String[] {
                 i18n.text("plugins.column.name"), i18n.text("plugins.column.id"), i18n.text("plugins.column.author"),
-                i18n.text("plugins.column.version"), i18n.text("plugins.column.state"), i18n.text("plugins.column.desired"),
-                i18n.text("plugins.column.pending"), i18n.text("plugins.column.category"), i18n.text("plugins.column.tags")
+                i18n.text("plugins.column.version"), i18n.text("plugins.column.state"),
+                        i18n.text("plugins.column.desired"),
+                i18n.text("plugins.column.pending"), i18n.text("plugins.column.category"),
+                        i18n.text("plugins.column.tags")
             };
         }
-        void setPlugins(final List<CorePluginManagement.PluginInfo> values) { rows = List.copyOf(values); fireTableDataChanged(); }
-        CorePluginManagement.PluginInfo plugin(final int row) { return rows.get(row); }
-        @Override public int getRowCount() { return rows.size(); }
-        @Override public int getColumnCount() { return columns.length; }
-        @Override public String getColumnName(final int column) { return columns[column]; }
-        @Override public Object getValueAt(final int row, final int column) {
+
+        void setPlugins(final List<CorePluginManagement.PluginInfo> values) {
+            rows = List.copyOf(values);
+            fireTableDataChanged();
+        }
+
+        CorePluginManagement.PluginInfo plugin(final int row) {
+            return rows.get(row);
+        }
+
+        @Override
+        public int getRowCount() {
+            return rows.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return columns.length;
+        }
+
+        @Override
+        public String getColumnName(final int column) {
+            return columns[column];
+        }
+
+        @Override
+        public Object getValueAt(final int row, final int column) {
             final CorePluginManagement.PluginInfo plugin = rows.get(row);
             return switch (column) {
                 case 0 -> plugin.name() + (plugin.core() ? " (" + i18n.text("plugins.core") + ")" : "");
                 case 1 -> plugin.id();
-                case 2 -> plugin.authors().stream()
-                    .map(CorePluginManagement.Author::name)
-                    .collect(java.util.stream.Collectors.joining(", "));
+                case 2 ->
+                    plugin.authors().stream()
+                            .map(CorePluginManagement.Author::name)
+                            .collect(java.util.stream.Collectors.joining(", "));
                 case 3 -> plugin.version();
                 case 4 -> plugin.effectiveState();
                 case 5 -> plugin.desiredState();

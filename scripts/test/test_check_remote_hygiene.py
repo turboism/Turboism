@@ -12,7 +12,6 @@ Runtime-constructed tokens so no literal signature exists in this source.
 """
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -172,7 +171,7 @@ class ContentRuleTest(unittest.TestCase):
     def test_allowed_content(self):
         allowed = [
             'String dir = System.getenv("APPDATA");',
-            "run: echo \${{ secrets.NAME }} > /dev/null",
+            r"run: echo \${{ secrets.NAME }} > /dev/null",
             "int prompt = 0;",
             "const env = process.env.NODE_ENV;",
             "ak = compute_average(query)",
@@ -544,7 +543,7 @@ class HookTest(unittest.TestCase):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-rw2-"))
         os.makedirs(os.path.join(repo, ".agent-artifacts"))
         (Path(repo) / ".agent-artifacts" / "early.md").write_text("leak\n")
-        early = commit_all(repo, "early forbidden")
+        commit_all(repo, "early forbidden")
         (Path(repo) / ".agent-artifacts" / "early.md").unlink()
         (Path(repo) / "ok.txt").write_text("fine\n")
         commit_all(repo, "clean tip")

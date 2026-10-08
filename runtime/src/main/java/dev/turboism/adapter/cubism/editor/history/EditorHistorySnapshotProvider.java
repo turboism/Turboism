@@ -9,21 +9,18 @@ import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
-import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -50,9 +47,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private long lastChangeStamp = Long.MIN_VALUE;
 
     public EditorHistorySnapshotProvider(
-        final Supplier<Optional<VerifiedMemberResolver>> resolver,
-        final LongSupplier generation
-    ) {
+            final Supplier<Optional<VerifiedMemberResolver>> resolver, final LongSupplier generation) {
         this(resolver, generation, () -> -1L);
     }
 
@@ -62,41 +57,31 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
      *                    on the full projection path.
      */
     public EditorHistorySnapshotProvider(
-        final Supplier<Optional<VerifiedMemberResolver>> resolver,
-        final LongSupplier generation,
-        final LongSupplier changeStamp
-    ) {
+            final Supplier<Optional<VerifiedMemberResolver>> resolver,
+            final LongSupplier generation,
+            final LongSupplier changeStamp) {
         this(
-            resolver,
-            generation,
-            new BindingIdentityTracker("history-document-"),
-            new BindingIdentityTracker("history-manager-"),
-            changeStamp
-        );
+                resolver,
+                generation,
+                new BindingIdentityTracker("history-document-"),
+                new BindingIdentityTracker("history-manager-"),
+                changeStamp);
     }
 
     EditorHistorySnapshotProvider(
-        final Supplier<Optional<VerifiedMemberResolver>> resolver,
-        final LongSupplier generation,
-        final BindingIdentityTracker documentIdentities,
-        final BindingIdentityTracker managerIdentities
-    ) {
-        this(
-            resolver,
-            generation,
-            documentIdentities,
-            managerIdentities,
-            () -> -1L
-        );
+            final Supplier<Optional<VerifiedMemberResolver>> resolver,
+            final LongSupplier generation,
+            final BindingIdentityTracker documentIdentities,
+            final BindingIdentityTracker managerIdentities) {
+        this(resolver, generation, documentIdentities, managerIdentities, () -> -1L);
     }
 
     EditorHistorySnapshotProvider(
-        final Supplier<Optional<VerifiedMemberResolver>> resolver,
-        final LongSupplier generation,
-        final BindingIdentityTracker documentIdentities,
-        final BindingIdentityTracker managerIdentities,
-        final LongSupplier changeStamp
-    ) {
+            final Supplier<Optional<VerifiedMemberResolver>> resolver,
+            final LongSupplier generation,
+            final BindingIdentityTracker documentIdentities,
+            final BindingIdentityTracker managerIdentities,
+            final LongSupplier changeStamp) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.generation = Objects.requireNonNull(generation, "generation");
         this.documentIdentities = Objects.requireNonNull(documentIdentities, "documentIdentities");
@@ -109,20 +94,23 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final long expectedGeneration = generation.getAsLong();
         if (expectedGeneration <= 0) return HistorySnapshot.unavailable();
         final Optional<VerifiedMemberResolver> available = resolver.get();
-        if (available.isEmpty() || !available.orElseThrow().authorizesFeature(
-            EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
-            EditorHistoryReadSelectorContract.CAPABILITY_ID,
-            EditorHistoryReadSelectorContract.REQUIRED_ALIASES
-        )) return HistorySnapshot.unavailable();
+        if (available.isEmpty()
+                || !available
+                        .orElseThrow()
+                        .authorizesFeature(
+                                EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
+                                EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                                EditorHistoryReadSelectorContract.REQUIRED_ALIASES))
+            return HistorySnapshot.unavailable();
         // The stamp is read strictly before the EDT round trip, so a change that
         // lands during the projection records a stale (lower) stamp and the next
         // read rebuilds instead of skipping a real mutation.
         final long stamp = changeStamp.getAsLong();
         synchronized (revisionLock) {
             if (stamp >= 0
-                && stamp == lastChangeStamp
-                && stampGeneration == expectedGeneration
-                && lastSnapshot != null) {
+                    && stamp == lastChangeStamp
+                    && stampGeneration == expectedGeneration
+                    && lastSnapshot != null) {
                 return lastSnapshot;
             }
         }
@@ -152,8 +140,8 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     public boolean isCurrentBinding(final HistorySnapshot snapshot) {
         Objects.requireNonNull(snapshot, "snapshot");
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE
-            || snapshot.documentBindingId().isEmpty()
-            || snapshot.managerBindingId().isEmpty()) {
+                || snapshot.documentBindingId().isEmpty()
+                || snapshot.managerBindingId().isEmpty()) {
             return false;
         }
         final long expectedGeneration = generation.getAsLong();
@@ -164,12 +152,8 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             return onEdt(() -> {
                 final Binding binding = currentBinding(available.orElseThrow());
                 return generation.getAsLong() == expectedGeneration
-                    && documentBindingId(binding.document()).equals(
-                        snapshot.documentBindingId()
-                    )
-                    && managerBindingId(binding.manager()).equals(
-                        snapshot.managerBindingId()
-                    );
+                        && documentBindingId(binding.document()).equals(snapshot.documentBindingId())
+                        && managerBindingId(binding.manager()).equals(snapshot.managerBindingId());
             });
         } catch (Exception failure) {
             return false;
@@ -177,122 +161,97 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     @Override
-    public HistoryMoveResult moveTo(
-        final long expectedGeneration,
-        final long expectedRevision,
-        final int position
-    ) {
+    public HistoryMoveResult moveTo(final long expectedGeneration, final long expectedRevision, final int position) {
         return moveToAuthorized(expectedGeneration, expectedRevision, "", "", position);
     }
 
     @Override
-    public HistoryMoveResult moveTo(
-        final HistorySnapshot expected,
-        final int position
-    ) {
+    public HistoryMoveResult moveTo(final HistorySnapshot expected, final int position) {
         Objects.requireNonNull(expected, "expected");
         if (expected.availability() != HistorySnapshot.Availability.AVAILABLE
-            || expected.documentBindingId().isEmpty()
-            || expected.managerBindingId().isEmpty()) {
+                || expected.documentBindingId().isEmpty()
+                || expected.managerBindingId().isEmpty()) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.REJECTED_STALE,
-                snapshot(),
-                Optional.of("history.move.binding-required")
-            );
+                    HistoryMoveResult.Outcome.REJECTED_STALE, snapshot(), Optional.of("history.move.binding-required"));
         }
         return moveToAuthorized(
-            expected.generation(),
-            expected.revision(),
-            expected.documentBindingId(),
-            expected.managerBindingId(),
-            position
-        );
+                expected.generation(),
+                expected.revision(),
+                expected.documentBindingId(),
+                expected.managerBindingId(),
+                position);
     }
 
     private HistoryMoveResult moveToAuthorized(
-        final long expectedGeneration,
-        final long expectedRevision,
-        final String expectedDocumentBindingId,
-        final String expectedManagerBindingId,
-        final int position
-    ) {
+            final long expectedGeneration,
+            final long expectedRevision,
+            final String expectedDocumentBindingId,
+            final String expectedManagerBindingId,
+            final int position) {
         final Optional<VerifiedMemberResolver> available = resolver.get();
         if (available.isEmpty()) return unavailableMove("history.move.unavailable");
-        if (!available.orElseThrow().authorizesFeature(
-            EditorHistoryMoveSelectorContract.ADAPTER_SLICE_ID,
-            EditorHistoryMoveSelectorContract.CAPABILITY_ID,
-            EditorHistoryMoveSelectorContract.REQUIRED_ALIASES
-        )) return unavailableMove("history.move.unavailable");
+        if (!available
+                .orElseThrow()
+                .authorizesFeature(
+                        EditorHistoryMoveSelectorContract.ADAPTER_SLICE_ID,
+                        EditorHistoryMoveSelectorContract.CAPABILITY_ID,
+                        EditorHistoryMoveSelectorContract.REQUIRED_ALIASES))
+            return unavailableMove("history.move.unavailable");
         try {
             return onEdt(() -> move(
-                available.orElseThrow(),
-                expectedGeneration,
-                expectedRevision,
-                expectedDocumentBindingId,
-                expectedManagerBindingId,
-                position
-            ));
+                    available.orElseThrow(),
+                    expectedGeneration,
+                    expectedRevision,
+                    expectedDocumentBindingId,
+                    expectedManagerBindingId,
+                    position));
         } catch (Exception exception) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
-                HistorySnapshot.unavailable(),
-                Optional.of("history.move.failed-unknown-position")
-            );
+                    HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
+                    HistorySnapshot.unavailable(),
+                    Optional.of("history.move.failed-unknown-position"));
         }
     }
 
     private HistoryMoveResult move(
-        final VerifiedMemberResolver resolver,
-        final long expectedGeneration,
-        final long expectedRevision,
-        final String expectedDocumentBindingId,
-        final String expectedManagerBindingId,
-        final int target
-    ) {
+            final VerifiedMemberResolver resolver,
+            final long expectedGeneration,
+            final long expectedRevision,
+            final String expectedDocumentBindingId,
+            final String expectedManagerBindingId,
+            final int target) {
         final long currentGeneration = generation.getAsLong();
-        final boolean bindingRequired = !expectedDocumentBindingId.isEmpty()
-            || !expectedManagerBindingId.isEmpty();
+        final boolean bindingRequired = !expectedDocumentBindingId.isEmpty() || !expectedManagerBindingId.isEmpty();
         if (bindingRequired) {
             final Binding activeBinding;
             try {
                 activeBinding = currentBinding(resolver);
             } catch (IllegalStateException unavailable) {
                 return new HistoryMoveResult(
-                    HistoryMoveResult.Outcome.REJECTED_STALE,
-                    HistorySnapshot.unavailable(),
-                    Optional.of("history.move.binding-stale")
-                );
+                        HistoryMoveResult.Outcome.REJECTED_STALE,
+                        HistorySnapshot.unavailable(),
+                        Optional.of("history.move.binding-stale"));
             }
             if (!documentBindingId(activeBinding.document()).equals(expectedDocumentBindingId)
-                || !managerBindingId(activeBinding.manager()).equals(expectedManagerBindingId)) {
+                    || !managerBindingId(activeBinding.manager()).equals(expectedManagerBindingId)) {
                 return new HistoryMoveResult(
-                    HistoryMoveResult.Outcome.REJECTED_STALE,
-                    HistorySnapshot.unavailable(),
-                    Optional.of("history.move.binding-stale")
-                );
+                        HistoryMoveResult.Outcome.REJECTED_STALE,
+                        HistorySnapshot.unavailable(),
+                        Optional.of("history.move.binding-stale"));
             }
         }
         final HistorySnapshot before = project(resolver, currentGeneration);
         if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.UNAVAILABLE,
-                before,
-                Optional.of("history.move.unavailable")
-            );
+                    HistoryMoveResult.Outcome.UNAVAILABLE, before, Optional.of("history.move.unavailable"));
         }
         if (currentGeneration != expectedGeneration || before.revision() != expectedRevision) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.REJECTED_STALE,
-                before,
-                Optional.of("history.move.stale")
-            );
+                    HistoryMoveResult.Outcome.REJECTED_STALE, before, Optional.of("history.move.stale"));
         }
         if (target < 0 || target > before.entries().size()) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.INVALID_POSITION,
-                before,
-                Optional.of("history.move.invalid-position")
-            );
+                    HistoryMoveResult.Outcome.INVALID_POSITION, before, Optional.of("history.move.invalid-position"));
         }
         if (target == before.position()) {
             return new HistoryMoveResult(HistoryMoveResult.Outcome.NO_CHANGE, before, Optional.empty());
@@ -300,13 +259,10 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final Object manager = currentManager(resolver);
         final HistorySnapshot bindingCheck = project(resolver, currentGeneration);
         if (bindingCheck.availability() != HistorySnapshot.Availability.AVAILABLE
-            || bindingCheck.revision() != before.revision()
-            || currentManager(resolver) != manager) {
+                || bindingCheck.revision() != before.revision()
+                || currentManager(resolver) != manager) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.REJECTED_STALE,
-                bindingCheck,
-                Optional.of("history.move.stale")
-            );
+                    HistoryMoveResult.Outcome.REJECTED_STALE, bindingCheck, Optional.of("history.move.stale"));
         }
         try {
             resolver.invoke("cubism.editor-history.manager.move-to", manager, target);
@@ -314,40 +270,28 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             final HistorySnapshot afterFailure = project(resolver, currentGeneration);
             if (afterFailure.availability() == HistorySnapshot.Availability.AVAILABLE) {
                 return new HistoryMoveResult(
-                    HistoryMoveResult.Outcome.PARTIAL_MOVE,
-                    afterFailure,
-                    Optional.of("history.move.partial")
-                );
+                        HistoryMoveResult.Outcome.PARTIAL_MOVE, afterFailure, Optional.of("history.move.partial"));
             }
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
-                afterFailure,
-                Optional.of("history.move.failed-unknown-position")
-            );
+                    HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
+                    afterFailure,
+                    Optional.of("history.move.failed-unknown-position"));
         }
         final HistorySnapshot after = project(resolver, currentGeneration);
         if (after.availability() != HistorySnapshot.Availability.AVAILABLE) {
             return new HistoryMoveResult(
-                HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
-                after,
-                Optional.of("history.move.failed-unknown-position")
-            );
+                    HistoryMoveResult.Outcome.FAILED_UNKNOWN_POSITION,
+                    after,
+                    Optional.of("history.move.failed-unknown-position"));
         }
         return new HistoryMoveResult(
-            after.position() == target
-                ? HistoryMoveResult.Outcome.MOVED
-                : HistoryMoveResult.Outcome.PARTIAL_MOVE,
-            after,
-            after.position() == target ? Optional.empty() : Optional.of("history.move.partial")
-        );
+                after.position() == target ? HistoryMoveResult.Outcome.MOVED : HistoryMoveResult.Outcome.PARTIAL_MOVE,
+                after,
+                after.position() == target ? Optional.empty() : Optional.of("history.move.partial"));
     }
 
     private HistoryMoveResult unavailableMove(final String diagnosticId) {
-        return new HistoryMoveResult(
-            HistoryMoveResult.Outcome.UNAVAILABLE,
-            snapshot(),
-            Optional.of(diagnosticId)
-        );
+        return new HistoryMoveResult(HistoryMoveResult.Outcome.UNAVAILABLE, snapshot(), Optional.of(diagnosticId));
     }
 
     private Object currentManager(final VerifiedMemberResolver resolver) {
@@ -356,26 +300,18 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
 
     private Binding currentBinding(final VerifiedMemberResolver resolver) {
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
-        if (document == null
-            || !resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        if (document == null || !resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
             throw new IllegalStateException("Active Modeling document is unavailable");
         }
-        final Object manager = resolver.invoke(
-            "cubism.editor-history.document.undo-manager", document
-        );
+        final Object manager = resolver.invoke("cubism.editor-history.document.undo-manager", document);
         if (!resolver.isInstance("cubism.editor-history.manager.class", manager)) {
             throw new IllegalStateException("Active history manager is unavailable");
         }
         return new Binding(document, manager);
     }
 
-    private HistorySnapshot project(
-        final VerifiedMemberResolver resolver,
-        final long expectedGeneration
-    ) {
+    private HistorySnapshot project(final VerifiedMemberResolver resolver, final long expectedGeneration) {
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
         final Binding binding;
         try {
@@ -400,49 +336,44 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             if (!(label instanceof String text) || !(significant instanceof Boolean flag)) {
                 return HistorySnapshot.unavailable();
             }
-            final EditorHistoryMetadataRegistry.EntryMetadata metadata =
-                EditorHistoryMetadataRegistry.metadata(entry);
+            final EditorHistoryMetadataRegistry.EntryMetadata metadata = EditorHistoryMetadataRegistry.metadata(entry);
             final HistoryEntryDetail detail;
             if (metadata.detail().isPresent()) {
                 detail = metadata.detail().orElseThrow();
             } else if (metadata.action().isPresent()) {
                 detail = HistoryEntryDetail.fromAction(
-                    text,
-                    metadata.action().orElseThrow(),
-                    HistoryOrigin.hostUnattributed()
-                );
+                        text, metadata.action().orElseThrow(), HistoryOrigin.hostUnattributed());
             } else if (observedUsable(resolver, entry, metadata.observedDetail())) {
                 // The commit-time decode is the only read that could still prove this entry's own
                 // post state; a fresh decode here could not read it, so the observed projection is
                 // reused instead of recomputing a poorer one.
                 detail = metadata.observedDetail().orElseThrow();
             } else {
-                final NativeHistoryDecodeResult decoded = nativeDecoders.decode(
-                    resolver,
-                    entry,
-                    text
-                );
-                detail = decoded.detail().orElseGet(() -> HistoryEntryDetail.labelOnly(
-                    text,
-                    HistoryOrigin.hostUnattributed(),
-                    decoded.diagnosticId()
-                ));
+                final NativeHistoryDecodeResult decoded = nativeDecoders.decode(resolver, entry, text);
+                detail = decoded.detail()
+                        .orElseGet(() -> HistoryEntryDetail.labelOnly(
+                                text, HistoryOrigin.hostUnattributed(), decoded.diagnosticId()));
             }
             entries.add(new HistoryEntry(
-                index,
-                text,
-                flag,
-                metadata.action(),
-                Optional.of(metadata.entryId()),
-                metadata.transactionId(),
-                detail
-            ));
+                    index,
+                    text,
+                    flag,
+                    metadata.action(),
+                    Optional.of(metadata.entryId()),
+                    metadata.transactionId(),
+                    detail));
         }
         final boolean canUndo = flag(resolver.invoke("cubism.editor-history.manager.can-undo", manager));
         final boolean canRedo = flag(resolver.invoke("cubism.editor-history.manager.can-redo", manager));
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
-        return snapshotFor(expectedGeneration, position, entries, canUndo, canRedo,
-            documentBindingId(document), managerBindingId(manager));
+        return snapshotFor(
+                expectedGeneration,
+                position,
+                entries,
+                canUndo,
+                canRedo,
+                documentBindingId(document),
+                managerBindingId(manager));
     }
 
     /**
@@ -453,19 +384,13 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
      * presenting a stale group as complete.</p>
      */
     private static boolean observedUsable(
-        final VerifiedMemberResolver resolver,
-        final Object entry,
-        final Optional<HistoryEntryDetail> observed
-    ) {
+            final VerifiedMemberResolver resolver, final Object entry, final Optional<HistoryEntryDetail> observed) {
         if (observed.isEmpty()) return false;
         final Optional<HistoryGroup> group = observed.orElseThrow().group();
         if (group.isEmpty()) return true;
         if (group.orElseThrow().truncated()) return false;
         try {
-            final Object rawCount = resolver.invoke(
-                "cubism.editor-history.semantic.group.count",
-                entry
-            );
+            final Object rawCount = resolver.invoke("cubism.editor-history.semantic.group.count", entry);
             if (!(rawCount instanceof Number count)) return true;
             return count.intValue() <= group.orElseThrow().observedChildCount();
         } catch (RuntimeException unavailable) {
@@ -549,14 +474,13 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private HistorySnapshot snapshotFor(
-        final long currentGeneration,
-        final int position,
-        final List<HistoryEntry> entries,
-        final boolean canUndo,
-        final boolean canRedo,
-        final String documentId,
-        final String managerId
-    ) {
+            final long currentGeneration,
+            final int position,
+            final List<HistoryEntry> entries,
+            final boolean canUndo,
+            final boolean canRedo,
+            final String documentId,
+            final String managerId) {
         synchronized (revisionLock) {
             if (revisionGeneration != currentGeneration) {
                 revisionGeneration = currentGeneration;
@@ -564,17 +488,27 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                 lastSnapshot = null;
             }
             final HistorySnapshot previous = lastSnapshot;
-            if (previous != null && previous.position() == position
-                && previous.canUndo() == canUndo && previous.canRedo() == canRedo
-                && previous.documentBindingId().equals(documentId)
-                && previous.managerBindingId().equals(managerId)
-                && previous.entries().equals(entries)) {
+            if (previous != null
+                    && previous.position() == position
+                    && previous.canUndo() == canUndo
+                    && previous.canRedo() == canRedo
+                    && previous.documentBindingId().equals(documentId)
+                    && previous.managerBindingId().equals(managerId)
+                    && previous.entries().equals(entries)) {
                 return previous;
             }
             // Compare immutable values, not their formatted representation. Native objects are
             // never retained here, and mutable host labels/metadata are still checked each read.
-            lastSnapshot = new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE,
-                currentGeneration, ++revision, position, entries, canUndo, canRedo, documentId, managerId);
+            lastSnapshot = new HistorySnapshot(
+                    HistorySnapshot.Availability.AVAILABLE,
+                    currentGeneration,
+                    ++revision,
+                    position,
+                    entries,
+                    canUndo,
+                    canRedo,
+                    documentId,
+                    managerId);
             return lastSnapshot;
         }
     }
@@ -589,11 +523,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private static final class BindingIdentity extends WeakReference<Object> {
         private final String id;
 
-        private BindingIdentity(
-            final Object referent,
-            final ReferenceQueue<Object> queue,
-            final String id
-        ) {
+        private BindingIdentity(final Object referent, final ReferenceQueue<Object> queue, final String id) {
             super(referent, queue);
             this.id = id;
         }
@@ -614,21 +544,14 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private static <T> T onEdt(final Callable<T> call) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) return call.call();
-        final AtomicReference<T> result = new AtomicReference<>();
-        final AtomicReference<Throwable> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            try {
-                result.set(call.call());
-            } catch (Throwable throwable) {
-                failure.set(throwable);
-            }
-        });
-        if (failure.get() != null) {
-            final Throwable throwable = failure.get();
-            if (throwable instanceof Exception exception) throw exception;
-            throw new InvocationTargetException(throwable);
+        try {
+            return EdtDispatch.callExact("editor history EDT operation", EdtDispatch.DEFAULT_ACCEPT_TIMEOUT, call);
+        } catch (Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            if (failure instanceof Exception exception) throw exception;
+            // Callers catch Exception only; keep non-fatal Errors reachable behind the same
+            // checked wrapper the pre-dispatch handoff produced.
+            throw new java.lang.reflect.InvocationTargetException(failure);
         }
-        return result.get();
     }
 }

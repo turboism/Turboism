@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -47,7 +46,8 @@ public interface AppearanceService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -68,37 +68,38 @@ public interface AppearanceService {
         INSTANCE;
 
         private static final AppearanceStatus STATUS = new AppearanceStatus(
-            AppearanceStatus.Availability.UNAVAILABLE,
-            AppearanceStatus.Source.NATIVE,
-            java.util.Optional.empty(),
-            AppearanceBase.NATIVE,
-            0,
-            java.util.Optional.of("appearance.unavailable")
-        );
+                AppearanceStatus.Availability.UNAVAILABLE,
+                AppearanceStatus.Source.NATIVE,
+                java.util.Optional.empty(),
+                AppearanceBase.NATIVE,
+                0,
+                java.util.Optional.of("appearance.unavailable"));
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public CompletionStage<AppearanceStatus> current() {
+        @Override
+        public CompletionStage<AppearanceStatus> current() {
             return CompletableFuture.completedFuture(STATUS);
         }
 
-        @Override public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
+        @Override
+        public CompletionStage<AppearanceApplyResult> apply(final AppearanceRequest request) {
             java.util.Objects.requireNonNull(request, "request");
             return CompletableFuture.completedFuture(new AppearanceApplyResult(
-                AppearanceApplyResult.Outcome.UNAVAILABLE,
-                STATUS,
-                java.util.Optional.of("appearance.unavailable")
-            ));
+                    AppearanceApplyResult.Outcome.UNAVAILABLE,
+                    STATUS,
+                    java.util.Optional.of("appearance.unavailable")));
         }
 
-        @Override public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
+        @Override
+        public CompletionStage<AppearanceRestoreResult> restoreOwnedAppearance() {
             return CompletableFuture.completedFuture(new AppearanceRestoreResult(
-                AppearanceRestoreResult.Outcome.UNAVAILABLE,
-                STATUS,
-                java.util.Optional.of("appearance.unavailable")
-            ));
+                    AppearanceRestoreResult.Outcome.UNAVAILABLE,
+                    STATUS,
+                    java.util.Optional.of("appearance.unavailable")));
         }
     }
 }

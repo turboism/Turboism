@@ -1,7 +1,6 @@
 package dev.turboism.filechooser;
 
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-
 import java.nio.file.Path;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +56,11 @@ public final class RuntimeFileChooserHistoryService implements FileChooserHistor
     @Override
     public boolean exportSeparationEnabled() {
         return exportSeparationEnabled.getAsBoolean();
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return provider.get() != null;
     }
 
     @Override

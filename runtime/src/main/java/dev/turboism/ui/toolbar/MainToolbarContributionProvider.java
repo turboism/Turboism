@@ -7,7 +7,6 @@ import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -21,10 +20,9 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
     private final EditorUiActionRouter actionRouter;
 
     public MainToolbarContributionProvider(
-        final EditorUiProviderAdmission admission,
-        final MainToolbarHostOperations host,
-        final EditorUiActionRouter actionRouter
-    ) {
+            final EditorUiProviderAdmission admission,
+            final MainToolbarHostOperations host,
+            final EditorUiActionRouter actionRouter) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MAIN_TOOLBAR) {
             throw new IllegalArgumentException("main-toolbar provider requires MAIN_TOOLBAR admission");
@@ -44,17 +42,18 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
     }
 
     @Override
-    public Registration apply(
-        final long hostGeneration,
-        final List<EditorUiContribution<?>> contributions
-    ) {
+    public Registration apply(final long hostGeneration, final List<EditorUiContribution<?>> contributions) {
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("main-toolbar provider admission is stale");
         }
-        final List<MainToolbarContributionDescriptor> descriptors = contributions.stream()
-            .map(MainToolbarContributionDescriptor::from)
-            .toList();
-        final Reconciler reconciler = new Reconciler(descriptors);
+        for (EditorUiContribution<?> contribution : contributions) {
+            if (contribution.descriptor() instanceof ModelingToolbarContributionDescriptor) {
+                ModelingToolbarContributionDescriptor.from(contribution);
+            } else {
+                MainToolbarContributionDescriptor.from(contribution);
+            }
+        }
+        final Reconciler reconciler = new Reconciler(contributions);
         reconciler.reconcile();
         final Registration rebuild = host.onRebuild(reconciler::reconcile);
         final Registration appearance = host.onAppearanceChanged(reconciler::refreshAppearance);
@@ -62,30 +61,54 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
     }
 
     private final class Reconciler implements Registration {
-        private final List<MainToolbarContributionDescriptor> descriptors;
+        private final List<EditorUiContribution<?>> descriptors;
         private List<Registration> nativeButtons = List.of();
         private boolean closed;
 
-        private Reconciler(final List<MainToolbarContributionDescriptor> descriptors) {
+        private Reconciler(final List<EditorUiContribution<?>> descriptors) {
             this.descriptors = List.copyOf(descriptors);
         }
 
-        private synchronized void reconcile() {
+        private void reconcile() {
+            dev.turboism.ui.host.EdtDispatch.call("main-toolbar reconciliation", () -> {
+                reconcileOnEdt();
+                return null;
+            });
+        }
+
+        private void reconcileOnEdt() {
             if (closed) {
                 return;
             }
-            closeAll(nativeButtons);
+            final List<Registration> previous = nativeButtons;
+            nativeButtons = List.of();
+            closeAll(previous);
             final List<Registration> installed = new ArrayList<>();
             try {
-                for (MainToolbarContributionDescriptor descriptor : descriptors) {
-                    final Optional<MainToolbarHostOperations.AnchorHandle> anchor = resolveAnchor(
-                        descriptor.placement()
-                    );
-                    installed.add(Objects.requireNonNull(host.addButton(
-                        descriptor,
-                        anchor,
-                        () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())
-                    ), "host.addButton()"));
+                for (EditorUiContribution<?> contribution : descriptors) {
+                    if (contribution.descriptor() instanceof ModelingToolbarContributionDescriptor) {
+                        host.addModelingButton(ModelingToolbarContributionDescriptor.from(contribution))
+                                .ifPresent(installed::add);
+                        if (closed) {
+                            closeAll(installed);
+                            return;
+                        }
+                        continue;
+                    }
+                    final MainToolbarContributionDescriptor descriptor =
+                            MainToolbarContributionDescriptor.from(contribution);
+                    final Optional<MainToolbarHostOperations.AnchorHandle> anchor =
+                            resolveAnchor(descriptor.placement());
+                    installed.add(Objects.requireNonNull(
+                            host.addButton(
+                                    descriptor,
+                                    anchor,
+                                    () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())),
+                            "host.addButton()"));
+                    if (closed) {
+                        closeAll(installed);
+                        return;
+                    }
                 }
             } catch (RuntimeException | Error failure) {
                 closeAllSuppressing(installed, failure);
@@ -99,18 +122,21 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
         }
 
         private Optional<MainToolbarHostOperations.AnchorHandle> resolveAnchor(
-            final MainToolbarRegistry.Placement placement
-        ) {
+                final MainToolbarRegistry.Placement placement) {
             if (placement.position() == MainToolbarRegistry.Position.FIRST
-                || placement.position() == MainToolbarRegistry.Position.LAST) {
+                    || placement.position() == MainToolbarRegistry.Position.LAST) {
                 return Optional.empty();
             }
             return Optional.of(host.anchor(placement.anchor().orElseThrow())
-                .orElseThrow(() -> new IllegalStateException("main-toolbar semantic anchor is missing")));
+                    .orElseThrow(() -> new IllegalStateException("main-toolbar semantic anchor is missing")));
         }
 
         @Override
-        public synchronized void close() {
+        public void close() {
+            dev.turboism.ui.host.EdtDispatch.runEventually("main-toolbar reconciliation removal", this::closeOnEdt);
+        }
+
+        private void closeOnEdt() {
             if (closed) {
                 return;
             }
@@ -139,10 +165,7 @@ public final class MainToolbarContributionProvider implements EditorUiContributi
         }
     }
 
-    private static void closeAllSuppressing(
-        final List<? extends Registration> registrations,
-        final Throwable failure
-    ) {
+    private static void closeAllSuppressing(final List<? extends Registration> registrations, final Throwable failure) {
         for (int index = registrations.size() - 1; index >= 0; index--) {
             try {
                 registrations.get(index).close();

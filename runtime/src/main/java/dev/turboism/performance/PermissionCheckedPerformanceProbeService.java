@@ -1,12 +1,12 @@
 package dev.turboism.performance;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +14,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Plugin-owned admission and subscription boundary over a performance sampler. */
-public final class PermissionCheckedPerformanceProbeService
-    implements PerformanceProbeService, AutoCloseable {
+public final class PermissionCheckedPerformanceProbeService implements PerformanceProbeService, AutoCloseable {
 
     private final PerformanceProbeService delegate;
     private final PermissionChecker permissionChecker;
@@ -26,17 +25,14 @@ public final class PermissionCheckedPerformanceProbeService
     private boolean delegateClosed;
 
     public PermissionCheckedPerformanceProbeService(
-        final PerformanceProbeService delegate,
-        final PermissionChecker permissionChecker
-    ) {
+            final PerformanceProbeService delegate, final PermissionChecker permissionChecker) {
         this(delegate, permissionChecker, null);
     }
 
     private PermissionCheckedPerformanceProbeService(
-        final PerformanceProbeService delegate,
-        final PermissionChecker permissionChecker,
-        final AutoCloseable ownedDelegate
-    ) {
+            final PerformanceProbeService delegate,
+            final PermissionChecker permissionChecker,
+            final AutoCloseable ownedDelegate) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.ownedDelegate = ownedDelegate;
@@ -53,24 +49,29 @@ public final class PermissionCheckedPerformanceProbeService
      * @throws IllegalStateException when the scope has already closed; owned resources are released
      */
     public static PermissionCheckedPerformanceProbeService bind(
-        final PerformanceProbeService delegate,
-        final PermissionChecker permissionChecker,
-        final DisposableScope scope,
-        final AutoCloseable ownedDelegate
-    ) {
+            final PerformanceProbeService delegate,
+            final PermissionChecker permissionChecker,
+            final DisposableScope scope,
+            final AutoCloseable ownedDelegate) {
         Objects.requireNonNull(scope, "scope");
         final PermissionCheckedPerformanceProbeService service =
-            new PermissionCheckedPerformanceProbeService(delegate, permissionChecker, ownedDelegate);
+                new PermissionCheckedPerformanceProbeService(delegate, permissionChecker, ownedDelegate);
         try {
             scope.register(service);
             return service;
         } catch (RuntimeException | Error failure) {
-            try { service.close(); }
-            catch (RuntimeException | Error cleanup) {
+            try {
+                service.close();
+            } catch (RuntimeException | Error cleanup) {
                 if (cleanup != failure) failure.addSuppressed(cleanup);
             }
             throw failure;
         }
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
     }
 
     @Override
@@ -81,29 +82,24 @@ public final class PermissionCheckedPerformanceProbeService
     }
 
     @Override
-    public Registration sample(
-        final Duration interval,
-        final Consumer<PerformanceSnapshot> consumer
-    ) {
+    public Registration sample(final Duration interval, final Consumer<PerformanceSnapshot> consumer) {
         checkPermission();
         Objects.requireNonNull(interval, "interval");
-        final OwnedRegistration registration = new OwnedRegistration(
-            Objects.requireNonNull(consumer, "consumer")
-        );
+        final OwnedRegistration registration = new OwnedRegistration(Objects.requireNonNull(consumer, "consumer"));
         synchronized (lifecycle) {
             requireOpen();
             registrations.add(registration);
         }
         try {
             // A delegate may block or re-enter scope disposal: never call it under our monitor.
-            registration.bind(Objects.requireNonNull(
-                delegate.sample(interval, registration::deliver), "sampling registration"
-            ));
+            registration.bind(
+                    Objects.requireNonNull(delegate.sample(interval, registration::deliver), "sampling registration"));
             requireOpen();
             return registration;
         } catch (RuntimeException | Error failure) {
-            try { registration.close(); }
-            catch (RuntimeException | Error cleanup) {
+            try {
+                registration.close();
+            } catch (RuntimeException | Error cleanup) {
                 if (cleanup != failure) failure.addSuppressed(cleanup);
             }
             throw failure;
@@ -111,7 +107,8 @@ public final class PermissionCheckedPerformanceProbeService
     }
 
     /** Cancels future callbacks; a callback admitted before closing may finish without blocking disposal. */
-    @Override public void close() {
+    @Override
+    public void close() {
         final List<OwnedRegistration> pending;
         synchronized (lifecycle) {
             closed = true;
@@ -119,8 +116,12 @@ public final class PermissionCheckedPerformanceProbeService
         }
         Throwable failure = null;
         for (OwnedRegistration registration : pending) {
-            try { registration.close(); }
-            catch (Throwable cleanup) { failure = append(failure, cleanup); }
+            try {
+                registration.close();
+            } catch (Throwable cleanup) {
+                FatalErrors.rethrowIfFatal(cleanup);
+                failure = append(failure, cleanup);
+            }
         }
         synchronized (lifecycle) {
             if (ownedDelegate != null && !delegateClosed) {
@@ -128,6 +129,7 @@ public final class PermissionCheckedPerformanceProbeService
                     ownedDelegate.close();
                     delegateClosed = true;
                 } catch (Throwable cleanup) {
+                    FatalErrors.rethrowIfFatal(cleanup);
                     failure = append(failure, cleanup);
                 }
             }
@@ -183,7 +185,8 @@ public final class PermissionCheckedPerformanceProbeService
             if (admitted != null) admitted.accept(snapshot);
         }
 
-        @Override public void close() {
+        @Override
+        public void close() {
             final Registration toClose;
             synchronized (this) {
                 if (cancelled) return;
@@ -192,7 +195,9 @@ public final class PermissionCheckedPerformanceProbeService
                 toClose = handle;
                 handle = null;
             }
-            synchronized (lifecycle) { registrations.remove(this); }
+            synchronized (lifecycle) {
+                registrations.remove(this);
+            }
             if (toClose != null) toClose.close();
         }
     }

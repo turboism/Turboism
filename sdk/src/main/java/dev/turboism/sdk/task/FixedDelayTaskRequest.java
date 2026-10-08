@@ -20,13 +20,12 @@ import java.util.Objects;
  * @param action the work to run on each repetition
  */
 public record FixedDelayTaskRequest(
-    TaskId id,
-    PluginTaskKind kind,
-    PluginTaskPriority priority,
-    Duration initialDelay,
-    Duration delay,
-    PluginTaskAction action
-) {
+        TaskId id,
+        PluginTaskKind kind,
+        PluginTaskPriority priority,
+        Duration initialDelay,
+        Duration delay,
+        PluginTaskAction action) {
     /**
      * Validates the record components.
      *

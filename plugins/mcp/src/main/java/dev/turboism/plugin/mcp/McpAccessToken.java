@@ -36,8 +36,7 @@ final class McpAccessToken {
      * foreign owners) are rejected rather than overwritten.
      */
     static McpAccessToken loadOrCreate(final Path stateDir) throws IOException {
-        final Path file = Objects.requireNonNull(stateDir, "stateDir")
-            .resolve(FILE_NAME);
+        final Path file = Objects.requireNonNull(stateDir, "stateDir").resolve(FILE_NAME);
         final String existing = readTrusted(file);
         if (existing != null) return new McpAccessToken(existing, file);
         final byte[] generated = new byte[32];
@@ -48,11 +47,7 @@ final class McpAccessToken {
             hex.append(Character.forDigit(value & 0xF, 16));
         }
         final String token = hex.toString();
-        McpStateFiles.publish(
-            file,
-            ".mcp-token-",
-            (token + "\n").getBytes(StandardCharsets.UTF_8)
-        );
+        McpStateFiles.publish(file, ".mcp-token-", (token + "\n").getBytes(StandardCharsets.UTF_8));
         return new McpAccessToken(token, file);
     }
 
@@ -66,14 +61,13 @@ final class McpAccessToken {
     /** Constant-time check that a request carries {@code Authorization: Bearer <token>}. */
     boolean accepts(final String authorizationHeader) {
         if (authorizationHeader == null
-            || !authorizationHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+                || !authorizationHeader.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
             return false;
         }
-        final String presented = authorizationHeader.substring(BEARER_PREFIX.length()).strip();
+        final String presented =
+                authorizationHeader.substring(BEARER_PREFIX.length()).strip();
         return MessageDigest.isEqual(
-            value.getBytes(StandardCharsets.UTF_8),
-            presented.getBytes(StandardCharsets.UTF_8)
-        );
+                value.getBytes(StandardCharsets.UTF_8), presented.getBytes(StandardCharsets.UTF_8));
     }
 
     Path file() {

@@ -1,17 +1,15 @@
 package dev.turboism.adapter.jdk;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PipeImplLoopbackInstallerTest {
 
@@ -21,10 +19,7 @@ class PipeImplLoopbackInstallerTest {
         final List<String> diagnostics = new ArrayList<>();
 
         final PipeImplLoopbackInstaller.Installation installation =
-            PipeImplLoopbackInstaller.install(
-                instrumentation(calls, false, false),
-                diagnostics::add
-            );
+                PipeImplLoopbackInstaller.install(instrumentation(calls, false, false), diagnostics::add);
 
         assertEquals(PipeImplLoopbackInstaller.Status.INSTALLED, installation.status());
         assertEquals(List.of("add:false"), calls);
@@ -44,15 +39,9 @@ class PipeImplLoopbackInstallerTest {
         final List<String> diagnostics = new ArrayList<>();
 
         final PipeImplLoopbackInstaller.Installation installation =
-            PipeImplLoopbackInstaller.install(
-                instrumentation(calls, true, false),
-                diagnostics::add
-            );
+                PipeImplLoopbackInstaller.install(instrumentation(calls, true, false), diagnostics::add);
 
-        assertEquals(
-            PipeImplLoopbackInstaller.Status.TARGET_ALREADY_LOADED,
-            installation.status()
-        );
+        assertEquals(PipeImplLoopbackInstaller.Status.TARGET_ALREADY_LOADED, installation.status());
         assertEquals(List.of(), calls);
         assertEquals(List.of("PIPE_IMPL_SHIM_TARGET_ALREADY_LOADED"), diagnostics);
         assertEquals("NOT_INSTALLED", installation.transformOutcome());
@@ -64,10 +53,7 @@ class PipeImplLoopbackInstallerTest {
         final List<String> diagnostics = new ArrayList<>();
 
         final PipeImplLoopbackInstaller.Installation installation =
-            PipeImplLoopbackInstaller.install(
-                instrumentation(calls, false, true),
-                diagnostics::add
-            );
+                PipeImplLoopbackInstaller.install(instrumentation(calls, false, true), diagnostics::add);
 
         assertEquals(PipeImplLoopbackInstaller.Status.INSTALL_FAILED, installation.status());
         assertEquals(List.of("remove"), calls);
@@ -81,24 +67,14 @@ class PipeImplLoopbackInstallerTest {
         final List<String> diagnostics = new ArrayList<>();
         final List<ClassFileTransformer> installed = new ArrayList<>();
 
-        final PipeImplLoopbackInstaller.Installation installation =
-            PipeImplLoopbackInstaller.install(
-                capturingInstrumentation(calls, installed, false, false),
-                diagnostics::add
-            );
+        final PipeImplLoopbackInstaller.Installation installation = PipeImplLoopbackInstaller.install(
+                capturingInstrumentation(calls, installed, false, false), diagnostics::add);
 
         assertEquals(PipeImplLoopbackInstaller.Status.INSTALLED, installation.status());
         assertEquals(1, installed.size());
 
         final byte[] fixture = PipeImplSyntheticFixture.valid();
-        final byte[] transformed = installed.get(0).transform(
-            null,
-            null,
-            "sun/nio/ch/PipeImpl",
-            null,
-            null,
-            fixture
-        );
+        final byte[] transformed = installed.get(0).transform(null, null, "sun/nio/ch/PipeImpl", null, null, fixture);
 
         assertNotNull(transformed);
         assertEquals("TRANSFORMED", installation.transformOutcome());
@@ -108,11 +84,7 @@ class PipeImplLoopbackInstallerTest {
         installation.close();
         final int afterClose = count(calls, "remove");
         installation.close();
-        assertEquals(
-            afterClose,
-            count(calls, "remove"),
-            "close after self-removal stays idempotent"
-        );
+        assertEquals(afterClose, count(calls, "remove"), "close after self-removal stays idempotent");
         assertEquals(afterTransform + 1, afterClose);
     }
 
@@ -121,57 +93,49 @@ class PipeImplLoopbackInstallerTest {
     }
 
     private Instrumentation instrumentation(
-        final List<String> calls,
-        final boolean alreadyLoaded,
-        final boolean failAdd
-    ) {
+            final List<String> calls, final boolean alreadyLoaded, final boolean failAdd) {
         return capturingInstrumentation(calls, new ArrayList<>(), alreadyLoaded, failAdd);
     }
 
     private Instrumentation capturingInstrumentation(
-        final List<String> calls,
-        final List<ClassFileTransformer> installed,
-        final boolean alreadyLoaded,
-        final boolean failAdd
-    ) {
+            final List<String> calls,
+            final List<ClassFileTransformer> installed,
+            final boolean alreadyLoaded,
+            final boolean failAdd) {
         return (Instrumentation) Proxy.newProxyInstance(
-            getClass().getClassLoader(),
-            new Class<?>[]{Instrumentation.class},
-            (proxy, method, arguments) -> {
-                if (method.getName().equals("addTransformer")) {
-                    if (failAdd) {
-                        throw new RuntimeException("addTransformer refused");
-                    }
-                    calls.add("add:" + arguments[1]);
-                    installed.add((ClassFileTransformer) arguments[0]);
-                    return null;
-                }
-                if (method.getName().equals("removeTransformer")) {
-                    calls.add("remove");
-                    return true;
-                }
-                if (method.getName().equals("getAllLoadedClasses")) {
-                    if (alreadyLoaded) {
-                        try {
-                            return new Class<?>[]{Class.forName("sun.nio.ch.PipeImpl")};
-                        } catch (ClassNotFoundException unavailable) {
-                            return new Class<?>[0];
+                getClass().getClassLoader(), new Class<?>[] {Instrumentation.class}, (proxy, method, arguments) -> {
+                    if (method.getName().equals("addTransformer")) {
+                        if (failAdd) {
+                            throw new RuntimeException("addTransformer refused");
                         }
+                        calls.add("add:" + arguments[1]);
+                        installed.add((ClassFileTransformer) arguments[0]);
+                        return null;
                     }
-                    return new Class<?>[0];
-                }
-                if (method.getReturnType() == boolean.class) {
-                    return false;
-                }
-                if (method.getReturnType() == int.class) {
-                    return 0;
-                }
-                if (method.getReturnType() == long.class) {
-                    return 0L;
-                }
-                return null;
-            }
-        );
+                    if (method.getName().equals("removeTransformer")) {
+                        calls.add("remove");
+                        return true;
+                    }
+                    if (method.getName().equals("getAllLoadedClasses")) {
+                        if (alreadyLoaded) {
+                            try {
+                                return new Class<?>[] {Class.forName("sun.nio.ch.PipeImpl")};
+                            } catch (ClassNotFoundException unavailable) {
+                                return new Class<?>[0];
+                            }
+                        }
+                        return new Class<?>[0];
+                    }
+                    if (method.getReturnType() == boolean.class) {
+                        return false;
+                    }
+                    if (method.getReturnType() == int.class) {
+                        return 0;
+                    }
+                    if (method.getReturnType() == long.class) {
+                        return 0L;
+                    }
+                    return null;
+                });
     }
-
 }

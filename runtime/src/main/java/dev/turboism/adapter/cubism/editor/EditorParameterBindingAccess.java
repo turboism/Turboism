@@ -2,8 +2,8 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
@@ -11,10 +11,9 @@ import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
 import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
-
-import java.util.EnumSet;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -55,34 +54,39 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterBindingAccess(
-        final VerifiedMemberResolver resolver,
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final ParameterId parameterId,
-        final CurrentGuard currentGuard,
-        final BindingReader bindingReader,
-        final TargetLookup targetLookup,
-        final ParameterSourceLookup parameterSourceLookup
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final ParameterId parameterId,
+            final CurrentGuard currentGuard,
+            final BindingReader bindingReader,
+            final TargetLookup targetLookup,
+            final ParameterSourceLookup parameterSourceLookup) {
         this(
-            resolver, identity, modelSource, model, parameterId,
-            currentGuard, bindingReader, targetLookup, parameterSourceLookup, null
-        );
+                resolver,
+                identity,
+                modelSource,
+                model,
+                parameterId,
+                currentGuard,
+                bindingReader,
+                targetLookup,
+                parameterSourceLookup,
+                null);
     }
 
     EditorParameterBindingAccess(
-        final VerifiedMemberResolver resolver,
-        final String identity,
-        final Object modelSource,
-        final Object model,
-        final ParameterId parameterId,
-        final CurrentGuard currentGuard,
-        final BindingReader bindingReader,
-        final TargetLookup targetLookup,
-        final ParameterSourceLookup parameterSourceLookup,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String identity,
+            final Object modelSource,
+            final Object model,
+            final ParameterId parameterId,
+            final CurrentGuard currentGuard,
+            final BindingReader bindingReader,
+            final TargetLookup targetLookup,
+            final ParameterSourceLookup parameterSourceLookup,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.identity = Objects.requireNonNull(identity, "identity");
         this.modelSource = Objects.requireNonNull(modelSource, "modelSource");
@@ -125,30 +129,26 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         });
     }
 
-    private void createPointOnEdt(
-        final ParameterBindingTarget target,
-        final ParameterBindingPoint point
-    ) {
+    private void createPointOnEdt(final ParameterBindingTarget target, final ParameterBindingPoint point) {
         Objects.requireNonNull(point, "point");
         final ParameterBinding current = requireBinding(target);
-        final ArrayList<Float> desired = new ArrayList<>(current.points().stream()
-            .map(ParameterBindingPoint::value).toList());
+        final ArrayList<Float> desired = new ArrayList<>(
+                current.points().stream().map(ParameterBindingPoint::value).toList());
         requireAbsent(desired, point.value());
         desired.sort(Float::compare);
-        mutate(target, "Create Parameter Binding Point", grid -> resolver.invoke(
-            "cubism.editor-model.keyform-grid.add-key",
-            grid,
-            Float.valueOf(point.value()),
-            parameterGuid()
-        ));
+        mutate(
+                target,
+                "Create Parameter Binding Point",
+                grid -> resolver.invoke(
+                        "cubism.editor-model.keyform-grid.add-key",
+                        grid,
+                        Float.valueOf(point.value()),
+                        parameterGuid()));
     }
 
     @Override
     public void movePoint(
-        final ParameterBindingTarget target,
-        final ParameterBindingPointId pointId,
-        final float value
-    ) {
+            final ParameterBindingTarget target, final ParameterBindingPointId pointId, final float value) {
         EditorHostThread.dispatch("Cubism parameter binding write", () -> {
             movePointOnEdt(target, pointId, value);
             return null;
@@ -156,10 +156,7 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     }
 
     private void movePointOnEdt(
-        final ParameterBindingTarget target,
-        final ParameterBindingPointId pointId,
-        final float value
-    ) {
+            final ParameterBindingTarget target, final ParameterBindingPointId pointId, final float value) {
         if (!Float.isFinite(value)) throw new IllegalArgumentException("value must be finite");
         final ParameterBinding current = requireBinding(target);
         final int index = pointIndex(current, Objects.requireNonNull(pointId, "pointId"));
@@ -173,42 +170,37 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         final ArrayList<Float> after = new ArrayList<>(before);
         after.set(index, value);
         after.sort(Float::compare);
-        mutate(target, "Move Parameter Binding Point", grid -> resolver.invoke(
-            "cubism.editor-model.keyform-grid.rearrange-keys",
-            grid,
-            parameterGuid(),
-            List.copyOf(before),
-            List.copyOf(after)
-        ));
+        mutate(
+                target,
+                "Move Parameter Binding Point",
+                grid -> resolver.invoke(
+                        "cubism.editor-model.keyform-grid.rearrange-keys",
+                        grid,
+                        parameterGuid(),
+                        List.copyOf(before),
+                        List.copyOf(after)));
     }
 
     @Override
-    public void deletePoint(
-        final ParameterBindingTarget target,
-        final ParameterBindingPointId pointId
-    ) {
+    public void deletePoint(final ParameterBindingTarget target, final ParameterBindingPointId pointId) {
         EditorHostThread.dispatch("Cubism parameter binding write", () -> {
             deletePointOnEdt(target, pointId);
             return null;
         });
     }
 
-    private void deletePointOnEdt(
-        final ParameterBindingTarget target,
-        final ParameterBindingPointId pointId
-    ) {
+    private void deletePointOnEdt(final ParameterBindingTarget target, final ParameterBindingPointId pointId) {
         final ParameterBinding current = requireBinding(target);
         if (current.points().size() == 1) {
             throw new IllegalStateException("Deleting the last binding point is not allowed; use unbind.");
         }
         final int index = pointIndex(current, Objects.requireNonNull(pointId, "pointId"));
         final float value = current.points().get(index).value();
-        mutate(target, "Delete Parameter Binding Point", grid -> resolver.invoke(
-            "cubism.editor-model.keyform-grid.remove-key",
-            grid,
-            Float.valueOf(value),
-            parameterGuid()
-        ));
+        mutate(
+                target,
+                "Delete Parameter Binding Point",
+                grid -> resolver.invoke(
+                        "cubism.editor-model.keyform-grid.remove-key", grid, Float.valueOf(value), parameterGuid()));
     }
 
     @Override
@@ -221,130 +213,98 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
 
     private void unbindOnEdt(final ParameterBindingTarget target) {
         if (binding(target) == null) return;
-        mutate(target, "Unbind Parameter", grid -> resolver.invoke(
-            "cubism.editor-model.keyform-grid.remove-all-key",
-            grid,
-            resolver.invoke("cubism.editor-model.model.parameter-set", model),
-            parameterGuid()
-        ));
+        mutate(
+                target,
+                "Unbind Parameter",
+                grid -> resolver.invoke(
+                        "cubism.editor-model.keyform-grid.remove-all-key",
+                        grid,
+                        resolver.invoke("cubism.editor-model.model.parameter-set", model),
+                        parameterGuid()));
     }
 
     private void mutate(
-        final ParameterBindingTarget target,
-        final String action,
-        final java.util.function.Consumer<Object> mutation
-    ) {
+            final ParameterBindingTarget target,
+            final String action,
+            final java.util.function.Consumer<Object> mutation) {
         EditorHostThread.requireHostThread("Cubism parameter binding write");
         requireAuthorized(target.type());
         currentGuard.requireCurrent(identity, model);
         final Object objectSource = targetLookup.find(identity, modelSource, model, target);
-        final Object grid = resolver.invoke(
-            "cubism.editor-model.parameter-controllable.keyform-grid",
-            objectSource
-        );
+        final Object grid = resolver.invoke("cubism.editor-model.parameter-controllable.keyform-grid", objectSource);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document",
-            app
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.parameter-binding.mutate",
-                "binding:" + target.type() + ":" + action,
-                "Turboism: " + action,
-                (edit, transactionLabel) -> {
-                    final Object handler = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-source.handler",
-                        objectSource);
-                    final Object undo = resolver.invoke(
-                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                        handler, "Turboism: " + action);
-                    HostUndoMutationScope.requireUndoAccepted(
-                        resolver.invoke("cubism.editor-model.undo.add", edit, undo,
-                            Boolean.TRUE), "parameter-binding");
-                    final Object listener = resolver.createFunctionalProxy(
-                        "cubism.editor-model.undo-listener.class",
-                        ignored -> {
-                            refresh(app, target.type());
-                            return null;
-                        });
-                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-                },
-                () -> mutation.accept(grid),
-                () -> true,
-                bindingRequirements(target.type())
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.parameter-binding.mutate",
+                            "binding:" + target.type() + ":" + action,
+                            "Turboism: " + action,
+                            (edit, transactionLabel) -> {
+                                final Object handler = resolver.invoke(
+                                        "cubism.editor-model.parameter-controllable-source.handler", objectSource);
+                                final Object undo = resolver.invoke(
+                                        "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                                        handler,
+                                        "Turboism: " + action);
+                                HostUndoMutationScope.requireUndoAccepted(
+                                        resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE),
+                                        "parameter-binding");
+                                final Object listener = resolver.createFunctionalProxy(
+                                        "cubism.editor-model.undo-listener.class", ignored -> {
+                                            refresh(app, target.type());
+                                            return null;
+                                        });
+                                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                            },
+                            () -> mutation.accept(grid),
+                            () -> true,
+                            bindingRequirements(target.type()));
             currentGuard.requireCurrent(identity, model);
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter binding " + action
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode",
-            document
-        );
-        final Object edit = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin",
-            editMode,
-            "Turboism: " + action
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter binding " + action);
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: " + action);
         boolean completed = false;
         try {
-            final Object handler = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.handler",
-                objectSource
-            );
+            final Object handler =
+                    resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
             final Object undo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                handler,
-                "Turboism: " + action
-            );
-            final Object accepted = resolver.invoke(
-                "cubism.editor-model.undo.add",
-                edit,
-                undo,
-                Boolean.TRUE
-            );
+                    "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+                    handler,
+                    "Turboism: " + action);
+            final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
             if (!(accepted instanceof Boolean value) || !value) {
                 throw new IllegalStateException("Cubism rejected the parameter-binding Undo entry.");
             }
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    refresh(app, target.type());
-                    return null;
-                }
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        refresh(app, target.type());
+                        return null;
+                    });
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             mutation.accept(grid);
             refresh(app, target.type());
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         currentGuard.requireCurrent(identity, model);
     }
 
-    private static java.util.Set<EditorRefreshRequirement> bindingRequirements(
-        final ParameterBindingTargetType type
-    ) {
+    private static java.util.Set<EditorRefreshRequirement> bindingRequirements(final ParameterBindingTargetType type) {
         return EnumSet.of(
-            EditorRefreshRequirement.MODEL_INSTANCES,
-            EditorRefreshRequirement.PARAMETER_PALETTE,
-            type == ParameterBindingTargetType.ART_MESH
-                ? EditorRefreshRequirement.PART_PALETTE
-                : EditorRefreshRequirement.DEFORMER_PALETTE,
-            EditorRefreshRequirement.CANVAS,
-            EditorRefreshRequirement.MARK_DIRTY
-        );
+                EditorRefreshRequirement.MODEL_INSTANCES,
+                EditorRefreshRequirement.PARAMETER_PALETTE,
+                type == ParameterBindingTargetType.ART_MESH
+                        ? EditorRefreshRequirement.PART_PALETTE
+                        : EditorRefreshRequirement.DEFORMER_PALETTE,
+                EditorRefreshRequirement.CANVAS,
+                EditorRefreshRequirement.MARK_DIRTY);
     }
 
     private void refresh(final Object app, final ParameterBindingTargetType type) {
@@ -360,19 +320,18 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
     }
 
     private void requireAuthorized(final ParameterBindingTargetType type) {
-        final String capability = switch (type) {
-            case ART_MESH -> EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID;
-            case WARP_DEFORMER -> EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID;
-            case ROTATION_DEFORMER -> EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID;
-        };
+        final String capability =
+                switch (type) {
+                    case ART_MESH -> EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID;
+                    case WARP_DEFORMER -> EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID;
+                    case ROTATION_DEFORMER -> EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID;
+                };
         if (!resolver.authorizesFeature(
-            EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
-            capability,
-            EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorParameterBindingWriteSelectorContract.ADAPTER_SLICE_ID,
+                capability,
+                EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Editor parameter-binding writes require exact verified host evidence for " + type + "."
-            );
+                    "Editor parameter-binding writes require exact verified host evidence for " + type + ".");
         }
     }
 
@@ -386,34 +345,27 @@ final class EditorParameterBindingAccess implements ParameterBindingOperations {
         Objects.requireNonNull(target, "target");
         currentGuard.requireCurrent(identity, model);
         return bindingReader.read(identity, modelSource, model, parameterId).stream()
-            .filter(value -> value.target().equals(target))
-            .findFirst()
-            .orElse(null);
+                .filter(value -> value.target().equals(target))
+                .findFirst()
+                .orElse(null);
     }
 
     private Object parameterGuid() {
         return resolver.invoke(
-            "cubism.editor-model.parameter-source.guid",
-            parameterSourceLookup.find(model, parameterId)
-        );
+                "cubism.editor-model.parameter-source.guid", parameterSourceLookup.find(model, parameterId));
     }
 
-    private static ArrayList<Float> values(
-        final List<ParameterBindingPoint> points,
-        final boolean requireNonEmpty
-    ) {
+    private static ArrayList<Float> values(final List<ParameterBindingPoint> points, final boolean requireNonEmpty) {
         final List<ParameterBindingPoint> copy = List.copyOf(Objects.requireNonNull(points, "points"));
         if (requireNonEmpty && copy.isEmpty()) throw new IllegalArgumentException("points must not be empty");
         final ArrayList<Float> values = new ArrayList<>(copy.size());
-        for (ParameterBindingPoint point : copy) requireAbsent(values, Objects.requireNonNull(point, "point").value());
+        for (ParameterBindingPoint point : copy)
+            requireAbsent(values, Objects.requireNonNull(point, "point").value());
         values.sort(Comparator.naturalOrder());
         return values;
     }
 
-    private static int pointIndex(
-        final ParameterBinding binding,
-        final ParameterBindingPointId pointId
-    ) {
+    private static int pointIndex(final ParameterBinding binding, final ParameterBindingPointId pointId) {
         for (int index = 0; index < binding.points().size(); index++) {
             if (binding.points().get(index).id().equals(pointId)) return index;
         }

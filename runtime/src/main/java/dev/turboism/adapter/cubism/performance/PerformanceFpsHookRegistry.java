@@ -13,7 +13,7 @@ public final class PerformanceFpsHookRegistry {
 
     private static final AtomicReference<PerformanceFpsHook> PUBLISHED = new AtomicReference<>();
 
-    private PerformanceFpsHookRegistry() { }
+    private PerformanceFpsHookRegistry() {}
 
     /** Publishes the agent-owned hook. Rejects a second publisher. */
     public static void publish(final PerformanceFpsHook hook) {

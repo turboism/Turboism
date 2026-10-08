@@ -56,8 +56,7 @@ public interface AnimationScene {
      */
     default int playheadFrame() {
         throw new UnsupportedOperationException(
-            "Animation scene playhead access is unavailable without exact verified host evidence."
-        );
+                "Animation scene playhead access is unavailable without exact verified host evidence.");
     }
 
     /**
@@ -70,8 +69,7 @@ public interface AnimationScene {
      */
     default void seekTo(final int frame) {
         throw new UnsupportedOperationException(
-            "Animation scene playback control is unavailable without exact verified host evidence."
-        );
+                "Animation scene playback control is unavailable without exact verified host evidence.");
     }
 
     /**
@@ -82,8 +80,7 @@ public interface AnimationScene {
      */
     default boolean current() {
         throw new UnsupportedOperationException(
-            "Animation scene activation state is unavailable without exact verified host evidence."
-        );
+                "Animation scene activation state is unavailable without exact verified host evidence.");
     }
 
     /**
@@ -95,8 +92,7 @@ public interface AnimationScene {
      */
     default void activate() {
         throw new UnsupportedOperationException(
-            "Animation scene activation is unavailable without exact verified host evidence."
-        );
+                "Animation scene activation is unavailable without exact verified host evidence.");
     }
 
     /**
@@ -108,8 +104,7 @@ public interface AnimationScene {
      */
     default AnimationCurveType defaultCurveType() {
         throw new UnsupportedOperationException(
-            "Animation scene curve defaults are unavailable without exact verified host evidence."
-        );
+                "Animation scene curve defaults are unavailable without exact verified host evidence.");
     }
 
     /**
@@ -122,8 +117,7 @@ public interface AnimationScene {
     default void setDefaultCurveType(final AnimationCurveType curveType) {
         java.util.Objects.requireNonNull(curveType, "curveType");
         throw new UnsupportedOperationException(
-            "Animation scene curve defaults are unavailable without exact verified host evidence."
-        );
+                "Animation scene curve defaults are unavailable without exact verified host evidence.");
     }
 
     /**
@@ -138,7 +132,6 @@ public interface AnimationScene {
             throw new IllegalArgumentException("scene name must be non-blank");
         }
         throw new UnsupportedOperationException(
-            "Animation scene renaming is unavailable without exact verified host evidence."
-        );
+                "Animation scene renaming is unavailable without exact verified host evidence.");
     }
 }

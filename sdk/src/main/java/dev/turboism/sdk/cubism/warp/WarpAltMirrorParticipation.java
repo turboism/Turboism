@@ -25,8 +25,7 @@ public interface WarpAltMirrorParticipation {
      * 2 = horizontal grid axis. While armed, every committed Warp control-point
      * drag is mirrored across the armed axis.
      */
-    default void setArmedAxis(final int axis) {
-    }
+    default void setArmedAxis(final int axis) {}
 
     /**
      * @return whether the reviewed native drag-tick hook is installed and bound in
@@ -36,9 +35,30 @@ public interface WarpAltMirrorParticipation {
     boolean nativeMirrorActive();
 
     /**
+     * @return how many mirrored selection-weight writes the bridge applied this
+     *     session. Validation probes assert this increments after a weighted
+     *     brush stroke while an axis is armed; default 0 for implementers that
+     *     do not expose the counter.
+     */
+    default int weightMirrorAppliedCount() {
+        return 0;
+    }
+
+    /** @return the source point index of the last mirrored weight write, or -1. */
+    default int weightMirrorLastSourceIndex() {
+        return -1;
+    }
+
+    /** @return the counterpart point index of the last mirrored weight write, or -1. */
+    default int weightMirrorLastCounterpartIndex() {
+        return -1;
+    }
+
+    /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -57,25 +77,28 @@ public interface WarpAltMirrorParticipation {
     enum Unavailable implements WarpAltMirrorParticipation {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration participate() {
+        @Override
+        public Registration participate() {
             throw unavailableFailure();
         }
 
-        @Override public void setArmedAxis(final int axis) {
+        @Override
+        public void setArmedAxis(final int axis) {
             throw unavailableFailure();
         }
 
-        @Override public boolean nativeMirrorActive() {
+        @Override
+        public boolean nativeMirrorActive() {
             throw unavailableFailure();
         }
 
         private static UnsupportedOperationException unavailableFailure() {
-            return new UnsupportedOperationException(
-                "warpAltMirrorParticipation service is not available");
+            return new UnsupportedOperationException("warpAltMirrorParticipation service is not available");
         }
     }
 }

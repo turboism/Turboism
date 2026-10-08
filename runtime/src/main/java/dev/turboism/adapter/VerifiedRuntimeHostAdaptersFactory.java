@@ -2,13 +2,12 @@ package dev.turboism.adapter;
 
 import dev.turboism.adapter.host.HostVerificationEvidence;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
+import dev.turboism.mapping.verification.VerifiedAutoBackupResolverFactory;
 import dev.turboism.mapping.verification.VerifiedClipMaskResolverFactory;
 import dev.turboism.mapping.verification.VerifiedEmbeddedPanelResolverFactory;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
 import dev.turboism.mapping.verification.VerifiedStatusBarResolverFactory;
-import dev.turboism.mapping.verification.VerifiedAutoBackupResolverFactory;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -31,24 +30,21 @@ public final class VerifiedRuntimeHostAdaptersFactory {
 
     public VerifiedRuntimeHostAdaptersFactory() {
         this(
-            new VerifiedProjectWorkspaceResolverFactory(),
-            new VerifiedClipMaskResolverFactory(),
-            new VerifiedStatusBarResolverFactory(),
-            () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
-            ignored -> { }
-        );
+                new VerifiedProjectWorkspaceResolverFactory(),
+                new VerifiedClipMaskResolverFactory(),
+                new VerifiedStatusBarResolverFactory(),
+                () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                ignored -> {});
     }
 
     /** Production factory: receives the one startup-resolved effective locale. */
     public VerifiedRuntimeHostAdaptersFactory(final java.util.Locale effectiveLocale) {
-        this(effectiveLocale, ignored -> { });
+        this(effectiveLocale, ignored -> {});
     }
 
     /** Production factory with a sanitized recent-preview diagnostics sink. */
     public VerifiedRuntimeHostAdaptersFactory(
-        final java.util.Locale effectiveLocale,
-        final Consumer<String> diagnostics
-    ) {
+            final java.util.Locale effectiveLocale, final Consumer<String> diagnostics) {
         this(fixedLocale(effectiveLocale), diagnostics);
     }
 
@@ -56,78 +52,76 @@ public final class VerifiedRuntimeHostAdaptersFactory {
      * Production factory: receives the runtime's shared effective-locale source, so
      * locale settled after this factory's composition is honored at render time.
      */
-    public VerifiedRuntimeHostAdaptersFactory(
-        final java.util.function.Supplier<java.util.Locale> effectiveLocale
-    ) {
-        this(effectiveLocale, ignored -> { });
+    public VerifiedRuntimeHostAdaptersFactory(final java.util.function.Supplier<java.util.Locale> effectiveLocale) {
+        this(effectiveLocale, ignored -> {});
     }
 
     /** Production factory with an effective-locale source and a sanitized diagnostics sink. */
     public VerifiedRuntimeHostAdaptersFactory(
-        final java.util.function.Supplier<java.util.Locale> effectiveLocale,
-        final Consumer<String> diagnostics
-    ) {
+            final java.util.function.Supplier<java.util.Locale> effectiveLocale, final Consumer<String> diagnostics) {
         this(
-            new VerifiedProjectWorkspaceResolverFactory(),
-            new VerifiedClipMaskResolverFactory(),
-            new VerifiedStatusBarResolverFactory(),
-            effectiveLocale,
-            diagnostics
-        );
+                new VerifiedProjectWorkspaceResolverFactory(),
+                new VerifiedClipMaskResolverFactory(),
+                new VerifiedStatusBarResolverFactory(),
+                effectiveLocale,
+                diagnostics);
     }
 
     VerifiedRuntimeHostAdaptersFactory(
-        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
-        final VerifiedClipMaskResolverFactory clipMaskResolverFactory
-    ) {
+            final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+            final VerifiedClipMaskResolverFactory clipMaskResolverFactory) {
         this(
-            projectResolverFactory,
-            clipMaskResolverFactory,
-            new VerifiedStatusBarResolverFactory(),
-            () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
-            ignored -> { }
-        );
+                projectResolverFactory,
+                clipMaskResolverFactory,
+                new VerifiedStatusBarResolverFactory(),
+                () -> java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+                ignored -> {});
     }
 
     VerifiedRuntimeHostAdaptersFactory(
-        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
-        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
-        final VerifiedStatusBarResolverFactory statusBarResolverFactory
-    ) {
+            final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+            final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+            final VerifiedStatusBarResolverFactory statusBarResolverFactory) {
         this(
-            projectResolverFactory,
-            clipMaskResolverFactory,
-            statusBarResolverFactory,
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY)
-        );
+                projectResolverFactory,
+                clipMaskResolverFactory,
+                statusBarResolverFactory,
+                java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY));
     }
 
     VerifiedRuntimeHostAdaptersFactory(
-        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
-        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
-        final VerifiedStatusBarResolverFactory statusBarResolverFactory,
-        final java.util.Locale locale
-    ) {
-        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, fixedLocale(locale), ignored -> { });
+            final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+            final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+            final VerifiedStatusBarResolverFactory statusBarResolverFactory,
+            final java.util.Locale locale) {
+        this(
+                projectResolverFactory,
+                clipMaskResolverFactory,
+                statusBarResolverFactory,
+                fixedLocale(locale),
+                ignored -> {});
     }
 
     VerifiedRuntimeHostAdaptersFactory(
-        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
-        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
-        final VerifiedStatusBarResolverFactory statusBarResolverFactory,
-        final java.util.Locale locale,
-        final Consumer<String> diagnostics
-    ) {
-        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, fixedLocale(locale), diagnostics);
+            final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+            final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+            final VerifiedStatusBarResolverFactory statusBarResolverFactory,
+            final java.util.Locale locale,
+            final Consumer<String> diagnostics) {
+        this(
+                projectResolverFactory,
+                clipMaskResolverFactory,
+                statusBarResolverFactory,
+                fixedLocale(locale),
+                diagnostics);
     }
 
     VerifiedRuntimeHostAdaptersFactory(
-        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
-        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
-        final VerifiedStatusBarResolverFactory statusBarResolverFactory,
-        final java.util.function.Supplier<java.util.Locale> locale,
-        final Consumer<String> diagnostics
-    ) {
+            final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+            final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+            final VerifiedStatusBarResolverFactory statusBarResolverFactory,
+            final java.util.function.Supplier<java.util.Locale> locale,
+            final Consumer<String> diagnostics) {
         this.projectResolverFactory = Objects.requireNonNull(projectResolverFactory, "projectResolverFactory");
         this.clipMaskResolverFactory = Objects.requireNonNull(clipMaskResolverFactory, "clipMaskResolverFactory");
         this.statusBarResolverFactory = Objects.requireNonNull(statusBarResolverFactory, "statusBarResolverFactory");
@@ -135,9 +129,7 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
     }
 
-    private static java.util.function.Supplier<java.util.Locale> fixedLocale(
-        final java.util.Locale locale
-    ) {
+    private static java.util.function.Supplier<java.util.Locale> fixedLocale(final java.util.Locale locale) {
         final java.util.Locale required = Objects.requireNonNull(locale, "locale");
         return () -> required;
     }
@@ -160,63 +152,40 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         final HostVerificationEvidence.Slice project = evidence.projectWorkspace();
         final RuntimeHostAdapters base;
         if (evidence.clipMask().isEmpty()) {
-            base = projectWorkspace(
-                project.reviewedRecord(),
-                project.verifiedArtifact(),
-                project.hostClassLoader()
-            );
+            base = projectWorkspace(project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
         } else {
             final HostVerificationEvidence.Slice clipMask = evidence.clipMask().orElseThrow();
             final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
-                project.reviewedRecord(),
-                project.verifiedArtifact(),
-                project.hostClassLoader()
-            );
+                    project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
             final VerifiedMemberResolver clipMaskResolver = clipMaskResolverFactory.create(
-                clipMask.reviewedRecord(),
-                clipMask.verifiedArtifact(),
-                clipMask.hostClassLoader()
-            );
-            base = RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(
-                projectResolver,
-                clipMaskResolver
-            );
+                    clipMask.reviewedRecord(), clipMask.verifiedArtifact(), clipMask.hostClassLoader());
+            base = RuntimeHostAdapters.withVerifiedProjectWorkspaceAndClipMask(projectResolver, clipMaskResolver);
         }
         RuntimeHostAdapters composed = base;
         if (evidence.autoBackup().isPresent()) {
-            final HostVerificationEvidence.Slice autoBackup = evidence.autoBackup().orElseThrow();
-            final VerifiedMemberResolver autoBackupResolver = new VerifiedAutoBackupResolverFactory().create(
-                autoBackup.reviewedRecord(),
-                autoBackup.verifiedArtifact(),
-                autoBackup.hostClassLoader()
-            );
+            final HostVerificationEvidence.Slice autoBackup =
+                    evidence.autoBackup().orElseThrow();
+            final VerifiedMemberResolver autoBackupResolver = new VerifiedAutoBackupResolverFactory()
+                    .create(autoBackup.reviewedRecord(), autoBackup.verifiedArtifact(), autoBackup.hostClassLoader());
             composed = RuntimeHostAdapters.withVerifiedAutoBackup(composed, autoBackupResolver);
         }
         if (evidence.statusBar().isPresent()) {
-            final HostVerificationEvidence.Slice statusBar = evidence.statusBar().orElseThrow();
+            final HostVerificationEvidence.Slice statusBar =
+                    evidence.statusBar().orElseThrow();
             final VerifiedMemberResolver statusBarResolver = statusBarResolverFactory.create(
-                statusBar.reviewedRecord(),
-                statusBar.verifiedArtifact(),
-                statusBar.hostClassLoader()
-            );
+                    statusBar.reviewedRecord(), statusBar.verifiedArtifact(), statusBar.hostClassLoader());
             composed = RuntimeHostAdapters.withVerifiedStatusBar(composed, statusBarResolver);
         }
         if (evidence.embeddedPanel().isPresent()) {
-            final HostVerificationEvidence.Slice panel = evidence.embeddedPanel().orElseThrow();
+            final HostVerificationEvidence.Slice panel =
+                    evidence.embeddedPanel().orElseThrow();
             final VerifiedMemberResolver projectResolver = projectResolverFactory.create(
-                project.reviewedRecord(),
-                project.verifiedArtifact(),
-                project.hostClassLoader()
-            );
-            final VerifiedMemberResolver panelResolver = new VerifiedEmbeddedPanelResolverFactory().create(
-                panel.reviewedRecord(),
-                panel.verifiedArtifact(),
-                panel.hostClassLoader()
-            );
+                    project.reviewedRecord(), project.verifiedArtifact(), project.hostClassLoader());
+            final VerifiedMemberResolver panelResolver = new VerifiedEmbeddedPanelResolverFactory()
+                    .create(panel.reviewedRecord(), panel.verifiedArtifact(), panel.hostClassLoader());
             if (RecentPreviewVerificationManifest.authorizes(projectResolver, panelResolver)) {
                 composed = RuntimeHostAdapters.withVerifiedRecentPreview(
-                    composed, projectResolver, panelResolver, locale, diagnostics
-                );
+                        composed, projectResolver, panelResolver, locale, diagnostics);
             } else {
                 diagnose("adapter-diag:resolver-pair-unauthorized");
             }
@@ -246,16 +215,9 @@ public final class VerifiedRuntimeHostAdaptersFactory {
      * @throws IOException when the reviewed record or host artifact cannot be read
      */
     public RuntimeHostAdapters projectWorkspace(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
-        final VerifiedMemberResolver resolver = projectResolverFactory.create(
-            reviewedRecord,
-            hostArtifact,
-            hostClassLoader
-        );
+            final Path reviewedRecord, final Path hostArtifact, final ClassLoader hostClassLoader) throws IOException {
+        final VerifiedMemberResolver resolver =
+                projectResolverFactory.create(reviewedRecord, hostArtifact, hostClassLoader);
         return RuntimeHostAdapters.withVerifiedProjectWorkspace(resolver);
     }
-
 }

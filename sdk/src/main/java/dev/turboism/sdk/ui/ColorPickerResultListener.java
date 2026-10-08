@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-
 /**
  * Receives the result of a non-blocking color picker.
  *

@@ -3,7 +3,6 @@ package dev.turboism.mapping.verification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
@@ -36,10 +35,8 @@ public final class CubismHostProbeCli {
      * @return the versioned JSON verdict document
      * @throws IOException if the artifact cannot be read
      */
-    public static ObjectNode probe(final Path artifact, final Path coreArtifact)
-        throws IOException {
-        final CompatibilityResolution resolution =
-            CubismHostCompatibilityResolver.resolve(artifact, coreArtifact);
+    public static ObjectNode probe(final Path artifact, final Path coreArtifact) throws IOException {
+        final CompatibilityResolution resolution = CubismHostCompatibilityResolver.resolve(artifact, coreArtifact);
         return render(resolution);
     }
 
@@ -72,9 +69,8 @@ public final class CubismHostProbeCli {
             // admission: a non-review-pinned artifact still reports its true
             // declared version while artifactReviewed stays false.
             node.put(
-                "artifactReviewed",
-                ReviewedHostArtifacts.cubismVersionOf(identity.artifact()).isPresent()
-            );
+                    "artifactReviewed",
+                    ReviewedHostArtifacts.cubismVersionOf(identity.artifact()).isPresent());
         });
         if (resolution.identity().isEmpty()) {
             root.putObject("identity");
@@ -84,7 +80,7 @@ public final class CubismHostProbeCli {
 
         final ArrayNode slices = root.putArray("slices");
         for (final Map.Entry<String, CompatibilityResolution.SliceResolution> entry :
-            resolution.slices().entrySet()) {
+                resolution.slices().entrySet()) {
             final CompatibilityResolution.SliceResolution slice = entry.getValue();
             final ObjectNode node = slices.addObject();
             node.put("sliceId", slice.sliceId());
@@ -108,9 +104,7 @@ public final class CubismHostProbeCli {
         }
 
         final ArrayNode capabilities = root.putArray("admittedCapabilities");
-        resolution.admittedCapabilityIds().stream()
-            .sorted()
-            .forEach(capabilities::add);
+        resolution.admittedCapabilityIds().stream().sorted().forEach(capabilities::add);
         return root;
     }
 
@@ -120,8 +114,7 @@ public final class CubismHostProbeCli {
      */
     public static void main(final String[] arguments) {
         if (arguments.length < 1 || arguments.length > 2) {
-            System.err.println(
-                "usage: CubismHostProbeCli <Live2D_Cubism.jar> [Live2D_CubismCore.jar]");
+            System.err.println("usage: CubismHostProbeCli <Live2D_Cubism.jar> [Live2D_CubismCore.jar]");
             System.exit(2);
         }
         try {
@@ -135,6 +128,5 @@ public final class CubismHostProbeCli {
         }
     }
 
-    private CubismHostProbeCli() {
-    }
+    private CubismHostProbeCli() {}
 }

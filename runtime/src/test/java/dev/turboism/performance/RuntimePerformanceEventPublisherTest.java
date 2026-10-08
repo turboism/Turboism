@@ -1,5 +1,8 @@
 package dev.turboism.performance;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
@@ -9,8 +12,6 @@ import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -20,9 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class RuntimePerformanceEventPublisherTest {
 
@@ -39,14 +38,8 @@ final class RuntimePerformanceEventPublisherTest {
         });
         observer.activate();
         final RecordingProbe probe = new RecordingProbe();
-        final RuntimePerformanceEventPublisher publisher =
-            new RuntimePerformanceEventPublisher(
-                probe,
-                broker,
-                scheduler,
-                Duration.ofMillis(5),
-                Duration.ofMillis(30)
-            );
+        final RuntimePerformanceEventPublisher publisher = new RuntimePerformanceEventPublisher(
+                probe, broker, scheduler, Duration.ofMillis(5), Duration.ofMillis(30));
 
         probe.publish(PerformanceSnapshot.of(1L, 1.0, 1L, 1L, 1.0, 1L));
         probe.publish(PerformanceSnapshot.of(2L, 2.0, 2L, 2L, 2.0, 2L));
@@ -66,21 +59,11 @@ final class RuntimePerformanceEventPublisherTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner observer = broker.admit("plugin.performance-close");
         final AtomicInteger deliveries = new AtomicInteger();
-        broker.subscribe(
-            observer.key(),
-            PerformanceSampleEvent.class,
-            ignored -> deliveries.incrementAndGet()
-        );
+        broker.subscribe(observer.key(), PerformanceSampleEvent.class, ignored -> deliveries.incrementAndGet());
         observer.activate();
         final RecordingProbe probe = new RecordingProbe();
-        final RuntimePerformanceEventPublisher publisher =
-            new RuntimePerformanceEventPublisher(
-                probe,
-                broker,
-                scheduler,
-                Duration.ofMillis(5),
-                Duration.ofMillis(40)
-            );
+        final RuntimePerformanceEventPublisher publisher = new RuntimePerformanceEventPublisher(
+                probe, broker, scheduler, Duration.ofMillis(5), Duration.ofMillis(40));
 
         probe.publish(PerformanceSnapshot.of(1L, 1.0, 1L, 1L, 1.0, 1L));
         publisher.close();
@@ -92,16 +75,12 @@ final class RuntimePerformanceEventPublisherTest {
     }
 
     private static RuntimeScheduler scheduler() {
-        final Clock clock = Clock.fixed(
-            Instant.parse("2026-08-23T00:00:00Z"),
-            ZoneOffset.UTC
-        );
+        final Clock clock = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, clock),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private static final class RecordingProbe implements PerformanceProbeService {
@@ -114,10 +93,7 @@ final class RuntimePerformanceEventPublisherTest {
         }
 
         @Override
-        public Registration sample(
-            final Duration interval,
-            final Consumer<PerformanceSnapshot> consumer
-        ) {
+        public Registration sample(final Duration interval, final Consumer<PerformanceSnapshot> consumer) {
             this.consumer = consumer;
             return closedRegistrations::incrementAndGet;
         }

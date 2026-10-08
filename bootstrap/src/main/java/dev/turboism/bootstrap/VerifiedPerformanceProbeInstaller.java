@@ -2,17 +2,17 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.performance.NativePerformanceProbeBridge;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeMethodTransformer;
+import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRecorder;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeReportWriter;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackObserver;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeRollbackWriter;
 import dev.turboism.adapter.cubism.performance.PerformanceProbeTargets;
-import dev.turboism.adapter.cubism.performance.PerformanceProbeMetric;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCallback;
 import dev.turboism.bootstrap.carrier.PerformanceProbeCarrier;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
-
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
 import java.nio.file.Files;
@@ -26,12 +26,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 
 /** Owns an exact-version Cubism 5.3 validation-only timing transformer. */
 final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
@@ -49,10 +49,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private final PerformanceProbeRollbackObserver rollbackObserver;
     private final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
     private final PerformanceProbeCallback callback = new PerformanceProbeCallback() {
-        @Override public long enter(final int metricId) {
+        @Override
+        public long enter(final int metricId) {
             return NativePerformanceProbeBridge.enter(recorder, metricId);
         }
-        @Override public void exit(final int metricId, final long startedNanos) {
+
+        @Override
+        public void exit(final int metricId, final long startedNanos) {
             NativePerformanceProbeBridge.exit(recorder, metricId, startedNanos);
         }
     };
@@ -72,20 +75,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private volatile String fixtureSha256;
 
     VerifiedPerformanceProbeInstaller(
-        final Instrumentation instrumentation,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final Path carrierJar,
-        final String scenario
-    ) throws Exception {
-        this(
-            instrumentation,
-            hostArtifact,
-            hostClassLoader,
-            carrierJar,
-            scenario,
-            java.util.Optional.empty()
-        );
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final Path carrierJar,
+            final String scenario)
+            throws Exception {
+        this(instrumentation, hostArtifact, hostClassLoader, carrierJar, scenario, java.util.Optional.empty());
     }
 
     /**
@@ -96,13 +92,13 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
      *     empty unless the host is declared-generation-bound
      */
     VerifiedPerformanceProbeInstaller(
-        final Instrumentation instrumentation,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final Path carrierJar,
-        final String scenario,
-        final java.util.Optional<String> admittedGeneration
-    ) throws Exception {
+            final Instrumentation instrumentation,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final Path carrierJar,
+            final String scenario,
+            final java.util.Optional<String> admittedGeneration)
+            throws Exception {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
@@ -111,11 +107,9 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         this.artifactSha256 = digest.sha256();
         this.targets = profile.targets();
         appendCarrier(Objects.requireNonNull(carrierJar, "carrierJar"));
-        final Class<?> visibleCarrier = Class.forName(
-            PerformanceProbeCarrier.class.getName(), false, hostClassLoader
-        );
+        final Class<?> visibleCarrier = Class.forName(PerformanceProbeCarrier.class.getName(), false, hostClassLoader);
         if (visibleCarrier != PerformanceProbeCarrier.class
-            || visibleCarrier.getClassLoader() != ClassLoader.getSystemClassLoader()) {
+                || visibleCarrier.getClassLoader() != ClassLoader.getSystemClassLoader()) {
             throw new IllegalStateException("performance probe carrier identity mismatch");
         }
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
@@ -131,10 +125,9 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     static ProbeProfile profileForArtifact(
-        final HostArtifactDigest artifact,
-        final String scenario,
-        final java.util.Optional<String> admittedGeneration
-    ) {
+            final HostArtifactDigest artifact,
+            final String scenario,
+            final java.util.Optional<String> admittedGeneration) {
         Objects.requireNonNull(artifact, "artifact");
         try {
             return profileForDigest(artifact, scenario);
@@ -146,10 +139,7 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         }
     }
 
-    private static ProbeProfile profileForDigest(
-        final HostArtifactDigest artifact,
-        final String scenario
-    ) {
+    private static ProbeProfile profileForDigest(final HostArtifactDigest artifact, final String scenario) {
         final java.util.Optional<String> version = ReviewedHostArtifacts.cubismVersionOf(artifact);
         if (version.isEmpty()) {
             throw new IllegalArgumentException("unsupported Cubism artifact for performance probe");
@@ -164,51 +154,43 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     private static ProbeProfile profileForVersion(final String cubismVersion, final String scenario) {
         if ("images".equals(scenario)) {
             if (!ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-                throw new IllegalArgumentException(
-                    "image performance diagnostics require declared Cubism 5.3.02"
-                );
+                throw new IllegalArgumentException("image performance diagnostics require declared Cubism 5.3.02");
             }
-            return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-                PerformanceProbeTargets.cubism5302Images());
+            return new ProbeProfile(
+                    ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, PerformanceProbeTargets.cubism5302Images());
         }
         if (!"camera".equals(scenario) && !"edit".equals(scenario)) {
             throw new IllegalArgumentException("unsupported performance probe scenario");
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_02_VERSION.equals(cubismVersion)) {
-            return new ProbeProfile(
-                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
-                PerformanceProbeTargets.cubism5302()
-            );
+            return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, PerformanceProbeTargets.cubism5302());
         }
         if (ReviewedHostArtifacts.CUBISM_5_3_03_VERSION.equals(cubismVersion)) {
-            return new ProbeProfile(
-                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
-                PerformanceProbeTargets.cubism5303()
-            );
+            return new ProbeProfile(ReviewedHostArtifacts.CUBISM_5_3_03_VERSION, PerformanceProbeTargets.cubism5303());
         }
         throw new IllegalArgumentException(
-            "unsupported declared Cubism version for performance probe: " + cubismVersion
-        );
+                "unsupported declared Cubism version for performance probe: " + cubismVersion);
     }
 
     void install(
-        final boolean capture,
-        final String scenario,
-        final String agentSha256,
-        final String fixtureSha256,
-        final Duration delay,
-        final Duration duration,
-        final Path output,
-        final String runId,
-        final Path rollbackOutput
-    ) throws Exception {
+            final boolean capture,
+            final String scenario,
+            final String agentSha256,
+            final String fixtureSha256,
+            final Duration delay,
+            final Duration duration,
+            final Path output,
+            final String runId,
+            final Path rollbackOutput)
+            throws Exception {
         if (!installed.compareAndSet(false, true)) return;
         if (!instrumentation.isRetransformClassesSupported()) {
             installed.set(false);
             throw new IllegalStateException("Class retransformation is unavailable.");
         }
         this.runId = runId;
-        this.rollbackOutput = rollbackOutput == null ? null : rollbackOutput.toAbsolutePath().normalize();
+        this.rollbackOutput =
+                rollbackOutput == null ? null : rollbackOutput.toAbsolutePath().normalize();
         this.variant = capture ? "on" : "off";
         this.scenario = scenario;
         this.agentSha256 = agentSha256;
@@ -217,23 +199,23 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         instrumentation.addTransformer(transformer, true);
         try {
             final List<String> targetNames = targets.stream()
-                .map(target -> target.ownerInternalName().replace('/', '.'))
-                .distinct().toList();
+                    .map(target -> target.ownerInternalName().replace('/', '.'))
+                    .distinct()
+                    .toList();
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (targetNames.contains(loaded.getName())
-                    && loaded.getClassLoader() == hostClassLoader
-                    && instrumentation.isModifiableClass(loaded)) {
+                        && loaded.getClassLoader() == hostClassLoader
+                        && instrumentation.isModifiableClass(loaded)) {
                     transformed.add(loaded);
                     instrumentation.retransformClasses(loaded);
                 }
             }
             awaitAdmission();
             admitted.set(true);
-            if (capture) scheduleCapture(
-                scenario, agentSha256, fixtureSha256, delay, duration, output
-            );
+            if (capture) scheduleCapture(scenario, agentSha256, fixtureSha256, delay, duration, output);
             startTriggerWatch();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             close();
             throw failure;
         }
@@ -252,31 +234,29 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         final Path rollback = rollbackOutput;
         if (rollback == null) return;
         final Path trigger = rollback.resolveSibling(rollback.getFileName() + ".trigger");
-        final Thread watch = new Thread(() -> {
-            while (installed.get()) {
-                if (Files.isRegularFile(trigger)) {
-                    dev.turboism.runtime.log.RuntimeDiagnostics.info(
-                        "performance-probe",
-                        "Performance probe trigger detected"
-                    );
-                    try {
-                        close();
-                    } catch (Throwable failure) {
-                        dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                            "performance-probe",
-                            "Performance probe trigger close failed safely",
-                            failure
-                        );
+        final Thread watch = new Thread(
+                () -> {
+                    while (installed.get()) {
+                        if (Files.isRegularFile(trigger)) {
+                            dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                                    "performance-probe", "Performance probe trigger detected");
+                            try {
+                                close();
+                            } catch (Throwable failure) {
+                                FatalErrors.rethrowIfFatal(failure);
+                                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                                        "performance-probe", "Performance probe trigger close failed safely", failure);
+                            }
+                            return;
+                        }
+                        try {
+                            Thread.sleep(TRIGGER_POLL_INTERVAL.toMillis());
+                        } catch (InterruptedException interrupted) {
+                            return;
+                        }
                     }
-                    return;
-                }
-                try {
-                    Thread.sleep(TRIGGER_POLL_INTERVAL.toMillis());
-                } catch (InterruptedException interrupted) {
-                    return;
-                }
-            }
-        }, "turboism-probe-trigger");
+                },
+                "turboism-probe-trigger");
         watch.setDaemon(true);
         watch.start();
     }
@@ -291,24 +271,23 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
      */
     private void awaitAdmission() throws InterruptedException {
         final Set<String> owners = targets.stream()
-            .map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
-            .collect(Collectors.toUnmodifiableSet());
+                .map(PerformanceProbeMethodTransformer.Target::ownerInternalName)
+                .collect(Collectors.toUnmodifiableSet());
         final long deadline = System.nanoTime() + ADMISSION_TIMEOUT.toNanos();
         while (true) {
             final Set<String> transformedOwners = transformer.beforeSha256().keySet();
-            final boolean everySelectorSingle = transformer.matchCounts()
-                .values().stream().allMatch(count -> count == 1);
+            final boolean everySelectorSingle =
+                    transformer.matchCounts().values().stream().allMatch(count -> count == 1);
             if (transformedOwners.containsAll(owners) && everySelectorSingle) return;
             if (System.nanoTime() >= deadline) {
                 final Set<String> missing = new TreeSet<>(owners);
                 missing.removeAll(transformedOwners);
                 final List<String> badSelectors = transformer.matchCounts().entrySet().stream()
-                    .filter(entry -> entry.getValue() != 1)
-                    .map(entry -> entry.getKey().ownerInternalName() + "."
-                        + entry.getKey().methodName() + "=" + entry.getValue())
-                    .toList();
-                throw new IllegalStateException(
-                    "performance probe target admission was incomplete after "
+                        .filter(entry -> entry.getValue() != 1)
+                        .map(entry -> entry.getKey().ownerInternalName() + "."
+                                + entry.getKey().methodName() + "=" + entry.getValue())
+                        .toList();
+                throw new IllegalStateException("performance probe target admission was incomplete after "
                         + ADMISSION_TIMEOUT.toSeconds() + "s; missing owners=" + missing
                         + ", selectors=" + badSelectors);
             }
@@ -322,8 +301,8 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         final List<Class<?>> loaded = new ArrayList<>();
         for (Class<?> candidate : instrumentation.getAllLoadedClasses()) {
             if (instrumentedOwners.contains(candidate.getName().replace('.', '/'))
-                && candidate.getClassLoader() == hostClassLoader
-                && instrumentation.isModifiableClass(candidate)) {
+                    && candidate.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(candidate)) {
                 loaded.add(candidate);
             }
         }
@@ -335,64 +314,66 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     }
 
     private void scheduleCapture(
-        final String scenario,
-        final String agentSha256,
-        final String fixtureSha256,
-        final Duration delay,
-        final Duration duration,
-        final Path output
-    ) {
-        reporter.schedule(() -> {
-            final long started = System.currentTimeMillis();
-            if (!recorder.startCapture()) {
-                dev.turboism.runtime.log.RuntimeDiagnostics.warn(
-                    "performance-probe",
-                    "Performance probe capture rejected safely"
-                );
-                return;
-            }
-            PerformanceProbeCarrier.enable(metricMask(scenario));
-            reporter.schedule(() -> {
-                PerformanceProbeCarrier.disable();
-                recorder.stopCapture();
-                if (!recorder.awaitQuiescence(5_000L)) recorder.fail();
-                try {
-                    new PerformanceProbeReportWriter().write(
-                        output,
-                        cubismVersion,
-                        artifactSha256,
-                        agentSha256,
-                        fixtureSha256,
-                        scenario,
-                        started,
-                        System.currentTimeMillis(),
-                        recorder.snapshot()
-                    );
-                } catch (Throwable failure) {
-                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "performance-probe",
-                        "Performance probe report failed safely",
-                        failure
-                    );
-                }
-            }, duration.toSeconds(), TimeUnit.SECONDS);
-        }, delay.toSeconds(), TimeUnit.SECONDS);
+            final String scenario,
+            final String agentSha256,
+            final String fixtureSha256,
+            final Duration delay,
+            final Duration duration,
+            final Path output) {
+        reporter.schedule(
+                () -> {
+                    final long started = System.currentTimeMillis();
+                    if (!recorder.startCapture()) {
+                        dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                                "performance-probe", "Performance probe capture rejected safely");
+                        return;
+                    }
+                    PerformanceProbeCarrier.enable(metricMask(scenario));
+                    reporter.schedule(
+                            () -> {
+                                PerformanceProbeCarrier.disable();
+                                recorder.stopCapture();
+                                if (!recorder.awaitQuiescence(5_000L)) recorder.fail();
+                                try {
+                                    new PerformanceProbeReportWriter()
+                                            .write(
+                                                    output,
+                                                    cubismVersion,
+                                                    artifactSha256,
+                                                    agentSha256,
+                                                    fixtureSha256,
+                                                    scenario,
+                                                    started,
+                                                    System.currentTimeMillis(),
+                                                    recorder.snapshot());
+                                } catch (Throwable failure) {
+                                    FatalErrors.rethrowIfFatal(failure);
+                                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                                            "performance-probe", "Performance probe report failed safely", failure);
+                                }
+                            },
+                            duration.toSeconds(),
+                            TimeUnit.SECONDS);
+                },
+                delay.toSeconds(),
+                TimeUnit.SECONDS);
     }
 
     private long metricMask(final String scenario) {
         if (scenario.equals("images")) {
             long mask = 0;
-            for (PerformanceProbeMethodTransformer.Target target : targets) mask |= target.metric().mask();
+            for (PerformanceProbeMethodTransformer.Target target : targets)
+                mask |= target.metric().mask();
             return mask;
         }
         long mask = PerformanceProbeMetric.RENDER_SCENE.mask()
-            | PerformanceProbeMetric.MODELING_PRE_RENDER_UPDATE.mask()
-            | PerformanceProbeMetric.RENDER_SYSTEM.mask()
-            | PerformanceProbeMetric.SCENE_TRAVERSAL.mask()
-            | PerformanceProbeMetric.RENDERER_DISPATCH.mask();
+                | PerformanceProbeMetric.MODELING_PRE_RENDER_UPDATE.mask()
+                | PerformanceProbeMetric.RENDER_SYSTEM.mask()
+                | PerformanceProbeMetric.SCENE_TRAVERSAL.mask()
+                | PerformanceProbeMetric.RENDERER_DISPATCH.mask();
         if (scenario.equals("edit")) {
             mask |= PerformanceProbeMetric.UPDATE_MODEL_INSTANCES.mask()
-                | PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE.mask();
+                    | PerformanceProbeMetric.REINIT_MODEL_INSTANCE_EXE.mask();
         }
         return mask;
     }
@@ -401,16 +382,12 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     public void close() {
         if (!installed.get()) {
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "performance-probe",
-                "Performance probe close skipped because it is not installed"
-            );
+                    "performance-probe", "Performance probe close skipped because it is not installed");
             return;
         }
         if (!installed.compareAndSet(true, false)) return;
         dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-            "performance-probe",
-            "Performance probe close started; admitted=" + admitted.get()
-        );
+                "performance-probe", "Performance probe close started; admitted=" + admitted.get());
         recorder.stopCapture();
         PerformanceProbeCarrier.disable();
         reporter.shutdownNow();
@@ -425,13 +402,12 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             final Set<Class<?>> restoreTargets = new LinkedHashSet<>(transformed);
             restoreTargets.addAll(currentlyLoadedTargets());
             dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "performance-probe",
-                "Restoring " + restoreTargets.size() + " performance probe targets"
-            );
+                    "performance-probe", "Restoring " + restoreTargets.size() + " performance probe targets");
             for (Class<?> target : restoreTargets) {
                 try {
                     if (instrumentation.isModifiableClass(target)) instrumentation.retransformClasses(target);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     cleanupFailure = failure;
                 }
             }
@@ -462,38 +438,36 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             for (PerformanceProbeMethodTransformer.Target target : targets) {
                 final String owner = target.ownerInternalName();
                 final String dotted = owner.replace('/', '.');
-                owners.put(dotted, new PerformanceProbeRollbackWriter.OwnerEvidence(
-                    before.get(owner),
-                    instrumented.get(owner),
-                    after.get(owner)
-                ));
+                owners.put(
+                        dotted,
+                        new PerformanceProbeRollbackWriter.OwnerEvidence(
+                                before.get(owner), instrumented.get(owner), after.get(owner)));
             }
             final Map<String, Integer> restorationMatches = new LinkedHashMap<>();
-            rollbackObserver.observationCounts().forEach((owner, count) ->
-                restorationMatches.put(owner.replace('/', '.'), count));
-            new PerformanceProbeRollbackWriter().write(
-                rollbackOutput,
-                cubismVersion,
-                artifactSha256,
-                runId,
-                variant,
-                scenario,
-                agentSha256,
-                fixtureSha256,
-                targets,
-                owners,
-                transformer.matchCounts(),
-                restorationMatches
-            );
+            rollbackObserver
+                    .observationCounts()
+                    .forEach((owner, count) -> restorationMatches.put(owner.replace('/', '.'), count));
+            new PerformanceProbeRollbackWriter()
+                    .write(
+                            rollbackOutput,
+                            cubismVersion,
+                            artifactSha256,
+                            runId,
+                            variant,
+                            scenario,
+                            agentSha256,
+                            fixtureSha256,
+                            targets,
+                            owners,
+                            transformer.matchCounts(),
+                            restorationMatches);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             throw new IllegalStateException("performance probe rollback manifest failed", failure);
         }
     }
 
-    record ProbeProfile(
-        String cubismVersion,
-        List<PerformanceProbeMethodTransformer.Target> targets
-    ) {
+    record ProbeProfile(String cubismVersion, List<PerformanceProbeMethodTransformer.Target> targets) {
         ProbeProfile {
             Objects.requireNonNull(cubismVersion, "cubismVersion");
             targets = List.copyOf(Objects.requireNonNull(targets, "targets"));

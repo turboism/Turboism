@@ -4,7 +4,6 @@ import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransaction
 import dev.turboism.sdk.cubism.edit.EditSessionException;
 import dev.turboism.sdk.cubism.edit.EditUnavailableException;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-
 import java.util.Optional;
 
 /**
@@ -92,10 +91,7 @@ public interface EditorEditSessionHost {
      * and the target. The cursor-level reconciler for entries a displaced host edit already
      * committed during the session.
      */
-    void undoRedoTo(
-        EditorAuthoringTransactionCoordinator.Binding binding,
-        int position
-    );
+    void undoRedoTo(EditorAuthoringTransactionCoordinator.Binding binding, int position);
 
     /**
      * Returns whether the {@code cubism.editor-model.undo.revert} capability row is verified on
@@ -123,9 +119,12 @@ public interface EditorEditSessionHost {
     void refreshAfterSession(EditorAuthoringTransactionCoordinator.Binding binding);
 
     /**
-     * Runs work on the host UI thread with bounded synchronous waiting. A caller already on the
+     * Runs work on the host UI thread with a bounded acceptance wait. A caller already on the
      * host thread runs inline; otherwise the task is dispatched and the caller waits a bounded
-     * time — a timeout raises {@link EditSessionException}, never a hung plugin thread.
+     * time for the host thread to start it — a timeout or interrupt raises
+     * {@link EditSessionException} and guarantees the queued task will not run. Once the task
+     * has started it is always awaited to completion, so a reported dispatch failure can never
+     * mask a host mutation that still executes.
      */
     <T> T dispatch(String label, HostTask<T> task) throws EditSessionException;
 
@@ -138,13 +137,10 @@ public interface EditorEditSessionHost {
      *
      * @throws EditSessionException when no verified member surface exists for this binding
      */
-    default EditSessionOpsAccess opsAccess(
-        final EditorAuthoringTransactionCoordinator.Binding binding
-    ) throws EditSessionException {
+    default EditSessionOpsAccess opsAccess(final EditorAuthoringTransactionCoordinator.Binding binding)
+            throws EditSessionException {
         throw new EditUnavailableException(
-            "cubism.edit.ops-access",
-            "Editor edit session member surface is unavailable on this host"
-        );
+                "cubism.edit.ops-access", "Editor edit session member surface is unavailable on this host");
     }
 
     /** Records or derives an opaque diagnostic identity for a terminal outcome. */

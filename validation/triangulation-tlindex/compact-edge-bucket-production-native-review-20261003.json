@@ -1,0 +1,100 @@
+{
+  "status": "REJECTED_ORIGINAL_CPU_GATE",
+  "resourceGates": {
+    "javaCpuTotalNoRegression": false,
+    "absoluteRssGrowthWithin20Percent": true,
+    "rssAboveOwnBaselineWithin80MiB": true,
+    "retained3Minus1Within64MiB": true
+  },
+  "allOriginalResourceGatesPass": false,
+  "orderedEdgeCapturesMatch": true,
+  "semanticFields": 11,
+  "matchedRows": 2133,
+  "differences": {
+    "cycle": 0,
+    "invocation": 0,
+    "sourceIdBase64": 0,
+    "status": 0,
+    "failureBase64": 0,
+    "pointCount": 0,
+    "edgeVersion": 0,
+    "positionValues": 0,
+    "indexValues": 0,
+    "positionsSha256": 0,
+    "indicesSha256": 0
+  },
+  "summary": {
+    "baseline": {
+      "wallSeconds": 39.9123161,
+      "producerSeconds": 36.1885062,
+      "sampledCpuSeconds": 48.21,
+      "operationPeakRssBytes": 3255300096,
+      "peakAboveBaselineBytes": 41611264.0,
+      "retained3Minus1Bytes": 749568.0,
+      "maximumSampleGapMillis": 1028
+    },
+    "candidate": {
+      "wallSeconds": 37.723931300000004,
+      "producerSeconds": 34.0604318,
+      "sampledCpuSeconds": 48.519999999999996,
+      "operationPeakRssBytes": 3305971712,
+      "peakAboveBaselineBytes": 27557888.0,
+      "retained3Minus1Bytes": 839680.0,
+      "maximumSampleGapMillis": 1034
+    }
+  },
+  "candidateChangePercent": {
+    "wallSeconds": -5.482981229445604,
+    "producerSeconds": -5.880525679172677,
+    "sampledCpuSeconds": 0.6430201203069696,
+    "operationPeakRssBytes": 1.5565881640916546
+  },
+  "productionPerformanceClaim": "NOT_ESTABLISHED_DIAGNOSTIC_COMPANION",
+  "inputPins": {
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/review-native-r3.py": "19b8073f33345bda8a6a4b3dae48f84f6145e59e6158d5805edec36baeb57a4d",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/analyze-pair-r3.py": "fbfbfcb05de7edd90d438e6298b4eb512a89a9a8387976efb5825ff736513a06",
+    "build/t066-compact-edge-bucket-integration-r1/offline-review.json": "a85adfb3e6777da89792c1fee502f465e049047eb01fe437caf4d766e4c0a092",
+    "build/t066-compact-edge-bucket-integration-r1/artifact-review.json": "a2756cee01af6ef64bad8e6caa612d1528e151b29c3390e607d9a5d13ba91d44",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/native-review.json": "55f118fe4f38983212b937970750a03cd2d89e41129497c5ee9fff71b5144d95",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/native-review.json": "a29fcd03133b7e493bd78da2a768bb91c1065fc8c8f30b8f259e288807740033",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/resource-review.json": "77aea850c4b262e57194eee63491c6158e8bde4ce3664d939c3c53bcd7609fc1",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/resource-review.json": "19d681b73e55ffd0277193000c90077decaaf03ba4d9d85a7044afa8458063df",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/pair-review.json": "90823e569762535d616911b79ed4c482b465b0d8fe6506904bc89f8fe29852a7",
+    "build/t066-compact-edge-bucket-integration-r1/rejected-integration-snapshot-r1/pins.json": "680ebced404278e66c849d469873147cd84c39b8656cf5a499d4c396eebd19f2",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/baseline/outcome.json": "62257d01a692f6ebaaffccc0f63ef0771f206b4e7cce3bf231c6ce94888a1ae1",
+    "build/t066-compact-edge-bucket-integration-r1/native5303-pair1/candidate/outcome.json": "82f9483c0dfc25b1fadc7625819123d8d7920ac1ca7e0daa3c92f335fefa8d97"
+  },
+  "limitations": [
+    "Single sequential pair; no statistically established speed improvement.",
+    "CPU excludes unsampled boundaries; RSS/PSS are sampled, not continuous maxima.",
+    "Companion-only return-capture admission is different from production; instrumented pair does not establish direct production performance or long-run stability.",
+    "This new SHA has separate review status from the previously approved candidate.",
+    "CPU difference0.31sampled seconds(+0.64%) is not evidence of stable regression; original point-estimate gate failed. No exception or favorable retry applied."
+  ],
+  "decision": "WITHDRAW_T066_PRODUCTION_RETAIN_T057",
+  "historicalSourceSnapshot": "build/t066-compact-edge-bucket-integration-r1/rejected-integration-snapshot-r1",
+  "lifecycle": {
+    "baseline": {
+      "sequence": 2544,
+      "jobId": "98413e8a-21c0-4cf5-af9b-489b487d8983",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "prefixRemoved": true,
+      "cgroupCleanup": "cgroup-destroyed"
+    },
+    "candidate": {
+      "sequence": 2545,
+      "jobId": "70ffa68d-fd9c-497a-b83b-ebf55c74b752",
+      "validationStatus": "PASS",
+      "normalExit": true,
+      "cleanup": "safe",
+      "identityVerified": true,
+      "fixtureUnchanged": true,
+      "prefixRemoved": true,
+      "cgroupCleanup": "cgroup-destroyed"
+    }
+  }
+}

@@ -1,9 +1,10 @@
 package dev.turboism.sdk.script;
 
-
+import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 
 /** Runtime identity of one script execution. */
+@Incubating
 public record ScriptExecutionId(String value) {
 
     public ScriptExecutionId {

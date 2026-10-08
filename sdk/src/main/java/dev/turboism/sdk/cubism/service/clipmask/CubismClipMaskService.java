@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.service.clipmask;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -26,7 +25,8 @@ public interface CubismClipMaskService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -45,11 +45,13 @@ public interface CubismClipMaskService {
     enum Unavailable implements CubismClipMaskService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public List<ClipMaskRecord> collectClipMaskRecords() {
+        @Override
+        public List<ClipMaskRecord> collectClipMaskRecords() {
             throw new UnsupportedOperationException("clipMask service is not available");
         }
     }
@@ -65,13 +67,7 @@ public interface CubismClipMaskService {
      * @param orderedMaskGuids ordered GUID list of ArtMeshes used as this ArtMesh's
      *        clip masks; immutable, elements non-blank
      */
-        record ClipMaskRecord(
-        String guid,
-        String id,
-        String displayName,
-        boolean inverted,
-        List<String> orderedMaskGuids
-    ) {
+    record ClipMaskRecord(String guid, String id, String displayName, boolean inverted, List<String> orderedMaskGuids) {
         public ClipMaskRecord {
             Objects.requireNonNull(guid, "guid");
             if (guid.isBlank()) {

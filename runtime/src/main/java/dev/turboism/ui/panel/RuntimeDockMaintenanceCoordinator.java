@@ -1,7 +1,6 @@
 package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /** Routes bounded dock maintenance to the current exact-version host provider. */

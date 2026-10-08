@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.recentfile;
 
-
 import java.util.List;
 
 /** Read-only projection of the host's Recent Files menu (merged with the current project). */
@@ -16,7 +15,8 @@ public interface RecentFileService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -31,7 +31,8 @@ public interface RecentFileService {
     enum Unavailable implements RecentFileService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 

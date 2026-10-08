@@ -6,7 +6,6 @@ import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,15 +63,16 @@ public interface UiHostCapabilityService {
      * <p>Returns immediately after scheduling the dialog on the UI thread. The
      * listener receives the selected option id and the secondary action id (or
      * {@code null}s for accept/cancel) once the user closes the dialog.</p>
+     * @throws UnsupportedOperationException on implementations without a verified choice-dialog surface
      */
-    default void openChoiceDialog(
-        final ChoiceDialogRequest request,
-        final ChoiceDialogResultListener listener
-    ) {
+    default void openChoiceDialog(final ChoiceDialogRequest request, final ChoiceDialogResultListener listener) {
         throw new UnsupportedOperationException("async choice dialogs are not available");
     }
 
-    /** Opens a bounded runtime-rendered single-choice dialog. */
+    /**
+     * Opens a bounded runtime-rendered single-choice dialog.
+     * @throws UnsupportedOperationException on implementations without a verified choice-dialog surface
+     */
     default Optional<String> choose(final ChoiceDialogRequest request) {
         throw new UnsupportedOperationException("choice dialogs are not available");
     }
@@ -88,10 +88,9 @@ public interface UiHostCapabilityService {
      * Contributes a toolkit-neutral control to the shared Turboism settings window.
      * Requires {@code turboism.ui.settings.contribute}; the registration is owned
      * by the calling plugin's disposable scope.
+     * @throws UnsupportedOperationException on implementations without a verified settings surface
      */
-    default Registration contributeSettings(
-        final dev.turboism.sdk.ui.settings.SettingsContribution contribution
-    ) {
+    default Registration contributeSettings(final dev.turboism.sdk.ui.settings.SettingsContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         throw new UnsupportedOperationException("settings contribution is unavailable");
     }
@@ -100,6 +99,7 @@ public interface UiHostCapabilityService {
      * Activates an embedded panel owned by the calling plugin.
      *
      * <p>Hosts that do not provide a verified panel surface fail closed.</p>
+     * @throws UnsupportedOperationException on implementations without a verified embedded-panel surface
      */
     default void activateEmbeddedPanel(final EmbeddedPanelId panelId) {
         throw new UnsupportedOperationException("embedded-panel activation is unavailable");
@@ -121,10 +121,9 @@ public interface UiHostCapabilityService {
      * <p>Injected sections are appended after the panel's declared content during
      * render synthesis and ordered by {@code order} then {@code sectionId}.
      * Hosts that do not provide a verified panel surface fail closed.</p>
+     * @throws UnsupportedOperationException on implementations without a verified embedded-panel surface
      */
-    default Registration contributeCollapsibleSection(
-        final CollapsibleSectionContribution contribution
-    ) {
+    default Registration contributeCollapsibleSection(final CollapsibleSectionContribution contribution) {
         throw new UnsupportedOperationException("collapsible-section contribution is unavailable");
     }
 
@@ -165,6 +164,7 @@ public interface UiHostCapabilityService {
      * Opens the host file manager at the given plugin storage directory.
      * Implementations must confine the resolved directory to the plugin's
      * storage roots and fail closed when the host cannot open directories.
+     * @throws UnsupportedOperationException on implementations that cannot open directories
      */
     default void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
         throw new UnsupportedOperationException("open-directory is not available");
@@ -175,11 +175,9 @@ public interface UiHostCapabilityService {
      * without blocking the caller. The listener receives the field values when
      * the user accepts, a secondary action id when one is pressed, or an empty
      * map on cancel.
+     * @throws UnsupportedOperationException on implementations without a verified form-dialog surface
      */
-    default void openFormDialog(
-        final FormDialogRequest request,
-        final FormDialogResultListener listener
-    ) {
+    default void openFormDialog(final FormDialogRequest request, final FormDialogResultListener listener) {
         throw new UnsupportedOperationException("form dialogs are not available");
     }
 
@@ -189,13 +187,13 @@ public interface UiHostCapabilityService {
      * when the user confirms, or {@code false} with {@code null} on cancel.
      * {@code initialColorHex} may be {@code null} or a canonical {@code #RRGGBB}
      * value; invalid values fall back to the picker default.
+     * @throws UnsupportedOperationException on implementations without a verified color-picker surface
      */
     default void openColorPicker(
-        final String id,
-        final String title,
-        final String initialColorHex,
-        final ColorPickerResultListener listener
-    ) {
+            final String id,
+            final String title,
+            final String initialColorHex,
+            final ColorPickerResultListener listener) {
         throw new UnsupportedOperationException("color pickers are not available");
     }
 
@@ -208,8 +206,7 @@ public interface UiHostCapabilityService {
     @Deprecated(forRemoval = true)
     default boolean refreshOffCanvasAppearance() {
         throw new UnsupportedOperationException(
-            "off-canvas refresh is unavailable; restart Cubism Editor after applying a theme"
-        );
+                "off-canvas refresh is unavailable; restart Cubism Editor after applying a theme");
     }
 
     /**
@@ -231,6 +228,7 @@ public interface UiHostCapabilityService {
      *
      * @param notification validated native canvas-hint request
      * @return a handle that dismisses the keyed hint
+     * @throws UnsupportedOperationException on implementations without a verified canvas-hint surface
      */
     default CanvasHintHandle notifyCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
@@ -284,10 +282,9 @@ public interface UiHostCapabilityService {
      * @return a handle that stops the watch and clears the hint
      */
     default Registration showCanvasHintWhile(
-        final UiScheduler scheduler,
-        final CanvasHintNotification notification,
-        final java.util.function.BooleanSupplier condition
-    ) {
+            final UiScheduler scheduler,
+            final CanvasHintNotification notification,
+            final java.util.function.BooleanSupplier condition) {
         return ConditionalCanvasHint.whileTrue(scheduler, this, notification, condition);
     }
 
@@ -313,6 +310,7 @@ public interface UiHostCapabilityService {
      * Contributes a vertical icon tool strip to the left or right of the
      * modeling canvas. Hosts that do not provide a verified surface fail
      * closed.
+     * @throws UnsupportedOperationException on implementations without a verified toolbar surface
      */
     default Registration contributeVerticalToolbar(final VerticalToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
@@ -322,6 +320,7 @@ public interface UiHostCapabilityService {
     /**
      * Contributes a horizontal icon tool strip above or below the modeling
      * canvas. Hosts that do not provide a verified surface fail closed.
+     * @throws UnsupportedOperationException on implementations without a verified toolbar surface
      */
     default Registration contributeHorizontalToolbar(final HorizontalToolbarContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
@@ -333,6 +332,7 @@ public interface UiHostCapabilityService {
      *
      * <p>Hosts that do not provide a verified palette filter surface fail
      * closed with {@link UnsupportedOperationException}.</p>
+     * @throws UnsupportedOperationException on implementations without a verified palette-filter surface
      */
     default Registration contributePaletteFilter(PaletteFilterRegistry.PaletteFilterContribution contribution) {
         throw new UnsupportedOperationException("palette filter contribution is unavailable");
@@ -360,65 +360,69 @@ public interface UiHostCapabilityService {
     enum Unavailable implements UiHostCapabilityService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contributeOverlay(final OverlayContribution contribution) {
+        @Override
+        public Registration contributeOverlay(final OverlayContribution contribution) {
             throw unavailable();
         }
 
-        @Override public Registration contributeBoundingBoxOverlayButton(
-            final BoundingBoxOverlayButton contribution
-        ) {
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(final BoundingBoxOverlayButton contribution) {
             throw unavailable();
         }
 
-        @Override public ContextSourceSnapshot contextSource() {
+        @Override
+        public ContextSourceSnapshot contextSource() {
             throw unavailable();
         }
 
-        @Override public ViewportSnapshot viewport() {
+        @Override
+        public ViewportSnapshot viewport() {
             throw unavailable();
         }
 
-        @Override public Registration openDialog(final DialogRequest request) {
+        @Override
+        public Registration openDialog(final DialogRequest request) {
             throw unavailable();
         }
 
-        @Override public boolean confirmDialog(final DialogRequest request) {
+        @Override
+        public boolean confirmDialog(final DialogRequest request) {
             throw unavailable();
         }
 
-        @Override public Registration contributeEmbeddedPanel(
-            final EmbeddedPanelContribution contribution
-        ) {
+        @Override
+        public Registration contributeEmbeddedPanel(final EmbeddedPanelContribution contribution) {
             throw unavailable();
         }
 
-        @Override public Optional<String> requestFile(final FileChooserRequest request) {
+        @Override
+        public Optional<String> requestFile(final FileChooserRequest request) {
             return Optional.empty();
         }
 
-        @Override public Registration notifyStatus(final StatusNotification notification) {
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
             throw unavailable();
         }
 
-        @Override public Registration contributeContextMenu(
-            final ContextMenuRegistry.ContextMenuContribution contribution
-        ) {
+        @Override
+        public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
             throw unavailable();
         }
 
-        @Override public Registration contributeMainToolbar(
-            final MainToolbarRegistry.MainToolbarContribution contribution
-        ) {
+        @Override
+        public Registration contributeMainToolbar(final MainToolbarRegistry.MainToolbarContribution contribution) {
             throw unavailable();
         }
 
-        @Override public Registration contributePaletteToolbar(
-            final PaletteToolbarRegistry.PaletteToolbarContribution contribution
-        ) {
+        @Override
+        public Registration contributePaletteToolbar(
+                final PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             throw unavailable();
         }
 

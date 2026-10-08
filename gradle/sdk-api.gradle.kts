@@ -1,39 +1,70 @@
 import org.gradle.api.tasks.Exec
 import org.gradle.jvm.tasks.Jar
 
+/*
+ * Check tasks prove a predicate over their declared inputs and produce no artifact;
+ * with no output Gradle can never mark them up-to-date and re-runs them on every
+ * build. The stamp file is that persistent output, written only after the check
+ * action succeeds. Call it after any doLast check action so the stamp cannot be
+ * written ahead of a failing check.
+ */
+private fun Task.verificationStamp() {
+    val stamp = project.layout.buildDirectory.file("verification-stamps/$name.stamp")
+    outputs.file(stamp)
+    doLast {
+        stamp.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("ok\n")
+        }
+    }
+}
+
 val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
 val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
-val sdkV2ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v2-exact.json")
-val sdkV2ExactReferenceBuilder = layout.projectDirectory.file("scripts/test/reconstruct_sdk_gradle_jar.py")
-val sdkV2ExactCommit = "3854ef5f05d7dcc49d49bbcf7959dceee0573dd7"
-val sdkV2ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v2-exact-reference.jar")
-val sdkV3ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v3-exact.json")
-val sdkV3ExactCommit = "4b16ebed1f917352542fae1e0e6f3f6ef0d2909a"
-val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v3-exact-reference.jar")
-val sdkV4ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v4-exact.json")
-val sdkV4ExactCommit = "22774994bb3f13fdf027138c1afd7819642113a3"
-val sdkV4ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v4-exact-reference.jar")
-val sdkV5ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v5-exact.json")
-val sdkV5ExactCommit = "7b6a1fa890794396d00b56ab5fa55d88f4399f08"
-val sdkV5ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v5-exact-reference.jar")
-val sdkV6ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v6-exact.json")
-val sdkV6ExactCommit = "07f520755557b941cac1658bed931d21ef609b11"
-val sdkV6ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v6-exact-reference.jar")
-val sdkV7ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v7-exact.json")
-val sdkV7ExactCommit = "46ea5cb303a2a1a9191859885c56c059d1d538b6"
-val sdkV7ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v7-exact-reference.jar")
-val sdkV8ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v8-exact.json")
-val sdkV8ExactCommit = "959ca8c359f24b80c86bb9699c8111d067e75694"
-val sdkV8ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v8-exact-reference.jar")
-val sdkV9ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v9-exact.json")
-val sdkV9ExactCommit = "adc5ab88d8e30be6b7c572ebdcdabad09b251f7d"
-val sdkV9ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v9-exact-reference.jar")
-val sdkV10ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v10-exact.json")
-val sdkV10ExactCommit = "a2031aaa1d6f1233d0cc830db8499f80eba60a36"
-val sdkV10ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v10-exact-reference.jar")
-val sdkV11ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v11-exact.json")
-val sdkV11ExactCommit = "181e9e9756e5dbb5a028c8f7f2c3c4b4ca76647d"
-val sdkV11ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v11-exact-reference.jar")
+val sdkExactReferenceBuilder = layout.projectDirectory.file("scripts/test/reconstruct_sdk_gradle_jar.py")
+
+private data class SdkBaselineAnchor(
+    val version: Int,
+    val commit: String,
+    val description: String
+)
+
+// Reviewed SDK baseline anchors; each row registers its prepare/check task pair below.
+private val sdkBaselineAnchors = listOf(
+    SdkBaselineAnchor(2, "3854ef5f05d7dcc49d49bbcf7959dceee0573dd7",
+        "Reconstructs the reviewed v2 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(3, "4b16ebed1f917352542fae1e0e6f3f6ef0d2909a",
+        "Reconstructs the reviewed v3 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(4, "22774994bb3f13fdf027138c1afd7819642113a3",
+        "Reconstructs the reviewed v4 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(5, "7b6a1fa890794396d00b56ab5fa55d88f4399f08",
+        "Reconstructs the reviewed v5 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(6, "07f520755557b941cac1658bed931d21ef609b11",
+        "Reconstructs the reviewed v6 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(7, "46ea5cb303a2a1a9191859885c56c059d1d538b6",
+        "Reconstructs the reviewed v7 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(8, "959ca8c359f24b80c86bb9699c8111d067e75694",
+        "Reconstructs the reviewed v8 SDK Gradle JAR from its pinned Git commit in an isolated archive."),
+    SdkBaselineAnchor(9, "adc5ab88d8e30be6b7c572ebdcdabad09b251f7d",
+        "Reconstructs the reviewed v9 integration SDK from its pinned Git commit."),
+    SdkBaselineAnchor(10, "a2031aaa1d6f1233d0cc830db8499f80eba60a36",
+        "Reconstructs the reviewed v10 canvas-hint SDK from its pinned Git commit."),
+    SdkBaselineAnchor(11, "181e9e9756e5dbb5a028c8f7f2c3c4b4ca76647d",
+        "Reconstructs the reviewed v11 inline-label SDK from its pinned Git commit."),
+    SdkBaselineAnchor(12, "913ada16a231ee43f22b39c4adbf767bd3cb8a37",
+        "Reconstructs the reviewed v12 selection-tool SDK from its pinned Git commit."),
+    SdkBaselineAnchor(13, "77b9d6cff4aa7fa6afd6cefbea0f6a8bdffde501",
+        "Reconstructs the reviewed v13 contract-convergence SDK from its pinned Git commit."),
+    SdkBaselineAnchor(14, "34a68362b7d1b523094e6788f9346339c584f116",
+        "Reconstructs the reviewed v14 parameter-read-plane SDK from its pinned Git commit.")
+)
+
+private fun sdkExactBaseline(version: Int) =
+    layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v$version-exact.json")
+
+private fun sdkExactReferenceArtifact(version: Int) =
+    layout.buildDirectory.file("sdk-api-baseline/v$version-exact-reference.jar")
+
 val sdkHistoryGradleUserHome = providers.gradleProperty("turboismSdkHistoryGradleUserHome")
     .map { file(it).canonicalFile }
     .orElse(provider { gradle.gradleUserHomeDir.canonicalFile })
@@ -65,6 +96,7 @@ val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
     workingDir(rootDir)
     inputs.files(sdkApiHelperFiles, "scripts/test/test_sdk_api_baseline.sh")
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_api_baseline.sh")
 }
 
@@ -73,375 +105,136 @@ val checkSdkApiReferenceBuilder by tasks.registering(Exec::class) {
     description = "Verifies deterministic SDK reference reconstruction from the immutable Git anchor."
     workingDir(rootDir)
     inputs.files(sdkApiReferenceBuilder, "scripts/test/test_sdk_api_reference_builder.sh")
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_api_reference_builder.sh")
 }
 
-val prepareSdkV2ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v2 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV2ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV2ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV2ExactCommit,
-        "--output", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
+sdkBaselineAnchors.forEach { anchor ->
+    val version = anchor.version
+    tasks.register<Exec>("prepareSdkV${version}ExactReference") {
+        group = "historical verification"
+        description = anchor.description
+        workingDir(rootDir)
+        inputs.file(sdkExactReferenceBuilder)
+        inputs.property("historicalCommit", anchor.commit)
+        inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
+        outputs.file(sdkExactReferenceArtifact(version))
+        outputs.upToDateWhen { false }
+        commandLine(
+            "python3", sdkExactReferenceBuilder.asFile.absolutePath,
+            "--root", rootDir.absolutePath,
+            "--commit", anchor.commit,
+            "--output", sdkExactReferenceArtifact(version).get().asFile.absolutePath,
+            "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
+        )
+    }
 }
 
-val prepareSdkV3ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v3 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV3ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV3ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV3ExactCommit,
-        "--output", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
+/*
+ * Every anchor registers an exact-API compatibility check. The newest anchor is the
+ * live gate: it audits the freshly built :sdk:jar, so it depends on the jar task and
+ * reads that artifact as its check input. Older anchors audit their reconstructed
+ * historical artifact against itself; their check input and reference are the same
+ * file and the SDK jar is not needed.
+ */
+private val sdkLiveBaselineAnchor = sdkBaselineAnchors.maxBy { it.version }
+
+val sdkExactCompatibilityCheckTasks = sdkBaselineAnchors.map { anchor ->
+    val version = anchor.version
+    val live = anchor.version == sdkLiveBaselineAnchor.version
+    tasks.register<Exec>("checkSdkV${version}ExactApiCompatibility") {
+        group = if (live) "release verification" else "historical verification"
+        description = if (live) {
+            "Verifies the live SDK's canonical API matches the reviewed v$version anchor."
+        } else {
+            "Audits the reviewed v$version baseline's historical artifact and canonical binding."
+        }
+        val auditedArtifact = if (live) sdkJarArtifact else sdkExactReferenceArtifact(version)
+        dependsOn("prepareSdkV${version}ExactReference")
+        if (live) {
+            dependsOn(":sdk:jar")
+        }
+        inputs.files(sdkApiHelperFiles, sdkExactBaseline(version), sdkExactReferenceBuilder,
+            sdkExactReferenceArtifact(version), auditedArtifact)
+        inputs.property("expectedCommit", anchor.commit)
+        outputs.upToDateWhen { false }
+        commandLine(
+            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+            "--input", auditedArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkExactReferenceArtifact(version).get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--baseline", sdkExactBaseline(version).asFile.absolutePath,
+            "--expected-commit", anchor.commit
+        )
+    }
 }
 
-val prepareSdkV4ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v4 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV4ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV4ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV4ExactCommit,
-        "--output", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV5ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v5 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV5ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV5ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV5ExactCommit,
-        "--output", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV6ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v6 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV6ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV6ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV6ExactCommit,
-        "--output", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV7ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v7 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV7ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV7ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV7ExactCommit,
-        "--output", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV8ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v8 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV8ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV8ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV8ExactCommit,
-        "--output", sdkV8ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV9ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v9 integration SDK from its pinned Git commit."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV9ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV9ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV9ExactCommit,
-        "--output", sdkV9ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV10ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v10 canvas-hint SDK from its pinned Git commit."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV10ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV10ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV10ExactCommit,
-        "--output", sdkV10ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val prepareSdkV11ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v11 inline-label SDK from its pinned Git commit."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV11ExactCommit)
-    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
-    outputs.file(sdkV11ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV11ExactCommit,
-        "--output", sdkV11ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
-    )
-}
-
-val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v2 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV2ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV2ExactBaseline, sdkV2ExactReferenceBuilder, sdkV2ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV2ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV2ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV2ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV2ExactCommit
-    )
-}
-
-val checkSdkV3ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v3 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV3ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkV2ExactReferenceBuilder, sdkV3ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV3ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV3ExactCommit
-    )
-}
-
-val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v4 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV4ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV2ExactReferenceBuilder, sdkV4ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV4ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV4ExactCommit
-    )
-}
-
-val checkSdkV5ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v5 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV5ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV5ExactBaseline, sdkV2ExactReferenceBuilder, sdkV5ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV5ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV5ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV5ExactCommit
-    )
-}
-
-val checkSdkV6ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v6 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV6ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV6ExactBaseline, sdkV2ExactReferenceBuilder, sdkV6ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV6ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV6ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV6ExactCommit
-    )
-}
-
-val checkSdkV7ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v7 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV7ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV7ExactBaseline, sdkV2ExactReferenceBuilder, sdkV7ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV7ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV7ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV7ExactCommit
-    )
-}
-
-val checkSdkV8ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v8 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV8ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV8ExactBaseline, sdkV2ExactReferenceBuilder, sdkV8ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV8ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV8ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV8ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV8ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV8ExactCommit
-    )
-}
-
-val checkSdkV9ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v9 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV9ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV9ExactBaseline, sdkV2ExactReferenceBuilder, sdkV9ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV9ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV9ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV9ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV9ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV9ExactCommit
-    )
-}
-
-val checkSdkV10ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v10 baseline's historical artifact and canonical binding."
-    dependsOn(prepareSdkV10ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV10ExactBaseline, sdkV2ExactReferenceBuilder, sdkV10ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV10ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkV10ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV10ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV10ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV10ExactCommit
-    )
-}
-
-val checkSdkV11ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "release verification"
-    description = "Verifies the live SDK remains byte-exact to the reviewed v11 inline-label anchor."
-    dependsOn(":sdk:jar", prepareSdkV11ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV11ExactBaseline, sdkV2ExactReferenceBuilder, sdkV11ExactReferenceArtifact, sdkJarArtifact)
-    inputs.property("expectedCommit", sdkV11ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkJarArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV11ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV11ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV11ExactCommit
-    )
-}
+// checkRelease in gradle/verification.gradle.kts consumes this list so the release
+// gate gains a new anchored check without naming the version there.
+extensions.extraProperties["sdkExactCompatibilityCheckTasks"] = sdkExactCompatibilityCheckTasks
 
 val checkSdkV8Linkage by tasks.registering(Exec::class) {
     group = "verification"
     description = "Compiles history/settings/atlas entry points against v8 and runs that bytecode on the live SDK."
-    dependsOn(":sdk:jar", prepareSdkV8ExactReference)
-    inputs.files("scripts/test/test_sdk_v8_linkage.sh", sdkV8ExactReferenceArtifact, sdkJarArtifact)
+    dependsOn(":sdk:jar", "prepareSdkV8ExactReference")
+    inputs.files("scripts/test/test_sdk_v8_linkage.sh", sdkExactReferenceArtifact(8), sdkJarArtifact)
+    verificationStamp()
     commandLine("bash", "scripts/test/test_sdk_v8_linkage.sh",
-        sdkV8ExactReferenceArtifact.get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
+        sdkExactReferenceArtifact(8).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
 }
 
 val checkTextureAtlasSdkV7Linkage by tasks.registering(Exec::class) {
     group = "verification"
     description = "Compiles the legacy texture-atlas constructors against v7 and runs that bytecode on the live SDK."
-    dependsOn(":sdk:jar", prepareSdkV7ExactReference)
-    inputs.files("scripts/test/test_texture_atlas_sdk_linkage.sh", sdkV7ExactReferenceArtifact, sdkJarArtifact)
+    dependsOn(":sdk:jar", "prepareSdkV7ExactReference")
+    inputs.files("scripts/test/test_texture_atlas_sdk_linkage.sh", sdkExactReferenceArtifact(7), sdkJarArtifact)
+    verificationStamp()
     commandLine("bash", "scripts/test/test_texture_atlas_sdk_linkage.sh",
-        sdkV7ExactReferenceArtifact.get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
+        sdkExactReferenceArtifact(7).get().asFile.absolutePath, sdkJarArtifact.get().asFile.absolutePath)
+}
+
+/*
+ * Anchor-table consistency self-check. v2–v6 were anchored before per-version review
+ * documents existed, so they are grandfathered here; the exemption set must match the
+ * versions that actually lack a document, which fails closed both when a new anchor
+ * forgets its review and when a grandfathered version later gains one.
+ */
+private val sdkAnchorVersionsWithoutReviewDocs = setOf(2, 3, 4, 5, 6)
+
+val checkSdkBaselineAnchorConsistency by tasks.registering {
+    group = "verification"
+    description = "Verifies every anchored SDK version has one exact baseline and one review document."
+    inputs.dir("sdk/api-contracts/baselines")
+    inputs.files(fileTree("sdk/api-contracts") { include("sdk-api-v*-review.md") })
+    inputs.property("anchorVersions", sdkBaselineAnchors.map { it.version })
+    verificationStamp()
+    doLast {
+        val versions = sdkBaselineAnchors.map { it.version }
+        val duplicated = versions.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        if (duplicated.isNotEmpty()) {
+            throw GradleException("SDK anchor table lists duplicate versions: ${duplicated.sorted()}.")
+        }
+        val baselineName = Regex("sdk-api-v(\\d+)-exact\\.json")
+        val baselineVersions = file("sdk/api-contracts/baselines").listFiles().orEmpty()
+            .mapNotNull { baselineName.matchEntire(it.name)?.groupValues?.get(1)?.toInt() }
+            .toSet()
+        if (baselineVersions != versions.toSet()) {
+            throw GradleException(
+                "SDK anchor table and sdk/api-contracts/baselines disagree: " +
+                    "anchors=${versions.sorted()}, baselines=${baselineVersions.sorted()}."
+            )
+        }
+        val missingReviews = versions.filter { version ->
+            !file("sdk/api-contracts/sdk-api-v$version-review.md").isFile
+        }.toSet()
+        if (missingReviews != sdkAnchorVersionsWithoutReviewDocs) {
+            throw GradleException(
+                "SDK anchors without a review document are ${missingReviews.sorted()}; expected " +
+                    "${sdkAnchorVersionsWithoutReviewDocs.sorted()}. Write sdk-api-v<N>-review.md for " +
+                    "the new anchor or trim the exemption once a grandfathered version gains one."
+            )
+        }
+    }
 }
 
 val generateSdkApiReport by tasks.registering(Exec::class) {

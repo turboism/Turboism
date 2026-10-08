@@ -16,12 +16,7 @@ import java.util.List;
  * @param version the schema version documents are written under
  * @param keys the declared keys, unmodifiable when non-null
  */
-public record ConfigSchema(
-    String configId,
-    String relativePath,
-    int version,
-    List<ConfigKey<?>> keys
-) {
+public record ConfigSchema(String configId, String relativePath, int version, List<ConfigKey<?>> keys) {
     public ConfigSchema {
         if (keys != null) {
             keys = Collections.unmodifiableList(new ArrayList<>(keys));

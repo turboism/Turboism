@@ -1,16 +1,16 @@
 package dev.turboism.shell;
 
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-import javax.swing.JDialog;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Frame;
 import java.awt.Window;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.WindowConstants;
 
 /** Shared window construction and message behavior for Turboism core UI. */
 final class CoreDialogs {
-    private CoreDialogs() { }
+    private CoreDialogs() {}
 
     static JDialog create(final String title, final int width, final int height) {
         final JDialog dialog = TurboismWindowFactory.dialog(owner(), title, false);
@@ -36,9 +36,7 @@ final class CoreDialogs {
     }
 
     static boolean confirm(final Window owner, final String title, final String message) {
-        final JOptionPane pane = new JOptionPane(
-            message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION
-        );
+        final JOptionPane pane = new JOptionPane(message, JOptionPane.QUESTION_MESSAGE, JOptionPane.YES_NO_OPTION);
         final JDialog dialog = pane.createDialog(owner, title);
         TurboismWindowFactory.style(dialog);
         dialog.setVisible(true);
@@ -47,13 +45,14 @@ final class CoreDialogs {
     }
 
     static void onEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run(); else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("core shell dialog", action);
     }
 
     private static Frame owner() {
         for (Frame frame : Frame.getFrames()) {
-            if (frame.isVisible() && frame.getTitle() != null
-                && frame.getTitle().contains("Live2D Cubism Editor")) return frame;
+            if (frame.isVisible()
+                    && frame.getTitle() != null
+                    && frame.getTitle().contains("Live2D Cubism Editor")) return frame;
         }
         for (Frame frame : Frame.getFrames()) if (frame.isVisible()) return frame;
         return null;

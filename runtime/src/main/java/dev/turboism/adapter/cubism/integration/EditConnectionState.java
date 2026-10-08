@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.integration;
 
 import dev.turboism.sdk.cubism.edit.EditSession;
 import dev.turboism.sdk.cubism.id.DocumentId;
-
 import java.lang.ref.WeakReference;
 import java.util.LinkedHashMap;
 import java.util.Map;

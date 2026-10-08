@@ -51,7 +51,11 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
 
     private static final String RESULT_FILE = "settings-result.txt";
     private static final boolean PERFORMANCE = Boolean.getBoolean("turboism.validation.settingsPerformance");
-    private static final String PREF_KEY = PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
+    private static final boolean EDGE_INDEX = Boolean.getBoolean("turboism.validation.settingsEdgeIndex");
+    private static final boolean STARTUP_ONLY = Boolean.getBoolean("turboism.validation.settingsStartupReadOnly");
+    private static final boolean PREPARE_TASK_CONFIG = Boolean.getBoolean("turboism.validation.settingsPrepareTaskConfig");
+    private static final String PREF_KEY = EDGE_INDEX ? "meshTriangulationEdgeIndex"
+        : PERFORMANCE ? "uniformLocationCache" : "meshTriangulationHashFix";
     private static final String REVIEWED_VERSION = "5.3.03";
 
     private static final long MENU_TIMEOUT_MILLIS = 300_000L;
@@ -79,6 +83,13 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         "メ시 삼각분할 해시 퇴화 수정",
         "修复网格三角化的哈希退化",
         "修復網格三角化的雜湊退化");
+    /** {@code settings.mesh-triangulation.edge-index} across all shipped catalogs. */
+    private static final Set<String> EDGE_INDEX_LABELS = Set.of(
+        "Index mesh triangulation edge lookups",
+        "メッシュ三角分割の辺検索を索引化",
+        "메시 삼각분할의 엣지 조회 인덱싱",
+        "索引网格三角化的边查询",
+        "將網格三角化的邊查詢索引化");
     /** {@code common.apply} across all shipped catalogs. */
     private static final Set<String> APPLY_LABELS =
         Set.of("Apply", "適用", "적용", "应用", "套用");
@@ -126,6 +137,23 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
             // regression (strict preview-report validator rejects
             // localeSource=STARTUP) can leave the report unwritten until shutdown.
             // Host identity is already pinned by the runner's exact-JAR gate.
+            if (PERFORMANCE && EDGE_INDEX) throw new IllegalArgumentException("settings modes are mutually exclusive");
+            if (STARTUP_ONLY && (!EDGE_INDEX || PERFORMANCE)) {
+                throw new IllegalArgumentException("read-only startup requires edge-index mode");
+            }
+            if (PREPARE_TASK_CONFIG) {
+                final TaskConfigFixture.Prepared prepared = TaskConfigFixture.prepare(turboismHome,
+                    System.getProperty("turboism.validation.settingsTaskConfigExpectedRun"),
+                    System.getProperty("turboism.validation.settingsTaskConfigExpectedSha"),
+                    EDGE_INDEX, PERFORMANCE, STARTUP_ONLY);
+                evidence.put("taskConfigInitiallyWritable", Boolean.toString(prepared.initiallyWritable()));
+                evidence.put("taskConfigPrepared", "true");
+                evidence.put("taskConfigBeforeSha256", prepared.beforeSha256());
+                evidence.put("taskConfigAfterSha256", prepared.afterSha256());
+                step("taskConfigFixture", "owner-write-enabled-bytes-unchanged");
+            }
+            final byte[] startupConfig = STARTUP_ONLY ? Files.readAllBytes(turboismHome.resolve("config.json")) : null;
+            evidence.put("preferenceKey", PREF_KEY);
             evidence.put("hostVersion", hostVersionLabel());
             final JMenuItem settingsItem = awaitSettingsItem();
             step("readiness", settingsItem != null ? "menu-ready" : "timeout");
@@ -134,8 +162,28 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                     + MENU_TIMEOUT_MILLIS + "ms");
                 return;
             }
-            if (PERFORMANCE) awaitModelAndRenderer();
-            runScenario(settingsItem);
+            if (PERFORMANCE || EDGE_INDEX) awaitModelAndRenderer();
+            if (STARTUP_ONLY) {
+                final String expected = System.getProperty("turboism.validation.settingsStartupExpectedEdgeIndex", "");
+                if (!expected.equals("true") && !expected.equals("false")) {
+                    throw new IllegalArgumentException("explicit startup edge preference required");
+                }
+                final Boolean persisted = persistedValue();
+                check(Boolean.valueOf(expected).equals(persisted), "startup preference differs from the leg");
+                check(java.util.Arrays.equals(startupConfig, Files.readAllBytes(turboismHome.resolve("config.json"))),
+                    "config changed during read-only startup inspection");
+                evidence.put("mode", "startup-read-only");
+                evidence.put("expectedEdgeIndex", expected);
+                evidence.put("persistedEdgeIndex", Objects.toString(persisted));
+                evidence.put("startupConfigSha256", java.util.HexFormat.of().formatHex(
+                    java.security.MessageDigest.getInstance("SHA-256").digest(startupConfig)));
+                evidence.put("settingsOpened", "false");
+                evidence.put("configWritten", "false");
+                evidence.put("editorExitOwnedBySceneDriver", "true");
+                step("startup", "menu-model-native-frame-and-preference");
+            } else {
+                runScenario(settingsItem);
+            }
             pass = failures.isEmpty();
         } catch (Throwable failure) {
             final Throwable cause = failure instanceof InvocationTargetException invocation
@@ -144,14 +192,18 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                 + " " + Objects.toString(cause.getMessage(), ""));
         } finally {
             if (!failures.isEmpty()) pass = false;
-            writeResult(pass);
+            if (!writeResult(pass) && STARTUP_ONLY) pass = false;
             logResult(pass);
-            try {
-                Thread.sleep(SETTLE_MILLIS);
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
+            if (STARTUP_ONLY) {
+                logger.info("SETTINGS_STARTUP_READONLY_" + (pass ? "PASS" : "FAIL"));
+            } else {
+                try {
+                    Thread.sleep(SETTLE_MILLIS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                Runtime.getRuntime().exit(pass ? 0 : 2);
             }
-            Runtime.getRuntime().exit(pass ? 0 : 2);
         }
     }
 
@@ -175,6 +227,20 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         evidence.put("performanceTabTitle", first.tabTitle);
         evidence.put("toggleLabel", first.checkbox.getText());
         evidence.put("performanceTabCheckboxes", first.siblingSummary);
+        if (EDGE_INDEX) {
+            check("triangulation-edge-index".equals(first.checkbox.getName()), "edge-index contribution ID differs");
+            check(EDGE_INDEX_LABELS.contains(first.checkbox.getText()), "edge-index label is missing or untranslated");
+            evidence.put("edgeIndexI18nLabelVerified", Boolean.toString(EDGE_INDEX_LABELS.contains(first.checkbox.getText())));
+            onEdt(() -> {
+                first.checkbox.scrollRectToVisible(new Rectangle(first.checkbox.getSize()));
+                return null;
+            });
+            final boolean visible = onEdtSettled(() -> first.checkbox.isShowing()
+                && first.checkbox.getWidth() > 0 && first.checkbox.getHeight() > 0
+                && first.checkbox.getVisibleRect().contains(new Rectangle(first.checkbox.getSize())));
+            check(visible, "edge-index checkbox is not fully visible in its actual performance viewport");
+            evidence.put("edgeIndexControlVisible", Boolean.toString(visible));
+        }
 
         if (PERFORMANCE) verifyPerformanceViewport(dialog, first);
         final Boolean persistedAtStart = persistedValue();
@@ -206,9 +272,19 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
             "Apply did not persist " + proposed + " (observed "
                 + (persistedAfterApply == null ? "absent" : persistedAfterApply) + ")");
 
-        // Phase 3: cancel the open dialog, reopen through the menu, and verify the read-back.
+        if (EDGE_INDEX) snapshotConfig(proposed);
+
+        // Phase 3: cancel an UNSAVED opposite value, not merely an unchanged dialog.
+        // Existing modes keep their original scenario; edge-index proves Cancel really
+        // discards a pending change instead of relying on Apply's previous save.
+        if (EDGE_INDEX) onEdt(() -> { box.doClick(); return null; });
         onEdt(() -> clickButton(dialog, CANCEL_LABELS));
         awaitHidden(dialog);
+        if (EDGE_INDEX) {
+            final Boolean afterCancel = persistedValue();
+            check(Boolean.valueOf(proposed).equals(afterCancel), "Cancel persisted an unsaved edge-index change");
+            evidence.put("cancelPreservesAppliedValue", Boolean.toString(Boolean.valueOf(proposed).equals(afterCancel)));
+        }
         final JMenuItem settingsItemAgain = awaitSettingsItem();
         if (settingsItemAgain == null) {
             failures.add("settings menu item missing when reopening");
@@ -248,11 +324,45 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         check((persistedAtEnd == null || persistedAtEnd) == expectedInitial,
             "restored save did not persist " + expectedInitial + " (observed "
                 + (persistedAtEnd == null ? "absent" : persistedAtEnd) + ")");
+        if (EDGE_INDEX) {
+            snapshotConfig(expectedInitial);
+            // OK must also survive another real dialog creation, not just a file read.
+            final JMenuItem item = awaitSettingsItem();
+            if (item == null) throw new IllegalStateException("settings item missing after OK");
+            postEdt(item::doClick);
+            final JDialog finalDialog = awaitSettingsDialog();
+            if (finalDialog == null) throw new IllegalStateException("settings dialog missing after OK");
+            final TargetControl saved = locateToggle(finalDialog);
+            check(saved != null && onEdtSettled(saved.checkbox::isSelected) == expectedInitial,
+                "OK saved value did not survive reopening");
+            evidence.put("reopenedAfterOkSelected", saved == null ? "missing"
+                : Boolean.toString(onEdtSettled(saved.checkbox::isSelected)));
+            onEdt(() -> clickButton(finalDialog, CANCEL_LABELS));
+            awaitHidden(finalDialog);
+        }
         step("scenario", "complete");
+    }
+
+    private void snapshotConfig(final boolean expected) throws Exception {
+        if (!Boolean.valueOf(expected).equals(persistedValue())) {
+            throw new IllegalStateException("cannot snapshot a config that did not persist the UI value");
+        }
+        Files.createDirectories(stateDir);
+        final String name = "edge-index-ui-" + (expected ? "on" : "off") + ".json";
+        final Path destination = stateDir.resolve(name);
+        Files.copy(turboismHome.resolve("config.json"), destination,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        final byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(Files.readAllBytes(destination));
+        evidence.put("uiConfig." + (expected ? "on" : "off") + ".path",
+            "state/dev.turboism.validation.settingspage/" + name);
+        evidence.put("uiConfig." + (expected ? "on" : "off") + ".sha256",
+            java.util.HexFormat.of().formatHex(digest));
     }
 
     private void awaitModelAndRenderer() throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(180);
+        RuntimeException lastFailure = null;
         while (System.nanoTime() < deadline) {
             try {
                 final String model = context.cubism().model().active().id().value();
@@ -268,10 +378,13 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                 }
             } catch (RuntimeException notReady) {
                 // A visible menu can precede completion of the initial model and first paint.
+                lastFailure = notReady;
             }
             Thread.sleep(POLL_MILLIS);
         }
-        throw new IllegalStateException("model and native renderer did not become ready");
+        throw new IllegalStateException("model and native renderer did not become ready"
+            + (lastFailure == null ? "" : ": " + lastFailure.getClass().getSimpleName()
+                + " " + Objects.toString(lastFailure.getMessage(), "")), lastFailure);
     }
 
     private void verifyPerformanceViewport(final JDialog dialog, final TargetControl target) throws Exception {
@@ -478,7 +591,8 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
                         .append('=').append(box.isSelected());
                 }
                 for (final JCheckBox box : boxes) {
-                    if (PERFORMANCE ? "uniform-location-cache".equals(box.getName())
+                    if (EDGE_INDEX ? "triangulation-edge-index".equals(box.getName())
+                        : PERFORMANCE ? "uniform-location-cache".equals(box.getName())
                         : box.getText() != null && MESH_TOGGLE_LABELS.contains(box.getText())) {
                         return new TargetControl(index, title, box, summary.toString());
                     }
@@ -655,7 +769,7 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         logger.info("SETTINGS_PAGE_PROBE_STEP " + name + " " + detail);
     }
 
-    private void writeResult(final boolean pass) {
+    private boolean writeResult(final boolean pass) {
         final StringBuilder body = new StringBuilder();
         body.append("schemaVersion=1\n");
         body.append("plugin=dev.turboism.validation.settingspage\n");
@@ -674,8 +788,10 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         try {
             Files.createDirectories(stateDir);
             Files.writeString(stateDir.resolve(RESULT_FILE), body.toString(), StandardCharsets.UTF_8);
+            return true;
         } catch (java.io.IOException failure) {
             logger.error("SETTINGS_PAGE_PROBE_RESULT_WRITE_FAILED " + failure.getMessage());
+            return false;
         }
     }
 

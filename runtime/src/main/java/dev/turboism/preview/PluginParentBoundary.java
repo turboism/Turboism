@@ -14,9 +14,9 @@ import java.util.Enumeration;
  * works from an allow-list instead of a prefix deny-list:
  *
  * <ul>
- *   <li>{@code dev.turboism.sdk.*} and {@code dev.turboism.protocol.*} resolve normally —
- *       the plugin-facing framework surface. Every other {@code dev.turboism.*} name is
- *       implementation-internal and refused before delegation;</li>
+ *   <li>{@code dev.turboism.sdk.*} resolves normally — the plugin-facing framework
+ *       surface. Every other {@code dev.turboism.*} name is implementation-internal and
+ *       refused before delegation;</li>
  *   <li>every other name resolves through the parent <em>and</em> is accepted only when
  *       it belongs to a named {@code java.*}/{@code jdk.*} module. Classpath and
  *       boot-classpath classes — host {@code com.live2d.*}/{@code jp.noids.*} types in
@@ -36,10 +36,7 @@ import java.util.Enumeration;
  * access is unaffected.
  */
 final class PluginParentBoundary extends ClassLoader {
-    private static final String[] ALLOWED_FRAMEWORK_PREFIXES = {
-        "dev.turboism.sdk.",
-        "dev.turboism.protocol."
-    };
+    private static final String SDK_PREFIX = "dev.turboism.sdk.";
 
     private PluginParentBoundary(final ClassLoader delegate) {
         super(delegate);
@@ -50,22 +47,17 @@ final class PluginParentBoundary extends ClassLoader {
     }
 
     @Override
-    protected Class<?> loadClass(final String name, final boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         if (name.startsWith("dev.turboism.")) {
-            if (allowedFrameworkName(name)) {
+            if (name.startsWith(SDK_PREFIX)) {
                 return super.loadClass(name, resolve);
             }
-            throw new ClassNotFoundException(
-                name + " is implementation-internal, not a plugin-facing API"
-            );
+            throw new ClassNotFoundException(name + " is implementation-internal, not a plugin-facing API");
         }
         final Class<?> candidate = super.loadClass(name, resolve);
         final Module module = candidate.getModule();
         if (module == null || !isJdkModule(module)) {
-            throw new ClassNotFoundException(
-                name + " is outside the JDK platform modules and the plugin-facing SDK"
-            );
+            throw new ClassNotFoundException(name + " is outside the JDK platform modules and the plugin-facing SDK");
         }
         return candidate;
     }
@@ -86,30 +78,19 @@ final class PluginParentBoundary extends ClassLoader {
         return super.getResources(name);
     }
 
-    private static boolean allowedFrameworkName(final String name) {
-        for (final String allowed : ALLOWED_FRAMEWORK_PREFIXES) {
-            if (name.startsWith(allowed)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static boolean isJdkModule(final Module module) {
         return module.isNamed()
-            && (module.getName().startsWith("java.")
-                || module.getName().startsWith("jdk."));
+                && (module.getName().startsWith("java.") || module.getName().startsWith("jdk."));
     }
 
     private static boolean deniedResourceName(final String name) {
         final String path = name.startsWith("/") ? name.substring(1) : name;
         if (path.startsWith("dev/turboism/")) {
-            return !(path.startsWith("dev/turboism/sdk/")
-                || path.startsWith("dev/turboism/protocol/"));
+            return !path.startsWith("dev/turboism/sdk/");
         }
         return path.startsWith("com/live2d/")
-            || path.startsWith("jp/noids/")
-            || path.startsWith("META-INF/turboism/")
-            || path.startsWith("META-INF/services/");
+                || path.startsWith("jp/noids/")
+                || path.startsWith("META-INF/turboism/")
+                || path.startsWith("META-INF/services/");
     }
 }

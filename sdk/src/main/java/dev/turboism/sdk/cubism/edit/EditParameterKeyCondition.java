@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import java.util.Optional;
  * @param parameter the parameter to condition on; empty entries widen the condition
  * @param value the key value to condition on; empty entries widen the condition
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditParameterKeyCondition(Optional<ParameterId> parameter, Optional<Double> value) {
 
@@ -35,6 +37,6 @@ public record EditParameterKeyCondition(Optional<ParameterId> parameter, Optiona
             throw new IllegalArgumentException("value must be finite");
         }
         return new EditParameterKeyCondition(
-            Optional.of(Objects.requireNonNull(parameter, "parameter")), Optional.of(value));
+                Optional.of(Objects.requireNonNull(parameter, "parameter")), Optional.of(value));
     }
 }

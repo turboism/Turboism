@@ -14,11 +14,7 @@ import java.util.Optional;
  *                  budget and only a prefix was returned; always {@code false}
  *                  on failure
  */
-public record UserFileReadResult<T>(
-    Optional<T> value,
-    Optional<UserFileError> error,
-    boolean truncated
-) {
+public record UserFileReadResult<T>(Optional<T> value, Optional<UserFileError> error, boolean truncated) {
     /**
      * Validates the record components.
      *
@@ -30,14 +26,10 @@ public record UserFileReadResult<T>(
         value = UserFileContracts.optional(value, "value");
         error = UserFileContracts.optional(error, "error");
         if (value.isPresent() == error.isPresent()) {
-            throw new IllegalArgumentException(
-                "user-file read must contain exactly one of value or error"
-            );
+            throw new IllegalArgumentException("user-file read must contain exactly one of value or error");
         }
         if (error.isPresent() && truncated) {
-            throw new IllegalArgumentException(
-                "failed user-file read must not be truncated"
-            );
+            throw new IllegalArgumentException("failed user-file read must not be truncated");
         }
     }
 }

@@ -1,18 +1,16 @@
 package dev.turboism.mapping.verification;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class CubismHostProbeCliTest {
 
@@ -27,14 +25,16 @@ final class CubismHostProbeCliTest {
             root = root.getParent();
         }
         assertNotNull(root, "the CLI consumer contract is checked against this source tree");
-        final String consumer = Files.readString(root
-            .resolve("packaging/windows-installer/cubism-launch-common.ps1"));
+        final String consumer = Files.readString(root.resolve("packaging/windows-installer/cubism-launch-common.ps1"));
         final var schema = java.util.regex.Pattern.compile(
-            "(?m)^\\$script:CubismProbeSchemaVersion\\s*=\\s*(\\d+)\\s*$").matcher(consumer);
+                        "(?m)^\\$script:CubismProbeSchemaVersion\\s*=\\s*(\\d+)\\s*$")
+                .matcher(consumer);
 
         assertTrue(schema.find(), "Windows discovery must declare the probe schema it consumes");
-        assertEquals(report.path("schemaVersion").asInt(), Integer.parseInt(schema.group(1)),
-            "Windows discovery must not discard every current CLI result due to protocol drift");
+        assertEquals(
+                report.path("schemaVersion").asInt(),
+                Integer.parseInt(schema.group(1)),
+                "Windows discovery must not discard every current CLI result due to protocol drift");
     }
 
     @Test
@@ -44,7 +44,8 @@ final class CubismHostProbeCliTest {
 
         final ObjectNode report = CubismHostProbeCli.probe(artifact, null);
 
-        assertEquals(CubismHostProbeCli.SCHEMA_VERSION, report.get("schemaVersion").asInt());
+        assertEquals(
+                CubismHostProbeCli.SCHEMA_VERSION, report.get("schemaVersion").asInt());
         assertEquals("cubism-host-compatibility", report.get("probe").asText());
         assertEquals("STATIC_PREFLIGHT", report.path("evidenceStage").asText());
         assertFalse(report.path("runtimeHooksVerified").asBoolean(true));
@@ -74,7 +75,9 @@ final class CubismHostProbeCliTest {
         assertEquals(503990001, report.get("identity").get("build").asInt());
         assertFalse(report.get("identity").get("artifactReviewed").asBoolean());
         assertFalse(report.get("identity").get("releaseReviewed").asBoolean());
-        assertEquals(64, report.get("identity").get("artifact").get("sha256").asText().length());
+        assertEquals(
+                64,
+                report.get("identity").get("artifact").get("sha256").asText().length());
         assertTrue(report.has("slices"));
         assertTrue(report.get("slices").size() > 0);
         for (final JsonNode slice : report.get("slices")) {
@@ -97,17 +100,24 @@ final class CubismHostProbeCliTest {
     @org.junit.jupiter.params.provider.ValueSource(ints = {503020001, 503020002})
     void releaseReviewDoesNotImplyArchiveReview(final int build) {
         final CubismHostIdentity identity = new CubismHostIdentity(
-            "Live2D Cubism Editor", "5.3.02", java.util.Optional.empty(), build,
-            "com/live2d/cubism/h", new HostArtifactDigest(1, "a".repeat(64))
-        );
+                "Live2D Cubism Editor",
+                "5.3.02",
+                java.util.Optional.empty(),
+                build,
+                "com/live2d/cubism/h",
+                new HostArtifactDigest(1, "a".repeat(64)));
         final ObjectNode report = CubismHostProbeCli.render(CompatibilityResolution.of(
-            CompatibilityResolution.Mode.COMPATIBLE, HostIdentityProbe.declared(identity),
-            java.util.Map.of(), false, "no fixture selectors"
-        ));
+                CompatibilityResolution.Mode.COMPATIBLE,
+                HostIdentityProbe.declared(identity),
+                java.util.Map.of(),
+                false,
+                "no fixture selectors"));
 
         assertEquals("5.3.02", report.path("identity").path("version").asText());
         assertEquals(build, report.path("identity").path("build").asInt());
-        assertEquals(build == 503020001, report.path("identity").path("releaseReviewed").asBoolean());
+        assertEquals(
+                build == 503020001,
+                report.path("identity").path("releaseReviewed").asBoolean());
         assertFalse(report.path("identity").path("artifactReviewed").asBoolean());
     }
 
@@ -121,26 +131,26 @@ final class CubismHostProbeCliTest {
                 public String value() { return "x"; }
             }
             """);
-        assertEquals(0, javax.tools.ToolProvider.getSystemJavaCompiler().run(
-            null, null, null, "-d", classes.toString(), source.toString()));
+        assertEquals(
+                0,
+                javax.tools.ToolProvider.getSystemJavaCompiler()
+                        .run(null, null, null, "-d", classes.toString(), source.toString()));
 
         final Path artifact = temporaryDirectory.resolve("synthetic-host.jar");
         try (java.util.jar.JarOutputStream output =
-                 new java.util.jar.JarOutputStream(Files.newOutputStream(artifact))) {
+                new java.util.jar.JarOutputStream(Files.newOutputStream(artifact))) {
             writeEntry(output, "com/live2d/cubism/CEAppCtrl.class", anchorClass());
-            writeEntry(output, "com/live2d/cubism/h.class",
-                declarationClass("com/live2d/cubism/h"));
-            writeEntry(output, "synthetic/host/SyntheticHost.class",
-                Files.readAllBytes(classes.resolve("synthetic/host/SyntheticHost.class")));
+            writeEntry(output, "com/live2d/cubism/h.class", declarationClass("com/live2d/cubism/h"));
+            writeEntry(
+                    output,
+                    "synthetic/host/SyntheticHost.class",
+                    Files.readAllBytes(classes.resolve("synthetic/host/SyntheticHost.class")));
         }
         return artifact;
     }
 
-    private static void writeEntry(
-        final java.util.jar.JarOutputStream output,
-        final String name,
-        final byte[] bytes
-    ) throws Exception {
+    private static void writeEntry(final java.util.jar.JarOutputStream output, final String name, final byte[] bytes)
+            throws Exception {
         output.putNextEntry(new java.util.jar.JarEntry(name));
         output.write(bytes);
         output.closeEntry();
@@ -148,9 +158,13 @@ final class CubismHostProbeCliTest {
 
     private static byte[] anchorClass() {
         final org.objectweb.asm.ClassWriter writer = new org.objectweb.asm.ClassWriter(0);
-        writer.visit(org.objectweb.asm.Opcodes.V17,
-            org.objectweb.asm.Opcodes.ACC_FINAL | org.objectweb.asm.Opcodes.ACC_SUPER,
-            "com/live2d/cubism/CEAppCtrl", null, "java/lang/Object", null);
+        writer.visit(
+                org.objectweb.asm.Opcodes.V17,
+                org.objectweb.asm.Opcodes.ACC_FINAL | org.objectweb.asm.Opcodes.ACC_SUPER,
+                "com/live2d/cubism/CEAppCtrl",
+                null,
+                "java/lang/Object",
+                null);
         writer.visitEnd();
         return writer.toByteArray();
     }
@@ -162,21 +176,49 @@ final class CubismHostProbeCliTest {
      */
     private static byte[] declarationClass(final String internalName) {
         final org.objectweb.asm.ClassWriter writer = new org.objectweb.asm.ClassWriter(0);
-        writer.visit(org.objectweb.asm.Opcodes.V17,
-            org.objectweb.asm.Opcodes.ACC_FINAL | org.objectweb.asm.Opcodes.ACC_SUPER,
-            internalName, null, "java/lang/Object", null);
-        writer.visitField(org.objectweb.asm.Opcodes.ACC_PRIVATE
-                | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_FINAL,
-            "product", "Ljava/lang/String;", null, "Live2D Cubism Editor").visitEnd();
-        writer.visitField(org.objectweb.asm.Opcodes.ACC_PRIVATE
-                | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_FINAL,
-            "version", "Ljava/lang/String;", null, "5.3.99").visitEnd();
-        writer.visitField(org.objectweb.asm.Opcodes.ACC_PRIVATE
-                | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_FINAL,
-            "date", "Ljava/lang/String;", null, "2026/12/31").visitEnd();
-        writer.visitField(org.objectweb.asm.Opcodes.ACC_PRIVATE
-                | org.objectweb.asm.Opcodes.ACC_STATIC | org.objectweb.asm.Opcodes.ACC_FINAL,
-            "build", "I", null, 503990001).visitEnd();
+        writer.visit(
+                org.objectweb.asm.Opcodes.V17,
+                org.objectweb.asm.Opcodes.ACC_FINAL | org.objectweb.asm.Opcodes.ACC_SUPER,
+                internalName,
+                null,
+                "java/lang/Object",
+                null);
+        writer.visitField(
+                        org.objectweb.asm.Opcodes.ACC_PRIVATE
+                                | org.objectweb.asm.Opcodes.ACC_STATIC
+                                | org.objectweb.asm.Opcodes.ACC_FINAL,
+                        "product",
+                        "Ljava/lang/String;",
+                        null,
+                        "Live2D Cubism Editor")
+                .visitEnd();
+        writer.visitField(
+                        org.objectweb.asm.Opcodes.ACC_PRIVATE
+                                | org.objectweb.asm.Opcodes.ACC_STATIC
+                                | org.objectweb.asm.Opcodes.ACC_FINAL,
+                        "version",
+                        "Ljava/lang/String;",
+                        null,
+                        "5.3.99")
+                .visitEnd();
+        writer.visitField(
+                        org.objectweb.asm.Opcodes.ACC_PRIVATE
+                                | org.objectweb.asm.Opcodes.ACC_STATIC
+                                | org.objectweb.asm.Opcodes.ACC_FINAL,
+                        "date",
+                        "Ljava/lang/String;",
+                        null,
+                        "2026/12/31")
+                .visitEnd();
+        writer.visitField(
+                        org.objectweb.asm.Opcodes.ACC_PRIVATE
+                                | org.objectweb.asm.Opcodes.ACC_STATIC
+                                | org.objectweb.asm.Opcodes.ACC_FINAL,
+                        "build",
+                        "I",
+                        null,
+                        503990001)
+                .visitEnd();
         writer.visitEnd();
         return writer.toByteArray();
     }

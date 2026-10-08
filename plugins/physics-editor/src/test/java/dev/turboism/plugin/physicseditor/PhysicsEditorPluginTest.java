@@ -1,17 +1,16 @@
 package dev.turboism.plugin.physicseditor;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Proxy;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PhysicsEditorPluginTest {
 
@@ -24,14 +23,17 @@ class PhysicsEditorPluginTest {
             return () -> closed.set(true);
         };
         final PluginContext context = (PluginContext) Proxy.newProxyInstance(
-            PluginContext.class.getClassLoader(),
-            new Class<?>[]{PluginContext.class},
-            (proxy, method, arguments) -> switch (method.getName()) {
-                case "physicsEditor" -> service;
-                case "logger" -> logger();
-                default -> throw new UnsupportedOperationException(method.getName());
-            }
-        );
+                PluginContext.class.getClassLoader(),
+                new Class<?>[] {PluginContext.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "logger" -> logger();
+                    case "services" ->
+                        dev.turboism.sdk.plugin.PluginServices.builder()
+                                .install(PhysicsEditorService.class, service)
+                                .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                                .build();
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
         final PhysicsEditorPlugin plugin = new PhysicsEditorPlugin();
 
         plugin.init(context);
@@ -44,9 +46,8 @@ class PhysicsEditorPluginTest {
 
     private static PluginLogger logger() {
         return (PluginLogger) Proxy.newProxyInstance(
-            PluginLogger.class.getClassLoader(),
-            new Class<?>[]{PluginLogger.class},
-            (proxy, method, arguments) -> null
-        );
+                PluginLogger.class.getClassLoader(),
+                new Class<?>[] {PluginLogger.class},
+                (proxy, method, arguments) -> null);
     }
 }

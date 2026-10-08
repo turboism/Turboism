@@ -513,12 +513,7 @@ public interface ProtectedExportHostOperations {
      * @param frame parent frame or {@code null} for the native fallback
      * @param completionCallback proxy from {@link #newExportCompletionProxy(BiConsumer)}
      */
-    void invokeNativeExport(
-        Object driver,
-        Object modelSource,
-        Object frame,
-        Object completionCallback
-    );
+    void invokeNativeExport(Object driver, Object modelSource, Object frame, Object completionCallback);
 
     /**
      * Builds a host-classloader {@code kotlin.jvm.functions.Function2} proxy receiving the

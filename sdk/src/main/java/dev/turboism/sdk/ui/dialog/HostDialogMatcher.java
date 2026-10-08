@@ -9,10 +9,7 @@ import java.util.Optional;
  * <p>The runtime matches against the host JVM's own AWT window tree only; the
  * matcher never carries coordinates, native handles, or Swing types.</p>
  */
-public record HostDialogMatcher(
-    Optional<String> windowClassPrefix,
-    Optional<Integer> optionType
-) {
+public record HostDialogMatcher(Optional<String> windowClassPrefix, Optional<Integer> optionType) {
 
     public HostDialogMatcher {
         windowClassPrefix = windowClassPrefix.map(String::strip).filter(prefix -> !prefix.isEmpty());

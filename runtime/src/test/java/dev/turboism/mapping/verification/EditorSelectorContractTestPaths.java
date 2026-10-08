@@ -9,8 +9,7 @@ final class EditorSelectorContractTestPaths {
     private static final Path PROJECT_ROOT = locateProjectRoot();
     private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
 
-    private EditorSelectorContractTestPaths() {
-    }
+    private EditorSelectorContractTestPaths() {}
 
     static Path projectRoot() {
         return PROJECT_ROOT;
@@ -38,9 +37,7 @@ final class EditorSelectorContractTestPaths {
             if (Files.isDirectory(candidate)) {
                 return candidate;
             }
-            throw new IllegalStateException(
-                "configured legacy Cubism evidence directory is unavailable: " + candidate
-            );
+            throw new IllegalStateException("configured legacy Cubism evidence directory is unavailable: " + candidate);
         }
         Path current = PROJECT_ROOT;
         while (current != null) {

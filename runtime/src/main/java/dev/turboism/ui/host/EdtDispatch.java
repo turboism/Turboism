@@ -1,8 +1,7 @@
 package dev.turboism.ui.host;
 
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.runtime.log.RuntimeDiagnostics;
-
-import javax.swing.SwingUtilities;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -11,11 +10,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 /**
  * Bounded synchronous dispatch to the host's AWT event dispatch thread.
  *
- * <p>Two entry points share the same contract split:</p>
+ * <p>Four entry points share the same contract split:</p>
  * <ul>
  *   <li>{@link #call} — install/query/mutation work whose result the caller needs. If the EDT
  *       does not <em>start</em> the task within the acceptance bound, the queued task is marked
@@ -23,11 +23,15 @@ import java.util.concurrent.atomic.AtomicReference;
  *       Once the task has started it is always awaited to completion — {@code call} only returns
  *       early when it can guarantee the body will not execute, so a completed host mutation can
  *       never lose its handle/registration.</li>
+ *   <li>{@link #callExact} — {@code call} for boundaries that must propagate checked task
+ *       failures unchanged (checked exceptions are rethrown instead of wrapped).</li>
  *   <li>{@link #runEventually} — idempotent removal/cleanup work. On acceptance timeout (or while
  *       the EDT is known unresponsive, or the JVM is exiting) the task stays queued and runs when
  *       the EDT drains — exactly once — while the caller returns immediately with a diagnostic.
  *       If the task starts within the bound the caller still waits for completion, so the happy
  *       path keeps synchronous semantics and failure propagation.</li>
+ *   <li>{@link #post} — fire-and-forget UI work: queued on the EDT and never awaited, with
+ *       failures reported through runtime diagnostics.</li>
  * </ul>
  *
  * <p>Interruption: while still queued, an interrupt abandons a {@code call} (typed failure) or
@@ -36,10 +40,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * compensation schedule it on the EDT instead — used by modal dialogs whose nested event pump
  * dispatches the compensation (e.g. {@code dialog.dispose()}) to release the caller.</p>
  *
- * <p>An acceptance timeout trips a circuit breaker: a probe runnable is queued behind the wedged
- * work, and until it executes all subsequent dispatches use {@link #UNRESPONSIVE_ACCEPT_TIMEOUT}
- * ({@code runEventually} returns without waiting). A JVM shutdown hook switches to the same short
- * bound so exit-time UI cleanup cannot stall process teardown.</p>
+ * <p>An acceptance timeout at or above {@link #DEFAULT_ACCEPT_TIMEOUT} trips a circuit breaker:
+ * a probe runnable is queued behind the wedged work, and until it executes all subsequent
+ * dispatches use {@link #UNRESPONSIVE_ACCEPT_TIMEOUT} ({@code runEventually} returns without
+ * waiting). Callers racing a shorter bound (status probes, attach deadlines) only evidence a
+ * busy EDT, not a wedged one, so their timeouts never trip the breaker for everyone else. A JVM
+ * shutdown hook switches to the same short bound so exit-time UI cleanup cannot stall process
+ * teardown.</p>
  */
 public final class EdtDispatch {
 
@@ -60,11 +67,16 @@ public final class EdtDispatch {
     private static final AtomicBoolean EDT_UNRESPONSIVE = new AtomicBoolean();
     private static final AtomicBoolean EXITING = new AtomicBoolean();
 
+    /**
+     * Caller acceptance bound at or above which an acceptance timeout marks the EDT
+     * unresponsive. A short-bounded caller that times out only proves the EDT was busy for a
+     * few seconds, so tripping the breaker on it would degrade every unrelated dispatch.
+     */
+    private static volatile Duration breakerTripBound = DEFAULT_ACCEPT_TIMEOUT;
+
     static {
         try {
-            Runtime.getRuntime().addShutdownHook(
-                new Thread(() -> EXITING.set(true), "turboism-edt-exit")
-            );
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> EXITING.set(true), "turboism-edt-exit"));
         } catch (IllegalStateException alreadyExiting) {
             EXITING.set(true);
         } catch (RuntimeException unavailable) {
@@ -72,8 +84,7 @@ public final class EdtDispatch {
         }
     }
 
-    private EdtDispatch() {
-    }
+    private EdtDispatch() {}
 
     /**
      * Runs {@code task} inline when called on the EDT; otherwise queues it and waits up to
@@ -89,11 +100,7 @@ public final class EdtDispatch {
     }
 
     /** {@link #call(String, Callable)} with an explicit acceptance bound. */
-    public static <T> T call(
-        final String label,
-        final Duration acceptTimeout,
-        final Callable<T> task
-    ) {
+    public static <T> T call(final String label, final Duration acceptTimeout, final Callable<T> task) {
         return call(label, acceptTimeout, task, null);
     }
 
@@ -106,16 +113,36 @@ public final class EdtDispatch {
      * safe to run on the EDT.
      */
     public static <T> T call(
-        final String label,
-        final Duration acceptTimeout,
-        final Callable<T> task,
-        final Runnable abandonCompensation
-    ) {
+            final String label,
+            final Duration acceptTimeout,
+            final Callable<T> task,
+            final Runnable abandonCompensation) {
+        return dispatch(label, acceptTimeout, task, abandonCompensation, false);
+    }
+
+    /**
+     * {@link #call(String, Duration, Callable)} variant for boundaries whose contract propagates
+     * checked task failures: an {@link Exception} thrown by the task is rethrown to the caller
+     * unchanged instead of being wrapped in {@link IllegalStateException}. Dispatch failures
+     * still surface as {@link EdtDispatchException}; runtime exceptions and errors propagate
+     * unchanged either way.
+     */
+    public static <T> T callExact(final String label, final Duration acceptTimeout, final Callable<T> task)
+            throws Exception {
+        return dispatch(label, acceptTimeout, task, null, true);
+    }
+
+    private static <T> T dispatch(
+            final String label,
+            final Duration acceptTimeout,
+            final Callable<T> task,
+            final Runnable abandonCompensation,
+            final boolean exact) {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(acceptTimeout, "acceptTimeout");
         if (SwingUtilities.isEventDispatchThread()) {
-            return runInline(label, task);
+            return runInline(label, task, exact);
         }
         final Queued<T> queued = new Queued<>(label, task);
         SwingUtilities.invokeLater(queued);
@@ -125,14 +152,15 @@ public final class EdtDispatch {
         try {
             if (!queued.awaitStart(bound)) {
                 if (tryAbandon(queued.state)) {
-                    markEdtUnresponsive(label);
+                    if (!shortBound && acceptTimeout.compareTo(breakerTripBound) >= 0) {
+                        markEdtUnresponsive(label);
+                    }
                     throw new EdtDispatchException(
-                        shortBound
-                            ? EdtDispatchException.Reason.EDT_UNRESPONSIVE
-                            : EdtDispatchException.Reason.ACCEPT_TIMEOUT,
-                        label,
-                        label + " was not accepted by the EDT within " + bound.toMillis() + "ms"
-                    );
+                            shortBound
+                                    ? EdtDispatchException.Reason.EDT_UNRESPONSIVE
+                                    : EdtDispatchException.Reason.ACCEPT_TIMEOUT,
+                            label,
+                            label + " was not accepted by the EDT within " + bound.toMillis() + "ms");
                 }
                 // Lost the CAS: the task is RUNNING (or DONE) — fall through to completion.
             }
@@ -140,15 +168,44 @@ public final class EdtDispatch {
             if (tryAbandon(queued.state)) {
                 Thread.currentThread().interrupt();
                 throw new EdtDispatchException(
-                    EdtDispatchException.Reason.INTERRUPTED,
-                    label,
-                    label + " was interrupted while queued for the EDT"
-                );
+                        EdtDispatchException.Reason.INTERRUPTED,
+                        label,
+                        label + " was interrupted while queued for the EDT");
             }
             // The task started concurrently; defer the interrupt until it completes.
             interrupted = true;
         }
-        return awaitCompletion(label, queued, abandonCompensation, interrupted);
+        return awaitCompletion(label, queued, abandonCompensation, interrupted, exact);
+    }
+
+    /**
+     * Posts {@code task} on the EDT without blocking the caller; runs inline when already on the
+     * EDT. A failure on the EDT is reported to {@link RuntimeDiagnostics} instead of surfacing
+     * through the AWT uncaught-exception path, so a posted task never dies silently.
+     */
+    public static void post(final String label, final Runnable task) {
+        Objects.requireNonNull(label, "label");
+        Objects.requireNonNull(task, "task");
+        if (SwingUtilities.isEventDispatchThread()) {
+            HostReadEpoch.enter();
+            try {
+                task.run();
+            } finally {
+                HostReadEpoch.exit();
+            }
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            HostReadEpoch.enter();
+            try {
+                task.run();
+            } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
+                RuntimeDiagnostics.error(COMPONENT, label + " posted EDT task failed", failure);
+            } finally {
+                HostReadEpoch.exit();
+            }
+        });
     }
 
     /**
@@ -163,16 +220,17 @@ public final class EdtDispatch {
     }
 
     /** {@link #runEventually(String, Runnable)} with an explicit acceptance bound. */
-    public static void runEventually(
-        final String label,
-        final Duration acceptTimeout,
-        final Runnable task
-    ) {
+    public static void runEventually(final String label, final Duration acceptTimeout, final Runnable task) {
         Objects.requireNonNull(label, "label");
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(acceptTimeout, "acceptTimeout");
         if (SwingUtilities.isEventDispatchThread()) {
-            task.run();
+            HostReadEpoch.enter();
+            try {
+                task.run();
+            } finally {
+                HostReadEpoch.exit();
+            }
             return;
         }
         final Queued<Void> queued = new Queued<>(label, () -> {
@@ -183,19 +241,17 @@ public final class EdtDispatch {
         if (EXITING.get() || EDT_UNRESPONSIVE.get()) {
             queued.callerGone.set(true);
             RuntimeDiagnostics.debug(
-                COMPONENT,
-                label + " deferred while the EDT is unresponsive or the JVM is exiting"
-            );
+                    COMPONENT, label + " deferred while the EDT is unresponsive or the JVM is exiting");
             return;
         }
         try {
             if (!queued.awaitStart(acceptTimeout)) {
-                markEdtUnresponsive(label);
+                if (acceptTimeout.compareTo(breakerTripBound) >= 0) {
+                    markEdtUnresponsive(label);
+                }
                 queued.callerGone.set(true);
                 RuntimeDiagnostics.debug(
-                    COMPONENT,
-                    label + " deferred: EDT did not accept within " + acceptTimeout.toMillis() + "ms"
-                );
+                        COMPONENT, label + " deferred: EDT did not accept within " + acceptTimeout.toMillis() + "ms");
                 return;
             }
         } catch (InterruptedException interruptedWait) {
@@ -204,7 +260,7 @@ public final class EdtDispatch {
             Thread.currentThread().interrupt();
             return;
         }
-        awaitCompletion(label, queued, null, false);
+        awaitCompletion(label, queued, null, false, false);
     }
 
     /**
@@ -223,27 +279,44 @@ public final class EdtDispatch {
         EXITING.set(true);
     }
 
+    static void breakerTripBoundForTesting(final Duration bound) {
+        breakerTripBound = Objects.requireNonNull(bound, "bound");
+    }
+
     static void resetStateForTesting() {
         EDT_UNRESPONSIVE.set(false);
         EXITING.set(false);
+        breakerTripBound = DEFAULT_ACCEPT_TIMEOUT;
     }
 
-    private static <T> T runInline(final String label, final Callable<T> task) {
+    private static <T> T runInline(final String label, final Callable<T> task, final boolean exact) {
+        // A dispatched body is its own host-read epoch: it may mutate the host, so
+        // closing it marks any enclosing epoch as potentially stale.
+        HostReadEpoch.enter();
         try {
             return task.call();
         } catch (RuntimeException | Error failure) {
             throw failure;
         } catch (Exception checked) {
+            if (exact) throwChecked(checked);
             throw new IllegalStateException(label + " host EDT operation failed", checked);
+        } finally {
+            HostReadEpoch.exit();
         }
     }
 
+    /** Rethrows a checked task failure without a wrapper for {@code callExact} dispatches. */
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void throwChecked(final Throwable failure) throws E {
+        throw (E) failure;
+    }
+
     private static <T> T awaitCompletion(
-        final String label,
-        final Queued<T> queued,
-        final Runnable abandonCompensation,
-        final boolean alreadyInterrupted
-    ) {
+            final String label,
+            final Queued<T> queued,
+            final Runnable abandonCompensation,
+            final boolean alreadyInterrupted,
+            final boolean exact) {
         boolean interrupted = alreadyInterrupted;
         boolean compensated = false;
         boolean warned = false;
@@ -260,21 +333,15 @@ public final class EdtDispatch {
                     try {
                         SwingUtilities.invokeLater(abandonCompensation);
                     } catch (RuntimeException rejected) {
-                        RuntimeDiagnostics.warn(
-                            COMPONENT,
-                            label + " abandon compensation could not be scheduled"
-                        );
+                        RuntimeDiagnostics.warn(COMPONENT, label + " abandon compensation could not be scheduled");
                     }
                 }
             }
             if (!warned
-                && System.nanoTime() - waitStart
-                    >= TimeUnit.MILLISECONDS.toNanos(SLOW_COMPLETION_WARN_MILLIS)) {
+                    && System.nanoTime() - waitStart >= TimeUnit.MILLISECONDS.toNanos(SLOW_COMPLETION_WARN_MILLIS)) {
                 warned = true;
                 RuntimeDiagnostics.warn(
-                    COMPONENT,
-                    label + " is still running on the EDT after " + SLOW_COMPLETION_WARN_MILLIS + "ms"
-                );
+                        COMPONENT, label + " is still running on the EDT after " + SLOW_COMPLETION_WARN_MILLIS + "ms");
             }
         }
         if (interrupted) {
@@ -282,12 +349,11 @@ public final class EdtDispatch {
         }
         if (interrupted && abandonCompensation != null) {
             throw new EdtDispatchException(
-                EdtDispatchException.Reason.INTERRUPTED,
-                label,
-                label + " was abandoned by interrupt after starting on the EDT"
-            );
+                    EdtDispatchException.Reason.INTERRUPTED,
+                    label,
+                    label + " was abandoned by interrupt after starting on the EDT");
         }
-        return queued.outcome(label);
+        return queued.outcome(label, exact);
     }
 
     private static void markEdtUnresponsive(final String label) {
@@ -295,17 +361,14 @@ public final class EdtDispatch {
             return;
         }
         RuntimeDiagnostics.warn(
-            COMPONENT,
-            label + " timed out waiting for EDT acceptance; subsequent dispatches use a "
-                + UNRESPONSIVE_ACCEPT_TIMEOUT.toMillis() + "ms bound until a probe completes"
-        );
+                COMPONENT,
+                label + " timed out waiting for EDT acceptance; subsequent dispatches use a "
+                        + UNRESPONSIVE_ACCEPT_TIMEOUT.toMillis() + "ms bound until a probe completes");
         try {
             SwingUtilities.invokeLater(() -> {
                 EDT_UNRESPONSIVE.set(false);
                 RuntimeDiagnostics.debug(
-                    COMPONENT,
-                    "EDT responsiveness probe completed; normal dispatch bounds restored"
-                );
+                        COMPONENT, "EDT responsiveness probe completed; normal dispatch bounds restored");
             });
         } catch (RuntimeException rejected) {
             // The probe could not even be queued; let the next timeout re-trip the circuit.
@@ -332,29 +395,28 @@ public final class EdtDispatch {
         @Override
         public void run() {
             if (!state.compareAndSet(QUEUED, RUNNING)) {
-                RuntimeDiagnostics.debug(
-                    COMPONENT,
-                    label + " skipped on the EDT: dispatch was abandoned"
-                );
+                RuntimeDiagnostics.debug(COMPONENT, label + " skipped on the EDT: dispatch was abandoned");
                 done.countDown();
                 return;
             }
             started.countDown();
+            // One queued body is one host-read epoch: it may mutate the host, so a
+            // frame keeps it coherent and its exit invalidates any enclosing epoch.
+            HostReadEpoch.enter();
             try {
                 result.set(task.call());
             } catch (Throwable throwable) {
+                // Record first: a fatal Error must still reach the caller via outcome().
                 failure.set(throwable);
+                FatalErrors.rethrowIfFatal(throwable);
             } finally {
+                HostReadEpoch.exit();
                 state.set(DONE);
                 done.countDown();
             }
             final Throwable failed = failure.get();
             if (failed != null && callerGone.get()) {
-                RuntimeDiagnostics.error(
-                    COMPONENT,
-                    label + " deferred EDT task failed safely",
-                    failed
-                );
+                RuntimeDiagnostics.error(COMPONENT, label + " deferred EDT task failed safely", failed);
             }
         }
 
@@ -367,7 +429,7 @@ public final class EdtDispatch {
             return done.await(tickMillis, TimeUnit.MILLISECONDS);
         }
 
-        private T outcome(final String label) {
+        private T outcome(final String label, final boolean exact) {
             final Throwable failed = failure.get();
             if (failed instanceof RuntimeException runtime) {
                 throw runtime;
@@ -376,6 +438,9 @@ public final class EdtDispatch {
                 throw error;
             }
             if (failed != null) {
+                if (exact && failed instanceof Exception) {
+                    throwChecked(failed);
+                }
                 throw new IllegalStateException(label + " host EDT operation failed", failed);
             }
             return result.get();

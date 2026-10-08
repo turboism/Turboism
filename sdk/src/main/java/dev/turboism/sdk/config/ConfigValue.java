@@ -13,11 +13,7 @@ import java.util.Objects;
  * @param revision the store revision this value was read at, for optimistic-concurrency writes
  * @param <T> the config value type
  */
-public record ConfigValue<T>(
-    T value,
-    ConfigValueSource source,
-    long revision
-) {
+public record ConfigValue<T>(T value, ConfigValueSource source, long revision) {
     public ConfigValue {
         value = Objects.requireNonNull(value, "value");
         source = Objects.requireNonNull(source, "source");

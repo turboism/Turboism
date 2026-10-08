@@ -6,14 +6,12 @@ import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.script.ScriptDescriptor;
 import dev.turboism.sdk.script.ScriptExecutionId;
-import dev.turboism.sdk.script.ScriptFailure;
 import dev.turboism.sdk.script.ScriptId;
 import dev.turboism.sdk.script.ScriptRunHandle;
 import dev.turboism.sdk.script.ScriptRunRequest;
 import dev.turboism.sdk.script.ScriptRunResult;
 import dev.turboism.sdk.script.ScriptRunStatus;
 import dev.turboism.sdk.script.ScriptService;
-
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -28,10 +26,9 @@ public final class RuntimeScriptService implements ScriptService {
 
     /** Returns the current bounded count of valid installed scripts without starting GraalJS. */
     public static int discoveredScriptCount(final Path turboismHome) {
-        return new ScriptRegistry(
-            Objects.requireNonNull(turboismHome, "turboismHome"),
-            ignored -> { }
-        ).discover().size();
+        return new ScriptRegistry(Objects.requireNonNull(turboismHome, "turboismHome"), ignored -> {})
+                .discover()
+                .size();
     }
 
     private final ScriptRegistry registry;
@@ -41,28 +38,20 @@ public final class RuntimeScriptService implements ScriptService {
     private final Consumer<String> diagnostics;
 
     public RuntimeScriptService(
-        final Path turboismHome,
-        final PluginContext context,
-        final DisposableScope scope,
-        final GraalHostManager host,
-        final Consumer<String> diagnostics
-    ) {
-        this(
-            new ScriptRegistry(turboismHome, diagnostics),
-            context,
-            scope,
-            host,
-            diagnostics
-        );
+            final Path turboismHome,
+            final PluginContext context,
+            final DisposableScope scope,
+            final GraalHostManager host,
+            final Consumer<String> diagnostics) {
+        this(new ScriptRegistry(turboismHome, diagnostics), context, scope, host, diagnostics);
     }
 
     RuntimeScriptService(
-        final ScriptRegistry registry,
-        final PluginContext context,
-        final DisposableScope scope,
-        final GraalHostManager host,
-        final Consumer<String> diagnostics
-    ) {
+            final ScriptRegistry registry,
+            final PluginContext context,
+            final DisposableScope scope,
+            final GraalHostManager host,
+            final Consumer<String> diagnostics) {
         this.registry = Objects.requireNonNull(registry, "registry");
         this.context = Objects.requireNonNull(context, "context");
         this.scope = Objects.requireNonNull(scope, "scope");
@@ -72,13 +61,14 @@ public final class RuntimeScriptService implements ScriptService {
 
     @Override
     public List<ScriptDescriptor> list() {
-        return registry.discover().stream().map(ScriptRegistry.InstalledScript::descriptor).toList();
+        return registry.discover().stream()
+                .map(ScriptRegistry.InstalledScript::descriptor)
+                .toList();
     }
 
     @Override
     public Optional<ScriptDescriptor> find(final ScriptId id) {
-        return registry.find(Objects.requireNonNull(id, "id"))
-            .map(ScriptRegistry.InstalledScript::descriptor);
+        return registry.find(Objects.requireNonNull(id, "id")).map(ScriptRegistry.InstalledScript::descriptor);
     }
 
     @Override
@@ -87,11 +77,10 @@ public final class RuntimeScriptService implements ScriptService {
         final Optional<ScriptRegistry.InstalledScript> installed = registry.find(request.scriptId());
         if (installed.isEmpty()) {
             return completedFailure(
-                missingExecutionId(request.scriptId()),
-                ScriptRunStatus.REJECTED,
-                "SCRIPT_NOT_FOUND",
-                "Installed script was not found: " + request.scriptId()
-            );
+                    missingExecutionId(request.scriptId()),
+                    ScriptRunStatus.REJECTED,
+                    "SCRIPT_NOT_FOUND",
+                    "Installed script was not found: " + request.scriptId());
         }
         final ScriptRegistry.InstalledScript script = installed.orElseThrow();
         final String source;
@@ -99,18 +88,16 @@ public final class RuntimeScriptService implements ScriptService {
             source = script.source();
         } catch (RuntimeException failure) {
             return completedFailure(
-                missingExecutionId(request.scriptId()),
-                ScriptRunStatus.REJECTED,
-                "SCRIPT_SOURCE_INVALID",
-                sourceFailureMessage(failure)
-            );
+                    missingExecutionId(request.scriptId()),
+                    ScriptRunStatus.REJECTED,
+                    "SCRIPT_SOURCE_INVALID",
+                    sourceFailureMessage(failure));
         }
         final GraalHostManager.Execution execution = host.submit(
-            script.descriptor().id().value(),
-            source,
-            request.arguments(),
-            new RuntimeScriptHostBridge(context, script.descriptor())
-        );
+                script.descriptor().id().value(),
+                source,
+                request.arguments(),
+                new RuntimeScriptHostBridge(context, script.descriptor()));
         final RuntimeHandle handle = new RuntimeHandle(execution);
         final Registration registration;
         try {
@@ -118,11 +105,10 @@ public final class RuntimeScriptService implements ScriptService {
         } catch (IllegalStateException closed) {
             execution.cancel();
             return completedFailure(
-                execution.id(),
-                ScriptRunStatus.CANCELLED,
-                "SCRIPT_PLUGIN_SCOPE_CLOSED",
-                "Calling plugin scope is already closed."
-            );
+                    execution.id(),
+                    ScriptRunStatus.CANCELLED,
+                    "SCRIPT_PLUGIN_SCOPE_CLOSED",
+                    "Calling plugin scope is already closed.");
         }
         handle.completion().whenComplete((ignored, failure) -> registration.close());
         return handle;
@@ -138,8 +124,7 @@ public final class RuntimeScriptService implements ScriptService {
         final String suffix = "-" + UUID.randomUUID();
         final int visibleIdLength = 128 - "missing-".length() - suffix.length();
         return new ScriptExecutionId(
-            "missing-" + value.substring(0, Math.min(value.length(), visibleIdLength)) + suffix
-        );
+                "missing-" + value.substring(0, Math.min(value.length(), visibleIdLength)) + suffix);
     }
 
     private static String sourceFailureMessage(final RuntimeException failure) {
@@ -148,17 +133,11 @@ public final class RuntimeScriptService implements ScriptService {
             return "Installed script source could not be loaded safely.";
         }
         final String normalized = message.replace('\r', ' ').replace('\n', ' ').trim();
-        return normalized.length() <= 1024
-            ? normalized
-            : normalized.substring(0, 1024);
+        return normalized.length() <= 1024 ? normalized : normalized.substring(0, 1024);
     }
 
     private ScriptRunHandle completedFailure(
-        final ScriptExecutionId id,
-        final ScriptRunStatus status,
-        final String code,
-        final String message
-    ) {
+            final ScriptExecutionId id, final ScriptRunStatus status, final String code, final String message) {
         diagnostics.accept(code + ": " + message);
         final ScriptRunResult result = ScriptRunResult.failure(id, status, code, message, "");
         return new ScriptRunHandle() {
@@ -179,28 +158,37 @@ public final class RuntimeScriptService implements ScriptService {
         };
     }
 
-    private static ScriptRunResult map(
-        final ScriptExecutionId id,
-        final GraalHostManager.TransportResult result
-    ) {
+    private static ScriptRunResult map(final ScriptExecutionId id, final GraalHostManager.TransportResult result) {
         return switch (result.status()) {
             case SUCCEEDED -> ScriptRunResult.success(id, result.output());
-            case CANCELLED -> ScriptRunResult.failure(
-                id, ScriptRunStatus.CANCELLED,
-                fallback(result.code(), "SCRIPT_CANCELLED"), result.message(), result.output()
-            );
-            case REJECTED -> ScriptRunResult.failure(
-                id, ScriptRunStatus.REJECTED,
-                fallback(result.code(), "SCRIPT_REJECTED"), result.message(), result.output()
-            );
-            case TIMED_OUT -> ScriptRunResult.failure(
-                id, ScriptRunStatus.TIMED_OUT,
-                fallback(result.code(), "SCRIPT_TIMED_OUT"), result.message(), result.output()
-            );
-            case FAILED -> ScriptRunResult.failure(
-                id, ScriptRunStatus.FAILED,
-                fallback(result.code(), "SCRIPT_FAILED"), result.message(), result.output()
-            );
+            case CANCELLED ->
+                ScriptRunResult.failure(
+                        id,
+                        ScriptRunStatus.CANCELLED,
+                        fallback(result.code(), "SCRIPT_CANCELLED"),
+                        result.message(),
+                        result.output());
+            case REJECTED ->
+                ScriptRunResult.failure(
+                        id,
+                        ScriptRunStatus.REJECTED,
+                        fallback(result.code(), "SCRIPT_REJECTED"),
+                        result.message(),
+                        result.output());
+            case TIMED_OUT ->
+                ScriptRunResult.failure(
+                        id,
+                        ScriptRunStatus.TIMED_OUT,
+                        fallback(result.code(), "SCRIPT_TIMED_OUT"),
+                        result.message(),
+                        result.output());
+            case FAILED ->
+                ScriptRunResult.failure(
+                        id,
+                        ScriptRunStatus.FAILED,
+                        fallback(result.code(), "SCRIPT_FAILED"),
+                        result.message(),
+                        result.output());
         };
     }
 

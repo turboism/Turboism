@@ -1,43 +1,98 @@
 package dev.turboism.adapter.cubism.command;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.permissions.CubismPermissionGate;
+import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
-import dev.turboism.sdk.permission.PluginPermission;
+import dev.turboism.sdk.cubism.command.EditorExternalAppSettingsRequest;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
+import dev.turboism.sdk.cubism.command.EditorGridSettingsRequest;
+import dev.turboism.sdk.cubism.command.EditorModelingStatisticsRequest;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.command.EditorResizeModelRequest;
-import dev.turboism.sdk.cubism.command.EditorCanvasSettingsRequest;
-import dev.turboism.sdk.cubism.command.EditorGridSettingsRequest;
 import dev.turboism.sdk.cubism.model.Color;
-import dev.turboism.sdk.cubism.command.EditorModelingStatisticsRequest;
-import dev.turboism.sdk.cubism.command.EditorExternalAppSettingsRequest;
+import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.ui.UserFileHandle;
 import dev.turboism.sdk.ui.UserFileHandleState;
 import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import org.junit.jupiter.api.Test;
 
 class RuntimeEditorCommandServiceTest {
     @Test
+    void availabilityFollowsTheAdapterProbeAndScope() {
+        final RuntimeEditorCommandService unavailable =
+                new RuntimeEditorCommandService(EditorCommandAdapter.unavailable(), gate(List.of()));
+        assertFalse(unavailable.isAvailable());
+
+        final RuntimeEditorCommandService live =
+                new RuntimeEditorCommandService(adapter(new AtomicInteger()), gate(List.of()));
+        assertTrue(live.isAvailable());
+
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        final RuntimeEditorCommandService scoped = new RuntimeEditorCommandService(
+                adapter(new AtomicInteger()),
+                gate(List.of()),
+                EditorFileCommandResolver.unavailable(),
+                scopeActive::get);
+        assertTrue(scoped.isAvailable());
+        scopeActive.set(false);
+        assertFalse(scoped.isAvailable(), "a sealed plugin scope must report the service unavailable");
+    }
+
+    @Test
+    void aThrowingAvailabilityProbeReportsUnavailableInsteadOfThrowing() {
+        final EditorCommandAdapter probeThrows = new EditorCommandAdapter() {
+            @Override
+            public Set<EditorCommand> available() {
+                return Set.of();
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.id());
+            }
+
+            @Override
+            public EditorCommandResult execute(final ResolvedEditorFileCommand command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public EditorCommandResult execute(final EditorParameterizedRequest command) {
+                return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, command.commandId());
+            }
+
+            @Override
+            public boolean isAvailable() {
+                // A delegate mid-teardown can throw here; the service contract
+                // is total, so the throw must become "unavailable".
+                throw new IllegalStateException("host command surface teardown");
+            }
+        };
+        final RuntimeEditorCommandService service = new RuntimeEditorCommandService(probeThrows, gate(List.of()));
+        assertFalse(service.isAvailable(), "a throwing probe is an unavailable host, never an escaping failure");
+    }
+
+    @Test
     void deniesBeforeInvokingTheHostAdapter() {
         AtomicInteger calls = new AtomicInteger();
-        RuntimeEditorCommandService service = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of())
-        );
+        RuntimeEditorCommandService service = new RuntimeEditorCommandService(adapter(calls), gate(List.of()));
 
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, service.execute(EditorCommand.NEXT_FRAME).status());
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                service.execute(EditorCommand.NEXT_FRAME).status());
         assertEquals(0, calls.get());
     }
 
@@ -45,59 +100,72 @@ class RuntimeEditorCommandServiceTest {
     void separatesNavigationFromAuthoringAndFileWrites() {
         AtomicInteger calls = new AtomicInteger();
         RuntimeEditorCommandService readOnly = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
 
         assertEquals(
-            Set.of(EditorCommand.NEXT_FRAME, EditorCommand.SHOW_FULL_WORKSPACE, EditorCommand.SHOW_PARAMETER_PALETTE, EditorCommand.OPEN_ABOUT),
-            readOnly.available()
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, readOnly.execute(EditorCommand.NEXT_FRAME).status());
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, readOnly.execute(EditorCommand.DELETE).status());
+                Set.of(
+                        EditorCommand.NEXT_FRAME,
+                        EditorCommand.SHOW_FULL_WORKSPACE,
+                        EditorCommand.SHOW_PARAMETER_PALETTE,
+                        EditorCommand.OPEN_ABOUT),
+                readOnly.available());
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                readOnly.execute(EditorCommand.NEXT_FRAME).status());
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                readOnly.execute(EditorCommand.DELETE).status());
         assertEquals(1, calls.get());
 
         RuntimeEditorCommandService modelWriter = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION)
-            ))
-        );
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, modelWriter.execute(EditorCommand.SAVE).status());
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                modelWriter.execute(EditorCommand.SAVE).status());
 
         RuntimeEditorCommandService fileWriter = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE)
-            ))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, fileWriter.execute(EditorCommand.SAVE).status());
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                fileWriter.execute(EditorCommand.SAVE).status());
     }
 
     @Test
     void gatesClosedExternalAndRuntimeResourcesWithoutExposingUrisOrPaths() {
         AtomicInteger calls = new AtomicInteger();
         RuntimeEditorCommandService readOnly = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
 
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, readOnly.execute(EditorCommand.OPEN_MANUAL_PAGE).status());
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, readOnly.execute(EditorCommand.OPEN_LOG_FILE).status());
-        assertEquals(EditorCommandResult.Status.EXECUTED, readOnly.execute(EditorCommand.OPEN_ABOUT).status());
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                readOnly.execute(EditorCommand.OPEN_MANUAL_PAGE).status());
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                readOnly.execute(EditorCommand.OPEN_LOG_FILE).status());
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                readOnly.execute(EditorCommand.OPEN_ABOUT).status());
 
         RuntimeEditorCommandService admitted = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_PROCESS)
-            ))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, admitted.execute(EditorCommand.OPEN_MANUAL_PAGE).status());
-        assertEquals(EditorCommandResult.Status.EXECUTED, admitted.execute(EditorCommand.OPEN_LOG_FILE).status());
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_PROCESS))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                admitted.execute(EditorCommand.OPEN_MANUAL_PAGE).status());
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                admitted.execute(EditorCommand.OPEN_LOG_FILE).status());
     }
 
     @Test
@@ -105,15 +173,18 @@ class RuntimeEditorCommandServiceTest {
         AtomicInteger calls = new AtomicInteger();
         EditorResizeModelRequest request = new EditorResizeModelRequest(100);
         RuntimeEditorCommandService denied = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, denied.execute(request).status());
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                denied.execute(request).status());
         assertEquals(0, calls.get());
 
         RuntimeEditorCommandService allowed = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION)))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, allowed.execute(request).status());
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED, allowed.execute(request).status());
         assertEquals(1, calls.get());
     }
 
@@ -121,13 +192,15 @@ class RuntimeEditorCommandServiceTest {
     void separatesUiGridSettingsFromAuthoringCanvasSettings() {
         AtomicInteger calls = new AtomicInteger();
         RuntimeEditorCommandService readOnly = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, readOnly.execute(
-            new EditorGridSettingsRequest(50, new Color(0.5f, 0.5f, 0.5f, 1.0f))
-        ).status());
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED,
-            readOnly.execute(new EditorCanvasSettingsRequest(1000, 1000)).status());
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                readOnly.execute(new EditorGridSettingsRequest(50, new Color(0.5f, 0.5f, 0.5f, 1.0f)))
+                        .status());
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                readOnly.execute(new EditorCanvasSettingsRequest(1000, 1000)).status());
         assertEquals(1, calls.get());
     }
 
@@ -135,10 +208,11 @@ class RuntimeEditorCommandServiceTest {
     void treatsModelingStatisticsAsUiConfiguration() {
         AtomicInteger calls = new AtomicInteger();
         RuntimeEditorCommandService service = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED,
-            service.execute(new EditorModelingStatisticsRequest(true)).status());
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED,
+                service.execute(new EditorModelingStatisticsRequest(true)).status());
         assertEquals(1, calls.get());
     }
 
@@ -147,18 +221,19 @@ class RuntimeEditorCommandServiceTest {
         AtomicInteger calls = new AtomicInteger();
         EditorExternalAppSettingsRequest request = new EditorExternalAppSettingsRequest(22033, false);
         RuntimeEditorCommandService networkOnly = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK)))
-        );
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, networkOnly.execute(request).status());
+                adapter(calls), gate(List.of(permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK))));
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                networkOnly.execute(request).status());
         assertEquals(0, calls.get());
 
         RuntimeEditorCommandService admitted = new RuntimeEditorCommandService(
-            adapter(calls), gate(List.of(
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_PROCESS)
-            ))
-        );
-        assertEquals(EditorCommandResult.Status.EXECUTED, admitted.execute(request).status());
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_NETWORK),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_PROCESS))));
+        assertEquals(
+                EditorCommandResult.Status.EXECUTED, admitted.execute(request).status());
         assertEquals(1, calls.get());
     }
 
@@ -166,39 +241,35 @@ class RuntimeEditorCommandServiceTest {
     void fileRequestsRequireModelAndMatchingFilePermission() {
         AtomicInteger calls = new AtomicInteger();
         EditorFileCommandRequest open = new EditorFileCommandRequest(
-            EditorFileCommand.OPEN,
-            handle(UserFileMode.READ),
-            EditorOverwritePolicy.REJECT_EXISTING
-        );
+                EditorFileCommand.OPEN, handle(UserFileMode.READ), EditorOverwritePolicy.REJECT_EXISTING);
         RuntimeEditorCommandService denied = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION)))
-        );
-        assertEquals(EditorCommandResult.Status.PERMISSION_DENIED, denied.execute(open).status());
+                adapter(calls),
+                gate(List.of(permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION))));
+        assertEquals(
+                EditorCommandResult.Status.PERMISSION_DENIED,
+                denied.execute(open).status());
         assertEquals(0, calls.get());
 
         RuntimeEditorCommandService allowed = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ)
-            )),
-            request -> new ResolvedEditorFileCommand(
-                request.command(), java.nio.file.Path.of("fixture.cmo3"), request.overwritePolicy()
-            )
-        );
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
+                request -> new ResolvedEditorFileCommand(
+                        request.command(), java.nio.file.Path.of("fixture.cmo3"), request.overwritePolicy()));
         assertEquals(EditorCommandResult.Status.EXECUTED, allowed.execute(open).status());
         assertEquals(1, calls.get());
 
         RuntimeEditorCommandService rejecting = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ)
-            )),
-            request -> { throw new IllegalStateException("private path detail"); }
-        );
-        assertEquals(EditorCommandResult.Status.REJECTED, rejecting.execute(open).status());
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
+                request -> {
+                    throw new IllegalStateException("private path detail");
+                });
+        assertEquals(
+                EditorCommandResult.Status.REJECTED, rejecting.execute(open).status());
     }
 
     @Test
@@ -206,21 +277,30 @@ class RuntimeEditorCommandServiceTest {
         AtomicInteger calls = new AtomicInteger();
         AtomicInteger resolverCalls = new AtomicInteger();
         RuntimeEditorCommandService inactive = new RuntimeEditorCommandService(
-            adapter(calls),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ)
-            )),
-            request -> { resolverCalls.incrementAndGet(); return null; },
-            () -> false
-        );
+                adapter(calls),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
+                request -> {
+                    resolverCalls.incrementAndGet();
+                    return null;
+                },
+                () -> false);
 
         assertEquals(Set.of(), inactive.available());
-        assertEquals(EditorCommandResult.Status.UNAVAILABLE, inactive.execute(EditorCommand.NEXT_FRAME).status());
-        assertEquals(EditorCommandResult.Status.UNAVAILABLE, inactive.execute(new EditorFileCommandRequest(
-            EditorFileCommand.OPEN, handle(UserFileMode.READ), EditorOverwritePolicy.REJECT_EXISTING
-        )).status());
-        assertEquals(EditorCommandResult.Status.UNAVAILABLE, inactive.execute(new EditorResizeModelRequest(100)).status());
+        assertEquals(
+                EditorCommandResult.Status.UNAVAILABLE,
+                inactive.execute(EditorCommand.NEXT_FRAME).status());
+        assertEquals(
+                EditorCommandResult.Status.UNAVAILABLE,
+                inactive.execute(new EditorFileCommandRequest(
+                                EditorFileCommand.OPEN,
+                                handle(UserFileMode.READ),
+                                EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
+        assertEquals(
+                EditorCommandResult.Status.UNAVAILABLE,
+                inactive.execute(new EditorResizeModelRequest(100)).status());
         assertEquals(0, calls.get());
         assertEquals(0, resolverCalls.get());
     }
@@ -249,17 +329,14 @@ class RuntimeEditorCommandServiceTest {
             }
         };
         RuntimeEditorCommandService service = new RuntimeEditorCommandService(
-            failing,
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE)
-            )),
-            request -> new ResolvedEditorFileCommand(
-                request.command(), java.nio.file.Path.of("fixture.cmo3"), request.overwritePolicy()
-            )
-        );
+                failing,
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_WRITE_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_WRITE))),
+                request -> new ResolvedEditorFileCommand(
+                        request.command(), java.nio.file.Path.of("fixture.cmo3"), request.overwritePolicy()));
 
         assertEquals(Set.of(), service.available());
         EditorCommandResult direct = service.execute(EditorCommand.NEXT_FRAME);
@@ -267,28 +344,27 @@ class RuntimeEditorCommandServiceTest {
         assertEquals("next.frame", direct.commandId());
         assertFalse(direct.toString().contains("private"));
         EditorCommandResult file = service.execute(new EditorFileCommandRequest(
-            EditorFileCommand.SAVE_AS,
-            handle(UserFileMode.WRITE),
-            EditorOverwritePolicy.REPLACE_EXISTING
-        ));
+                EditorFileCommand.SAVE_AS, handle(UserFileMode.WRITE), EditorOverwritePolicy.REPLACE_EXISTING));
         assertEquals(EditorCommandResult.Status.FAILED, file.status());
         assertFalse(file.toString().contains("private"));
         assertEquals(
-            EditorCommandResult.Status.FAILED,
-            service.execute(new EditorResizeModelRequest(100)).status()
-        );
+                EditorCommandResult.Status.FAILED,
+                service.execute(new EditorResizeModelRequest(100)).status());
 
         RuntimeEditorCommandService rejecting = new RuntimeEditorCommandService(
-            adapter(new AtomicInteger()),
-            gate(List.of(
-                permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ)
-            )),
-            request -> null
-        );
-        assertEquals(EditorCommandResult.Status.REJECTED, rejecting.execute(new EditorFileCommandRequest(
-            EditorFileCommand.OPEN, handle(UserFileMode.READ), EditorOverwritePolicy.REJECT_EXISTING
-        )).status());
+                adapter(new AtomicInteger()),
+                gate(List.of(
+                        permission(dev.turboism.adapter.cubism.CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(dev.turboism.sdk.permission.PermissionIds.TURBOISM_FILE_READ))),
+                request -> null);
+        assertEquals(
+                EditorCommandResult.Status.REJECTED,
+                rejecting
+                        .execute(new EditorFileCommandRequest(
+                                EditorFileCommand.OPEN,
+                                handle(UserFileMode.READ),
+                                EditorOverwritePolicy.REJECT_EXISTING))
+                        .status());
     }
 
     private static EditorCommandAdapter adapter(final AtomicInteger calls) {
@@ -296,10 +372,14 @@ class RuntimeEditorCommandServiceTest {
             @Override
             public Set<EditorCommand> available() {
                 return Set.of(
-                    EditorCommand.NEXT_FRAME, EditorCommand.DELETE, EditorCommand.SAVE,
-                    EditorCommand.SHOW_FULL_WORKSPACE, EditorCommand.SHOW_PARAMETER_PALETTE,
-                    EditorCommand.OPEN_ABOUT, EditorCommand.OPEN_MANUAL_PAGE, EditorCommand.OPEN_LOG_FILE
-                );
+                        EditorCommand.NEXT_FRAME,
+                        EditorCommand.DELETE,
+                        EditorCommand.SAVE,
+                        EditorCommand.SHOW_FULL_WORKSPACE,
+                        EditorCommand.SHOW_PARAMETER_PALETTE,
+                        EditorCommand.OPEN_ABOUT,
+                        EditorCommand.OPEN_MANUAL_PAGE,
+                        EditorCommand.OPEN_LOG_FILE);
             }
 
             @Override
@@ -323,26 +403,60 @@ class RuntimeEditorCommandServiceTest {
     }
 
     private static CubismPermissionGate gate(final List<PluginPermission> permissions) {
-        return new CubismPermissionGate("test.plugin", permissions, ignored -> { }, Clock.systemUTC());
+        return new CubismPermissionGate("test.plugin", permissions, ignored -> {}, Clock.systemUTC());
     }
 
     private static PluginPermission permission(final String id) {
         return new PluginPermission() {
-            @Override public String id() { return id; }
-            @Override public String scope() { return "plugin"; }
-            @Override public String reason() { return "test"; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String scope() {
+                return "plugin";
+            }
+
+            @Override
+            public String reason() {
+                return "test";
+            }
         };
     }
 
     private static UserFileHandle handle(final UserFileMode mode) {
         return new UserFileHandle() {
-            @Override public String id() { return "grant"; }
-            @Override public String displayName() { return "fixture.cmo3"; }
-            @Override public UserFileMode mode() { return mode; }
-            @Override public UserFileLifetime lifetime() { return UserFileLifetime.UNTIL_DISABLE; }
-            @Override public UserFileHandleState state() { return UserFileHandleState.ACTIVE; }
-            @Override public void revoke() { }
-            @Override public void close() { }
+            @Override
+            public String id() {
+                return "grant";
+            }
+
+            @Override
+            public String displayName() {
+                return "fixture.cmo3";
+            }
+
+            @Override
+            public UserFileMode mode() {
+                return mode;
+            }
+
+            @Override
+            public UserFileLifetime lifetime() {
+                return UserFileLifetime.UNTIL_DISABLE;
+            }
+
+            @Override
+            public UserFileHandleState state() {
+                return UserFileHandleState.ACTIVE;
+            }
+
+            @Override
+            public void revoke() {}
+
+            @Override
+            public void close() {}
         };
     }
 }

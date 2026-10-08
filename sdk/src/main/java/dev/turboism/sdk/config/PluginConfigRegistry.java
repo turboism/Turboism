@@ -1,7 +1,6 @@
 package dev.turboism.sdk.config;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
@@ -66,10 +65,7 @@ public interface PluginConfigRegistry {
      * @return completion of schema registration
      * @throws UnsupportedOperationException on implementations that predate typed config
      */
-    default CompletionStage<Void> registerSchema(
-        final ConfigSchema schema,
-        final List<ConfigMigration> migrations
-    ) {
+    default CompletionStage<Void> registerSchema(final ConfigSchema schema, final List<ConfigMigration> migrations) {
         throw new UnsupportedOperationException("typed config schema is not available");
     }
 
@@ -86,10 +82,7 @@ public interface PluginConfigRegistry {
      * @return completion of schema registration and, when supported, settings publication
      */
     default CompletionStage<Void> registerUserEditableSchema(
-        final ConfigSchema schema,
-        final List<ConfigMigration> migrations,
-        final ConfigSchemaEditor editor
-    ) {
+            final ConfigSchema schema, final List<ConfigMigration> migrations, final ConfigSchemaEditor editor) {
         return registerSchema(schema, migrations);
     }
 
@@ -116,10 +109,7 @@ public interface PluginConfigRegistry {
      * @throws UnsupportedOperationException on implementations that predate typed config
      */
     default <T> CompletionStage<ConfigWriteResult> write(
-        final ConfigKey<T> key,
-        final T value,
-        final long expectedRevision
-    ) {
+            final ConfigKey<T> key, final T value, final long expectedRevision) {
         throw new UnsupportedOperationException("typed config write is not available");
     }
 
@@ -145,27 +135,28 @@ public interface PluginConfigRegistry {
     enum Unavailable implements PluginConfigRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration readScope(final String relativePath) {
+        @Override
+        public Registration readScope(final String relativePath) {
             throw unavailable();
         }
 
-        @Override public Registration writeScope(final String relativePath) {
+        @Override
+        public Registration writeScope(final String relativePath) {
             throw unavailable();
         }
 
-        @Override public Optional<String> readString(final String relativePath, final String key) {
+        @Override
+        public Optional<String> readString(final String relativePath, final String key) {
             return Optional.empty();
         }
 
-        @Override public void writeString(
-            final String relativePath,
-            final String key,
-            final String value
-        ) {
+        @Override
+        public void writeString(final String relativePath, final String key, final String value) {
             throw unavailable();
         }
 
@@ -173,7 +164,6 @@ public interface PluginConfigRegistry {
             return new UnsupportedOperationException("config registry is not available");
         }
     }
-
 
     /** A declared config scope: the document path and the permission that authorized it. */
     record ConfigScope(String relativePath, String permissionId) {}

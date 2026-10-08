@@ -1,0 +1,176 @@
+{
+  "status": "PASS_FIXED_BALANCED_GATES",
+  "pairs": [
+    {
+      "baseline": "baseline1",
+      "candidate": "candidate1",
+      "candidateChangePercent": {
+        "wallSeconds": -13.105436533840798,
+        "directCpuSeconds": -15.715948777648435,
+        "operationPeakRssBytes": 0.7780493017770285
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": true
+    },
+    {
+      "baseline": "baseline2",
+      "candidate": "candidate2",
+      "candidateChangePercent": {
+        "wallSeconds": -13.69986571690216,
+        "directCpuSeconds": -15.650852608475429,
+        "operationPeakRssBytes": -1.3737653355896051
+      },
+      "gates": {
+        "commandWallImproves": true,
+        "javaCpuTotalNoRegression": true,
+        "absoluteRssGrowthWithin20Percent": true,
+        "rssAboveOwnBaselineWithin80MiB": true,
+        "retained3Minus1Within64MiB": true
+      },
+      "pass": true
+    }
+  ],
+  "totals": {
+    "baseline": {
+      "wallSeconds": 87.2907939,
+      "directCpuSeconds": 119.36,
+      "sampledCpuSeconds": 107.62
+    },
+    "candidate": {
+      "wallSeconds": 75.589979,
+      "directCpuSeconds": 100.64,
+      "sampledCpuSeconds": 93.2
+    }
+  },
+  "aggregateCandidateChangePercent": {
+    "wallSeconds": -13.404408846830297,
+    "directCpuSeconds": -15.683646112600535
+  },
+  "productionAcceptance": "NOT_GRANTED_INSTRUMENTED_PROTOCOL",
+  "statisticalBenefit": "NOT_ESTABLISHED_TWO_PAIRS",
+  "legs": [
+    {
+      "name": "baseline1",
+      "arm": "baseline",
+      "sequence": 2571,
+      "jobId": "f71c6b8e-8e61-41dc-a867-c4aac4ff8b2a",
+      "runId": "queue-01339df9b5504b19b38d0209ac0ae4c6",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 43.3872789,
+      "directCpuSeconds": 60.13,
+      "sampledCpuSeconds": 55.49,
+      "operationPeakRssBytes": 3181305856,
+      "peakAboveBaselineBytes": 22016000.0,
+      "retained3Minus1Bytes": 4378624.0,
+      "maximumSampleGapMillis": 1083
+    },
+    {
+      "name": "candidate1",
+      "arm": "candidate",
+      "sequence": 2573,
+      "jobId": "49b58f77-90eb-4e8f-8779-2c7d2df7558b",
+      "runId": "queue-015a6e482cca49e59343ed9078f00d23",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.7011866,
+      "directCpuSeconds": 50.68,
+      "sampledCpuSeconds": 47.14,
+      "operationPeakRssBytes": 3206057984,
+      "peakAboveBaselineBytes": 22986752.0,
+      "retained3Minus1Bytes": 569344.0,
+      "maximumSampleGapMillis": 1054
+    },
+    {
+      "name": "candidate2",
+      "arm": "candidate",
+      "sequence": 2574,
+      "jobId": "52efb79c-a8c8-4b3c-a069-f0edb2001a9e",
+      "runId": "queue-81af87e5b36b49378c3b80230cf56fc7",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 37.8887924,
+      "directCpuSeconds": 49.96,
+      "sampledCpuSeconds": 46.06,
+      "operationPeakRssBytes": 3514048512,
+      "peakAboveBaselineBytes": 34869248.0,
+      "retained3Minus1Bytes": 3325952.0,
+      "maximumSampleGapMillis": 1049
+    },
+    {
+      "name": "baseline2",
+      "arm": "baseline",
+      "sequence": 2575,
+      "jobId": "701ee047-eda7-44a9-b027-ada41782e0d3",
+      "runId": "queue-4ab573feec904e4dbd9d143955aed9c8",
+      "lifecyclePass": true,
+      "outputMatch": true,
+      "cpuUnitsPass": true,
+      "wallSeconds": 43.903515,
+      "directCpuSeconds": 59.23,
+      "sampledCpuSeconds": 52.13,
+      "operationPeakRssBytes": 3562995712,
+      "peakAboveBaselineBytes": 42446848.0,
+      "retained3Minus1Bytes": 8712192.0,
+      "maximumSampleGapMillis": 1104
+    }
+  ],
+  "inputPins": {
+    "validation/triangulation-tlindex/small-query-snapshot-cpu-protocol-20261003.json": "e8e1fb1323e333e10267373c52acc94d49863c9505304e196645c8c604e3cac3",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/run.json": "05823dba3a9a72409f1f926a626d6fda6f2e8d121fe3b12b5d23f9ba7c28f828",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/native-review.json": "1d74eed150b940994d428ccaf3be85e80da19811769ceeb7c8bb61077b553d27",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/direct-cpu-review.json": "9c70758b4ac277f2b2a65c386fb51883570b2da2b74aaeac330498fcfe3c77e9",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/resource-review.json": "56194e161c67def216c398b75c79b9c9fabdcda7f08cc91586a5d705a78a2573",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/native-evidence/auto-connect-producer-results.tsv": "9f4ec5e10642ad360d9a40ad2cba445542b42b094a4b8c3b9b0f1c733a8f6dc0",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/native-evidence/resources.jsonl": "3d61e65b5697ba5370617e2f55e4ad6f7265ba8181cac5e0213b14a012dcffe6",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline1/native-evidence/command-cpu-boundaries.tsv": "6969a37016aae133b207fb55165fcc9c7b273bcd71661c69e7c06e1baa532d64",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/run.json": "1ca823537665bd7e09f6e7f7c01600fd99cc6aa42e4b597497ce4cc185dab9b4",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/native-review.json": "88c1b22ab8f1066b0fbcccf99c2101832d78855421f0f9b6e2dde201614105a4",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/direct-cpu-review.json": "0d3d9eb6e7b4547171eca6ad2a7f616fcc6aff372a84d9b31c6b86adf9455f93",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/resource-review.json": "e4a8255197b2a2fd6e3db1b60a15db2250792cb9f7112cb9606fcd8b3557aa7a",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/native-evidence/auto-connect-producer-results.tsv": "be2cee41476f3b31e1d1bf022f6597dd092d8350cb4f5b6fc2d401b3084c73bf",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/native-evidence/resources.jsonl": "780b034f07be680ed367b9e6db4422342a04de6a94ba2f60dee6e7764564dda5",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate1/native-evidence/command-cpu-boundaries.tsv": "fea662633f09b0b3f8f28d2cf5d40dcee07190169c787a04e38cfe7b0a99e3a6",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/run.json": "01acc2a78f42fc563d67b16c1c6896579440f6381a30703c1e49c80e3464e8a6",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/native-review.json": "a215bc3ac414b774773291c924bd09da0d2c9222ee0a7edac817266365db1ffe",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/direct-cpu-review.json": "17426dda6c751b080411126209dfd4b9645f07fb89cd3fc9562380b78fbb1e4e",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/resource-review.json": "da685aa6f2190e83f1ecdaade951be5d929d20add826eb0618ebc02f657db035",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/native-evidence/auto-connect-producer-results.tsv": "9d369399a1868d783e8e8fb8cc6db8ac605f1f47aca428e0cb11a9ae0da1595f",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/native-evidence/resources.jsonl": "06122b0905eaffbd7b6b7974c84573bf7553c731b228e28c89197f3b6604e882",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/candidate2/native-evidence/command-cpu-boundaries.tsv": "fff14ab04cc784a325f3359ce76ea4a7d749707af3e7ba49e74f76b07b7bc05f",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/run.json": "7188f636d27ed4eb4a12b592b99a7793dc36036eb087ad9be4a9338acb12ac8d",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/native-review.json": "cb2f295f4846d53b80408c1d3005aad6644aa091f5b2462b3addf46519bd81d2",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/direct-cpu-review.json": "a1f96723afd34cb875bf2b9b5f4cb99eba35113c3082205c4f0eb97183b694d6",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/resource-review.json": "03d05ef86e9ac8067cccfcd31bba6ecac64bb67c5ca64114d3327a177da8b594",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/native-evidence/auto-connect-producer-results.tsv": "811251c069f7445be351b27080bc5772bc93b134c49ad951f16908b6a3e83f9e",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/native-evidence/resources.jsonl": "ae1155992e8ad12a6415d937fc1267dd8a7f28931a84744a64b04a5ecc3af50d",
+    "build/t075-small-query-snapshot-integration-r1/native5303-abba1/baseline2/native-evidence/command-cpu-boundaries.tsv": "21f4647e428de489ebf99d0af4253fd712013a58d8367c9bdebe26976ec18ae5"
+  },
+  "limitations": [
+    "Two fixed reversed-order pairs, not statistical evidence or uninstrumented production acceptance.",
+    "Direct process CPU includes all Java threads and common dispatch work. Provider resolution is not proven by nanosecond units.",
+    "RSS/PSS remain sampled. No changed caps, favorable retry, or retrospective earlier candidate acceptance."
+  ],
+  "decision": "RETAIN_T075_IMPLEMENTATION_FIXED_INSTRUMENTED_GATES_PASSED",
+  "baselineProduction": "T057 remains delivery baseline pending exact-host human review and uninstrumented production acceptance",
+  "artifactPins": {
+    "production": "aa960bc455ca78f3a8dfbab08a609f878f7d0773fdc1bc88136beed7e9d4b79a",
+    "producer": "d1d6596462cb539b49e56114e5de833ab9ec2c2127fa4067a7f26410f918836c",
+    "capture": "dc09b3d06e7e2a999d349adff51bfa07a26e6ff3b14345d4afc3b830d9d8a2da"
+  },
+  "rawReviewSha256": "ccd68f5cfe597906d7a6851f62b908f2095d2395bffe1834ee8873dd3ce59305",
+  "offlineEvidence": "validation/triangulation-tlindex/small-query-snapshot-production-offline-review-20261003.json",
+  "sourcePins": {
+    "runtime/src/main/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndex.java": "eeb294999e4147e726495772b61c1458a2e1dd1ea4f7b7b8375e67451c1c8051",
+    "runtime/src/test/java/dev/turboism/adapter/cubism/mesh/TriangulationEdgeIndexTest.java": "613db42ee5c11b82513b4656927cc4056a919c1b8a2bebeac294b1dba3f0fe3b"
+  }
+}

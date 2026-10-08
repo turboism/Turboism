@@ -1,23 +1,11 @@
 package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.plugin.Registration;
-
-import javax.swing.Icon;
-import javax.swing.AbstractButton;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JTable;
-import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.JTableHeader;
-import javax.swing.table.TableCellRenderer;
-import javax.swing.table.TableModel;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
@@ -31,6 +19,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.swing.AbstractButton;
+import javax.swing.Icon;
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.JTableHeader;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableModel;
 
 /** Runtime-owned physics editor lifecycle, native UI attachment, and transactional bulk mutation. */
 public final class PhysicsEditorCoordinator implements PhysicsEditorService, AutoCloseable {
@@ -50,7 +51,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         Objects.requireNonNull(requested, "contribution");
         synchronized (lock) {
             if (closed) throw new IllegalStateException("physics editor coordinator is closed");
-            if (contribution != null) throw new IllegalStateException("physics editor contribution is already registered");
+            if (contribution != null)
+                throw new IllegalStateException("physics editor contribution is already registered");
             contribution = requested;
         }
         return () -> clearContribution(requested);
@@ -76,6 +78,13 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             active = contribution;
         }
         runOnEdt(() -> install(panel, profile, active));
+    }
+
+    @Override
+    public boolean isAvailable() {
+        synchronized (lock) {
+            return !closed;
+        }
     }
 
     @Override
@@ -109,10 +118,7 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     // The active contribution is a handle: a replaced instance invalidates the deferred install.
     @SuppressWarnings("ReferenceEquality")
     private void install(
-        final Object panel,
-        final PhysicsEditorHostProfile profile,
-        final PhysicsEditorContribution active
-    ) {
+            final Object panel, final PhysicsEditorHostProfile profile, final PhysicsEditorContribution active) {
         try {
             final Object tableArea = invoke(panel, profile.tableGetter());
             final Object tableValue = tableArea == null ? null : invoke(tableArea, "getJTable");
@@ -123,27 +129,26 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             controller.install(active);
             table.putClientProperty(INSTALL_MARKER, controller);
             synchronized (lock) {
-                if (closed || contribution != active) controller.close(); else controllers.add(controller);
+                if (closed || contribution != active) controller.close();
+                else controllers.add(controller);
             }
-            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
-                "physics-editor",
-                "Installed physics editor controls"
-            );
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug("physics-editor", "Installed physics editor controls");
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                "physics-editor",
-                "Physics editor control installation failed safely",
-                failure
-            );
+                    "physics-editor", "Physics editor control installation failed safely", failure);
         }
     }
 
     private boolean looksLikePhysicsTable(final JTable table) {
         final TableModel model = table.getModel();
-        return model != null && model.getColumnCount() > PRIORITY_COLUMN
-            && (model.getColumnClass(ENABLE_COLUMN) == Boolean.class || model.getColumnClass(ENABLE_COLUMN) == boolean.class)
-            && (model.getColumnClass(PRIORITY_COLUMN) == Integer.class || model.getColumnClass(PRIORITY_COLUMN) == int.class)
-            && table.getTableHeader() != null;
+        return model != null
+                && model.getColumnCount() > PRIORITY_COLUMN
+                && (model.getColumnClass(ENABLE_COLUMN) == Boolean.class
+                        || model.getColumnClass(ENABLE_COLUMN) == boolean.class)
+                && (model.getColumnClass(PRIORITY_COLUMN) == Integer.class
+                        || model.getColumnClass(PRIORITY_COLUMN) == int.class)
+                && table.getTableHeader() != null;
     }
 
     private final class Controller extends MouseAdapter implements TableModelListener, PropertyChangeListener {
@@ -188,24 +193,22 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 final Summary summary = summary();
                 if (summary.rows() > 0) applyAll(!summary.allEnabled(), true);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 header.setEnabled(false);
                 dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                    "physics-editor",
-                    "Physics editor bulk update failed safely",
-                    failure
-                );
+                        "physics-editor", "Physics editor bulk update failed safely", failure);
             }
         }
 
         @Override
         public void tableChanged(final TableModelEvent event) {
             if (retainOnReopen) {
-                try { remember(sources()); } catch (Throwable failure) {
+                try {
+                    remember(sources());
+                } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     dev.turboism.runtime.log.RuntimeDiagnostics.error(
-                        "physics-editor",
-                        "Physics editor retention failed safely",
-                        failure
-                    );
+                            "physics-editor", "Physics editor retention failed safely", failure);
                 }
             }
             repaint();
@@ -225,13 +228,18 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
 
         private void restoreRetained() throws Exception {
             final Map<String, Boolean> snapshot;
-            synchronized (lock) { snapshot = retained; }
+            synchronized (lock) {
+                snapshot = retained;
+            }
             if (snapshot.isEmpty()) return;
             final List<Object> sources = sources();
             boolean different = false;
             for (Object source : sources) {
                 final Boolean desired = snapshot.get(identity(source));
-                if (desired != null && desired != enabled(source)) { different = true; break; }
+                if (desired != null && desired != enabled(source)) {
+                    different = true;
+                    break;
+                }
             }
             if (different) apply(snapshot, false);
         }
@@ -247,7 +255,10 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             boolean changed = false;
             for (Object source : sources) {
                 final Boolean value = desired.get(identity(source));
-                if (value != null && value != enabled(source)) { changed = true; break; }
+                if (value != null && value != enabled(source)) {
+                    changed = true;
+                    break;
+                }
             }
             if (!changed) {
                 if (remember) remember(sources);
@@ -262,8 +273,14 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 }
                 invoke(outer, profile.commitMethod());
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (checkpoint != null) {
-                    try { invoke(outer, profile.rollbackMethod()); } catch (Throwable rollbackFailure) { failure.addSuppressed(rollbackFailure); }
+                    try {
+                        invoke(outer, profile.rollbackMethod());
+                    } catch (Throwable rollbackFailure) {
+                        FatalErrors.rethrowIfFatal(rollbackFailure);
+                        failure.addSuppressed(rollbackFailure);
+                    }
                 }
                 throw failure;
             }
@@ -276,7 +293,9 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         private void remember(final List<Object> sources) throws Exception {
             final Map<String, Boolean> next = new LinkedHashMap<>();
             for (Object source : sources) next.put(identity(source), enabled(source));
-            synchronized (lock) { retained = Map.copyOf(next); }
+            synchronized (lock) {
+                retained = Map.copyOf(next);
+            }
         }
 
         private void refreshModel(final List<Object> sources) throws Exception {
@@ -310,7 +329,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         private Summary summary() {
             if (model == null) return new Summary(0, 0);
             int enabled = 0;
-            for (int row = 0; row < model.getRowCount(); row++) if (Boolean.TRUE.equals(model.getValueAt(row, ENABLE_COLUMN))) enabled++;
+            for (int row = 0; row < model.getRowCount(); row++)
+                if (Boolean.TRUE.equals(model.getValueAt(row, ENABLE_COLUMN))) enabled++;
             return new Summary(model.getRowCount(), enabled);
         }
 
@@ -360,15 +380,15 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
 
         @Override
         public Component getTableCellRendererComponent(
-            final JTable table,
-            final Object value,
-            final boolean selected,
-            final boolean focused,
-            final int row,
-            final int column
-        ) {
+                final JTable table,
+                final Object value,
+                final boolean selected,
+                final boolean focused,
+                final int row,
+                final int column) {
             final TableCellRenderer renderer = delegate == null ? fallback : delegate;
-            final Component component = renderer.getTableCellRendererComponent(table, value, selected, focused, row, column);
+            final Component component =
+                    renderer.getTableCellRendererComponent(table, value, selected, focused, row, column);
             if (column != ENABLE_COLUMN) return component;
             final Summary summary = controller.summary();
             checkbox.setEnabled(summary.rows() > 0 && table.isEnabled());
@@ -390,20 +410,37 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
     }
 
     private record Summary(int rows, int enabled) {
-        boolean allEnabled() { return rows > 0 && enabled == rows; }
-        boolean indeterminate() { return enabled > 0 && enabled < rows; }
-        String state() { return indeterminate() ? "indeterminate" : allEnabled() ? "selected" : "unselected"; }
+        boolean allEnabled() {
+            return rows > 0 && enabled == rows;
+        }
+
+        boolean indeterminate() {
+            return enabled > 0 && enabled < rows;
+        }
+
+        String state() {
+            return indeterminate() ? "indeterminate" : allEnabled() ? "selected" : "unselected";
+        }
     }
 
     private record CheckBoxStateIcon(Icon delegate, JCheckBox source, boolean indeterminate) implements Icon {
-        @Override public void paintIcon(final Component component, final Graphics graphics, final int x, final int y) {
+        @Override
+        public void paintIcon(final Component component, final Graphics graphics, final int x, final int y) {
             if (delegate != null) delegate.paintIcon(source, graphics, x, y);
             if (indeterminate) {
                 graphics.fillRect(x + 4, y + getIconHeight() / 2 - 1, Math.max(3, getIconWidth() - 8), 3);
             }
         }
-        @Override public int getIconWidth() { return delegate == null ? 13 : delegate.getIconWidth(); }
-        @Override public int getIconHeight() { return delegate == null ? 13 : delegate.getIconHeight(); }
+
+        @Override
+        public int getIconWidth() {
+            return delegate == null ? 13 : delegate.getIconWidth();
+        }
+
+        @Override
+        public int getIconHeight() {
+            return delegate == null ? 13 : delegate.getIconHeight();
+        }
     }
 
     private static Object invoke(final Object target, final String name, final Object... arguments) throws Exception {
@@ -412,7 +449,8 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         return method.invoke(target, arguments);
     }
 
-    private static Method method(final Class<?> type, final String name, final int parameterCount) throws NoSuchMethodException {
+    private static Method method(final Class<?> type, final String name, final int parameterCount)
+            throws NoSuchMethodException {
         // Cached hierarchy walk; the cache applies the non-public access policy once at resolution.
         return MethodHandleCache.declaredByArity(type, name, parameterCount);
     }
@@ -423,12 +461,13 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 final Field field = current.getDeclaredField(name);
                 field.setAccessible(true);
                 return field.get(target);
-            } catch (NoSuchFieldException ignored) { }
+            } catch (NoSuchFieldException ignored) {
+            }
         }
         throw new NoSuchFieldException(target.getClass().getName() + "#" + name);
     }
 
     private static void runOnEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run(); else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("physics coordinator EDT update", action);
     }
 }

@@ -1,17 +1,16 @@
 package dev.turboism.ui.host;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.plugin.Registration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import org.junit.jupiter.api.Test;
 
 class RuntimeEditorUiHostLifecycleTest {
 
@@ -21,28 +20,23 @@ class RuntimeEditorUiHostLifecycleTest {
 
         EditorUiHostSnapshot connecting = lifecycle.connecting();
         EditorUiHostSnapshot connected = lifecycle.connected(connecting.generation());
-        EditorUiHostSnapshot ready = lifecycle.ready(
-            connected.generation(),
-            Set.of(EditorUiFamily.APPEARANCE, EditorUiFamily.MENU)
-        );
+        EditorUiHostSnapshot ready =
+                lifecycle.ready(connected.generation(), Set.of(EditorUiFamily.APPEARANCE, EditorUiFamily.MENU));
 
         assertEquals(EditorUiHostSnapshot.State.READY, ready.state());
         assertTrue(ready.isReady(EditorUiFamily.APPEARANCE));
         assertTrue(ready.isReady(EditorUiFamily.MENU));
         assertFalse(ready.isReady(EditorUiFamily.MAIN_TOOLBAR));
 
-        EditorUiHostSnapshot degraded = lifecycle.markFamilyUnavailable(
-            EditorUiFamily.APPEARANCE,
-            "Appearance provider is unavailable."
-        );
+        EditorUiHostSnapshot degraded =
+                lifecycle.markFamilyUnavailable(EditorUiFamily.APPEARANCE, "Appearance provider is unavailable.");
 
         assertEquals(ready.generation(), degraded.generation());
         assertFalse(degraded.isReady(EditorUiFamily.APPEARANCE));
         assertTrue(degraded.isReady(EditorUiFamily.MENU));
         assertEquals(
-            Optional.of(EditorUiFamily.APPEARANCE),
-            degraded.failure().orElseThrow().family()
-        );
+                Optional.of(EditorUiFamily.APPEARANCE),
+                degraded.failure().orElseThrow().family());
     }
 
     @Test
@@ -72,13 +66,11 @@ class RuntimeEditorUiHostLifecycleTest {
         lifecycle.ready(generation, Set.of(EditorUiFamily.DIALOG));
 
         assertEquals(
-            List.of(
-                EditorUiHostSnapshot.State.ABSENT,
-                EditorUiHostSnapshot.State.CONNECTING,
-                EditorUiHostSnapshot.State.CONNECTED_NOT_READY
-            ),
-            states
-        );
+                List.of(
+                        EditorUiHostSnapshot.State.ABSENT,
+                        EditorUiHostSnapshot.State.CONNECTING,
+                        EditorUiHostSnapshot.State.CONNECTED_NOT_READY),
+                states);
     }
 
     @Test
@@ -89,22 +81,17 @@ class RuntimeEditorUiHostLifecycleTest {
 
         assertEquals(EditorUiHostSnapshot.State.CLOSED, lifecycle.snapshot().state());
         assertThrows(IllegalStateException.class, lifecycle::connecting);
-        assertThrows(IllegalStateException.class, () -> lifecycle.subscribe(ignored -> { }));
+        assertThrows(IllegalStateException.class, () -> lifecycle.subscribe(ignored -> {}));
     }
 
     @Test
     void snapshotsRejectImpossibleReadyStates() {
-        assertThrows(IllegalArgumentException.class, () -> new EditorUiHostSnapshot(
-            EditorUiHostSnapshot.State.READY,
-            1,
-            Set.of(),
-            Optional.empty()
-        ));
-        assertThrows(IllegalArgumentException.class, () -> new EditorUiHostSnapshot(
-            EditorUiHostSnapshot.State.ABSENT,
-            1,
-            Set.of(EditorUiFamily.MENU),
-            Optional.empty()
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditorUiHostSnapshot(EditorUiHostSnapshot.State.READY, 1, Set.of(), Optional.empty()));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new EditorUiHostSnapshot(
+                        EditorUiHostSnapshot.State.ABSENT, 1, Set.of(EditorUiFamily.MENU), Optional.empty()));
     }
 }

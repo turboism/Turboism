@@ -1,12 +1,13 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.ToolProvider;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -17,11 +18,9 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PinnedVerifiedResolverWorkflowTest {
 
@@ -45,9 +44,8 @@ class PinnedVerifiedResolverWorkflowTest {
         Fixture fixture = fixture("verified");
 
         try (URLClassLoader loader = fixture.loader()) {
-            VerifiedMemberResolver resolver = workflow.create(
-                fixture.record(), fixture.artifact(), loader, fixture.manifest()
-            );
+            VerifiedMemberResolver resolver =
+                    workflow.create(fixture.record(), fixture.artifact(), loader, fixture.manifest());
             Object instance = resolver.invokeStatic(STATIC_ALIAS);
 
             assertEquals("verified", resolver.invoke(INSTANCE_ALIAS, instance));
@@ -65,9 +63,9 @@ class PinnedVerifiedResolverWorkflowTest {
         Fixture fixture = fixture("verified");
         var wrong = manifest(fixture, "0".repeat(64), fixture.digest(), fixture.aliases(), Set.of(CAPABILITY));
         try (URLClassLoader loader = fixture.loader()) {
-            assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                fixture.record(), fixture.artifact(), loader, wrong
-            ));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(fixture.record(), fixture.artifact(), loader, wrong));
         }
     }
 
@@ -76,12 +74,12 @@ class PinnedVerifiedResolverWorkflowTest {
         Fixture fixture = fixture("verified");
         Path tamperedArtifact = tempDir.resolve("tampered-size.jar");
         Files.copy(fixture.artifact(), tamperedArtifact, StandardCopyOption.REPLACE_EXISTING);
-        Files.write(tamperedArtifact, new byte[]{0}, StandardOpenOption.APPEND);
+        Files.write(tamperedArtifact, new byte[] {0}, StandardOpenOption.APPEND);
 
         try (URLClassLoader loader = fixture.loader()) {
-            var failure = assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                fixture.record(), tamperedArtifact, loader, fixture.manifest()
-            ));
+            var failure = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(fixture.record(), tamperedArtifact, loader, fixture.manifest()));
             assertEquals("host artifact is not the reviewed Cubism artifact", failure.getMessage());
         }
     }
@@ -97,9 +95,9 @@ class PinnedVerifiedResolverWorkflowTest {
         assertEquals(fixture.size(), Files.size(tamperedArtifact), "tampering must preserve artifact size");
 
         try (URLClassLoader loader = fixture.loader()) {
-            var failure = assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                fixture.record(), tamperedArtifact, loader, fixture.manifest()
-            ));
+            var failure = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(fixture.record(), tamperedArtifact, loader, fixture.manifest()));
             assertEquals("host artifact is not the reviewed Cubism artifact", failure.getMessage());
         }
     }
@@ -108,14 +106,30 @@ class PinnedVerifiedResolverWorkflowTest {
     void rejectsCapabilityAndAliasMismatch() throws Exception {
         Fixture fixture = fixture("verified");
         try (URLClassLoader loader = fixture.loader()) {
-            assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                fixture.record(), fixture.artifact(), loader,
-                manifest(fixture, fixture.recordDigest(), fixture.digest(), fixture.aliases(), Set.of("wrong.capability"))
-            ));
-            assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                fixture.record(), fixture.artifact(), loader,
-                manifest(fixture, fixture.recordDigest(), fixture.digest(), Set.of(CLASS_ALIAS), Set.of(CAPABILITY))
-            ));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(
+                            fixture.record(),
+                            fixture.artifact(),
+                            loader,
+                            manifest(
+                                    fixture,
+                                    fixture.recordDigest(),
+                                    fixture.digest(),
+                                    fixture.aliases(),
+                                    Set.of("wrong.capability"))));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(
+                            fixture.record(),
+                            fixture.artifact(),
+                            loader,
+                            manifest(
+                                    fixture,
+                                    fixture.recordDigest(),
+                                    fixture.digest(),
+                                    Set.of(CLASS_ALIAS),
+                                    Set.of(CAPABILITY))));
         }
     }
 
@@ -124,9 +138,9 @@ class PinnedVerifiedResolverWorkflowTest {
         Fixture reviewed = fixture("verified");
         Fixture other = fixture("other-bytes");
         try (URLClassLoader wrongLoader = other.loader()) {
-            assertThrows(IllegalArgumentException.class, () -> workflow.create(
-                reviewed.record(), reviewed.artifact(), wrongLoader, reviewed.manifest()
-            ));
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.create(reviewed.record(), reviewed.artifact(), wrongLoader, reviewed.manifest()));
         }
     }
 
@@ -134,18 +148,26 @@ class PinnedVerifiedResolverWorkflowTest {
     void compatibleResolverDoesNotRestoreDroppedCapabilities() throws Exception {
         final Fixture fixture = fixture("compatible");
         final SliceContract contract = new SliceContract(
-            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
-            "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
-            true, Set.of(), java.util.Map.of(CAPABILITY, "hook:native-edit-begin")
-        );
+                "synthetic",
+                VERSION,
+                "record.json",
+                fixture.recordDigest(),
+                "synthetic.static",
+                SLICE,
+                "9.8.8",
+                908080001,
+                HostArtifactDigest.from(fixture.artifact()),
+                true,
+                Set.of(),
+                java.util.Map.of(CAPABILITY, "hook:native-edit-begin"));
         try (URLClassLoader loader = fixture.loader()) {
-            final VerifiedMemberResolver resolver = workflow.createCompatible(
-                fixture.record(), fixture.artifact(), loader, contract
-            );
+            final VerifiedMemberResolver resolver =
+                    workflow.createCompatible(fixture.record(), fixture.artifact(), loader, contract);
             assertEquals("9.8.8", resolver.cubismVersion());
             assertEquals(VERSION, resolver.admittedCubismVersion());
-            assertFalse(resolver.authorizesFeature(SLICE, CAPABILITY, fixture.aliases()),
-                "runtime construction must preserve the compatibility capability decision");
+            assertFalse(
+                    resolver.authorizesFeature(SLICE, CAPABILITY, fixture.aliases()),
+                    "runtime construction must preserve the compatibility capability decision");
         }
     }
 
@@ -153,14 +175,21 @@ class PinnedVerifiedResolverWorkflowTest {
     void compatibleResolverRetainsAdmittedCapabilityAndActualHostVersion() throws Exception {
         final Fixture fixture = fixture("compatible");
         final SliceContract contract = new SliceContract(
-            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
-            "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
-            true, Set.of(CAPABILITY), java.util.Map.of()
-        );
+                "synthetic",
+                VERSION,
+                "record.json",
+                fixture.recordDigest(),
+                "synthetic.static",
+                SLICE,
+                "9.8.8",
+                908080001,
+                HostArtifactDigest.from(fixture.artifact()),
+                true,
+                Set.of(CAPABILITY),
+                java.util.Map.of());
         try (URLClassLoader loader = fixture.loader()) {
-            final VerifiedMemberResolver resolver = workflow.createCompatible(
-                fixture.record(), fixture.artifact(), loader, contract
-            );
+            final VerifiedMemberResolver resolver =
+                    workflow.createCompatible(fixture.record(), fixture.artifact(), loader, contract);
             assertTrue(resolver.authorizesFeature(SLICE, CAPABILITY, fixture.aliases()));
             assertEquals("compatible", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
             assertEquals("9.8.8", resolver.cubismVersion());
@@ -172,26 +201,42 @@ class PinnedVerifiedResolverWorkflowTest {
         final Fixture fixture = fixture("compatible");
         final HostArtifactDigest original = HostArtifactDigest.from(fixture.artifact());
         final SliceContract prior = new SliceContract(
-            "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
-            "9.8.8", 908080001, original, true, Set.of(CAPABILITY), java.util.Map.of()
-        );
+                "synthetic",
+                VERSION,
+                "record.json",
+                fixture.recordDigest(),
+                "synthetic.static",
+                SLICE,
+                "9.8.8",
+                908080001,
+                original,
+                true,
+                Set.of(CAPABILITY),
+                java.util.Map.of());
         // ZIP readers accept a trailing comment byte. The class surface stays
         // unchanged, but the earlier probe no longer describes this archive.
         Files.write(fixture.artifact(), new byte[] {0}, StandardOpenOption.APPEND);
         try (URLClassLoader loader = fixture.loader()) {
-            final var failure = assertThrows(IllegalArgumentException.class, () -> workflow.createCompatible(
-                fixture.record(), fixture.artifact(), loader, prior
-            ));
+            final var failure = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> workflow.createCompatible(fixture.record(), fixture.artifact(), loader, prior));
             assertEquals("host artifact changed since compatibility probing", failure.getMessage());
 
             final SliceContract refreshed = new SliceContract(
-                "synthetic", VERSION, "record.json", fixture.recordDigest(), "synthetic.static", SLICE,
-                "9.8.8", 908080001, HostArtifactDigest.from(fixture.artifact()),
-                true, Set.of(CAPABILITY), java.util.Map.of()
-            );
-            final VerifiedMemberResolver resolver = workflow.createCompatible(
-                fixture.record(), fixture.artifact(), loader, refreshed
-            );
+                    "synthetic",
+                    VERSION,
+                    "record.json",
+                    fixture.recordDigest(),
+                    "synthetic.static",
+                    SLICE,
+                    "9.8.8",
+                    908080001,
+                    HostArtifactDigest.from(fixture.artifact()),
+                    true,
+                    Set.of(CAPABILITY),
+                    java.util.Map.of());
+            final VerifiedMemberResolver resolver =
+                    workflow.createCompatible(fixture.record(), fixture.artifact(), loader, refreshed);
             assertEquals("compatible", resolver.invoke(INSTANCE_ALIAS, resolver.invokeStatic(STATIC_ALIAS)));
         }
     }
@@ -209,8 +254,8 @@ class PinnedVerifiedResolverWorkflowTest {
                 public String value() { return "%s"; }
             }
             """.formatted(value));
-        int exit = ToolProvider.getSystemJavaCompiler().run(null, null, null,
-            "-d", classes.toString(), source.toString());
+        int exit =
+                ToolProvider.getSystemJavaCompiler().run(null, null, null, "-d", classes.toString(), source.toString());
         assertEquals(0, exit, "synthetic host compilation failed");
 
         Path artifact = root.resolve("synthetic-host.jar");
@@ -226,8 +271,14 @@ class PinnedVerifiedResolverWorkflowTest {
         String recordDigest = HostArtifactDigest.from(record).sha256();
         Set<String> aliases = Set.of(CLASS_ALIAS, STATIC_ALIAS, INSTANCE_ALIAS);
         Fixture fixture = new Fixture(record, artifact, digest.size(), digest.sha256(), recordDigest, aliases, null);
-        return new Fixture(record, artifact, digest.size(), digest.sha256(), recordDigest, aliases,
-            manifest(fixture, recordDigest, digest.sha256(), aliases, Set.of(CAPABILITY)));
+        return new Fixture(
+                record,
+                artifact,
+                digest.size(),
+                digest.sha256(),
+                recordDigest,
+                aliases,
+                manifest(fixture, recordDigest, digest.sha256(), aliases, Set.of(CAPABILITY)));
     }
 
     private ObjectNode record(final HostArtifactDigest digest) {
@@ -253,59 +304,70 @@ class PinnedVerifiedResolverWorkflowTest {
         root.put("safeMode", "Fail closed for synthetic test.");
         ArrayNode selectors = root.putArray("selectors");
         selector(selectors, "synthetic.mapping.class", CLASS_ALIAS, "class", "", "", 1, 0);
-        selector(selectors, "synthetic.mapping.instance", STATIC_ALIAS, "method", "instance",
-            "()Lsynthetic/host/SyntheticHost;", 9, 0);
-        selector(selectors, "synthetic.mapping.value", INSTANCE_ALIAS, "method", "value",
-            "()Ljava/lang/String;", 1, 8);
+        selector(
+                selectors,
+                "synthetic.mapping.instance",
+                STATIC_ALIAS,
+                "method",
+                "instance",
+                "()Lsynthetic/host/SyntheticHost;",
+                9,
+                0);
+        selector(selectors, "synthetic.mapping.value", INSTANCE_ALIAS, "method", "value", "()Ljava/lang/String;", 1, 8);
         return root;
     }
 
     private void selector(
-        final ArrayNode selectors,
-        final String mappingId,
-        final String alias,
-        final String kind,
-        final String member,
-        final String descriptor,
-        final int required,
-        final int forbidden
-    ) {
+            final ArrayNode selectors,
+            final String mappingId,
+            final String alias,
+            final String kind,
+            final String member,
+            final String descriptor,
+            final int required,
+            final int forbidden) {
         ObjectNode selector = selectors.addObject();
         selector.put("mappingId", mappingId);
         selector.put("alias", alias);
         selector.put("kind", kind);
         selector.put("ownerInternalName", OWNER);
-        if (member.isEmpty()) selector.putNull("memberName"); else selector.put("memberName", member);
-        if (descriptor.isEmpty()) selector.putNull("descriptor"); else selector.put("descriptor", descriptor);
+        if (member.isEmpty()) selector.putNull("memberName");
+        else selector.put("memberName", member);
+        if (descriptor.isEmpty()) selector.putNull("descriptor");
+        else selector.put("descriptor", descriptor);
         selector.put("requiredAccessFlags", required);
         selector.put("forbiddenAccessFlags", forbidden);
         selector.put("status", "VERIFIED_STATIC");
     }
 
     private PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final Fixture fixture,
-        final String recordDigest,
-        final String artifactDigest,
-        final Set<String> aliases,
-        final Set<String> capabilities
-    ) {
+            final Fixture fixture,
+            final String recordDigest,
+            final String artifactDigest,
+            final Set<String> aliases,
+            final Set<String> capabilities) {
         return new PinnedVerifiedResolverWorkflow.Manifest(
-            "synthetic.static", recordDigest, VERSION, PROFILE, fixture.size(), artifactDigest,
-            SLICE, capabilities, aliases
-        );
+                "synthetic.static",
+                recordDigest,
+                VERSION,
+                PROFILE,
+                fixture.size(),
+                artifactDigest,
+                SLICE,
+                capabilities,
+                aliases);
     }
 
     private record Fixture(
-        Path record,
-        Path artifact,
-        long size,
-        String digest,
-        String recordDigest,
-        Set<String> aliases,
-        PinnedVerifiedResolverWorkflow.Manifest manifest
-    ) {
+            Path record,
+            Path artifact,
+            long size,
+            String digest,
+            String recordDigest,
+            Set<String> aliases,
+            PinnedVerifiedResolverWorkflow.Manifest manifest) {
         URLClassLoader loader() throws Exception {
-            return new URLClassLoader(new URL[]{artifact.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
+            return new URLClassLoader(new URL[] {artifact.toUri().toURL()}, ClassLoader.getPlatformClassLoader());
         }
     }
 }

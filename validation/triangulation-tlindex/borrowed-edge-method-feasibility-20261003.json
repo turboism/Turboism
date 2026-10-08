@@ -1,0 +1,104 @@
+{
+  "scope": "OWNED_COMPLETE_53_METHOD_ONLY_NO_ADMISSION_OR_HOST_CLAIM",
+  "passed": true,
+  "exit": 0,
+  "compile": [
+    "javac",
+    "--release",
+    "17",
+    "-Xlint:all",
+    "-Werror",
+    "-cp",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar:${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar",
+    "-d",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/sources/BorrowedEdgeBytecodePrototype.java",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/sources/BorrowedEdgeNativeSelfCheck.java"
+  ],
+  "argv": [
+    "java",
+    "-Djava.awt.headless=true",
+    "-Xverify:all",
+    "-cp",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes:${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar:${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar",
+    "BorrowedEdgeNativeSelfCheck",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar"
+  ],
+  "pins": {
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java": "bfab1271129671edd29e59eb5008c4fefd0a5da5919d8abb8f2e1ad356d6bcad",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/runtime/src/main/java/dev/turboism/adapter/cubism/mesh/LazyTriangulationEdgePreparation.java": "2730a0eefc461418b352d56963586a46a71db81201a1f43cdd26a3d6089554b9",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-borrowed-edge-method.py": "7e7029b0649f2f85f4b86d3fc70831f98068283806601093f881a6f3fa8df61e",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar": "9929881f59eb6b840e86d54570c77b59ce721d104e6dfd7a40978991c2d3b41f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/BorrowedEdgeBytecodePrototype.java": "629c5a580dfd372c33998dc4ece0de760954daf1bfc01abac248a8f565b36dca",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/BorrowedEdgeNativeSelfCheck.java": "a49365f77b1861ea9e501a179f8b28471366542904763f3f2b0dc08c48fe39a0",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/sources/BorrowedEdgeBytecodePrototype.java": "629c5a580dfd372c33998dc4ece0de760954daf1bfc01abac248a8f565b36dca",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/sources/BorrowedEdgeNativeSelfCheck.java": "a49365f77b1861ea9e501a179f8b28471366542904763f3f2b0dc08c48fe39a0",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeBytecodePrototype$1.class": "04b93a8dd3d7886261dcee83fad2d30dc33793d0c0e9f0677d558eb18becf93d",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeBytecodePrototype$2$1.class": "3d4c885aa225de59fa6a395be746a206041bacb522302f848d10bfeb71178988",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeBytecodePrototype$2.class": "3768104710c30db16160bc6441e9a04e5ff82d4a02084bbf9309094d917b370e",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeBytecodePrototype.class": "9a1d20d2b3b8a83cd83ed94dfef96b89693a79fe8a9150c31ddb85b661a9c092",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeNativeSelfCheck$Control.class": "025e2a0aa87b1028d6b70c36753691b318af7056ff0ee6bf5869bc075c7a943f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeNativeSelfCheck$Loader.class": "ad2cff0b127e0e6b43862725c6773934020d2a55c7c128d2e79175859c92a929",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeNativeSelfCheck$Result.class": "417a9a90917d14de0f0965dcaba4884282020841ac76931064cb2f102c1d005b",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeNativeSelfCheck$1.class": "a389d3463c648fd9604c2e99038e36af00f499e8d396bcacdcb10e63f2e17fca",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/classes/BorrowedEdgeNativeSelfCheck.class": "47cf54df0b7e12e819916267262fc747e9efc7b8b2a464c5697d8179a09eab10",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/kotlin-stdlib-1.7.21.jar": "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/kotlin-stdlib-1.7.21.jar": "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/kotlin-stdlib-1.7.21.jar": "d46a9d773ffb9dee4ff1a748ac845dc8e50005c589302951760a2b5187bddd19",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/compile.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r2/native.txt": "4e19332d642a8b79125c85677de4be5a3165ec4abf9f7a90141fa9bb3b633104",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t059-borrowed-method-r1/review.json": "6bc619e46dfe7f0618fc118a3380025fc72d8065552c4b18ea3c75c2dff3547a"
+  },
+  "totalAssertions": 50450,
+  "groups": [
+    {
+      "profileJar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar",
+      "assertionsEnabled": false,
+      "fixtures": 128,
+      "checks": 12612,
+      "nativeCalls": 3,
+      "bypasses": 1491
+    },
+    {
+      "profileJar": "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar",
+      "assertionsEnabled": true,
+      "fixtures": 128,
+      "checks": 12612,
+      "nativeCalls": 3,
+      "bypasses": 1491
+    },
+    {
+      "profileJar": "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar",
+      "assertionsEnabled": false,
+      "fixtures": 128,
+      "checks": 12612,
+      "nativeCalls": 3,
+      "bypasses": 1491
+    },
+    {
+      "profileJar": "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar",
+      "assertionsEnabled": true,
+      "fixtures": 128,
+      "checks": 12612,
+      "nativeCalls": 3,
+      "bypasses": 1491
+    }
+  ],
+  "decision": "PROCEED_TO_LANEC_EXACT_METHOD_INTEGRATION_AND_LIVE_ADMISSION_CONTROLS",
+  "productionModified": false,
+  "EditorLaunched": false,
+  "limitations": [
+    "Owned nullable lease substitutes for actual production shared definition admission.",
+    "Fixture controls do not establish host speedup, production readiness or all possible native geometry/error behavior.",
+    "Non-target fingerprint compares non-debug, non-frame code/class metadata; no generic raw attribute preservation claim.",
+    "This prototype rejects all raw h inputs outside the reviewed 53 SHA and does not accept already composed production h bytes."
+  ],
+  "firstPassingRun": "build/t059-borrowed-method-r1/review.json",
+  "sanitization": "Tracked text replaces account home with ${USER_HOME}; raw build records remain unmodified."
+}

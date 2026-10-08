@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 import java.util.List;
 
 /**
@@ -43,7 +42,8 @@ public interface MeshEditService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -62,31 +62,38 @@ public interface MeshEditService {
     enum Unavailable implements MeshEditService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public MeshEditResult addPoints(final List<MeshPointPosition> points) {
+        @Override
+        public MeshEditResult addPoints(final List<MeshPointPosition> points) {
             return refused();
         }
 
-        @Override public MeshEditResult deletePoints(final List<MeshPointRef> points) {
+        @Override
+        public MeshEditResult deletePoints(final List<MeshPointRef> points) {
             return refused();
         }
 
-        @Override public MeshEditResult movePoints(final List<MeshPointRef> points) {
+        @Override
+        public MeshEditResult movePoints(final List<MeshPointRef> points) {
             return refused();
         }
 
-        @Override public MeshEditResult addEdges(final List<MeshEdgeRef> edges) {
+        @Override
+        public MeshEditResult addEdges(final List<MeshEdgeRef> edges) {
             return refused();
         }
 
-        @Override public MeshEditResult deleteEdges(final List<MeshEdgeRef> edges) {
+        @Override
+        public MeshEditResult deleteEdges(final List<MeshEdgeRef> edges) {
             return refused();
         }
 
-        @Override public MeshSnapshot snapshot() {
+        @Override
+        public MeshSnapshot snapshot() {
             return MeshSnapshot.empty();
         }
 

@@ -1,23 +1,27 @@
 package dev.turboism.shell;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.sdk.i18n.PluginLocalization;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.RowFilter;
-import javax.swing.table.TableRowSorter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import javax.swing.RowFilter;
+import javax.swing.table.TableRowSorter;
+import org.junit.jupiter.api.Test;
 
 /** Core Plugins table exposes localized Category/Tags and the existing row filter matches them. */
 class PluginTableModelTest {
 
     private static final PluginLocalization I18N = new PluginLocalization() {
-        @Override public Locale locale() { return Locale.ENGLISH; }
-        @Override public String text(final String key) {
+        @Override
+        public Locale locale() {
+            return Locale.ENGLISH;
+        }
+
+        @Override
+        public String text(final String key) {
             return switch (key) {
                 case "plugins.column.author" -> "Author";
                 case "plugins.column.category" -> "Category";
@@ -31,24 +35,34 @@ class PluginTableModelTest {
                 default -> "?" + key;
             };
         }
-        @Override public String format(final String key, final Object... arguments) { return text(key); }
-        @Override public boolean contains(final String key) { return true; }
+
+        @Override
+        public String format(final String key, final Object... arguments) {
+            return text(key);
+        }
+
+        @Override
+        public boolean contains(final String key) {
+            return true;
+        }
     };
 
     private static CorePluginManagement.PluginInfo row(
-        final String id,
-        final String name,
-        final String category,
-        final List<String> tags,
-        final boolean core
-    ) {
+            final String id, final String name, final String category, final List<String> tags, final boolean core) {
         return new CorePluginManagement.PluginInfo(
-            id, name, "1.0.0", "", "ENABLED", "ENABLED", core, Optional.empty(), category, tags,
-            List.of(
-                new CorePluginManagement.Author("First Author", Optional.empty()),
-                new CorePluginManagement.Author("Second Author", Optional.of("second@example.test"))
-            )
-        );
+                id,
+                name,
+                "1.0.0",
+                "",
+                "ENABLED",
+                "ENABLED",
+                core,
+                Optional.empty(),
+                category,
+                tags,
+                List.of(
+                        new CorePluginManagement.Author("First Author", Optional.empty()),
+                        new CorePluginManagement.Author("Second Author", Optional.of("second@example.test"))));
     }
 
     @Test
@@ -70,10 +84,9 @@ class PluginTableModelTest {
     void categoryCellShowsLocalizedLabelForRegisteredAndFallbackCategories() {
         final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
         model.setPlugins(List.of(
-            row("a.plugin", "A", "modeling", List.of("parameter"), false),
-            row("b.plugin", "B", "workflow", List.of("backup"), false),
-            row("c.plugin", "C", "other", List.of(), false)
-        ));
+                row("a.plugin", "A", "modeling", List.of("parameter"), false),
+                row("b.plugin", "B", "workflow", List.of("backup"), false),
+                row("c.plugin", "C", "other", List.of(), false)));
 
         assertEquals("Modeling", model.getValueAt(0, 7));
         assertEquals("Workflow", model.getValueAt(1, 7));
@@ -87,9 +100,8 @@ class PluginTableModelTest {
     void existingRowFilterMatchesCategoryAndTagsCells() {
         final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
         model.setPlugins(List.of(
-            row("a.plugin", "Alpha", "modeling", List.of("parameter", "batch-edit"), false),
-            row("b.plugin", "Beta", "workflow", List.of("backup"), false)
-        ));
+                row("a.plugin", "Alpha", "modeling", List.of("parameter", "batch-edit"), false),
+                row("b.plugin", "Beta", "workflow", List.of("backup"), false)));
         final TableRowSorter<CoreWindows.PluginTableModel> sorter = new TableRowSorter<>(model);
 
         sorter.setRowFilter(RowFilter.regexFilter("(?i)" + java.util.regex.Pattern.quote("Modeling")));

@@ -1,12 +1,13 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
-import dev.turboism.sdk.cubism.model.PartId;
-import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.ModelObjectReference;
+import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import java.util.Optional;
  * the host's glue enumeration by id alone, so the declared kind is not consulted on that
  * route. {@link EditObjectKind#ART_PATH} has no official data payload and fails closed.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public interface PartObjectOps {
 
@@ -97,8 +99,7 @@ public interface PartObjectOps {
         }
 
         @Override
-        public boolean moveObjectOnPartsPalette(final MoveObjectOnPartsPalette request)
-                throws EditSessionException {
+        public boolean moveObjectOnPartsPalette(final MoveObjectOnPartsPalette request) throws EditSessionException {
             Objects.requireNonNull(request, "request");
             throw new EditUnavailableException("PartObjectOps.moveObjectOnPartsPalette");
         }

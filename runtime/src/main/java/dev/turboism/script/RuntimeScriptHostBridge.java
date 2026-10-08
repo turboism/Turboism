@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.graal.GraalHostManager;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
@@ -12,14 +13,16 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.script.ScriptDescriptor;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
+import dev.turboism.ui.host.EdtDispatchException;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
@@ -36,32 +39,22 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
     private final TimeUnit uiTimeoutUnit;
 
     RuntimeScriptHostBridge(final PluginContext context, final ScriptDescriptor descriptor) {
-        this(
-            context,
-            descriptor,
-            UI_TIMEOUT_SECONDS,
-            TimeUnit.SECONDS
-        );
+        this(context, descriptor, UI_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     RuntimeScriptHostBridge(
-        final PluginContext context,
-        final ScriptDescriptor descriptor,
-        final long uiTimeout,
-        final TimeUnit uiTimeoutUnit
-    ) {
+            final PluginContext context,
+            final ScriptDescriptor descriptor,
+            final long uiTimeout,
+            final TimeUnit uiTimeoutUnit) {
         this.context = Objects.requireNonNull(context, "context");
-        this.scriptPermissions = Set.copyOf(
-            Objects.requireNonNull(descriptor, "descriptor").permissions()
-        );
+        this.scriptPermissions =
+                Set.copyOf(Objects.requireNonNull(descriptor, "descriptor").permissions());
         if (uiTimeout <= 0L) {
             throw new IllegalArgumentException("uiTimeout must be positive");
         }
         this.uiTimeout = uiTimeout;
-        this.uiTimeoutUnit = Objects.requireNonNull(
-            uiTimeoutUnit,
-            "uiTimeoutUnit"
-        );
+        this.uiTimeoutUnit = Objects.requireNonNull(uiTimeoutUnit, "uiTimeoutUnit");
     }
 
     @Override
@@ -69,84 +62,59 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         Objects.requireNonNull(operation, "operation");
         final JsonNode payload = payload(payloadJson);
         return switch (operation) {
-            case "cubism.status" -> withPermission(
-                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                () -> onEdtDirect(this::status)
-            );
-            case "cubism.model.snapshot" -> withPermission(
-                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                () -> onUiThread(this::modelSnapshot)
-            );
-            case "cubism.parameters.list", "cubism.parameters.snapshot" -> withPermission(
-                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                () -> onUiThread(this::parameterList)
-            );
-            case "cubism.parameters.get" -> withPermission(
-                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                () -> onUiThread(() -> parameterGet(payload))
-            );
-            case "cubism.parameters.getMany" -> withPermission(
-                PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                () -> onUiThread(() -> parameterGetMany(payload))
-            );
-            case "cubism.parameters.set" -> withPermissions(
-                java.util.List.of(
-                    PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE
-                ),
-                () -> onUiThread(cancelled -> parameterSet(payload, cancelled))
-            );
-            case "cubism.parameters.setMany" -> withPermissions(
-                java.util.List.of(
-                    PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE
-                ),
-                () -> onUiThread(cancelled -> parameterSetMany(payload, cancelled))
-            );
-            case "cubism.parameters.reset" -> withPermissions(
-                java.util.List.of(
-                    PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE
-                ),
-                () -> onUiThread(cancelled -> parameterReset(payload, cancelled))
-            );
-            case "cubism.parameters.resetMany" -> withPermissions(
-                java.util.List.of(
-                    PermissionIds.TURBOISM_CUBISM_MODEL_READ,
-                    PermissionIds.TURBOISM_CUBISM_MODEL_WRITE
-                ),
-                () -> onUiThread(cancelled -> parameterResetMany(payload, cancelled))
-            );
-            default -> throw new GraalHostManager.HostCallException(
-                "SCRIPT_OPERATION_UNSUPPORTED",
-                "Unsupported script host operation: " + operation
-            );
+            case "cubism.status" ->
+                withPermission(PermissionIds.TURBOISM_CUBISM_MODEL_READ, () -> onEdtDirect(this::status));
+            case "cubism.model.snapshot" ->
+                withPermission(PermissionIds.TURBOISM_CUBISM_MODEL_READ, () -> onUiThread(this::modelSnapshot));
+            case "cubism.parameters.list", "cubism.parameters.snapshot" ->
+                withPermission(PermissionIds.TURBOISM_CUBISM_MODEL_READ, () -> onUiThread(this::parameterList));
+            case "cubism.parameters.get" ->
+                withPermission(PermissionIds.TURBOISM_CUBISM_MODEL_READ, () -> onUiThread(() -> parameterGet(payload)));
+            case "cubism.parameters.getMany" ->
+                withPermission(
+                        PermissionIds.TURBOISM_CUBISM_MODEL_READ, () -> onUiThread(() -> parameterGetMany(payload)));
+            case "cubism.parameters.set" ->
+                withPermissions(
+                        java.util.List.of(
+                                PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
+                        () -> onUiThread(cancelled -> parameterSet(payload, cancelled)));
+            case "cubism.parameters.setMany" ->
+                withPermissions(
+                        java.util.List.of(
+                                PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
+                        () -> onUiThread(cancelled -> parameterSetMany(payload, cancelled)));
+            case "cubism.parameters.reset" ->
+                withPermissions(
+                        java.util.List.of(
+                                PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
+                        () -> onUiThread(cancelled -> parameterReset(payload, cancelled)));
+            case "cubism.parameters.resetMany" ->
+                withPermissions(
+                        java.util.List.of(
+                                PermissionIds.TURBOISM_CUBISM_MODEL_READ, PermissionIds.TURBOISM_CUBISM_MODEL_WRITE),
+                        () -> onUiThread(cancelled -> parameterResetMany(payload, cancelled)));
+            default ->
+                throw new GraalHostManager.HostCallException(
+                        "SCRIPT_OPERATION_UNSUPPORTED", "Unsupported script host operation: " + operation);
         };
     }
 
-    private String withPermission(final String permission, final Callable<String> action)
-        throws Exception {
+    private String withPermission(final String permission, final Callable<String> action) throws Exception {
         return withPermissions(Set.of(permission), action);
     }
 
-    private String withPermissions(
-        final Iterable<String> permissions,
-        final Callable<String> action
-    ) throws Exception {
+    private String withPermissions(final Iterable<String> permissions, final Callable<String> action) throws Exception {
         for (String permission : permissions) {
             if (!scriptPermissions.contains(permission)) {
                 throw new GraalHostManager.HostCallException(
-                    "SCRIPT_PERMISSION_DENIED",
-                    "Script did not declare required permission: " + permission
-                );
+                        "SCRIPT_PERMISSION_DENIED", "Script did not declare required permission: " + permission);
             }
-            final boolean callerGranted = context.permissions().stream()
-                .anyMatch(granted -> permission.equals(granted.id()));
+            final boolean callerGranted =
+                    context.permissions().stream().anyMatch(granted -> permission.equals(granted.id()));
             if (!callerGranted) {
                 throw new GraalHostManager.HostCallException(
-                    "SCRIPT_CALLER_PERMISSION_DENIED",
-                    "Calling plugin is not granted script permission: " + permission
-                );
+                        "SCRIPT_CALLER_PERMISSION_DENIED",
+                        "Calling plugin is not granted script permission: " + permission);
             }
         }
         return action.call();
@@ -156,39 +124,21 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
      * Uses a runtime-owned bounded EDT handoff for the lightweight status call.
      * Going through the calling plugin's RuntimeScheduler can exhaust its short
      * startup budget before the Cubism UI becomes idle; bypassing the EDT itself
-     * would instead race live editor objects. The cancellation bit prevents a
-     * timed-out queued callback from touching Cubism later.
+     * would instead race live editor objects. {@link EdtDispatch} abandons a task
+     * that is still queued when the caller times out or is interrupted, so a
+     * timed-out queued callback can never touch Cubism later.
      */
     private String onEdtDirect(final Callable<String> operation) throws Exception {
-        if (SwingUtilities.isEventDispatchThread()) {
-            return operation.call();
-        }
-        final CompletableFuture<String> completion = new CompletableFuture<>();
-        final AtomicBoolean cancelled = new AtomicBoolean(false);
-        SwingUtilities.invokeLater(() -> {
-            if (cancelled.get()) {
-                completion.completeExceptionally(hostCallCancelled());
-                return;
-            }
-            try {
-                completion.complete(operation.call());
-            } catch (Throwable failure) {
-                completion.completeExceptionally(failure);
-            }
-        });
         try {
-            return completion.get(uiTimeout, uiTimeoutUnit);
-        } catch (ExecutionException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof GraalHostManager.HostCallException hostFailure) {
-                throw hostFailure;
+            return EdtDispatch.callExact(
+                    "script host EDT call", Duration.ofNanos(uiTimeoutUnit.toNanos(uiTimeout)), operation);
+        } catch (EdtDispatchException dispatch) {
+            if (dispatch.reason() == EdtDispatchException.Reason.INTERRUPTED) {
+                throw new InterruptedException(dispatch.getMessage());
             }
-            if (cause instanceof Exception exception) {
-                throw exception;
-            }
-            throw new IllegalStateException("Script host call failed on the UI thread.", cause);
-        } finally {
-            cancelled.set(true);
+            final TimeoutException timeout = new TimeoutException(dispatch.getMessage());
+            timeout.initCause(dispatch);
+            throw timeout;
         }
     }
 
@@ -205,9 +155,10 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
                 return;
             }
             try {
-                completion.complete(operation.call(() -> cancelled.get()
-                    || Thread.currentThread().isInterrupted()));
+                completion.complete(operation.call(
+                        () -> cancelled.get() || Thread.currentThread().isInterrupted()));
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 completion.completeExceptionally(failure);
             }
         });
@@ -267,10 +218,7 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         return mapper.writeValueAsString(result);
     }
 
-    private void addParameterSnapshot(
-        final ObjectNode result,
-        final CubismModel model
-    ) {
+    private void addParameterSnapshot(final ObjectNode result, final CubismModel model) {
         final java.util.List<Parameter> parameters = model.parameters().all();
         final int included = Math.min(parameters.size(), MAX_BATCH_ITEMS);
         final ArrayNode nodes = mapper.createArrayNode();
@@ -296,20 +244,14 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         return mapper.writeValueAsString(response);
     }
 
-    private String parameterSet(
-        final JsonNode payload,
-        final BooleanSupplier cancelled
-    ) throws Exception {
+    private String parameterSet(final JsonNode payload, final BooleanSupplier cancelled) throws Exception {
         final Parameter parameter = parameter(payload);
         checkHostCallActive(cancelled);
         parameter.setValue(value(payload.get("value")));
         return mapper.writeValueAsString(parameterNode(parameter));
     }
 
-    private String parameterSetMany(
-        final JsonNode payload,
-        final BooleanSupplier cancelled
-    ) throws Exception {
+    private String parameterSetMany(final JsonNode payload, final BooleanSupplier cancelled) throws Exception {
         final JsonNode changes = boundedArray(payload, "changes");
         final java.util.List<ParameterChange> validated = new java.util.ArrayList<>(changes.size());
         final java.util.Set<String> seen = new java.util.HashSet<>();
@@ -334,20 +276,14 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         return mapper.writeValueAsString(response);
     }
 
-    private String parameterReset(
-        final JsonNode payload,
-        final BooleanSupplier cancelled
-    ) throws Exception {
+    private String parameterReset(final JsonNode payload, final BooleanSupplier cancelled) throws Exception {
         final Parameter parameter = parameter(payload);
         checkHostCallActive(cancelled);
         parameter.resetToDefault();
         return mapper.writeValueAsString(parameterNode(parameter));
     }
 
-    private String parameterResetMany(
-        final JsonNode payload,
-        final BooleanSupplier cancelled
-    ) throws Exception {
+    private String parameterResetMany(final JsonNode payload, final BooleanSupplier cancelled) throws Exception {
         final java.util.List<Parameter> parameters = new java.util.ArrayList<>();
         for (String id : ids(payload, "ids")) {
             parameters.add(parameter(id));
@@ -368,28 +304,33 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
     }
 
     private Parameter parameter(final String id) throws GraalHostManager.HostCallException {
-        return activeModel().parameters().findById(new ParameterId(id))
-            .orElseThrow(() -> new GraalHostManager.HostCallException(
-                "SCRIPT_PARAMETER_NOT_FOUND", "Parameter was not found: " + id
-            ));
+        return activeModel()
+                .parameters()
+                .findById(new ParameterId(id))
+                .orElseThrow(() -> new GraalHostManager.HostCallException(
+                        "SCRIPT_PARAMETER_NOT_FOUND", "Parameter was not found: " + id));
     }
 
     private static String id(final JsonNode payload) throws GraalHostManager.HostCallException {
         final JsonNode rawId = payload.get("id");
-        if (rawId == null || !rawId.isTextual() || rawId.textValue().isBlank()
-            || rawId.textValue().length() > 256) {
+        if (rawId == null
+                || !rawId.isTextual()
+                || rawId.textValue().isBlank()
+                || rawId.textValue().length() > 256) {
             throw invalid("Parameter operation requires a non-blank id of at most 256 characters.");
         }
         return rawId.textValue();
     }
 
     private static java.util.List<String> ids(final JsonNode payload, final String field)
-        throws GraalHostManager.HostCallException {
+            throws GraalHostManager.HostCallException {
         final JsonNode values = boundedArray(payload, field);
         final java.util.List<String> result = new java.util.ArrayList<>(values.size());
         final java.util.Set<String> seen = new java.util.HashSet<>();
         for (JsonNode value : values) {
-            if (!value.isTextual() || value.textValue().isBlank() || value.textValue().length() > 256) {
+            if (!value.isTextual()
+                    || value.textValue().isBlank()
+                    || value.textValue().length() > 256) {
                 throw invalid(field + " must contain non-blank parameter ids.");
             }
             if (!seen.add(value.textValue())) {
@@ -401,7 +342,7 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
     }
 
     private static JsonNode boundedArray(final JsonNode payload, final String field)
-        throws GraalHostManager.HostCallException {
+            throws GraalHostManager.HostCallException {
         final JsonNode values = payload.get(field);
         if (values == null || !values.isArray() || values.isEmpty() || values.size() > MAX_BATCH_ITEMS) {
             throw invalid(field + " must contain 1-" + MAX_BATCH_ITEMS + " items.");
@@ -420,19 +361,14 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         return (float) doubleValue;
     }
 
-    private static void checkHostCallActive(
-        final BooleanSupplier cancelled
-    ) throws GraalHostManager.HostCallException {
+    private static void checkHostCallActive(final BooleanSupplier cancelled) throws GraalHostManager.HostCallException {
         if (cancelled.getAsBoolean()) {
             throw hostCallCancelled();
         }
     }
 
     private static GraalHostManager.HostCallException hostCallCancelled() {
-        return new GraalHostManager.HostCallException(
-            "SCRIPT_CANCELLED",
-            "Script host call was cancelled."
-        );
+        return new GraalHostManager.HostCallException("SCRIPT_CANCELLED", "Script host call was cancelled.");
     }
 
     private static GraalHostManager.HostCallException invalid(final String message) {
@@ -444,18 +380,14 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
             return context.cubism().model().active();
         } catch (IllegalStateException | UnsupportedOperationException unavailable) {
             throw new GraalHostManager.HostCallException(
-                "SCRIPT_ACTIVE_MODEL_UNAVAILABLE", "No active Cubism model is available."
-            );
+                    "SCRIPT_ACTIVE_MODEL_UNAVAILABLE", "No active Cubism model is available.");
         }
     }
 
     private ObjectNode parameterNode(final Parameter parameter) {
         final ObjectNode node = mapper.createObjectNode();
         node.put("id", parameter.id().value());
-        parameter.name().ifPresentOrElse(
-            name -> node.put("name", name),
-            () -> node.putNull("name")
-        );
+        parameter.name().ifPresentOrElse(name -> node.put("name", name), () -> node.putNull("name"));
         node.put("value", parameter.getValue());
         node.put("minimum", parameter.getMinimumValue());
         node.put("maximum", parameter.getMaximumValue());
@@ -469,24 +401,21 @@ final class RuntimeScriptHostBridge implements GraalHostManager.HostCallHandler 
         String call(BooleanSupplier cancelled) throws Exception;
     }
 
-    private record ParameterChange(Parameter parameter, float value) {
-    }
+    private record ParameterChange(Parameter parameter, float value) {}
 
     private JsonNode payload(final String json) throws GraalHostManager.HostCallException {
         try {
             final JsonNode parsed = mapper.readTree(json == null || json.isBlank() ? "{}" : json);
             if (parsed == null || !parsed.isObject()) {
                 throw new GraalHostManager.HostCallException(
-                    "SCRIPT_ARGUMENT_INVALID", "Script host-call payload must be a JSON object."
-                );
+                        "SCRIPT_ARGUMENT_INVALID", "Script host-call payload must be a JSON object.");
             }
             return parsed;
         } catch (GraalHostManager.HostCallException failure) {
             throw failure;
         } catch (Exception failure) {
             throw new GraalHostManager.HostCallException(
-                "SCRIPT_ARGUMENT_INVALID", "Script host-call payload is malformed JSON."
-            );
+                    "SCRIPT_ARGUMENT_INVALID", "Script host-call payload is malformed JSON.");
         }
     }
 }

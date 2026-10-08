@@ -3,20 +3,27 @@
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
+import fcntl
+import io
 import multiprocessing
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 import json
 import signal
 import time
+import uuid
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preview"))
 import host_validation_queue as queue
+import host_validation_disposition as disposition
+import host_validation as cli
 
 
 class IsolatedBackend:
@@ -502,8 +509,45 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
             self.prepared.command(prepared["digest"], self.base / "evidence")
 
+    def test_window_helper_and_installed_dependencies_are_snapshotted_and_rechecked(self):
+        helper = self.preview / "focus-cubism-validation-window.py"
+        helper.write_text("# task-owned window helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# installed niri fixture\n")
+        alias = self.base / "niri-alias"
+        alias.symlink_to(niri)
+        argv = [*self.request["argv"], "--focus-editor-window", "--editor-window-niri", str(alias),
+                "--editor-window-python", sys.executable]
+        with mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+            prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "test:5302")
+        snapshot = self.store.root / "prepared" / prepared["digest"] / "tool/scripts/preview" / helper.name
+        self.assertEqual(helper.read_bytes(), snapshot.read_bytes())
+        self.assertEqual({"--editor-window-niri", "--editor-window-python"},
+                         {item["option"] for item in prepared["hostDependencies"]})
+        helper.unlink()
+        alias.unlink()
+        alias.symlink_to(self.input)
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        self.assertEqual(str(niri.resolve()), command[command.index("--editor-window-niri") + 1])
+        niri.write_text("# changed installed binary\n")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(prepared["digest"], self.base / "evidence")
+
+    def test_window_helper_rejects_missing_or_substituted_dependencies(self):
+        (self.preview / "focus-cubism-validation-window.py").write_text("# helper fixture\n")
+        niri = self.base / "niri"
+        niri.write_text("# niri fixture\n")
+        valid = ["--focus-editor-window", "--editor-window-niri", str(niri),
+                 "--editor-window-python", sys.executable]
+        for flags in (["--focus-editor-window"], valid[:-1],
+                      [*valid[:-1], str(self.input)], ["--editor-window-niri", str(niri)]):
+            with self.subTest(flags=flags), mock.patch.object(queue.shutil, "which", return_value=str(niri)):
+                with self.assertRaises(queue.QueueError):
+                    self.prepared.capture({**self.request, "argv": [*self.request["argv"], *flags]},
+                                          self.source, "test:5302")
+
     def test_only_enumerated_fps_hook_is_allowed(self) -> None:
-        for flag, name in (("--remote-pre-launch", "fx-validation-remote-pre-launch.sh"),
+        for flag, name in (("--remote-pre-launch", "agent-validation-remote-pre-launch.sh"),
                            ("--remote-post-launch", "fps-resize-driver.sh"),
                            ("--client-script", "mcp-host-validation-client.py")):
             source = self.preview / name
@@ -672,6 +716,98 @@ class PreparedStoreTest(unittest.TestCase):
             self.prepared.capture(
                 {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
                 self.source, "host-locale:5302")
+
+    def test_direct_nmt_hook_requires_exact_diagnostic_context(self) -> None:
+        hook = self.preview / "stage-direct-nmt-launcher.py"
+        hook.write_text("# stdlib-only reviewed fixture, never executed\n")
+        base_argv = list(self.request["argv"])
+        base_argv[base_argv.index("--name") + 1] = "atlas-image-shadow"
+        base_argv[base_argv.index("--version") + 1] = "5303"
+        argv = [*base_argv,
+                "--remote-pre-launch", str(hook), "--require-fixture-unchanged",
+                "--plugin", str(self.input) + ":probe.jar",
+                "--jvm-option", "-XX:+DisableAttachMechanism",
+                "--jvm-option", "-Dturboism.validation.atlasImageShadow.resourceObservation=true",
+                "--jvm-option", "-Dturboism.validation.observerFree.optIn=T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "atlas-image-shadow:5303")
+        captured = next(item for item in prepared["sourceInputs"] if Path(item["source"]).name == hook.name)
+        self.assertEqual(queue.file_digest(hook), prepared["inventory"][captured["path"]])
+        # A captured hook remains usable when the source changes; it is a frozen input.
+        hook.write_text("changed source\n")
+        command = self.prepared.command(prepared["digest"], self.base / "nmt-evidence")
+        self.assertIn("reviewed fixture", Path(command[command.index("--remote-pre-launch") + 1]).read_text())
+        invalid = [argv + ["--remote-pre-launch-background"], argv + ["--remote-pre-launch-args-only"],
+                   argv + ["--remote-pre-launch-arg", "extra"], argv + ["--remote-post-launch", str(hook)],
+                   [item.replace("resourceObservation=true", "resourceObservation=false") for item in argv],
+                   [item.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "other-token") for item in argv]]
+        version = list(argv); version[version.index("--version") + 1] = "5302"; invalid.append(version)
+        outside = self.base / hook.name; outside.write_text("unreviewed copy\n")
+        outside_argv = list(argv); outside_argv[outside_argv.index("--remote-pre-launch") + 1] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": outside_argv}, self.source, "atlas-image-shadow:5303")
+        for request in invalid:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({**self.request, "argv": argv}, self.source, "other:5303")
+        final_hook = self.preview / "capture-direct-nmt-launcher.py"
+        final_hook.write_text("# stdlib-only final capture fixture, never executed\n")
+        final_argv = [*argv, "--remote-pre-cleanup", str(final_hook)]
+        captured_final = self.prepared.capture({**self.request, "argv": final_argv}, self.source, "atlas-image-shadow:5303")
+        final_hook.write_text("changed final hook\n")
+        command = self.prepared.command(captured_final["digest"], self.base / "final-nmt-evidence")
+        self.assertIn("final capture fixture", Path(command[command.index("--remote-pre-cleanup") + 1]).read_text())
+        invalid_final = [final_argv + ["--remote-pre-launch-background"],
+                         [x.replace("T099_NMT_HEAP_PAGES_DIAGNOSTIC_V1", "wrong") for x in final_argv]]
+        without_launch = list(final_argv)
+        index = without_launch.index("--remote-pre-launch"); del without_launch[index:index + 2]
+        invalid_final.append(without_launch)
+        wrong_stage = list(final_argv); wrong_stage[wrong_stage.index("--remote-pre-cleanup")] = "--remote-post-launch"
+        invalid_final.append(wrong_stage)
+        outside_final = self.base / final_hook.name; outside_final.write_text("unreviewed\n")
+        wrong_path = list(final_argv); wrong_path[wrong_path.index("--remote-pre-cleanup") + 1] = str(outside_final)
+        invalid_final.append(wrong_path)
+        for request in invalid_final:
+            with self.subTest(argv=request), self.assertRaises(queue.QueueError):
+                self.prepared.capture({**self.request, "argv": request}, self.source, "atlas-image-shadow:5303")
+        self.assertEqual([], self.store.jobs())
+
+    def test_external_psd_rss_hook_protocol_and_dependency_snapshot(self) -> None:
+        hook = self.source / queue.EXTERNAL_PSD_RSS_HOOK
+        hook.parent.mkdir(parents=True)
+        hook.write_text("# self-contained reviewed RSS test fixture; never executed\n")
+        argv = ["--name", "external-psd-edit-pipeline", "--version", "5302",
+                "--agent", str(self.input), "--remote-post-launch", str(hook),
+                "--result-file", "state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties"]
+        for key, value in (("phase", "pipeline"), ("contentProfile", "f1"),
+                           ("cycles", "10"), ("performance", "1")):
+            argv += ["--jvm-option", f"-Dturboism.validation.externalpsd.{key}={value}"]
+        prepared = self.prepared.capture({**self.request, "argv": argv}, self.source, "external-psd:5302")
+        command = self.prepared.command(prepared["digest"], self.base / "evidence")
+        frozen = Path(command[command.index("--remote-post-launch") + 1])
+        self.assertEqual(hook.read_bytes(), frozen.read_bytes())
+        hook.write_text("# later source change\n")
+        self.assertNotEqual(hook.read_bytes(), frozen.read_bytes())
+        self.prepared.load(prepared["digest"])
+        for suffix in (["--jvm-option", "-Dturboism.validation.externalpsd.phase=gui"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.contentProfile=control7"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.cycles=1"],
+                       ["--jvm-option", "-Dturboism.validation.externalpsd.performance=0"],
+                       ["--trigger", "gui-ready.flag"], ["--version", "5303"],
+                       ["--remote-pre-launch-arg", "extra"], ["--remote-pre-launch-background"]):
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(queue.QueueError, "RSS hook requires"):
+                self.prepared.capture({**self.request, "argv": [*argv, *suffix]}, self.source, "external-psd:5302")
+        for flag in ("--remote-pre-launch", "--remote-pre-cleanup"):
+            changed = list(argv)
+            changed[changed.index("--remote-post-launch")] = flag
+            with self.subTest(flag=flag), self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+                self.prepared.capture({**self.request, "argv": changed}, self.source, "external-psd:5302")
+        outside = self.preview / "rss.py"
+        outside.write_text("# unreviewed location\n")
+        changed = list(argv)
+        changed[changed.index(str(hook))] = str(outside)
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture({**self.request, "argv": changed}, self.source, "external-psd:5302")
 
     def test_reviewed_plugin_management_restart_hook_is_admitted(self) -> None:
         hook = self.preview / "plugin-management-restart-remote-pre-launch.sh"
@@ -1005,6 +1141,810 @@ class AdmissionTest(StoreFixture, unittest.TestCase):
             self.store.acknowledge(job["job_id"], job["attempt_id"], queue.process_identity(os.getpid()))
             self.store.quarantine(job["job_id"], "lost cleanup")
             self.assertNotEqual(0, self.helper(job, lock.fd).returncode)
+
+
+class OrphanDispositionTest(StoreFixture, unittest.TestCase):
+    """Cross-boot orphan disposition; synthetic identities on temporary roots only."""
+    OLD_BOOT = "11111111-2222-3333-4444-555555555555"
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.host = Path(self.temp.name) / "host"
+        self.host.mkdir()
+        self.sources = Path(self.temp.name) / "sources"
+        self.sources.mkdir()
+        (self.sources / "model.cmo3").write_bytes(b"synthetic model")
+        self.prepared = self.make_prepared()
+        for name in ("worker.lock", "storage.lock", "admission.lock"):
+            fd = os.open(self.root / name, os.O_CREAT | os.O_RDWR, 0o600)
+            os.close(fd)
+
+    def make_prepared(self) -> str:
+        stage = self.root / "staging" / "synthetic"
+        stage.mkdir()
+        (stage / "fixture.cmo3").write_bytes(b"source")
+        (stage / "agent.jar").write_bytes(b"synthetic-not-executable")
+        descriptor = {"schemaVersion": 1, "taskSpec": "test",
+            "source": {"worktree": str(self.sources)},
+            "sourceInputs": [{"source": str(self.sources / "model.cmo3")}],
+            "hostDependencies": [],
+            "argv": ["--name", "test", "--version", "5302", "--run-label", "one",
+                "--host-root", str(self.host), "--golden-prefix", str(Path(self.temp.name) / "golden"),
+                "--fixture-host", "@INPUT@/fixture.cmo3", "--agent", "@INPUT@/agent.jar"],
+            "inventory": queue.tree_inventory(stage)}
+        digest = queue.digest_json(descriptor)
+        queue.atomic_json(stage / "prepared.json", {**descriptor, "digest": digest})
+        stage.rename(self.root / "prepared" / digest)
+        info = (self.root / "prepared" / digest).stat()
+        with self.store.transaction() as db:
+            db.execute("INSERT INTO retention_objects(kind,object_id,created_at,metadata) VALUES('prepared',?,?,?)",
+                       (digest, time.time(), queue.canonical_json({"device": info.st_dev, "inode": info.st_ino})))
+        return digest
+
+    def orphan(self, *, boot=None, state="running", reason="lost supervisor",
+               updated=1000.5, evidence=True) -> tuple:
+        """A started attempt whose recorded identities all belong to an old boot."""
+        boot = self.OLD_BOOT if boot is None else boot
+        job = self.store.submit(self.prepared, self.prepared, "orphan-" + uuid.uuid4().hex)
+        attempt, run = str(uuid.uuid4()), "queue-" + uuid.uuid4().hex
+        identity = {"pid": 999999999, "startTicks": 1, "bootId": boot, "uid": os.getuid()}
+        entry = {**identity, "gid": os.getgid()}
+        with self.store.transaction() as db:
+            db.execute("""UPDATE jobs SET state=?,attempt_id=?,run_id=?,identity_json=?,
+                          reason=?,updated_at=? WHERE job_id=?""",
+                       (state, attempt, run, queue.canonical_json(identity),
+                        reason, updated, job["job_id"]))
+        directory = self.root / "jobs" / job["job_id"]
+        (directory / "evidence").mkdir(parents=True)
+        containment = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": attempt,
+            "runId": run, "preparedDigest": self.prepared, "state": "BOUND", "cleanup": "unknown",
+            "bootId": boot, "scopeUnit": "synthetic.scope", "cgroupPath": "/synthetic/scope",
+            "cgroupDevice": 1, "cgroupInode": 2, "entryIdentity": entry}
+        queue.atomic_json(directory / "containment.json", containment)
+        queue.atomic_json(directory / "runner-identity.json", queue.scope_identity(entry))
+        preliminary = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": attempt,
+            "runId": run, "preparedDigest": self.prepared, "cleanup": "unknown",
+            "validationStatus": "UNKNOWN", "details": {}}
+        queue.atomic_json(directory / "evidence/lifecycle-result.json", preliminary)
+        (directory / "evidence/final-hashes.properties").write_text("fixture=abc\n")
+        (directory / "runner.log").write_text("partial log")
+        task = self.host / "test" / "5302-one" / run
+        (task / "evidence").mkdir(parents=True)
+        queue.atomic_json(task / "evidence/lifecycle-result.json", preliminary)
+        if not evidence:
+            (directory / "evidence/lifecycle-result.json").unlink()
+        return self.store.jobs(job["job_id"])[0], directory, task
+
+    def inspect(self, job_id, busy=None):
+        return disposition.inspect(self.root, job_id, busy=busy or (lambda: []))
+
+    def confirm(self, job_id, approval, reason="reviewed cross-boot orphan", busy=None):
+        return disposition.confirm(self.root, job_id, approval, reason, busy=busy or (lambda: []))
+
+    def test_inspection_never_creates_or_changes_shared_state(self) -> None:
+        missing = Path(self.temp.name) / "absent-root"
+        report = disposition.inspect(missing, str(uuid.uuid4()), busy=lambda: [])
+        self.assertFalse(report["canConfirm"])
+        self.assertFalse(missing.exists())
+        job, directory, _ = self.orphan()
+        before = queue.tree_inventory(self.root)
+        report = self.inspect(job["job_id"])
+        self.assertEqual(before, queue.tree_inventory(self.root))
+        self.assertTrue(report["eligible"])
+        self.assertTrue(report["canConfirm"])
+        self.assertFalse(report["verificationAccepted"])
+        self.assertEqual(self.OLD_BOOT, report["historicalBootId"])
+        self.assertIn("approvalDigest", report)
+
+    def test_approval_digest_is_stable_and_binds_evidence(self) -> None:
+        job, directory, task = self.orphan()
+        first = self.inspect(job["job_id"])
+        second = self.inspect(job["job_id"])
+        self.assertEqual(first["approvalDigest"], second["approvalDigest"])
+        (directory / "runner.log").write_text("appended")
+        changed = self.inspect(job["job_id"])
+        self.assertEqual(first["approvalDigest"], changed["approvalDigest"])
+        (directory / "evidence/final-hashes.properties").write_text("fixture=other\n")
+        self.assertNotEqual(first["approvalDigest"], self.inspect(job["job_id"])["approvalDigest"])
+
+    def test_negative_classification_never_offers_approval(self) -> None:
+        current = queue.process_identity(os.getpid())["bootId"]
+        cases = []
+        job, _, _ = self.orphan(boot=current)
+        cases.append((job["job_id"], "SAME_BOOT"))
+        job, directory, _ = self.orphan()
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=NULL WHERE job_id=?", (job["job_id"],))
+        cases.append((job["job_id"], "IDENTITY_INVALID"))
+        job, _, _ = self.orphan(state="starting")
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=NULL WHERE job_id=?", (job["job_id"],))
+        cases.append((job["job_id"], "IDENTITY_INVALID"))
+        job, _, _ = self.orphan()
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state='failed' WHERE job_id=?", (job["job_id"],))
+        cases.append((job["job_id"], "FINAL_VERDICT_PRESENT"))
+        job, directory, _ = self.orphan()
+        original = json.loads((directory / "containment.json").read_text())
+        queue.atomic_json(directory / "containment.json", {**original, "attemptId": "other"})
+        cases.append((job["job_id"], "IDENTITY_INVALID"))
+        job, _, _ = self.orphan()
+        (self.root / "jobs" / job["job_id"] / "outcome.json").write_text(
+            queue.canonical_json({"schemaVersion": 1, "jobId": job["job_id"],
+                "attemptId": job["attempt_id"], "runId": job["run_id"],
+                "preparedDigest": self.prepared, "cleanup": "unknown",
+                "terminalState": "failed"}))
+        cases.append((job["job_id"], "FINAL_VERDICT_PRESENT"))
+        for job_id, code in cases:
+            report = self.inspect(job_id)
+            self.assertFalse(report["canConfirm"], report)
+            self.assertNotIn("approvalDigest", report)
+            self.assertIn(code, {b["code"] for b in report["blockers"]}, report)
+
+    def test_final_verdict_copy_on_task_side_is_rejected(self) -> None:
+        job, _, task = self.orphan()
+        final = json.loads((task / "evidence/lifecycle-result.json").read_text())
+        final["finalizedBy"] = "contained-supervisor"
+        queue.atomic_json(task / "evidence/lifecycle-result.json", final)
+        report = self.inspect(job["job_id"])
+        self.assertIn("FINAL_VERDICT_PRESENT", {b["code"] for b in report["blockers"]})
+
+    def test_malformed_or_non_uuid_boot_is_rejected(self) -> None:
+        for boot in ("not-a-boot-uuid", "", 12345, self.OLD_BOOT.upper() + "x"):
+            job, _, _ = self.orphan(boot=boot)
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], report)
+            self.assertNotIn("approvalDigest", report)
+            self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]}, report)
+
+    def test_runner_identity_must_equal_bound_entry_projection(self) -> None:
+        job, directory, _ = self.orphan()
+        path = directory / "runner-identity.json"
+        runner = json.loads(path.read_text())
+        runner["pid"] -= 1
+        queue.atomic_json(path, runner)
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+
+    def test_heartbeat_actors_must_match_recorded_identities(self) -> None:
+        job, directory, _ = self.orphan()
+        actor = json.loads(job["identity_json"])
+        heartbeat = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
+                     "runId": job["run_id"], "preparedDigest": job["digest"],
+                     "observedAt": 1.0, "supervisor": actor, "runner": actor}
+        queue.atomic_json(directory / "heartbeat.json", heartbeat)
+        report = self.inspect(job["job_id"])
+        self.assertTrue(report["canConfirm"], report)
+        for actor_name in ("supervisor", "runner"):
+            tampered = dict(heartbeat)
+            tampered[actor_name] = {**actor, "pid": actor["pid"] - 1}
+            queue.atomic_json(directory / "heartbeat.json", tampered)
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], actor_name)
+            self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+            queue.atomic_json(directory / "heartbeat.json", heartbeat)
+
+    def test_preliminary_lifecycle_copies_must_bind_this_attempt(self) -> None:
+        job, directory, task = self.orphan()
+        for path in (directory / "evidence/lifecycle-result.json",
+                     task / "evidence/lifecycle-result.json"):
+            original = json.loads(path.read_text())
+            for mutation in ({**original, "attemptId": str(uuid.uuid4())},
+                             {**original, "runId": "queue-" + uuid.uuid4().hex},
+                             {**original, "preparedDigest": "e" * 64},
+                             {**original, "schemaVersion": 2},
+                             ["not", "an", "object"],
+                             {"schemaVersion": 1}):
+                queue.atomic_json(path, mutation)
+                report = self.inspect(job["job_id"])
+                self.assertFalse(report["canConfirm"], (path, mutation))
+                self.assertNotIn("approvalDigest", report)
+            queue.atomic_json(path, original)
+            report = self.inspect(job["job_id"])
+            self.assertTrue(report["canConfirm"], report)
+
+    def test_job_digest_must_equal_prepared_descriptor(self) -> None:
+        job, directory, task = self.orphan()
+        wrong = "e" * 64
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET digest=? WHERE job_id=?", (wrong, job["job_id"]))
+        for path in (directory / "containment.json",
+                     directory / "evidence/lifecycle-result.json",
+                     task / "evidence/lifecycle-result.json"):
+            value = json.loads(path.read_text())
+            value["preparedDigest"] = wrong
+            queue.atomic_json(path, value)
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("IDENTITY_INVALID", {b["code"] for b in report["blockers"]})
+
+    def audit_payload(self, job_id):
+        rows = [e for e in self.store.events(job_id=job_id) if e["kind"] == "operator-abandoned"]
+        self.assertEqual(1, len(rows))
+        return rows[0]["event_id"], dict(rows[0]["payload"])
+
+    def rewrite_audit(self, event_id, payload):
+        with self.store.transaction() as db:
+            db.execute("UPDATE events SET payload=? WHERE event_id=?",
+                       (queue.canonical_json(payload), event_id))
+
+    def test_replay_rejects_tampered_audit_fields(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        original = self.confirm(job["job_id"], approval)
+        self.assertTrue(original["replayed"])
+        corruptions = [
+            {"operatorUid": os.getuid() + 1},
+            {"operatorUid": str(os.getuid())},
+            {"verificationAccepted": True},
+            {"verificationAccepted": 1},
+            {"toState": "cancelled"},
+            {"disposition": "VERIFIED"},
+            {"preservation": "temporary"},
+            {"schemaVersion": 2},
+            {"schemaVersion": "1"},
+            {"runId": "queue-" + uuid.uuid4().hex},
+            {"attemptId": str(uuid.uuid4())},
+            {"preparedDigest": "f" * 64},
+            {"jobId": str(uuid.uuid4())},
+            {"fromState": "succeeded"},
+            {"previousReason": 42},
+            {"previousUpdatedAt": "soon"},
+            {"recordedAt": "now"},
+            {"recordedAt": True},
+            {"previousUpdatedAt": False},
+            {"historicalBootId": "not-a-boot-uuid"},
+            {"currentBootId": self.OLD_BOOT},
+            {"reason": "different reason"},
+        ]
+        event_id, payload = self.audit_payload(job["job_id"])
+        for patch in corruptions:
+            with self.subTest(patch=patch):
+                self.rewrite_audit(event_id, {**payload, **patch})
+                with self.assertRaises(disposition.Rejected):
+                    self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_replay_rejects_row_that_disagrees_with_audit(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET run_id=?,digest=? WHERE job_id=?",
+                       ("queue-" + uuid.uuid4().hex, "f" * 64, job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET run_id=?,digest=? WHERE job_id=?",
+                       (job["run_id"], job["digest"], job["job_id"]))
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_identity_fields_use_exact_producer_types(self) -> None:
+        for field, value in (("pid", 999999999.75), ("pid", "999999999"),
+                             ("pid", True), ("startTicks", 1.75), ("startTicks", " 1"),
+                             ("uid", os.getuid() + 0.75), ("uid", str(os.getuid())),
+                             ("uid", True)):
+            job, _, _ = self.orphan()
+            supervisor = json.loads(job["identity_json"])
+            supervisor[field] = value
+            with self.store.transaction() as db:
+                db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                           (queue.canonical_json(supervisor), job["job_id"]))
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], (field, value))
+            self.assertNotIn("approvalDigest", report)
+
+    def test_containment_text_start_ticks_remain_valid(self) -> None:
+        job, directory, _ = self.orphan()
+        path = directory / "containment.json"
+        containment = json.loads(path.read_text())
+        containment["entryIdentity"]["startTicks"] = str(containment["entryIdentity"]["startTicks"])
+        queue.atomic_json(path, containment)
+        self.assertTrue(self.inspect(job["job_id"])["canConfirm"])
+
+    def test_non_regular_lifecycle_member_is_rejected(self) -> None:
+        job, _, task = self.orphan()
+        for path in (task / "evidence/lifecycle-result.json",
+                     self.root / "jobs" / job["job_id"] / "evidence/lifecycle-result.json"):
+            original = path.read_bytes()
+            path.unlink()
+            path.mkdir()
+            report = self.inspect(job["job_id"])
+            self.assertFalse(report["canConfirm"], path)
+            self.assertNotIn("approvalDigest", report)
+            path.rmdir()
+            path.write_bytes(original)
+            self.assertTrue(self.inspect(job["job_id"])["canConfirm"], path)
+
+    def test_replay_requires_exact_audit_key_set(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        event_id, payload = self.audit_payload(job["job_id"])
+        for missing in ("previousReason", "previousUpdatedAt", "fromState",
+                        "recordedAt", "operatorUid", "evidenceInventory"):
+            with self.subTest(missing=missing):
+                broken = {k: v for k, v in payload.items() if k != missing}
+                self.rewrite_audit(event_id, broken)
+                with self.assertRaises(disposition.Rejected):
+                    self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, {**payload, "extra": "injected"})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+
+    def test_replay_rebinds_preserved_evidence_and_approved_facts(self) -> None:
+        job, directory, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        event_id, payload = self.audit_payload(job["job_id"])
+        self.rewrite_audit(event_id, {**payload, "evidenceInventory": {}})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        self.rewrite_audit(event_id, payload)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET prepared_id=? WHERE job_id=?",
+                       ("e" * 64, job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET prepared_id=? WHERE job_id=?",
+                       (job["prepared_id"], job["job_id"]))
+        self.assertTrue(self.confirm(job["job_id"], approval)["replayed"])
+        (directory / "evidence/final-hashes.properties").write_text("changed=1\n")
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
+    def test_confirm_never_recreates_vanished_lock_or_database(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        target = self.root / "worker.lock"
+        real_open, raced = os.open, []
+        def race(path, flags, *args, **kwargs):
+            if isinstance(path, (str, Path)) and Path(path) == target and not raced:
+                raced.append(True)
+                target.unlink()
+            return real_open(path, flags, *args, **kwargs)
+        with mock.patch.object(os, "open", side_effect=race):
+            with self.assertRaises(OSError):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(raced)
+        self.assertFalse(target.exists())
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+        fd = os.open(target, os.O_CREAT | os.O_RDWR, 0o600)
+        os.close(fd)
+        database = self.root / "queue.sqlite3"
+        real_connect, raced_db = disposition.sqlite3.connect, []
+        def race_connect(value, *args, **kwargs):
+            opened = str(value)
+            if opened.startswith("file:"):
+                from urllib.parse import unquote, urlsplit
+                opened = unquote(urlsplit(opened).path)
+            if opened == str(database) and not raced_db:
+                raced_db.append(True)
+                database.unlink()
+            return real_connect(value, *args, **kwargs)
+        with mock.patch.object(disposition.sqlite3, "connect", side_effect=race_connect):
+            with self.assertRaises(queue.QueueError):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(raced_db)
+        # The connect failure precedes BEGIN IMMEDIATE, so no commit can exist;
+        # the vanished database file must stay absent rather than be recreated.
+        self.assertFalse(database.exists())
+
+    def test_replay_remains_read_only_while_new_work_runs(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        original = self.confirm(job["job_id"], approval)
+        self.store.submit(self.prepared, self.prepared, "independent-work")
+        claimed = self.store.claim()
+        self.assertEqual("owned", self.store.host()["state"])
+        queue.atomic_json(self.root / "worker.json", queue.process_identity(os.getpid()))
+        before = queue.tree_inventory(self.root)
+        with queue.FileLock(self.root / "worker.lock"):
+            replayed = self.confirm(job["job_id"], approval)
+        self.assertEqual({**original, "replayed": True}, replayed)
+        self.assertEqual(before, queue.tree_inventory(self.root))
+        self.assertIsNotNone(claimed)
+
+    def test_approval_binds_recorded_supervisor_identity(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+
+        def drift(identity_json):
+            identity = json.loads(identity_json)
+            identity["pid"] -= 1
+            identity["startTicks"] += 1
+            return queue.canonical_json(identity)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                       (drift(job["identity_json"]), job["job_id"]))
+        self.assertNotEqual(approval, self.inspect(job["job_id"])["approvalDigest"])
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET identity_json=? WHERE job_id=?",
+                       (drift(job["identity_json"]), job["job_id"]))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
+    def test_administrative_row_without_audit_is_not_an_admission_fact(self) -> None:
+        first, _, _ = self.orphan()
+        second, _, _ = self.orphan()
+        self.confirm(first["job_id"], self.inspect(first["job_id"])["approvalDigest"])
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+        with self.store.transaction() as db:
+            db.execute("DELETE FROM events WHERE job_id=? AND kind='operator-abandoned'",
+                       (first["job_id"],))
+        report = self.inspect(second["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                      {entry["code"] for entry in report["blockers"]})
+
+    def test_active_row_with_prior_audit_cannot_receive_a_second(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        with self.store.transaction() as db:
+            db.execute("UPDATE jobs SET state=?,reason=?,updated_at=? WHERE job_id=?",
+                       (job["state"], job["reason"], job["updated_at"], job["job_id"]))
+        report = self.inspect(job["job_id"])
+        self.assertFalse(report["canConfirm"])
+        self.assertIn("UNVERIFIED_DISPOSITION",
+                      {entry["code"] for entry in report["blockers"]})
+        audits = [row for row in self.store.events()
+                  if row["kind"] == "operator-abandoned"]
+        self.assertEqual(1, len(audits))
+
+    def test_replaced_lock_during_acquisition_never_commits(self) -> None:
+        for name in ("worker.lock", "storage.lock", "admission.lock"):
+            job, _, _ = self.orphan()
+            approval = self.inspect(job["job_id"])["approvalDigest"]
+            target = self.root / name
+            original = target.stat().st_ino
+            real_flock, raced, replacements = fcntl.flock, [], []
+
+            def race(fd, operation, *, _target=target, _original=original):
+                if (not raced and operation == fcntl.LOCK_EX | fcntl.LOCK_NB
+                        and os.fstat(fd).st_ino == _original):
+                    raced.append(True)
+                    _target.unlink()
+                    replacement = os.open(_target, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+                    replacements.append(replacement)
+                    real_flock(replacement, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return real_flock(fd, operation)
+            try:
+                with mock.patch.object(fcntl, "flock", side_effect=race):
+                    with self.assertRaises(queue.QueueError):
+                        self.confirm(job["job_id"], approval)
+            finally:
+                for fd in replacements:
+                    os.close(fd)
+                target.unlink()
+                fd = os.open(target, os.O_CREAT | os.O_RDWR, 0o600)
+                os.close(fd)
+            self.assertTrue(raced)
+            self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_non_regular_member_is_refused_without_blocking(self) -> None:
+        preview = Path(disposition.__file__).resolve().parent
+        child = ("import sys,json\n"
+                 "from pathlib import Path\n"
+                 "sys.path.insert(0, sys.argv[1])\n"
+                 "import host_validation_disposition as d\n"
+                 "r = d.inspect(Path(sys.argv[2]), sys.argv[3], busy=lambda: [])\n"
+                 "print(json.dumps({'canConfirm': r['canConfirm'], 'blockers': r['blockers']}))\n")
+        job, directory, _ = self.orphan()
+        member = directory / "evidence" / "final-hashes.properties"
+        member.unlink()
+        member.mkdir()
+        for kind in ("dir", "fifo"):
+            proc = subprocess.run(
+                [sys.executable, "-B", "-c", child,
+                 str(preview), str(self.root), job["job_id"]],
+                capture_output=True, text=True, timeout=15, check=False)
+            self.assertEqual(0, proc.returncode, proc.stderr)
+            report = json.loads(proc.stdout)
+            self.assertFalse(report["canConfirm"], kind)
+            self.assertIn("IDENTITY_INVALID",
+                          {entry["code"] for entry in report["blockers"]}, kind)
+            member.rmdir() if kind == "dir" else member.unlink()
+            if kind == "dir":
+                os.mkfifo(member, 0o600)
+
+    def test_malformed_other_audit_produces_refusal_not_error(self) -> None:
+        first, _, _ = self.orphan()
+        second, _, _ = self.orphan()
+        self.confirm(first["job_id"], self.inspect(first["job_id"])["approvalDigest"])
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+        event_id, payload = self.audit_payload(first["job_id"])
+        for field, value in (("fromState", []), ("jobId", 123), ("toState", True),
+                             ("rootIdentity", {}), ("reason", "bad\x00reason")):
+            self.rewrite_audit(event_id, {**payload, field: value})
+            report = self.inspect(second["job_id"])
+            self.assertFalse(report["canConfirm"], field)
+            self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY",
+                          {entry["code"] for entry in report["blockers"]}, field)
+            self.rewrite_audit(event_id, payload)
+        self.assertTrue(self.inspect(second["job_id"])["canConfirm"])
+
+    def test_locked_assessment_detects_evidence_change(self) -> None:
+        job, directory, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        containment = directory / "containment.json"
+        hashes = directory / "evidence/final-hashes.properties"
+        real_read, reads, changed = disposition._bounded_json, [], []
+
+        def race(path):
+            if path == containment:
+                reads.append(path)
+                if len(reads) == 2:
+                    hashes.write_text("changed-after-inventory=1\n")
+                    changed.append(True)
+            return real_read(path)
+        with mock.patch.object(disposition, "_bounded_json", side_effect=race):
+            with self.assertRaises(disposition.Rejected):
+                self.confirm(job["job_id"], approval)
+        self.assertTrue(changed)
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_execution_blockers_are_reported_without_approval(self) -> None:
+        job, _, _ = self.orphan()
+        with self.store.transaction() as db:
+            db.execute("UPDATE host SET state='owned',job_id=?", (job["job_id"],))
+        report = self.inspect(job["job_id"])
+        self.assertIn("HOST_NOT_UNOWNED_IDLE", {b["code"] for b in report["blockers"]})
+        self.assertNotIn("approvalDigest", report)
+        with self.store.transaction() as db:
+            db.execute("UPDATE host SET state='idle',job_id=NULL")
+        self.job("queued-work")
+        report = self.inspect(job["job_id"])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY", {b["code"] for b in report["blockers"]})
+        with self.store.transaction() as db:
+            db.execute("DELETE FROM jobs WHERE state='queued'")
+        queue.atomic_json(self.root / "worker.json", queue.process_identity(os.getpid()))
+        report = self.inspect(job["job_id"])
+        self.assertTrue(report["eligible"])
+        self.assertIn("WORKER_ACTIVE_OR_LOCKED", {b["code"] for b in report["blockers"]})
+        (self.root / "worker.json").unlink()
+        report = self.inspect(job["job_id"], busy=lambda: [4321])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY", {b["code"] for b in report["blockers"]})
+        report = self.inspect(job["job_id"], busy=lambda: [])
+        self.assertTrue(report["canConfirm"])
+        (self.root / "admission.lock").unlink()
+        report = self.inspect(job["job_id"])
+        self.assertIn("WORKER_ACTIVE_OR_LOCKED", {b["code"] for b in report["blockers"]})
+
+    def test_other_orphan_coexists_but_unverifiable_activity_blocks(self) -> None:
+        job, _, _ = self.orphan()
+        second, _, _ = self.orphan()
+        report = self.inspect(job["job_id"])
+        self.assertTrue(report["canConfirm"])
+        self.assertIn(second["job_id"], report["observation"]["otherOrphans"])
+        current = queue.process_identity(os.getpid())["bootId"]
+        self.orphan(boot=current)
+        report = self.inspect(job["job_id"])
+        self.assertIn("CURRENT_OR_UNKNOWN_ACTIVITY", {b["code"] for b in report["blockers"]})
+
+    def test_cli_dispatch_never_constructs_store_or_accepts_overrides(self) -> None:
+        job, _, _ = self.orphan()
+        with mock.patch.object(queue, "Store", side_effect=AssertionError("Store built")), \
+                mock.patch.object(queue, "account_root", return_value=self.root), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, cli.main(["abandon", "--inspect", job["job_id"], "--json"]))
+            self.assertEqual(2, cli.main(["abandon", "--inspect", "not-a-uuid"]))
+        parser = cli.build_parser(Path("unused"))
+        for argv in (["abandon"], ["abandon", "--inspect", "x", "--confirm", "y"],
+                     ["abandon", "--inspect", "x", "--force"],
+                     ["abandon", "--inspect", "x", "--boot-id", "b"],
+                     ["abandon", "--inspect", "x", "--queue-root", "/tmp"],
+                     ["abandon", "--inspect", "x", "--fake"]):
+            with self.subTest(argv=argv), self.assertRaises(SystemExit):
+                parser.parse_args(argv)
+
+    def test_safety_checks_survive_optimized_interpreter(self) -> None:
+        job, _, _ = self.orphan(boot=queue.process_identity(os.getpid())["bootId"])
+        code = ("import sys, json; sys.path.insert(0, sys.argv[1]); "
+                "import host_validation_disposition as d; "
+                "print(json.dumps(d.inspect(__import__('pathlib').Path(sys.argv[2]), sys.argv[3], busy=lambda: [])))")
+        result = subprocess.run([sys.executable, "-B", "-O", "-c", code,
+                                 str(Path(queue.__file__).parent), str(self.root), job["job_id"]],
+                                text=True, capture_output=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = json.loads(result.stdout)
+        self.assertIn("SAME_BOOT", {b["code"] for b in report["blockers"]})
+        self.assertNotIn("approvalDigest", report)
+
+    def test_confirm_atomically_updates_only_target_and_audit(self) -> None:
+        job, directory, task = self.orphan()
+        other = self.orphan()[0]
+        report = self.inspect(job["job_id"])
+        before_root = queue.tree_inventory(self.root)
+        before_other = self.store.jobs(other["job_id"])[0]
+        receipt = self.confirm(job["job_id"], report["approvalDigest"])
+        self.assertFalse(receipt["replayed"])
+        self.assertEqual("ABANDONED_UNVERIFIED", receipt["disposition"])
+        self.assertFalse(receipt["verificationAccepted"])
+        self.assertEqual("unverified-indefinite", receipt["preservation"])
+        self.assertEqual("running", receipt["fromState"])
+        self.assertEqual("lost supervisor", receipt["previousReason"])
+        self.assertEqual(1000.5, receipt["previousUpdatedAt"])
+        row = self.store.jobs(job["job_id"])[0]
+        self.assertEqual("abandoned", row["state"])
+        self.assertEqual("reviewed cross-boot orphan", row["reason"])
+        self.assertEqual(job["attempt_id"], row["attempt_id"])
+        self.assertEqual(job["run_id"], row["run_id"])
+        self.assertIsNone(row["evidence_json"])
+        self.assertEqual(0, row["cancel_requested"])
+        self.assertEqual({"state": "idle", "job_id": None},
+                         {k: self.store.host()[k] for k in ("state", "job_id")})
+        self.assertEqual(before_other, self.store.jobs(other["job_id"])[0])
+        events = [e for e in self.store.events() if e["kind"] == "operator-abandoned"]
+        self.assertEqual(1, len(events))
+        self.assertEqual(receipt["approvalDigest"], events[0]["payload"]["approvalDigest"])
+        self.assertEqual("lost supervisor", events[0]["payload"]["previousReason"])
+        changed = {k for k, v in queue.tree_inventory(self.root).items()
+                   if before_root.get(k) != v}
+        self.assertLessEqual(set(changed),
+                             {"queue.sqlite3", "queue.sqlite3-wal", "queue.sqlite3-shm"})
+
+    def test_confirm_rejections_and_stale_approval(self) -> None:
+        job, directory, _ = self.orphan()
+        report = self.inspect(job["job_id"])
+        approval = report["approvalDigest"]
+        for reason in ("", "   ", "x" * 2049, "bad\nreason", "bad\x00reason"):
+            with self.subTest(reason=reason), self.assertRaises(queue.QueueError):
+                self.confirm(job["job_id"], approval, reason)
+        for bad in ("", "f" * 63, "g" * 64):
+            with self.subTest(approval=bad), self.assertRaises(queue.QueueError):
+                self.confirm(job["job_id"], bad)
+        (directory / "evidence/final-hashes.properties").write_text("changed=1\n")
+        with self.assertRaises(disposition.Rejected) as caught:
+            self.confirm(job["job_id"], approval)
+        self.assertIn("SNAPSHOT_CHANGED", {b["code"] for b in caught.exception.report["blockers"]})
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+        with self.store.transaction() as db:
+            db.execute("UPDATE host SET state='owned',job_id=?", (job["job_id"],))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], self.inspect(job["job_id"]).get("approvalDigest", "0" * 64))
+        with self.store.transaction() as db:
+            db.execute("UPDATE host SET state='idle',job_id=NULL")
+        queue.atomic_json(self.root / "worker.json", queue.process_identity(os.getpid()))
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        (self.root / "worker.json").unlink()
+        self.job("queued")
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+        self.assertEqual([], [e for e in self.store.events() if e["kind"] == "operator-abandoned"])
+
+    def test_confirm_lock_contention_never_writes(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        for name in ("worker.lock", "admission.lock"):
+            with queue.FileLock(self.root / name):
+                with self.assertRaises(queue.QueueBusy):
+                    self.confirm(job["job_id"], approval)
+        with queue.storage_lock(self.root):
+            with self.assertRaises(queue.QueueBusy):
+                self.confirm(job["job_id"], approval)
+        self.assertEqual("running", self.store.jobs(job["job_id"])[0]["state"])
+
+    def test_confirm_rolls_back_audit_or_state_on_failure(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        original = queue.canonical_json
+        def fail_audit(value):
+            if isinstance(value, dict) and value.get("disposition") == "ABANDONED_UNVERIFIED":
+                raise OSError("disk full")
+            return original(value)
+        with mock.patch.object(queue, "canonical_json", side_effect=fail_audit):
+            with self.assertRaises(OSError):
+                self.confirm(job["job_id"], approval)
+        row = self.store.jobs(job["job_id"])[0]
+        self.assertEqual("running", row["state"])
+        self.assertEqual("lost supervisor", row["reason"])
+        self.assertEqual([], [e for e in self.store.events() if e["kind"] == "operator-abandoned"])
+
+    def test_concurrent_confirmations_commit_exactly_once(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        results = []
+        def attempt():
+            try:
+                results.append(self.confirm(job["job_id"], approval))
+            except queue.QueueError as failure:
+                results.append(failure)
+        threads = [threading.Thread(target=attempt) for _ in range(4)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(1, len([e for e in self.store.events() if e["kind"] == "operator-abandoned"]))
+        self.assertEqual("abandoned", self.store.jobs(job["job_id"])[0]["state"])
+        replay = self.confirm(job["job_id"], approval)
+        self.assertTrue(replay["replayed"])
+
+    def test_exact_replay_is_read_only_and_conflict_is_rejected(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        receipt = self.confirm(job["job_id"], approval)
+        with queue.FileLock(self.root / "worker.lock"):
+            replayed = self.confirm(job["job_id"], approval)
+        self.assertTrue(replayed["replayed"])
+        self.assertEqual(receipt["previousReason"], replayed["previousReason"])
+        self.assertEqual(receipt["recordedAt"], replayed["recordedAt"])
+        self.assertEqual(1, len([e for e in self.store.events() if e["kind"] == "operator-abandoned"]))
+        with self.assertRaises(disposition.Rejected) as caught:
+            self.confirm(job["job_id"], approval, "different reason")
+        self.assertIn("CONFLICTING_CONFIRMATION", {b["code"] for b in caught.exception.report["blockers"]})
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], "0" * 64)
+        with self.store.transaction() as db:
+            db.execute("DELETE FROM events WHERE kind='operator-abandoned'")
+        with self.assertRaises(disposition.Rejected):
+            self.confirm(job["job_id"], approval)
+
+    def test_cli_confirm_contract_and_exit_codes(self) -> None:
+        job, _, _ = self.orphan()
+        args = cli.build_parser(Path("unused")).parse_args(
+            ["abandon", "--inspect", job["job_id"], "--json"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(args, root=self.root))
+        report = json.loads(output.getvalue())
+        self.assertIn("approvalDigest", report)
+        parser = cli.build_parser(Path("unused"))
+        args = parser.parse_args(["abandon", "--confirm", job["job_id"], "--reason", "x"])
+        self.assertEqual(2, disposition.cli(args, root=self.root))
+        args = parser.parse_args(["abandon", "--confirm", job["job_id"],
+                                  "--approval", report["approvalDigest"], "--reason", "reviewed"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(args, root=self.root))
+        receipt = json.loads(output.getvalue())
+        self.assertEqual("ABANDONED_UNVERIFIED", receipt["disposition"])
+        self.assertFalse(receipt["verificationAccepted"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(0, disposition.cli(args, root=self.root))
+        self.assertTrue(json.loads(output.getvalue())["replayed"])
+        conflict = parser.parse_args(["abandon", "--confirm", job["job_id"],
+                                      "--approval", report["approvalDigest"],
+                                      "--reason", "conflicting operator note"])
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(75, disposition.cli(conflict, root=self.root))
+        refusal = json.loads(output.getvalue())
+        self.assertIn("CONFLICTING_CONFIRMATION", {b["code"] for b in refusal["blockers"]})
+
+    def test_consumers_treat_abandoned_as_unverified_terminal(self) -> None:
+        job, _, _ = self.orphan()
+        approval = self.inspect(job["job_id"])["approvalDigest"]
+        self.confirm(job["job_id"], approval)
+        job_id = job["job_id"]
+        self.assertEqual(1, cli.wait_job(self.store, job_id, timeout=1))
+        cancelled = self.store.cancel(job_id)
+        self.assertEqual("abandoned", cancelled["state"])
+        self.assertEqual(0, cancelled["cancel_requested"])
+        report = queue.recover(self.store, job_id)
+        self.assertFalse(report["safe"])
+        self.assertEqual("ABANDONED_UNVERIFIED", report["disposition"])
+        with self.assertRaises(queue.QueueError):
+            self.store.complete(job_id, "failed", self.evidence(job))
+        with self.assertRaises(queue.QueueError):
+            self.store.quarantine(job_id, "x")
+        with self.assertRaises(queue.QueueError):
+            self.store.validate_completion(self.store.jobs(job_id)[0], "abandoned", self.evidence(job))
+        again = self.store.submit(self.prepared, self.prepared, job["request_key"])
+        self.assertEqual(job_id, again["job_id"])
+        self.assertEqual("abandoned", again["state"])
+        second = self.job("next")
+        self.assertEqual(second["job_id"], self.store.claim()["job_id"])
 
 
 if __name__ == "__main__":

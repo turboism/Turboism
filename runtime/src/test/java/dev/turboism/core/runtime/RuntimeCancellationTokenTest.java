@@ -1,16 +1,15 @@
 package dev.turboism.core.runtime;
 
-import dev.turboism.sdk.plugin.TaskCanceledException;
-import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.plugin.TaskCanceledException;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 public class RuntimeCancellationTokenTest {
 
@@ -53,7 +52,8 @@ public class RuntimeCancellationTokenTest {
     }
 
     @Test
-    void givenTokenBoundInThreadLocal_whenCheckedFromCallbackThread_thenVisibleAndClearedAfter() throws InterruptedException {
+    void givenTokenBoundInThreadLocal_whenCheckedFromCallbackThread_thenVisibleAndClearedAfter()
+            throws InterruptedException {
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
         final AtomicReference<RuntimeCancellationToken> observed = new AtomicReference<>();
         final AtomicReference<RuntimeCancellationToken> after = new AtomicReference<>();
@@ -74,8 +74,7 @@ public class RuntimeCancellationTokenTest {
     @Test
     void givenCancelHook_whenCancelled_thenHookRunsOnce() {
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
-        final java.util.concurrent.atomic.AtomicInteger calls =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
         token.onCancel(calls::incrementAndGet);
 
         token.cancel();
@@ -88,8 +87,7 @@ public class RuntimeCancellationTokenTest {
     void givenCancelledToken_whenHookRegistered_thenRunsImmediately() {
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
         token.cancel();
-        final java.util.concurrent.atomic.AtomicInteger calls =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
 
         token.onCancel(calls::incrementAndGet);
 
@@ -99,8 +97,7 @@ public class RuntimeCancellationTokenTest {
     @Test
     void givenMultipleHooks_whenCancelled_thenAllRun() {
         final RuntimeCancellationToken token = new RuntimeCancellationToken();
-        final java.util.concurrent.atomic.AtomicInteger calls =
-            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
         token.onCancel(calls::incrementAndGet);
         token.onCancel(calls::incrementAndGet);
 

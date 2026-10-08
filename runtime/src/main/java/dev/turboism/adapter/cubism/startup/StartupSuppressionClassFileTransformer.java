@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.config.RuntimeStartupConfig;
-
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
 import java.net.URI;
@@ -24,15 +23,14 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
     private final AtomicReference<Outcome> outcome = new AtomicReference<>(Outcome.PENDING);
 
     StartupSuppressionClassFileTransformer(
-        final Path pinnedArtifact,
-        final StartupSuppressionProfile profile,
-        final RuntimeStartupConfig policy,
-        final Consumer<StartupSuppressionClassFileTransformer> cleanup,
-        final Consumer<String> diagnostic
-    ) {
+            final Path pinnedArtifact,
+            final StartupSuppressionProfile profile,
+            final RuntimeStartupConfig policy,
+            final Consumer<StartupSuppressionClassFileTransformer> cleanup,
+            final Consumer<String> diagnostic) {
         this.pinnedArtifact = Objects.requireNonNull(pinnedArtifact, "pinnedArtifact")
-            .toAbsolutePath()
-            .normalize();
+                .toAbsolutePath()
+                .normalize();
         this.profile = Objects.requireNonNull(profile, "profile");
         this.transformer = new StartupSuppressionTransformer(profile, policy);
         this.cleanup = Objects.requireNonNull(cleanup, "cleanup");
@@ -41,13 +39,13 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
 
     @Override
     public byte[] transform(
-        final Module module,
-        final ClassLoader loader,
-        final String className,
-        final Class<?> classBeingRedefined,
-        final ProtectionDomain protectionDomain,
-        final byte[] classfileBuffer
-    ) throws IllegalClassFormatException {
+            final Module module,
+            final ClassLoader loader,
+            final String className,
+            final Class<?> classBeingRedefined,
+            final ProtectionDomain protectionDomain,
+            final byte[] classfileBuffer)
+            throws IllegalClassFormatException {
         if (!profile.targetOwner().equals(className) || targetAttempted.get()) {
             return null;
         }
@@ -84,7 +82,7 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
                 outcome.compareAndSet(Outcome.TRANSFORMED, Outcome.CLEANUP_FAILED);
                 report("STARTUP_SUPPRESSION_TRANSFORM_CLEANUP_FAILED");
             }
-    }
+        }
     }
 
     Outcome outcome() {
@@ -105,8 +103,8 @@ final class StartupSuppressionClassFileTransformer implements ClassFileTransform
 
     private static Path codeSourcePath(final ProtectionDomain protectionDomain) {
         if (protectionDomain == null
-            || protectionDomain.getCodeSource() == null
-            || protectionDomain.getCodeSource().getLocation() == null) {
+                || protectionDomain.getCodeSource() == null
+                || protectionDomain.getCodeSource().getLocation() == null) {
             return null;
         }
         try {

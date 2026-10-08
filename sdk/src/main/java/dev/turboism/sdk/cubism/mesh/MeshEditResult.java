@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-
 import java.util.List;
 import java.util.Objects;
 

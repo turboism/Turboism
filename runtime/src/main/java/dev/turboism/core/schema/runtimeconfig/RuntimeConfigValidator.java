@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
 import dev.turboism.sdk.runtime.RuntimeSettings;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -15,10 +14,23 @@ import java.util.Set;
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale", "useTextIcon",
-        "safeMode", "diagnostics", "hooks", "launcher", "textureAtlas", "reduceAutoBackup",
-        "meshTriangulationHashFix", "atlasTileBbox", "atlasCacheReuse"
-    );
+            "worktreeId",
+            "pluginDirs",
+            "disabledPlugins",
+            "logLevel",
+            "maxLogStorageMiB",
+            "locale",
+            "useTextIcon",
+            "safeMode",
+            "diagnostics",
+            "hooks",
+            "launcher",
+            "textureAtlas",
+            "reduceAutoBackup",
+            "meshTriangulationHashFix",
+            "atlasTileBbox",
+            "atlasCacheReuse",
+            "meshTriangulationEdgeIndex");
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
 
@@ -27,31 +39,36 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         return ALLOWED_LOCALES.contains(value);
     }
 
-    private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of(
-        "disabledIds", "denylistedClasses", "startup"
-    );
-    private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
-        "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
-    );
+    private static final Set<String> ALLOWED_HOOK_FIELDS = Set.of("disabledIds", "denylistedClasses", "startup");
+    private static final Set<String> ALLOWED_STARTUP_FIELDS =
+            Set.of("skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
     private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of(
-        "cubismJvm", "graalVmPath", "zgc", "memoryProfile",
-        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache",
-        "uploadElision", "inputPathElision", "mesaGlThread"
-    );
+            "cubismJvm",
+            "graalVmPath",
+            "zgc",
+            "memoryProfile",
+            "modelUpdateSkip",
+            "incrementalUpdate",
+            "uniformLocationCache",
+            "uploadElision",
+            "inputPathElision",
+            "mesaGlThread");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
-    private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of(
-        "system", "balanced4g", "balanced4gFastSoft"
-    );
+    private static final Set<String> ALLOWED_MEMORY_PROFILES = Set.of("system", "balanced4g", "balanced4gFastSoft");
 
     /** True when the value is one of the accepted persisted memory-profile choices. */
     public static boolean isAllowedMemoryProfile(final String value) {
         return ALLOWED_MEMORY_PROFILES.contains(value);
     }
+
     private static final Set<String> ALLOWED_TEXTURE_ATLAS_FIELDS = Set.of("algorithmId", "parallel");
     private static final Set<String> BOOLEAN_LAUNCHER_FIELDS = Set.of(
-        "modelUpdateSkip", "incrementalUpdate", "uniformLocationCache", "uploadElision",
-        "inputPathElision", "mesaGlThread"
-    );
+            "modelUpdateSkip",
+            "incrementalUpdate",
+            "uniformLocationCache",
+            "uploadElision",
+            "inputPathElision",
+            "mesaGlThread");
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
@@ -79,24 +96,29 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     }
 
     private List<SchemaValidationError> validate(
-        final JsonNode node,
-        final String source,
-        final boolean tolerateUnsupportedChoices
-    ) {
+            final JsonNode node, final String source, final boolean tolerateUnsupportedChoices) {
         List<SchemaValidationError> errors = new ArrayList<>(validateRoot(node, source));
         requireStringField(node, "worktreeId", "RUNTIME_CONFIG_MISSING", errors, source);
 
         if (node.has("worktreeId") && !node.get("worktreeId").isNull()) {
             String id = node.get("worktreeId").asText("");
             if (!id.matches("^[a-z][a-z0-9-]{2,63}$")) {
-                errors.add(error("RUNTIME_CONFIG_BAD_WORKTREE_ID", "worktreeId does not match pattern [a-z][a-z0-9-]{2,63}: " + id, "worktreeId", source));
+                errors.add(error(
+                        "RUNTIME_CONFIG_BAD_WORKTREE_ID",
+                        "worktreeId does not match pattern [a-z][a-z0-9-]{2,63}: " + id,
+                        "worktreeId",
+                        source));
             }
         }
 
         if (node.has("logLevel") && !node.get("logLevel").isNull()) {
             String level = node.get("logLevel").asText("");
             if (!ALLOWED_LOG_LEVELS.contains(level)) {
-                errors.add(error("RUNTIME_CONFIG_BAD_LOG_LEVEL", "logLevel must be one of " + ALLOWED_LOG_LEVELS + ": " + level, "logLevel", source));
+                errors.add(error(
+                        "RUNTIME_CONFIG_BAD_LOG_LEVEL",
+                        "logLevel must be one of " + ALLOWED_LOG_LEVELS + ": " + level,
+                        "logLevel",
+                        source));
             }
         }
 
@@ -104,34 +126,26 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             final JsonNode value = node.get("maxLogStorageMiB");
             if (value == null || !value.isIntegralNumber()) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_TYPE",
-                    "maxLogStorageMiB must be an integer",
-                    "maxLogStorageMiB",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_TYPE", "maxLogStorageMiB must be an integer", "maxLogStorageMiB", source));
             } else if (!value.canConvertToInt()
-                || value.intValue() < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB
-                || value.intValue() > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
+                    || value.intValue() < RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB
+                    || value.intValue() > RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_LOG_STORAGE_LIMIT",
-                    "maxLogStorageMiB must be between "
-                        + RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB + " and "
-                        + RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
-                    "maxLogStorageMiB",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_LOG_STORAGE_LIMIT",
+                        "maxLogStorageMiB must be between "
+                                + RuntimeSettings.MIN_MAX_LOG_STORAGE_MIB + " and "
+                                + RuntimeSettings.MAX_MAX_LOG_STORAGE_MIB,
+                        "maxLogStorageMiB",
+                        source));
             }
         }
 
-        if (node.has("locale") && (!node.get("locale").isTextual()
-            || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
+        if (node.has("locale")
+                && (!node.get("locale").isTextual()
+                        || !ALLOWED_LOCALES.contains(node.get("locale").asText()))) {
             if (!tolerateUnsupportedChoices) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_LOCALE",
-                    "locale must be one of " + ALLOWED_LOCALES,
-                    "locale",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_LOCALE", "locale must be one of " + ALLOWED_LOCALES, "locale", source));
             }
         }
 
@@ -139,16 +153,16 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             final JsonNode directories = node.get("pluginDirs");
             if (directories == null || !directories.isArray() || !allTextual(directories)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_TYPE",
-                    "pluginDirs must be an array of strings",
-                    "pluginDirs",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_TYPE", "pluginDirs must be an array of strings", "pluginDirs", source));
             } else {
                 directories.forEach(dir -> {
                     String path = dir.asText();
                     if (path.startsWith("/") || path.contains("..") || path.startsWith("\\\\")) {
-                        errors.add(error("RUNTIME_CONFIG_BAD_PLUGIN_DIR", "pluginDirs must be relative paths without ..: " + path, "pluginDirs[]", source));
+                        errors.add(error(
+                                "RUNTIME_CONFIG_BAD_PLUGIN_DIR",
+                                "pluginDirs must be relative paths without ..: " + path,
+                                "pluginDirs[]",
+                                source));
                     }
                 });
             }
@@ -162,6 +176,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateOptionalBoolean(node, "meshTriangulationHashFix", errors, source);
         validateOptionalBoolean(node, "atlasTileBbox", errors, source);
         validateOptionalBoolean(node, "atlasCacheReuse", errors, source);
+        validateOptionalBoolean(node, "meshTriangulationEdgeIndex", errors, source);
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source, tolerateUnsupportedChoices);
         validateTextureAtlas(node, errors, source);
@@ -175,135 +190,115 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
      * {@code parallel} must be boolean when present.
      */
     private void validateTextureAtlas(
-        final JsonNode root,
-        final List<SchemaValidationError> errors,
-        final String source
-    ) {
+            final JsonNode root, final List<SchemaValidationError> errors, final String source) {
         if (!root.has("textureAtlas")) return;
         final JsonNode textureAtlas = root.get("textureAtlas");
         if (textureAtlas == null || !textureAtlas.isObject()) {
-            errors.add(error(
-                "RUNTIME_CONFIG_BAD_TYPE", "textureAtlas must be an object", "textureAtlas", source
-            ));
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", "textureAtlas must be an object", "textureAtlas", source));
             return;
         }
         textureAtlas.fieldNames().forEachRemaining(field -> {
             if (!ALLOWED_TEXTURE_ATLAS_FIELDS.contains(field)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
-                    "Unknown textureAtlas field: " + field,
-                    "textureAtlas." + field,
-                    source
-                ));
+                        "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                        "Unknown textureAtlas field: " + field,
+                        "textureAtlas." + field,
+                        source));
             }
         });
         if (textureAtlas.has("algorithmId")) {
             final JsonNode algorithmId = textureAtlas.get("algorithmId");
-            if (algorithmId != null && !algorithmId.isNull()
-                && (!algorithmId.isTextual() || algorithmId.asText().isBlank())) {
+            if (algorithmId != null
+                    && !algorithmId.isNull()
+                    && (!algorithmId.isTextual() || algorithmId.asText().isBlank())) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_TYPE",
-                    "textureAtlas.algorithmId must be a non-blank string or null",
-                    "textureAtlas.algorithmId",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_TYPE",
+                        "textureAtlas.algorithmId must be a non-blank string or null",
+                        "textureAtlas.algorithmId",
+                        source));
             }
         }
         if (textureAtlas.has("parallel") && !textureAtlas.get("parallel").isBoolean()) {
             errors.add(error(
-                "RUNTIME_CONFIG_BAD_TYPE",
-                "textureAtlas.parallel must be a boolean",
-                "textureAtlas.parallel",
-                source
-            ));
+                    "RUNTIME_CONFIG_BAD_TYPE",
+                    "textureAtlas.parallel must be a boolean",
+                    "textureAtlas.parallel",
+                    source));
         }
     }
 
     private void validateLauncher(
-        final JsonNode root,
-        final List<SchemaValidationError> errors,
-        final String source,
-        final boolean tolerateUnsupportedChoices
-    ) {
+            final JsonNode root,
+            final List<SchemaValidationError> errors,
+            final String source,
+            final boolean tolerateUnsupportedChoices) {
         if (!root.has("launcher")) return;
         final JsonNode launcher = root.get("launcher");
         if (launcher == null || !launcher.isObject()) {
-            errors.add(error(
-                "RUNTIME_CONFIG_BAD_TYPE", "launcher must be an object", "launcher", source
-            ));
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", "launcher must be an object", "launcher", source));
             return;
         }
         launcher.fieldNames().forEachRemaining(field -> {
             if (!ALLOWED_LAUNCHER_FIELDS.contains(field)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
-                    "Unknown launcher field: " + field,
-                    "launcher." + field,
-                    source
-                ));
+                        "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                        "Unknown launcher field: " + field,
+                        "launcher." + field,
+                        source));
             }
         });
-        if (launcher.has("cubismJvm") && (!launcher.get("cubismJvm").isTextual()
-            || !ALLOWED_CUBISM_JVMS.contains(launcher.get("cubismJvm").asText()))) {
+        if (launcher.has("cubismJvm")
+                && (!launcher.get("cubismJvm").isTextual()
+                        || !ALLOWED_CUBISM_JVMS.contains(
+                                launcher.get("cubismJvm").asText()))) {
             errors.add(error(
-                "RUNTIME_CONFIG_BAD_CUBISM_JVM",
-                "launcher.cubismJvm must be one of " + ALLOWED_CUBISM_JVMS,
-                "launcher.cubismJvm",
-                source
-            ));
+                    "RUNTIME_CONFIG_BAD_CUBISM_JVM",
+                    "launcher.cubismJvm must be one of " + ALLOWED_CUBISM_JVMS,
+                    "launcher.cubismJvm",
+                    source));
         }
         if (launcher.has("zgc") && !launcher.get("zgc").isBoolean()) {
-            errors.add(error(
-                "RUNTIME_CONFIG_BAD_ZGC",
-                "launcher.zgc must be a boolean",
-                "launcher.zgc",
-                source
-            ));
+            errors.add(error("RUNTIME_CONFIG_BAD_ZGC", "launcher.zgc must be a boolean", "launcher.zgc", source));
         }
         // Like the top-level locale, an unsupported persisted memory profile is
         // tolerated on read (dropped by the repository with a diagnostic) but
         // stays a strict error for writes.
         if (launcher.has("memoryProfile")
-            && !tolerateUnsupportedChoices
-            && (!launcher.get("memoryProfile").isTextual()
-                || !ALLOWED_MEMORY_PROFILES.contains(launcher.get("memoryProfile").asText()))) {
+                && !tolerateUnsupportedChoices
+                && (!launcher.get("memoryProfile").isTextual()
+                        || !ALLOWED_MEMORY_PROFILES.contains(
+                                launcher.get("memoryProfile").asText()))) {
             errors.add(error(
-                "RUNTIME_CONFIG_BAD_MEMORY_PROFILE",
-                "launcher.memoryProfile must be one of " + ALLOWED_MEMORY_PROFILES,
-                "launcher.memoryProfile",
-                source
-            ));
+                    "RUNTIME_CONFIG_BAD_MEMORY_PROFILE",
+                    "launcher.memoryProfile must be one of " + ALLOWED_MEMORY_PROFILES,
+                    "launcher.memoryProfile",
+                    source));
         }
         for (final String field : BOOLEAN_LAUNCHER_FIELDS) {
             if (launcher.has(field) && !launcher.get(field).isBoolean()) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN",
-                    "launcher." + field + " must be a boolean",
-                    "launcher." + field,
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_LAUNCHER_BOOLEAN",
+                        "launcher." + field + " must be a boolean",
+                        "launcher." + field,
+                        source));
             }
         }
         if (launcher.has("graalVmPath")) {
             final JsonNode value = launcher.get("graalVmPath");
-            if (!value.isTextual() || value.asText().isBlank()
-                || value.asText().length() > 4096
-                || value.asText().chars().anyMatch(character -> character < 0x20)) {
+            if (!value.isTextual()
+                    || value.asText().isBlank()
+                    || value.asText().length() > 4096
+                    || value.asText().chars().anyMatch(character -> character < 0x20)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_BAD_GRAALVM_PATH",
-                    "launcher.graalVmPath must be a non-blank path of at most 4096 characters",
-                    "launcher.graalVmPath",
-                    source
-                ));
+                        "RUNTIME_CONFIG_BAD_GRAALVM_PATH",
+                        "launcher.graalVmPath must be a non-blank path of at most 4096 characters",
+                        "launcher.graalVmPath",
+                        source));
             }
         }
     }
 
-    private void validateHooks(
-        final JsonNode root,
-        final List<SchemaValidationError> errors,
-        final String source
-    ) {
+    private void validateHooks(final JsonNode root, final List<SchemaValidationError> errors, final String source) {
         if (!root.has("hooks")) {
             return;
         }
@@ -315,11 +310,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         hooks.fieldNames().forEachRemaining(field -> {
             if (!ALLOWED_HOOK_FIELDS.contains(field)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
-                    "Unknown hooks field: " + field,
-                    "hooks." + field,
-                    source
-                ));
+                        "RUNTIME_CONFIG_UNKNOWN_FIELD", "Unknown hooks field: " + field, "hooks." + field, source));
             }
         });
         validateStringArray(hooks, "disabledIds", "hooks.disabledIds", errors, source);
@@ -329,22 +320,16 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         }
         final JsonNode startup = hooks.get("startup");
         if (startup == null || !startup.isObject()) {
-            errors.add(error(
-                "RUNTIME_CONFIG_BAD_TYPE",
-                "hooks.startup must be an object",
-                "hooks.startup",
-                source
-            ));
+            errors.add(error("RUNTIME_CONFIG_BAD_TYPE", "hooks.startup must be an object", "hooks.startup", source));
             return;
         }
         startup.fieldNames().forEachRemaining(field -> {
             if (!ALLOWED_STARTUP_FIELDS.contains(field)) {
                 errors.add(error(
-                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
-                    "Unknown hooks.startup field: " + field,
-                    "hooks.startup." + field,
-                    source
-                ));
+                        "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                        "Unknown hooks.startup field: " + field,
+                        "hooks.startup." + field,
+                        source));
             }
         });
         for (String field : ALLOWED_STARTUP_FIELDS) {
@@ -353,33 +338,27 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     }
 
     private void validateOptionalBoolean(
-        final JsonNode node,
-        final String field,
-        final List<SchemaValidationError> errors,
-        final String source
-    ) {
+            final JsonNode node, final String field, final List<SchemaValidationError> errors, final String source) {
         validateOptionalBoolean(node, field, field, errors, source);
     }
 
     private void validateOptionalBoolean(
-        final JsonNode node,
-        final String field,
-        final String path,
-        final List<SchemaValidationError> errors,
-        final String source
-    ) {
+            final JsonNode node,
+            final String field,
+            final String path,
+            final List<SchemaValidationError> errors,
+            final String source) {
         if (node.has(field) && !node.get(field).isBoolean()) {
             errors.add(error("RUNTIME_CONFIG_BAD_TYPE", path + " must be a boolean", path, source));
         }
     }
 
     private void validateStringArray(
-        final JsonNode node,
-        final String field,
-        final String path,
-        final List<SchemaValidationError> errors,
-        final String source
-    ) {
+            final JsonNode node,
+            final String field,
+            final String path,
+            final List<SchemaValidationError> errors,
+            final String source) {
         if (!node.has(field)) {
             return;
         }

@@ -1,8 +1,9 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.Incubating;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
+import dev.turboism.sdk.cubism.model.PartId;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -11,6 +12,7 @@ import java.util.Optional;
  * Read payload of a {@link EditObjectKind#PART} object, matching the official {@code Part} data
  * block of {@code GetObject}.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditPartData(
         String name,

@@ -1,19 +1,18 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -21,10 +20,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Retired and superseded plugin ids must never be admitted on any load path: a
@@ -92,11 +90,13 @@ class PreviewPluginRetiredIdentityIntegrationTest {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-                assertFalse(report.loaded().stream().anyMatch(plugin -> plugin.id().equals(RETIRED_ID)));
-                assertTrue(report.loaded().stream().anyMatch(plugin -> plugin.id().equals(SUCCESSOR_ID)));
-                assertTrue(report.failures().stream().anyMatch(failure ->
-                    failure.pluginId().equals(RETIRED_ID)
-                        && "PLUGIN_RETIRED_ID".equals(failure.code())));
+                assertFalse(
+                        report.loaded().stream().anyMatch(plugin -> plugin.id().equals(RETIRED_ID)));
+                assertTrue(
+                        report.loaded().stream().anyMatch(plugin -> plugin.id().equals(SUCCESSOR_ID)));
+                assertTrue(report.failures().stream()
+                        .anyMatch(failure ->
+                                failure.pluginId().equals(RETIRED_ID) && "PLUGIN_RETIRED_ID".equals(failure.code())));
                 assertFalse(Boolean.getBoolean(RETIRED_MARKER));
                 assertTrue(Boolean.getBoolean(SUCCESSOR_MARKER));
             } finally {
@@ -120,10 +120,13 @@ class PreviewPluginRetiredIdentityIntegrationTest {
     void supersededWebdavBackupJarIsDeniedWhileItsReplacementLoads() throws Exception {
         final Path home = temporary.resolve("rename-home");
         final Path plugins = home.resolve("plugins");
-        writePlugin(plugins, temporary.resolve("stale-backup"), "backup.jar",
-            SUPERSEDED_BACKUP_ID, SUPERSEDED_BACKUP_MARKER);
-        writePlugin(plugins, temporary.resolve("replacement"), "webdav-backup.jar",
-            WEBDAV_ID, WEBDAV_MARKER);
+        writePlugin(
+                plugins,
+                temporary.resolve("stale-backup"),
+                "backup.jar",
+                SUPERSEDED_BACKUP_ID,
+                SUPERSEDED_BACKUP_MARKER);
+        writePlugin(plugins, temporary.resolve("replacement"), "webdav-backup.jar", WEBDAV_ID, WEBDAV_MARKER);
         final RuntimeScheduler scheduler = scheduler();
         final HostSession host = new HostSession(Optional::empty);
         final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
@@ -139,14 +142,17 @@ class PreviewPluginRetiredIdentityIntegrationTest {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-                assertEquals(1, report.loaded().stream()
-                    .filter(plugin -> plugin.id().equals(WEBDAV_ID)
-                        || plugin.id().equals(SUPERSEDED_BACKUP_ID))
-                    .count());
-                assertTrue(report.loaded().stream().anyMatch(plugin -> plugin.id().equals(WEBDAV_ID)));
-                assertTrue(report.failures().stream().anyMatch(failure ->
-                    failure.pluginId().equals(SUPERSEDED_BACKUP_ID)
-                        && "PLUGIN_RETIRED_ID".equals(failure.code())));
+                assertEquals(
+                        1,
+                        report.loaded().stream()
+                                .filter(plugin -> plugin.id().equals(WEBDAV_ID)
+                                        || plugin.id().equals(SUPERSEDED_BACKUP_ID))
+                                .count());
+                assertTrue(
+                        report.loaded().stream().anyMatch(plugin -> plugin.id().equals(WEBDAV_ID)));
+                assertTrue(report.failures().stream()
+                        .anyMatch(failure -> failure.pluginId().equals(SUPERSEDED_BACKUP_ID)
+                                && "PLUGIN_RETIRED_ID".equals(failure.code())));
                 assertTrue(Boolean.getBoolean(WEBDAV_MARKER));
                 assertFalse(Boolean.getBoolean(SUPERSEDED_BACKUP_MARKER));
             } finally {
@@ -162,50 +168,61 @@ class PreviewPluginRetiredIdentityIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private static void writePlugin(
-        final Path plugins,
-        final Path work,
-        final String filename,
-        final String id,
-        final String marker
-    ) throws Exception {
-        final String className = "dev.example.Fixture" + UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8))
-            .toString().replace("-", "");
+            final Path plugins, final Path work, final String filename, final String id, final String marker)
+            throws Exception {
+        final String className = "dev.example.Fixture"
+                + UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8))
+                        .toString()
+                        .replace("-", "");
         final Path source = work.resolve("source/" + className.replace('.', '/') + ".java");
         final Path classes = work.resolve("classes");
         Files.createDirectories(source.getParent());
-        Files.writeString(source, """
+        Files.writeString(
+                source,
+                """
             package dev.example;
             import dev.turboism.sdk.plugin.TurboismPlugin;
             public final class %s implements TurboismPlugin {
                 static { System.setProperty("%s", "true"); }
             }
-            """.formatted(className.substring(className.lastIndexOf('.') + 1), marker), StandardCharsets.UTF_8);
+            """.formatted(className.substring(className.lastIndexOf('.') + 1), marker),
+                StandardCharsets.UTF_8);
         Files.createDirectories(classes);
-        final int compiled = ToolProvider.getSystemJavaCompiler().run(
-            null, null, null,
-            "-classpath", System.getProperty("java.class.path"),
-            "-d", classes.toString(),
-            source.toString()
-        );
+        final int compiled = ToolProvider.getSystemJavaCompiler()
+                .run(
+                        null,
+                        null,
+                        null,
+                        "-classpath",
+                        System.getProperty("java.class.path"),
+                        "-d",
+                        classes.toString(),
+                        source.toString());
         if (compiled != 0) throw new IllegalStateException("fixture compilation failed");
         Files.createDirectories(plugins);
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(plugins.resolve(filename)))) {
             try (var files = Files.walk(classes)) {
-                for (Path file : files.filter(Files::isRegularFile).sorted(Comparator.naturalOrder()).toList()) {
+                for (Path file : files.filter(Files::isRegularFile)
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
                     add(output, classes.relativize(file).toString().replace('\\', '/'), Files.readAllBytes(file));
                 }
             }
-            add(output, "META-INF/turboism/plugin.json", descriptor(id, className).getBytes(StandardCharsets.UTF_8));
-            add(output, "META-INF/turboism/i18n/messages.properties",
-                "probe=fixture\n".getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/plugin.json",
+                    descriptor(id, className).getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/i18n/messages.properties",
+                    "probe=fixture\n".getBytes(StandardCharsets.UTF_8));
         }
     }
 

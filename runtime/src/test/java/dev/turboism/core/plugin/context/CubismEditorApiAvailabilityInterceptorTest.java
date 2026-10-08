@@ -1,28 +1,26 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
-import org.junit.jupiter.api.Test;
-
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.lang.reflect.Proxy;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 class CubismEditorApiAvailabilityInterceptorTest {
 
@@ -30,21 +28,25 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void compatibleEditSessionsRequireLiveNativeIngressAndRespectThe54Boundary() throws Exception {
         final var version = new java.util.concurrent.atomic.AtomicReference<>(Optional.of("5.3.99"));
         final var capabilities = new java.util.concurrent.atomic.AtomicReference<>(
-            java.util.Set.of("cubism.editor-model.edit.session.edit-begin"));
+                java.util.Set.of("cubism.editor-model.edit.session.edit-begin"));
         final AtomicInteger calls = new AtomicInteger();
         final var delegate = new dev.turboism.sdk.cubism.edit.EditSessionService() {
-            @Override public boolean isEditApproved(final dev.turboism.sdk.plugin.PluginContext context) {
+            @Override
+            public boolean isEditApproved(final dev.turboism.sdk.plugin.PluginContext context) {
                 calls.incrementAndGet();
                 return true;
             }
-            @Override public dev.turboism.sdk.cubism.edit.EditSession open(
-                final dev.turboism.sdk.plugin.PluginContext context,
-                final dev.turboism.sdk.cubism.id.DocumentId document,
-                final dev.turboism.sdk.cubism.edit.EditSessionOptions options
-            ) { throw new UnsupportedOperationException(); }
+
+            @Override
+            public dev.turboism.sdk.cubism.edit.EditSession open(
+                    final dev.turboism.sdk.plugin.PluginContext context,
+                    final dev.turboism.sdk.cubism.id.DocumentId document,
+                    final dev.turboism.sdk.cubism.edit.EditSessionOptions options) {
+                throw new UnsupportedOperationException();
+            }
         };
         final var api = new CubismEditorApiAvailabilityInterceptor(version::get, capabilities::get)
-            .wrapForTesting(delegate, dev.turboism.sdk.cubism.edit.EditSessionService.class);
+                .wrapForTesting(delegate, dev.turboism.sdk.cubism.edit.EditSessionService.class);
         assertTrue(api.isEditApproved(null));
         capabilities.set(java.util.Set.of());
         assertThrows(CubismEditorApiUnavailableException.class, () -> api.isEditApproved(null));
@@ -59,21 +61,23 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void futureHostCanUpdateAutoBackupSettingsOnlyWithTheMatchedCapabilities() {
         final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.99"));
-        final AtomicReference<java.util.Set<String>> capabilities = new AtomicReference<>(java.util.Set.of(
-            "cubism.autobackup.settings", "cubism.autobackup.backup"));
+        final AtomicReference<java.util.Set<String>> capabilities =
+                new AtomicReference<>(java.util.Set.of("cubism.autobackup.settings", "cubism.autobackup.backup"));
         final AtomicInteger mutations = new AtomicInteger();
         final var delegate = (dev.turboism.sdk.cubism.backup.EditorAutoBackupService) Proxy.newProxyInstance(
-            getClass().getClassLoader(), new Class<?>[]{dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class},
-            (proxy, method, args) -> {
-                if ("updateSettings".equals(method.getName())) {
-                    mutations.incrementAndGet();
-                    return args[0];
-                }
-                throw new AssertionError("Unexpected delegate call: " + method);
-            });
+                getClass().getClassLoader(),
+                new Class<?>[] {dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class},
+                (proxy, method, args) -> {
+                    if ("updateSettings".equals(method.getName())) {
+                        mutations.incrementAndGet();
+                        return args[0];
+                    }
+                    throw new AssertionError("Unexpected delegate call: " + method);
+                });
         final var service = new CubismEditorApiAvailabilityInterceptor(version::get, capabilities::get)
-            .wrapForTesting(delegate, dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class);
-        final var target = new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, null);
+                .wrapForTesting(delegate, dev.turboism.sdk.cubism.backup.EditorAutoBackupService.class);
+        final var target =
+                new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(true, 3, 120, java.util.Optional.empty());
 
         assertEquals(target, service.updateSettings(target));
         capabilities.set(java.util.Set.of("cubism.autobackup.settings"));
@@ -117,22 +121,16 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
     void reviewed5303IdentityEntersTheSdkAvailabilitySet() {
-        assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
-            CubismEditorAvailabilityPolicy.reviewedVersions()
-        );
+        assertEquals(List.of("5.2.03", "5.3.02", "5.3.03"), CubismEditorAvailabilityPolicy.reviewedVersions());
     }
 
     @Test
     void inheritedMethodStillHonorsTheNarrowerChildInterface() {
         final AtomicInteger calls = new AtomicInteger();
-        final NarrowInherited child = proxy(
-            (NarrowInherited) calls::incrementAndGet, NarrowInherited.class, Optional.of("5.2.03")
-        );
+        final NarrowInherited child =
+                proxy((NarrowInherited) calls::incrementAndGet, NarrowInherited.class, Optional.of("5.2.03"));
         assertThrows(CubismEditorApiUnavailableException.class, child::call);
-        final OpenParent parent = proxy(
-            (OpenParent) calls::incrementAndGet, OpenParent.class, Optional.of("5.2.03")
-        );
+        final OpenParent parent = proxy((OpenParent) calls::incrementAndGet, OpenParent.class, Optional.of("5.2.03"));
         parent.call();
         assertEquals(1, calls.get(), "a child-specific cached restriction must not leak into its parent");
     }
@@ -142,7 +140,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
         final AtomicInteger calls = new AtomicInteger();
         final var version = new AtomicReference<>(Optional.of("5.3.99"));
         final RedeclaredChild child = new CubismEditorApiAvailabilityInterceptor(version::get)
-            .wrapForTesting((RedeclaredChild) calls::incrementAndGet, RedeclaredChild.class);
+                .wrapForTesting((RedeclaredChild) calls::incrementAndGet, RedeclaredChild.class);
 
         assertThrows(CubismEditorApiUnavailableException.class, child::call);
         assertEquals(0, calls.get());
@@ -157,8 +155,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @CubismEditor(from = "5.3.02")
-    interface NarrowInherited extends OpenParent {
-    }
+    interface NarrowInherited extends OpenParent {}
 
     interface RestrictedMethodParent {
         @CubismEditor("5.3.02")
@@ -167,45 +164,52 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     @CubismEditor(from = "5.2.03")
     interface RedeclaredChild extends RestrictedMethodParent {
-        @Override void call();
+        @Override
+        void call();
     }
 
     @Test
     void cubismHistoryFacadeAndReturnedApiAreAvailableOnReviewed5203Host() {
         final AtomicInteger calls = new AtomicInteger();
-        final dev.turboism.sdk.cubism.CubismFacade delegate =
-            new dev.turboism.sdk.cubism.CubismFacade() {
-                @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
-                    return null;
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
-                    return Optional.empty();
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
-                    return Optional.empty();
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
-                    return Optional.empty();
-                }
-                @Override public boolean isHostPresent() { return true; }
-                @Override public dev.turboism.sdk.cubism.history.CubismHistory history() {
-                    calls.incrementAndGet();
-                    return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
-                }
-                @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    return null;
-                }
-            };
+        final dev.turboism.sdk.cubism.CubismFacade delegate = new dev.turboism.sdk.cubism.CubismFacade() {
+            @Override
+            public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
+                return null;
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+                return Optional.empty();
+            }
+
+            @Override
+            public boolean isHostPresent() {
+                return true;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.history.CubismHistory history() {
+                calls.incrementAndGet();
+                return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
+            }
+        };
         final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(
-            () -> Optional.of("5.2.03"),
-            () -> java.util.Set.of(
-                "cubism.editor-model.read",
-                "cubism.editor-history.read"
-            )
-        ).wrapForTesting(delegate, dev.turboism.sdk.cubism.CubismFacade.class);
+                        () -> Optional.of("5.2.03"),
+                        () -> java.util.Set.of("cubism.editor-model.read", "cubism.editor-history.read"))
+                .wrapForTesting(delegate, dev.turboism.sdk.cubism.CubismFacade.class);
 
         final dev.turboism.sdk.cubism.history.HistorySnapshot snapshot =
-            assertDoesNotThrow(() -> proxy.history().snapshot());
+                assertDoesNotThrow(() -> proxy.history().snapshot());
 
         assertEquals(dev.turboism.sdk.cubism.history.HistorySnapshot.unavailable(), snapshot);
         assertEquals(1, calls.get());
@@ -217,10 +221,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
         final Example delegate = new ExampleImpl(calls);
         final Example proxy = proxy(delegate, Optional.of("5.2.03"));
 
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            proxy::only5302
-        );
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, proxy::only5302);
 
         assertEquals(0, calls.get());
         assertEquals(Optional.of("5.2.03"), failure.activeVersion());
@@ -231,10 +233,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void failsClosedWithoutVerifiedEditorVersion() {
         final Example proxy = proxy(new ExampleImpl(new AtomicInteger()), Optional.empty());
 
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            proxy::shared
-        );
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, proxy::shared);
 
         assertEquals(Optional.empty(), failure.activeVersion());
     }
@@ -242,11 +242,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void admitsDeclaredApisOnTheReviewed5303Host() {
         final AtomicInteger calls = new AtomicInteger();
-        final Declared5303 proxy = proxy(
-            (Declared5303) calls::incrementAndGet,
-            Declared5303.class,
-            Optional.of("5.3.03")
-        );
+        final Declared5303 proxy =
+                proxy((Declared5303) calls::incrementAndGet, Declared5303.class, Optional.of("5.3.03"));
 
         proxy.call();
 
@@ -256,11 +253,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void declarationContaining5303PreservesExistingReviewedHosts() {
         final AtomicInteger calls = new AtomicInteger();
-        final Declared5303 proxy = proxy(
-            (Declared5303) calls::incrementAndGet,
-            Declared5303.class,
-            Optional.of("5.3.02")
-        );
+        final Declared5303 proxy =
+                proxy((Declared5303) calls::incrementAndGet, Declared5303.class, Optional.of("5.3.02"));
 
         proxy.call();
 
@@ -271,31 +265,29 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void recursivelyWrapsOptionalListAndCompletionStageResults() {
         final Example proxy = proxy(new ExampleImpl(new AtomicInteger()), Optional.of("5.2.03"));
 
-        assertThrows(CubismEditorApiUnavailableException.class, () -> proxy.optional().orElseThrow().only5302());
-        assertThrows(CubismEditorApiUnavailableException.class, () -> proxy.list().get(0).only5302());
         assertThrows(
-            CubismEditorApiUnavailableException.class,
-            () -> proxy.stage().toCompletableFuture().join().only5302()
-        );
+                CubismEditorApiUnavailableException.class,
+                () -> proxy.optional().orElseThrow().only5302());
+        assertThrows(
+                CubismEditorApiUnavailableException.class,
+                () -> proxy.list().get(0).only5302());
+        assertThrows(
+                CubismEditorApiUnavailableException.class,
+                () -> proxy.stage().toCompletableFuture().join().only5302());
     }
 
     @Test
     void unannotatedModelAccessCarrierStillWrapsAnnotatedDescendants() {
         final AtomicInteger activeCalls = new AtomicInteger();
         final AtomicInteger idCalls = new AtomicInteger();
-        final dev.turboism.sdk.cubism.model.CubismModel model = recordingDelegate(
-            dev.turboism.sdk.cubism.model.CubismModel.class,
-            idCalls
-        );
+        final dev.turboism.sdk.cubism.model.CubismModel model =
+                recordingDelegate(dev.turboism.sdk.cubism.model.CubismModel.class, idCalls);
         final dev.turboism.sdk.cubism.model.CubismModelAccess access = () -> {
             activeCalls.incrementAndGet();
             return model;
         };
-        final dev.turboism.sdk.cubism.model.CubismModelAccess proxy = proxy(
-            access,
-            dev.turboism.sdk.cubism.model.CubismModelAccess.class,
-            Optional.empty()
-        );
+        final dev.turboism.sdk.cubism.model.CubismModelAccess proxy =
+                proxy(access, dev.turboism.sdk.cubism.model.CubismModelAccess.class, Optional.empty());
 
         final dev.turboism.sdk.cubism.model.CubismModel wrapped = proxy.active();
         assertEquals(1, activeCalls.get());
@@ -307,26 +299,22 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void unannotatedPartsCarrierStillWrapsAnnotatedPartListElements() {
         final AtomicInteger allCalls = new AtomicInteger();
         final AtomicInteger idCalls = new AtomicInteger();
-        final dev.turboism.sdk.cubism.model.Part part = recordingDelegate(
-            dev.turboism.sdk.cubism.model.Part.class,
-            idCalls
-        );
+        final dev.turboism.sdk.cubism.model.Part part =
+                recordingDelegate(dev.turboism.sdk.cubism.model.Part.class, idCalls);
         final dev.turboism.sdk.cubism.model.Parts parts = new dev.turboism.sdk.cubism.model.Parts() {
-            @Override public java.util.List<dev.turboism.sdk.cubism.model.Part> all() {
+            @Override
+            public java.util.List<dev.turboism.sdk.cubism.model.Part> all() {
                 allCalls.incrementAndGet();
                 return List.of(part);
             }
-            @Override public dev.turboism.sdk.cubism.model.Part find(
-                final dev.turboism.sdk.cubism.model.PartId id
-            ) {
+
+            @Override
+            public dev.turboism.sdk.cubism.model.Part find(final dev.turboism.sdk.cubism.model.PartId id) {
                 throw new UnsupportedOperationException("not exercised");
             }
         };
-        final dev.turboism.sdk.cubism.model.Parts proxy = proxy(
-            parts,
-            dev.turboism.sdk.cubism.model.Parts.class,
-            Optional.of("5.2.03")
-        );
+        final dev.turboism.sdk.cubism.model.Parts proxy =
+                proxy(parts, dev.turboism.sdk.cubism.model.Parts.class, Optional.of("5.2.03"));
 
         final dev.turboism.sdk.cubism.model.Part wrapped = proxy.all().get(0);
         assertEquals(1, allCalls.get());
@@ -337,12 +325,10 @@ class CubismEditorApiAvailabilityInterceptorTest {
         // Part is pinned to an exact reviewed list; the declared 5.2.04 host
         // is not named by it and fails closed. The reviewed contract's source
         // version is never consulted.
-        final dev.turboism.sdk.cubism.model.Parts onUnlistedHost = proxy(
-            parts,
-            dev.turboism.sdk.cubism.model.Parts.class,
-            Optional.of("5.2.04")
-        );
-        final dev.turboism.sdk.cubism.model.Part wrappedUnlisted = onUnlistedHost.all().get(0);
+        final dev.turboism.sdk.cubism.model.Parts onUnlistedHost =
+                proxy(parts, dev.turboism.sdk.cubism.model.Parts.class, Optional.of("5.2.04"));
+        final dev.turboism.sdk.cubism.model.Part wrappedUnlisted =
+                onUnlistedHost.all().get(0);
         assertThrows(CubismEditorApiUnavailableException.class, wrappedUnlisted::id);
         assertEquals(1, idCalls.get());
     }
@@ -350,20 +336,16 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void discardedModelWrappersAndDelegatesCanBeCollectedWhileRootRemainsLive() throws Exception {
         final List<WeakReference<?>> references = new ArrayList<>();
-        final CubismEditorApiAvailabilityInterceptor interceptor =
-            new CubismEditorApiAvailabilityInterceptor(
-                () -> Optional.of("5.3.02"), () -> java.util.Set.of("cubism.editor-model.read")
-            );
+        final CubismEditorApiAvailabilityInterceptor interceptor = new CubismEditorApiAvailabilityInterceptor(
+                () -> Optional.of("5.3.02"), () -> java.util.Set.of("cubism.editor-model.read"));
         final dev.turboism.sdk.cubism.model.CubismModelAccess access = () -> {
-            final dev.turboism.sdk.cubism.model.CubismModel model = recordingDelegate(
-                dev.turboism.sdk.cubism.model.CubismModel.class, new AtomicInteger()
-            );
+            final dev.turboism.sdk.cubism.model.CubismModel model =
+                    recordingDelegate(dev.turboism.sdk.cubism.model.CubismModel.class, new AtomicInteger());
             references.add(new WeakReference<>(model));
             return model;
         };
-        final dev.turboism.sdk.cubism.model.CubismModelAccess root = interceptor.wrapForTesting(
-            access, dev.turboism.sdk.cubism.model.CubismModelAccess.class
-        );
+        final dev.turboism.sdk.cubism.model.CubismModelAccess root =
+                interceptor.wrapForTesting(access, dev.turboism.sdk.cubism.model.CubismModelAccess.class);
         for (int index = 0; index < 64; index++) {
             references.add(new WeakReference<>(root.active()));
         }
@@ -380,11 +362,10 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void discardedProxyCanBeCollectedEvenWhenDelegateRemainsLive() throws Exception {
         final CubismEditorApiAvailabilityInterceptor interceptor =
-            new CubismEditorApiAvailabilityInterceptor(() -> Optional.of("5.3.02"));
+                new CubismEditorApiAvailabilityInterceptor(() -> Optional.of("5.3.02"));
         final Example delegate = new ExampleImpl(new AtomicInteger());
-        final WeakReference<Example> discarded = new WeakReference<>(
-            interceptor.wrapForTesting(delegate, Example.class)
-        );
+        final WeakReference<Example> discarded =
+                new WeakReference<>(interceptor.wrapForTesting(delegate, Example.class));
         try {
             assertCollected(List.of(discarded));
             final Example recreated = interceptor.wrapForTesting(delegate, Example.class);
@@ -400,12 +381,15 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void liveProxiesKeepIdentityWithoutCallingDelegateEqualityAndStillCheckVersions() {
         final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
         final CubismEditorApiAvailabilityInterceptor interceptor =
-            new CubismEditorApiAvailabilityInterceptor(version::get);
+                new CubismEditorApiAvailabilityInterceptor(version::get);
         final Example delegate = new ExampleImpl(new AtomicInteger()) {
-            @Override public boolean equals(final Object other) {
+            @Override
+            public boolean equals(final Object other) {
                 throw new AssertionError("cache must use identity, not delegate equality");
             }
-            @Override public int hashCode() {
+
+            @Override
+            public int hashCode() {
                 throw new AssertionError("cache must not call delegate hashCode");
             }
         };
@@ -421,31 +405,31 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     private static void assertCollected(final List<WeakReference<?>> references) throws Exception {
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-        while (references.stream().anyMatch(reference -> !reference.refersTo(null))
-            && System.nanoTime() < deadline) {
+        while (references.stream().anyMatch(reference -> !reference.refersTo(null)) && System.nanoTime() < deadline) {
             System.gc();
             Thread.sleep(10);
         }
-        assertTrue(references.stream().allMatch(reference -> reference.refersTo(null)),
-            "the live interceptor must not retain discarded proxies or delegates");
+        assertTrue(
+                references.stream().allMatch(reference -> reference.refersTo(null)),
+                "the live interceptor must not retain discarded proxies or delegates");
     }
 
     private static <T> T recordingDelegate(final Class<T> type, final AtomicInteger calls) {
-        return type.cast(Proxy.newProxyInstance(
-            type.getClassLoader(),
-            new Class<?>[] {type},
-            (proxy, method, arguments) -> {
-                calls.incrementAndGet();
-                return null;
-            }
-        ));
+        return type.cast(
+                Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, arguments) -> {
+                    calls.incrementAndGet();
+                    return null;
+                }));
     }
 
     @Test
     void unwrapsOwnedProxyArgumentsBeforeDelegateInvocation() {
         final AtomicReference<Example> received = new AtomicReference<>();
         final ExampleImpl delegate = new ExampleImpl(new AtomicInteger()) {
-            @Override public void accept(final Example example) { received.set(example); }
+            @Override
+            public void accept(final Example example) {
+                received.set(example);
+            }
         };
         final Example proxy = proxy(delegate, Optional.of("5.3.02"));
         final Example nested = proxy.optional().orElseThrow();
@@ -459,27 +443,25 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void compatibilityBoundHostKeepsItsDeclaredVersionRestrictions() {
         final AtomicInteger calls = new AtomicInteger();
-        final Example compat = compatProxy(
-            new ExampleImpl(calls), Optional.of("5.3.99"), Optional.of("5.3.02")
-        );
+        final Example compat = compatProxy(new ExampleImpl(calls), Optional.of("5.3.99"), Optional.of("5.3.02"));
 
         assertThrows(CubismEditorApiUnavailableException.class, compat::only5302);
         assertEquals(0, calls.get());
 
         // Binding an older contract cannot satisfy an exact version list.
         final Only5303 otherGeneration = new CubismEditorApiAvailabilityInterceptor(
-            () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02")
-        ).wrapForTesting((Only5303) () -> { }, Only5303.class);
+                        () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02"))
+                .wrapForTesting((Only5303) () -> {}, Only5303.class);
         assertThrows(CubismEditorApiUnavailableException.class, otherGeneration::call);
         final ExcludedExample excluded = new CubismEditorApiAvailabilityInterceptor(
-            () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02")
-        ).wrapForTesting(new ExcludedExampleImpl(), ExcludedExample.class);
+                        () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02"))
+                .wrapForTesting(new ExcludedExampleImpl(), ExcludedExample.class);
         assertDoesNotThrow(excluded::call);
 
         // Range boundaries also use the host version, not the source record.
         final BoundedBelow boundedAbove = new CubismEditorApiAvailabilityInterceptor(
-            () -> Optional.of("5.2.03"), java.util.Set::of, () -> Optional.of("5.3.02")
-        ).wrapForTesting((BoundedBelow) () -> { }, BoundedBelow.class);
+                        () -> Optional.of("5.2.03"), java.util.Set::of, () -> Optional.of("5.3.02"))
+                .wrapForTesting((BoundedBelow) () -> {}, BoundedBelow.class);
         assertDoesNotThrow(boundedAbove::call);
     }
 
@@ -487,100 +469,71 @@ class CubismEditorApiAvailabilityInterceptorTest {
     void compatibilityHostWithoutCapabilityEvidenceFailsAnnotatedSurface() {
         // A mapped surface whose backing capability was dropped must fail
         // closed even though the bound generation satisfies the annotation.
-        final dev.turboism.sdk.cubism.history.CubismHistory history =
-            new CubismEditorApiAvailabilityInterceptor(
-                () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02")
-            ).wrapForTesting(
-                dev.turboism.sdk.cubism.history.CubismHistory.unavailable(),
-                dev.turboism.sdk.cubism.history.CubismHistory.class
-            );
+        final dev.turboism.sdk.cubism.history.CubismHistory history = new CubismEditorApiAvailabilityInterceptor(
+                        () -> Optional.of("5.3.99"), java.util.Set::of, () -> Optional.of("5.3.02"))
+                .wrapForTesting(
+                        dev.turboism.sdk.cubism.history.CubismHistory.unavailable(),
+                        dev.turboism.sdk.cubism.history.CubismHistory.class);
         assertThrows(CubismEditorApiUnavailableException.class, history::snapshot);
     }
 
     private static Example compatProxy(
-        final Example delegate,
-        final Optional<String> declared,
-        final Optional<String> generation
-    ) {
-        return new CubismEditorApiAvailabilityInterceptor(
-            () -> declared, java.util.Set::of, () -> generation
-        ).wrapForTesting(delegate, Example.class);
+            final Example delegate, final Optional<String> declared, final Optional<String> generation) {
+        return new CubismEditorApiAvailabilityInterceptor(() -> declared, java.util.Set::of, () -> generation)
+                .wrapForTesting(delegate, Example.class);
     }
 
     @Test
     void rangesEvaluateTheDeclaredVersionNumerically() {
-        final RangeExample supported = proxy(
-            new RangeExampleImpl(), RangeExample.class, Optional.of("5.3.02")
-        );
+        final RangeExample supported = proxy(new RangeExampleImpl(), RangeExample.class, Optional.of("5.3.02"));
         supported.ranged();
 
         // An unreviewed declared version inside the inclusive range is
         // permitted by the annotation; capability evidence is a separate gate.
-        final RangeExample inRange = proxy(
-            new RangeExampleImpl(), RangeExample.class, Optional.of("5.2.04")
-        );
+        final RangeExample inRange = proxy(new RangeExampleImpl(), RangeExample.class, Optional.of("5.2.04"));
         assertDoesNotThrow(inRange::ranged);
 
-        final RangeExample aboveBound = proxy(
-            new RangeExampleImpl(), RangeExample.class, Optional.of("5.3.99")
-        );
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            aboveBound::ranged
-        );
+        final RangeExample aboveBound = proxy(new RangeExampleImpl(), RangeExample.class, Optional.of("5.3.99"));
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, aboveBound::ranged);
         assertEquals(List.of("5.2.03", "5.3.02"), failure.supportedVersions());
-        final RangeExample belowFloor = proxy(
-            new RangeExampleImpl(), RangeExample.class, Optional.of("5.1.00")
-        );
+        final RangeExample belowFloor = proxy(new RangeExampleImpl(), RangeExample.class, Optional.of("5.1.00"));
         assertThrows(CubismEditorApiUnavailableException.class, belowFloor::ranged);
     }
 
     @Test
     void appliesExclusionsAfterPositiveSelection() {
-        final ExcludedExample proxy = proxy(
-            new ExcludedExampleImpl(), ExcludedExample.class, Optional.of("5.3.02")
-        );
+        final ExcludedExample proxy = proxy(new ExcludedExampleImpl(), ExcludedExample.class, Optional.of("5.3.02"));
 
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            proxy::call
-        );
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, proxy::call);
         assertEquals(List.of("5.2.03", "5.3.03"), failure.supportedVersions());
     }
 
     @Test
     void intersectsInheritedTypeAndMethodDeclarations() {
-        final ChildExample on5203 = proxy(
-            new ChildExampleImpl(), ChildExample.class, Optional.of("5.2.03")
-        );
+        final ChildExample on5203 = proxy(new ChildExampleImpl(), ChildExample.class, Optional.of("5.2.03"));
         assertThrows(CubismEditorApiUnavailableException.class, on5203::shared);
         assertThrows(CubismEditorApiUnavailableException.class, on5203::narrow);
 
-        final ChildExample on5302 = proxy(
-            new ChildExampleImpl(), ChildExample.class, Optional.of("5.3.02")
-        );
+        final ChildExample on5302 = proxy(new ChildExampleImpl(), ChildExample.class, Optional.of("5.3.02"));
         on5302.shared();
         on5302.narrow();
     }
 
     @Test
     void exclusionOnlyDeclarationMayProhibitEveryReviewedVersion() {
-        final ProhibitedExample prohibited = proxy(
-            new ProhibitedExampleImpl(), ProhibitedExample.class, Optional.of("5.3.02")
-        );
+        final ProhibitedExample prohibited =
+                proxy(new ProhibitedExampleImpl(), ProhibitedExample.class, Optional.of("5.3.02"));
 
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            prohibited::call
-        );
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, prohibited::call);
         assertEquals(List.of(), failure.supportedVersions());
     }
 
     @Test
     void rejectsInvalidMixedAndReverseRangeDeclarations() {
-        final InvalidExample invalid = proxy(
-            new InvalidExampleImpl(), InvalidExample.class, Optional.of("5.3.02")
-        );
+        final InvalidExample invalid = proxy(new InvalidExampleImpl(), InvalidExample.class, Optional.of("5.3.02"));
         assertThrows(IllegalStateException.class, invalid::mixed);
         assertThrows(IllegalStateException.class, invalid::reverse);
     }
@@ -589,13 +542,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
         return proxy(delegate, Example.class, version);
     }
 
-    private static <T> T proxy(
-        final T delegate,
-        final Class<T> type,
-        final Optional<String> version
-    ) {
-        return new CubismEditorApiAvailabilityInterceptor(() -> version)
-            .wrapForTesting(delegate, type);
+    private static <T> T proxy(final T delegate, final Class<T> type, final Optional<String> version) {
+        return new CubismEditorApiAvailabilityInterceptor(() -> version).wrapForTesting(delegate, type);
     }
 
     @CubismEditor({"5.2.03", "5.3.02"})
@@ -621,19 +569,33 @@ class CubismEditorApiAvailabilityInterceptorTest {
             this.calls = calls;
         }
 
-        @Override public void shared() { calls.incrementAndGet(); }
+        @Override
+        public void shared() {
+            calls.incrementAndGet();
+        }
 
-        @Override public void only5302() { calls.incrementAndGet(); }
+        @Override
+        public void only5302() {
+            calls.incrementAndGet();
+        }
 
-        @Override public Optional<Example> optional() { return Optional.of(this); }
+        @Override
+        public Optional<Example> optional() {
+            return Optional.of(this);
+        }
 
-        @Override public List<Example> list() { return List.of(this); }
+        @Override
+        public List<Example> list() {
+            return List.of(this);
+        }
 
-        @Override public CompletionStage<Example> stage() {
+        @Override
+        public CompletionStage<Example> stage() {
             return CompletableFuture.completedFuture(this);
         }
 
-        @Override public void accept(final Example example) { }
+        @Override
+        public void accept(final Example example) {}
     }
 
     @CubismEditor({"5.3.02", "5.3.03"})
@@ -657,7 +619,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class RangeExampleImpl implements RangeExample {
-        @Override public void ranged() { }
+        @Override
+        public void ranged() {}
     }
 
     @CubismEditor(exclude = "5.3.02")
@@ -666,7 +629,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class ExcludedExampleImpl implements ExcludedExample {
-        @Override public void call() { }
+        @Override
+        public void call() {}
     }
 
     @CubismEditor({"5.2.03", "5.3.02"})
@@ -677,15 +641,19 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @CubismEditor(from = "5.3.02")
     interface ChildExample extends ParentExample {
         @CubismEditor("5.3.02")
-        @Override void shared();
+        @Override
+        void shared();
 
         @CubismEditor("5.3.02")
         void narrow();
     }
 
     static final class ChildExampleImpl implements ChildExample {
-        @Override public void shared() { }
-        @Override public void narrow() { }
+        @Override
+        public void shared() {}
+
+        @Override
+        public void narrow() {}
     }
 
     @CubismEditor(exclude = {"5.2.03", "5.3.02", "5.3.03"})
@@ -694,7 +662,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class ProhibitedExampleImpl implements ProhibitedExample {
-        @Override public void call() { }
+        @Override
+        public void call() {}
     }
 
     // ---- Declared-version evaluation against arbitrary (unreviewed) hosts ----
@@ -702,60 +671,61 @@ class CubismEditorApiAvailabilityInterceptorTest {
     @Test
     void boundGenerationCannotOverrideDeclaredVersionRestrictions() {
         final var interceptor = new CubismEditorApiAvailabilityInterceptor(
-            () -> Optional.of("5.9.99"), java.util.Set::of, () -> Optional.of("5.3.02")
-        );
-        final FutureBoundService bounded = interceptor.wrapForTesting(
-            new FutureBoundServiceImpl(), FutureBoundService.class
-        );
+                () -> Optional.of("5.9.99"), java.util.Set::of, () -> Optional.of("5.3.02"));
+        final FutureBoundService bounded =
+                interceptor.wrapForTesting(new FutureBoundServiceImpl(), FutureBoundService.class);
         assertThrows(CubismEditorApiUnavailableException.class, bounded::excluded);
         assertThrows(CubismEditorApiUnavailableException.class, bounded::bounded);
-        final ExactOnlyService exact = interceptor.wrapForTesting(
-            new ExactOnlyServiceImpl(), ExactOnlyService.class
-        );
+        final ExactOnlyService exact = interceptor.wrapForTesting(new ExactOnlyServiceImpl(), ExactOnlyService.class);
         assertThrows(CubismEditorApiUnavailableException.class, exact::exact);
     }
 
     @Test
     void boundGenerationCannotSubstituteForAnAbsentHost() {
         final var interceptor = new CubismEditorApiAvailabilityInterceptor(
-            Optional::empty, java.util.Set::of, () -> Optional.of("5.3.02")
-        );
-        final ExactOnlyService exact = interceptor.wrapForTesting(
-            new ExactOnlyServiceImpl(), ExactOnlyService.class
-        );
+                Optional::empty, java.util.Set::of, () -> Optional.of("5.3.02"));
+        final ExactOnlyService exact = interceptor.wrapForTesting(new ExactOnlyServiceImpl(), ExactOnlyService.class);
         assertThrows(CubismEditorApiUnavailableException.class, exact::exact);
     }
 
     @Test
     void annotationPermittedHostStillRequiresCapabilityEvidence() {
-        final AtomicReference<Optional<String>> version =
-            new AtomicReference<>(Optional.of("5.3.99"));
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.99"));
         final AtomicReference<java.util.Set<String>> capabilities =
-            new AtomicReference<>(java.util.Set.of("cubism.editor-model.read"));
-        final dev.turboism.sdk.cubism.CubismFacade delegate =
-            new dev.turboism.sdk.cubism.CubismFacade() {
-                @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
-                    return null;
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
-                    return Optional.empty();
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
-                    return Optional.empty();
-                }
-                @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
-                    return Optional.empty();
-                }
-                @Override public boolean isHostPresent() { return true; }
-                @Override public dev.turboism.sdk.cubism.history.CubismHistory history() {
-                    return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
-                }
-                @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    return null;
-                }
-            };
-        final dev.turboism.sdk.cubism.CubismFacade proxy =
-            new CubismEditorApiAvailabilityInterceptor(version::get, capabilities::get)
+                new AtomicReference<>(java.util.Set.of("cubism.editor-model.read"));
+        final dev.turboism.sdk.cubism.CubismFacade delegate = new dev.turboism.sdk.cubism.CubismFacade() {
+            @Override
+            public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
+                return null;
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+                return Optional.empty();
+            }
+
+            @Override
+            public boolean isHostPresent() {
+                return true;
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.history.CubismHistory history() {
+                return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
+            }
+        };
+        final dev.turboism.sdk.cubism.CubismFacade proxy = new CubismEditorApiAvailabilityInterceptor(
+                        version::get, capabilities::get)
                 .wrapForTesting(delegate, dev.turboism.sdk.cubism.CubismFacade.class);
         // Declared 5.3.99 is not named by the facade's exact reviewed list, so
         // the call fails even though capability evidence is present.
@@ -777,18 +747,14 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
     void unreviewedDeclaredVersionNeverSatisfiesAnExactValueList() {
-        final AtomicReference<Optional<String>> version =
-            new AtomicReference<>(Optional.of("5.3.99"));
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.99"));
         final ExactOnlyService proxy = new CubismEditorApiAvailabilityInterceptor(
-            version::get, () -> java.util.Set.of("test.capability")
-        ).wrapForTesting(
-            new ExactOnlyServiceImpl(), ExactOnlyService.class
-        );
+                        version::get, () -> java.util.Set.of("test.capability"))
+                .wrapForTesting(new ExactOnlyServiceImpl(), ExactOnlyService.class);
         // The compatibility-bound host was admitted under a 5.3.02 contract but
         // declared 5.3.99: an API narrowed to the exact reviewed list stays off.
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class, proxy::exact
-        );
+        final CubismEditorApiUnavailableException failure =
+                assertThrows(CubismEditorApiUnavailableException.class, proxy::exact);
         assertEquals(Optional.of("5.3.99"), failure.activeVersion());
         version.set(Optional.of("5.3.02"));
         proxy.exact();
@@ -796,14 +762,11 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
     void futureVersionHonorsExplicitExcludeAndUpperBound() {
-        final AtomicReference<Optional<String>> version =
-            new AtomicReference<>(Optional.of("5.9.99"));
-        final var interceptor = new CubismEditorApiAvailabilityInterceptor(
-            version::get, () -> java.util.Set.of("test.capability")
-        );
-        final FutureBoundService proxy = interceptor.wrapForTesting(
-            new FutureBoundServiceImpl(), FutureBoundService.class
-        );
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.9.99"));
+        final var interceptor =
+                new CubismEditorApiAvailabilityInterceptor(version::get, () -> java.util.Set.of("test.capability"));
+        final FutureBoundService proxy =
+                interceptor.wrapForTesting(new FutureBoundServiceImpl(), FutureBoundService.class);
         assertThrows(CubismEditorApiUnavailableException.class, proxy::excluded);
         assertThrows(CubismEditorApiUnavailableException.class, proxy::bounded);
         version.set(Optional.of("5.3.02"));
@@ -813,11 +776,9 @@ class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
     void inheritedDeclarationsIntersectAgainstTheRealDeclaredVersion() {
-        final AtomicReference<Optional<String>> version =
-            new AtomicReference<>(Optional.of("5.3.99"));
-        final ChildExample proxy = new CubismEditorApiAvailabilityInterceptor(
-            version::get, java.util.Set::of
-        ).wrapForTesting(new ChildExampleImpl(), ChildExample.class);
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.99"));
+        final ChildExample proxy = new CubismEditorApiAvailabilityInterceptor(version::get, java.util.Set::of)
+                .wrapForTesting(new ChildExampleImpl(), ChildExample.class);
         // Method narrowed to exact 5.3.02 stays off for a 5.3.99 host even
         // though the inherited type declarations would allow it.
         assertThrows(CubismEditorApiUnavailableException.class, proxy::shared);
@@ -833,7 +794,8 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class ExactOnlyServiceImpl implements ExactOnlyService {
-        @Override public void exact() { }
+        @Override
+        public void exact() {}
     }
 
     interface FutureBoundService {
@@ -845,8 +807,11 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class FutureBoundServiceImpl implements FutureBoundService {
-        @Override public void excluded() { }
-        @Override public void bounded() { }
+        @Override
+        public void excluded() {}
+
+        @Override
+        public void bounded() {}
     }
 
     interface InvalidExample {
@@ -858,7 +823,10 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     static final class InvalidExampleImpl implements InvalidExample {
-        @Override public void mixed() { }
-        @Override public void reverse() { }
+        @Override
+        public void mixed() {}
+
+        @Override
+        public void reverse() {}
     }
 }

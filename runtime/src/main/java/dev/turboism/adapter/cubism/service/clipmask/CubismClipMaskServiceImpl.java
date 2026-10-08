@@ -2,11 +2,10 @@ package dev.turboism.adapter.cubism.service.clipmask;
 
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
-import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
-import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Drawable;
-
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
+import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -27,11 +26,14 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
     private final CubismModelAccess modelAccess;
 
     public CubismClipMaskServiceImpl(
-        final CubismReadCapabilityService readService,
-        final CubismModelAccess modelAccess
-    ) {
+            final CubismReadCapabilityService readService, final CubismModelAccess modelAccess) {
         this.readService = Objects.requireNonNull(readService, "readService");
         this.modelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return readService.isAvailable() && modelAccess.isAvailable();
     }
 
     @Override
@@ -49,13 +51,8 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
             final String guid = snapshot.targetMeshId();
             final String id = meshIndex.resolveId(guid);
             final String displayName = meshIndex.resolveDisplayName(guid);
-            final ClipMaskRecord record = new ClipMaskRecord(
-                guid,
-                id,
-                displayName,
-                snapshot.inverted(),
-                snapshot.orderedMaskSourceIds()
-            );
+            final ClipMaskRecord record =
+                    new ClipMaskRecord(guid, id, displayName, snapshot.inverted(), snapshot.orderedMaskSourceIds());
             byGuid.put(guid, new InternalClipMaskRecord(guid, record));
         }
         final List<ClipMaskRecord> records = new ArrayList<>(byGuid.size());
@@ -73,12 +70,11 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
         for (String maskGuid : referencedMaskGuids) {
             if (!byGuid.containsKey(maskGuid)) {
                 records.add(new ClipMaskRecord(
-                    maskGuid,
-                    meshIndex.resolveId(maskGuid),
-                    meshIndex.resolveDisplayName(maskGuid),
-                    false,
-                    List.of()
-                ));
+                        maskGuid,
+                        meshIndex.resolveId(maskGuid),
+                        meshIndex.resolveDisplayName(maskGuid),
+                        false,
+                        List.of()));
             }
         }
         return records;
@@ -158,8 +154,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
     }
 
     /** Package-private dedup carrier: first-seen {@link ClipMaskRecord} per stable GUID. */
-    record InternalClipMaskRecord(String guid, ClipMaskRecord record) {
-    }
+    record InternalClipMaskRecord(String guid, ClipMaskRecord record) {}
 
     private static final class MeshIndex {
         private final Map<String, String> namesByGuid;
@@ -167,10 +162,7 @@ public final class CubismClipMaskServiceImpl implements CubismClipMaskService {
         private final Set<String> meshIds;
 
         MeshIndex(
-            final Map<String, String> namesByGuid,
-            final Map<String, String> idsByGuid,
-            final Set<String> meshIds
-        ) {
+                final Map<String, String> namesByGuid, final Map<String, String> idsByGuid, final Set<String> meshIds) {
             this.namesByGuid = namesByGuid;
             this.idsByGuid = idsByGuid;
             this.meshIds = meshIds;

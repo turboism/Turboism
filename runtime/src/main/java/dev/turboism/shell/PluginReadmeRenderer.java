@@ -12,19 +12,21 @@ final class PluginReadmeRenderer {
     private static final Pattern STRONG = Pattern.compile("\\*\\*([^*\\r\\n]+)\\*\\*");
     private static final Pattern EMPHASIS = Pattern.compile("(?<!\\*)\\*([^*\\r\\n]+)\\*(?!\\*)");
 
-    private PluginReadmeRenderer() { }
+    private PluginReadmeRenderer() {}
 
     static String render(final String markdown) {
-        final String normalized = markdown == null ? "" : markdown.replace("\r\n", "\n").replace('\r', '\n');
+        final String normalized =
+                markdown == null ? "" : markdown.replace("\r\n", "\n").replace('\r', '\n');
         final String source = withoutFrontMatter(normalized);
         final StringBuilder html = new StringBuilder("<html><head><meta charset=\"UTF-8\"><style>")
-            .append("body{font-family:sans-serif;margin:12px;color:#202124;background:#ffffff;}")
-            .append("h1{font-size:22px;margin:12px 0 8px;}h2{font-size:18px;margin:12px 0 6px;}")
-            .append("h3{font-size:15px;margin:10px 0 5px;}p{margin:6px 0;}li{margin:2px 0;}")
-            .append("pre{background:#f3f4f6;padding:8px;}code{font-family:monospace;background:#f3f4f6;}")
-            .append("table{border-collapse:collapse;margin:8px 0;}th,td{border:1px solid #d0d5dd;padding:4px 7px;text-align:left;}")
-            .append("th{background:#f3f4f6;}blockquote{color:#5f6368;margin-left:12px;}a{color:#155dfc;}")
-            .append("</style></head><body>");
+                .append("body{font-family:sans-serif;margin:12px;color:#202124;background:#ffffff;}")
+                .append("h1{font-size:22px;margin:12px 0 8px;}h2{font-size:18px;margin:12px 0 6px;}")
+                .append("h3{font-size:15px;margin:10px 0 5px;}p{margin:6px 0;}li{margin:2px 0;}")
+                .append("pre{background:#f3f4f6;padding:8px;}code{font-family:monospace;background:#f3f4f6;}")
+                .append(
+                        "table{border-collapse:collapse;margin:8px 0;}th,td{border:1px solid #d0d5dd;padding:4px 7px;text-align:left;}")
+                .append("th{background:#f3f4f6;}blockquote{color:#5f6368;margin-left:12px;}a{color:#155dfc;}")
+                .append("</style></head><body>");
         final List<String> paragraph = new ArrayList<>();
         final List<String> table = new ArrayList<>();
         boolean unordered = false;
@@ -39,8 +41,14 @@ final class PluginReadmeRenderer {
                     html.append("<pre><code>").append(escape(code.toString())).append("</code></pre>");
                     code.setLength(0);
                 } else {
-                    if (unordered) { html.append("</ul>"); unordered = false; }
-                    if (ordered) { html.append("</ol>"); ordered = false; }
+                    if (unordered) {
+                        html.append("</ul>");
+                        unordered = false;
+                    }
+                    if (ordered) {
+                        html.append("</ol>");
+                        ordered = false;
+                    }
                 }
                 fenced = !fenced;
                 continue;
@@ -54,14 +62,26 @@ final class PluginReadmeRenderer {
             if (trimmed.isEmpty()) {
                 flushParagraph(html, paragraph);
                 flushTable(html, table);
-                if (unordered) { html.append("</ul>"); unordered = false; }
-                if (ordered) { html.append("</ol>"); ordered = false; }
+                if (unordered) {
+                    html.append("</ul>");
+                    unordered = false;
+                }
+                if (ordered) {
+                    html.append("</ol>");
+                    ordered = false;
+                }
                 continue;
             }
             if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
                 flushParagraph(html, paragraph);
-                if (unordered) { html.append("</ul>"); unordered = false; }
-                if (ordered) { html.append("</ol>"); ordered = false; }
+                if (unordered) {
+                    html.append("</ul>");
+                    unordered = false;
+                }
+                if (ordered) {
+                    html.append("</ol>");
+                    ordered = false;
+                }
                 table.add(trimmed);
                 continue;
             }
@@ -69,11 +89,21 @@ final class PluginReadmeRenderer {
             final int heading = headingLevel(trimmed);
             if (heading > 0) {
                 flushParagraph(html, paragraph);
-                if (unordered) { html.append("</ul>"); unordered = false; }
-                if (ordered) { html.append("</ol>"); ordered = false; }
-                html.append("<h").append(heading).append('>')
-                    .append(inline(trimmed.substring(heading + 1)))
-                    .append("</h").append(heading).append('>');
+                if (unordered) {
+                    html.append("</ul>");
+                    unordered = false;
+                }
+                if (ordered) {
+                    html.append("</ol>");
+                    ordered = false;
+                }
+                html.append("<h")
+                        .append(heading)
+                        .append('>')
+                        .append(inline(trimmed.substring(heading + 1)))
+                        .append("</h")
+                        .append(heading)
+                        .append('>');
                 continue;
             }
             if (trimmed.matches("[-*_](?:\\s*[-*_]){2,}")) {
@@ -83,16 +113,28 @@ final class PluginReadmeRenderer {
             }
             if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("+ ")) {
                 flushParagraph(html, paragraph);
-                if (ordered) { html.append("</ol>"); ordered = false; }
-                if (!unordered) { html.append("<ul>"); unordered = true; }
+                if (ordered) {
+                    html.append("</ol>");
+                    ordered = false;
+                }
+                if (!unordered) {
+                    html.append("<ul>");
+                    unordered = true;
+                }
                 html.append("<li>").append(inline(trimmed.substring(2))).append("</li>");
                 continue;
             }
             final Matcher numbered = Pattern.compile("^\\d+[.)]\\s+(.+)$").matcher(trimmed);
             if (numbered.matches()) {
                 flushParagraph(html, paragraph);
-                if (unordered) { html.append("</ul>"); unordered = false; }
-                if (!ordered) { html.append("<ol>"); ordered = true; }
+                if (unordered) {
+                    html.append("</ul>");
+                    unordered = false;
+                }
+                if (!ordered) {
+                    html.append("<ol>");
+                    ordered = true;
+                }
                 html.append("<li>").append(inline(numbered.group(1))).append("</li>");
                 continue;
             }
@@ -146,9 +188,13 @@ final class PluginReadmeRenderer {
     private static void appendTableRow(final StringBuilder html, final String line, final String cellTag) {
         html.append("<tr>");
         for (String cell : tableCells(line)) {
-            html.append('<').append(cellTag).append('>')
-                .append(inline(cell))
-                .append("</").append(cellTag).append('>');
+            html.append('<')
+                    .append(cellTag)
+                    .append('>')
+                    .append(inline(cell))
+                    .append("</")
+                    .append(cellTag)
+                    .append('>');
         }
         html.append("</tr>");
     }
@@ -156,8 +202,8 @@ final class PluginReadmeRenderer {
     private static List<String> tableCells(final String line) {
         final String content = line.substring(1, line.length() - 1);
         return java.util.Arrays.stream(content.split("\\|", -1))
-            .map(String::trim)
-            .toList();
+                .map(String::trim)
+                .toList();
     }
 
     private static int headingLevel(final String line) {
@@ -172,8 +218,11 @@ final class PluginReadmeRenderer {
         int offset = 0;
         while (links.find()) {
             result.append(formatInlineText(value.substring(offset, links.start())));
-            result.append("<a href=\"").append(escapeAttribute(links.group(2))).append("\">")
-                .append(formatInlineText(links.group(1))).append("</a>");
+            result.append("<a href=\"")
+                    .append(escapeAttribute(links.group(2)))
+                    .append("\">")
+                    .append(formatInlineText(links.group(1)))
+                    .append("</a>");
             offset = links.end();
         }
         result.append(formatInlineText(value.substring(offset)));
@@ -188,10 +237,7 @@ final class PluginReadmeRenderer {
     }
 
     private static String replace(
-        final Pattern pattern,
-        final String input,
-        final java.util.function.Function<Matcher, String> replacement
-    ) {
+            final Pattern pattern, final String input, final java.util.function.Function<Matcher, String> replacement) {
         final Matcher matcher = pattern.matcher(input);
         final StringBuffer output = new StringBuffer();
         while (matcher.find()) matcher.appendReplacement(output, Matcher.quoteReplacement(replacement.apply(matcher)));
@@ -204,7 +250,10 @@ final class PluginReadmeRenderer {
     }
 
     private static String escape(final String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            .replace("\"", "&quot;").replace("'", "&#39;");
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 }

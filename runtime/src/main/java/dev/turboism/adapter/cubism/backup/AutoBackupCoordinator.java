@@ -1,10 +1,10 @@
 package dev.turboism.adapter.cubism.backup;
 
-import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.core.event.RuntimeEventBroker;
-import dev.turboism.task.PluginCompletionFuture;
-import dev.turboism.task.RuntimePluginTaskScheduler;
-import dev.turboism.sdk.cubism.backup.BackupArtifact;
+import dev.turboism.core.runtime.work.FatalErrors;
+import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.cubism.ProjectContentSnapshot;
+import dev.turboism.sdk.cubism.backup.BackupArtifactHandle;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.BackupDocumentStatus;
 import dev.turboism.sdk.cubism.backup.BackupRunResult;
@@ -12,18 +12,21 @@ import dev.turboism.sdk.cubism.backup.BackupSyncTarget;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
-
+import dev.turboism.task.PluginCompletionFuture;
+import dev.turboism.task.RuntimePluginTaskScheduler;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
@@ -65,17 +68,18 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     /** Default backup-completion polling timeout (host produces on a background thread). */
     public static final long DEFAULT_POLL_TIMEOUT_MILLIS = 60_000L;
+
     static final long POLL_INTERVAL_MILLIS = 500L;
 
     /** Backup artifact name pattern: {@code <name>_backup<yyyy_MMdd_HHmm>.cmo3}. */
     static final String BACKUP_FILE_MARKER = "_backup";
-
 
     /** Per-document save-triggered backup debounce window: saves within this window coalesce. */
     static final long SAVE_DEBOUNCE_WINDOW_MILLIS = 2_000L;
 
     private final AutoBackupAdapter adapter;
     private final Consumer<BackupCompletedEvent> eventSink;
+    private final PermissionChecker permissions;
     private final Clock clock;
     private final long pollTimeoutMillis;
     private final long pollIntervalMillis;
@@ -92,98 +96,123 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     private final ConcurrentHashMap<String, Pending> pendingSaves = new ConcurrentHashMap<>();
 
     public AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final RuntimeEventBroker eventBroker,
-        final Clock clock,
-        final long pollTimeoutMillis
-    ) {
-        this(adapter, eventBroker, clock, pollTimeoutMillis, reason -> { });
+            final AutoBackupAdapter adapter,
+            final RuntimeEventBroker eventBroker,
+            final Clock clock,
+            final long pollTimeoutMillis) {
+        this(adapter, eventBroker, clock, pollTimeoutMillis, reason -> {});
     }
 
     public AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final RuntimeEventBroker eventBroker,
-        final Clock clock,
-        final long pollTimeoutMillis,
-        final Consumer<String> diagnostics
-    ) {
+            final AutoBackupAdapter adapter,
+            final RuntimeEventBroker eventBroker,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics) {
         this(
-            adapter,
-            Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
-            clock,
-            pollTimeoutMillis,
-            diagnostics,
-            null
-        );
+                adapter,
+                Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
+                clock,
+                pollTimeoutMillis,
+                diagnostics,
+                null);
     }
 
     public AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final RuntimeEventBroker eventBroker,
-        final Clock clock,
-        final long pollTimeoutMillis,
-        final Consumer<String> diagnostics,
-        final RuntimePluginTaskScheduler pluginTasks
-    ) {
+            final AutoBackupAdapter adapter,
+            final RuntimeEventBroker eventBroker,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions) {
         this(
-            adapter,
-            Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
-            clock,
-            pollTimeoutMillis,
-            diagnostics,
-            pluginTasks
-        );
+                adapter,
+                Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
+                clock,
+                pollTimeoutMillis,
+                diagnostics,
+                pluginTasks,
+                permissions);
     }
 
     AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final Consumer<BackupCompletedEvent> eventSink,
-        final Clock clock,
-        final long pollTimeoutMillis
-    ) {
-        this(adapter, eventSink, clock, pollTimeoutMillis, reason -> { }, null);
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis) {
+        this(adapter, eventSink, clock, pollTimeoutMillis, reason -> {}, null);
     }
 
     AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final Consumer<BackupCompletedEvent> eventSink,
-        final Clock clock,
-        final long pollTimeoutMillis,
-        final Consumer<String> diagnostics
-    ) {
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics) {
         this(adapter, eventSink, clock, pollTimeoutMillis, diagnostics, null);
     }
 
     AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final Consumer<BackupCompletedEvent> eventSink,
-        final Clock clock,
-        final long pollTimeoutMillis,
-        final Consumer<String> diagnostics,
-        final RuntimePluginTaskScheduler pluginTasks
-    ) {
-        this(
-            adapter,
-            eventSink,
-            clock,
-            pollTimeoutMillis,
-            diagnostics,
-            pluginTasks,
-            Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host"))
-        );
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks) {
+        this(adapter, eventSink, clock, pollTimeoutMillis, diagnostics, pluginTasks, PermissionChecker.allowAll());
     }
 
     AutoBackupCoordinator(
-        final AutoBackupAdapter adapter,
-        final Consumer<BackupCompletedEvent> eventSink,
-        final Clock clock,
-        final long pollTimeoutMillis,
-        final Consumer<String> diagnostics,
-        final RuntimePluginTaskScheduler pluginTasks,
-        final ExecutorService hostThread
-    ) {
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions) {
+        this(
+                adapter,
+                eventSink,
+                clock,
+                pollTimeoutMillis,
+                diagnostics,
+                pluginTasks,
+                permissions,
+                Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host")));
+    }
+
+    AutoBackupCoordinator(
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final ExecutorService hostThread) {
+        this(
+                adapter,
+                eventSink,
+                clock,
+                pollTimeoutMillis,
+                diagnostics,
+                pluginTasks,
+                PermissionChecker.allowAll(),
+                hostThread);
+    }
+
+    AutoBackupCoordinator(
+            final AutoBackupAdapter adapter,
+            final Consumer<BackupCompletedEvent> eventSink,
+            final Clock clock,
+            final long pollTimeoutMillis,
+            final Consumer<String> diagnostics,
+            final RuntimePluginTaskScheduler pluginTasks,
+            final PermissionChecker permissions,
+            final ExecutorService hostThread) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.eventSink = Objects.requireNonNull(eventSink, "eventSink");
+        this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.clock = Objects.requireNonNull(clock, "clock");
         if (pollTimeoutMillis <= 0) {
             throw new IllegalArgumentException("pollTimeoutMillis must be positive");
@@ -205,9 +234,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     public EditorAutoBackupSettings updateSettings(final EditorAutoBackupSettings settings) {
         Objects.requireNonNull(settings, "settings");
         requireOpen();
-        final AutoBackupAdapter.Snapshot target = new AutoBackupAdapter.Snapshot(
-            settings.enabled(), settings.intervalMinutes(), settings.maxMB(), null
-        );
+        final AutoBackupAdapter.Snapshot target =
+                new AutoBackupAdapter.Snapshot(settings.enabled(), settings.intervalMinutes(), settings.maxMB(), null);
         final AutoBackupAdapter.Snapshot original = adapter.settings();
         if (matches(original, target)) {
             // No-op short-circuit: identical values produce no setter side effects.
@@ -226,9 +254,53 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     @Override
+    public boolean isAvailable() {
+        final boolean isActive;
+        synchronized (lifecycleLock) {
+            isActive = active;
+        }
+        if (!isActive) {
+            return false;
+        }
+        // The adapter probe runs outside lifecycleLock: an outermost
+        // DynamicRuntimeHostAdapters call may run host-session teardown on
+        // this thread, and that callback must never execute while the
+        // lifecycle lock is held. A throwing probe is an unavailable host,
+        // never an escaping failure — isAvailable is a total contract.
+        try {
+            return adapter.available();
+        } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    @Override
     public List<EditorAutoBackupStatus> statuses() {
         requireOpen();
         return adapter.documents().stream().map(AutoBackupCoordinator::toStatus).toList();
+    }
+
+    @Override
+    public List<BackupArtifactHandle> artifacts() {
+        permissions.check(PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE, "cubism.backup.artifacts");
+        requireOpen();
+        final File backupDir = adapter.settings().backupDir();
+        if (backupDir == null) {
+            return List.of();
+        }
+        final Path directory = backupDir.toPath();
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return List.of();
+        }
+        try (var stream = Files.list(directory)) {
+            return stream.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .map(path -> RuntimeBackupArtifactHandle.issue(path, directory, false, permissions))
+                    .collect(java.util.stream.Collectors.toUnmodifiableList());
+        } catch (IOException failure) {
+            throw new IllegalStateException("auto-backup artifact listing failed", failure);
+        }
     }
 
     @Override
@@ -244,20 +316,16 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         synchronized (lifecycleLock) {
             requireOpenLocked();
             // Lazy expiry keeps the debounce map bounded to one entry per live document.
-            pendingSaves.entrySet().removeIf(
-                entry -> now - entry.getValue().scheduledAtMillis >= SAVE_DEBOUNCE_WINDOW_MILLIS
-            );
+            pendingSaves
+                    .entrySet()
+                    .removeIf(entry -> now - entry.getValue().scheduledAtMillis >= SAVE_DEBOUNCE_WINDOW_MILLIS);
             final Pending existing = pendingSaves.get(key);
-            if (existing != null
-                && now - existing.scheduledAtMillis < SAVE_DEBOUNCE_WINDOW_MILLIS) {
+            if (existing != null && now - existing.scheduledAtMillis < SAVE_DEBOUNCE_WINDOW_MILLIS) {
                 // Idempotent debounce: a save within the per-document window is
                 // coalesced into the in-flight backup and observes its outcome.
                 return existing.operation.stage();
             }
-            final Operation operation = operation(
-                "backupAfterSave",
-                () -> runBackupAfterSave(saved)
-            );
+            final Operation operation = operation("backupAfterSave", () -> runBackupAfterSave(saved));
             final Pending pending = new Pending(now, operation);
             pendingSaves.put(key, pending);
             if (!executeLocked(operation)) {
@@ -268,9 +336,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     private CompletionStage<BackupRunResult> submit(
-        final String operationName,
-        final java.util.function.Supplier<BackupRunResult> action
-    ) {
+            final String operationName, final java.util.function.Supplier<BackupRunResult> action) {
         synchronized (lifecycleLock) {
             requireOpenLocked();
             return submitLocked(operationName, action).stage();
@@ -278,18 +344,13 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     private Operation submitLocked(
-        final String operationName,
-        final java.util.function.Supplier<BackupRunResult> action
-    ) {
+            final String operationName, final java.util.function.Supplier<BackupRunResult> action) {
         final Operation operation = operation(operationName, action);
         executeLocked(operation);
         return operation;
     }
 
-    private Operation operation(
-        final String operationName,
-        final java.util.function.Supplier<BackupRunResult> action
-    ) {
+    private Operation operation(final String operationName, final java.util.function.Supplier<BackupRunResult> action) {
         return new Operation(operationName, action, completion());
     }
 
@@ -309,11 +370,9 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         if (pluginTasks == null) {
             return new PluginCompletionFuture<>(Runnable::run);
         }
-        return new PluginCompletionFuture<>(
-            pluginTasks::dispatchContinuation,
-            this::acceptsContinuations
-        );
+        return new PluginCompletionFuture<>(pluginTasks::dispatchContinuation, this::acceptsContinuations);
     }
+
     @Override
     public Registration registerSyncTarget(final BackupSyncTarget target) {
         Objects.requireNonNull(target, "target");
@@ -341,21 +400,15 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         hostThread.shutdownNow();
         try {
             if (!hostThread.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                throw new IllegalStateException(
-                    "Auto-backup host operations did not quiesce before scope close"
-                );
+                throw new IllegalStateException("Auto-backup host operations did not quiesce before scope close");
             }
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(
-                "Interrupted while waiting for auto-backup host operation quiescence",
-                exception
-            );
+                    "Interrupted while waiting for auto-backup host operation quiescence", exception);
         }
         if (pluginTasks != null) {
-            pluginTasks.awaitContinuationQuiescence(
-                java.time.Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)
-            );
+            pluginTasks.awaitContinuationQuiescence(java.time.Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS));
         }
     }
 
@@ -366,21 +419,24 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         adapter.triggerBackupNow();
 
         final List<File> newFiles = pollForArtifacts(before, beforeDocuments, startedAt);
+        final Path artifactRoot =
+                before.backupDir() == null ? null : before.backupDir().toPath();
+        final List<BackupArtifactHandle> handles =
+                newFiles.stream().map(file -> handle(file, artifactRoot, false)).toList();
         final List<EditorAutoBackupStatus> statuses = adapter.documents().stream()
-            .map(AutoBackupCoordinator::toStatus)
-            .toList();
-        final BackupRunResult result = new BackupRunResult(clock.millis(), newFiles, statuses);
+                .map(AutoBackupCoordinator::toStatus)
+                .toList();
+        final BackupRunResult result = new BackupRunResult(clock.millis(), handles, statuses);
 
         // The detached observation is published first; then internal sync targets run.
         // A throwing target is isolated and can never corrupt the command result.
         eventSink.accept(observation(result));
         for (BackupSyncTarget target : syncTargets) {
             try {
-                target.sync(newFiles);
+                target.sync(handles);
             } catch (RuntimeException | Error targetFailure) {
-                diagnostics.accept(
-                    "backupNow:sync-target-failed " + targetFailure.getClass().getName()
-                );
+                diagnostics.accept("backupNow:sync-target-failed "
+                        + targetFailure.getClass().getName());
             }
         }
         return result;
@@ -392,67 +448,65 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         if (before.backupDir() == null) {
             throw new IllegalStateException("auto-backup backup directory is unavailable");
         }
-        final File matchFile = saved.filePath()
-            .map(Path::toFile)
-            .orElseGet(() -> new File(saved.name()));
+        final File matchFile = saved.filePath().map(Path::toFile).orElseGet(() -> new File(saved.name()));
         final File artifact = adapter.saveDocumentFor(matchFile, saved.documentIds(), startedAt);
         if (artifact == null) {
             // No pack file content matches the saved snapshot: fail closed with a
             // self-diagnosing message (attempted identity + available pack contents).
             final String packNames = adapter.documents().stream()
-                .map(AutoBackupAdapter.Document::name)
-                .collect(java.util.stream.Collectors.joining(", "));
+                    .map(AutoBackupAdapter.Document::name)
+                    .collect(java.util.stream.Collectors.joining(", "));
             throw new IllegalStateException(
-                "auto-backup save-triggered backup: no pack content matches the saved document: "
-                    + saved.name()
-                    + "; attempted match file: " + matchFile.getPath()
-                    + "; pack contents: " + packNames
-            );
+                    "auto-backup save-triggered backup: no pack content matches the saved document: "
+                            + saved.name()
+                            + "; attempted match file: " + matchFile.getPath()
+                            + "; pack contents: " + packNames);
         }
         final File confirmed = pollForArtifact(artifact, startedAt);
+        // Save-triggered artifacts are runtime-owned temp copies; the handle
+        // confines them to their temp directory and permits discard.
+        final BackupArtifactHandle handle = handle(confirmed, confirmed.toPath().getParent(), true);
         final List<EditorAutoBackupStatus> statuses = adapter.documents().stream()
-            .map(AutoBackupCoordinator::toStatus)
-            .toList();
-        final BackupRunResult result = new BackupRunResult(
-            clock.millis(), List.of(confirmed), statuses
-        );
+                .map(AutoBackupCoordinator::toStatus)
+                .toList();
+        final BackupRunResult result = new BackupRunResult(clock.millis(), List.of(handle), statuses);
         eventSink.accept(observation(result));
         for (BackupSyncTarget target : syncTargets) {
             try {
-                target.sync(List.of(confirmed));
+                target.sync(List.of(handle));
             } catch (RuntimeException | Error targetFailure) {
-                diagnostics.accept(
-                    "backupAfterSave:sync-target-failed " + targetFailure.getClass().getName()
-                );
+                diagnostics.accept("backupAfterSave:sync-target-failed "
+                        + targetFailure.getClass().getName());
             }
         }
         return result;
     }
 
-    private static BackupCompletedEvent observation(final BackupRunResult result) {
-        return new BackupCompletedEvent(
-            result.completedAtMillis(),
-            result.newBackupFiles().stream()
-                .map(file -> new BackupArtifact(
-                    file.getName(),
-                    Math.max(0L, file.length()),
-                    temporary(file)
-                ))
-                .toList(),
-            result.statuses().stream()
-                .map(status -> new BackupDocumentStatus(
-                    status.documentName(),
-                    status.lastAutoBackupTimeMillis(),
-                    status.lastSavedTimeMillis(),
-                    status.modifiedAfterSaving()
-                ))
-                .toList()
-        );
+    /**
+     * Issues an opaque handle over {@code file} confined to {@code root} — the
+     * host backup directory for scanned artifacts, the {@code turboism-backup-*}
+     * temp directory for save-triggered ones. A null root falls back to the
+     * file's parent so a handle can never claim a wider scope. {@code temporary}
+     * is asserted by the caller: save-triggered artifacts are runtime-owned temp
+     * copies, scanned host-directory artifacts are never temporary.
+     */
+    private BackupArtifactHandle handle(final File file, final Path root, final boolean temporary) {
+        final Path path = file.toPath();
+        final Path issuingRoot = root == null ? path.getParent() : root;
+        return RuntimeBackupArtifactHandle.issue(path, issuingRoot, temporary, permissions);
     }
 
-    private static boolean temporary(final File file) {
-        final File parent = file.getParentFile();
-        return parent != null && parent.getName().startsWith("turboism-backup-");
+    private static BackupCompletedEvent observation(final BackupRunResult result) {
+        return new BackupCompletedEvent(
+                result.completedAtMillis(),
+                result.artifacts().stream().map(BackupArtifactHandle::artifact).toList(),
+                result.statuses().stream()
+                        .map(status -> new BackupDocumentStatus(
+                                status.documentName(),
+                                status.lastAutoBackupTimeMillis(),
+                                status.lastSavedTimeMillis(),
+                                status.modifiedAfterSaving()))
+                        .toList());
     }
 
     /** Polls the exact save-triggered artifact (size &gt; 0) until it appears or the timeout expires. */
@@ -463,10 +517,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 return artifact;
             }
             if (clock.millis() >= deadline) {
-                throw new IllegalStateException(
-                    "auto-backup save-triggered artifact timeout after " + pollTimeoutMillis
-                        + " ms: " + artifact.getName()
-                );
+                throw new IllegalStateException("auto-backup save-triggered artifact timeout after " + pollTimeoutMillis
+                        + " ms: " + artifact.getName());
             }
             try {
                 Thread.sleep(pollIntervalMillis);
@@ -487,11 +539,11 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
      * timeout expires. Polling only; never a fixed sleep to guess completion.
      */
     private List<File> pollForArtifacts(
-        final AutoBackupAdapter.Snapshot before,
-        final List<AutoBackupAdapter.Document> beforeDocuments,
-        final long startedAt
-    ) {
-        final Path backupDir = before.backupDir() == null ? null : before.backupDir().toPath();
+            final AutoBackupAdapter.Snapshot before,
+            final List<AutoBackupAdapter.Document> beforeDocuments,
+            final long startedAt) {
+        final Path backupDir =
+                before.backupDir() == null ? null : before.backupDir().toPath();
         final long deadline = startedAt + pollTimeoutMillis;
         while (true) {
             final List<File> fresh = scanForFreshArtifacts(backupDir, startedAt);
@@ -499,9 +551,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 return fresh;
             }
             if (clock.millis() >= deadline) {
-                throw new IllegalStateException(
-                    "auto-backup completion timeout after " + pollTimeoutMillis + " ms"
-                );
+                throw new IllegalStateException("auto-backup completion timeout after " + pollTimeoutMillis + " ms");
             }
             try {
                 Thread.sleep(pollIntervalMillis);
@@ -519,17 +569,18 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         final List<File> fresh = new ArrayList<>();
         try (var stream = Files.list(backupDir)) {
             stream.filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().contains(BACKUP_FILE_MARKER))
-                .filter(path -> path.getFileName().toString().endsWith(".cmo3"))
-                .filter(path -> {
-                    try {
-                        return Files.size(path) > 0 && Files.getLastModifiedTime(path).toMillis() >= startedAt - 1000L;
-                    } catch (IOException failure) {
-                        return false;
-                    }
-                })
-                .sorted(Comparator.comparing(path -> path.getFileName().toString()))
-                .forEach(path -> fresh.add(path.toFile()));
+                    .filter(path -> path.getFileName().toString().contains(BACKUP_FILE_MARKER))
+                    .filter(path -> path.getFileName().toString().endsWith(".cmo3"))
+                    .filter(path -> {
+                        try {
+                            return Files.size(path) > 0
+                                    && Files.getLastModifiedTime(path).toMillis() >= startedAt - 1000L;
+                        } catch (IOException failure) {
+                            return false;
+                        }
+                    })
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .forEach(path -> fresh.add(path.toFile()));
         } catch (IOException unavailable) {
             return List.of();
         }
@@ -537,7 +588,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     /** In-flight save-triggered backup pending per document (debounce + coalescing). */
-    private record Pending(long scheduledAtMillis, Operation operation) { }
+    private record Pending(long scheduledAtMillis, Operation operation) {}
 
     private boolean lastAutoBackupAdvanced(final List<AutoBackupAdapter.Document> before) {
         final List<AutoBackupAdapter.Document> now = adapter.documents();
@@ -563,32 +614,26 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         }
     }
 
-    private static boolean matches(
-        final AutoBackupAdapter.Snapshot expected,
-        final AutoBackupAdapter.Snapshot actual
-    ) {
+    private static boolean matches(final AutoBackupAdapter.Snapshot expected, final AutoBackupAdapter.Snapshot actual) {
         return expected.enabled() == actual.enabled()
-            && expected.intervalMinutes() == actual.intervalMinutes()
-            && expected.maxMB() == actual.maxMB();
+                && expected.intervalMinutes() == actual.intervalMinutes()
+                && expected.maxMB() == actual.maxMB();
     }
 
     private static EditorAutoBackupSettings toSettings(final AutoBackupAdapter.Snapshot snapshot) {
         return new EditorAutoBackupSettings(
-            snapshot.enabled(),
-            snapshot.intervalMinutes(),
-            snapshot.maxMB(),
-            snapshot.backupDir() == null ? null : snapshot.backupDir().getPath()
-        );
+                snapshot.enabled(),
+                snapshot.intervalMinutes(),
+                snapshot.maxMB(),
+                java.util.Optional.ofNullable(snapshot.backupDir()).map(File::getPath));
     }
 
     private static EditorAutoBackupStatus toStatus(final AutoBackupAdapter.Document document) {
         return new EditorAutoBackupStatus(
-            document.name(),
-            document.file() == null ? null : document.file().getPath(),
-            document.lastAutoBackupTimeMillis(),
-            document.lastSavedTimeMillis(),
-            document.modifiedAfterSaving()
-        );
+                document.name(),
+                document.lastAutoBackupTimeMillis(),
+                document.lastSavedTimeMillis(),
+                document.modifiedAfterSaving());
     }
 
     private void requireOpen() {
@@ -621,11 +666,11 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         private final PluginCompletionFuture<BackupRunResult> completion;
         private final AtomicBoolean started = new AtomicBoolean(false);
         private final AtomicBoolean settled = new AtomicBoolean(false);
+
         private Operation(
-            final String name,
-            final java.util.function.Supplier<BackupRunResult> action,
-            final PluginCompletionFuture<BackupRunResult> completion
-        ) {
+                final String name,
+                final java.util.function.Supplier<BackupRunResult> action,
+                final PluginCompletionFuture<BackupRunResult> completion) {
             this.name = Objects.requireNonNull(name, "name");
             this.action = Objects.requireNonNull(action, "action");
             this.completion = Objects.requireNonNull(completion, "completion");
@@ -648,6 +693,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                     settle(action.get());
                 }
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnose(name + ":failed " + failure.getClass().getName());
                 settleExceptionally(sanitize(failure));
             } finally {
@@ -656,9 +702,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         }
 
         private void cancel() {
-            settleExceptionally(new IllegalStateException(
-                "auto-backup operation is unavailable during plugin scope close"
-            ));
+            settleExceptionally(
+                    new IllegalStateException("auto-backup operation is unavailable during plugin scope close"));
             if (!started.get()) {
                 finish();
             }
@@ -693,8 +738,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     private static Throwable sanitize(final Throwable failure) {
         return failure instanceof RuntimeException || failure instanceof Error
-            ? failure
-            : new IllegalStateException("auto-backup run failed safely", failure);
+                ? failure
+                : new IllegalStateException("auto-backup run failed safely", failure);
     }
 
     private static ThreadFactory daemon(final String name) {

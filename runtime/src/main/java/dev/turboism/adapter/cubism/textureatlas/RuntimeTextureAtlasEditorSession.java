@@ -4,7 +4,6 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSizeBucket;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,6 +41,11 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
     }
 
     @Override
+    public boolean isAvailable() {
+        return binding.get() != null;
+    }
+
+    @Override
     public Optional<TextureAtlasSummary> summary() {
         final GenerationBinding current = binding.get();
         if (current == null) return Optional.empty();
@@ -55,73 +59,43 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
         return selectedTextureSummary(current.resolver(), current.view());
     }
 
-    private Optional<Object> textureManager(
-        final VerifiedMemberResolver selected,
-        final Object viewValue
-    ) {
-        final Object dataModel = selected.invoke(
-            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL, viewValue
-        );
+    private Optional<Object> textureManager(final VerifiedMemberResolver selected, final Object viewValue) {
+        final Object dataModel =
+                selected.invoke(VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL, viewValue);
         if (dataModel == null) return Optional.empty();
-        final Object modelSource = selected.invoke(
-            "cubism.texture-atlas.data-model.model-source", dataModel
-        );
+        final Object modelSource = selected.invoke("cubism.texture-atlas.data-model.model-source", dataModel);
         if (modelSource == null) return Optional.empty();
-        final Object textureManager = selected.invoke(
-            "cubism.texture-atlas.model-source.texture-manager", modelSource
-        );
+        final Object textureManager = selected.invoke("cubism.texture-atlas.model-source.texture-manager", modelSource);
         return Optional.ofNullable(textureManager);
     }
 
     private Optional<TextureAtlasSummary> wholeAtlasSummary(
-        final VerifiedMemberResolver selected,
-        final Object viewValue
-    ) {
+            final VerifiedMemberResolver selected, final Object viewValue) {
         return textureManager(selected, viewValue).map(manager -> {
-            final List<?> images = listOrEmpty(selected.invoke(
-                "cubism.texture-atlas.texture-manager.images", manager
-            ));
-            final List<?> atlases = listOrEmpty(selected.invoke(
-                "cubism.texture-atlas.texture-manager.atlases", manager
-            ));
-            return new TextureAtlasSummary(
-                images.size(),
-                atlases.size(),
-                sizeDistribution(selected, images)
-            );
+            final List<?> images = listOrEmpty(selected.invoke("cubism.texture-atlas.texture-manager.images", manager));
+            final List<?> atlases =
+                    listOrEmpty(selected.invoke("cubism.texture-atlas.texture-manager.atlases", manager));
+            return new TextureAtlasSummary(images.size(), atlases.size(), sizeDistribution(selected, images));
         });
     }
 
     private Optional<TextureAtlasSummary> selectedTextureSummary(
-        final VerifiedMemberResolver selected,
-        final Object viewValue
-    ) {
-        final Object dataModel = selected.invoke(
-            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL, viewValue
-        );
+            final VerifiedMemberResolver selected, final Object viewValue) {
+        final Object dataModel =
+                selected.invoke(VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_VIEW_DATA_MODEL, viewValue);
         if (dataModel == null) return Optional.empty();
         final Object pageState = selected.invoke(
-            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_DATA_MODEL_CURRENT_PAGE, dataModel
-        );
+                VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_DATA_MODEL_CURRENT_PAGE, dataModel);
         if (pageState == null) return Optional.empty();
-        final Object atlas = selected.invoke(
-            VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS, pageState
-        );
+        final Object atlas =
+                selected.invoke(VerifiedTextureAtlasNativeInvocationAdapter.STATISTICS_PAGE_STATE_ATLAS, pageState);
         if (atlas == null) return Optional.empty();
-        final List<?> entries = listOrEmpty(selected.invoke(
-            "cubism.texture-atlas.atlas.entries", atlas
-        ));
-        return Optional.of(new TextureAtlasSummary(
-            entries.size(),
-            1,
-            entrySizeDistribution(selected, entries)
-        ));
+        final List<?> entries = listOrEmpty(selected.invoke("cubism.texture-atlas.atlas.entries", atlas));
+        return Optional.of(new TextureAtlasSummary(entries.size(), 1, entrySizeDistribution(selected, entries)));
     }
 
     private List<TextureAtlasSizeBucket> entrySizeDistribution(
-        final VerifiedMemberResolver selected,
-        final List<?> entries
-    ) {
+            final VerifiedMemberResolver selected, final List<?> entries) {
         final List<Object> images = new ArrayList<>(entries.size());
         for (Object entry : entries) {
             final Object image = selected.invoke("cubism.texture-atlas.entry.image", entry);
@@ -130,10 +104,7 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
         return sizeDistribution(selected, images);
     }
 
-    private List<TextureAtlasSizeBucket> sizeDistribution(
-        final VerifiedMemberResolver selected,
-        final List<?> images
-    ) {
+    private List<TextureAtlasSizeBucket> sizeDistribution(final VerifiedMemberResolver selected, final List<?> images) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
         for (Object image : images) {
             final int width = intValue(selected.invoke("cubism.texture-atlas.image.width", image));
@@ -145,10 +116,7 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
         for (Map.Entry<String, Integer> entry : counts.entrySet()) {
             final String[] parts = entry.getKey().split("x");
             buckets.add(new TextureAtlasSizeBucket(
-                Integer.parseInt(parts[0]),
-                Integer.parseInt(parts[1]),
-                entry.getValue()
-            ));
+                    Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), entry.getValue()));
         }
         return List.copyOf(buckets);
     }

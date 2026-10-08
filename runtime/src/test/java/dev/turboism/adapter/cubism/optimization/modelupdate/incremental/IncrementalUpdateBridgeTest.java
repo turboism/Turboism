@@ -14,15 +14,15 @@ import static org.objectweb.asm.Opcodes.ARETURN;
 import static org.objectweb.asm.Opcodes.FRETURN;
 import static org.objectweb.asm.Opcodes.GETFIELD;
 import static org.objectweb.asm.Opcodes.GETSTATIC;
-import static org.objectweb.asm.Opcodes.ICONST_1;
 import static org.objectweb.asm.Opcodes.IADD;
+import static org.objectweb.asm.Opcodes.ICONST_1;
 import static org.objectweb.asm.Opcodes.ILOAD;
 import static org.objectweb.asm.Opcodes.INVOKEINTERFACE;
 import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.IRETURN;
 import static org.objectweb.asm.Opcodes.LRETURN;
-import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.PUTFIELD;
+import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V17;
 
@@ -44,19 +44,30 @@ class IncrementalUpdateBridgeTest {
 
     private static final String N = "com/live2d/cubism/";
     private static final IncrementalUpdateTarget T5303 =
-        IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
+            IncrementalUpdateTarget.of(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow();
 
     private static final class Loader extends ClassLoader {
         private final Map<String, byte[]> classes = new HashMap<>();
-        Loader() { super(IncrementalUpdateBridgeTest.class.getClassLoader()); }
-        Loader add(String name, byte[] bytes) { classes.put(name.replace('/', '.'), bytes); return this; }
+
+        Loader() {
+            super(IncrementalUpdateBridgeTest.class.getClassLoader());
+        }
+
+        Loader add(String name, byte[] bytes) {
+            classes.put(name.replace('/', '.'), bytes);
+            return this;
+        }
+
         Class<?> of(String name) {
-            try { return loadClass(name.replace('/', '.')); }
-            catch (ClassNotFoundException failure) { throw new IllegalStateException(failure); }
+            try {
+                return loadClass(name.replace('/', '.'));
+            } catch (ClassNotFoundException failure) {
+                throw new IllegalStateException(failure);
+            }
         }
         /** Child-first for registered stubs: the test classpath carries real com.live2d stand-ins. */
-        @Override protected Class<?> loadClass(String name, boolean resolve)
-                throws ClassNotFoundException {
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
             synchronized (getClassLoadingLock(name)) {
                 Class<?> type = findLoadedClass(name);
                 if (type == null && classes.containsKey(name)) type = findClass(name);
@@ -65,7 +76,9 @@ class IncrementalUpdateBridgeTest {
                 return type;
             }
         }
-        @Override protected Class<?> findClass(String name) throws ClassNotFoundException {
+
+        @Override
+        protected Class<?> findClass(String name) throws ClassNotFoundException {
             byte[] bytes = classes.get(name);
             if (bytes == null) throw new ClassNotFoundException(name);
             return defineClass(name, bytes, 0, bytes.length);
@@ -73,8 +86,8 @@ class IncrementalUpdateBridgeTest {
     }
 
     /** Emits a stub class: public fields plus trivial getters returning them. */
-    private static byte[] emit(String name, String sup, String[] ifaces,
-                               String[] fields, String[] statics, String[][] methods) {
+    private static byte[] emit(
+            String name, String sup, String[] ifaces, String[] fields, String[] statics, String[][] methods) {
         ClassWriter w = new ClassWriter(0);
         if ("interface".equals(sup)) {
             w.visit(V17, ACC_PUBLIC | 0x0600, name, null, "java/lang/Object", null);
@@ -93,8 +106,7 @@ class IncrementalUpdateBridgeTest {
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
-        m.visitMethodInsn(INVOKESPECIAL, sup == null ? "java/lang/Object" : sup,
-            "<init>", "()V", false);
+        m.visitMethodInsn(INVOKESPECIAL, sup == null ? "java/lang/Object" : sup, "<init>", "()V", false);
         m.visitInsn(RETURN);
         m.visitMaxs(1, 1);
         m.visitEnd();
@@ -104,8 +116,10 @@ class IncrementalUpdateBridgeTest {
             m.visitCode();
             m.visitVarInsn(ALOAD, 0);
             m.visitFieldInsn(GETFIELD, name, method[2], ret);
-            m.visitInsn(ret.startsWith("L") || ret.startsWith("[") ? ARETURN
-                : ret.equals("J") ? LRETURN : ret.equals("F") ? FRETURN : IRETURN);
+            m.visitInsn(
+                    ret.startsWith("L") || ret.startsWith("[")
+                            ? ARETURN
+                            : ret.equals("J") ? LRETURN : ret.equals("F") ? FRETURN : IRETURN);
             m.visitMaxs(2, 3);
             m.visitEnd();
         }
@@ -113,10 +127,16 @@ class IncrementalUpdateBridgeTest {
         return w.toByteArray();
     }
 
-    private static String[] f(String... fields) { return fields; }
-    private static String[][] m(String[]... methods) { return methods; }
+    private static String[] f(String... fields) {
+        return fields;
+    }
+
+    private static String[][] m(String[]... methods) {
+        return methods;
+    }
+
     private static String[] g(String name, String desc, String field) {
-        return new String[]{name, desc, field};
+        return new String[] {name, desc, field};
     }
 
     /** The updater singleton: static instance {@code a} plus static skip flag {@code e}. */
@@ -163,10 +183,8 @@ class IncrementalUpdateBridgeTest {
         ClassWriter w = new ClassWriter(0);
         String M = N + "doc/model/";
         w.visit(V17, ACC_PUBLIC, name, null, "java/lang/Object", null);
-        for (String field : new String[] {"deformers", "paths", "affecters", "drawables",
-                "guidMap", "paramSet"}) {
-            String desc = field.equals("paramSet")
-                ? "L" + M + "param/CParameterSet;" : "Ljava/util/List;";
+        for (String field : new String[] {"deformers", "paths", "affecters", "drawables", "guidMap", "paramSet"}) {
+            String desc = field.equals("paramSet") ? "L" + M + "param/CParameterSet;" : "Ljava/util/List;";
             if (field.equals("guidMap")) desc = "Ljava/util/Map;";
             w.visitField(ACC_PUBLIC, field, desc, null, null).visitEnd();
         }
@@ -182,7 +200,8 @@ class IncrementalUpdateBridgeTest {
             {"getAllArtPaths", "()Ljava/util/List;", "paths"},
             {"getAllAffecters", "()Ljava/util/List;", "affecters"},
             {"getAllDrawables", "()Ljava/util/List;", "drawables"},
-            {"getParameterSet", "()L" + M + "param/CParameterSet;", "paramSet"}}) {
+            {"getParameterSet", "()L" + M + "param/CParameterSet;", "paramSet"}
+        }) {
             String ret = g[1].substring(g[1].indexOf(')') + 1);
             m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, g[0], g[1], null, null);
             m.visitCode();
@@ -192,14 +211,17 @@ class IncrementalUpdateBridgeTest {
             m.visitMaxs(2, 3);
             m.visitEnd();
         }
-        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "getDeformer",
-            "(Lcom/live2d/type/CDeformerGuid;)L" + M + "deformer/ACDeformer;", null, null);
+        m = w.visitMethod(
+                ACC_PUBLIC | ACC_FINAL,
+                "getDeformer",
+                "(Lcom/live2d/type/CDeformerGuid;)L" + M + "deformer/ACDeformer;",
+                null,
+                null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
         m.visitFieldInsn(GETFIELD, name, "guidMap", "Ljava/util/Map;");
         m.visitVarInsn(ALOAD, 1);
-        m.visitMethodInsn(INVOKEINTERFACE, "java/util/Map", "get",
-            "(Ljava/lang/Object;)Ljava/lang/Object;", true);
+        m.visitMethodInsn(INVOKEINTERFACE, "java/util/Map", "get", "(Ljava/lang/Object;)Ljava/lang/Object;", true);
         m.visitTypeInsn(org.objectweb.asm.Opcodes.CHECKCAST, M + "deformer/ACDeformer");
         m.visitInsn(ARETURN);
         m.visitMaxs(3, 3);
@@ -214,11 +236,16 @@ class IncrementalUpdateBridgeTest {
         String M = N + "doc/model/";
         w.visit(V17, ACC_PUBLIC, name, null, "java/lang/Object", null);
         w.visitField(ACC_PUBLIC, "dirty", "Z", null, null).visitEnd();
-        w.visitField(ACC_PUBLIC, "iform", "L" + M + "deformer/ACDeformerForm;", null, null).visitEnd();
-        w.visitField(ACC_PUBLIC, "aform", "L" + M + "deformer/ACDeformerForm;", null, null).visitEnd();
-        w.visitField(ACC_PUBLIC, "tguid", "Lcom/live2d/type/CDeformerGuid;", null, null).visitEnd();
-        w.visitField(ACC_PUBLIC, "guid", "Lcom/live2d/type/CDeformerGuid;", null, null).visitEnd();
-        w.visitField(ACC_PUBLIC, "transform", "Lcom/live2d/doc/selection/d;", null, null).visitEnd();
+        w.visitField(ACC_PUBLIC, "iform", "L" + M + "deformer/ACDeformerForm;", null, null)
+                .visitEnd();
+        w.visitField(ACC_PUBLIC, "aform", "L" + M + "deformer/ACDeformerForm;", null, null)
+                .visitEnd();
+        w.visitField(ACC_PUBLIC, "tguid", "Lcom/live2d/type/CDeformerGuid;", null, null)
+                .visitEnd();
+        w.visitField(ACC_PUBLIC, "guid", "Lcom/live2d/type/CDeformerGuid;", null, null)
+                .visitEnd();
+        w.visitField(ACC_PUBLIC, "transform", "Lcom/live2d/doc/selection/d;", null, null)
+                .visitEnd();
         MethodVisitor m = w.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
         m.visitCode();
         m.visitVarInsn(ALOAD, 0);
@@ -232,7 +259,8 @@ class IncrementalUpdateBridgeTest {
             {"getLocalAnimatedForm", "()L" + M + "deformer/ACDeformerForm;", "aform"},
             {"getTargetDeformerGuid", "()Lcom/live2d/type/CDeformerGuid;", "tguid"},
             {"getGuid", "()Lcom/live2d/type/CDeformerGuid;", "guid"},
-            {"getCreateLocalToCanvasTransform", "()Lcom/live2d/doc/selection/d;", "transform"}}) {
+            {"getCreateLocalToCanvasTransform", "()Lcom/live2d/doc/selection/d;", "transform"}
+        }) {
             String ret = g[1].substring(g[1].indexOf(')') + 1);
             m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, g[0], g[1], null, null);
             m.visitCode();
@@ -275,8 +303,12 @@ class IncrementalUpdateBridgeTest {
         m.visitInsn(ARETURN);
         m.visitMaxs(2, 2);
         m.visitEnd();
-        m = w.visitMethod(ACC_PUBLIC | ACC_FINAL, "transform",
-            "(Lcom/live2d/doc/selection/d;L" + M + "ACForm;)L" + name + ";", null, null);
+        m = w.visitMethod(
+                ACC_PUBLIC | ACC_FINAL,
+                "transform",
+                "(Lcom/live2d/doc/selection/d;L" + M + "ACForm;)L" + name + ";",
+                null,
+                null);
         m.visitCode();
         m.visitFieldInsn(GETSTATIC, name, "transformCalls", "I");
         m.visitInsn(ICONST_1);
@@ -294,87 +326,156 @@ class IncrementalUpdateBridgeTest {
     private static Loader host() {
         String C = N + "view/context/", M = N + "doc/model/";
         return new Loader()
-            .add("com/live2d/cubism/doc/IDocument",
-                emit("com/live2d/cubism/doc/IDocument", "interface", null, f(), f(), m()))
-            .add("com/live2d/type/CDeformerGuid",
-                emit("com/live2d/type/CDeformerGuid", null, null, f(), f(), m()))
-            .add("com/live2d/doc/selection/d",
-                emit("com/live2d/doc/selection/d", null, null, f(), f(), m()))
-            .add("com/live2d/type/CArrayList",
-                emit("com/live2d/type/CArrayList", "java/util/ArrayList", null, f(), f(), m()))
-            .add(N + "doc/modeling/CModelingDocument",
-                emit(N + "doc/modeling/CModelingDocument", null,
-                    new String[]{"com/live2d/cubism/doc/IDocument"},
-                    f("lastModified:J"), f(), m(g("getLastModifiedTime", "()J", "lastModified"))))
-            .add(C + "CEViewContext",
-                emit(C + "CEViewContext", null, null, f("doc:Lcom/live2d/cubism/doc/IDocument;"),
-                    f(), m(g("getDoc", "()Lcom/live2d/cubism/doc/IDocument;", "doc"))))
-            .add(C + "bL", emit(C + "bL", null, null, f(), f(), m()))
-            .add(M + "ax", emit(M + "ax", null, null, f(), f(), m()))
-            .add(M + "CModel", emitModel(M + "CModel"))
-            .add(M + "param/CParameterSet",
-                emit(M + "param/CParameterSet", null, null,
-                    f("params:Ljava/util/List;", "version:I"), f(),
-                    m(g("getParameters", "()Ljava/util/List;", "params"),
-                        g("getUpdateVersion", "()I", "version"))))
-            .add(M + "param/CParameter",
-                emit(M + "param/CParameter", null, null, f("value:F"), f(),
-                    m(g("getValue", "()F", "value"))))
-            .add(M + "ACForm", emit(M + "ACForm", null, null, f(), f(), m()))
-            .add(M + "deformer/ACDeformer", emitDeformer(M + "deformer/ACDeformer"))
-            .add(M + "deformer/ACDeformerForm",
-                emit(M + "deformer/ACDeformerForm", M + "ACForm", null, f(), f(), m()))
-            .add(M + "deformer/rotation/CRotationDeformerForm",
-                emit(M + "deformer/rotation/CRotationDeformerForm",
-                    M + "deformer/ACDeformerForm", null, f(), f(), m()))
-            .add(M + "deformer/warp/CWarpDeformerForm",
-                emit(M + "deformer/warp/CWarpDeformerForm",
-                    M + "deformer/ACDeformerForm", null, f(), f(), m()))
-            .add(M + "drawable/ACDrawableForm",
-                emit(M + "drawable/ACDrawableForm", M + "ACForm", null, f(), f(), m()))
-            .add(M + "drawable/ACDrawable",
-                emit(M + "drawable/ACDrawable", null, null,
-                    f("form:L" + M + "drawable/ACDrawableForm;", "order:I"), f(),
-                    m(g("getDeformedForm", "()L" + M + "drawable/ACDrawableForm;", "form"),
-                        g("getDrawOrder", "()I", "order"))))
-            .add(M + "drawable/artMesh/CArtMesh",
-                emit(M + "drawable/artMesh/CArtMesh", M + "drawable/ACDrawable", null,
-                    f("iform:L" + M + "drawable/artMesh/CArtMeshForm;",
-                        "aform:L" + M + "drawable/artMesh/CArtMeshForm;"), f(),
-                    m(g("getInterpolatedForm",
-                            "()L" + M + "drawable/artMesh/CArtMeshForm;", "iform"),
-                        g("getLocalAnimatedForm",
-                            "()L" + M + "drawable/artMesh/CArtMeshForm;", "aform"))))
-            .add(M + "drawable/artMesh/CArtMeshForm",
-                emitMeshForm(M + "drawable/artMesh/CArtMeshForm", M + "drawable/ACDrawableForm"))
-            .add(M + "drawable/artPath/CArtPathForm",
-                emit(M + "drawable/artPath/CArtPathForm", M + "drawable/ACDrawableForm", null,
-                    f("points:Lcom/live2d/type/CArrayList;"), f(),
-                    m(g("getPositions", "()Lcom/live2d/type/CArrayList;", "points"))))
-            .add(M + "drawable/artPath/CArtPathPoint",
-                emit(M + "drawable/artPath/CArtPathPoint", null, null,
-                    f("curve:Lcom/live2d/graphics/splineCurve/CSplineCurvePoint;",
-                        "width:F", "opacity:F"), f(),
-                    m(g("getCurvePointPosition",
-                            "()Lcom/live2d/graphics/splineCurve/CSplineCurvePoint;", "curve"),
-                        g("getWidth", "()F", "width"), g("getOpacity", "()F", "opacity"))))
-            .add("com/live2d/graphics/splineCurve/CSplineCurvePoint",
-                emit("com/live2d/graphics/splineCurve/CSplineCurvePoint", null, null,
-                    f("p:Lcom/live2d/graphics3d/type/GVector2;",
-                        "s:Lcom/live2d/graphics3d/type/GVector2;",
-                        "e:Lcom/live2d/graphics3d/type/GVector2;"), f(),
-                    m(g("getPoint", "()Lcom/live2d/graphics3d/type/GVector2;", "p"),
-                        g("getStartVelocity", "()Lcom/live2d/graphics3d/type/GVector2;", "s"),
-                        g("getEndVelocity", "()Lcom/live2d/graphics3d/type/GVector2;", "e"))))
-            .add("com/live2d/graphics3d/type/GVector2",
-                emit("com/live2d/graphics3d/type/GVector2", null, null, f("x:F", "y:F"), f(),
-                    m(g("getX", "()F", "x"), g("getY", "()F", "y"))))
-            .add(N + "view/ay", emitUpdater(N + "view/ay"));
+                .add(
+                        "com/live2d/cubism/doc/IDocument",
+                        emit("com/live2d/cubism/doc/IDocument", "interface", null, f(), f(), m()))
+                .add("com/live2d/type/CDeformerGuid", emit("com/live2d/type/CDeformerGuid", null, null, f(), f(), m()))
+                .add("com/live2d/doc/selection/d", emit("com/live2d/doc/selection/d", null, null, f(), f(), m()))
+                .add(
+                        "com/live2d/type/CArrayList",
+                        emit("com/live2d/type/CArrayList", "java/util/ArrayList", null, f(), f(), m()))
+                .add(
+                        N + "doc/modeling/CModelingDocument",
+                        emit(
+                                N + "doc/modeling/CModelingDocument",
+                                null,
+                                new String[] {"com/live2d/cubism/doc/IDocument"},
+                                f("lastModified:J"),
+                                f(),
+                                m(g("getLastModifiedTime", "()J", "lastModified"))))
+                .add(
+                        C + "CEViewContext",
+                        emit(
+                                C + "CEViewContext",
+                                null,
+                                null,
+                                f("doc:Lcom/live2d/cubism/doc/IDocument;"),
+                                f(),
+                                m(g("getDoc", "()Lcom/live2d/cubism/doc/IDocument;", "doc"))))
+                .add(C + "bL", emit(C + "bL", null, null, f(), f(), m()))
+                .add(M + "ax", emit(M + "ax", null, null, f(), f(), m()))
+                .add(M + "CModel", emitModel(M + "CModel"))
+                .add(
+                        M + "param/CParameterSet",
+                        emit(
+                                M + "param/CParameterSet",
+                                null,
+                                null,
+                                f("params:Ljava/util/List;", "version:I"),
+                                f(),
+                                m(
+                                        g("getParameters", "()Ljava/util/List;", "params"),
+                                        g("getUpdateVersion", "()I", "version"))))
+                .add(
+                        M + "param/CParameter",
+                        emit(M + "param/CParameter", null, null, f("value:F"), f(), m(g("getValue", "()F", "value"))))
+                .add(M + "ACForm", emit(M + "ACForm", null, null, f(), f(), m()))
+                .add(M + "deformer/ACDeformer", emitDeformer(M + "deformer/ACDeformer"))
+                .add(
+                        M + "deformer/ACDeformerForm",
+                        emit(M + "deformer/ACDeformerForm", M + "ACForm", null, f(), f(), m()))
+                .add(
+                        M + "deformer/rotation/CRotationDeformerForm",
+                        emit(
+                                M + "deformer/rotation/CRotationDeformerForm",
+                                M + "deformer/ACDeformerForm",
+                                null,
+                                f(),
+                                f(),
+                                m()))
+                .add(
+                        M + "deformer/warp/CWarpDeformerForm",
+                        emit(M + "deformer/warp/CWarpDeformerForm", M + "deformer/ACDeformerForm", null, f(), f(), m()))
+                .add(
+                        M + "drawable/ACDrawableForm",
+                        emit(M + "drawable/ACDrawableForm", M + "ACForm", null, f(), f(), m()))
+                .add(
+                        M + "drawable/ACDrawable",
+                        emit(
+                                M + "drawable/ACDrawable",
+                                null,
+                                null,
+                                f("form:L" + M + "drawable/ACDrawableForm;", "order:I"),
+                                f(),
+                                m(
+                                        g("getDeformedForm", "()L" + M + "drawable/ACDrawableForm;", "form"),
+                                        g("getDrawOrder", "()I", "order"))))
+                .add(
+                        M + "drawable/artMesh/CArtMesh",
+                        emit(
+                                M + "drawable/artMesh/CArtMesh",
+                                M + "drawable/ACDrawable",
+                                null,
+                                f(
+                                        "iform:L" + M + "drawable/artMesh/CArtMeshForm;",
+                                        "aform:L" + M + "drawable/artMesh/CArtMeshForm;"),
+                                f(),
+                                m(
+                                        g("getInterpolatedForm", "()L" + M + "drawable/artMesh/CArtMeshForm;", "iform"),
+                                        g(
+                                                "getLocalAnimatedForm",
+                                                "()L" + M + "drawable/artMesh/CArtMeshForm;",
+                                                "aform"))))
+                .add(
+                        M + "drawable/artMesh/CArtMeshForm",
+                        emitMeshForm(M + "drawable/artMesh/CArtMeshForm", M + "drawable/ACDrawableForm"))
+                .add(
+                        M + "drawable/artPath/CArtPathForm",
+                        emit(
+                                M + "drawable/artPath/CArtPathForm",
+                                M + "drawable/ACDrawableForm",
+                                null,
+                                f("points:Lcom/live2d/type/CArrayList;"),
+                                f(),
+                                m(g("getPositions", "()Lcom/live2d/type/CArrayList;", "points"))))
+                .add(
+                        M + "drawable/artPath/CArtPathPoint",
+                        emit(
+                                M + "drawable/artPath/CArtPathPoint",
+                                null,
+                                null,
+                                f("curve:Lcom/live2d/graphics/splineCurve/CSplineCurvePoint;", "width:F", "opacity:F"),
+                                f(),
+                                m(
+                                        g(
+                                                "getCurvePointPosition",
+                                                "()Lcom/live2d/graphics/splineCurve/CSplineCurvePoint;",
+                                                "curve"),
+                                        g("getWidth", "()F", "width"),
+                                        g("getOpacity", "()F", "opacity"))))
+                .add(
+                        "com/live2d/graphics/splineCurve/CSplineCurvePoint",
+                        emit(
+                                "com/live2d/graphics/splineCurve/CSplineCurvePoint",
+                                null,
+                                null,
+                                f(
+                                        "p:Lcom/live2d/graphics3d/type/GVector2;",
+                                        "s:Lcom/live2d/graphics3d/type/GVector2;",
+                                        "e:Lcom/live2d/graphics3d/type/GVector2;"),
+                                f(),
+                                m(
+                                        g("getPoint", "()Lcom/live2d/graphics3d/type/GVector2;", "p"),
+                                        g("getStartVelocity", "()Lcom/live2d/graphics3d/type/GVector2;", "s"),
+                                        g("getEndVelocity", "()Lcom/live2d/graphics3d/type/GVector2;", "e"))))
+                .add(
+                        "com/live2d/graphics3d/type/GVector2",
+                        emit(
+                                "com/live2d/graphics3d/type/GVector2",
+                                null,
+                                null,
+                                f("x:F", "y:F"),
+                                f(),
+                                m(g("getX", "()F", "x"), g("getY", "()F", "y"))))
+                .add(N + "view/ay", emitUpdater(N + "view/ay"));
     }
 
     private static Object make(Loader loader, String name) {
-        try { return loader.of(name).getDeclaredConstructor().newInstance(); }
-        catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+        try {
+            return loader.of(name).getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private static void set(Object target, String field, Object value) {
@@ -385,14 +486,18 @@ class IncrementalUpdateBridgeTest {
             else if (f.getType() == long.class && value instanceof Long l) f.setLong(target, l);
             else if (f.getType() == float.class && value instanceof Float x) f.setFloat(target, x);
             else f.set(target, value);
-        } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private static Object field(Object target, String name) {
         try {
             final Class<?> owner = target instanceof Class<?> c ? c : target.getClass();
             return owner.getField(name).get(target instanceof Class ? null : target);
-        } catch (ReflectiveOperationException failure) { throw new IllegalStateException(failure); }
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     /** A small host world: two deformers (parent/child) and one artMesh. */
@@ -446,7 +551,9 @@ class IncrementalUpdateBridgeTest {
             deformedOut = make(loader, M + "drawable/artMesh/CArtMeshForm");
         }
 
-        Object[] epoch() { return new Object[] {model, ctx}; }
+        Object[] epoch() {
+            return new Object[] {model, ctx};
+        }
     }
 
     private static IncrementalUpdateBridge installed(Loader loader) throws Exception {
@@ -455,7 +562,9 @@ class IncrementalUpdateBridgeTest {
         return bridge;
     }
 
-    private static Properties props() { return System.getProperties(); }
+    private static Properties props() {
+        return System.getProperties();
+    }
 
     @SuppressWarnings("unchecked")
     private static Consumer<Object> begin() {
@@ -482,13 +591,15 @@ class IncrementalUpdateBridgeTest {
         return (Consumer<Object>) props().get(IncrementalUpdateBridge.FORM_PROPERTY);
     }
 
-    @AfterEach void cleanup() {
+    @AfterEach
+    void cleanup() {
         System.clearProperty(IncrementalUpdateBridge.ENABLE_PROPERTY);
         System.clearProperty(IncrementalUpdateBridge.PROBE_PROPERTY);
         System.clearProperty(IncrementalUpdateBridge.RESULT_PROPERTY);
     }
 
-    @Test void installOccupiesSlotsAndEnablesHostFlag() throws Exception {
+    @Test
+    void installOccupiesSlotsAndEnablesHostFlag() throws Exception {
         Loader loader = host();
         IncrementalUpdateBridge bridge = installed(loader);
         try {
@@ -506,7 +617,8 @@ class IncrementalUpdateBridgeTest {
         assertFalse((boolean) field(loader.of(N + "view/ay"), "e"));
     }
 
-    @Test void unchangedEpochMarksNothingDirty() throws Exception {
+    @Test
+    void unchangedEpochMarksNothingDirty() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -525,7 +637,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void interpolatedFormMarksSelfAndDescendants() throws Exception {
+    @Test
+    void interpolatedFormMarksSelfAndDescendants() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -545,7 +658,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void childMarkedDirtyWhenAncestorChanged() throws Exception {
+    @Test
+    void childMarkedDirtyWhenAncestorChanged() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -565,7 +679,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void animatedFormMarksDirty() throws Exception {
+    @Test
+    void animatedFormMarksDirty() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -580,7 +695,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void disabledEnableMarksEverything() throws Exception {
+    @Test
+    void disabledEnableMarksEverything() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "false");
@@ -597,7 +713,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void artMeshDeformSkippedWhenUnchanged() throws Exception {
+    @Test
+    void artMeshDeformSkippedWhenUnchanged() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -606,11 +723,9 @@ class IncrementalUpdateBridgeTest {
             begin().accept(world.epoch());
             mark().accept(world.parent, world.model);
             mark().accept(world.child, world.model);
-            Object out = deform().apply(new Object[] {
-                world.meshForm, world.child, world.deformedOut, world.mesh});
+            Object out = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
             assertSame(world.deformedOut, out);
-            assertEquals(0, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"),
-                "transformCalls"));
+            assertEquals(0, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
             Map<String, Long> stats = bridge.snapshot();
             assertEquals(1L, stats.get("meshSkipped"));
         } finally {
@@ -618,7 +733,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void artMeshDeformRunsWhenTargetDirty() throws Exception {
+    @Test
+    void artMeshDeformRunsWhenTargetDirty() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -627,17 +743,16 @@ class IncrementalUpdateBridgeTest {
             begin().accept(world.epoch());
             form().accept(world.childForm);
             mark().accept(world.child, world.model);
-            Object out = deform().apply(new Object[] {
-                world.meshForm, world.child, world.deformedOut, world.mesh});
+            Object out = deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
             assertSame(world.meshForm, out);
-            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"),
-                "transformCalls"));
+            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
         } finally {
             bridge.close();
         }
     }
 
-    @Test void artMeshDeformRunsWhenOwnFormChanged() throws Exception {
+    @Test
+    void artMeshDeformRunsWhenOwnFormChanged() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         System.setProperty(IncrementalUpdateBridge.ENABLE_PROPERTY, "true");
@@ -645,16 +760,15 @@ class IncrementalUpdateBridgeTest {
         try {
             begin().accept(world.epoch());
             form().accept(world.meshForm);
-            deform().apply(new Object[] {
-                world.meshForm, world.child, world.deformedOut, world.mesh});
-            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"),
-                "transformCalls"));
+            deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
         } finally {
             bridge.close();
         }
     }
 
-    @Test void artPathPresenceForcesDeform() throws Exception {
+    @Test
+    void artPathPresenceForcesDeform() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         set(world.model, "paths", List.of(new Object()));
@@ -662,16 +776,15 @@ class IncrementalUpdateBridgeTest {
         IncrementalUpdateBridge bridge = installed(loader);
         try {
             begin().accept(world.epoch());
-            deform().apply(new Object[] {
-                world.meshForm, world.child, world.deformedOut, world.mesh});
-            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"),
-                "transformCalls"));
+            deform().apply(new Object[] {world.meshForm, world.child, world.deformedOut, world.mesh});
+            assertEquals(1, (int) field(loader.of(N + "doc/model/drawable/artMesh/CArtMeshForm"), "transformCalls"));
         } finally {
             bridge.close();
         }
     }
 
-    @Test void probeAlternatesFullAndComparesDigests() throws Exception {
+    @Test
+    void probeAlternatesFullAndComparesDigests() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         Object drawable = make(loader, N + "doc/model/drawable/ACDrawable");
@@ -701,7 +814,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void digestMismatchRecordsProbeFailure() throws Exception {
+    @Test
+    void digestMismatchRecordsProbeFailure() throws Exception {
         Loader loader = host();
         World world = new World(loader);
         Object drawable = make(loader, N + "doc/model/drawable/ACDrawable");
@@ -730,7 +844,8 @@ class IncrementalUpdateBridgeTest {
         }
     }
 
-    @Test void closeRestoresPriorSkipFlag() throws Exception {
+    @Test
+    void closeRestoresPriorSkipFlag() throws Exception {
         Loader loader = host();
         set(loader.of(N + "view/ay"), "e", true);
         IncrementalUpdateBridge bridge = installed(loader);

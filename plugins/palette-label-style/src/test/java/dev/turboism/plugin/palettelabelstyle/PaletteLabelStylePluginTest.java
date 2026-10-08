@@ -1,5 +1,8 @@
 package dev.turboism.plugin.palettelabelstyle;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -29,7 +32,6 @@ import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parts;
-import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
@@ -55,8 +57,6 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuEntry;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.ObjectKind;
 import dev.turboism.sdk.ui.context.ContextMenuSelection;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -68,44 +68,40 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class PaletteLabelStylePluginTest {
 
     private static final List<String> ALL_ACTION_IDS = List.of(
-        "palette-label-style.text.none", "palette-label-style.background.none",
-        "palette-label-style.text.red", "palette-label-style.background.red",
-        "palette-label-style.text.orange", "palette-label-style.background.orange",
-        "palette-label-style.text.yellow", "palette-label-style.background.yellow",
-        "palette-label-style.text.green", "palette-label-style.background.green",
-        "palette-label-style.text.blue", "palette-label-style.background.blue",
-        "palette-label-style.text.purple", "palette-label-style.background.purple",
-        "palette-label-style.text.gray", "palette-label-style.background.gray",
-        "palette-label-style.text.custom", "palette-label-style.background.custom"
-    );
+            "palette-label-style.text.none", "palette-label-style.background.none",
+            "palette-label-style.text.red", "palette-label-style.background.red",
+            "palette-label-style.text.orange", "palette-label-style.background.orange",
+            "palette-label-style.text.yellow", "palette-label-style.background.yellow",
+            "palette-label-style.text.green", "palette-label-style.background.green",
+            "palette-label-style.text.blue", "palette-label-style.background.blue",
+            "palette-label-style.text.purple", "palette-label-style.background.purple",
+            "palette-label-style.text.gray", "palette-label-style.background.gray",
+            "palette-label-style.text.custom", "palette-label-style.background.custom");
 
     @Test
     void pluginJsonDeclaresEveryPermissionTheCodeTouches() throws Exception {
         final String json;
         try (var in = PaletteLabelStylePluginTest.class.getResourceAsStream("/META-INF/turboism/plugin.json")) {
-            json = new String(java.util.Objects.requireNonNull(in, "plugin.json resource").readAllBytes(),
-                java.nio.charset.StandardCharsets.UTF_8);
+            json = new String(
+                    java.util.Objects.requireNonNull(in, "plugin.json resource").readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8);
         }
         for (final String permission : List.of(
-            "turboism.action.register",
-            "turboism.ui.context-menu.contribute",
-            "turboism.ui.appearance.modify",
-            "turboism.ui.dialog.contribute",
-            "turboism.cubism.model.read",
-            "turboism.cubism.model.write",
-            "turboism.cubism.project.read",
-            "turboism.file.read",
-            "turboism.file.write"
-        )) {
-            assertTrue(json.contains("\"" + permission + "\""),
-                "plugin.json must declare permission " + permission);
+                "turboism.action.register",
+                "turboism.ui.context-menu.contribute",
+                "turboism.ui.appearance.modify",
+                "turboism.ui.dialog.contribute",
+                "turboism.cubism.model.read",
+                "turboism.cubism.model.write",
+                "turboism.cubism.project.read",
+                "turboism.file.read",
+                "turboism.file.write")) {
+            assertTrue(json.contains("\"" + permission + "\""), "plugin.json must declare permission " + permission);
         }
     }
 
@@ -127,32 +123,52 @@ class PaletteLabelStylePluginTest {
         plugin.init(context);
         plugin.enable();
 
-        final List<ContextMenuContribution> contributions = context.contextMenu().contributions();
+        final List<ContextMenuContribution> contributions =
+                context.contextMenu().contributions();
         assertEquals(5, contributions.size());
-        assertContribution(contributions.get(0), Location.DEFORMER_TAB,
-            Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
-            "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(contributions.get(1), Location.DEFORMER_TAB,
-            Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
-            "palette-label-style.background.none", "palette-label-style.background.custom");
-        assertContribution(contributions.get(2), Location.PART_TAB,
-            Set.of(ObjectKind.PART, ObjectKind.PART_FOLDER, ObjectKind.WARP_DEFORMER,
-                ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
-            "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(contributions.get(3), Location.PARAMETER_TAB,
-            Set.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER),
-            "palette-label-style.text.none", "palette-label-style.text.custom");
-        assertContribution(contributions.get(4), Location.PARAMETER_TAB, Set.of(ObjectKind.PARAMETER),
-            "palette-label-style.background.none", "palette-label-style.background.custom");
+        assertContribution(
+                contributions.get(0),
+                Location.DEFORMER_TAB,
+                Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
+                "palette-label-style.text.none",
+                "palette-label-style.text.custom");
+        assertContribution(
+                contributions.get(1),
+                Location.DEFORMER_TAB,
+                Set.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH),
+                "palette-label-style.background.none",
+                "palette-label-style.background.custom");
+        assertContribution(
+                contributions.get(2),
+                Location.PART_TAB,
+                Set.of(
+                        ObjectKind.PART,
+                        ObjectKind.PART_FOLDER,
+                        ObjectKind.WARP_DEFORMER,
+                        ObjectKind.ROTATION_DEFORMER,
+                        ObjectKind.ART_MESH),
+                "palette-label-style.text.none",
+                "palette-label-style.text.custom");
+        assertContribution(
+                contributions.get(3),
+                Location.PARAMETER_TAB,
+                Set.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER),
+                "palette-label-style.text.none",
+                "palette-label-style.text.custom");
+        assertContribution(
+                contributions.get(4),
+                Location.PARAMETER_TAB,
+                Set.of(ObjectKind.PARAMETER),
+                "palette-label-style.background.none",
+                "palette-label-style.background.custom");
     }
 
     private static void assertContribution(
-        final ContextMenuRegistry.ContextMenuContribution contribution,
-        final Location location,
-        final Set<ObjectKind> kinds,
-        final String firstActionId,
-        final String lastActionId
-    ) {
+            final ContextMenuRegistry.ContextMenuContribution contribution,
+            final Location location,
+            final Set<ObjectKind> kinds,
+            final String firstActionId,
+            final String lastActionId) {
         assertEquals(location, contribution.location());
         assertEquals(kinds, contribution.objectKinds());
         final ContextMenuEntry entry = contribution.entry();
@@ -160,7 +176,8 @@ class PaletteLabelStylePluginTest {
         assertEquals(10, entry.children().size());
         assertEquals(ContextMenuRegistry.EntryKind.ITEM, entry.children().get(0).kind());
         assertEquals(firstActionId, entry.children().get(0).actionId());
-        assertEquals(ContextMenuRegistry.EntryKind.SEPARATOR, entry.children().get(8).kind());
+        assertEquals(
+                ContextMenuRegistry.EntryKind.SEPARATOR, entry.children().get(8).kind());
         assertEquals(lastActionId, entry.children().get(9).actionId());
     }
 
@@ -175,10 +192,12 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
         context.storage().awaitOperations(2); // persistence write
 
-        assertEquals(List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
-        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#E53935"),
-            LabelStylePersistence.parse(context.storage().content(
-                LabelStylePersistence.filePath("project-1").relativePath())));
+        assertEquals(
+                List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
+        assertEquals(
+                Map.of("PARAMETER_TAB:p1:text", "#E53935"),
+                LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
@@ -189,17 +208,24 @@ class PaletteLabelStylePluginTest {
         plugin.enable();
         context.storage().awaitOperations(1);
 
-        context.actions().execute("palette-label-style.background.blue",
-            new ContextMenuSelection(1L, "doc", Location.DEFORMER_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.WARP_DEFORMER, "warp1"))));
+        context.actions()
+                .execute(
+                        "palette-label-style.background.blue",
+                        new ContextMenuSelection(
+                                1L,
+                                "doc",
+                                Location.DEFORMER_TAB,
+                                List.of(new ContextMenuSelection.Item(ObjectKind.WARP_DEFORMER, "warp1"))));
 
-        assertEquals(List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
-            dev.turboism.sdk.ui.appearance.PresetColor.BLUE)),
-            context.model().deformer("warp1").nativeLabelColors);
+        assertEquals(
+                List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
+                        dev.turboism.sdk.ui.appearance.PresetColor.BLUE)),
+                context.model().deformer("warp1").nativeLabelColors);
         assertEquals(List.of(), context.model().deformer("warp1").partEntry.events());
         assertEquals(List.of(), context.model().deformer("warp1").deformerEntry.events());
-        assertTrue(LabelStylePersistence.parse(context.storage().content(
-            LabelStylePersistence.filePath("project-1").relativePath())).isEmpty());
+        assertTrue(LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("project-1").relativePath()))
+                .isEmpty());
     }
 
     @Test
@@ -210,16 +236,24 @@ class PaletteLabelStylePluginTest {
         plugin.enable();
         context.storage().awaitOperations(1);
 
-        context.actions().execute("palette-label-style.text.red",
-            new ContextMenuSelection(1L, "doc", Location.DEFORMER_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.WARP_DEFORMER, "warp1"))));
+        context.actions()
+                .execute(
+                        "palette-label-style.text.red",
+                        new ContextMenuSelection(
+                                1L,
+                                "doc",
+                                Location.DEFORMER_TAB,
+                                List.of(new ContextMenuSelection.Item(ObjectKind.WARP_DEFORMER, "warp1"))));
         context.storage().awaitOperations(2);
 
-        assertEquals(List.of("text:#E53935"), context.model().deformer("warp1").partEntry.textEvents());
+        assertEquals(
+                List.of("text:#E53935"),
+                context.model().deformer("warp1").partEntry.textEvents());
         assertTrue(context.model().deformer("warp1").nativeLabelColors.isEmpty());
-        assertEquals(Map.of("DEFORMER_TAB:warp1:text", "#E53935"),
-            LabelStylePersistence.parse(context.storage().content(
-                LabelStylePersistence.filePath("project-1").relativePath())));
+        assertEquals(
+                Map.of("DEFORMER_TAB:warp1:text", "#E53935"),
+                LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
@@ -235,9 +269,12 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.none", parameterSelection("p1"));
         context.storage().awaitOperations(3);
 
-        assertEquals(List.of("text:#E53935", "text:closed"), context.model().parameter("p1").entry.events());
-        assertTrue(LabelStylePersistence.parse(context.storage().content(
-            LabelStylePersistence.filePath("project-1").relativePath())).isEmpty());
+        assertEquals(
+                List.of("text:#E53935", "text:closed"),
+                context.model().parameter("p1").entry.events());
+        assertTrue(LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("project-1").relativePath()))
+                .isEmpty());
     }
 
     @Test
@@ -247,15 +284,27 @@ class PaletteLabelStylePluginTest {
         plugin.init(context);
         plugin.enable();
 
-        context.actions().execute("palette-label-style.text.green",
-            new ContextMenuSelection(1L, "doc", Location.PART_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.PART, "part1"))));
-        context.actions().execute("palette-label-style.text.yellow",
-            new ContextMenuSelection(1L, "doc", Location.PARAMETER_TAB,
-                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER_FOLDER, "folder1"))));
+        context.actions()
+                .execute(
+                        "palette-label-style.text.green",
+                        new ContextMenuSelection(
+                                1L,
+                                "doc",
+                                Location.PART_TAB,
+                                List.of(new ContextMenuSelection.Item(ObjectKind.PART, "part1"))));
+        context.actions()
+                .execute(
+                        "palette-label-style.text.yellow",
+                        new ContextMenuSelection(
+                                1L,
+                                "doc",
+                                Location.PARAMETER_TAB,
+                                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER_FOLDER, "folder1"))));
 
-        assertEquals(List.of("text:#4CAF50"), context.model().part("part1").entry.events());
-        assertEquals(List.of("text:#FDD835"), context.model().group("folder1").entry.events());
+        assertEquals(
+                List.of("text:#4CAF50"), context.model().part("part1").entry.events());
+        assertEquals(
+                List.of("text:#FDD835"), context.model().group("folder1").entry.events());
     }
 
     @Test
@@ -265,16 +314,19 @@ class PaletteLabelStylePluginTest {
         plugin.init(context);
         plugin.enable();
 
-        final ContextMenuSelection selection = new ContextMenuSelection(1L, "doc", Location.DEFORMER_TAB,
-            List.of(new ContextMenuSelection.Item(ObjectKind.ART_MESH, "mesh1")));
+        final ContextMenuSelection selection = new ContextMenuSelection(
+                1L, "doc", Location.DEFORMER_TAB, List.of(new ContextMenuSelection.Item(ObjectKind.ART_MESH, "mesh1")));
         context.actions().execute("palette-label-style.text.purple", selection);
         context.actions().execute("palette-label-style.background.gray", selection);
 
-        assertEquals(List.of("text:#9C27B0"), context.model().drawable("mesh1").partEntry.textEvents());
+        assertEquals(
+                List.of("text:#9C27B0"),
+                context.model().drawable("mesh1").partEntry.textEvents());
         assertEquals(List.of(), context.model().drawable("mesh1").partEntry.backgroundEvents());
-        assertEquals(List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
-            dev.turboism.sdk.ui.appearance.PresetColor.GRAY)),
-            context.model().drawable("mesh1").nativeLabelColors);
+        assertEquals(
+                List.of(new dev.turboism.sdk.ui.appearance.NativeLabelColor.Preset(
+                        dev.turboism.sdk.ui.appearance.PresetColor.GRAY)),
+                context.model().drawable("mesh1").nativeLabelColors);
     }
 
     @Test
@@ -288,16 +340,20 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.custom", parameterSelection("p1"));
 
         assertEquals(1, context.uiHost().colorPickers().size());
-        assertEquals("palette-label-style.custom-color", context.uiHost().colorPickers().get(0).id());
+        assertEquals(
+                "palette-label-style.custom-color",
+                context.uiHost().colorPickers().get(0).id());
         assertEquals(null, context.uiHost().colorPickers().get(0).initial());
 
         context.uiHost().acceptColorPicker(0, "#123456");
         context.storage().awaitOperations(2);
 
-        assertEquals(List.of("text:#123456"), context.model().parameter("p1").entry.textEvents());
-        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#123456"),
-            LabelStylePersistence.parse(context.storage().content(
-                LabelStylePersistence.filePath("project-1").relativePath())));
+        assertEquals(
+                List.of("text:#123456"), context.model().parameter("p1").entry.textEvents());
+        assertEquals(
+                Map.of("PARAMETER_TAB:p1:text", "#123456"),
+                LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("project-1").relativePath())));
     }
 
     @Test
@@ -356,22 +412,23 @@ class PaletteLabelStylePluginTest {
     @Test
     void enableReplaysStoredColorsForCurrentProject() {
         final RecordingPluginContext context = new RecordingPluginContext();
-        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
-            "PARAMETER_TAB:p1:text=#E53935\n");
+        context.storage()
+                .seed(LabelStylePersistence.filePath("project-1").relativePath(), "PARAMETER_TAB:p1:text=#E53935\n");
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
 
         context.storage().awaitOperations(1);
 
-        assertEquals(List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
+        assertEquals(
+                List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
     }
 
     @Test
     void onModelOpenedReplaysStoredColorsForCurrentProject() {
         final RecordingPluginContext context = new RecordingPluginContext();
-        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
-            "PARAMETER_TAB:p1:text=#E53935\n");
+        context.storage()
+                .seed(LabelStylePersistence.filePath("project-1").relativePath(), "PARAMETER_TAB:p1:text=#E53935\n");
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
@@ -380,15 +437,16 @@ class PaletteLabelStylePluginTest {
         plugin.onModelOpened(null);
         context.storage().awaitOperations(2);
 
-        assertEquals(List.of("text:#E53935", "text:closed", "text:#E53935"),
-            context.model().parameter("p1").entry.events());
+        assertEquals(
+                List.of("text:#E53935", "text:closed", "text:#E53935"),
+                context.model().parameter("p1").entry.events());
     }
 
     @Test
     void replayClosesPreviousOverridesBeforeApplyingStoredColors() {
         final RecordingPluginContext context = new RecordingPluginContext();
-        context.storage().seed(LabelStylePersistence.filePath("project-1").relativePath(),
-            "PARAMETER_TAB:p1:text=#E53935\n");
+        context.storage()
+                .seed(LabelStylePersistence.filePath("project-1").relativePath(), "PARAMETER_TAB:p1:text=#E53935\n");
         final PaletteLabelStylePlugin plugin = new PaletteLabelStylePlugin();
         plugin.init(context);
         plugin.enable();
@@ -396,15 +454,17 @@ class PaletteLabelStylePluginTest {
 
         context.actions().execute("palette-label-style.text.blue", parameterSelection("p1"));
         context.storage().awaitOperations(2);
-        assertEquals(List.of("text:#E53935", "text:closed", "text:#2196F3"),
-            context.model().parameter("p1").entry.events());
+        assertEquals(
+                List.of("text:#E53935", "text:closed", "text:#2196F3"),
+                context.model().parameter("p1").entry.events());
 
         plugin.onModelOpened(null);
         context.storage().awaitOperations(3);
 
         // Replay reads the persisted file, which now stores the blue override.
-        assertEquals(List.of("text:#E53935", "text:closed", "text:#2196F3", "text:closed", "text:#2196F3"),
-            context.model().parameter("p1").entry.events());
+        assertEquals(
+                List.of("text:#E53935", "text:closed", "text:#2196F3", "text:closed", "text:#2196F3"),
+                context.model().parameter("p1").entry.events());
     }
 
     @Test
@@ -431,9 +491,10 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
         context.storage().awaitOperations(2);
 
-        assertEquals(Map.of("PARAMETER_TAB:p1:text", "#E53935"),
-            LabelStylePersistence.parse(context.storage().content(
-                LabelStylePersistence.filePath("default").relativePath())));
+        assertEquals(
+                Map.of("PARAMETER_TAB:p1:text", "#E53935"),
+                LabelStylePersistence.parse(context.storage()
+                        .content(LabelStylePersistence.filePath("default").relativePath())));
     }
 
     @Test
@@ -447,10 +508,13 @@ class PaletteLabelStylePluginTest {
         context.actions().execute("palette-label-style.text.red", parameterSelection("p1"));
         context.storage().awaitOperations(2);
 
-        assertTrue(context.storage().content(
-            LabelStylePersistence.filePath("project-1").relativePath()).contains("PARAMETER_TAB:p1:text=#E53935"));
-        assertEquals(Optional.empty(), Optional.ofNullable(
-            context.storage().content(LabelStylePersistence.filePath("other-project").relativePath())));
+        assertTrue(context.storage()
+                .content(LabelStylePersistence.filePath("project-1").relativePath())
+                .contains("PARAMETER_TAB:p1:text=#E53935"));
+        assertEquals(
+                Optional.empty(),
+                Optional.ofNullable(context.storage()
+                        .content(LabelStylePersistence.filePath("other-project").relativePath())));
     }
 
     @Test
@@ -467,8 +531,11 @@ class PaletteLabelStylePluginTest {
     }
 
     private static ContextMenuSelection parameterSelection(final String id) {
-        return new ContextMenuSelection(1L, "document-1", Location.PARAMETER_TAB,
-            List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, id)));
+        return new ContextMenuSelection(
+                1L,
+                "document-1",
+                Location.PARAMETER_TAB,
+                List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, id)));
     }
 
     // ------------------------------------------------------------- fakes
@@ -482,38 +549,117 @@ class PaletteLabelStylePluginTest {
         private final FixedCubismFacade cubism = new FixedCubismFacade();
         private final TestPluginLogger logger = new TestPluginLogger();
 
-        @Override public PluginDescriptor descriptor() { throw new UnsupportedOperationException(); }
-        @Override public PluginLogger logger() { return logger; }
-        @Override public PluginPaths paths() { throw new UnsupportedOperationException(); }
-        @Override public PluginLocalization localization() {
+        @Override
+        public PluginDescriptor descriptor() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PluginLogger logger() {
+            return logger;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PluginLocalization localization() {
             return new PluginLocalization() {
-                @Override public Locale locale() { return Locale.ROOT; }
-                @Override public String text(final String key) { return key; }
-                @Override public String format(final String key, final Object... arguments) { return key; }
-                @Override public boolean contains(final String key) { return true; }
+                @Override
+                public Locale locale() {
+                    return Locale.ROOT;
+                }
+
+                @Override
+                public String text(final String key) {
+                    return key;
+                }
+
+                @Override
+                public String format(final String key, final Object... arguments) {
+                    return key;
+                }
+
+                @Override
+                public boolean contains(final String key) {
+                    return true;
+                }
             };
         }
-        @Override public FixedCubismFacade cubism() { return cubism; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
-        @Override public RecordingActionRegistry actions() { return actions; }
-        @Override public MenuRegistry menus() { throw new UnsupportedOperationException(); }
-        @Override public RecordingContextMenuRegistry contextMenu() { return contextMenu; }
-        @Override public UiScheduler uiScheduler() { throw new UnsupportedOperationException(); }
-        @Override public DiagnosticReport diagnostics() { throw new UnsupportedOperationException(); }
-        @Override public DisposableScope disposableScope() { return disposableScope; }
-        @Override public RecordingUiHost uiHost() { return uiHost; }
-        @Override public RecordingPluginStorage storage() { return storage; }
+
+        @Override
+        public FixedCubismFacade cubism() {
+            return cubism;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RecordingActionRegistry actions() {
+            return actions;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            throw new UnsupportedOperationException();
+        }
+
+        public RecordingContextMenuRegistry contextMenu() {
+            return contextMenu;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return disposableScope;
+        }
+
+        public RecordingUiHost uiHost() {
+            return uiHost;
+        }
+
+        @Override
+        public RecordingPluginStorage storage() {
+            return storage;
+        }
 
         FakeModel model() {
             return cubism.model;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
     private static final class FixedCubismFacade implements CubismFacade {
         private final FakeModel model = new FakeModel();
-        private Optional<ProjectSnapshot> project = Optional.of(new ProjectSnapshot(
-            "project-1", "Project 1", Optional.empty(), List.of(), List.of()));
+        private Optional<ProjectSnapshot> project =
+                Optional.of(new ProjectSnapshot("project-1", "Project 1", Optional.empty(), List.of(), List.of()));
         private boolean modelPresent = true;
 
         void noProject() {
@@ -524,12 +670,33 @@ class PaletteLabelStylePluginTest {
             modelPresent = false;
         }
 
-        @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
-        @Override public Optional<ProjectSnapshot> activeProject() { return project; }
-        @Override public Optional<DocumentSnapshot> activeDocument() { throw new UnsupportedOperationException(); }
-        @Override public Optional<ModelSnapshot> activeModel() { throw new UnsupportedOperationException(); }
-        @Override public boolean isHostPresent() { return true; }
-        @Override public CubismModelAccess model() {
+        @Override
+        public CubismRuntimeSnapshot runtime() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<ProjectSnapshot> activeProject() {
+            return project;
+        }
+
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isHostPresent() {
+            return true;
+        }
+
+        @Override
+        public CubismModelAccess model() {
             return () -> {
                 if (!modelPresent) {
                     throw new IllegalStateException("no model active");
@@ -537,7 +704,6 @@ class PaletteLabelStylePluginTest {
                 return model;
             };
         }
-        @Override public TransactionManager transactionManager() { throw new UnsupportedOperationException(); }
     }
 
     private static final class RecordingActionRegistry implements ActionRegistry {
@@ -547,26 +713,32 @@ class PaletteLabelStylePluginTest {
             return actions.stream().map(ActionRegistry.Action::id).toList();
         }
 
-        @Override public Registration register(final String id, final ActionRegistry.Action action) {
+        @Override
+        public Registration register(final String id, final ActionRegistry.Action action) {
             actions.add(action);
             return () -> actions.remove(action);
         }
 
         void execute(final String id) {
-            execute(id, new ActionRegistry.ActionContext() { });
+            execute(id, new ActionRegistry.ActionContext() {});
         }
 
         void execute(final String id, final ContextMenuSelection selection) {
             execute(id, new ActionRegistry.ActionContext() {
-                @Override public Optional<ContextMenuSelection> contextMenuSelection() {
+                @Override
+                public Optional<ContextMenuSelection> contextMenuSelection() {
                     return Optional.of(selection);
                 }
             });
         }
 
         private void execute(final String id, final ActionRegistry.ActionContext actionContext) {
-            actions.stream().filter(action -> action.id().equals(id)).findFirst().orElseThrow()
-                .handler().accept(actionContext);
+            actions.stream()
+                    .filter(action -> action.id().equals(id))
+                    .findFirst()
+                    .orElseThrow()
+                    .handler()
+                    .accept(actionContext);
         }
     }
 
@@ -577,7 +749,8 @@ class PaletteLabelStylePluginTest {
             return List.copyOf(contributions);
         }
 
-        @Override public Registration contribute(final ContextMenuContribution contribution) {
+        @Override
+        public Registration contribute(final ContextMenuContribution contribution) {
             contributions.add(contribution);
             return () -> contributions.remove(contribution);
         }
@@ -613,8 +786,7 @@ class PaletteLabelStylePluginTest {
                 }
             }
             synchronized (this) {
-                throw new AssertionError("storage operations did not reach " + count
-                    + "; saw " + operations.size());
+                throw new AssertionError("storage operations did not reach " + count + "; saw " + operations.size());
             }
         }
 
@@ -624,42 +796,51 @@ class PaletteLabelStylePluginTest {
             operations.add(operation);
         }
 
-        @Override public synchronized CompletionStage<StorageReadResult<String>> readUtf8(
-            final StoragePath path, final int maxBytes
-        ) {
+        @Override
+        public synchronized CompletionStage<StorageReadResult<String>> readUtf8(
+                final StoragePath path, final int maxBytes) {
             record();
             return CompletableFuture.completedFuture(new StorageReadResult<>(
-                Optional.ofNullable(files.get(path.relativePath())), Optional.empty(), false
-            ));
+                    Optional.ofNullable(files.get(path.relativePath())), Optional.empty(), false));
         }
 
-        @Override public synchronized CompletionStage<StorageWriteResult> writeUtf8Atomic(
-            final StoragePath path, final String content
-        ) {
+        @Override
+        public synchronized CompletionStage<StorageWriteResult> writeUtf8Atomic(
+                final StoragePath path, final String content) {
             record();
             files.put(path.relativePath(), content);
             return CompletableFuture.completedFuture(new StorageWriteResult(true, Optional.empty()));
         }
-        @Override public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
+
+        @Override
+        public CompletionStage<StorageReadResult<byte[]>> readBytes(StoragePath path, int maxBytes) {
             throw new UnsupportedOperationException("not used");
         }
-        @Override public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
+
+        @Override
+        public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
             throw new UnsupportedOperationException("not used");
         }
-        @Override public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
+
+        @Override
+        public CompletionStage<StorageListResult> list(StoragePath directory, int maxEntries) {
             throw new UnsupportedOperationException("not used");
         }
-        @Override public CompletionStage<StorageMutationResult> copy(
-            StoragePath source, StoragePath target, boolean replaceExisting
-        ) {
+
+        @Override
+        public CompletionStage<StorageMutationResult> copy(
+                StoragePath source, StoragePath target, boolean replaceExisting) {
             throw new UnsupportedOperationException("not used");
         }
-        @Override public CompletionStage<StorageMutationResult> moveAtomic(
-            StoragePath source, StoragePath target, boolean replaceExisting
-        ) {
+
+        @Override
+        public CompletionStage<StorageMutationResult> moveAtomic(
+                StoragePath source, StoragePath target, boolean replaceExisting) {
             throw new UnsupportedOperationException("not used");
         }
-        @Override public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
+
+        @Override
+        public CompletionStage<StorageMutationResult> delete(StoragePath path, boolean recursive) {
             throw new UnsupportedOperationException("not used");
         }
     }
@@ -680,41 +861,101 @@ class PaletteLabelStylePluginTest {
             colorPickerListeners.get(index).onResult(false, null);
         }
 
-        @Override public void openColorPicker(
-            final String id,
-            final String title,
-            final String initialColorHex,
-            final dev.turboism.sdk.ui.ColorPickerResultListener listener
-        ) {
+        @Override
+        public void openColorPicker(
+                final String id,
+                final String title,
+                final String initialColorHex,
+                final dev.turboism.sdk.ui.ColorPickerResultListener listener) {
             colorPickers.add(new ColorPickerCall(id, title, initialColorHex));
             colorPickerListeners.add(listener);
         }
 
-        record ColorPickerCall(String id, String title, String initial) { }
+        record ColorPickerCall(String id, String title, String initial) {}
 
-        @Override public Registration contributeOverlay(dev.turboism.sdk.ui.OverlayContribution contribution) { throw unsupported(); }
-        @Override public Registration contributeBoundingBoxOverlayButton(dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) { throw unsupported(); }
-        @Override public dev.turboism.sdk.ui.context.ContextSourceSnapshot contextSource() { throw unsupported(); }
-        @Override public dev.turboism.sdk.ui.ViewportSnapshot viewport() { throw unsupported(); }
-        @Override public Registration openDialog(dev.turboism.sdk.ui.DialogRequest request) { throw unsupported(); }
-        @Override public boolean confirmDialog(dev.turboism.sdk.ui.DialogRequest request) { throw unsupported(); }
-        @Override public Registration contributeEmbeddedPanel(dev.turboism.sdk.ui.EmbeddedPanelContribution contribution) { throw unsupported(); }
-        @Override public Optional<String> requestFile(dev.turboism.sdk.ui.FileChooserRequest request) { throw unsupported(); }
-        @Override public Registration notifyStatus(dev.turboism.sdk.ui.StatusNotification notification) { throw unsupported(); }
-        @Override public Registration contributeContextMenu(ContextMenuContribution contribution) { throw unsupported(); }
-        @Override public Registration contributeMainToolbar(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) { throw unsupported(); }
-        @Override public Registration contributePaletteToolbar(dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) { throw unsupported(); }
+        @Override
+        public Registration contributeOverlay(dev.turboism.sdk.ui.OverlayContribution contribution) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(
+                dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
+            throw unsupported();
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.context.ContextSourceSnapshot contextSource() {
+            throw unsupported();
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.ViewportSnapshot viewport() {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration openDialog(dev.turboism.sdk.ui.DialogRequest request) {
+            throw unsupported();
+        }
+
+        @Override
+        public boolean confirmDialog(dev.turboism.sdk.ui.DialogRequest request) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration contributeEmbeddedPanel(dev.turboism.sdk.ui.EmbeddedPanelContribution contribution) {
+            throw unsupported();
+        }
+
+        @Override
+        public Optional<String> requestFile(dev.turboism.sdk.ui.FileChooserRequest request) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration notifyStatus(dev.turboism.sdk.ui.StatusNotification notification) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration contributeContextMenu(ContextMenuContribution contribution) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration contributeMainToolbar(
+                dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) {
+            throw unsupported();
+        }
+
+        @Override
+        public Registration contributePaletteToolbar(
+                dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
+            throw unsupported();
+        }
+
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used");
         }
     }
 
     private static final class TestPluginLogger implements PluginLogger {
-        @Override public void debug(String message) { }
-        @Override public void info(String message) { }
-        @Override public void warn(String message) { }
-        @Override public void error(String message) { }
-        @Override public void error(String message, Throwable throwable) { }
+        @Override
+        public void debug(String message) {}
+
+        @Override
+        public void info(String message) {}
+
+        @Override
+        public void warn(String message) {}
+
+        @Override
+        public void error(String message) {}
+
+        @Override
+        public void error(String message, Throwable throwable) {}
     }
 
     // ---------------------------------------------------------- model fakes
@@ -726,117 +967,299 @@ class PaletteLabelStylePluginTest {
         private final List<FakeDeformer> deformers = List.of(new FakeDeformer("warp1"));
         private final List<FakeDrawable> drawables = List.of(new FakeDrawable("mesh1"));
 
-        FakeParameter parameter(final String id) { return find(parameters, "parameter:" + id); }
-        FakeParameterGroup group(final String id) { return find(groups, "group:" + id); }
-        FakePart part(final String id) { return find(parts, "part:" + id); }
-        FakeDeformer deformer(final String id) { return find(deformers, "deformer:" + id); }
-        FakeDrawable drawable(final String id) { return find(drawables, "drawable:" + id); }
+        FakeParameter parameter(final String id) {
+            return find(parameters, "parameter:" + id);
+        }
+
+        FakeParameterGroup group(final String id) {
+            return find(groups, "group:" + id);
+        }
+
+        FakePart part(final String id) {
+            return find(parts, "part:" + id);
+        }
+
+        FakeDeformer deformer(final String id) {
+            return find(deformers, "deformer:" + id);
+        }
+
+        FakeDrawable drawable(final String id) {
+            return find(drawables, "drawable:" + id);
+        }
 
         private static <T> T find(final List<T> values, final String marker) {
             return values.stream()
-                .filter(value -> String.valueOf(value).contains(marker))
-                .findFirst()
-                .orElseThrow(() -> new NoSuchElementException(marker));
+                    .filter(value -> String.valueOf(value).contains(marker))
+                    .findFirst()
+                    .orElseThrow(() -> new NoSuchElementException(marker));
         }
 
-        @Override public ModelId id() { return new ModelId("model-1"); }
-        @Override public Parameters parameters() {
+        @Override
+        public ModelId id() {
+            return new ModelId("model-1");
+        }
+
+        @Override
+        public Parameters parameters() {
             return new Parameters() {
-                @Override public List<Parameter> all() { return List.copyOf(parameters); }
-                @Override public Parameter find(final ParameterId id) {
-                    return parameters.stream().filter(p -> p.id().equals(id)).findFirst().orElseThrow();
+                @Override
+                public List<Parameter> all() {
+                    return List.copyOf(parameters);
+                }
+
+                @Override
+                public Parameter find(final ParameterId id) {
+                    return parameters.stream()
+                            .filter(p -> p.id().equals(id))
+                            .findFirst()
+                            .orElseThrow();
                 }
             };
         }
-        @Override public ParameterGroups parameterGroups() {
+
+        @Override
+        public ParameterGroups parameterGroups() {
             return new ParameterGroups() {
-                @Override public List<ParameterGroup> all() { return List.copyOf(groups); }
-                @Override public ParameterGroup root() { return groups.get(0); }
-                @Override public ParameterGroup find(ParameterGroupId id) {
-                    return groups.stream().filter(g -> g.id().equals(id)).findFirst().orElseThrow();
+                @Override
+                public List<ParameterGroup> all() {
+                    return List.copyOf(groups);
+                }
+
+                @Override
+                public ParameterGroup root() {
+                    return groups.get(0);
+                }
+
+                @Override
+                public ParameterGroup find(ParameterGroupId id) {
+                    return groups.stream()
+                            .filter(g -> g.id().equals(id))
+                            .findFirst()
+                            .orElseThrow();
                 }
             };
         }
-        @Override public Parts parts() {
+
+        @Override
+        public Parts parts() {
             return new Parts() {
-                @Override public List<Part> all() { return List.copyOf(parts); }
-                @Override public Part find(PartId id) {
-                    return parts.stream().filter(p -> p.id().equals(id)).findFirst().orElseThrow();
+                @Override
+                public List<Part> all() {
+                    return List.copyOf(parts);
+                }
+
+                @Override
+                public Part find(PartId id) {
+                    return parts.stream()
+                            .filter(p -> p.id().equals(id))
+                            .findFirst()
+                            .orElseThrow();
                 }
             };
         }
-        @Override public Deformers deformers() {
+
+        @Override
+        public Deformers deformers() {
             return new Deformers() {
-                @Override public List<Deformer> all() { return List.copyOf(deformers); }
-                @Override public Deformer find(DeformerId id) {
-                    return deformers.stream().filter(d -> d.id().equals(id)).findFirst().orElseThrow();
+                @Override
+                public List<Deformer> all() {
+                    return List.copyOf(deformers);
+                }
+
+                @Override
+                public Deformer find(DeformerId id) {
+                    return deformers.stream()
+                            .filter(d -> d.id().equals(id))
+                            .findFirst()
+                            .orElseThrow();
                 }
             };
         }
-        @Override public Drawables drawables() {
+
+        @Override
+        public Drawables drawables() {
             return new Drawables() {
-                @Override public List<Drawable> all() { return List.copyOf(drawables); }
-                @Override public Drawable find(ArtMeshId id) {
-                    return drawables.stream().filter(d -> d.id().equals(id)).findFirst().orElseThrow();
+                @Override
+                public List<Drawable> all() {
+                    return List.copyOf(drawables);
+                }
+
+                @Override
+                public Drawable find(ArtMeshId id) {
+                    return drawables.stream()
+                            .filter(d -> d.id().equals(id))
+                            .findFirst()
+                            .orElseThrow();
                 }
             };
         }
-        @Override public Glues glues() { throw new UnsupportedOperationException("not used"); }
-        @Override public void update() { throw new UnsupportedOperationException("not used"); }
+
+        @Override
+        public Glues glues() {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public void update() {
+            throw new UnsupportedOperationException("not used");
+        }
     }
 
     private static final class FakeParameter implements Parameter {
         final FakePaletteEntry entry = new FakePaletteEntry();
         private final String id;
-        FakeParameter(final String id) { this.id = id; }
-        @Override public ParameterId id() { return new ParameterId(id); }
-        @Override public dev.turboism.sdk.ui.appearance.model.ParameterAppearance ui() {
+
+        FakeParameter(final String id) {
+            this.id = id;
+        }
+
+        @Override
+        public ParameterId id() {
+            return new ParameterId(id);
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.model.ParameterAppearance ui() {
             return () -> Optional.of(entry);
         }
-        @Override public float getValue() { return 0.0F; }
-        @Override public float getMinimumValue() { return -1.0F; }
-        @Override public float getMaximumValue() { return 1.0F; }
-        @Override public float getDefaultValue() { return 0.0F; }
-        @Override public void setValue(final float value) { }
-        @Override public String toString() { return "parameter:" + id; }
+
+        @Override
+        public float getValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public float getMinimumValue() {
+            return -1.0F;
+        }
+
+        @Override
+        public float getMaximumValue() {
+            return 1.0F;
+        }
+
+        @Override
+        public float getDefaultValue() {
+            return 0.0F;
+        }
+
+        @Override
+        public void setValue(final float value) {}
+
+        @Override
+        public String toString() {
+            return "parameter:" + id;
+        }
     }
 
     private static final class FakeParameterGroup implements ParameterGroup {
         final FakePaletteEntry entry = new FakePaletteEntry();
         private final String id;
-        FakeParameterGroup(final String id) { this.id = id; }
-        @Override public ParameterGroupId id() { return new ParameterGroupId(id); }
-        @Override public dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance ui() {
+
+        FakeParameterGroup(final String id) {
+            this.id = id;
+        }
+
+        @Override
+        public ParameterGroupId id() {
+            return new ParameterGroupId(id);
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance ui() {
             return new dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance() {
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> parameterPaletteEntry() { return Optional.of(entry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
-                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { }
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> parameterPaletteEntry() {
+                    return Optional.of(entry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) {}
             };
         }
-        @Override public Optional<String> name() { return Optional.of(id); }
-        @Override public Optional<ParameterGroupId> parentId() { return Optional.empty(); }
-        @Override public List<ParameterGroupId> childGroupIds() { return List.of(); }
-        @Override public List<ParameterId> parameterIds() { return List.of(); }
-        @Override public String toString() { return "group:" + id; }
+
+        @Override
+        public Optional<String> name() {
+            return Optional.of(id);
+        }
+
+        @Override
+        public Optional<ParameterGroupId> parentId() {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<ParameterGroupId> childGroupIds() {
+            return List.of();
+        }
+
+        @Override
+        public List<ParameterId> parameterIds() {
+            return List.of();
+        }
+
+        @Override
+        public String toString() {
+            return "group:" + id;
+        }
     }
 
     private static final class FakePart implements Part {
         final FakePaletteEntry entry = new FakePaletteEntry();
         private final String id;
-        FakePart(final String id) { this.id = id; }
-        @Override public PartId id() { return new PartId(id); }
-        @Override public dev.turboism.sdk.ui.appearance.model.PartAppearance ui() {
+
+        FakePart(final String id) {
+            this.id = id;
+        }
+
+        @Override
+        public PartId id() {
+            return new PartId(id);
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.model.PartAppearance ui() {
             return new dev.turboism.sdk.ui.appearance.model.PartAppearance() {
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() { return Optional.of(entry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
-                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { }
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() {
+                    return Optional.of(entry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) {}
             };
         }
-        @Override public void setName(final String name) { }
-        @Override public float getOpacity() { return 1.0F; }
-        @Override public int parentIndex() { return -1; }
-        @Override public void setOpacity(final float opacity) { }
-        @Override public String toString() { return "part:" + id; }
+
+        @Override
+        public void setName(final String name) {}
+
+        @Override
+        public float getOpacity() {
+            return 1.0F;
+        }
+
+        @Override
+        public int parentIndex() {
+            return -1;
+        }
+
+        @Override
+        public void setOpacity(final float opacity) {}
+
+        @Override
+        public String toString() {
+            return "part:" + id;
+        }
     }
 
     private static final class FakeDeformer implements Deformer {
@@ -844,19 +1267,55 @@ class PaletteLabelStylePluginTest {
         final FakePaletteEntry deformerEntry = new FakePaletteEntry();
         final List<dev.turboism.sdk.ui.appearance.NativeLabelColor> nativeLabelColors = new ArrayList<>();
         private final String id;
-        FakeDeformer(final String id) { this.id = id; }
-        @Override public DeformerId id() { return new DeformerId(id); }
-        @Override public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
+
+        FakeDeformer(final String id) {
+            this.id = id;
+        }
+
+        @Override
+        public DeformerId id() {
+            return new DeformerId(id);
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
             return new dev.turboism.sdk.ui.appearance.model.DeformerAppearance() {
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() { return Optional.of(partEntry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> deformerPaletteEntry() { return Optional.of(deformerEntry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
-                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { nativeLabelColors.add(color); }
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() {
+                    return Optional.of(partEntry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> deformerPaletteEntry() {
+                    return Optional.of(deformerEntry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) {
+                    nativeLabelColors.add(color);
+                }
             };
         }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return emptyInts(); }
-        @Override public String toString() { return "deformer:" + id; }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return emptyInts();
+        }
+
+        @Override
+        public String toString() {
+            return "deformer:" + id;
+        }
     }
 
     private static final class FakeDrawable implements Drawable {
@@ -864,39 +1323,133 @@ class PaletteLabelStylePluginTest {
         final FakePaletteEntry deformerEntry = new FakePaletteEntry();
         final List<dev.turboism.sdk.ui.appearance.NativeLabelColor> nativeLabelColors = new ArrayList<>();
         private final String id;
-        FakeDrawable(final String id) { this.id = id; }
-        @Override public ArtMeshId id() { return new ArtMeshId(id); }
-        @Override public dev.turboism.sdk.ui.appearance.model.DrawableAppearance ui() {
+
+        FakeDrawable(final String id) {
+            this.id = id;
+        }
+
+        @Override
+        public ArtMeshId id() {
+            return new ArtMeshId(id);
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.model.DrawableAppearance ui() {
             return new dev.turboism.sdk.ui.appearance.model.DrawableAppearance() {
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() { return Optional.of(partEntry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> deformerPaletteEntry() { return Optional.of(deformerEntry); }
-                @Override public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() { return Optional.empty(); }
-                @Override public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) { nativeLabelColors.add(color); }
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> partPaletteEntry() {
+                    return Optional.of(partEntry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.PaletteEntry> deformerPaletteEntry() {
+                    return Optional.of(deformerEntry);
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.ui.appearance.NativeLabelColorState> nativeLabelColor() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public void setNativeLabelColor(dev.turboism.sdk.ui.appearance.NativeLabelColor color) {
+                    nativeLabelColors.add(color);
+                }
             };
         }
-        @Override public byte constantFlag() { return 0; }
-        @Override public byte dynamicFlag() { return 0; }
-        @Override public BlendMode blendMode() { return BlendMode.NORMAL; }
-        @Override public int textureIndex() { return 0; }
-        @Override public int drawOrder() { return 0; }
-        @Override public int renderOrder() { return 0; }
-        @Override public float getOpacity() { return 1.0F; }
-        @Override public IntSequence masks() { return emptyInts(); }
-        @Override public FloatSequence vertexPositions() { return emptyFloats(); }
-        @Override public FloatSequence vertexUvs() { return emptyFloats(); }
-        @Override public IntSequence indices() { return emptyInts(); }
-        @Override public Color multiplyColor() { return new Color(1.0F, 1.0F, 1.0F, 1.0F); }
-        @Override public Color screenColor() { return new Color(0.0F, 0.0F, 0.0F, 0.0F); }
-        @Override public int parentPartIndex() { return -1; }
-        @Override public int parentDeformerIndex() { return -1; }
-        @Override public IntSequence parameters() { return emptyInts(); }
-        @Override public String toString() { return "drawable:" + id; }
+
+        @Override
+        public byte constantFlag() {
+            return 0;
+        }
+
+        @Override
+        public byte dynamicFlag() {
+            return 0;
+        }
+
+        @Override
+        public BlendMode blendMode() {
+            return BlendMode.NORMAL;
+        }
+
+        @Override
+        public int textureIndex() {
+            return 0;
+        }
+
+        @Override
+        public int drawOrder() {
+            return 0;
+        }
+
+        @Override
+        public int renderOrder() {
+            return 0;
+        }
+
+        @Override
+        public float getOpacity() {
+            return 1.0F;
+        }
+
+        @Override
+        public IntSequence masks() {
+            return emptyInts();
+        }
+
+        @Override
+        public FloatSequence vertexPositions() {
+            return emptyFloats();
+        }
+
+        @Override
+        public FloatSequence vertexUvs() {
+            return emptyFloats();
+        }
+
+        @Override
+        public IntSequence indices() {
+            return emptyInts();
+        }
+
+        @Override
+        public Color multiplyColor() {
+            return new Color(1.0F, 1.0F, 1.0F, 1.0F);
+        }
+
+        @Override
+        public Color screenColor() {
+            return new Color(0.0F, 0.0F, 0.0F, 0.0F);
+        }
+
+        @Override
+        public int parentPartIndex() {
+            return -1;
+        }
+
+        @Override
+        public int parentDeformerIndex() {
+            return -1;
+        }
+
+        @Override
+        public IntSequence parameters() {
+            return emptyInts();
+        }
+
+        @Override
+        public String toString() {
+            return "drawable:" + id;
+        }
     }
 
     private static final class FakePaletteEntry implements dev.turboism.sdk.ui.appearance.PaletteEntry {
         private final List<String> events = new ArrayList<>();
 
-        List<String> events() { return List.copyOf(events); }
+        List<String> events() {
+            return List.copyOf(events);
+        }
 
         List<String> textEvents() {
             return events.stream().filter(e -> e.startsWith("text:")).toList();
@@ -906,11 +1459,13 @@ class PaletteLabelStylePluginTest {
             return events.stream().filter(e -> e.startsWith("background:")).toList();
         }
 
-        @Override public Registration overrideTextColor(dev.turboism.sdk.ui.appearance.UiColor color) {
+        @Override
+        public Registration overrideTextColor(dev.turboism.sdk.ui.appearance.UiColor color) {
             return override("text", color);
         }
 
-        @Override public Registration overrideBackgroundColor(dev.turboism.sdk.ui.appearance.UiColor color) {
+        @Override
+        public Registration overrideBackgroundColor(dev.turboism.sdk.ui.appearance.UiColor color) {
             return override("background", color);
         }
 
@@ -919,26 +1474,57 @@ class PaletteLabelStylePluginTest {
             return () -> events.add(property + ":closed");
         }
 
-        @Override public Registration overrideFontSize(final float points) { throw new UnsupportedOperationException("not used"); }
-        @Override public Registration overrideBold(final boolean bold) { throw new UnsupportedOperationException("not used"); }
-        @Override public Registration overrideItalic(final boolean italic) { throw new UnsupportedOperationException("not used"); }
-        @Override public dev.turboism.sdk.ui.appearance.PaletteEntryState resolved() {
+        @Override
+        public Registration overrideFontSize(final float points) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public Registration overrideBold(final boolean bold) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public Registration overrideItalic(final boolean italic) {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.appearance.PaletteEntryState resolved() {
             return dev.turboism.sdk.ui.appearance.PaletteEntryState.empty();
         }
-        @Override public Optional<dev.turboism.sdk.ui.appearance.PaletteEntryState> actual() { return Optional.empty(); }
+
+        @Override
+        public Optional<dev.turboism.sdk.ui.appearance.PaletteEntryState> actual() {
+            return Optional.empty();
+        }
     }
 
     private static IntSequence emptyInts() {
         return new IntSequence() {
-            @Override public int size() { return 0; }
-            @Override public int get(final int index) { throw new IndexOutOfBoundsException(); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public int get(final int index) {
+                throw new IndexOutOfBoundsException();
+            }
         };
     }
 
     private static FloatSequence emptyFloats() {
         return new FloatSequence() {
-            @Override public int size() { return 0; }
-            @Override public float get(final int index) { throw new IndexOutOfBoundsException(); }
+            @Override
+            public int size() {
+                return 0;
+            }
+
+            @Override
+            public float get(final int index) {
+                throw new IndexOutOfBoundsException();
+            }
         };
     }
 }

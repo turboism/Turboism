@@ -1,7 +1,6 @@
 package dev.turboism.core.descriptor;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -35,53 +34,68 @@ import java.util.Optional;
  * @param eventContracts published public event contract artifacts embedded in the plugin JAR
  */
 public record CorePluginDescriptor(
-    String id,
-    String name,
-    String version,
-    String description,
-    List<String> entrypoints,
-    String turboismApi,
-    List<Author> authors,
-    String license,
-    Optional<String> website,
-    List<String> resources,
-    I18n i18n,
-    List<DependencyRef> dependencies,
-    List<PermissionRef> permissions,
-    List<String> capabilities,
-    Environment environment,
-    Optional<String> category,
-    List<String> tags,
-    List<EventExport> eventExports,
-    List<EventImport> eventImports,
-    List<EventContract> eventContracts
-) implements PluginDescriptor {
+        String id,
+        String name,
+        String version,
+        String description,
+        List<String> entrypoints,
+        String turboismApi,
+        List<Author> authors,
+        String license,
+        Optional<String> website,
+        List<String> resources,
+        I18n i18n,
+        List<DependencyRef> dependencies,
+        List<PermissionRef> permissions,
+        List<String> capabilities,
+        Environment environment,
+        Optional<String> category,
+        List<String> tags,
+        List<EventExport> eventExports,
+        List<EventImport> eventImports,
+        List<EventContract> eventContracts)
+        implements PluginDescriptor {
 
     /** Compatibility constructor for schema v2/v3 descriptors without public events. */
     public CorePluginDescriptor(
-        final String id,
-        final String name,
-        final String version,
-        final String description,
-        final List<String> entrypoints,
-        final String turboismApi,
-        final List<Author> authors,
-        final String license,
-        final Optional<String> website,
-        final List<String> resources,
-        final I18n i18n,
-        final List<DependencyRef> dependencies,
-        final List<PermissionRef> permissions,
-        final List<String> capabilities,
-        final Environment environment,
-        final Optional<String> category,
-        final List<String> tags
-    ) {
+            final String id,
+            final String name,
+            final String version,
+            final String description,
+            final List<String> entrypoints,
+            final String turboismApi,
+            final List<Author> authors,
+            final String license,
+            final Optional<String> website,
+            final List<String> resources,
+            final I18n i18n,
+            final List<DependencyRef> dependencies,
+            final List<PermissionRef> permissions,
+            final List<String> capabilities,
+            final Environment environment,
+            final Optional<String> category,
+            final List<String> tags) {
         this(
-            id, name, version, description, entrypoints, turboismApi, authors, license,
-            website, resources, i18n, dependencies, permissions, capabilities,
-            environment, category, tags, List.of(), List.of(), List.of()
-        );
+                id,
+                name,
+                version,
+                description,
+                entrypoints,
+                turboismApi,
+                authors,
+                license,
+                website,
+                resources,
+                i18n,
+                dependencies,
+                permissions,
+                capabilities,
+                environment,
+                category,
+                tags,
+                List.of(),
+                List.of(),
+                List.of());
     }
 
     public CorePluginDescriptor {
@@ -104,8 +118,7 @@ public record CorePluginDescriptor(
      * @param name author or organisation name
      * @param email contact address, empty when the manifest declared none
      */
-    public record CoreAuthor(String name, Optional<String> email) implements Author {
-    }
+    public record CoreAuthor(String name, Optional<String> email) implements Author {}
 
     /**
      * The plugin's message-bundle declaration.
@@ -128,14 +141,8 @@ public record CorePluginDescriptor(
      * @param ordering load-order constraint relative to the target
      * @param reason operator-facing justification, empty when the manifest gave none
      */
-    public record CoreDependencyRef(
-        String id,
-        String type,
-        String version,
-        String ordering,
-        Optional<String> reason
-    ) implements DependencyRef {
-    }
+    public record CoreDependencyRef(String id, String type, String version, String ordering, Optional<String> reason)
+            implements DependencyRef {}
 
     /**
      * A permission the plugin requests at install time. Declaring it here is a request, not a
@@ -146,41 +153,25 @@ public record CorePluginDescriptor(
      * @param reason operator-facing justification shown when reviewing the request, empty when the
      *     manifest gave none
      */
-    public record CorePermissionRef(
-        String id,
-        String scope,
-        Optional<String> reason
-    ) implements PermissionRef {
-    }
+    public record CorePermissionRef(String id, String scope, Optional<String> reason) implements PermissionRef {}
 
     /** One provider-owned public event contract. */
-    public record CoreEventExport(
-        String id,
-        String contractVersion,
-        String eventType,
-        String abiSha256
-    ) implements EventExport {
-    }
+    public record CoreEventExport(String id, String contractVersion, String eventType, String abiSha256)
+            implements EventExport {}
 
     /** One dependency-owned public event contract consumed by this plugin. */
     public record CoreEventImport(
-        String providerId,
-        String eventId,
-        String contractVersion,
-        String eventType,
-        String abiSha256,
-        boolean required
-    ) implements EventImport {
-    }
+            String providerId,
+            String eventId,
+            String contractVersion,
+            String eventType,
+            String abiSha256,
+            boolean required)
+            implements EventImport {}
 
     /** One published public event contract artifact embedded in the plugin JAR. */
-    public record CoreEventContract(
-        String id,
-        String version,
-        String artifact,
-        String sha256
-    ) implements EventContract {
-    }
+    public record CoreEventContract(String id, String version, String artifact, String sha256)
+            implements EventContract {}
 
     /**
      * Host requirements the plugin declares.
@@ -188,6 +179,5 @@ public record CorePluginDescriptor(
      * @param requiresCubism true when the plugin cannot load outside a real Cubism Editor host
      * @param ui the UI surface the plugin needs from the host
      */
-    public record CoreEnvironment(boolean requiresCubism, String ui) implements Environment {
-    }
+    public record CoreEnvironment(boolean requiresCubism, String ui) implements Environment {}
 }

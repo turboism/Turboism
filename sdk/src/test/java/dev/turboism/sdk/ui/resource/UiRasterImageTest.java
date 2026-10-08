@@ -1,14 +1,13 @@
 package dev.turboism.sdk.ui.resource;
 
-import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution;
-import org.junit.jupiter.api.Test;
-
-import java.util.LinkedHashMap;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry.StateButtonContribution;
+import java.util.LinkedHashMap;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class UiRasterImageTest {
     @Test
@@ -18,7 +17,7 @@ class UiRasterImageTest {
         pixels[0] = 0;
         final int[] rendered = image.argb();
         rendered[1] = 0;
-        assertArrayEquals(new int[]{0x80ff0000, 0xff00ff00}, image.argb());
+        assertArrayEquals(new int[] {0x80ff0000, 0xff00ff00}, image.argb());
     }
 
     @Test
@@ -31,14 +30,15 @@ class UiRasterImageTest {
 
     @Test
     void deferredContributionKeepsItsIconsAndFallbackOrder() {
-        final UiRasterImage image = new UiRasterImage(1, 1, new int[]{0xff123456});
+        final UiRasterImage image = new UiRasterImage(1, 1, new int[] {0xff123456});
         final LinkedHashMap<Integer, UiRasterImage> icons = new LinkedHashMap<>();
         icons.put(1, image);
         icons.put(0, image);
-        final StateButtonContribution contribution =
-            new StateButtonContribution("mirror", icons, 1, ignored -> { });
+        final StateButtonContribution contribution = new StateButtonContribution("mirror", icons, 1, ignored -> {});
         icons.clear();
         assertEquals(List.of(1, 0), List.copyOf(contribution.stateIcons().keySet()));
-        assertThrows(UnsupportedOperationException.class, () -> contribution.stateIcons().clear());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> contribution.stateIcons().clear());
     }
 }

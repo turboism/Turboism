@@ -40,7 +40,8 @@ public interface SelectionQueryService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -59,24 +60,23 @@ public interface SelectionQueryService {
     enum Unavailable implements SelectionQueryService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public SelectionSummary currentSelection() throws CubismServiceException {
+        @Override
+        public SelectionSummary currentSelection() throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind)
-            throws CubismServiceException {
+        @Override
+        public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) throws CubismServiceException {
             throw unavailable();
         }
 
         private static CubismServiceException unavailable() {
-            return new CubismServiceException(
-                "cubism.query.unavailable",
-                "selectionQuery service is not available"
-            );
+            return new CubismServiceException("cubism.query.unavailable", "selectionQuery service is not available");
         }
     }
 }

@@ -18,11 +18,10 @@ import java.util.Optional;
  * @param activeDeformerId focused deformer, empty when no deformer has focus
  */
 public record SelectionSnapshot(
-    List<String> selectedObjectIds,
-    Optional<String> activeParameterId,
-    Optional<String> activeArtMeshId,
-    Optional<String> activeDeformerId
-) {
+        List<String> selectedObjectIds,
+        Optional<String> activeParameterId,
+        Optional<String> activeArtMeshId,
+        Optional<String> activeDeformerId) {
     public SelectionSnapshot {
         selectedObjectIds = List.copyOf(Objects.requireNonNull(selectedObjectIds, "selectedObjectIds"));
         activeParameterId = Objects.requireNonNull(activeParameterId, "activeParameterId");

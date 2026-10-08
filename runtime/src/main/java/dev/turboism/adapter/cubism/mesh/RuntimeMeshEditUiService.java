@@ -3,8 +3,7 @@ package dev.turboism.adapter.cubism.mesh;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.Registration;
-
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
@@ -29,8 +28,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     private final AtomicReference<MirrorAxisAngleControl> contribution = new AtomicReference<>();
     private final List<Attachment> attachments = new ArrayList<>();
-    private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver =
-        new AtomicReference<>();
+    private final AtomicReference<java.util.function.Consumer<Boolean>> contributionObserver = new AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicLong epoch = new java.util.concurrent.atomic.AtomicLong();
 
     @Override
@@ -99,11 +97,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     // The active contribution is a handle: a replaced instance invalidates the deferred attach.
     @SuppressWarnings("ReferenceEquality")
-    void attachNative(
-        final Object panel,
-        final Object widget,
-        final RuntimeMeshMirrorAxisService axis
-    ) {
+    void attachNative(final Object panel, final Object widget, final RuntimeMeshMirrorAxisService axis) {
         final MirrorAxisAngleControl active = contribution.get();
         if (active == null || panel == null || widget == null) {
             diag("ATTACH_SKIPPED reason=" + (active == null ? "NO_CONTRIBUTION" : "NULL_HOST_ARGUMENT"));
@@ -127,7 +121,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
             try {
                 final Object mount = mountTarget(panel, widget);
                 if (mount == null) {
-                    diag("ATTACH_FAILED reason=NO_MOUNT_TARGET owner=" + panel.getClass().getName());
+                    diag("ATTACH_FAILED reason=NO_MOUNT_TARGET owner="
+                            + panel.getClass().getName());
                     return;
                 }
                 final Object root = build(active, axis, panel);
@@ -161,13 +156,12 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
      * when available. Runs on the EDT; every step is reflective through the panel loader.
      */
     private Object build(
-        final MirrorAxisAngleControl active,
-        final RuntimeMeshMirrorAxisService axis,
-        final Object panel
-    ) throws ReflectiveOperationException {
+            final MirrorAxisAngleControl active, final RuntimeMeshMirrorAxisService axis, final Object panel)
+            throws ReflectiveOperationException {
         final ClassLoader loader = panel.getClass().getClassLoader();
         final Class<?> function1 = Class.forName("kotlin.jvm.functions.Function1", false, loader);
-        final Object unitInstance = Class.forName("kotlin.Unit", false, loader).getField("INSTANCE").get(null);
+        final Object unitInstance =
+                Class.forName("kotlin.Unit", false, loader).getField("INSTANCE").get(null);
 
         final Object label = instantiate(loader, "com.live2d.ui.control.CLabel", active.label());
 
@@ -178,7 +172,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         invoke(slider, "setValue", axis.currentAngleDegrees());
         final Object changed = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
-                active.onAngleChanged().accept(number(invoke(slider, "getValue")).floatValue());
+                active.onAngleChanged()
+                        .accept(number(invoke(slider, "getValue")).floatValue());
                 return unitInstance;
             }
             return unitInstance;
@@ -196,7 +191,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         final Object onReset = proxy(function1, unitInstance, (proxy, method, arguments) -> {
             if ("invoke".equals(method.getName())) {
                 invoke(slider, "setValue", 0.0f);
-                active.onAngleChanged().accept(number(invoke(slider, "getValue")).floatValue());
+                active.onAngleChanged()
+                        .accept(number(invoke(slider, "getValue")).floatValue());
                 return unitInstance;
             }
             return unitInstance;
@@ -218,8 +214,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         try {
             for (Method method : panel.getClass().getDeclaredMethods()) {
                 if (method.getParameterCount() == 2
-                    && method.getName().equals("createWidgetMirrorEditForMeshEdit$createComp")
-                    && Modifier.isStatic(method.getModifiers())) {
+                        && method.getName().equals("createWidgetMirrorEditForMeshEdit$createComp")
+                        && Modifier.isStatic(method.getModifiers())) {
                     method.setAccessible(true);
                     return method.invoke(null, label, row);
                 }
@@ -253,7 +249,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
      * a container with fewer than two children appends at the end.
      */
     private static void addAfterPositionRow(final Object container, final Object child)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         final int index = Math.max(0, Math.min(2, childrenSize(container)));
         try {
             invoke(container, "add", child, index);
@@ -296,7 +292,10 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
 
     private Attachment find(final Object panel) {
         synchronized (attachments) {
-            return attachments.stream().filter(value -> value.panel == panel).findFirst().orElse(null);
+            return attachments.stream()
+                    .filter(value -> value.panel == panel)
+                    .findFirst()
+                    .orElse(null);
         }
     }
 
@@ -328,16 +327,12 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     }
 
     private static boolean finalizeFoldingBody(final Object foldingPane, final Object mount)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         final Class<?> foldingType = foldingPane.getClass();
-        final Class<?> widgetType = Class.forName(
-            "com.live2d.ui.CWidget", false, foldingType.getClassLoader()
-        );
+        final Class<?> widgetType = Class.forName("com.live2d.ui.CWidget", false, foldingType.getClassLoader());
         if (!widgetType.isInstance(mount)) return false;
         final Object companion = foldingType.getField("Companion").get(null);
-        final Method finalize = companion.getClass().getDeclaredMethod(
-            "a", foldingType, widgetType
-        );
+        final Method finalize = companion.getClass().getDeclaredMethod("a", foldingType, widgetType);
         if (!Modifier.isStatic(finalize.getModifiers()) || finalize.getReturnType() != void.class) {
             return false;
         }
@@ -346,8 +341,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         return true;
     }
 
-    private static Object mirrorEditFoldingPane(final Object panel)
-        throws ReflectiveOperationException {
+    private static Object mirrorEditFoldingPane(final Object panel) throws ReflectiveOperationException {
         Object foldingPane = tryInvoke(panel, "getMirrorEditFoldingPane");
         if (foldingPane == null) foldingPane = field(panel, "mirrorEditFoldingPane");
         return foldingPane;
@@ -387,11 +381,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         throw new NoSuchFieldException(name);
     }
 
-    private static Object instantiate(
-        final ClassLoader loader,
-        final String className,
-        final Object... arguments
-    ) throws ReflectiveOperationException {
+    private static Object instantiate(final ClassLoader loader, final String className, final Object... arguments)
+            throws ReflectiveOperationException {
         final Class<?> type = Class.forName(className, false, loader);
         for (Constructor<?> constructor : type.getConstructors()) {
             if (constructor.getParameterCount() != arguments.length) continue;
@@ -404,24 +395,20 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         throw new NoSuchMethodException(className + " constructor with " + arguments.length + " arguments");
     }
 
-    private static Object proxy(
-        final Class<?> function1,
-        final Object unitInstance,
-        final InvocationHandler body
-    ) {
-        return Proxy.newProxyInstance(function1.getClassLoader(), new Class<?>[] { function1 },
-            (proxy, method, arguments) -> {
-                switch (method.getName()) {
-                    case "toString":
-                        return "TurboismMirrorAngleCallback";
-                    case "hashCode":
-                        return System.identityHashCode(proxy);
-                    case "equals":
-                        return proxy == (arguments == null || arguments.length == 0 ? null : arguments[0]);
-                    default:
-                        return body.invoke(proxy, method, arguments);
-                }
-            });
+    private static Object proxy(final Class<?> function1, final Object unitInstance, final InvocationHandler body) {
+        return Proxy.newProxyInstance(
+                function1.getClassLoader(), new Class<?>[] {function1}, (proxy, method, arguments) -> {
+                    switch (method.getName()) {
+                        case "toString":
+                            return "TurboismMirrorAngleCallback";
+                        case "hashCode":
+                            return System.identityHashCode(proxy);
+                        case "equals":
+                            return proxy == (arguments == null || arguments.length == 0 ? null : arguments[0]);
+                        default:
+                            return body.invoke(proxy, method, arguments);
+                    }
+                });
     }
 
     private static Object tryInvoke(final Object target, final String name, final Object... arguments) {
@@ -433,7 +420,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     }
 
     private static Object invoke(final Object target, final String name, final Object... arguments)
-        throws ReflectiveOperationException {
+            throws ReflectiveOperationException {
         if (target == null) throw new NoSuchMethodException(name);
         for (Method method : MethodHandleCache.overloads(target.getClass(), name, arguments.length)) {
             try {
@@ -451,9 +438,8 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
     }
 
     private static void runOnEdt(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) action.run();
-        else SwingUtilities.invokeLater(action);
+        EdtDispatch.post("mesh edit UI update", action);
     }
 
-    record Attachment(Object panel, Object mount, Object root) { }
+    record Attachment(Object panel, Object mount, Object root) {}
 }

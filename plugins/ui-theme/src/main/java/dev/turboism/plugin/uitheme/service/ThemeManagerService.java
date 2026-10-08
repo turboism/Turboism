@@ -1,9 +1,9 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.BuiltinThemeCatalog;
-import dev.turboism.plugin.uitheme.b1.domain.ThemeBase;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageMetadata;
+import dev.turboism.plugin.uitheme.domain.BuiltinThemeCatalog;
+import dev.turboism.plugin.uitheme.domain.ThemeBase;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageMetadata;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.ChoiceDialogDetailRow;
@@ -11,7 +11,6 @@ import dev.turboism.sdk.ui.ChoiceDialogOption;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,16 +33,15 @@ public final class ThemeManagerService {
     private final ThemeEditorService editor;
 
     public ThemeManagerService(
-        final UiHostCapabilityService uiHost,
-        final BuiltinThemeAppearanceService builtins,
-        final ThemePackageRepository repository,
-        final ThemePackageTransferService transfer,
-        final ThemeSelectionService selection,
-        final ThemeSelectionConfig selectionConfig,
-        final PluginLogger logger,
-        final PluginLocalization localization,
-        final ThemeEditorService editor
-    ) {
+            final UiHostCapabilityService uiHost,
+            final BuiltinThemeAppearanceService builtins,
+            final ThemePackageRepository repository,
+            final ThemePackageTransferService transfer,
+            final ThemeSelectionService selection,
+            final ThemeSelectionConfig selectionConfig,
+            final PluginLogger logger,
+            final PluginLocalization localization,
+            final ThemeEditorService editor) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.builtins = Objects.requireNonNull(builtins, "builtins");
         this.repository = Objects.requireNonNull(repository, "repository");
@@ -64,7 +62,7 @@ public final class ThemeManagerService {
     private static final String ACTION_NATIVE = "native";
 
     private final java.util.concurrent.atomic.AtomicBoolean dialogOpen =
-        new java.util.concurrent.atomic.AtomicBoolean();
+            new java.util.concurrent.atomic.AtomicBoolean();
     private volatile java.util.List<ThemePackageData> cachedThemes = java.util.List.of();
 
     /** Rebuilds the theme list off the action path; called on enable and after package changes. */
@@ -80,47 +78,45 @@ public final class ThemeManagerService {
         final List<ThemePackageData> themes = compatibleThemes(cachedThemes);
         if (themes.isEmpty()) {
             dialogOpen.set(false);
-            notify(
-                "ui-theme.manager.empty",
-                "WARNING",
-                localization.text("theme.manager.empty")
-            );
+            notify("ui-theme.manager.empty", "WARNING", localization.text("theme.manager.empty"));
             return;
         }
         final List<ChoiceDialogOption> options = new ArrayList<>();
         options.add(nativeOption());
         options.addAll(themes.stream().map(this::option).toList());
-        final Optional<String> selected = selectionConfig.selectedThemeId()
-            .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)))
-            .or(() -> Optional.of(ThemeSelectionConfig.NATIVE_ID));
+        final Optional<String> selected = selectionConfig
+                .selectedThemeId()
+                .filter(id -> options.stream().anyMatch(option -> option.id().equals(id)))
+                .or(() -> Optional.of(ThemeSelectionConfig.NATIVE_ID));
         uiHost.openChoiceDialog(
-            new ChoiceDialogRequest(
-                DIALOG_ID,
-                localization.text("theme.manager.title"),
-                localization.text("theme.notice"),
-                options,
-                selected,
-                localization.text("theme.button.apply"),
-                localization.text("theme.button.close"),
-                List.of(
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_NEW_THEME, localization.text("theme.button.newTheme")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_EDIT_THEME, localization.text("theme.button.editTheme")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_OPEN_DIR, localization.text("theme.button.openDir")),
-                    new dev.turboism.sdk.ui.ChoiceDialogAction(ACTION_IMPORT, localization.text("theme.button.import"))
-                ),
-                Optional.of(this::refreshOptions),
-                localization.text("theme.button.reload")
-            ),
-            this::handleResult
-        );
+                new ChoiceDialogRequest(
+                        DIALOG_ID,
+                        localization.text("theme.manager.title"),
+                        localization.text("theme.notice"),
+                        options,
+                        selected,
+                        localization.text("theme.button.apply"),
+                        localization.text("theme.button.close"),
+                        List.of(
+                                new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                        ACTION_NEW_THEME, localization.text("theme.button.newTheme")),
+                                new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                        ACTION_EDIT_THEME, localization.text("theme.button.editTheme")),
+                                new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                        ACTION_OPEN_DIR, localization.text("theme.button.openDir")),
+                                new dev.turboism.sdk.ui.ChoiceDialogAction(
+                                        ACTION_IMPORT, localization.text("theme.button.import"))),
+                        Optional.of(this::refreshOptions),
+                        localization.text("theme.button.reload")),
+                this::handleResult);
     }
 
     /** Filters the cached themes to those compatible with the active Cubism color mode. */
     private List<ThemePackageData> compatibleThemes(final List<ThemePackageData> themes) {
         final dev.turboism.sdk.ui.UiHostColorMode mode = uiHost.currentColorMode();
         return themes.stream()
-            .filter(theme -> compatible(theme.metadata().base(), mode))
-            .toList();
+                .filter(theme -> compatible(theme.metadata().base(), mode))
+                .toList();
     }
 
     private static boolean compatible(final ThemeBase base, final dev.turboism.sdk.ui.UiHostColorMode mode) {
@@ -176,11 +172,7 @@ public final class ThemeManagerService {
     public void importPackage() {
         final ThemePackageTransferService.ImportResult imported = transfer.importPackage();
         if (imported.outcome() != ThemePackageTransferService.ImportOutcome.IMPORTED) {
-            notify(
-                "ui-theme.package.import.canceled",
-                "INFO",
-                localization.text("theme.package.importCanceled")
-            );
+            notify("ui-theme.package.import.canceled", "INFO", localization.text("theme.package.importCanceled"));
             return;
         }
         final ThemePackageData theme = imported.theme().orElseThrow();
@@ -191,10 +183,9 @@ public final class ThemeManagerService {
             return;
         }
         notify(
-            "ui-theme.package.import.saved",
-            saved.outcome() == ThemePackageRepository.SaveOutcome.SAVED ? "INFO" : "WARNING",
-            localization.format("theme.package.imported", theme.metadata().name())
-        );
+                "ui-theme.package.import.saved",
+                saved.outcome() == ThemePackageRepository.SaveOutcome.SAVED ? "INFO" : "WARNING",
+                localization.format("theme.package.imported", theme.metadata().name()));
     }
 
     /**
@@ -205,20 +196,23 @@ public final class ThemeManagerService {
      *     notification rather than thrown
      */
     public void exportSelected(final String windowOptionId) {
-        final Optional<ThemePackageData> selected =
-            Optional.ofNullable(windowOptionId)
+        final Optional<ThemePackageData> selected = Optional.ofNullable(windowOptionId)
                 .flatMap(this::find)
                 .or(() -> selectionConfig.selectedThemeId().flatMap(this::find));
         if (selected.isEmpty()) {
-            notify("ui-theme.package.export.no-selection", "WARNING", localization.text("theme.package.exportNoSelection"));
+            notify(
+                    "ui-theme.package.export.no-selection",
+                    "WARNING",
+                    localization.text("theme.package.exportNoSelection"));
             return;
         }
         final ThemePackageTransferService.ExportResult exported = transfer.exportPackage(selected.orElseThrow());
         notify(
-            "ui-theme.package.export." + exported.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            exported.outcome() == ThemePackageTransferService.ExportOutcome.EXPORTED ? "INFO" : "WARNING",
-            localization.format("theme.package.exported", selected.orElseThrow().metadata().name())
-        );
+                "ui-theme.package.export." + exported.outcome().name().toLowerCase(java.util.Locale.ROOT),
+                exported.outcome() == ThemePackageTransferService.ExportOutcome.EXPORTED ? "INFO" : "WARNING",
+                localization.format(
+                        "theme.package.exported",
+                        selected.orElseThrow().metadata().name()));
     }
 
     /**
@@ -233,10 +227,12 @@ public final class ThemeManagerService {
      */
     public void deleteSelected(final String windowOptionId) {
         final Optional<String> selected =
-            Optional.ofNullable(windowOptionId)
-                .or(() -> selectionConfig.selectedThemeId());
+                Optional.ofNullable(windowOptionId).or(() -> selectionConfig.selectedThemeId());
         if (selected.isEmpty()) {
-            notify("ui-theme.package.delete.no-selection", "WARNING", localization.text("theme.package.deleteNoSelection"));
+            notify(
+                    "ui-theme.package.delete.no-selection",
+                    "WARNING",
+                    localization.text("theme.package.deleteNoSelection"));
             return;
         }
         final String id = selected.orElseThrow();
@@ -244,22 +240,18 @@ public final class ThemeManagerService {
             notify("ui-theme.package.delete.builtin", "WARNING", localization.text("theme.package.deleteBuiltin"));
             return;
         }
-        final ThemeSelectionService.SelectionResult result = selection.delete(
-            id,
-            themeId -> {
-                final ThemePackageRepository.DeleteResult deleted = repository.delete(themeId);
-                if (deleted.outcome() != ThemePackageRepository.DeleteOutcome.DELETED
+        final ThemeSelectionService.SelectionResult result = selection.delete(id, themeId -> {
+            final ThemePackageRepository.DeleteResult deleted = repository.delete(themeId);
+            if (deleted.outcome() != ThemePackageRepository.DeleteOutcome.DELETED
                     && deleted.outcome() != ThemePackageRepository.DeleteOutcome.NOT_FOUND) {
-                    throw new IllegalStateException("theme package delete failed");
-                }
-                refreshCache();
+                throw new IllegalStateException("theme package delete failed");
             }
-        );
+            refreshCache();
+        });
         notify(
-            "ui-theme.package.delete." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            result.outcome() == ThemeSelectionService.SelectionOutcome.DELETED ? "INFO" : "WARNING",
-            localization.format("theme.package.deleted", id)
-        );
+                "ui-theme.package.delete." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
+                result.outcome() == ThemeSelectionService.SelectionOutcome.DELETED ? "INFO" : "WARNING",
+                localization.format("theme.package.deleted", id));
     }
 
     /**
@@ -281,30 +273,31 @@ public final class ThemeManagerService {
     private List<ThemePackageData> themes() {
         final ArrayList<ThemePackageData> themes = new ArrayList<>();
         BuiltinThemeCatalog.visibleEntries().stream()
-            .map(entry -> builtins.load(entry.id()))
-            .forEach(themes::add);
+                .map(entry -> builtins.load(entry.id()))
+                .forEach(themes::add);
         themes.addAll(repository.list());
         return themes.stream()
-            .collect(java.util.stream.Collectors.toMap(
-                theme -> theme.metadata().id(),
-                theme -> theme,
-                (first, ignored) -> first,
-                java.util.LinkedHashMap::new
-            ))
-            .values().stream()
-            .sorted(Comparator.comparing(theme -> theme.metadata().name(), String.CASE_INSENSITIVE_ORDER))
-            .toList();
+                .collect(java.util.stream.Collectors.toMap(
+                        theme -> theme.metadata().id(),
+                        theme -> theme,
+                        (first, ignored) -> first,
+                        java.util.LinkedHashMap::new))
+                .values()
+                .stream()
+                .sorted(Comparator.comparing(theme -> theme.metadata().name(), String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 
     private Optional<ThemePackageData> find(final String id) {
         // A saved package overrides a built-in with the same id (editing a
         // built-in theme persists the edited copy), so consult the repository
         // first and fall back to the immutable built-in catalog.
-        return repository.find(id)
-            .or(() -> BuiltinThemeCatalog.visibleEntries().stream()
-                .filter(entry -> entry.id().equals(id))
-                .findFirst()
-                .map(entry -> builtins.load(entry.id())));
+        return repository
+                .find(id)
+                .or(() -> BuiltinThemeCatalog.visibleEntries().stream()
+                        .filter(entry -> entry.id().equals(id))
+                        .findFirst()
+                        .map(entry -> builtins.load(entry.id())));
     }
     /** Applies the chosen option; the native option restores the host appearance. */
     private void applyOption(final String optionId) {
@@ -318,71 +311,64 @@ public final class ThemeManagerService {
     private void restoreNative() {
         final ThemeSelectionService.SelectionResult result = selection.restoreNative();
         notify(
-            "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE ? "INFO" : "WARNING",
-            result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE
-                ? localization.text("theme.selection.native")
-                : localization.text("theme.selection.failed")
-        );
+                "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
+                result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE ? "INFO" : "WARNING",
+                result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE
+                        ? localization.text("theme.selection.native")
+                        : localization.text("theme.selection.failed"));
     }
 
     private void apply(final ThemePackageData theme) {
         final ThemeSelectionService.SelectionResult result = selection.select(theme);
         notify(
-            "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED ? "INFO" : "WARNING",
-            result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED
-                ? localization.format("theme.selection.applied", theme.metadata().name())
-                : localization.text("theme.selection.failed")
-        );
+                "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
+                result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED ? "INFO" : "WARNING",
+                result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED
+                        ? localization.format(
+                                "theme.selection.applied", theme.metadata().name())
+                        : localization.text("theme.selection.failed"));
     }
 
     /** Opens the plugin theme storage directory in the host file manager. */
     private void openThemeDirectory() {
-        uiHost.openDirectory(new dev.turboism.sdk.storage.StoragePath(
-            dev.turboism.sdk.storage.StorageRoot.DATA,
-            "themes"
-        ));
+        uiHost.openDirectory(
+                new dev.turboism.sdk.storage.StoragePath(dev.turboism.sdk.storage.StorageRoot.DATA, "themes"));
     }
+
     private ChoiceDialogOption nativeOption() {
         return new ChoiceDialogOption(
-            ThemeSelectionConfig.NATIVE_ID,
-            localization.text("theme.native.label"),
-            "",
-            true,
-            List.of(new ChoiceDialogDetailRow(
-                localization.text("theme.detail.description"),
-                localization.text("theme.native.description"),
-                ""
-            ))
-        );
+                ThemeSelectionConfig.NATIVE_ID,
+                localization.text("theme.native.label"),
+                "",
+                true,
+                List.of(new ChoiceDialogDetailRow(
+                        localization.text("theme.detail.description"),
+                        localization.text("theme.native.description"),
+                        "")));
     }
 
     private ChoiceDialogOption option(final ThemePackageData theme) {
         final ThemePackageMetadata metadata = theme.metadata();
         final List<ChoiceDialogDetailRow> rows = new ArrayList<>();
+        rows.add(new ChoiceDialogDetailRow(localization.text("theme.detail.name"), metadata.name(), ""));
+        rows.add(new ChoiceDialogDetailRow(localization.text("theme.detail.id"), metadata.id(), ""));
         rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.name"), metadata.name(), ""));
+                localization.text("theme.detail.version"),
+                metadata.version() == null || metadata.version().isBlank() ? "-" : metadata.version(),
+                ""));
+        rows.add(new ChoiceDialogDetailRow(localization.text("theme.detail.base"), base(metadata.base()), ""));
         rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.id"), metadata.id(), ""));
+                localization.text("theme.detail.description"),
+                metadata.description() == null || metadata.description().isBlank() ? "-" : metadata.description(),
+                ""));
         rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.version"),
-            metadata.version() == null || metadata.version().isBlank() ? "-" : metadata.version(),
-            ""));
+                localization.text("theme.detail.author"),
+                metadata.author() == null || metadata.author().isBlank() ? "-" : metadata.author(),
+                ""));
         rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.base"), base(metadata.base()), ""));
-        rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.description"),
-            metadata.description() == null || metadata.description().isBlank() ? "-" : metadata.description(),
-            ""));
-        rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.author"),
-            metadata.author() == null || metadata.author().isBlank() ? "-" : metadata.author(),
-            ""));
-        rows.add(new ChoiceDialogDetailRow(
-            localization.text("theme.detail.url"),
-            metadata.url() == null || metadata.url().isBlank() ? "-" : metadata.url(),
-            metadata.url() == null ? "" : metadata.url()));
+                localization.text("theme.detail.url"),
+                metadata.url() == null || metadata.url().isBlank() ? "-" : metadata.url(),
+                metadata.url() == null ? "" : metadata.url()));
         return new ChoiceDialogOption(metadata.id(), metadata.name(), "", true, rows);
     }
 

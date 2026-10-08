@@ -4,19 +4,17 @@ import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.ui.contribution.EditorUiContribution;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.Objects;
 
 /** Host-neutral descriptor consumed by the embedded-panel provider. */
 public record EmbeddedPanelContributionDescriptor(
-    String pluginId,
-    String contributionId,
-    String title,
-    String placement,
-    int priority,
-    PanelView content,
-    boolean floatingByDefault
-) {
+        String pluginId,
+        String contributionId,
+        String title,
+        String placement,
+        int priority,
+        PanelView content,
+        boolean floatingByDefault) {
 
     public EmbeddedPanelContributionDescriptor {
         pluginId = requireText(pluginId, "pluginId");
@@ -37,29 +35,23 @@ public record EmbeddedPanelContributionDescriptor(
      * @throws IllegalArgumentException if the contribution is not a panel contribution, or if its
      *     identity's contribution id disagrees with the payload's own id
      */
-    public static EmbeddedPanelContributionDescriptor from(
-        final EditorUiContribution<?> contribution
-    ) {
-        final EditorUiContribution<?> requested = Objects.requireNonNull(
-            contribution,
-            "contribution"
-        );
+    public static EmbeddedPanelContributionDescriptor from(final EditorUiContribution<?> contribution) {
+        final EditorUiContribution<?> requested = Objects.requireNonNull(contribution, "contribution");
         if (requested.identity().family() != EditorUiFamily.PANEL
-            || !(requested.descriptor() instanceof EmbeddedPanelContribution panel)) {
+                || !(requested.descriptor() instanceof EmbeddedPanelContribution panel)) {
             throw new IllegalArgumentException("embedded-panel provider requires PANEL contributions");
         }
         if (!requested.identity().contributionId().equals(panel.id())) {
             throw new IllegalArgumentException("embedded-panel identity does not match payload id");
         }
         return new EmbeddedPanelContributionDescriptor(
-            requested.identity().pluginId(),
-            panel.id(),
-            panel.title(),
-            panel.placement(),
-            panel.priority(),
-            panel.content(),
-            panel.floatingByDefault()
-        );
+                requested.identity().pluginId(),
+                panel.id(),
+                panel.title(),
+                panel.placement(),
+                panel.priority(),
+                panel.content(),
+                panel.floatingByDefault());
     }
 
     private static String requireText(final String value, final String name) {

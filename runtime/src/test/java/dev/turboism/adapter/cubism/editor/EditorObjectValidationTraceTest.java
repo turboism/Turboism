@@ -1,15 +1,14 @@
 package dev.turboism.adapter.cubism.editor;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class EditorObjectValidationTraceTest {
 
@@ -38,15 +37,14 @@ class EditorObjectValidationTraceTest {
 
         for (int index = 0; index < 20_000; index++) {
             EditorObjectValidationTrace.event(
-                index,
-                "mutation",
-                "ArtMesh",
-                "replaceGeometry",
-                "mesh-" + index,
-                new Object(),
-                new Object(),
-                "detail=" + "x".repeat(80)
-            );
+                    index,
+                    "mutation",
+                    "ArtMesh",
+                    "replaceGeometry",
+                    "mesh-" + index,
+                    new Object(),
+                    new Object(),
+                    "detail=" + "x".repeat(80));
         }
 
         assertTrue(Files.exists(traceArtifact()));
@@ -58,16 +56,13 @@ class EditorObjectValidationTraceTest {
         System.setProperty("turboism.home", tempDir.toString());
         System.setProperty("turboism.editorObjectValidation.trace", "true");
         final String evidence = "x".repeat(128);
-        final java.util.concurrent.ExecutorService writers =
-            java.util.concurrent.Executors.newFixedThreadPool(4);
+        final java.util.concurrent.ExecutorService writers = java.util.concurrent.Executors.newFixedThreadPool(4);
         try {
-            final java.util.List<java.util.concurrent.Callable<Void>> writes =
-                new java.util.ArrayList<>();
+            final java.util.List<java.util.concurrent.Callable<Void>> writes = new java.util.ArrayList<>();
             for (int index = 0; index < 20_000; index++) {
                 writes.add(() -> {
                     EditorObjectValidationTrace.writeArtifact(
-                        "parameter-binding-transfer-native-bindings.txt", evidence, true
-                    );
+                            "parameter-binding-transfer-native-bindings.txt", evidence, true);
                     return null;
                 });
             }
@@ -76,9 +71,7 @@ class EditorObjectValidationTraceTest {
             writers.shutdownNow();
         }
 
-        final Path artifact = tempDir.resolve("logs").resolve(
-            "parameter-binding-transfer-native-bindings.txt"
-        );
+        final Path artifact = tempDir.resolve("logs").resolve("parameter-binding-transfer-native-bindings.txt");
         assertTrue(Files.exists(artifact));
         assertTrue(Files.size(artifact) <= EditorObjectValidationTrace.MAX_BYTES);
     }
@@ -100,12 +93,7 @@ class EditorObjectValidationTraceTest {
         System.setProperty("turboism.editorObjectValidation.trace", "true");
 
         assertDoesNotThrow(() -> EditorObjectValidationTrace.begin(
-            "Rotation_Deformer",
-            "replaceForm",
-            "rotation",
-            new Object(),
-            new Object()
-        ));
+                "Rotation_Deformer", "replaceForm", "rotation", new Object(), new Object()));
     }
 
     private Path traceArtifact() {

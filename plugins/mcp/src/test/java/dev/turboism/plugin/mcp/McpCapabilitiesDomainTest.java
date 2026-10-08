@@ -1,14 +1,14 @@
 package dev.turboism.plugin.mcp;
 
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.json.Json;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
 
 final class McpCapabilitiesDomainTest {
 
@@ -17,41 +17,38 @@ final class McpCapabilitiesDomainTest {
         final AtomicReference<McpToolCatalog> catalog = new AtomicReference<>();
         final McpCapabilitiesDomain domain = new McpCapabilitiesDomain(catalog::get);
         final McpToolCatalog combined = McpToolCatalog.combine(
-            new McpToolCatalog(
-                List.of(Map.of(
-                    "name", "turboism.fixture.read",
-                    "title", "Fixture read",
-                    "description", "Fixture read operation.",
-                    "inputSchema", Map.of(
-                        "type", "object",
-                        "properties", Map.of(),
-                        "additionalProperties", false
-                    ),
-                    "outputSchema", Map.of(
-                        "type", "object",
-                        "properties", Map.of("ok", Map.of("type", "boolean")),
-                        "required", List.of("ok"),
-                        "additionalProperties", false
-                    ),
-                    "annotations", Map.of("readOnlyHint", true)
-                )),
-                (name, arguments) -> Map.of()
-            ),
-            domain.tools()
-        );
+                new McpToolCatalog(
+                        List.of(Map.of(
+                                "name",
+                                "turboism.fixture.read",
+                                "title",
+                                "Fixture read",
+                                "description",
+                                "Fixture read operation.",
+                                "inputSchema",
+                                Map.of("type", "object", "properties", Map.of(), "additionalProperties", false),
+                                "outputSchema",
+                                Map.of(
+                                        "type",
+                                        "object",
+                                        "properties",
+                                        Map.of("ok", Map.of("type", "boolean")),
+                                        "required",
+                                        List.of("ok"),
+                                        "additionalProperties",
+                                        false),
+                                "annotations",
+                                Map.of("readOnlyHint", true))),
+                        (name, arguments) -> Map.of()),
+                domain.tools());
         catalog.set(combined);
 
-        final Map<String, Object> output = output(combined.call(
-            McpCapabilitiesDomain.CAPABILITIES_READ,
-            Map.of()
-        ));
+        final Map<String, Object> output = output(combined.call(McpCapabilitiesDomain.CAPABILITIES_READ, Map.of()));
 
         assertTrue((Boolean) output.get("ok"));
         final Map<String, Object> coverage = object(output.get("coverage"));
         assertEquals(1, ((Number) coverage.get("schemaVersion")).intValue());
-        assertTrue(((List<?>) coverage.get("trackedOwners")).contains(
-            "dev.turboism.sdk.cubism.model.Glue"
-        ));
+        assertTrue(((List<?>) coverage.get("trackedOwners")).contains("dev.turboism.sdk.cubism.model.Glue"));
         assertTrue(((List<?>) coverage.get("entries")).size() >= 30);
         assertEquals(3, ((List<?>) coverage.get("temporaryPublicExceptions")).size());
         final String rendered = Json.stringify(coverage);

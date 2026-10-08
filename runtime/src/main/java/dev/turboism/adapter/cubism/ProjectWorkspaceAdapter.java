@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -58,17 +57,15 @@ public interface ProjectWorkspaceAdapter {
     default AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
         final AdapterResult<Optional<ProjectSnapshot>> project = activeProject();
         final AdapterResult<Optional<DocumentSnapshot>> document = activeDocument();
-        final Optional<SafeModeDiagnostic> diagnostic = project.diagnostic().isPresent()
-            && document.diagnostic().isPresent()
-            ? project.diagnostic()
-            : Optional.empty();
+        final Optional<SafeModeDiagnostic> diagnostic =
+                project.diagnostic().isPresent() && document.diagnostic().isPresent()
+                        ? project.diagnostic()
+                        : Optional.empty();
         return new AdapterResult<>(
-            Optional.of(new ActiveProjectDocument(
-                project.value().orElse(Optional.empty()),
-                document.value().orElse(Optional.empty())
-            )),
-            diagnostic
-        );
+                Optional.of(new ActiveProjectDocument(
+                        project.value().orElse(Optional.empty()),
+                        document.value().orElse(Optional.empty()))),
+                diagnostic);
     }
 
     /**
@@ -88,7 +85,9 @@ public interface ProjectWorkspaceAdapter {
          * Returns the reviewed mapping generation used by these operations. An
          * unbound implementation defaults to its declared host version.
          */
-        default String contractVersion() { return hostVersion(); }
+        default String contractVersion() {
+            return hostVersion();
+        }
 
         /**
          * @return {@code true} when this host exposes the project/workspace read surface
@@ -136,10 +135,7 @@ public interface ProjectWorkspaceAdapter {
      * @param project the observed project, empty when none is active or the read failed
      * @param document the observed document, empty when none is active or the read failed
      */
-    record ActiveProjectDocument(
-        Optional<ProjectSnapshot> project,
-        Optional<DocumentSnapshot> document
-    ) {
+    record ActiveProjectDocument(Optional<ProjectSnapshot> project, Optional<DocumentSnapshot> document) {
         public ActiveProjectDocument {
             project = Objects.requireNonNull(project, "project");
             document = Objects.requireNonNull(document, "document");
@@ -154,10 +150,7 @@ public interface ProjectWorkspaceAdapter {
      * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
      * @param <T> the observed value type
      */
-    record AdapterResult<T>(
-        Optional<T> value,
-        Optional<SafeModeDiagnostic> diagnostic
-    ) {
+    record AdapterResult<T>(Optional<T> value, Optional<SafeModeDiagnostic> diagnostic) {
         public AdapterResult {
             value = Objects.requireNonNull(value, "value");
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");
@@ -244,105 +237,78 @@ public interface ProjectWorkspaceAdapter {
         @Override
         public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
             return host.map(ops -> callIfSupported(ops, PROJECT_CAPABILITY_ID, ops::activeProject))
-                .orElseGet(unavailable(PROJECT_CAPABILITY_ID));
+                    .orElseGet(unavailable(PROJECT_CAPABILITY_ID));
         }
 
         @Override
         public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
-            return host.map(ops -> callIfSupported(
-                    ops,
-                    DOCUMENT_CAPABILITY_ID,
-                    ops::activeDocument
-                ))
-                .orElseGet(unavailable(DOCUMENT_CAPABILITY_ID));
+            return host.map(ops -> callIfSupported(ops, DOCUMENT_CAPABILITY_ID, ops::activeDocument))
+                    .orElseGet(unavailable(DOCUMENT_CAPABILITY_ID));
         }
 
         @Override
         public AdapterResult<Optional<WorkspaceSnapshot>> workspace() {
             return host.map(ops -> callIfSupported(ops, WORKSPACE_CAPABILITY_ID, ops::workspace))
-                .orElseGet(unavailable(WORKSPACE_CAPABILITY_ID));
+                    .orElseGet(unavailable(WORKSPACE_CAPABILITY_ID));
         }
 
         @Override
         public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
             return host.map(this::readProjectAndDocument)
-                .orElseGet(() -> AdapterResult.unavailable(
-                    SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
-                ));
+                    .orElseGet(() ->
+                            AdapterResult.unavailable(SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)));
         }
 
         @Override
         public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
             return host.map(this::readCombined)
-                .orElseGet(() -> AdapterResult.unavailable(
-                    SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
-                ));
+                    .orElseGet(() ->
+                            AdapterResult.unavailable(SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)));
         }
 
-        private AdapterResult<ActiveProjectDocument> readProjectAndDocument(
-            final HostOperations operations
-        ) {
+        private AdapterResult<ActiveProjectDocument> readProjectAndDocument(final HostOperations operations) {
             try {
                 if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
-                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
-                        PROJECT_CAPABILITY_ID,
-                        operations.hostVersion()
-                    ));
+                    return AdapterResult.unavailable(
+                            SafeModeDiagnostic.hostVersionUnsupported(PROJECT_CAPABILITY_ID, operations.hostVersion()));
                 }
                 if (!operations.supportsProjectWorkspaceRead()) {
-                    return AdapterResult.unavailable(
-                        SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID)
-                    );
+                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID));
                 }
                 return AdapterResult.available(operations.activeProjectAndDocument());
             } catch (AdapterHostException exception) {
                 return AdapterResult.unavailable(exception.diagnostic());
             } catch (RuntimeException exception) {
                 return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                    PROJECT_CAPABILITY_ID,
-                    "Host project/workspace adapter call failed safely."
-                ));
+                        PROJECT_CAPABILITY_ID, "Host project/workspace adapter call failed safely."));
             }
         }
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {
             try {
                 if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
-                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
-                        PROJECT_CAPABILITY_ID,
-                        operations.hostVersion()
-                    ));
+                    return AdapterResult.unavailable(
+                            SafeModeDiagnostic.hostVersionUnsupported(PROJECT_CAPABILITY_ID, operations.hostVersion()));
                 }
                 if (!operations.supportsProjectWorkspaceRead()) {
-                    return AdapterResult.unavailable(
-                        SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID)
-                    );
+                    return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID));
                 }
-                return AdapterResult.available(new ProjectWorkspaceSnapshot(
-                    operations.activeProject(),
-                    operations.workspace()
-                ));
+                return AdapterResult.available(
+                        new ProjectWorkspaceSnapshot(operations.activeProject(), operations.workspace()));
             } catch (AdapterHostException exception) {
                 return AdapterResult.unavailable(exception.diagnostic());
             } catch (RuntimeException exception) {
                 return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                    PROJECT_CAPABILITY_ID,
-                    "Host project/workspace adapter call failed safely."
-                ));
+                        PROJECT_CAPABILITY_ID, "Host project/workspace adapter call failed safely."));
             }
         }
 
         private <T> AdapterResult<Optional<T>> callIfSupported(
-            final HostOperations operations,
-            final String capabilityId,
-            final Supplier<Optional<T>> supplier
-        ) {
+                final HostOperations operations, final String capabilityId, final Supplier<Optional<T>> supplier) {
             try {
                 if (!isReviewedProjectWorkspaceVersion(operations.contractVersion())) {
-                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
-                        capabilityId,
-                        operations.hostVersion()
-                    ));
+                    return AdapterResult.unavailable(
+                            SafeModeDiagnostic.hostVersionUnsupported(capabilityId, operations.hostVersion()));
                 }
                 if (!operations.supportsProjectWorkspaceRead()) {
                     return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(capabilityId));
@@ -352,14 +318,13 @@ public interface ProjectWorkspaceAdapter {
                 return AdapterResult.unavailable(exception.diagnostic());
             } catch (RuntimeException exception) {
                 return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
-                    capabilityId,
-                    "Host project/workspace adapter call failed safely."
-                ));
+                        capabilityId, "Host project/workspace adapter call failed safely."));
             }
         }
 
         private static boolean isReviewedProjectWorkspaceVersion(final String hostVersion) {
-            return HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, hostVersion).isEmpty();
+            return HostUiVersionCheck.diagnosticFor(PROJECT_CAPABILITY_ID, hostVersion)
+                    .isEmpty();
         }
 
         private static <T> Supplier<AdapterResult<Optional<T>>> unavailable(final String capabilityId) {

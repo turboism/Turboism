@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.core.reflect.MethodHandleCache;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.mapping.verification.RecentPreviewVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
@@ -8,12 +9,6 @@ import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
-
-import javax.imageio.ImageIO;
-
-import javax.swing.JComponent;
-import javax.swing.SwingUtilities;
-
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
@@ -40,6 +35,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.imageio.ImageIO;
+import javax.swing.JComponent;
+import javax.swing.SwingUtilities;
 
 /**
  * Preview capture pipeline ported from the legacy {@code CubismPreviewCaptureService}/
@@ -67,6 +65,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * pipeline falls through to the next tier. See {@link #isSolidContent(BufferedImage)}.
      */
     static final int MIN_DISTINCT_COLORS = 2;
+
     static final double MAX_LUMINANCE_VARIANCE = 25.0;
 
     /** Upper bound on the dense-grid samples used by the solidity check. */
@@ -88,9 +87,9 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     /**
      * Fail-closed diagnostic sink; every capture failure branch reports a short reason.
      * Static because the capture tiers are static; a single host instance owns the
-     * process. Wired to System.err for host verification (temporary).
+     * process. The caller injects the sink; the default is a no-op.
      */
-    private static volatile Consumer<String> diagnostics = reason -> { };
+    private static volatile Consumer<String> diagnostics = reason -> {};
 
     /**
      * Daemon executor for pixel post-processing (solidity, crop, scale, PNG encode) so the EDT
@@ -108,11 +107,10 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     private ScreenshotImage debouncedImage;
 
     public PreviewCaptureHostOperations(
-        final VerifiedMemberResolver panelResolver,
-        final VerifiedRecentFileListHostOperations files,
-        final PopupSuppression popupSuppression,
-        final Consumer<String> diagnosticsSink
-    ) {
+            final VerifiedMemberResolver panelResolver,
+            final VerifiedRecentFileListHostOperations files,
+            final PopupSuppression popupSuppression,
+            final Consumer<String> diagnosticsSink) {
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
         this.files = Objects.requireNonNull(files, "files");
         this.popupSuppression = Objects.requireNonNull(popupSuppression, "popupSuppression");
@@ -123,11 +121,10 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     /** Default no-op diagnostics sink (tests). */
     public PreviewCaptureHostOperations(
-        final VerifiedMemberResolver panelResolver,
-        final VerifiedRecentFileListHostOperations files,
-        final PopupSuppression popupSuppression
-    ) {
-        this(panelResolver, files, popupSuppression, reason -> { });
+            final VerifiedMemberResolver panelResolver,
+            final VerifiedRecentFileListHostOperations files,
+            final PopupSuppression popupSuppression) {
+        this(panelResolver, files, popupSuppression, reason -> {});
     }
 
     private static void diagnose(final String reason) {
@@ -138,16 +135,15 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         }
     }
 
-    private ScreenshotCaptureTargetUnavailableException targetUnavailable(
-        final ScreenshotCaptureRequest request
-    ) {
+    private ScreenshotCaptureTargetUnavailableException targetUnavailable(final ScreenshotCaptureRequest request) {
         final Path current = RecentMenuChain.currentProjectPath(files.projectResolver());
         final Path expected = files.pathFor(request.id());
         if (current == null
-            || (expected != null && !samePath(expected, current))
-            || (expected == null && !VerifiedRecentFileListHostOperations.idFor(current).equals(request.id()))) {
-            diagnose("captureNow:target-guard current-null=" + (current == null)
-                + " expected-null=" + (expected == null));
+                || (expected != null && !samePath(expected, current))
+                || (expected == null
+                        && !VerifiedRecentFileListHostOperations.idFor(current).equals(request.id()))) {
+            diagnose("captureNow:target-guard current-null=" + (current == null) + " expected-null="
+                    + (expected == null));
             return new ScreenshotCaptureTargetUnavailableException();
         }
         return null;
@@ -165,13 +161,15 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             try {
                 captureNow(request, result);
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 if (!(failure instanceof ScreenshotCaptureTargetUnavailableException)) {
                     diagnose("capture:failed " + failure.getClass().getName());
                 }
                 result.completeExceptionally(failure);
             }
         };
-        if (SwingUtilities.isEventDispatchThread()) capture.run(); else SwingUtilities.invokeLater(capture);
+        if (SwingUtilities.isEventDispatchThread()) capture.run();
+        else SwingUtilities.invokeLater(capture);
         return result;
     }
 
@@ -182,7 +180,9 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * the EDT never blocks on it. The future completes with the same value/exception/diagnostic
      * semantics as the legacy synchronous pipeline.
      */
-    private void captureNow(final ScreenshotCaptureRequest request, final CompletableFuture<ScreenshotCaptureResult> result) throws Exception {
+    private void captureNow(
+            final ScreenshotCaptureRequest request, final CompletableFuture<ScreenshotCaptureResult> result)
+            throws Exception {
         final ScreenshotCaptureTargetUnavailableException unavailable = targetUnavailable(request);
         if (unavailable != null) throw unavailable;
         final ScreenshotImage cached = debounced(request);
@@ -198,31 +198,35 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         }
         final List<Object> suppressed = suppressOverlays(root);
         popupSuppression.hide();
-        captureComponentImage(target, fromTarget -> {
-            if (fromTarget == null && root != null) {
-                captureComponentImage(root,
-                    fromRoot -> settleCapture(request, result, root, target, suppressed, fromRoot),
-                    failure -> failCapture(result, suppressed, failure));
-            } else {
-                settleCapture(request, result, root, target, suppressed, fromTarget);
-            }
-        }, failure -> failCapture(result, suppressed, failure));
+        captureComponentImage(
+                target,
+                fromTarget -> {
+                    if (fromTarget == null && root != null) {
+                        captureComponentImage(
+                                root,
+                                fromRoot -> settleCapture(request, result, root, target, suppressed, fromRoot),
+                                failure -> failCapture(result, suppressed, failure));
+                    } else {
+                        settleCapture(request, result, root, target, suppressed, fromTarget);
+                    }
+                },
+                failure -> failCapture(result, suppressed, failure));
     }
 
     /** EDT continuation after the tier chain: restore overlays, then complete or post-process. */
     private void settleCapture(
-        final ScreenshotCaptureRequest request,
-        final CompletableFuture<ScreenshotCaptureResult> result,
-        final Component root,
-        final Component target,
-        final List<Object> suppressed,
-        final CapturedImage captured
-    ) {
+            final ScreenshotCaptureRequest request,
+            final CompletableFuture<ScreenshotCaptureResult> result,
+            final Component root,
+            final Component target,
+            final List<Object> suppressed,
+            final CapturedImage captured) {
         restoreOverlays(suppressed);
         popupSuppression.restore();
         if (captured == null) {
             diagnose("captureNow:all-tiers-null target=" + className(target) + " root=" + className(root));
-            final IllegalStateException failure = new IllegalStateException("Cubism preview capture surface is unavailable");
+            final IllegalStateException failure =
+                    new IllegalStateException("Cubism preview capture surface is unavailable");
             diagnose("capture:failed " + failure.getClass().getName());
             result.completeExceptionally(failure);
             return;
@@ -237,10 +241,9 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     /** Failure continuation (EDT): restore overlays and fail the capture future as the sync path did. */
     private void failCapture(
-        final CompletableFuture<ScreenshotCaptureResult> result,
-        final List<Object> suppressed,
-        final Throwable failure
-    ) {
+            final CompletableFuture<ScreenshotCaptureResult> result,
+            final List<Object> suppressed,
+            final Throwable failure) {
         restoreOverlays(suppressed);
         popupSuppression.restore();
         diagnose("capture:failed " + failure.getClass().getName());
@@ -253,36 +256,37 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * completed readback owned solely by this call, so no Swing/GL state is touched here.
      */
     private void postProcess(
-        final ScreenshotCaptureRequest request,
-        final CompletableFuture<ScreenshotCaptureResult> result,
-        final Component root,
-        final Component target,
-        final BufferedImage captured,
-        final String tier
-    ) {
+            final ScreenshotCaptureRequest request,
+            final CompletableFuture<ScreenshotCaptureResult> result,
+            final Component root,
+            final Component target,
+            final BufferedImage captured,
+            final String tier) {
         POST_PROCESS_EXECUTOR.execute(() -> {
             try {
                 if (isSolidContent(captured)) {
                     // Every tier produced a solid/empty buffer; keep the best result — an empty
                     // scene is a legitimate capture — but record the health line.
-                    diagnose("captureNow:solid-content tier=" + tier
-                        + " size=" + captured.getWidth() + "x" + captured.getHeight());
+                    diagnose("captureNow:solid-content tier=" + tier + " size=" + captured.getWidth() + "x"
+                            + captured.getHeight());
                 }
                 final BufferedImage scaled = scale(cropMargins(captured), request.maxWidth(), request.maxHeight());
                 diagnose("captureNow:ok root=" + className(root)
-                    + " target=" + className(target)
-                    + " tier=" + tier
-                    + " pre-scale=" + captured.getWidth() + "x" + captured.getHeight()
-                    + " png=" + scaled.getWidth() + "x" + scaled.getHeight());
+                        + " target=" + className(target)
+                        + " tier=" + tier
+                        + " pre-scale=" + captured.getWidth() + "x" + captured.getHeight()
+                        + " png=" + scaled.getWidth() + "x" + scaled.getHeight());
                 final ByteArrayOutputStream png = new ByteArrayOutputStream();
                 if (!ImageIO.write(scaled, "png", png)) {
                     diagnose("captureNow:png-writer-unavailable");
                     throw new IllegalStateException("PNG writer is unavailable");
                 }
-                final ScreenshotImage image = new ScreenshotImage(scaled.getWidth(), scaled.getHeight(), png.toByteArray());
+                final ScreenshotImage image =
+                        new ScreenshotImage(scaled.getWidth(), scaled.getHeight(), png.toByteArray());
                 rememberDebounced(request.id(), image);
                 result.complete(new ScreenshotCaptureResult(request.id(), image));
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 diagnose("capture:failed " + failure.getClass().getName());
                 result.completeExceptionally(failure);
             }
@@ -318,11 +322,13 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      */
     static Component resolveCaptureComponent(final VerifiedMemberResolver panelResolver) {
         final Object app = panelResolver.invokeStatic(RecentMenuChain.PANEL_APP_INSTANCE);
-        final Object mainViewPanel = chainStep(chainStep(app, "getCompletePack", "getCompletePack"),
-            "getMainViewPanel", "getCompletePack→getMainViewPanel");
+        final Object mainViewPanel = chainStep(
+                chainStep(app, "getCompletePack", "getCompletePack"),
+                "getMainViewPanel",
+                "getCompletePack→getMainViewPanel");
         final Object canvasCtrl = chainStep(app, "getCanvasCtrl", "getCanvasCtrl");
         final Object mainFrame = chainStep(app, "getMainFrame", "getMainFrame");
-        final Object raw = firstNonNull(new Object[]{mainViewPanel, canvasCtrl, mainFrame});
+        final Object raw = firstNonNull(new Object[] {mainViewPanel, canvasCtrl, mainFrame});
         if (raw == null) {
             diagnose("resolveCaptureComponent:chain all-null");
             return null;
@@ -343,13 +349,16 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             return null;
         }
         try {
-            final Object result = MethodHandleCache.method(target.getClass(), name).invoke(target);
+            final Object result =
+                    MethodHandleCache.method(target.getClass(), name).invoke(target);
             if (result == null) {
                 diagnose("resolveCaptureComponent:" + step + "→null");
             }
             return result;
         } catch (Throwable failure) {
-            diagnose("resolveCaptureComponent:" + step + " " + failure.getClass().getName());
+            FatalErrors.rethrowIfFatal(failure);
+            diagnose(
+                    "resolveCaptureComponent:" + step + " " + failure.getClass().getName());
             return null;
         }
     }
@@ -391,14 +400,21 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             return false;
         }
         final String signature = signature(component);
-        if (signature.contains("menu") || signature.contains("toolbar")
-            || signature.contains("scrollbar") || signature.contains("splitpane")) {
+        if (signature.contains("menu")
+                || signature.contains("toolbar")
+                || signature.contains("scrollbar")
+                || signature.contains("splitpane")) {
             return false;
         }
-        return signature.contains("glcanvas") || signature.contains("gljpanel") || signature.contains("jogamp")
-            || signature.contains("canvas") || signature.contains("mainview")
-            || signature.contains("viewpanel") || signature.contains("scene")
-            || signature.contains("viewport") || dark(component);
+        return signature.contains("glcanvas")
+                || signature.contains("gljpanel")
+                || signature.contains("jogamp")
+                || signature.contains("canvas")
+                || signature.contains("mainview")
+                || signature.contains("viewpanel")
+                || signature.contains("scene")
+                || signature.contains("viewport")
+                || dark(component);
     }
 
     private static long score(final Component component) {
@@ -422,7 +438,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     private static String signature(final Component component) {
         return (component.getClass().getName() + " " + Objects.toString(component.getName(), ""))
-            .toLowerCase(Locale.ROOT);
+                .toLowerCase(Locale.ROOT);
     }
 
     private static boolean dark(final Component component) {
@@ -444,43 +460,38 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * sample count is bounded by {@link #MAX_SOLIDITY_SAMPLES} (kept from the legacy pipeline).
      */
     static void captureComponentImage(
-        final Component component,
-        final Consumer<CapturedImage> onImage,
-        final Consumer<Throwable> onFailure
-    ) {
-        if (component == null || !component.isShowing()
-            || component.getWidth() <= 0 || component.getHeight() <= 0) {
+            final Component component, final Consumer<CapturedImage> onImage, final Consumer<Throwable> onFailure) {
+        if (component == null || !component.isShowing() || component.getWidth() <= 0 || component.getHeight() <= 0) {
             diagnose("captureComponentImage:not-capturable class=" + className(component)
-                + " showing=" + (component != null && component.isShowing())
-                + " size=" + (component == null ? 0 : component.getWidth())
-                + "x" + (component == null ? 0 : component.getHeight()));
+                    + " showing=" + (component != null && component.isShowing())
+                    + " size=" + (component == null ? 0 : component.getWidth())
+                    + "x" + (component == null ? 0 : component.getHeight()));
             onImage.accept(null);
             return;
         }
         // JOGL readback and offscreen paint need no active window; only the Robot tier does,
         // and captureOnScreen already enforces its own active/focused check. A Window
         // component is its own ancestor (getWindowAncestor returns null for a top-level Window).
-        final Window ancestor = component instanceof Window window
-            ? window
-            : SwingUtilities.getWindowAncestor(component);
+        final Window ancestor =
+                component instanceof Window window ? window : SwingUtilities.getWindowAncestor(component);
         if (ancestor == null || !ancestor.isShowing()) {
             diagnose("captureComponentImage:ancestor-unavailable class=" + className(component)
-                + " ancestor-null=" + (ancestor == null)
-                + " ancestor-showing=" + (ancestor != null && ancestor.isShowing()));
+                    + " ancestor-null=" + (ancestor == null)
+                    + " ancestor-showing=" + (ancestor != null && ancestor.isShowing()));
             onImage.accept(null);
             return;
         }
         final String signature = signature(component);
-        final boolean glSurface = signature.contains("glcanvas") || signature.contains("gljpanel")
-            || signature.contains("jogamp");
+        final boolean glSurface =
+                signature.contains("glcanvas") || signature.contains("gljpanel") || signature.contains("jogamp");
         if (glSurface) {
             captureJogl(component, jogl -> {
                 if (jogl != null && !isSolidContent(jogl)) {
                     onImage.accept(new CapturedImage(jogl, "jogl"));
                     return;
                 }
-                diagnose("captureComponentImage:tier-jogl=" + (jogl == null ? "failed" : "solid")
-                    + " class=" + className(component));
+                diagnose("captureComponentImage:tier-jogl=" + (jogl == null ? "failed" : "solid") + " class="
+                        + className(component));
                 paintAndRobotTier(component, jogl, onImage, onFailure);
             });
         } else {
@@ -491,18 +502,17 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
 
     /** Paint then Robot tiers, run synchronously on the EDT after the JOGL tier is exhausted. */
     private static void paintAndRobotTier(
-        final Component component,
-        final BufferedImage jogl,
-        final Consumer<CapturedImage> onImage,
-        final Consumer<Throwable> onFailure
-    ) {
+            final Component component,
+            final BufferedImage jogl,
+            final Consumer<CapturedImage> onImage,
+            final Consumer<Throwable> onFailure) {
         final BufferedImage painted = paintToImage(component);
         if (painted != null && !isSolidContent(painted)) {
             onImage.accept(new CapturedImage(painted, "paint"));
             return;
         }
-        diagnose("captureComponentImage:tier-paint=" + (painted == null ? "failed" : "solid")
-            + " class=" + className(component));
+        diagnose("captureComponentImage:tier-paint=" + (painted == null ? "failed" : "solid") + " class="
+                + className(component));
         try {
             final BufferedImage robot = captureOnScreen(component);
             if (robot != null && !isSolidContent(robot)) {
@@ -518,8 +528,8 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             else if (painted != null) onImage.accept(new CapturedImage(painted, "paint"));
             else onImage.accept(robot == null ? null : new CapturedImage(robot, "robot"));
         } catch (Exception robotFailure) {
-            diagnose("captureComponentImage:tier-robot " + robotFailure.getClass().getName()
-                + " class=" + className(component));
+            diagnose("captureComponentImage:tier-robot "
+                    + robotFailure.getClass().getName() + " class=" + className(component));
             if (jogl != null) onImage.accept(new CapturedImage(jogl, "jogl"));
             else if (painted != null) onImage.accept(new CapturedImage(painted, "paint"));
             else onFailure.accept(robotFailure);
@@ -538,8 +548,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         if (image == null || image.getWidth() <= 0 || image.getHeight() <= 0) return true;
         final int width = image.getWidth();
         final int height = image.getHeight();
-        final int stride = Math.max(1, (int) Math.ceil(
-            Math.sqrt((double) width * height / MAX_SOLIDITY_SAMPLES)));
+        final int stride = Math.max(1, (int) Math.ceil(Math.sqrt((double) width * height / MAX_SOLIDITY_SAMPLES)));
         final java.util.HashSet<Integer> colors = new java.util.HashSet<>();
         long count = 0;
         double mean = 0;
@@ -568,13 +577,12 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     }
 
     /** Captured image plus the tier that produced it ({@code jogl|paint|robot}). */
-    record CapturedImage(BufferedImage image, String tier) { }
+    record CapturedImage(BufferedImage image, String tier) {}
 
     private static BufferedImage paintToImage(final Component component) {
         if (!(component instanceof JComponent swing)) return null;
-        final BufferedImage image = new BufferedImage(
-            component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB
-        );
+        final BufferedImage image =
+                new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB);
         final Graphics2D graphics = image.createGraphics();
         try {
             graphics.setClip(0, 0, image.getWidth(), image.getHeight());
@@ -592,16 +600,16 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     static BufferedImage captureOnScreen(final Component component) throws Exception {
         final Window ancestor = SwingUtilities.getWindowAncestor(component);
         if (ancestor != null && (!ancestor.isActive() || !ancestor.isFocused())) {
-            diagnose("captureOnScreen:window-not-active-focused class=" + className(component)
-                + " active=" + ancestor.isActive() + " focused=" + ancestor.isFocused());
+            diagnose("captureOnScreen:window-not-active-focused class=" + className(component) + " active="
+                    + ancestor.isActive() + " focused=" + ancestor.isFocused());
             return null;
         }
         final Point location = component.getLocationOnScreen();
         final Rectangle bounds = new Rectangle(location.x, location.y, component.getWidth(), component.getHeight());
         final java.awt.GraphicsConfiguration configuration = component.getGraphicsConfiguration();
         final java.awt.GraphicsDevice device = configuration == null
-            ? java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
-            : configuration.getDevice();
+                ? java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice()
+                : configuration.getDevice();
         return new Robot(device).createScreenCapture(bounds);
     }
 
@@ -613,11 +621,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * {@code onResult} on the EDT.
      */
     private static void captureDrawable(
-        final Object drawable,
-        final int width,
-        final int height,
-        final Consumer<BufferedImage> onResult
-    ) {
+            final Object drawable, final int width, final int height, final Consumer<BufferedImage> onResult) {
         try {
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> drawableType = Class.forName("com.jogamp.opengl.GLAutoDrawable", false, loader);
@@ -633,31 +637,35 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final Method display = MethodHandleCache.method(drawableType, "display");
             final Method invoke = MethodHandleCache.method(drawableType, "invoke", boolean.class, runnableType);
             final AtomicReference<BufferedImage> image = new AtomicReference<>();
-            final Object listener = Proxy.newProxyInstance(loader, new Class<?>[]{listenerType}, (proxy, method, args) -> {
-                final String name = method.getName();
-                if ("hashCode".equals(name)) return System.identityHashCode(proxy);
-                if ("equals".equals(name)) return proxy == args[0];
-                if ("toString".equals(name)) return "turboism-capture-" + System.identityHashCode(proxy);
-                if ("display".equals(name) && args != null && args.length == 1) {
-                    image.set(readJogl(args[0], width, height));
-                }
-                return null;
-            });
-            final Object renderPass = Proxy.newProxyInstance(loader, new Class<?>[]{runnableType}, (proxy, method, args) -> {
-                final String name = method.getName();
-                if ("hashCode".equals(name)) return System.identityHashCode(proxy);
-                if ("equals".equals(name)) return proxy == args[0];
-                if ("toString".equals(name)) return "turboism-render-" + System.identityHashCode(proxy);
-                if ("run".equals(name) && args != null && args.length == 1) {
-                    drainGlErrors(drawable);
-                    display.invoke(drawable);
-                    return Boolean.TRUE;
-                }
-                return null;
-            });
+            final Object listener =
+                    Proxy.newProxyInstance(loader, new Class<?>[] {listenerType}, (proxy, method, args) -> {
+                        final String name = method.getName();
+                        if ("hashCode".equals(name)) return System.identityHashCode(proxy);
+                        if ("equals".equals(name)) return proxy == args[0];
+                        if ("toString".equals(name)) return "turboism-capture-" + System.identityHashCode(proxy);
+                        if ("display".equals(name) && args != null && args.length == 1) {
+                            image.set(readJogl(args[0], width, height));
+                        }
+                        return null;
+                    });
+            final Object renderPass =
+                    Proxy.newProxyInstance(loader, new Class<?>[] {runnableType}, (proxy, method, args) -> {
+                        final String name = method.getName();
+                        if ("hashCode".equals(name)) return System.identityHashCode(proxy);
+                        if ("equals".equals(name)) return proxy == args[0];
+                        if ("toString".equals(name)) return "turboism-render-" + System.identityHashCode(proxy);
+                        if ("run".equals(name) && args != null && args.length == 1) {
+                            drainGlErrors(drawable);
+                            display.invoke(drawable);
+                            return Boolean.TRUE;
+                        }
+                        return null;
+                    });
             add.invoke(drawable, listener);
-            new ReadbackAttempt(drawable, width, height, image, remove, display, invoke, renderPass, listener, onResult).attempt();
+            new ReadbackAttempt(drawable, width, height, image, remove, display, invoke, renderPass, listener, onResult)
+                    .attempt();
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("captureDrawable:" + failure.getClass().getName());
             onResult.accept(null);
         }
@@ -681,18 +689,18 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         private final Object listener;
         private final Consumer<BufferedImage> onResult;
         private int attemptsLeft = MAX_ATTEMPTS;
+
         private ReadbackAttempt(
-            final Object drawable,
-            final int width,
-            final int height,
-            final AtomicReference<BufferedImage> image,
-            final Method remove,
-            final Method display,
-            final Method invoke,
-            final Object renderPass,
-            final Object listener,
-            final Consumer<BufferedImage> onResult
-        ) {
+                final Object drawable,
+                final int width,
+                final int height,
+                final AtomicReference<BufferedImage> image,
+                final Method remove,
+                final Method display,
+                final Method invoke,
+                final Object renderPass,
+                final Object listener,
+                final Consumer<BufferedImage> onResult) {
             this.drawable = drawable;
             this.width = width;
             this.height = height;
@@ -712,6 +720,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             } catch (java.lang.reflect.InvocationTargetException ignored) {
                 // the render pass reported an exception; the forced pass below still runs
             } catch (Throwable failure) {
+                FatalErrors.rethrowIfFatal(failure);
                 finish(failure);
                 return;
             }
@@ -721,6 +730,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 } catch (java.lang.reflect.InvocationTargetException ignored) {
                     // try the next attempt
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     finish(failure);
                     return;
                 }
@@ -742,6 +752,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             try {
                 remove.invoke(drawable, listener);
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // listener removal is best-effort
             }
             if (failure != null) {
@@ -767,6 +778,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 captureDrawable(component, component.getWidth(), component.getHeight(), onResult);
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("captureJogl:" + failure.getClass().getName());
             onResult.accept(null);
         }
@@ -780,10 +792,12 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     final java.lang.reflect.Field wrapper = current.getClass().getDeclaredField("b");
                     wrapper.setAccessible(true);
                     final Object host = wrapper.get(current);
-                    return MethodHandleCache.method(host.getClass(), "getSharedDrawable").invoke(host);
+                    return MethodHandleCache.method(host.getClass(), "getSharedDrawable")
+                            .invoke(host);
                 }
             }
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("sharedDrawable:" + failure.getClass().getName());
             return null;
         }
@@ -797,6 +811,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 if ((Integer) glGetError.invoke(gl) == 0x0500) return;
             }
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only; never fail the capture for drain issues
         }
     }
@@ -805,9 +820,11 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-            final Object gl = MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
+            final Object gl =
+                    MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
             if (gl != null) drainGlErrors(gl, glType);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only
         }
     }
@@ -816,13 +833,13 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     private static BufferedImage readJogl(final Object drawable, final int width, final int height) {
         try {
             if (drawable == null || width <= 0 || height <= 0) {
-                diagnose("readJogl:bad-size drawable-null=" + (drawable == null)
-                    + " size=" + width + "x" + height);
+                diagnose("readJogl:bad-size drawable-null=" + (drawable == null) + " size=" + width + "x" + height);
                 return null;
             }
             final ClassLoader loader = drawable.getClass().getClassLoader();
             final Class<?> glType = Class.forName("com.jogamp.opengl.GL", false, loader);
-            final Object gl = MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
+            final Object gl =
+                    MethodHandleCache.method(drawable.getClass(), "getGL").invoke(drawable);
             if (gl == null) {
                 diagnose("readJogl:getGL-null class=" + className(drawable));
                 return null;
@@ -834,11 +851,20 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final int rgba = constant(glType, "GL_RGBA", 0x1908);
             final int unsignedByte = constant(glType, "GL_UNSIGNED_BYTE", 0x1401);
             final int[] binding = new int[1];
-            MethodHandleCache.method(glType, "glGetIntegerv", int.class, int[].class, int.class).invoke(gl, framebufferBinding, binding, 0);
-            final ByteBuffer pixels = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
+            MethodHandleCache.method(glType, "glGetIntegerv", int.class, int[].class, int.class)
+                    .invoke(gl, framebufferBinding, binding, 0);
+            final ByteBuffer pixels =
+                    ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.LITTLE_ENDIAN);
             final Method glReadPixels = MethodHandleCache.method(
-                glType, "glReadPixels", int.class, int.class, int.class, int.class, int.class, int.class, java.nio.Buffer.class
-            );
+                    glType,
+                    "glReadPixels",
+                    int.class,
+                    int.class,
+                    int.class,
+                    int.class,
+                    int.class,
+                    int.class,
+                    java.nio.Buffer.class);
             if (binding[0] == 0) {
                 readBufferMethod(glType, loader).invoke(gl, back);
                 glReadPixels.invoke(gl, 0, 0, width, height, rgba, unsignedByte, pixels);
@@ -853,31 +879,54 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                 final int colorBufferBit = constant(glType, "GL_COLOR_BUFFER_BIT", 0x4000);
                 final int nearest = constant(glType, "GL_NEAREST", 0x2600);
                 final int complete = constant(glType, "GL_FRAMEBUFFER_COMPLETE", 0x8CD5);
-                final Method glGenFramebuffers = MethodHandleCache.method(glType, "glGenFramebuffers", int.class, int[].class, int.class);
-                final Method glBindFramebuffer = MethodHandleCache.method(glType, "glBindFramebuffer", int.class, int.class);
-                final Method glGenTextures = MethodHandleCache.method(glType, "glGenTextures", int.class, int[].class, int.class);
+                final Method glGenFramebuffers =
+                        MethodHandleCache.method(glType, "glGenFramebuffers", int.class, int[].class, int.class);
+                final Method glBindFramebuffer =
+                        MethodHandleCache.method(glType, "glBindFramebuffer", int.class, int.class);
+                final Method glGenTextures =
+                        MethodHandleCache.method(glType, "glGenTextures", int.class, int[].class, int.class);
                 final Method glBindTexture = MethodHandleCache.method(glType, "glBindTexture", int.class, int.class);
                 final Method glTexImage2D = MethodHandleCache.method(
-                    glType, "glTexImage2D", int.class, int.class, int.class, int.class, int.class,
-                    int.class, int.class, int.class, java.nio.Buffer.class
-                );
+                        glType,
+                        "glTexImage2D",
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        java.nio.Buffer.class);
                 final Method glFramebufferTexture2D = MethodHandleCache.method(
-                    glType, "glFramebufferTexture2D", int.class, int.class, int.class, int.class, int.class
-                );
+                        glType, "glFramebufferTexture2D", int.class, int.class, int.class, int.class, int.class);
                 final Method glBlitFramebuffer = MethodHandleCache.method(
-                    Class.forName("com.jogamp.opengl.GL2ES3", false, loader),
-                    "glBlitFramebuffer", int.class, int.class, int.class, int.class, int.class,
-                    int.class, int.class, int.class, int.class, int.class);
-                final Method glCheckFramebufferStatus = MethodHandleCache.method(glType, "glCheckFramebufferStatus", int.class);
-                final Method glDeleteFramebuffers = MethodHandleCache.method(glType, "glDeleteFramebuffers", int.class, int[].class, int.class);
-                final Method glDeleteTextures = MethodHandleCache.method(glType, "glDeleteTextures", int.class, int[].class, int.class);
+                        Class.forName("com.jogamp.opengl.GL2ES3", false, loader),
+                        "glBlitFramebuffer",
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class,
+                        int.class);
+                final Method glCheckFramebufferStatus =
+                        MethodHandleCache.method(glType, "glCheckFramebufferStatus", int.class);
+                final Method glDeleteFramebuffers =
+                        MethodHandleCache.method(glType, "glDeleteFramebuffers", int.class, int[].class, int.class);
+                final Method glDeleteTextures =
+                        MethodHandleCache.method(glType, "glDeleteTextures", int.class, int[].class, int.class);
                 final int[] resolveFramebuffer = new int[1];
                 final int[] resolveTexture = new int[1];
                 glGenFramebuffers.invoke(gl, 1, resolveFramebuffer, 0);
                 glGenTextures.invoke(gl, 1, resolveTexture, 0);
                 try {
                     glBindTexture.invoke(gl, texture2d, resolveTexture[0]);
-                    glTexImage2D.invoke(gl, texture2d, 0, rgba8, width, height, 0, rgba, unsignedByte, (java.nio.Buffer) null);
+                    glTexImage2D.invoke(
+                            gl, texture2d, 0, rgba8, width, height, 0, rgba, unsignedByte, (java.nio.Buffer) null);
                     glBindFramebuffer.invoke(gl, framebuffer, resolveFramebuffer[0]);
                     glFramebufferTexture2D.invoke(gl, framebuffer, colorAttachment0, texture2d, resolveTexture[0], 0);
                     if ((Integer) glCheckFramebufferStatus.invoke(gl, framebuffer) != complete) {
@@ -891,7 +940,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
                     drainGlErrors(gl, glType);
                     readBufferMethod(glType, loader).invoke(gl, colorAttachment0);
                 } finally {
-                    glBindFramebuffer.invoke(gl, framebuffer, binding[0]);   // restore the panel's FBO
+                    glBindFramebuffer.invoke(gl, framebuffer, binding[0]); // restore the panel's FBO
                     glBindTexture.invoke(gl, texture2d, 0);
                     glDeleteTextures.invoke(gl, 1, resolveTexture, 0);
                     glDeleteFramebuffers.invoke(gl, 1, resolveFramebuffer, 0);
@@ -911,13 +960,14 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             }
             return image;
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             diagnose("readJogl:" + failure.getClass().getName());
             return null;
         }
     }
 
     private static Method readBufferMethod(final Class<?> glType, final ClassLoader loader) throws Exception {
-        for (String name : new String[]{"com.jogamp.opengl.GL2ES3", "com.jogamp.opengl.GL2", "com.jogamp.opengl.GL"}) {
+        for (String name : new String[] {"com.jogamp.opengl.GL2ES3", "com.jogamp.opengl.GL2", "com.jogamp.opengl.GL"}) {
             try {
                 final Class<?> type = Class.forName(name, false, loader);
                 return MethodHandleCache.method(type, "glReadBuffer", int.class);
@@ -932,6 +982,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             return glType.getField(name).getInt(null);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return fallback;
         }
     }
@@ -954,9 +1005,8 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     }
 
     static BufferedImage scale(final BufferedImage image, final int maxWidth, final int maxHeight) {
-        final double ratio = Math.min(1d, Math.min(
-            (double) maxWidth / image.getWidth(), (double) maxHeight / image.getHeight()
-        ));
+        final double ratio =
+                Math.min(1d, Math.min((double) maxWidth / image.getWidth(), (double) maxHeight / image.getHeight()));
         final int width = Math.max(1, (int) Math.round(image.getWidth() * ratio));
         final int height = Math.max(1, (int) Math.round(image.getHeight() * ratio));
         if (width == image.getWidth() && height == image.getHeight()) return image;
@@ -1047,6 +1097,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             MethodHandleCache.method(target.getClass(), name, value.getClass()).invoke(target, value);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // diagnostics only
         }
     }
@@ -1056,6 +1107,7 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         try {
             return MethodHandleCache.method(target.getClass(), name).invoke(target);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             return null;
         }
     }

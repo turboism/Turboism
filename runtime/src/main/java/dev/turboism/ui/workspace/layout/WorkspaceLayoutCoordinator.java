@@ -2,7 +2,6 @@ package dev.turboism.ui.workspace.layout;
 
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import dev.turboism.ui.host.EdtDispatch;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,10 +14,9 @@ import java.util.Optional;
 public final class WorkspaceLayoutCoordinator implements AutoCloseable {
 
     private static final WorkspaceLayoutSnapshot UNAVAILABLE = new WorkspaceLayoutSnapshot(
-        WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
-        Optional.empty(),
-        Optional.of("workspace.layout.provider.unavailable")
-    );
+            WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,
+            Optional.empty(),
+            Optional.of("workspace.layout.provider.unavailable"));
 
     private final Object monitor = new Object();
     private WorkspaceLayoutHostProvider provider;
@@ -51,6 +49,17 @@ public final class WorkspaceLayoutCoordinator implements AutoCloseable {
             if (provider == value) {
                 provider = null;
             }
+        }
+    }
+
+    /**
+     * @return {@code true} while the coordinator is open with a host provider
+     *         installed — the only state in which a layout read observes the
+     *         host instead of returning the unavailable snapshot
+     */
+    public boolean isAvailable() {
+        synchronized (monitor) {
+            return !closed && provider != null;
         }
     }
 

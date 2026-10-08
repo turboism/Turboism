@@ -3,7 +3,6 @@ package dev.turboism.plugin.mcp;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
-import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -14,7 +13,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
-
+import dev.turboism.sdk.json.Json;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +41,7 @@ final class McpTextureDomain {
     static final String TEXTURES_WRITE = "turboism.textures.write";
 
     private static final String PROVIDER_CAPABILITY_ID = "cubism.editor-model.texture.write";
-    private static final List<String> SUPPORTED_VERSIONS =
-        List.of("5.2.03", "5.3.02", "5.3.03");
+    private static final List<String> SUPPORTED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
 
     private static final int MAX_ITEMS = 1024;
     private static final int MAX_NAME_LENGTH = 256;
@@ -65,25 +63,22 @@ final class McpTextureDomain {
     McpToolCatalog tools(final McpExecutionBridge execution) {
         Objects.requireNonNull(execution, "execution");
         return McpToolCatalog.of(List.of(
-            McpRegisteredTool.typed(
-                readDefinition(),
-                McpOperationEffect.READ,
-                McpExecutionAffinity.UI_THREAD,
-                false,
-                McpVersionSupport.exact("cubism.editor-model.texture.read", SUPPORTED_VERSIONS),
-                execution,
-                arguments -> call(TEXTURES_READ, arguments)
-            ),
-            McpRegisteredTool.typed(
-                writeDefinition(),
-                McpOperationEffect.UNDOABLE_WRITE,
-                McpExecutionAffinity.UI_THREAD,
-                false,
-                writeVersionSupport(),
-                execution,
-                arguments -> call(TEXTURES_WRITE, arguments)
-            )
-        ));
+                McpRegisteredTool.typed(
+                        readDefinition(),
+                        McpOperationEffect.READ,
+                        McpExecutionAffinity.UI_THREAD,
+                        false,
+                        McpVersionSupport.exact("cubism.editor-model.texture.read", SUPPORTED_VERSIONS),
+                        execution,
+                        arguments -> call(TEXTURES_READ, arguments)),
+                McpRegisteredTool.typed(
+                        writeDefinition(),
+                        McpOperationEffect.UNDOABLE_WRITE,
+                        McpExecutionAffinity.UI_THREAD,
+                        false,
+                        writeVersionSupport(),
+                        execution,
+                        arguments -> call(TEXTURES_WRITE, arguments))));
     }
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
@@ -99,10 +94,10 @@ final class McpTextureDomain {
             output = rejected(name, rejected.code, rejected.getMessage());
         } catch (RuntimeException failure) {
             if (failure instanceof SecurityException
-                || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
+                    || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
                 output = rejected(name, "PERMISSION_DENIED", "Texture access is not permitted");
             } else if (failure instanceof UnsupportedOperationException
-                || failure instanceof dev.turboism.sdk.cubism.CubismEditorApiUnavailableException) {
+                    || failure instanceof dev.turboism.sdk.cubism.CubismEditorApiUnavailableException) {
                 output = rejected(name, "TEXTURE_PROVIDER_UNAVAILABLE", "No admitted texture provider is available");
             } else if (failure instanceof IllegalArgumentException) {
                 output = rejected(name, "INVALID_ARGUMENT", "Texture arguments do not match the operation contract");
@@ -142,9 +137,7 @@ final class McpTextureDomain {
             textures = cubismModel.textures();
         } catch (UnsupportedOperationException failure) {
             return failure(
-                "TEXTURE_PROVIDER_UNAVAILABLE",
-                "ModelTextures provider is unavailable on the active Cubism model"
-            );
+                    "TEXTURE_PROVIDER_UNAVAILABLE", "ModelTextures provider is unavailable on the active Cubism model");
         }
         final HistorySnapshot history;
         try {
@@ -159,13 +152,9 @@ final class McpTextureDomain {
         final List<RawTexture> rawImages = textures.rawImages();
         final List<ModelImageGroup> groups = textures.modelImageGroups();
         final List<AtlasTexture> atlases = textures.textureAtlases();
-        if (rawImages.size() > MAX_ITEMS
-            || groups.size() > MAX_ITEMS
-            || atlases.size() > MAX_ITEMS) {
+        if (rawImages.size() > MAX_ITEMS || groups.size() > MAX_ITEMS || atlases.size() > MAX_ITEMS) {
             return failure(
-                "TEXTURE_LIST_OVERFLOW",
-                "Texture projection exceeds the bounded item count of " + MAX_ITEMS
-            );
+                    "TEXTURE_LIST_OVERFLOW", "Texture projection exceeds the bounded item count of " + MAX_ITEMS);
         }
         long modelImageCount = 0;
         for (ModelImageGroup group : groups) {
@@ -179,56 +168,58 @@ final class McpTextureDomain {
         output.put("operation", "list");
         output.put("stateToken", state.token());
         output.put("state", state.expose());
-        output.put("rawImages", rawImages.stream().map(McpTextureDomain::rawTexture).toList());
-        output.put("modelImageGroups", groups.stream().map(McpTextureDomain::modelImageGroup).toList());
-        output.put("textureAtlases", atlases.stream().map(McpTextureDomain::atlasTexture).toList());
-        output.put("counts", linked(
-            entry("rawImages", rawImages.size()),
-            entry("modelImageGroups", groups.size()),
-            entry("textureAtlases", atlases.size())
-        ));
+        output.put(
+                "rawImages",
+                rawImages.stream().map(McpTextureDomain::rawTexture).toList());
+        output.put(
+                "modelImageGroups",
+                groups.stream().map(McpTextureDomain::modelImageGroup).toList());
+        output.put(
+                "textureAtlases",
+                atlases.stream().map(McpTextureDomain::atlasTexture).toList());
+        output.put(
+                "counts",
+                linked(
+                        entry("rawImages", rawImages.size()),
+                        entry("modelImageGroups", groups.size()),
+                        entry("textureAtlases", atlases.size())));
         return output;
     }
 
     private static Map<String, Object> rawTexture(final RawTexture value) {
         return linked(
-            entry("id", value.id().value()),
-            entry("name", value.name()),
-            entry("width", value.width()),
-            entry("height", value.height())
-        );
+                entry("id", value.id().value()),
+                entry("name", value.name()),
+                entry("width", value.width()),
+                entry("height", value.height()));
     }
 
     private static Map<String, Object> modelImageGroup(final ModelImageGroup value) {
-        final List<Map<String, Object>> entries = value.modelImages().stream()
-            .map(McpTextureDomain::modelImage)
-            .toList();
+        final List<Map<String, Object>> entries =
+                value.modelImages().stream().map(McpTextureDomain::modelImage).toList();
         return linked(
-            entry("groupName", value.groupName()),
-            entry("memo", value.memo()),
-            entry("modelImages", entries),
-            entry("modelImageCount", entries.size())
-        );
+                entry("groupName", value.groupName()),
+                entry("memo", value.memo()),
+                entry("modelImages", entries),
+                entry("modelImageCount", entries.size()));
     }
 
     private static Map<String, Object> modelImage(final ModelImageEntry value) {
         return linked(
-            entry("id", value.id().value()),
-            entry("name", value.name()),
-            entry("width", value.width()),
-            entry("height", value.height())
-        );
+                entry("id", value.id().value()),
+                entry("name", value.name()),
+                entry("width", value.width()),
+                entry("height", value.height()));
     }
 
     private static Map<String, Object> atlasTexture(final AtlasTexture value) {
         return linked(
-            entry("id", value.id().value()),
-            entry("name", value.name()),
-            entry("width", value.width()),
-            entry("height", value.height()),
-            entry("atlasVersion", value.atlasVersion()),
-            entry("modelImageCount", value.modelImageCount())
-        );
+                entry("id", value.id().value()),
+                entry("name", value.name()),
+                entry("width", value.width()),
+                entry("height", value.height()),
+                entry("atlasVersion", value.atlasVersion()),
+                entry("modelImageCount", value.modelImageCount()));
     }
 
     // ---- write --------------------------------------------------------------
@@ -242,11 +233,11 @@ final class McpTextureDomain {
         final StateSnapshot expected = StateSnapshot.fromRequired(arguments.get("expectedState"));
         final CurrentSnapshot current = readCurrentSnapshot();
         if (!current.documentId().equals(expected.documentId())
-            || !current.modelId().equals(expected.modelId())) {
+                || !current.modelId().equals(expected.modelId())) {
             return writeFailure("STALE_STATE", "Expected state targets a different document or model");
         }
         if (current.historyGeneration() != expected.historyGeneration()
-            || current.historyRevision() != expected.historyRevision()) {
+                || current.historyRevision() != expected.historyRevision()) {
             return writeFailure("STALE_STATE", "Expected state generation/revision no longer matches");
         }
         final String operation = requiredString(arguments, "operation");
@@ -258,15 +249,15 @@ final class McpTextureDomain {
                 case OP_ADD_TEXTURE_ATLAS -> executeAddTextureAtlas(arguments, current);
                 case OP_REMOVE_TEXTURE_ATLAS -> executeRemoveTextureAtlas(arguments, current);
                 case OP_REMOVE_RAW_IMAGE -> executeRemoveRawImage(arguments, current);
-                default -> writeFailure(
-                    "INVALID_ARGUMENT",
-                    "operation must be one of: "
-                        + OP_ADD_MODEL_IMAGE_GROUP + ", "
-                        + OP_REMOVE_MODEL_IMAGE + ", "
-                        + OP_ADD_TEXTURE_ATLAS + ", "
-                        + OP_REMOVE_TEXTURE_ATLAS + ", "
-                        + OP_REMOVE_RAW_IMAGE
-                );
+                default ->
+                    writeFailure(
+                            "INVALID_ARGUMENT",
+                            "operation must be one of: "
+                                    + OP_ADD_MODEL_IMAGE_GROUP + ", "
+                                    + OP_REMOVE_MODEL_IMAGE + ", "
+                                    + OP_ADD_TEXTURE_ATLAS + ", "
+                                    + OP_REMOVE_TEXTURE_ATLAS + ", "
+                                    + OP_REMOVE_RAW_IMAGE);
             };
         } catch (TextureWriteException rejected) {
             return writeFailure(rejected.code, rejected.getMessage());
@@ -278,7 +269,8 @@ final class McpTextureDomain {
         final Map<String, Object> refreshed;
         try {
             final CurrentSnapshot after = readCurrentSnapshot();
-            if (!after.documentId().equals(current.documentId()) || !after.modelId().equals(current.modelId())) {
+            if (!after.documentId().equals(current.documentId())
+                    || !after.modelId().equals(current.modelId())) {
                 throw new IllegalStateException("Active model changed during readback");
             }
             refreshed = after.expose();
@@ -287,7 +279,9 @@ final class McpTextureDomain {
             warning.put("outcome", "APPLIED_WITH_READBACK_WARNING");
             warning.put("retryable", false);
             warning.put("postState", null);
-            warning.put("readbackWarning", "Native write completed, but its post-state could not be read; read again before another write");
+            warning.put(
+                    "readbackWarning",
+                    "Native write completed, but its post-state could not be read; read again before another write");
             return warning;
         }
         final Map<String, Object> ok = new LinkedHashMap<>(preview);
@@ -298,9 +292,7 @@ final class McpTextureDomain {
     }
 
     private Map<String, Object> executeAddModelImageGroup(
-        final Map<String, Object> arguments,
-        final CurrentSnapshot current
-    ) {
+            final Map<String, Object> arguments, final CurrentSnapshot current) {
         only(arguments, "expectedState", "operation", "name");
         final String name = boundedString(arguments, "name", MAX_NAME_LENGTH, "name");
         if (name.isBlank()) {
@@ -309,9 +301,7 @@ final class McpTextureDomain {
         for (ModelImageGroup existing : current.textures().modelImageGroups()) {
             if (name.equals(existing.groupName())) {
                 throw new TextureWriteException(
-                    "DUPLICATE_GROUP",
-                    "A model image group named '" + name + "' already exists"
-                );
+                        "DUPLICATE_GROUP", "A model image group named '" + name + "' already exists");
             }
         }
         final String receipt = UUID.randomUUID().toString();
@@ -319,9 +309,8 @@ final class McpTextureDomain {
             current.textures().addModelImageGroup(name);
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                nativeFailureCode(failure),
-                "Native addModelImageGroup did not complete normally; do not retry automatically"
-            );
+                    nativeFailureCode(failure),
+                    "Native addModelImageGroup did not complete normally; do not retry automatically");
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
         preview.put("ok", true);
@@ -333,9 +322,7 @@ final class McpTextureDomain {
     }
 
     private Map<String, Object> executeRemoveModelImage(
-        final Map<String, Object> arguments,
-        final CurrentSnapshot current
-    ) {
+            final Map<String, Object> arguments, final CurrentSnapshot current) {
         only(arguments, "expectedState", "operation", "id", "confirmDelete");
         final String id = boundedString(arguments, "id", MAX_ID_LENGTH, "id");
         if (id.isBlank()) {
@@ -343,18 +330,14 @@ final class McpTextureDomain {
         }
         requireConfirmDelete(arguments);
         final ResolvedModelImage resolved = locateModelImage(current, id)
-            .orElseThrow(() -> new TextureWriteException(
-                "UNKNOWN_TARGET",
-                "No model image with id '" + id + "'"
-            ));
+                .orElseThrow(() -> new TextureWriteException("UNKNOWN_TARGET", "No model image with id '" + id + "'"));
         final String receipt = UUID.randomUUID().toString();
         try {
             current.textures().removeModelImage(new ModelImageId(resolved.id()));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                nativeFailureCode(failure),
-                "Native removeModelImage did not complete normally; do not retry automatically"
-            );
+                    nativeFailureCode(failure),
+                    "Native removeModelImage did not complete normally; do not retry automatically");
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
         preview.put("ok", true);
@@ -367,9 +350,7 @@ final class McpTextureDomain {
     }
 
     private Map<String, Object> executeAddTextureAtlas(
-        final Map<String, Object> arguments,
-        final CurrentSnapshot current
-    ) {
+            final Map<String, Object> arguments, final CurrentSnapshot current) {
         only(arguments, "expectedState", "operation", "name", "widthPixels", "heightPixels");
         final String name = boundedString(arguments, "name", MAX_NAME_LENGTH, "name");
         if (name.isBlank()) {
@@ -380,12 +361,13 @@ final class McpTextureDomain {
         final String receipt = UUID.randomUUID().toString();
         final String generatedId;
         try {
-            generatedId = current.textures().addTextureAtlas(name, widthPixels, heightPixels).value();
+            generatedId = current.textures()
+                    .addTextureAtlas(name, widthPixels, heightPixels)
+                    .value();
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                nativeFailureCode(failure),
-                "Native addTextureAtlas did not complete normally; do not retry automatically"
-            );
+                    nativeFailureCode(failure),
+                    "Native addTextureAtlas did not complete normally; do not retry automatically");
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
         preview.put("ok", true);
@@ -400,9 +382,7 @@ final class McpTextureDomain {
     }
 
     private Map<String, Object> executeRemoveTextureAtlas(
-        final Map<String, Object> arguments,
-        final CurrentSnapshot current
-    ) {
+            final Map<String, Object> arguments, final CurrentSnapshot current) {
         only(arguments, "expectedState", "operation", "id", "confirmDelete");
         final String id = boundedString(arguments, "id", MAX_ID_LENGTH, "id");
         if (id.isBlank()) {
@@ -410,19 +390,15 @@ final class McpTextureDomain {
         }
         requireConfirmDelete(arguments);
         if (!locateAtlas(current, id).isPresent()) {
-            throw new TextureWriteException(
-                "UNKNOWN_TARGET",
-                "No texture atlas with id '" + id + "'"
-            );
+            throw new TextureWriteException("UNKNOWN_TARGET", "No texture atlas with id '" + id + "'");
         }
         final String receipt = UUID.randomUUID().toString();
         try {
             current.textures().removeTextureAtlas(new TextureAtlasId(id));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                nativeFailureCode(failure),
-                "Native removeTextureAtlas did not complete normally; do not retry automatically"
-            );
+                    nativeFailureCode(failure),
+                    "Native removeTextureAtlas did not complete normally; do not retry automatically");
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
         preview.put("ok", true);
@@ -434,9 +410,7 @@ final class McpTextureDomain {
     }
 
     private Map<String, Object> executeRemoveRawImage(
-        final Map<String, Object> arguments,
-        final CurrentSnapshot current
-    ) {
+            final Map<String, Object> arguments, final CurrentSnapshot current) {
         only(arguments, "expectedState", "operation", "id", "confirmDelete");
         final String id = boundedString(arguments, "id", MAX_ID_LENGTH, "id");
         if (id.isBlank()) {
@@ -444,19 +418,15 @@ final class McpTextureDomain {
         }
         requireConfirmDelete(arguments);
         if (!locateRawImage(current, id).isPresent()) {
-            throw new TextureWriteException(
-                "UNKNOWN_TARGET",
-                "No raw image with id '" + id + "'"
-            );
+            throw new TextureWriteException("UNKNOWN_TARGET", "No raw image with id '" + id + "'");
         }
         final String receipt = UUID.randomUUID().toString();
         try {
             current.textures().removeRawImage(new RawImageId(id));
         } catch (RuntimeException failure) {
             throw new TextureWriteException(
-                nativeFailureCode(failure),
-                "Native removeRawImage did not complete normally; do not retry automatically"
-            );
+                    nativeFailureCode(failure),
+                    "Native removeRawImage did not complete normally; do not retry automatically");
         }
         final Map<String, Object> preview = new LinkedHashMap<>();
         preview.put("ok", true);
@@ -467,10 +437,7 @@ final class McpTextureDomain {
         return preview;
     }
 
-    private static Optional<ResolvedModelImage> locateModelImage(
-        final CurrentSnapshot current,
-        final String id
-    ) {
+    private static Optional<ResolvedModelImage> locateModelImage(final CurrentSnapshot current, final String id) {
         for (ModelImageGroup group : current.textures().modelImageGroups()) {
             for (ModelImageEntry entry : group.modelImages()) {
                 if (id.equals(entry.id().value())) {
@@ -481,20 +448,14 @@ final class McpTextureDomain {
         return Optional.empty();
     }
 
-    private static Optional<AtlasTexture> locateAtlas(
-        final CurrentSnapshot current,
-        final String id
-    ) {
+    private static Optional<AtlasTexture> locateAtlas(final CurrentSnapshot current, final String id) {
         for (AtlasTexture atlas : current.textures().textureAtlases()) {
             if (id.equals(atlas.id().value())) return Optional.of(atlas);
         }
         return Optional.empty();
     }
 
-    private static Optional<RawTexture> locateRawImage(
-        final CurrentSnapshot current,
-        final String id
-    ) {
+    private static Optional<RawTexture> locateRawImage(final CurrentSnapshot current, final String id) {
         for (RawTexture raw : current.textures().rawImages()) {
             if (id.equals(raw.id().value())) return Optional.of(raw);
         }
@@ -504,75 +465,48 @@ final class McpTextureDomain {
     private static void requireConfirmDelete(final Map<String, Object> arguments) {
         final Object value = arguments.get("confirmDelete");
         if (!Boolean.TRUE.equals(value)) {
-            throw new TextureWriteException(
-                "CONFIRM_DELETE_REQUIRED",
-                "Deletion requires explicit confirmDelete=true"
-            );
+            throw new TextureWriteException("CONFIRM_DELETE_REQUIRED", "Deletion requires explicit confirmDelete=true");
         }
     }
 
     private CurrentSnapshot readCurrentSnapshot() {
         final DocumentSnapshot document = cubism.activeDocument()
-            .orElseThrow(() -> new TextureWriteException(
-                "NO_ACTIVE_DOCUMENT",
-                "No active Cubism document"
-            ));
+                .orElseThrow(() -> new TextureWriteException("NO_ACTIVE_DOCUMENT", "No active Cubism document"));
         if (!document.isModelDocument()) {
-            throw new TextureWriteException(
-                "NO_ACTIVE_MODEL",
-                "Active document is not a MODEL document"
-            );
+            throw new TextureWriteException("NO_ACTIVE_MODEL", "Active document is not a MODEL document");
         }
         final ModelSnapshot model = document.model()
-            .orElseThrow(() -> new TextureWriteException(
-                "NO_ACTIVE_MODEL",
-                "Active document does not expose a model snapshot"
-            ));
+                .orElseThrow(() -> new TextureWriteException(
+                        "NO_ACTIVE_MODEL", "Active document does not expose a model snapshot"));
         final CubismModel cubismModel;
         try {
             cubismModel = cubism.model().active();
         } catch (IllegalStateException failure) {
-            throw new TextureWriteException(
-                "NO_ACTIVE_MODEL",
-                "Active Cubism model is unavailable"
-            );
+            throw new TextureWriteException("NO_ACTIVE_MODEL", "Active Cubism model is unavailable");
         }
         final ModelTextures textures;
         try {
             textures = cubismModel.textures();
         } catch (UnsupportedOperationException failure) {
             throw new TextureWriteException(
-                "TEXTURE_PROVIDER_UNAVAILABLE",
-                "ModelTextures provider is unavailable on the active Cubism model"
-            );
+                    "TEXTURE_PROVIDER_UNAVAILABLE", "ModelTextures provider is unavailable on the active Cubism model");
         }
         final HistorySnapshot history = cubism.history().snapshot();
         if (history.availability() != HistorySnapshot.Availability.AVAILABLE) {
             throw new TextureWriteException("HISTORY_UNAVAILABLE", "Native Undo history is unavailable");
         }
         return new CurrentSnapshot(
-            document.documentId(),
-            model.modelId(),
-            history.generation(),
-            history.revision(),
-            textures
-        );
+                document.documentId(), model.modelId(), history.generation(), history.revision(), textures);
     }
 
     // ---- envelopes ----------------------------------------------------------
 
-    private static Map<String, Object> envelope(
-        final Map<String, Object> output,
-        final boolean isError
-    ) {
+    private static Map<String, Object> envelope(final Map<String, Object> output, final boolean isError) {
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
         return Map.of(
-            "content", List.of(Map.of(
-                "type", "text",
-                "text", Json.stringify(output)
-            )),
-            "structuredContent", output,
-            "isError", isError
-        );
+                "content", List.of(Map.of("type", "text", "text", Json.stringify(safe))),
+                "structuredContent", safe,
+                "isError", isError);
     }
 
     private static Map<String, Object> failure(final String code, final String message) {
@@ -585,7 +519,7 @@ final class McpTextureDomain {
 
     private static String nativeFailureCode(final RuntimeException failure) {
         if (failure instanceof SecurityException
-            || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
+                || failure instanceof dev.turboism.sdk.permission.CubismPermissionException) {
             return "PERMISSION_DENIED";
         }
         if (failure instanceof dev.turboism.sdk.cubism.CubismEditorApiUnavailableException) {
@@ -606,12 +540,13 @@ final class McpTextureDomain {
         output.put("operation", "write");
         output.put("outcome", outcome);
         output.put("retryable", false);
-        output.put("error", linked(
-            entry("code", code),
-            entry("message", message),
-            entry("outcome", outcome),
-            entry("retryable", false)
-        ));
+        output.put(
+                "error",
+                linked(
+                        entry("code", code),
+                        entry("message", message),
+                        entry("outcome", outcome),
+                        entry("retryable", false)));
         return output;
     }
 
@@ -635,26 +570,16 @@ final class McpTextureDomain {
     }
 
     private static String boundedString(
-        final Map<String, Object> values,
-        final String key,
-        final int maxLength,
-        final String label
-    ) {
+            final Map<String, Object> values, final String key, final int maxLength, final String label) {
         final Object value = values.get(key);
         if (!(value instanceof String text)) {
             throw new TextureWriteException("INVALID_ARGUMENT", label + " must be a string");
         }
         if (text.codePointCount(0, text.length()) > maxLength) {
-            throw new TextureWriteException(
-                "INVALID_ARGUMENT",
-                label + " exceeds the bounded length of " + maxLength
-            );
+            throw new TextureWriteException("INVALID_ARGUMENT", label + " exceeds the bounded length of " + maxLength);
         }
         if (text.chars().anyMatch(Character::isISOControl)) {
-            throw new TextureWriteException(
-                "INVALID_ARGUMENT",
-                label + " must not contain control characters"
-            );
+            throw new TextureWriteException("INVALID_ARGUMENT", label + " must not contain control characters");
         }
         return text;
     }
@@ -664,9 +589,7 @@ final class McpTextureDomain {
         final long integer = exactNonNegativeLong(value, key);
         if (integer <= 0 || integer > MAX_DIMENSION) {
             throw new TextureWriteException(
-                "INVALID_ARGUMENT",
-                key + " must be between 1 and " + MAX_DIMENSION + " inclusive"
-            );
+                    "INVALID_ARGUMENT", key + " must be between 1 and " + MAX_DIMENSION + " inclusive");
         }
         return (int) integer;
     }
@@ -687,9 +610,7 @@ final class McpTextureDomain {
     // ---- linked-map helpers -------------------------------------------------
 
     @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(
-        final Map.Entry<String, Object>... entries
-    ) {
+    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
         return result;
@@ -703,368 +624,418 @@ final class McpTextureDomain {
 
     private static Map<String, Object> readDefinition() {
         return linked(
-            entry("name", TEXTURES_READ),
-            entry("title", "Read texture library"),
-            entry(
-                "description",
-                "Returns path-free rawImages, modelImageGroups, and textureAtlases "
-                    + "metadata for the active model. Pass the returned state object "
-                    + "(documentId/modelId/historyGeneration/historyRevision) as "
-                    + "expectedState on turboism.textures.write. stateToken is only a "
-                    + "read-correlation ID, not a write authorization token."
-            ),
-            entry("inputSchema", linked(
-                entry("type", "object"),
-                entry("properties", linked(
-                    entry("operation", linked(
-                        entry("type", "string"),
-                        entry("enum", List.of("list")),
-                        entry("const", "list")
-                    ))
-                )),
-                entry("required", List.of("operation")),
-                entry("additionalProperties", false)
-            )),
-            entry("outputSchema", readOutputSchema()),
-            entry("annotations", linked(
-                entry("readOnlyHint", true),
-                entry("destructiveHint", false),
-                entry("idempotentHint", true)
-            ))
-        );
+                entry("name", TEXTURES_READ),
+                entry("title", "Read texture library"),
+                entry(
+                        "description",
+                        "Returns path-free rawImages, modelImageGroups, and textureAtlases "
+                                + "metadata for the active model. Pass the returned state object "
+                                + "(documentId/modelId/historyGeneration/historyRevision) as "
+                                + "expectedState on turboism.textures.write. stateToken is only a "
+                                + "read-correlation ID, not a write authorization token."),
+                entry(
+                        "inputSchema",
+                        linked(
+                                entry("type", "object"),
+                                entry(
+                                        "properties",
+                                        linked(entry(
+                                                "operation",
+                                                linked(
+                                                        entry("type", "string"),
+                                                        entry("enum", List.of("list")),
+                                                        entry("const", "list"))))),
+                                entry("required", List.of("operation")),
+                                entry("additionalProperties", false))),
+                entry("outputSchema", readOutputSchema()),
+                entry(
+                        "annotations",
+                        linked(
+                                entry("readOnlyHint", true),
+                                entry("destructiveHint", false),
+                                entry("idempotentHint", true))));
     }
 
     private static Map<String, Object> writeDefinition() {
         return linked(
-            entry("name", TEXTURES_WRITE),
-            entry("title", "Apply one texture-library write"),
-            entry(
-                "description",
-                "Applies exactly one typed texture-library operation to the active "
-                    + "model under the native Undo envelope. Requires an expectedState "
-                    + "matching the latest turboism.textures.read. Deletions require "
-                    + "explicit confirmDelete=true. Model image groups are addressed "
-                    + "by groupName (no stable GUID exists), so duplicate names are "
-                    + "rejected before creation."
-            ),
-            entry("inputSchema", writeInputSchema()),
-            entry("outputSchema", writeOutputSchema()),
-            entry("annotations", linked(
-                entry("readOnlyHint", false),
-                entry("destructiveHint", true),
-                entry("idempotentHint", false)
-            ))
-        );
+                entry("name", TEXTURES_WRITE),
+                entry("title", "Apply one texture-library write"),
+                entry(
+                        "description",
+                        "Applies exactly one typed texture-library operation to the active "
+                                + "model under the native Undo envelope. Requires an expectedState "
+                                + "matching the latest turboism.textures.read. Deletions require "
+                                + "explicit confirmDelete=true. Model image groups are addressed "
+                                + "by groupName (no stable GUID exists), so duplicate names are "
+                                + "rejected before creation."),
+                entry("inputSchema", writeInputSchema()),
+                entry("outputSchema", writeOutputSchema()),
+                entry(
+                        "annotations",
+                        linked(
+                                entry("readOnlyHint", false),
+                                entry("destructiveHint", true),
+                                entry("idempotentHint", false))));
     }
 
     private static McpVersionSupport writeVersionSupport() {
         return McpVersionSupport.exact(
-            PROVIDER_CAPABILITY_ID,
-            SUPPORTED_VERSIONS,
-            List.of(OP_ADD_MODEL_IMAGE_GROUP, OP_REMOVE_MODEL_IMAGE, OP_ADD_TEXTURE_ATLAS,
-                    OP_REMOVE_TEXTURE_ATLAS, OP_REMOVE_RAW_IMAGE).stream()
-                .map(operation -> McpVersionSupport.OperationSupport.available(
-                    operation,
-                    McpOperationEffect.UNDOABLE_WRITE,
-                    false,
-                    McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
-                    SUPPORTED_VERSIONS,
-                    "Standalone native-Undo adapter with runtime regressions; exact-host readiness "
-                        + "is tracked separately. No grouped authoring transaction support."
-                )).toList()
-        );
+                PROVIDER_CAPABILITY_ID,
+                SUPPORTED_VERSIONS,
+                List.of(
+                                OP_ADD_MODEL_IMAGE_GROUP,
+                                OP_REMOVE_MODEL_IMAGE,
+                                OP_ADD_TEXTURE_ATLAS,
+                                OP_REMOVE_TEXTURE_ATLAS,
+                                OP_REMOVE_RAW_IMAGE)
+                        .stream()
+                        .map(operation -> McpVersionSupport.OperationSupport.available(
+                                operation,
+                                McpOperationEffect.UNDOABLE_WRITE,
+                                false,
+                                McpVersionSupport.UndoVerification.RUNTIME_VERIFIED,
+                                SUPPORTED_VERSIONS,
+                                "Standalone native-Undo adapter with runtime regressions; exact-host readiness "
+                                        + "is tracked separately. No grouped authoring transaction support."))
+                        .toList());
     }
 
     private static Map<String, Object> writeInputSchema() {
         final Map<String, Object> state = stateSchema();
         // The handler enforces the bounded name length so it can emit the
         // precise INVALID_ARGUMENT code; the schema only constrains the type.
-        final Map<String, Object> nameField = linked(
-            entry("type", "string"),
-            entry("minLength", 1)
-        );
-        final Map<String, Object> idField = linked(
-            entry("type", "string"),
-            entry("minLength", 1),
-            entry("maxLength", MAX_ID_LENGTH)
-        );
+        final Map<String, Object> nameField = linked(entry("type", "string"), entry("minLength", 1));
+        final Map<String, Object> idField =
+                linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", MAX_ID_LENGTH));
         final Map<String, Object> confirmDelete = linked(entry("type", "boolean"));
         // The handler enforces bounds (1..MAX_DIMENSION) so it can emit the
         // precise INVALID_ARGUMENT code; the schema only constrains the type.
         final Map<String, Object> dimension = linked(entry("type", "integer"));
-        final Map<String, Object> addGroup = objectSchema(linked(
-            entry("operation", enumSchema(List.of(OP_ADD_MODEL_IMAGE_GROUP))),
-            entry("expectedState", state),
-            entry("name", nameField)
-        ), List.of("operation", "expectedState", "name"));
-        final Map<String, Object> removeModelImage = objectSchema(linked(
-            entry("operation", enumSchema(List.of(OP_REMOVE_MODEL_IMAGE))),
-            entry("expectedState", state),
-            entry("id", idField),
-            entry("confirmDelete", confirmDelete)
-        ), List.of("operation", "expectedState", "id"));
-        final Map<String, Object> addAtlas = objectSchema(linked(
-            entry("operation", enumSchema(List.of(OP_ADD_TEXTURE_ATLAS))),
-            entry("expectedState", state),
-            entry("name", nameField),
-            entry("widthPixels", dimension),
-            entry("heightPixels", dimension)
-        ), List.of("operation", "expectedState", "name", "widthPixels", "heightPixels"));
-        final Map<String, Object> removeAtlas = objectSchema(linked(
-            entry("operation", enumSchema(List.of(OP_REMOVE_TEXTURE_ATLAS))),
-            entry("expectedState", state),
-            entry("id", idField),
-            entry("confirmDelete", confirmDelete)
-        ), List.of("operation", "expectedState", "id"));
-        final Map<String, Object> removeRaw = objectSchema(linked(
-            entry("operation", enumSchema(List.of(OP_REMOVE_RAW_IMAGE))),
-            entry("expectedState", state),
-            entry("id", idField),
-            entry("confirmDelete", confirmDelete)
-        ), List.of("operation", "expectedState", "id"));
+        final Map<String, Object> addGroup = objectSchema(
+                linked(
+                        entry("operation", enumSchema(List.of(OP_ADD_MODEL_IMAGE_GROUP))),
+                        entry("expectedState", state),
+                        entry("name", nameField)),
+                List.of("operation", "expectedState", "name"));
+        final Map<String, Object> removeModelImage = objectSchema(
+                linked(
+                        entry("operation", enumSchema(List.of(OP_REMOVE_MODEL_IMAGE))),
+                        entry("expectedState", state),
+                        entry("id", idField),
+                        entry("confirmDelete", confirmDelete)),
+                List.of("operation", "expectedState", "id"));
+        final Map<String, Object> addAtlas = objectSchema(
+                linked(
+                        entry("operation", enumSchema(List.of(OP_ADD_TEXTURE_ATLAS))),
+                        entry("expectedState", state),
+                        entry("name", nameField),
+                        entry("widthPixels", dimension),
+                        entry("heightPixels", dimension)),
+                List.of("operation", "expectedState", "name", "widthPixels", "heightPixels"));
+        final Map<String, Object> removeAtlas = objectSchema(
+                linked(
+                        entry("operation", enumSchema(List.of(OP_REMOVE_TEXTURE_ATLAS))),
+                        entry("expectedState", state),
+                        entry("id", idField),
+                        entry("confirmDelete", confirmDelete)),
+                List.of("operation", "expectedState", "id"));
+        final Map<String, Object> removeRaw = objectSchema(
+                linked(
+                        entry("operation", enumSchema(List.of(OP_REMOVE_RAW_IMAGE))),
+                        entry("expectedState", state),
+                        entry("id", idField),
+                        entry("confirmDelete", confirmDelete)),
+                List.of("operation", "expectedState", "id"));
         return linked(
-            entry("type", "object"),
-            entry("properties", linked(
-                entry("expectedState", state),
-                entry("operation", linked(
-                    entry("type", "string"),
-                    entry("enum", List.of(
-                        OP_ADD_MODEL_IMAGE_GROUP,
-                        OP_REMOVE_MODEL_IMAGE,
-                        OP_ADD_TEXTURE_ATLAS,
-                        OP_REMOVE_TEXTURE_ATLAS,
-                        OP_REMOVE_RAW_IMAGE
-                    ))
-                ))
-            )),
-            entry("required", List.of("expectedState", "operation")),
-            entry("oneOf", List.of(addGroup, removeModelImage, addAtlas, removeAtlas, removeRaw))
-        );
+                entry("type", "object"),
+                entry(
+                        "properties",
+                        linked(
+                                entry("expectedState", state),
+                                entry(
+                                        "operation",
+                                        linked(
+                                                entry("type", "string"),
+                                                entry(
+                                                        "enum",
+                                                        List.of(
+                                                                OP_ADD_MODEL_IMAGE_GROUP,
+                                                                OP_REMOVE_MODEL_IMAGE,
+                                                                OP_ADD_TEXTURE_ATLAS,
+                                                                OP_REMOVE_TEXTURE_ATLAS,
+                                                                OP_REMOVE_RAW_IMAGE)))))),
+                entry("required", List.of("expectedState", "operation")),
+                entry("oneOf", List.of(addGroup, removeModelImage, addAtlas, removeAtlas, removeRaw)));
     }
 
     private static Map<String, Object> readOutputSchema() {
         final Map<String, Object> success = linked(
-            entry("type", "object"),
-            entry("properties", linked(
-                entry("ok", linked(entry("type", "boolean"), entry("const", true))),
-                entry("operation", linked(entry("type", "string"), entry("const", "list"))),
-                entry("stateToken", linked(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", 256)
-                )),
-                entry("state", stateSchema()),
-                entry("rawImages", linked(
-                    entry("type", "array"),
-                    entry("maxItems", MAX_ITEMS),
-                    entry("items", rawTextureSchema())
-                )),
-                entry("modelImageGroups", linked(
-                    entry("type", "array"),
-                    entry("maxItems", MAX_ITEMS),
-                    entry("items", modelImageGroupSchema())
-                )),
-                entry("textureAtlases", linked(
-                    entry("type", "array"),
-                    entry("maxItems", MAX_ITEMS),
-                    entry("items", atlasTextureSchema())
-                )),
-                entry("counts", linked(
-                    entry("type", "object"),
-                    entry("properties", linked(
-                        entry("rawImages", linked(entry("type", "integer"), entry("minimum", 0))),
-                        entry("modelImageGroups", linked(entry("type", "integer"), entry("minimum", 0))),
-                        entry("textureAtlases", linked(entry("type", "integer"), entry("minimum", 0)))
-                    )),
-                    entry("required", List.of("rawImages", "modelImageGroups", "textureAtlases")),
-                    entry("additionalProperties", false)
-                ))
-            )),
-            entry("required", List.of(
-                "ok", "operation", "stateToken", "state",
-                "rawImages", "modelImageGroups", "textureAtlases", "counts"
-            )),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry(
+                        "properties",
+                        linked(
+                                entry("ok", linked(entry("type", "boolean"), entry("const", true))),
+                                entry("operation", linked(entry("type", "string"), entry("const", "list"))),
+                                entry(
+                                        "stateToken",
+                                        linked(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", 256))),
+                                entry("state", stateSchema()),
+                                entry(
+                                        "rawImages",
+                                        linked(
+                                                entry("type", "array"),
+                                                entry("maxItems", MAX_ITEMS),
+                                                entry("items", rawTextureSchema()))),
+                                entry(
+                                        "modelImageGroups",
+                                        linked(
+                                                entry("type", "array"),
+                                                entry("maxItems", MAX_ITEMS),
+                                                entry("items", modelImageGroupSchema()))),
+                                entry(
+                                        "textureAtlases",
+                                        linked(
+                                                entry("type", "array"),
+                                                entry("maxItems", MAX_ITEMS),
+                                                entry("items", atlasTextureSchema()))),
+                                entry(
+                                        "counts",
+                                        linked(
+                                                entry("type", "object"),
+                                                entry(
+                                                        "properties",
+                                                        linked(
+                                                                entry(
+                                                                        "rawImages",
+                                                                        linked(
+                                                                                entry("type", "integer"),
+                                                                                entry("minimum", 0))),
+                                                                entry(
+                                                                        "modelImageGroups",
+                                                                        linked(
+                                                                                entry("type", "integer"),
+                                                                                entry("minimum", 0))),
+                                                                entry(
+                                                                        "textureAtlases",
+                                                                        linked(
+                                                                                entry("type", "integer"),
+                                                                                entry("minimum", 0))))),
+                                                entry(
+                                                        "required",
+                                                        List.of("rawImages", "modelImageGroups", "textureAtlases")),
+                                                entry("additionalProperties", false))))),
+                entry(
+                        "required",
+                        List.of(
+                                "ok",
+                                "operation",
+                                "stateToken",
+                                "state",
+                                "rawImages",
+                                "modelImageGroups",
+                                "textureAtlases",
+                                "counts")),
+                entry("additionalProperties", false));
         final Map<String, Object> failure = linked(
-            entry("type", "object"),
-            entry("properties", linked(
-                entry("ok", linked(entry("type", "boolean"), entry("const", false))),
-                entry("code", linked(entry("type", "string"), entry("minLength", 1))),
-                entry("message", linked(entry("type", "string"), entry("minLength", 1)))
-            )),
-            entry("required", List.of("ok", "code", "message")),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry(
+                        "properties",
+                        linked(
+                                entry("ok", linked(entry("type", "boolean"), entry("const", false))),
+                                entry("code", linked(entry("type", "string"), entry("minLength", 1))),
+                                entry("message", linked(entry("type", "string"), entry("minLength", 1))))),
+                entry("required", List.of("ok", "code", "message")),
+                entry("additionalProperties", false));
         return linked(
-            entry("$schema", "https://json-schema.org/draft/2020-12/schema"),
-            entry("oneOf", List.of(success, failure))
-        );
+                entry("$schema", "https://json-schema.org/draft/2020-12/schema"),
+                entry("oneOf", List.of(success, failure)));
     }
 
     private static Map<String, Object> writeOutputSchema() {
         // The write success envelope enumerates every operation-specific identity
         // field as an optional property so that the schema remains exact while
         // remaining honest about which identities the domain actually returns.
-        final Map<String, Object> stringField = linked(
-            entry("type", "string"),
-            entry("minLength", 1),
-            entry("maxLength", MAX_NAME_LENGTH)
-        );
-        final Map<String, Object> idField = linked(
-            entry("type", "string"),
-            entry("minLength", 1),
-            entry("maxLength", MAX_ID_LENGTH)
-        );
-        final Map<String, Object> ok = objectSchema(linked(
-            entry("ok", linked(entry("type", "boolean"), entry("const", true))),
-            entry("operation", linked(entry("type", "string"))),
-            entry("receipt", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", 256)
-            )),
-            entry("outcome", linked(entry("type", "string"), entry("const", "APPLIED"))),
-            entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
-            entry("postState", stateSchema()),
-            entry("diagnosticId", linked(entry("type", "string"), entry("minLength", 1))),
-            entry("groupName", stringField),
-            entry("id", idField),
-            entry("name", stringField),
-            entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
-            entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))
-        ), List.of("ok", "operation", "receipt", "outcome", "retryable", "postState"));
-        final Map<String, Object> okWithWarning = objectSchema(linked(
-            entry("ok", linked(entry("type", "boolean"), entry("const", true))),
-            entry("operation", linked(entry("type", "string"))),
-            entry("receipt", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", 256)
-            )),
-            entry("outcome", linked(entry("type", "string"), entry("const", "APPLIED_WITH_READBACK_WARNING"))),
-            entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
-            entry("postState", linked(entry("type", "null"))),
-            entry("readbackWarning", linked(entry("type", "string"), entry("minLength", 1))),
-            entry("diagnosticId", linked(entry("type", "string"), entry("minLength", 1))),
-            entry("groupName", stringField),
-            entry("id", idField),
-            entry("name", stringField),
-            entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
-            entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))
-        ), List.of("ok", "operation", "receipt", "outcome", "retryable", "postState", "readbackWarning"));
-        final Map<String, Object> failure = objectSchema(linked(
-            entry("ok", linked(entry("type", "boolean"), entry("const", false))),
-            entry("operation", linked(entry("type", "string"))),
-            entry("outcome", linked(
-                entry("type", "string"),
-                entry("enum", List.of("NOT_APPLIED", "OUTCOME_UNKNOWN"))
-            )),
-            entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
-            entry("error", linked(
-                entry("type", "object"),
-                entry("properties", linked(
-                    entry("code", linked(entry("type", "string"), entry("minLength", 1))),
-                    entry("message", linked(entry("type", "string"), entry("minLength", 1))),
-                    entry("outcome", linked(entry("type", "string"), entry("enum", List.of("NOT_APPLIED", "OUTCOME_UNKNOWN")))),
-                    entry("retryable", linked(entry("type", "boolean"), entry("const", false)))
-                )),
-                entry("required", List.of("code", "message", "outcome", "retryable")),
-                entry("additionalProperties", false)
-            ))
-        ), List.of("ok", "operation", "outcome", "retryable", "error"));
+        final Map<String, Object> stringField =
+                linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", MAX_NAME_LENGTH));
+        final Map<String, Object> idField =
+                linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", MAX_ID_LENGTH));
+        final Map<String, Object> ok = objectSchema(
+                linked(
+                        entry("ok", linked(entry("type", "boolean"), entry("const", true))),
+                        entry("operation", linked(entry("type", "string"))),
+                        entry(
+                                "receipt",
+                                linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", 256))),
+                        entry("outcome", linked(entry("type", "string"), entry("const", "APPLIED"))),
+                        entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
+                        entry("postState", stateSchema()),
+                        entry("diagnosticId", linked(entry("type", "string"), entry("minLength", 1))),
+                        entry("groupName", stringField),
+                        entry("id", idField),
+                        entry("name", stringField),
+                        entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
+                        entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))),
+                List.of("ok", "operation", "receipt", "outcome", "retryable", "postState"));
+        final Map<String, Object> okWithWarning = objectSchema(
+                linked(
+                        entry("ok", linked(entry("type", "boolean"), entry("const", true))),
+                        entry("operation", linked(entry("type", "string"))),
+                        entry(
+                                "receipt",
+                                linked(entry("type", "string"), entry("minLength", 1), entry("maxLength", 256))),
+                        entry(
+                                "outcome",
+                                linked(entry("type", "string"), entry("const", "APPLIED_WITH_READBACK_WARNING"))),
+                        entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
+                        entry("postState", linked(entry("type", "null"))),
+                        entry("readbackWarning", linked(entry("type", "string"), entry("minLength", 1))),
+                        entry("diagnosticId", linked(entry("type", "string"), entry("minLength", 1))),
+                        entry("groupName", stringField),
+                        entry("id", idField),
+                        entry("name", stringField),
+                        entry("widthPixels", linked(entry("type", "integer"), entry("minimum", 1))),
+                        entry("heightPixels", linked(entry("type", "integer"), entry("minimum", 1)))),
+                List.of("ok", "operation", "receipt", "outcome", "retryable", "postState", "readbackWarning"));
+        final Map<String, Object> failure = objectSchema(
+                linked(
+                        entry("ok", linked(entry("type", "boolean"), entry("const", false))),
+                        entry("operation", linked(entry("type", "string"))),
+                        entry(
+                                "outcome",
+                                linked(
+                                        entry("type", "string"),
+                                        entry("enum", List.of("NOT_APPLIED", "OUTCOME_UNKNOWN")))),
+                        entry("retryable", linked(entry("type", "boolean"), entry("const", false))),
+                        entry(
+                                "error",
+                                linked(
+                                        entry("type", "object"),
+                                        entry(
+                                                "properties",
+                                                linked(
+                                                        entry(
+                                                                "code",
+                                                                linked(entry("type", "string"), entry("minLength", 1))),
+                                                        entry(
+                                                                "message",
+                                                                linked(entry("type", "string"), entry("minLength", 1))),
+                                                        entry(
+                                                                "outcome",
+                                                                linked(
+                                                                        entry("type", "string"),
+                                                                        entry(
+                                                                                "enum",
+                                                                                List.of(
+                                                                                        "NOT_APPLIED",
+                                                                                        "OUTCOME_UNKNOWN")))),
+                                                        entry(
+                                                                "retryable",
+                                                                linked(
+                                                                        entry("type", "boolean"),
+                                                                        entry("const", false))))),
+                                        entry("required", List.of("code", "message", "outcome", "retryable")),
+                                        entry("additionalProperties", false)))),
+                List.of("ok", "operation", "outcome", "retryable", "error"));
         return linked(
-            entry("$schema", "https://json-schema.org/draft/2020-12/schema"),
-            entry("oneOf", List.of(ok, okWithWarning, failure))
-        );
+                entry("$schema", "https://json-schema.org/draft/2020-12/schema"),
+                entry("oneOf", List.of(ok, okWithWarning, failure)));
     }
 
     private static Map<String, Object> stateSchema() {
         return linked(
-            entry("type", "object"),
-            entry("properties", linked(
-                entry("documentId", linked(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", MAX_ID_LENGTH)
-                )),
-                entry("modelId", linked(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", MAX_ID_LENGTH)
-                )),
-                entry("historyGeneration", linked(entry("type", "integer"), entry("minimum", 0))),
-                entry("historyRevision", linked(entry("type", "integer"), entry("minimum", 0)))
-            )),
-            entry("required", List.of("documentId", "modelId", "historyGeneration", "historyRevision")),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry(
+                        "properties",
+                        linked(
+                                entry(
+                                        "documentId",
+                                        linked(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", MAX_ID_LENGTH))),
+                                entry(
+                                        "modelId",
+                                        linked(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", MAX_ID_LENGTH))),
+                                entry("historyGeneration", linked(entry("type", "integer"), entry("minimum", 0))),
+                                entry("historyRevision", linked(entry("type", "integer"), entry("minimum", 0))))),
+                entry("required", List.of("documentId", "modelId", "historyGeneration", "historyRevision")),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> rawTextureSchema() {
-        return objectSchema(linked(
-            entry("id", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", MAX_ID_LENGTH)
-            )),
-            entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
-            entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
-            entry("height", linked(entry("type", "integer"), entry("minimum", 0)))
-        ), List.of("id", "name", "width", "height"));
+        return objectSchema(
+                linked(
+                        entry(
+                                "id",
+                                linked(
+                                        entry("type", "string"),
+                                        entry("minLength", 1),
+                                        entry("maxLength", MAX_ID_LENGTH))),
+                        entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
+                        entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
+                        entry("height", linked(entry("type", "integer"), entry("minimum", 0)))),
+                List.of("id", "name", "width", "height"));
     }
 
     private static Map<String, Object> modelImageGroupSchema() {
-        return objectSchema(linked(
-            entry("groupName", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
-            entry("memo", linked(entry("type", "string"))),
-            entry("modelImages", linked(
-                entry("type", "array"),
-                entry("maxItems", MAX_ITEMS),
-                entry("items", modelImageSchema())
-            )),
-            entry("modelImageCount", linked(entry("type", "integer"), entry("minimum", 0)))
-        ), List.of("groupName", "memo", "modelImages", "modelImageCount"));
+        return objectSchema(
+                linked(
+                        entry("groupName", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
+                        entry("memo", linked(entry("type", "string"))),
+                        entry(
+                                "modelImages",
+                                linked(
+                                        entry("type", "array"),
+                                        entry("maxItems", MAX_ITEMS),
+                                        entry("items", modelImageSchema()))),
+                        entry("modelImageCount", linked(entry("type", "integer"), entry("minimum", 0)))),
+                List.of("groupName", "memo", "modelImages", "modelImageCount"));
     }
 
     private static Map<String, Object> modelImageSchema() {
-        return objectSchema(linked(
-            entry("id", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", MAX_ID_LENGTH)
-            )),
-            entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
-            entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
-            entry("height", linked(entry("type", "integer"), entry("minimum", 0)))
-        ), List.of("id", "name", "width", "height"));
+        return objectSchema(
+                linked(
+                        entry(
+                                "id",
+                                linked(
+                                        entry("type", "string"),
+                                        entry("minLength", 1),
+                                        entry("maxLength", MAX_ID_LENGTH))),
+                        entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
+                        entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
+                        entry("height", linked(entry("type", "integer"), entry("minimum", 0)))),
+                List.of("id", "name", "width", "height"));
     }
 
     private static Map<String, Object> atlasTextureSchema() {
-        return objectSchema(linked(
-            entry("id", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", MAX_ID_LENGTH)
-            )),
-            entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
-            entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
-            entry("height", linked(entry("type", "integer"), entry("minimum", 0))),
-            entry("atlasVersion", linked(entry("type", "integer"))),
-            entry("modelImageCount", linked(entry("type", "integer"), entry("minimum", 0)))
-        ), List.of("id", "name", "width", "height", "atlasVersion", "modelImageCount"));
+        return objectSchema(
+                linked(
+                        entry(
+                                "id",
+                                linked(
+                                        entry("type", "string"),
+                                        entry("minLength", 1),
+                                        entry("maxLength", MAX_ID_LENGTH))),
+                        entry("name", linked(entry("type", "string"), entry("maxLength", MAX_NAME_LENGTH))),
+                        entry("width", linked(entry("type", "integer"), entry("minimum", 0))),
+                        entry("height", linked(entry("type", "integer"), entry("minimum", 0))),
+                        entry("atlasVersion", linked(entry("type", "integer"))),
+                        entry("modelImageCount", linked(entry("type", "integer"), entry("minimum", 0)))),
+                List.of("id", "name", "width", "height", "atlasVersion", "modelImageCount"));
     }
 
-    private static Map<String, Object> objectSchema(
-        final Map<String, Object> properties,
-        final List<String> required
-    ) {
+    private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
         return linked(
-            entry("type", "object"),
-            entry("properties", properties),
-            entry("required", required),
-            entry("additionalProperties", false)
-        );
+                entry("type", "object"),
+                entry("properties", properties),
+                entry("required", required),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> enumSchema(final List<String> values) {
@@ -1081,12 +1052,11 @@ final class McpTextureDomain {
         private final String token;
 
         private StateSnapshot(
-            final String documentId,
-            final String modelId,
-            final long historyGeneration,
-            final long historyRevision,
-            final String token
-        ) {
+                final String documentId,
+                final String modelId,
+                final long historyGeneration,
+                final long historyRevision,
+                final String token) {
             this.documentId = documentId;
             this.modelId = modelId;
             this.historyGeneration = historyGeneration;
@@ -1094,18 +1064,13 @@ final class McpTextureDomain {
             this.token = token;
         }
 
-        static StateSnapshot of(
-            final String documentId,
-            final String modelId,
-            final HistorySnapshot history
-        ) {
+        static StateSnapshot of(final String documentId, final String modelId, final HistorySnapshot history) {
             return new StateSnapshot(
-                documentId,
-                modelId,
-                history.generation(),
-                history.revision(),
-                UUID.randomUUID().toString()
-            );
+                    documentId,
+                    modelId,
+                    history.generation(),
+                    history.revision(),
+                    UUID.randomUUID().toString());
         }
 
         static StateSnapshot fromRequired(final Object raw) {
@@ -1131,11 +1096,25 @@ final class McpTextureDomain {
             return new StateSnapshot(documentId, modelId, generation, revision, "");
         }
 
-        String documentId() { return documentId; }
-        String modelId() { return modelId; }
-        long historyGeneration() { return historyGeneration; }
-        long historyRevision() { return historyRevision; }
-        String token() { return token; }
+        String documentId() {
+            return documentId;
+        }
+
+        String modelId() {
+            return modelId;
+        }
+
+        long historyGeneration() {
+            return historyGeneration;
+        }
+
+        long historyRevision() {
+            return historyRevision;
+        }
+
+        String token() {
+            return token;
+        }
 
         Map<String, Object> expose() {
             final Map<String, Object> result = new LinkedHashMap<>();
@@ -1155,12 +1134,11 @@ final class McpTextureDomain {
         private final ModelTextures textures;
 
         CurrentSnapshot(
-            final String documentId,
-            final String modelId,
-            final long historyGeneration,
-            final long historyRevision,
-            final ModelTextures textures
-        ) {
+                final String documentId,
+                final String modelId,
+                final long historyGeneration,
+                final long historyRevision,
+                final ModelTextures textures) {
             this.documentId = documentId;
             this.modelId = modelId;
             this.historyGeneration = historyGeneration;
@@ -1168,11 +1146,25 @@ final class McpTextureDomain {
             this.textures = textures;
         }
 
-        String documentId() { return documentId; }
-        String modelId() { return modelId; }
-        long historyGeneration() { return historyGeneration; }
-        long historyRevision() { return historyRevision; }
-        ModelTextures textures() { return textures; }
+        String documentId() {
+            return documentId;
+        }
+
+        String modelId() {
+            return modelId;
+        }
+
+        long historyGeneration() {
+            return historyGeneration;
+        }
+
+        long historyRevision() {
+            return historyRevision;
+        }
+
+        ModelTextures textures() {
+            return textures;
+        }
 
         Map<String, Object> expose() {
             final Map<String, Object> result = new LinkedHashMap<>();

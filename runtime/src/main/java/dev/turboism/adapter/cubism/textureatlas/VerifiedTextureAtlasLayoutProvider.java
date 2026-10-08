@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.textureatlas;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -16,21 +15,19 @@ public final class VerifiedTextureAtlasLayoutProvider implements TextureAtlasLay
     private final VerifiedTextureAtlasLayoutProviderEngine engine;
 
     public VerifiedTextureAtlasLayoutProvider(
-        final VerifiedMemberResolver resolver,
-        final String sessionIdentity,
-        final TextureAtlasDataModelCapture capture,
-        final VerifiedTextureAtlasSelectorContract.Profile profile
-    ) {
+            final VerifiedMemberResolver resolver,
+            final String sessionIdentity,
+            final TextureAtlasDataModelCapture capture,
+            final VerifiedTextureAtlasSelectorContract.Profile profile) {
         Objects.requireNonNull(profile, "profile");
         engine = new VerifiedTextureAtlasLayoutProviderEngine(
-            resolver,
-            sessionIdentity,
-            capture,
-            profile.cubismVersion(),
-            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
-            profile.requiredAliases()
-        );
+                resolver,
+                sessionIdentity,
+                capture,
+                profile.cubismVersion(),
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedTextureAtlasSelectorContract.CAPABILITY_ID,
+                profile.requiredAliases());
     }
 
     @Override

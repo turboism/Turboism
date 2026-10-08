@@ -4,18 +4,14 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.Component;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 
 /** Invokes only enabled exact-version native menu items from the verified top-menu root. */
 public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter {
@@ -68,6 +64,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         try {
             return onEdt(() -> typed.execute(command));
         } catch (RuntimeException exception) {
+            reportFailure(command.commandId(), exception);
             return new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
         }
     }
@@ -83,6 +80,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         } catch (VerifiedTypedEditorCommandOperations.InvalidState invalidState) {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
         } catch (RuntimeException exception) {
+            reportFailure(command.commandId(), exception);
             return new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
         }
     }
@@ -141,31 +139,22 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         return null;
     }
 
-    private static EditorCommandResult result(
-        final EditorCommand command,
-        final EditorCommandResult.Status status
-    ) {
+    private static EditorCommandResult result(final EditorCommand command, final EditorCommandResult.Status status) {
         return new EditorCommandResult(status, command.id());
     }
 
+    /**
+     * The sanitized {@code FAILED} result carries no detail by design; the root cause is still
+     * reported to {@code System.err} so host-validation evidence (cubism-console.txt) keeps it.
+     */
+    private static void reportFailure(final String commandId, final RuntimeException exception) {
+        System.err.println("TURBOISM_EDITOR_COMMAND_FAILED command=" + commandId
+                + " cause=" + exception.getClass().getName()
+                + " message=" + exception.getMessage());
+    }
+
     private static <T> T onEdt(final Operation<T> operation) {
-        if (SwingUtilities.isEventDispatchThread()) return operation.run();
-        final FutureTask<T> task = new FutureTask<>(operation::run);
-        SwingUtilities.invokeLater(task);
-        try {
-            return task.get(30L, TimeUnit.SECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Editor command dispatch was interrupted", exception);
-        } catch (TimeoutException exception) {
-            task.cancel(false);
-            throw new IllegalStateException("Editor command dispatch timed out", exception);
-        } catch (java.util.concurrent.ExecutionException exception) {
-            final Throwable cause = exception.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new IllegalStateException("Editor command dispatch failed", cause);
-        }
+        return EdtDispatch.call("editor command EDT operation", operation::run);
     }
 
     @FunctionalInterface

@@ -1,14 +1,12 @@
 package dev.turboism.sdk.ui;
 
-import java.lang.reflect.InvocationHandler;
-import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
-import java.util.Locale;
-
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.util.Locale;
+import org.junit.jupiter.api.Test;
 
 class UiHostCapabilityStubLocaleTest {
 
@@ -22,14 +20,13 @@ class UiHostCapabilityStubLocaleTest {
 
     private static UiHostCapabilityService stub() {
         return (UiHostCapabilityService) Proxy.newProxyInstance(
-            UiHostCapabilityService.class.getClassLoader(),
-            new Class<?>[] { UiHostCapabilityService.class },
-            (InvocationHandler) (proxy, method, args) -> {
-                if (method.isDefault()) {
-                    return InvocationHandler.invokeDefault(proxy, method, args);
-                }
-                throw new UnsupportedOperationException(method.getName());
-            }
-        );
+                UiHostCapabilityService.class.getClassLoader(),
+                new Class<?>[] {UiHostCapabilityService.class},
+                (InvocationHandler) (proxy, method, args) -> {
+                    if (method.isDefault()) {
+                        return InvocationHandler.invokeDefault(proxy, method, args);
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
     }
 }

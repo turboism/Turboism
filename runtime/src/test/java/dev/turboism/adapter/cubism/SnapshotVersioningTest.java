@@ -1,27 +1,26 @@
 package dev.turboism.adapter.cubism;
 
-import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.adapter.host.HostSessionSnapshotSource;
+import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
-import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class SnapshotVersioningTest {
 
@@ -47,10 +46,8 @@ class SnapshotVersioningTest {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final CubismFacadeImpl facade = facadeWith(source, auditEvents, List.of());
 
-        final CubismPermissionException error = assertThrows(
-            CubismPermissionException.class,
-            facade::runtimeWithVersion
-        );
+        final CubismPermissionException error =
+                assertThrows(CubismPermissionException.class, facade::runtimeWithVersion);
 
         assertEquals(0L, source.invalidationTokenReadCount());
         assertEquals(1, auditEvents.size());
@@ -61,23 +58,16 @@ class SnapshotVersioningTest {
     }
 
     private static CubismFacadeImpl facadeWith(
-        final HostSnapshotSource source,
-        final List<PluginPermission> permissions
-    ) {
+            final HostSnapshotSource source, final List<PluginPermission> permissions) {
         return facadeWith(source, new ArrayList<>(), permissions);
     }
 
     private static CubismFacadeImpl facadeWith(
-        final HostSnapshotSource source,
-        final List<CubismFacadeAuditEvent> auditEvents,
-        final List<PluginPermission> permissions
-    ) {
-        return new CubismFacadeImpl(source, new CubismPermissionGate(
-            "plugin.demo",
-            permissions,
-            auditEvents::add,
-            FIXED_CLOCK
-        ));
+            final HostSnapshotSource source,
+            final List<CubismFacadeAuditEvent> auditEvents,
+            final List<PluginPermission> permissions) {
+        return new CubismFacadeImpl(
+                source, new CubismPermissionGate("plugin.demo", permissions, auditEvents::add, FIXED_CLOCK));
     }
 
     private static PluginPermission permission(final String id) {
@@ -103,18 +93,14 @@ class SnapshotVersioningTest {
     void oneVersionedReadObservesTheHostProjectAndDocumentExactlyOnce() {
         final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
         final CubismFacadeImpl facade = facadeWith(
-            HostSessionSnapshotSource.forSession(adapter),
-            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
-        );
+                HostSessionSnapshotSource.forSession(adapter),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         facade.runtimeWithVersion();
 
-        assertEquals(1, adapter.pairReads,
-            "one versioned read must observe the project/document pair once");
-        assertEquals(0, adapter.projectReads,
-            "the paired observation must not re-read the project separately");
-        assertEquals(0, adapter.documentReads,
-            "the paired observation must not re-read the document separately");
+        assertEquals(1, adapter.pairReads, "one versioned read must observe the project/document pair once");
+        assertEquals(0, adapter.projectReads, "the paired observation must not re-read the project separately");
+        assertEquals(0, adapter.documentReads, "the paired observation must not re-read the document separately");
     }
 
     @Test
@@ -126,22 +112,21 @@ class SnapshotVersioningTest {
         source.invalidationToken();
         source.isHostPresent();
 
-        assertEquals(3, adapter.pairReads,
-            "observe, invalidationToken and isHostPresent must each be one paired read");
-        assertEquals(0, adapter.projectReads + adapter.documentReads,
-            "paired reads must not fall back to the individual accessors");
+        assertEquals(3, adapter.pairReads, "observe, invalidationToken and isHostPresent must each be one paired read");
+        assertEquals(
+                0,
+                adapter.projectReads + adapter.documentReads,
+                "paired reads must not fall back to the individual accessors");
     }
 
     @Test
     void runtimeOverSessionSourceReturnsTheAdapterSnapshotsVerbatim() {
         final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
         final CubismFacadeImpl facade = facadeWith(
-            HostSessionSnapshotSource.forSession(adapter),
-            List.of(
-                permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
-                permission(CubismFacadeImpl.PROJECT_READ_PERMISSION)
-            )
-        );
+                HostSessionSnapshotSource.forSession(adapter),
+                List.of(
+                        permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                        permission(CubismFacadeImpl.PROJECT_READ_PERMISSION)));
 
         final var snapshot = facade.runtime();
 
@@ -160,14 +145,12 @@ class SnapshotVersioningTest {
     void runtimeOverSessionSourceRedactsProjectWithoutProjectRead() {
         final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
         final CubismFacadeImpl facade = facadeWith(
-            HostSessionSnapshotSource.forSession(adapter),
-            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
-        );
+                HostSessionSnapshotSource.forSession(adapter),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         final var snapshot = facade.runtime();
 
-        assertTrue(snapshot.project().isEmpty(),
-            "project-read denial redacts only the project portion");
+        assertTrue(snapshot.project().isEmpty(), "project-read denial redacts only the project portion");
         assertTrue(snapshot.document().isPresent());
     }
 
@@ -175,21 +158,20 @@ class SnapshotVersioningTest {
     void sessionSourceVersionsTheObservedPairNotAFreshRead() {
         final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
         final CubismFacadeImpl facade = facadeWith(
-            HostSessionSnapshotSource.forSession(adapter),
-            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
-        );
+                HostSessionSnapshotSource.forSession(adapter),
+                List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)));
 
         final SnapshotWithVersion first = facade.runtimeWithVersion();
         final SnapshotWithVersion second = facade.runtimeWithVersion();
 
-        assertEquals(first.version(), second.version(),
-            "an unchanged observed pair must not bump the token");
-        assertEquals(2, adapter.pairReads,
-            "each versioned read observes once; the version check reuses the carried evidence");
+        assertEquals(first.version(), second.version(), "an unchanged observed pair must not bump the token");
+        assertEquals(
+                2,
+                adapter.pairReads,
+                "each versioned read observes once; the version check reuses the carried evidence");
         adapter.swapDocument();
         final SnapshotWithVersion third = facade.runtimeWithVersion();
-        assertEquals(first.version() + 1, third.version(),
-            "a changed document must bump the token exactly once");
+        assertEquals(first.version() + 1, third.version(), "a changed document must bump the token exactly once");
     }
 
     /** Counts host reads so the validity check cannot cost more than the work it protects. */
@@ -219,33 +201,23 @@ class SnapshotVersioningTest {
         @Override
         public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
             pairReads++;
-            return AdapterResult.available(new ActiveProjectDocument(
-                Optional.of(projectSnapshot()),
-                document
-            ));
+            return AdapterResult.available(new ActiveProjectDocument(Optional.of(projectSnapshot()), document));
         }
 
         private static ProjectSnapshot projectSnapshot() {
-            return new ProjectSnapshot(
-                "project-1",
-                "Project",
-                Optional.empty(),
-                List.of(),
-                List.of()
-            );
+            return new ProjectSnapshot("project-1", "Project", Optional.empty(), List.of(), List.of());
         }
 
         private static DocumentSnapshot documentSnapshot(final String documentId) {
             return new DocumentSnapshot(
-                documentId,
-                "Model",
-                "model/model.cmo3",
-                Optional.empty(),
-                Optional.empty(),
-                DocumentKind.MODEL,
-                Optional.empty(),
-                Optional.empty()
-            );
+                    documentId,
+                    "Model",
+                    "model/model.cmo3",
+                    Optional.empty(),
+                    Optional.empty(),
+                    DocumentKind.MODEL,
+                    Optional.empty(),
+                    Optional.empty());
         }
 
         @Override
@@ -255,21 +227,13 @@ class SnapshotVersioningTest {
 
         @Override
         public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
-            return AdapterResult.available(
-                new ProjectWorkspaceSnapshot(Optional.empty(), Optional.empty())
-            );
+            return AdapterResult.available(new ProjectWorkspaceSnapshot(Optional.empty(), Optional.empty()));
         }
     }
 
     private static final class VersionedSource implements HostSnapshotSource {
 
-        private static final HostModel MODEL = new HostModel(
-            "model-1",
-            "Model",
-            List.of(),
-            List.of(),
-            List.of()
-        );
+        private static final HostModel MODEL = new HostModel("model-1", "Model", List.of(), List.of(), List.of());
 
         private long invalidationToken;
         private long invalidationTokenReadCount;

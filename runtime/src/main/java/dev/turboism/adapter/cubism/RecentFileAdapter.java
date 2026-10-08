@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -23,6 +22,12 @@ public interface RecentFileAdapter {
     Optional<RecentFileId> current();
 
     /**
+     * @return {@code true} while a live host backend serves this adapter;
+     *         {@code false} for the safe-mode adapter
+     */
+    boolean available();
+
+    /**
      * An adapter for when no host is attached.
      *
      * @return a host-free adapter that answers an empty list and no current file
@@ -37,6 +42,11 @@ public interface RecentFileAdapter {
             @Override
             public Optional<RecentFileId> current() {
                 return Optional.empty();
+            }
+
+            @Override
+            public boolean available() {
+                return false;
             }
         });
     }
@@ -60,6 +70,11 @@ public interface RecentFileAdapter {
             public Optional<RecentFileId> current() {
                 return host.current();
             }
+
+            @Override
+            public boolean available() {
+                return host.available();
+            }
         };
     }
 
@@ -74,5 +89,13 @@ public interface RecentFileAdapter {
          * @return the id of the project file currently open on the host; empty when none
          */
         Optional<RecentFileId> current();
+
+        /**
+         * @return {@code true} while the host backend behind these operations is
+         *         attached; the default answers for a live host
+         */
+        default boolean available() {
+            return true;
+        }
     }
 }

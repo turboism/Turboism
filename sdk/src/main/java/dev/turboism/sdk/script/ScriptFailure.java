@@ -1,9 +1,10 @@
 package dev.turboism.sdk.script;
 
-
+import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 
 /** Sanitized failure returned from a script execution. */
+@Incubating
 public record ScriptFailure(String code, String message) {
 
     public ScriptFailure {

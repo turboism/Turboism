@@ -1,41 +1,47 @@
 package dev.turboism.plugin.mcp;
 
-import dev.turboism.protocol.json.StrictJson;
-
+import dev.turboism.sdk.json.Json;
+import dev.turboism.sdk.mcp.McpStdioLaunch;
+import dev.turboism.sdk.plugin.PluginLogger;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Publishes the stdio↔HTTP bridge source next to the access token in the plugin
- * state directory. MCP clients spawn {@code java TurboismMcpBridge.java}; the
- * bridge forwards each stdin JSON-RPC line to the loopback endpoint carrying the
- * persisted bearer token, so users never handle credentials themselves.
+ * state directory and computes the credential-free launch descriptor offered to
+ * trusted consumers through the runtime connection boundary. External MCP clients
+ * spawn {@code java TurboismMcpBridge.java} on the published source; ACP agents
+ * instead launch the compiled bridge class inside this plugin JAR with the state
+ * directory as an argument. Either way the bridge forwards each stdin JSON-RPC
+ * line to the loopback endpoint carrying the persisted bearer token, so users
+ * never handle credentials themselves.
  */
 final class McpStdioBridge {
 
     static final String FILE_NAME = "TurboismMcpBridge.java";
-    private static final String RESOURCE =
-        "/META-INF/turboism/mcp/TurboismMcpBridge.java";
+    static final String MAIN_CLASS = "dev.turboism.plugin.mcp.TurboismMcpBridge";
+    private static final String RESOURCE = "/META-INF/turboism/mcp/TurboismMcpBridge.java";
     private static final String STATE_DIR_PLACEHOLDER = "__TURBOISM_STATE_DIR__";
 
-    private McpStdioBridge() {
-    }
+    private McpStdioBridge() {}
 
     /** Writes the bridge source unless an identical file is already present. */
     static Path publish(final Path stateDir) throws IOException {
-        final Path file = Objects.requireNonNull(stateDir, "stateDir")
-            .resolve(FILE_NAME);
+        final Path file = Objects.requireNonNull(stateDir, "stateDir").resolve(FILE_NAME);
         final byte[] content = sourceFor(stateDir).getBytes(StandardCharsets.UTF_8);
-        if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
-            && Arrays.equals(Files.readAllBytes(file), content)) {
+        if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && Arrays.equals(Files.readAllBytes(file), content)) {
             return file;
         }
         McpStateFiles.publish(file, ".mcp-bridge-", content);
@@ -44,17 +50,89 @@ final class McpStdioBridge {
 
     static Map<String, Object> clientConfig(final Path stateDir) {
         return Map.of(
-            "command", "java",
-            "args", List.of(stateDir.resolve(FILE_NAME).toAbsolutePath().toString())
-        );
+                "command",
+                "java",
+                "args",
+                List.of(stateDir.resolve(FILE_NAME).toAbsolutePath().toString()));
     }
 
     /** Single-line client configuration snippet shown in the connection window. */
     static String clientConfigJson(final Path stateDir) {
-        return new String(
-            StrictJson.bytes(clientConfig(stateDir)),
-            StandardCharsets.UTF_8
-        );
+        return Json.stringify(clientConfig(stateDir));
+    }
+
+    /**
+     * Computes the stdio launch descriptor for the compiled bridge inside this
+     * plugin JAR (or its build classes directory in development). The command is
+     * the running JVM's own launcher, so the descriptor does not depend on PATH
+     * or on a {@code jdk.compiler} module being present. It fails closed to
+     * empty — never a guessed path — when the launcher or the plugin code source
+     * is not a regular file or directory, and logs a single warning that carries
+     * no paths or token material.
+     */
+    static Optional<McpStdioLaunch> launch(final Path stateDir, final PluginLogger logger) {
+        return launch(stateDir, logger, javaLauncher(), codeSource());
+    }
+
+    /** Launch seam that lets tests exercise the fail-closed branches deterministically. */
+    static Optional<McpStdioLaunch> launch(
+            final Path stateDir, final PluginLogger logger, final Path launcher, final Path codeSource) {
+        Objects.requireNonNull(logger, "logger");
+        final Optional<McpStdioLaunch> descriptor =
+                launchDescriptor(launcher, codeSource, Objects.requireNonNull(stateDir, "stateDir"));
+        if (descriptor.isEmpty()) {
+            logger.warn("MCP stdio launch unavailable");
+        }
+        return descriptor;
+    }
+
+    /**
+     * Combines the resolved launcher and code source into a validated descriptor, failing closed
+     * unless the launcher is a regular file and the code source is a regular file or directory.
+     */
+    static Optional<McpStdioLaunch> launchDescriptor(final Path launcher, final Path codeSource, final Path stateDir) {
+        if (launcher == null || codeSource == null) {
+            return Optional.empty();
+        }
+        if (!Files.isRegularFile(launcher, LinkOption.NOFOLLOW_LINKS)) {
+            return Optional.empty();
+        }
+        if (!Files.isRegularFile(codeSource, LinkOption.NOFOLLOW_LINKS)
+                && !Files.isDirectory(codeSource, LinkOption.NOFOLLOW_LINKS)) {
+            return Optional.empty();
+        }
+        return Optional.of(new McpStdioLaunch(
+                launcher.toAbsolutePath().normalize().toString(),
+                List.of(
+                        "-cp",
+                        codeSource.toAbsolutePath().normalize().toString(),
+                        MAIN_CLASS,
+                        stateDir.toAbsolutePath().normalize().toString())));
+    }
+
+    private static Path javaLauncher() {
+        final String javaHome = System.getProperty("java.home");
+        if (javaHome == null || javaHome.isBlank()) {
+            return null;
+        }
+        final String executable =
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java";
+        return Path.of(javaHome).resolve("bin").resolve(executable);
+    }
+
+    private static Path codeSource() {
+        try {
+            final URL location = TurboismMcpBridge.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation();
+            if (location == null || !"file".equals(location.getProtocol())) {
+                return null;
+            }
+            return Path.of(location.toURI());
+        } catch (URISyntaxException | RuntimeException failure) {
+            return null;
+        }
     }
 
     private static String sourceFor(final Path stateDir) throws IOException {
@@ -67,9 +145,7 @@ final class McpStdioBridge {
                 throw new IOException("MCP stdio bridge resource is malformed");
             }
             return source.replace(
-                STATE_DIR_PLACEHOLDER,
-                javaLiteral(stateDir.toAbsolutePath().toString())
-            );
+                    STATE_DIR_PLACEHOLDER, javaLiteral(stateDir.toAbsolutePath().toString()));
         }
     }
 

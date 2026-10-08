@@ -37,8 +37,7 @@ final class SdkContractParent extends ClassLoader {
     }
 
     @Override
-    protected Class<?> loadClass(final String name, final boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(final String name, final boolean resolve) throws ClassNotFoundException {
         synchronized (getClassLoadingLock(name)) {
             final Class<?> loaded = findLoadedClass(name);
             if (loaded != null) {
@@ -57,12 +56,9 @@ final class SdkContractParent extends ClassLoader {
 
     private Class<?> resolveAllowed(final String name) throws ClassNotFoundException {
         if (name.startsWith(SDK_PREFIX)) {
-            return sdkLoader != null
-                ? sdkLoader.loadClass(name)
-                : Class.forName(name, false, null);
+            return sdkLoader != null ? sdkLoader.loadClass(name) : Class.forName(name, false, null);
         }
-        final Class<?> candidate =
-            ClassLoader.getPlatformClassLoader().loadClass(name);
+        final Class<?> candidate = ClassLoader.getPlatformClassLoader().loadClass(name);
         final Module module = candidate.getModule();
         if (module == null || !isJdkModule(module)) {
             throw new ClassNotFoundException(name);
@@ -72,7 +68,6 @@ final class SdkContractParent extends ClassLoader {
 
     private static boolean isJdkModule(final Module module) {
         return module.isNamed()
-            && (module.getName().startsWith("java.")
-                || module.getName().startsWith("jdk."));
+                && (module.getName().startsWith("java.") || module.getName().startsWith("jdk."));
     }
 }

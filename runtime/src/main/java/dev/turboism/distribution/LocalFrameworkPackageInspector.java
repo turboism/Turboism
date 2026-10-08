@@ -1,7 +1,6 @@
 package dev.turboism.distribution;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -63,7 +62,10 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
             return rejected("PACKAGE_INVALID", "Package validation failed", packagePath.toString());
         } finally {
             if (privateSnapshot != null) {
-                try { Files.deleteIfExists(privateSnapshot); } catch (IOException ignored) { }
+                try {
+                    Files.deleteIfExists(privateSnapshot);
+                } catch (IOException ignored) {
+                }
             }
         }
     }
@@ -81,8 +83,10 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
     private static Path createPrivateSnapshot(byte[] bytes) throws IOException {
         Path path;
         try {
-            path = Files.createTempFile("turboism-package-inspection-", ".zip",
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            path = Files.createTempFile(
+                    "turboism-package-inspection-",
+                    ".zip",
+                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
         } catch (UnsupportedOperationException exception) {
             path = Files.createTempFile("turboism-package-inspection-", ".zip");
         }
@@ -102,24 +106,28 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
             JsonNode manifest = manifest(zip);
             List<PlannedFile> files = new ArtifactInspector(zip).inspect(manifest);
             PackageIdentity identity = identity(snapshot, manifest);
-            return new FrameworkInstallPlan(identity, files,
-                FrameworkInstallPlan.Requirement.PREFLIGHT_REVALIDATION_REQUIRED);
+            return new FrameworkInstallPlan(
+                    identity, files, FrameworkInstallPlan.Requirement.PREFLIGHT_REVALIDATION_REQUIRED);
         }
     }
 
     private static PackageIdentity identity(Snapshot snapshot, JsonNode manifest) {
-        return new PackageIdentity(snapshot.hash(), snapshot.size(),
-            manifest.path("id").textValue(), manifest.path("version").textValue(),
-            manifest.path("apiVersion").textValue(), manifest.path("javaVersion").intValue());
+        return new PackageIdentity(
+                snapshot.hash(),
+                snapshot.size(),
+                manifest.path("id").textValue(),
+                manifest.path("version").textValue(),
+                manifest.path("apiVersion").textValue(),
+                manifest.path("javaVersion").intValue());
     }
 
     private void requireUnchangedAttributes(Path path, BasicFileAttributes initial) throws Exception {
         BasicFileAttributes current = access.attributes(path);
         if (initial.size() != current.size()
-            || !initial.lastModifiedTime().equals(current.lastModifiedTime())
-            || !Objects.equals(initial.fileKey(), current.fileKey())) {
-            throw ArchivePolicy.problem(DistributionErrors.PACKAGE_CHANGED,
-                "Package changed during inspection", path.toString());
+                || !initial.lastModifiedTime().equals(current.lastModifiedTime())
+                || !Objects.equals(initial.fileKey(), current.fileKey())) {
+            throw ArchivePolicy.problem(
+                    DistributionErrors.PACKAGE_CHANGED, "Package changed during inspection", path.toString());
         }
     }
 
@@ -127,8 +135,13 @@ public final class LocalFrameworkPackageInspector implements FrameworkPackageIns
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
             input.transferTo(new java.io.OutputStream() {
-                @Override public void write(int value) { digest.update((byte) value); }
-                @Override public void write(byte[] bytes, int offset, int length) {
+                @Override
+                public void write(int value) {
+                    digest.update((byte) value);
+                }
+
+                @Override
+                public void write(byte[] bytes, int offset, int length) {
                     digest.update(bytes, offset, length);
                 }
             });

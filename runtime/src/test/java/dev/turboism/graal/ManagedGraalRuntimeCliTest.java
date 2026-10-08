@@ -1,17 +1,15 @@
 package dev.turboism.graal;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class ManagedGraalRuntimeCliTest {
 
@@ -24,9 +22,7 @@ final class ManagedGraalRuntimeCliTest {
         assertEquals(2, missing.exitCode());
         assertTrue(missing.error().contains("Usage:"));
 
-        final Captured arbitraryUri = run(
-            "install", home.toString(), "https://example.invalid/runtime.zip"
-        );
+        final Captured arbitraryUri = run("install", home.toString(), "https://example.invalid/runtime.zip");
         assertEquals(2, arbitraryUri.exitCode());
         assertTrue(arbitraryUri.error().contains("Usage:"));
     }
@@ -47,39 +43,34 @@ final class ManagedGraalRuntimeCliTest {
         for (ManagedGraalRuntimeService.State state : ManagedGraalRuntimeService.State.values()) {
             final Path java = home.resolve("graal/runtime/bin/java.exe");
             final ManagedGraalRuntimeService.Status status = new ManagedGraalRuntimeService.Status(
-                state,
-                ManagedGraalRuntimeService.GRAAL_VERSION,
-                ManagedGraalRuntimeService.JAVA_VERSION,
-                state == ManagedGraalRuntimeService.State.READY ? Optional.of(java) : Optional.empty(),
-                0L,
-                0L,
-                "CODE",
-                "message"
-            );
+                    state,
+                    ManagedGraalRuntimeService.GRAAL_VERSION,
+                    ManagedGraalRuntimeService.JAVA_VERSION,
+                    state == ManagedGraalRuntimeService.State.READY ? Optional.of(java) : Optional.empty(),
+                    0L,
+                    0L,
+                    "CODE",
+                    "message");
             assertEquals(
-                state == ManagedGraalRuntimeService.State.READY ? 0 : 1,
-                ManagedGraalRuntimeCli.terminalExitCode(status),
-                state.name()
-            );
+                    state == ManagedGraalRuntimeService.State.READY ? 0 : 1,
+                    ManagedGraalRuntimeCli.terminalExitCode(status),
+                    state.name());
         }
     }
 
     @Test
     void progressProtocolCarriesExactByteCountsForInstallerSpeedCalculation() {
         final ManagedGraalRuntimeService.Status status = new ManagedGraalRuntimeService.Status(
-            ManagedGraalRuntimeService.State.DOWNLOADING,
-            ManagedGraalRuntimeService.GRAAL_VERSION,
-            ManagedGraalRuntimeService.JAVA_VERSION,
-            Optional.empty(),
-            20L * 1024L * 1024L,
-            341_299_924L,
-            "",
-            "Downloading."
-        );
+                ManagedGraalRuntimeService.State.DOWNLOADING,
+                ManagedGraalRuntimeService.GRAAL_VERSION,
+                ManagedGraalRuntimeService.JAVA_VERSION,
+                Optional.empty(),
+                20L * 1024L * 1024L,
+                341_299_924L,
+                "",
+                "Downloading.");
 
-        assertTrue(ManagedGraalRuntimeCli.progress(status).contains(
-            "20971520/341299924"
-        ));
+        assertTrue(ManagedGraalRuntimeCli.progress(status).contains("20971520/341299924"));
     }
 
     @Test
@@ -105,15 +96,10 @@ final class ManagedGraalRuntimeCliTest {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         final ByteArrayOutputStream error = new ByteArrayOutputStream();
         final int exitCode = ManagedGraalRuntimeCli.run(
-            args,
-            new PrintStream(output, true, StandardCharsets.UTF_8),
-            new PrintStream(error, true, StandardCharsets.UTF_8)
-        );
-        return new Captured(
-            exitCode,
-            output.toString(StandardCharsets.UTF_8),
-            error.toString(StandardCharsets.UTF_8)
-        );
+                args,
+                new PrintStream(output, true, StandardCharsets.UTF_8),
+                new PrintStream(error, true, StandardCharsets.UTF_8));
+        return new Captured(exitCode, output.toString(StandardCharsets.UTF_8), error.toString(StandardCharsets.UTF_8));
     }
 
     private static void restore(final String name, final String value) {
@@ -124,6 +110,5 @@ final class ManagedGraalRuntimeCliTest {
         }
     }
 
-    private record Captured(int exitCode, String output, String error) {
-    }
+    private record Captured(int exitCode, String output, String error) {}
 }

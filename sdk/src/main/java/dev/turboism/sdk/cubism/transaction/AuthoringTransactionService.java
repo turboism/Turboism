@@ -9,6 +9,10 @@ import java.util.Objects;
  * grouping, abort and recovery, and transaction diagnostics. The callback receives no transaction
  * handle and may interact only through normal SDK services available to the plugin.</p>
  *
+ * <p>This is the one recommended transaction entry for plugin writes. Use it when several
+ * writes must commit or roll back together or share a single Undo entry; a lone {@code
+ * Parameter.setValue} call needs no transaction wrapper.
+ *
  * <p>The callback runs on the host's UI thread (the Cubism Editor Swing event dispatch thread).
  * It must be brief and must not block or wait for other UI-thread tasks — doing so deadlocks the
  * host. SDK writes inside the callback that produce an admissible native Undo object — both
@@ -30,10 +34,7 @@ public interface AuthoringTransactionService {
      * @param <T> callback result type
      * @return typed terminal result and immutable history evidence
      */
-    <T> AuthoringTransactionResult<T> execute(
-        AuthoringTransactionOptions options,
-        AuthoringTransactionWork<T> work
-    );
+    <T> AuthoringTransactionResult<T> execute(AuthoringTransactionOptions options, AuthoringTransactionWork<T> work);
 
     /**
      * Returns the fail-closed implementation used when Runtime has no verified transaction backend.
@@ -50,14 +51,10 @@ public interface AuthoringTransactionService {
 
         @Override
         public <T> AuthoringTransactionResult<T> execute(
-            final AuthoringTransactionOptions options,
-            final AuthoringTransactionWork<T> work
-        ) {
+                final AuthoringTransactionOptions options, final AuthoringTransactionWork<T> work) {
             Objects.requireNonNull(options, "options");
             Objects.requireNonNull(work, "work");
-            return AuthoringTransactionResult.unavailable(
-                "cubism.authoring.transactions.unavailable"
-            );
+            return AuthoringTransactionResult.unavailable("cubism.authoring.transactions.unavailable");
         }
     }
 }

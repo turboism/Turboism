@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
 import dev.turboism.mapping.verification.VerifiedAccessException;
-
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -19,11 +18,7 @@ final class CoreStructuralTracer implements AutoCloseable {
     private final ReentrantReadWriteLock lifecycle = new ReentrantReadWriteLock();
     private boolean closed;
 
-    CoreStructuralTracer(
-        final String providerId,
-        final String artifactProfile,
-        final CoreCallSiteTable callSites
-    ) {
+    CoreStructuralTracer(final String providerId, final String artifactProfile, final CoreCallSiteTable callSites) {
         this.providerId = requireText(providerId, "providerId");
         this.artifactProfile = requireText(artifactProfile, "artifactProfile");
         this.callSites = Objects.requireNonNull(callSites, "callSites");
@@ -34,55 +29,37 @@ final class CoreStructuralTracer implements AutoCloseable {
         lifecycle.readLock().lock();
         try {
             if (closed) {
-                return failed(
-                    CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
-                    "Core structural tracer is closed."
-                );
+                return failed(CoreProviderFailure.Code.ADAPTER_UNAVAILABLE, "Core structural tracer is closed.");
             }
-            if (!providerId.equals(lease.providerId())
-                || !artifactProfile.equals(lease.artifactProfile())) {
+            if (!providerId.equals(lease.providerId()) || !artifactProfile.equals(lease.artifactProfile())) {
                 return failed(
-                    CoreProviderFailure.Code.EVIDENCE_REJECTED,
-                    "Core model lease does not match the admitted provider profile."
-                );
+                        CoreProviderFailure.Code.EVIDENCE_REJECTED,
+                        "Core model lease does not match the admitted provider profile.");
             }
             try {
-                final CoreStructuralSnapshot snapshot = lease.readForProvider(
-                    rawModel -> callSites.project(
-                        rawModel,
-                        lease.generation(),
-                        lease.modelIdentity(),
-                        providerId,
-                        artifactProfile
-                    )
-                );
+                final CoreStructuralSnapshot snapshot = lease.readForProvider(rawModel -> callSites.project(
+                        rawModel, lease.generation(), lease.modelIdentity(), providerId, artifactProfile));
                 return CoreProviderResult.success(snapshot);
             } catch (CoreModelLeaseException exception) {
                 return failed(
-                    leaseFailureCode(exception.failure().code()),
-                    "Core model lease is not valid for this structural read."
-                );
+                        leaseFailureCode(exception.failure().code()),
+                        "Core model lease is not valid for this structural read.");
             } catch (VerifiedAccessException exception) {
                 return failed(
-                    exception.failureKind()
-                        == VerifiedAccessException.FailureKind.RESOLUTION
-                            ? CoreProviderFailure.Code.RESOLUTION_FAILED
-                            : CoreProviderFailure.Code.INVOCATION_FAILED,
-                    "Verified Core structural selector failed safely."
-                );
-            } catch (CoreStructuralValidationException
-                     | IllegalArgumentException exception) {
+                        exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION
+                                ? CoreProviderFailure.Code.RESOLUTION_FAILED
+                                : CoreProviderFailure.Code.INVOCATION_FAILED,
+                        "Verified Core structural selector failed safely;selector=" + exception.alias()
+                                + ";kind=" + exception.failureKind()
+                                + ";category=" + exception.hostFailureCategory());
+            } catch (CoreStructuralValidationException | IllegalArgumentException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVALID_STRUCTURE,
-                    "Core structural data could not be normalized safely: "
-                        + exception
-                );
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core structural data could not be normalized safely: " + exception);
             } catch (RuntimeException exception) {
                 return failed(
-                    CoreProviderFailure.Code.INVALID_STRUCTURE,
-                    "Core structural read failed during safe normalization: "
-                        + exception
-                );
+                        CoreProviderFailure.Code.INVALID_STRUCTURE,
+                        "Core structural read failed during safe normalization: " + exception);
             }
         } finally {
             lifecycle.readLock().unlock();
@@ -103,9 +80,7 @@ final class CoreStructuralTracer implements AutoCloseable {
         }
     }
 
-    private static CoreProviderFailure.Code leaseFailureCode(
-        final CoreModelFailure.Code code
-    ) {
+    private static CoreProviderFailure.Code leaseFailureCode(final CoreModelFailure.Code code) {
         return switch (code) {
             case LEASE_CLOSED -> CoreProviderFailure.Code.LEASE_CLOSED;
             case STALE_GENERATION -> CoreProviderFailure.Code.STALE_GENERATION;
@@ -113,10 +88,7 @@ final class CoreStructuralTracer implements AutoCloseable {
         };
     }
 
-    private static <T> CoreProviderResult<T> failed(
-        final CoreProviderFailure.Code code,
-        final String message
-    ) {
+    private static <T> CoreProviderResult<T> failed(final CoreProviderFailure.Code code, final String message) {
         return CoreProviderResult.failed(new CoreProviderFailure(code, message));
     }
 

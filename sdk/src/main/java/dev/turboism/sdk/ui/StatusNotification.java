@@ -9,12 +9,7 @@ package dev.turboism.sdk.ui;
  * ({@link Presentation#COMPACT_METRIC}) mounted beside the memory viewer and
  * showing only the raw message.</p>
  */
-public record StatusNotification(
-    String id,
-    String severity,
-    String message,
-    Presentation presentation
-) {
+public record StatusNotification(String id, String severity, String message, Presentation presentation) {
 
     /**
      * Backward-compatible constructor for ordinary status notifications; the

@@ -37,18 +37,20 @@ final class ConfinedPluginFiles {
 
     SeekableByteChannel createNew(final Path path, final ParentIdentity parent) throws IOException {
         parent.verify();
-        if (!path.toAbsolutePath().normalize().getParent().equals(parent.path())) throw new IOException("parent changed");
-        return Files.newByteChannel(path, Set.<OpenOption>of(
-            StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS
-        ));
+        if (!path.toAbsolutePath().normalize().getParent().equals(parent.path()))
+            throw new IOException("parent changed");
+        return Files.newByteChannel(
+                path,
+                Set.<OpenOption>of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS));
     }
 
-    void move(final Path source, final Path target, final ParentIdentity parent, final boolean replace) throws IOException {
+    void move(final Path source, final Path target, final ParentIdentity parent, final boolean replace)
+            throws IOException {
         parent.verify();
         rejectLinks(source);
         final var options = replace
-            ? new StandardCopyOption[]{StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING}
-            : new StandardCopyOption[]{StandardCopyOption.ATOMIC_MOVE};
+                ? new StandardCopyOption[] {StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING}
+                : new StandardCopyOption[] {StandardCopyOption.ATOMIC_MOVE};
         Files.move(source, target, options);
         parent.verify();
     }
@@ -83,7 +85,9 @@ final class ConfinedPluginFiles {
     }
 
     @FunctionalInterface
-    interface AttributeReader { BasicFileAttributes read(Path path) throws IOException; }
+    interface AttributeReader {
+        BasicFileAttributes read(Path path) throws IOException;
+    }
 
     record ParentIdentity(Path path, BasicFileAttributes attributes, AttributeReader reader) {
         void verify() throws IOException {
@@ -91,7 +95,7 @@ final class ConfinedPluginFiles {
             final BasicFileAttributes current = reader.read(path);
             final Object expectedKey = attributes.fileKey();
             if (!current.isDirectory()
-                || (expectedKey != null && !java.util.Objects.equals(expectedKey, current.fileKey()))) {
+                    || (expectedKey != null && !java.util.Objects.equals(expectedKey, current.fileKey()))) {
                 throw new IOException("parent identity changed");
             }
         }

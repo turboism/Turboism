@@ -10,6 +10,12 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
+- 将原本仅开发用的 agent 聊天插件重构为通用 `Turboism ACP` 插件
+  (`dev.turboism.plugin.acp`)：启动用户安装的 ACP 兼容 agent（Claude Agent ACP、Codex
+  ACP、Antigravity、Gemini CLI、OpenCode、Pi、Devin CLI 或自定义命令），支持 PATH 上的
+  可执行文件检测、ACP 认证与持久会话，并在 agent 声明 HTTP MCP 支持时照旧接入已认证的
+  Turboism MCP 端点。
+
 - SDK 与运行时新增动画工作区支持：插件可以枚举动画文档、工程时间线、轨道、属性与关键帧，
   激活和重命名场景、定位播放进度、应用批量关键帧编辑与曲线类型，以及录制/烘焙求值结果。
   纯 SDK 的 `Motion3Validator` 可报告 motion3 数据中的结构问题。该对象模型已通过
@@ -41,9 +47,28 @@ Turboism 的所有重要变更都记录在本文件中。
   `turboism.ui.toolbar.contribute` 和 `turboism.ui.canvas.hint` 权限，其原生镜像仅在
   已验证的宿主钩子安装后绑定。已验证的 drag-tick 钩子仅接纳经评审的 Cubism 5.2.03、
   5.3.02 和 5.3.03 精确产物——在原生 drag tick 内提供实时镜像预览与单个撤销条目——
-  未经评审的宿主则保留发布时的 AWT 回退路径，结果相同。
+  未经评审的宿主则保留发布时的 AWT 回退路径，结果相同。镜像轴武装期间，选中权重写入
+  （笔刷选择工具及所有加权选中流程）会在同一选中/撤销信封内镜像到轴向对称点，使权重
+  绘制实时保持对称。
 - `Action.of` 与 `MenuContribution.of` 将单点贡献注册构建为普通的
   `SimpleAction`/`SimpleMenuContribution` 值，插件不再需要为每个动作或菜单项编写匿名类。
+- 由运行时拥有的按键绑定能力与快捷键窗口：Turboism 菜单新增 “Keybindings” 项，打开的
+  表格列出所有可绑定行——插件动作（含核心 shell 自身）与从宿主菜单加速器实时枚举的原生
+  命令：目录始终与当前运行版本实际声明的快捷键一致，未暴露在菜单中的快捷键仍可通过
+  “添加按键转发”行补录。全局 AWT 按键
+  分发器拦截宿主按键事件：命中插件绑定的按键经动作路由器调用插件动作，而原生重绑
+  会翻译回宿主原本的快捷键并抑制被替换的按键。每行携带三态绑定（未设置/已绑定/已
+  禁用），持久化于 `state/runtime/keybindings.properties`；表格标记冲突行；文本框聚焦
+  时无修饰键的单键绑定不触发；录制对话框在捕获期间暂停全局拦截。
+  `ActionRegistry.Action.defaultShortcut()` 与新的
+  `Action.of(id, label, shortcut, handler)` 重载允许插件声明可被用户改绑的默认快捷键。核心 shell 为其窗口动作声明了默认键（设置 Ctrl+Alt+S、插件 Ctrl+Alt+P、日志 Ctrl+Alt+L、快捷键窗口 Ctrl+Shift+K），第一方的网格检查、历史面板与演示动作也带默认键作为 SDK 示例。双击某行的快捷键单元格可直接打开按键捕获对话框。
+
+### 移除
+
+- 彻底移除托管 fx 运行时：不再捆绑或下载任何 agent 二进制，移除运行时清单/哈希钉死、
+  Turboism 托管的 provider 档案与凭据存储、以及 Gateway/OpenAI 适配器——agent 的认证、
+  provider 与模型全部由 agent 自身管理。仅开发用的 `turboism-with-fx` 插件 ID 退役，
+  发布工具链中的 fx 打包与验证夹具引用也已清除。
 
 ### 变更
 
@@ -106,6 +131,14 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 修复
 
+- ACP 接入的 Agent 恢复使用 Turboism MCP 写工具：MCP 插件在连接快照上发布免凭据 stdio
+  启动描述符，ACP 插件将其作为 stdio MCP 服务器接入——MCP 插件 JAR 内的预编译桥接自行
+  读取 bearer token，因此在缺少 `jdk.compiler` 的 JRE 上同样可用。HTTP 端点保留为只读
+  回退；端点变化现在会重连任何已挂载 MCP 的会话；Agent 转录会报告工具以可写还是只读
+  形式接入。
+- `ClassPinTable.load` 现在在代理类没有定义类加载器时回退到系统类加载器：发行版 agent 的
+  `Boot-Class-Path` 清单项使这些类由引导类加载器加载，pin 表查找在 premain 期间解引用 null，
+  导致整个运行时在真实宿主上以安全方式失败而非正常启动。
 - 清除工具链中机器特定的字面值：预览启动脚本不再探测个人 `F:\Live2D` 安装路径；参数验证的
   GraalVM 探测改为从 `$HOME` 推导 Proton `Z:` 路径而非写死用户名；发布 API 巡检的故障接收人
   改由 `TURBOISM_MONITOR_RECIPIENT` 提供（工作流从 `RELEASE_MONITOR_RECIPIENT` 仓库变量注入）；
@@ -165,138 +198,66 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 新增
 
-- Turboism 现在针对已部署的发布 API（`api.turboism.dev/v1/releases/stable.json`）检查稳定版
-  更新。比较使用安装包内嵌的权威构建号，因此更低的构建永远不会被作为更新提供，构建号
-  相同而版本不同会被视为身份冲突而非更新。早于构建号的安装仍只按版本比较，且永远不会
-  被赋予虚构的号码。
-- 可用更新以 Cubism 原生提示的形式呈现在绘图区域上方——与宿主自身右下角消息使用同一
-  表面——而不是 Turboism 停靠面板中的条目。该提示带键，更新的构建会替换先前文本，并在
-  更新不再可用时自动消失。点击它打开固定的第一方下载页面；不会打开或安装来自发布源的
-  任何 URL，也不会自动下载或执行安装器。
-- 更新检查器是非阻塞的，每 24 小时最多运行一次，手动检查始终可用。自动检查在启动设置
-  页有独立的持久开关，与 Cubism 自身的更新抑制相互独立。
-- 插件可以通过 `UiHostCapabilityService.notifyCanvasHint`、`notifyDismissibleCanvasHint`
-  和 `showCanvasHintWhile` 在绘图区域上方显示 Cubism 原生提示，配套类型包括
-  `CanvasHintNotification`、`CanvasHintHandle`、`CanvasHintPosition` 与
-  `ConditionalCanvasHint`。插件需要新的 `turboism.ui.canvas.hint` 权限才能显示。该能力
-  通过已验证的 5.2.03、5.3.02 与 5.3.03 宿主路由按版本路由，在路由无法解析的宿主上
-  报告不可用，而不是近似模拟。见 [SDK v10 评审](sdk/api-contracts/sdk-api-v10-review.md)；
-  本次修订纯增量，不需要插件迁移。
-- 已发布的发布说明现在除简体中文和日文外还携带经评审的韩文文本。发布文档以
-  `notesByLanguage` 暴露这些文本，英文仍是网站在译文缺失时显示的回退语言；Nightly 的
-  标题与警告以全部四种语言翻译，而原始提交主题保留原语言并显式标注。
+- Turboism 现在会针对已部署的发布 API（`api.turboism.dev/v1/releases/stable.json`）检查稳定版更新。比较使用安装包内嵌的权威构建号，因此更低的构建号永远不会被当作更新提供，构建号相同但版本不同的情况会被视为身份冲突而不是更新。早于构建号机制的安装仍然只按版本比较，并且永远不会被赋予臆造的编号。
+- 可用更新现在以绘图区上的原生 Cubism 提示呈现，与宿主自身右下角消息使用同一层界面，而不再是 Turboism 停靠面板中的条目。提示以 key 标识，因此更新的构建会替换旧文案；一旦更新不再被提供，提示会自动消失。点击提示会打开固定的官方下载页；不会打开或安装来自发布源的任何 URL，也不会自动下载或执行安装程序。
+- 更新检查不阻塞界面，最多每 24 小时运行一次，并始终提供手动检查。自动检查在“启动”设置页有独立的持久开关，且不受 Cubism 自身更新抑制设置的影响。
+- 插件现在可以通过 `UiHostCapabilityService.notifyCanvasHint`、`notifyDismissibleCanvasHint` 和 `showCanvasHintWhile`，以及 `CanvasHintNotification`、`CanvasHintHandle`、`CanvasHintPosition` 和 `ConditionalCanvasHint`，在绘图区显示原生 Cubism 提示（需要新增的 `turboism.ui.canvas.hint` 权限）。该能力按版本路由到已校验的 5.2.03、5.3.02 和 5.3.03 宿主路径；在无法解析该路径的宿主上会报告为不可用，而不是以近似方式实现。详见 [SDK v10 评审](sdk/api-contracts/sdk-api-v10-review.md)：本次修订为纯增量，插件无需迁移。
+- 发布说明现在在简体中文与日文之外还提供经过审阅的韩文：发布文档通过 `notesByLanguage` 暴露，缺少译文时网站回退显示英文；Nightly 的标题与警告提供四种语言，而原始提交标题保持原文并明确标注。
 
-### 变更
+### 改进
 
-- 经评审的 SDK 精确基线现在为 v10，钉在 canvas-hint 提交上。该修订新增 42 条 API 记录，
-  未移除或修改任何记录；v9 与 v8 仍是每个发布都会运行的历史精确审计。
-- WebDAV 备份插件从 `backup` 更名为 `webdav-backup`：其 Gradle 模块与 Java 包为
-  `webdav-backup`/`dev.turboism.plugin.webdavbackup`，安装器产物为
-  `plugins/webdav-backup.jar`（此前为 `plugins/backup.jar`），插件 id 为
-  `dev.turboism.plugin.webdav`（此前为 `dev.turboism.plugin.backup`），其菜单项现在已
-  本地化。`backup/webdav.cfg` 中存储的端点设置不受影响。
-- 命名了经评审矩阵之外语言的 `release-notes/<version>.json` 文件现在会使发布失败，而不
-  再被静默丢弃，因此拼写错误无法带着缺失译文发布。
+- 已评审的 SDK exact 基线升级为 v10，锚定到 canvas hint 提交。本次修订新增 42 条 API 记录，未删除或修改任何记录；v9 与 v8 保留为历史 exact 审计，每次发布仍会执行。
+- WebDAV 备份插件由 `backup` 更名为 `webdav-backup`：Gradle 模块与 Java 包为 `webdav-backup`/`dev.turboism.plugin.webdavbackup`，安装包内文件为 `plugins/webdav-backup.jar`（原 `plugins/backup.jar`），插件 id 为 `dev.turboism.plugin.webdav`（原 `dev.turboism.plugin.backup`），菜单项也已本地化。`backup/webdav.cfg` 中已保存的端点设置不受影响。
+- `release-notes/<version>.json` 中若出现受审阅矩阵之外的语言，现在会让发布直接失败，而不是静默丢弃，因此拼写错误不会发布出缺少译文的版本。
 
 ### 修复
 
-- 发布 API 在 GitHub 不可达时继续提供最近一次已验证的发布快照，而不是对每个渠道回答
-  “不可用”。快照最长可用 24 小时；单个渠道的瞬时失败不再丢弃该渠道此前已验证的数据，
-  刷新失败保留先前快照。发布仍会立即通知 API，新增的定时监视器报告已确认、去重的
-  事故。
-- Windows 安装器现在无需预装 Java 即可供应托管 Graal 运行时：直接下载并校验归档，为
-  独立安装初始化完整运行时配置，其 Graal 页面不再声称过时的 Java 前置要求。该供应
-  路径已在 Windows PowerShell 5.1 与 7 上验证。
-- 升级既有安装不再遗留两个 WebDAV 插件条目。两个安装器在托管升级期间按内嵌插件 id
-  移除 `plugins/` 中改名前的旧 JAR（因此覆盖任意文件名），旧 id
-  `dev.turboism.plugin.backup` 加入已退役/被取代边界：运行时拒绝加载它，插件管理不
-  列出它，`config.json` 的 `disabledPlugins` 不再保留它。改名前的 WebDAV 设置对话框
-  现在本地化每个标签、按钮、工具提示与状态消息，不再总是显示中文。
+- 当 GitHub 不可达时，发布 API 会继续提供最后一次校验过的发布快照，而不是对所有通道都回答“unavailable”。快照在最长 24 小时内保持可用，单个通道的临时故障不再丢弃该通道此前已校验的数据，刷新失败也会保留上一份快照。发布仍会立即通知 API，并新增定时监控以确认去重后的故障通告。
+- Windows 安装器在预置托管 Graal 运行时不再要求预装 Java：它直接下载并校验压缩包，为独立安装初始化完整的运行时配置，其 Graal 页面也不再声明已过时的 Java 前提条件。该预置流程已在 Windows PowerShell 5.1 与 7 上验证。
+- 升级既有安装不再残留两个 WebDAV 插件条目。两个安装器都会在受管升级时按内嵌插件 id 从 `plugins/` 删除更名前的旧 JAR（因此任何文件名都被覆盖），旧 id `dev.turboism.plugin.backup` 也加入了已退役/被取代边界：运行时拒绝加载它，插件管理不再列出它，`config.json` 的 `disabledPlugins` 也不再保留它。更名前的 WebDAV 设置对话框现在也会本地化每一个标签、按钮、提示与状态消息，而不再始终显示中文。
 
 ## [0.43.11] - 2026-09-11
 
 ### 新增
 
-- 安装器现在提供显式语言选择，不再只依赖宿主 locale，韩语加入英语、简体中文与日语
-  行列。NSIS 向导在欢迎页之前显示标准语言对话框，并无论宿主语言都列出全部 locale；
-  IzPack 安装器附带 `kor` 语言包、其许可资源与模态语言包选择器。所选安装器语言仅
-  在安装器范围内生效，绝不写入 `config.json`。
-- `GET /v1/downloads/<version>.json` 报告每个发布的下载请求开始次数。官方镜像开始次数
-  计入 GitHub 的二进制 `download_count`，响应为每个二进制携带一行 `assets`，包含名称、
-  键、SHA-256、official、GitHub 与总计值，与发布总计对账一致。校验和旁挂文件、
-  HEAD/304、失败请求、非零续传区间与 verification 前缀流量均被排除，未知来源保持
-  `null` 而不是输出虚构的零。
-- Stable、Beta 与 Nightly 发布现在携带经评审的简体中文与日文说明（`notesByLanguage`），
-  英文作为回退，网站在本地选择语言。摘要不再匹配精确英文段落的译文将被拒绝而不是
-  复用。Nightly 在候选准备期间冻结其已发布的祖先基线与真实提交主题，使之后落入的
-  提交无法改变已构建候选的内容。
-- 经评审的译文还可以充实历史发布而不改写它们：0.43.10 与 0.43.10-0.nightly.3 获得绑定到
-  其精确发布 ID、源修订与原始可见正文的显示补充，其公开 Release 正文、标签、回执、
-  文件与构建号均不受影响。
-- 框架消息目录现在由 `verifyFrameworkCatalogs` 按与官方插件相同的 locale 矩阵要求。
-  插件目录不完整时已会响亮失败；框架通过 `ResourceBundle` 解析其界面资源，缺失目录
-  此前会静默降级为英文。新门禁同时拒绝框架模块携带已验证根目录之外的目录。
+- 安装器新增显式语言选择，不再只依赖宿主语言，并在英文、简体中文、日文之外加入韩文。NSIS 向导在欢迎页之前显示标准语言对话框，且无论宿主语言为何都列出全部语言；IzPack 安装器附带 `kor` 语言包、其许可资源以及模态语言包选择器。安装器所选语言仅作用于安装器，不会写入 `config.json`。
+- `GET /v1/downloads/<version>.json` 提供每个版本的下载请求统计：官方镜像的请求起始次数会与 GitHub 的二进制 `download_count` 相加，响应为每个二进制文件返回一行 `assets`，包含名称、key、SHA-256、official、GitHub 与 total，且逐文件数值与版本总计一致。校验文件、HEAD/304、失败请求、非零断点续传区间以及带验证标记的流量都不计入；未知来源保持为 `null`，不会伪造为 0。
+- Stable、Beta 与 Nightly 版本现在携带经过审阅的简体中文与日文说明（`notesByLanguage`），英文作为回退，网站本地切换语言。摘要与英文段落不一致的译文会被拒绝，而不会被复用。Nightly 在准备候选时冻结已发布的祖先基线与真实提交标题，因此之后落入的提交不会改变已构建候选的内容。
+- 经过审阅的译文也会在不改写历史版本的前提下增强其展示：0.43.10 与 0.43.10-0.nightly.3 获得与其 release ID、源码修订和原始可见正文精确绑定的展示补充，其公开 Release 正文、标签、回执、文件与构建号均不变。
+- 框架消息目录现在与官方插件接受同一套语言矩阵校验（`verifyFrameworkCatalogs`）。插件在目录不完整时本就会明确失败，而框架通过 `ResourceBundle` 解析自身界面，缺失目录只会静默回退到英文。新的校验还会拒绝在受验证根目录之外提供目录的框架模块。
 
-### 变更
+### 改进
 
-- Beta 与 Nightly 候选记录其冻结的说明上下文（`schemaVersion: 2`），晋级时将 Stable 说明
-  绑定到精确的 `CHANGELOG.md` 段落加上经评审的译文摘要。检出后 `CHANGELOG.md`、
-  `release-notes/` 或说明模块发生变化的候选现在失败关闭，而不是发布从未评审过的说明。
-- Java 卸载器默认保留 `config.json`，与 NSIS 卸载器一致；未带该属性的无头或控制台运行
-  同样保留。
-- 经评审的 SDK v9 精确锚点移动到宿主 locale 修复，使 SDK 契约保留应用的语言而非启动器
-  的 DISPLAY locale。规范 API dump 不变；只有
-  `UiHostCapabilityService.hostLocale()` 默认方法体的字节发生了移动，v2–v8 历史锚点
-  保持已审计状态。
+- Beta 与 Nightly 候选记录其冻结的说明上下文（`schemaVersion: 2`），晋升时将 Stable 说明绑定到精确的 `CHANGELOG.md` 段落以及经过审阅的译文摘要。若候选在检出后改动过 `CHANGELOG.md`、`release-notes/` 或说明模块，现在会直接失败，而不是发布未经审阅的说明。
+- Java 卸载程序默认保留 `config.json`，与 NSIS 卸载程序保持一致；未传入该属性的无界面或控制台运行也会保留。
+- 已评审的 SDK v9 exact 锚点移至宿主语言修复，使 SDK 契约保留宿主实际应用的语言，而不是启动器的 DISPLAY 区域。规范 API 转储不变，只有 `UiHostCapabilityService.hostLocale()` 默认方法体的字节发生变动；v2–v8 历史锚点仍保持已审计状态。
 
 ### 修复
 
-- 插件 UI 语言现在跟随 Cubism Editor 的 File → Environment Settings → General →
-  Language 中选择的语言。启动器的 `-Duser.language` 只选择构建的语言版本且在运行时
-  从不改变，因此不再被视为宿主语言。由于 Cubism 在此运行时附加之后才把保存的设置
-  应用到进程默认 locale，有效 locale 在已验证宿主进入 ACTIVE 后重新解析；显式的
-  `-Dturboism.locale` 或 `config.json` locale 仍优先于宿主。
-- 框架自身的 `ResourceBundle` 目录现在携带完整的 zh-Hans/zh-Hant/en/ja/ko 矩阵。
-  `dev.turboism.ui.panel` 此前缺少 `messages_en.properties` 与
-  `messages_zh_Hans.properties`，导致简体中文宿主静默回退到旧的、无书写系统后缀的
-  `messages_zh.properties`。该目录保留为可选的兼容别名，但不能再顶替带书写系统后缀的
-  目录。
-- 工具栏图标通过插件携带的显示缩放变体（125/150/175/200%）加载并解析为单个多分辨率
-  图标，因此安装器条目在高 DPI 显示器上不再从单个未缩放位图绘制。
-- Java 卸载器确认对话框的韩语分支现在已本地化，不再回退到英文文本；四个 README 模板
-  现在描述卸载器默认保留 `config.json` 的复选框，而不是默认删除的描述。
+- 插件界面语言现在跟随 Cubism Editor 的“文件 → 环境设置 → 常规 → 语言”中所选语言。启动器的 `-Duser.language` 只用于选择构建的语言版本，运行时不会变化，因此不再被视为宿主语言。由于 Cubism 会在本运行时挂载之后把保存的设置应用到进程默认区域，有效区域会在确认宿主处于 ACTIVE 后重新解析一次；显式的 `-Dturboism.locale` 或 `config.json` 区域设置仍然优先于宿主。
+- 框架自身的 `ResourceBundle` 目录现在覆盖完整的 zh-Hans/zh-Hant/en/ja/ko 矩阵。`dev.turboism.ui.panel` 缺少 `messages_en.properties` 与 `messages_zh_Hans.properties`，导致简体中文宿主静默回退到旧的无脚本 `messages_zh.properties`。该目录保留为可选兼容别名，但不再能替代带脚本后缀的目录。
+- 工具栏图标改为通过插件提供的显示缩放变体（125/150/175/200%）加载，并解析为单个多分辨率图标，因此安装器入口在高 DPI 显示器上不再由单个未缩放位图绘制。
+- Java 卸载程序确认对话框的韩文分支已本地化，不再回退为英文文本；四份 README 模板现在描述卸载程序默认勾选的“保留 `config.json`”，而不再是默认删除。
 
 ## [0.43.10] - 2026-09-09
 
 ### 新增
 
-- 当前页纹理图集打包，带显式缩放契约与受守护的原生打包集成。
-- 捕获的语义历史时间线，带稳定导航与可配置的核心工具栏图标。
-- 独立的发布 API、GitHub 发布同步、已验证的流媒体镜像，以及全局分配的产品构建身份。
+- 当前页纹理图集排布，明确缩放契约，并为原生排布集成加入保护检查
+- 可捕获的语义历史时间线、稳定导航，以及可配置的核心工具栏图标
+- 独立更新 API、GitHub Release 同步、经过校验的流式镜像，以及全局分配的产品构建身份
 
-### 变更
+### 改进
 
-- 采用经评审的 SDK v9 精确发布基线，v8 降为历史审计。该锚点新增一个展示字段：
-  `CubismOperationEvent` 获得可选的 `label`，使观察到的 Cubism Editor 原生编辑可以携带
-  可本地化的原生编辑名称。该组件追加在 `subjectId` 之后，且明确不是身份。**插件 API
-  可能需要迁移：** 直接构造 `CubismOperationEvent` 的插件必须传入新的第五个组件；见
-  [SDK v9 评审](sdk/api-contracts/sdk-api-v9-review.md)。
-- 采用经评审的 SDK v8 精确发布基线，v7 降为历史审计。该锚点捕获了 v7 门禁从未记录的
-  已捕获语义时间线与 UI 表面，以及四个新的原生编辑器编辑 `CubismOperation` 身份
-  （`SET_HIERARCHY_PARENT`、`DETACH_HIERARCHY_PARENT`、`MOVE_DRAWABLE`、
-  `SET_DRAWABLE_COLOR`，追加方式使既有常量序数不移动）。**插件 API 可能需要迁移：**
-  `HistoryEntry`、`RuntimeSettings` 与 `PanelView.Toggle` 构造函数已变更；见
-  [SDK v8 评审](sdk/api-contracts/sdk-api-v8-review.md)。
-- 产品发布拆分为只读候选构建与显式受保护的 GitHub 晋级。失败的候选尝试复用预期版本号；
-  只有晋级才创建官方注解标签并在不重建的情况下发布已验证字节。
-- 采用经评审的 SDK v8 当前页纹理布局契约。
-- 新增四语言项目与安装文档，以及任务内闭环的本地宿主验证监督。
+- 将产品发行拆分为只读候选构建和明确授权的受保护 GitHub 发布流程。失败的候选尝试沿用预期版本；只有发布阶段才创建正式附注标签，并直接发布已验证文件，不重新构建
+- 采用已审阅的 SDK v8 当前页纹理排布契约
+- 新增四语言项目与安装文档，以及限制在任务范围内的本地宿主验证监督
 
 ### 修复
 
-- 加固多版本 Scene 调色板桥接，新增 Cubism 5.3.03 精确路由，保留统一调色板清理。
-- 使核心工具栏图像与宿主主页图标尺寸匹配。
-- 加固宿主验证环境处理与对畸形结果的拒绝。
+- 加固多版本 Scene 面板桥接，加入 Cubism 5.3.03 精确路由，并保留统一的面板清理逻辑
+- 将核心工具栏图片调整为与宿主主页图标一致的尺寸
+- 加固宿主验证的环境处理，并拒绝格式错误的结果
 
 ## [0.43.9] - 2026-09-06
 

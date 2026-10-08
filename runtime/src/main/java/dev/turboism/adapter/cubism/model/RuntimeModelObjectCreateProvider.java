@@ -11,8 +11,5 @@ public interface RuntimeModelObjectCreateProvider {
     void requireCreateSupported(ModelObjectCreateRequest request);
 
     /** Commits the request against the supplied generation-bound active model. */
-    ModelObjectReference createModelObject(
-        CubismModel model,
-        ModelObjectCreateRequest request
-    );
+    ModelObjectReference createModelObject(CubismModel model, ModelObjectCreateRequest request);
 }

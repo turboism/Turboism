@@ -10,12 +10,7 @@ package dev.turboism.mapping.verification;
  * @param recordSha256 SHA-256 of the reviewed record bytes
  */
 public record EditorModelAdmissionEvidence(
-    String cubismVersion,
-    long artifactSize,
-    String artifactSha256,
-    String adapterSliceId,
-    String recordSha256
-) {
+        String cubismVersion, long artifactSize, String artifactSha256, String adapterSliceId, String recordSha256) {
     /**
      * Returns the admission evidence for an observed host artifact.
      *
@@ -26,12 +21,11 @@ public record EditorModelAdmissionEvidence(
     public static EditorModelAdmissionEvidence forArtifact(final HostArtifactDigest artifact) {
         final PinnedVerifiedResolverWorkflow.Manifest manifest = EditorModelVerificationManifest.forArtifact(artifact);
         return new EditorModelAdmissionEvidence(
-            manifest.cubismVersion(),
-            manifest.artifactSize(),
-            manifest.artifactSha256(),
-            manifest.adapterSliceId(),
-            manifest.recordSha256()
-        );
+                manifest.cubismVersion(),
+                manifest.artifactSize(),
+                manifest.artifactSha256(),
+                manifest.adapterSliceId(),
+                manifest.recordSha256());
     }
 
     /**
@@ -55,11 +49,10 @@ public record EditorModelAdmissionEvidence(
 
     private static EditorModelAdmissionEvidence of(final ReviewedSliceRecord record) {
         return new EditorModelAdmissionEvidence(
-            record.cubismVersion(),
-            record.artifact().size(),
-            record.artifact().sha256(),
-            EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-            record.recordSha256()
-        );
+                record.cubismVersion(),
+                record.artifact().size(),
+                record.artifact().sha256(),
+                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+                record.recordSha256());
     }
 }

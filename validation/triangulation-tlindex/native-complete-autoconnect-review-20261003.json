@@ -1,0 +1,77 @@
+{
+  "task": "T081",
+  "status": "COMPLETE_NATIVE_OPERATION_EQUALITY_PASS_PRODUCTION_ADMISSION_OPEN",
+  "productionChanged": false,
+  "hostSubmitted": false,
+  "nativeCompleteExecuted": true,
+  "hostGain": "UNPROVEN",
+  "completeFixtureGroups": 288,
+  "checks": 9729,
+  "indexedQueries": 4614,
+  "nativeFallbacks": 5622,
+  "appendRegistrations": 18,
+  "controls": {
+    "preEntryEdits": 24,
+    "immutableFailures": 18,
+    "callbackFailures": 24,
+    "protectedSuffixFailures": 18
+  },
+  "raw": "build/t081-native-complete-autoconnect-r1/native-complete-r2/review.json",
+  "rawSha256": "161566e544d078e2efd3815a2b98e0f6b7e367c8c0029e5fd81428a4e26e2250",
+  "results": [
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=false fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=true fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=false fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=true fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=false fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=true fixtures=48 checks=1621",
+    "NATIVE_MESH_AUTOCONNECT_FINISHED checks=9729 indexed=4614 native=5622 appends=18 scope=OWNED_COMPLETE_OPERATION hostGain=UNPROVEN",
+    "NATIVE_MESH_AUTOCONNECT_CONTROLS preEntryEdits=24 immutableFailures=18 callbackFailures=24 suffixFailures=18"
+  ],
+  "suffixRegression": {
+    "raw": "build/t081-native-complete-autoconnect-r1/native-suffix-regression-r1/review.json",
+    "rawSha256": "809a57235a34401d6cc054c796a78fb7851efa11fcf5910d7793b8ea1ac8e27a",
+    "fixtureGroups": 576,
+    "checks": 5942,
+    "results": [
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=false fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_PASS jar=${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar assertions=true fixtures=96 checks=990",
+      "NATIVE_MESH_EDGE_LOOP_FINISHED checks=5942 indexed=21438 native=432 appends=13992 scope=OWNED_SUFFIX_ONLY hostGain=UNPROVEN",
+      "NATIVE_MESH_EDGE_LOOP_BOUNDARY sameSizeExternalSet=COUNTEREXAMPLE_CONFIRMED productionAdmission=OPEN"
+    ]
+  },
+  "pins": {
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.2.03/jars/Live2D_Cubism.jar": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+    "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "${USER_HOME}/.proton/pfx/drive_c/Program Files/Live2D Cubism 5.3.03/app/lib/Live2D_Cubism.jar": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/verify-native-mesh-edge-loop.py": "653bda39e4d6b6144c77ce15c69af0c1707c5d83a0056b69d3f2c25e54c37c97",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/NativeMeshEdgeLoopPrototype.java": "bc5012c422978660af40404f59aae370f2e8ebc89b40a82ff0567962617671ab",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/NativeMeshEdgeLoopSelfCheck.java": "022ebc2f62aed6eb8a9ca228aa44015f6c7fad0743b9c1ae135e4b2a7f01e9bd",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/validation/triangulation-tlindex/diagnostic/NativeMeshAutoConnectSelfCheck.java": "6bc2a9b213cc7af55d721ca11420f37c6d3693d511d154a2e1f11796d00c7134",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm/9.7.1/f0ed132a49244b042cd0e15702ab9f2ce3cc8436/asm-9.7.1.jar": "8cadd43ac5eb6d09de05faecca38b917a040bb9139c7edeb4cc81c740b713281",
+    "${USER_HOME}/.gradle/caches/modules-2/files-2.1/org.ow2.asm/asm-tree/9.7.1/3a53139787663b139de76b627fca0084ab60d32c/asm-tree-9.7.1.jar": "9929881f59eb6b840e86d54570c77b59ce721d104e6dfd7a40978991c2d3b41f",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/compile.process.json": "08c505b4d23a88ee3fccafaf8c8159921feddd4c1872a869e70492e06fdb6456",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/execution.log": "5a66f7a9d97182b62e36a517989f13ae82665bb2a7b4361c229e656320b04303",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/execution.process.json": "a61f0a46736c686228956352fb0fddf88cf06bcc9614ae8c751444076afd2b8b",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopPrototype$1.class": "efefc73505571d0cbc616c09944d8233a953b38830e6177efef91361f459b646",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopPrototype.class": "a14a9ff7e13d67904e435c20431ec3ed7908adf39fde9a39b155f9afcf999bcc",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopSelfCheck$Control$Lease.class": "376818ebb76358e996ddd515ef88139368c6b347168627f2d0cf19157db5eb4e",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopSelfCheck$Control.class": "5694927dfcf910ed626f96cc7e6c504c4406b8eadd41bf4b9cf96b2ba4d77053",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopSelfCheck$Loader.class": "d4342f9a46c9c0efe7c553e788b3abf5fa88900e11c3eccb095389e18827f440",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopSelfCheck$Result.class": "fa373f9fdf6a7bba462989f85189516c63f081b0987d4b6b1259bffffa33edc3",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshEdgeLoopSelfCheck.class": "4ddd53e5289619f0ec0612c91cecef0e7674fe0554e891924fcf375eaf31cb5a",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshAutoConnectSelfCheck$Result.class": "8de77bfe07b16d02e0a048125ccdecd2f724d2976ce218ada04c1d1ba1df98ea",
+    "${USER_HOME}/.paseo/worktrees/2eily868/sordid-moth/build/t081-native-complete-autoconnect-r1/native-complete-r2/classes/NativeMeshAutoConnectSelfCheck.class": "8078f73e4d22f1bc1c4acd84ca9ed30fcc4bed78a308826d3682ca55149bcddc"
+  },
+  "limitations": [
+    "Runtime definition/dependency/loader admission and final-loop mutation/callback closure remain open.",
+    "Same-size external edits during an active lease remain unsupported.",
+    "The owned boxed/reflective helper is not the production Agent and has no host gain or retention evidence.",
+    "Production T057 composition and all-version/long-run/Lane C host acceptance remain open."
+  ]
+}

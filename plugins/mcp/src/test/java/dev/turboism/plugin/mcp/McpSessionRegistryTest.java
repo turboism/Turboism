@@ -1,24 +1,21 @@
 package dev.turboism.plugin.mcp;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class McpSessionRegistryTest {
 
     @Test
     void expiresInactiveSessionsAndExtendsActiveOnes() {
         final MutableClock clock = new MutableClock(Instant.parse("2026-08-25T00:00:00Z"));
-        final McpSessionRegistry registry = new McpSessionRegistry(
-            Duration.ofSeconds(10), clock
-        );
+        final McpSessionRegistry registry = new McpSessionRegistry(Duration.ofSeconds(10), clock);
         final McpSessionRegistry.Session session = registry.create(McpProtocol.VERSION);
 
         clock.advance(Duration.ofSeconds(9));
@@ -35,9 +32,7 @@ final class McpSessionRegistryTest {
     void reportsEachExpiredSessionOnce() {
         final MutableClock clock = new MutableClock(Instant.parse("2026-08-25T00:00:00Z"));
         final java.util.ArrayList<String> expired = new java.util.ArrayList<>();
-        final McpSessionRegistry registry = new McpSessionRegistry(
-            Duration.ofSeconds(10), clock, expired::add
-        );
+        final McpSessionRegistry registry = new McpSessionRegistry(Duration.ofSeconds(10), clock, expired::add);
         final McpSessionRegistry.Session first = registry.create(McpProtocol.VERSION);
         final McpSessionRegistry.Session second = registry.create(McpProtocol.VERSION);
 
@@ -59,15 +54,18 @@ final class McpSessionRegistryTest {
             instant = instant.plus(duration);
         }
 
-        @Override public ZoneId getZone() {
+        @Override
+        public ZoneId getZone() {
             return ZoneId.of("UTC");
         }
 
-        @Override public Clock withZone(final ZoneId zone) {
+        @Override
+        public Clock withZone(final ZoneId zone) {
             return this;
         }
 
-        @Override public Instant instant() {
+        @Override
+        public Instant instant() {
             return instant;
         }
     }

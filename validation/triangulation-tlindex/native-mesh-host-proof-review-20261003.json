@@ -1,0 +1,96 @@
+{
+  "status": "FAIL_FROZEN_NATIVE_PATH_PROOF",
+  "jobId": "fec023b8-15dc-4b3f-a374-b5ac80d3e049",
+  "sequence": 2624,
+  "reasons": [
+    "required native admission log absent",
+    "table find not sampled in each of three cycles"
+  ],
+  "standardGates": {
+    "validationStatus": "PASS",
+    "cleanup": "safe",
+    "normalExit": true,
+    "identityVerified": true,
+    "fixtureUnchanged": true
+  },
+  "postFailureAnalysis": {
+    "invocationWindows": [
+      {
+        "cycle": 1,
+        "startEpochMillis": 1791033955873.4739,
+        "endEpochMillis": 1791033970333.3894,
+        "javaThreadId": 29,
+        "javaThreadName": "AWT-EventQueue-0",
+        "durationSeconds": "14.459915416"
+      },
+      {
+        "cycle": 2,
+        "startEpochMillis": 1791034002790.108,
+        "endEpochMillis": 1791034013901.0815,
+        "javaThreadId": 29,
+        "javaThreadName": "AWT-EventQueue-0",
+        "durationSeconds": "11.110973681"
+      },
+      {
+        "cycle": 3,
+        "startEpochMillis": 1791034046439.9731,
+        "endEpochMillis": 1791034058768.6404,
+        "javaThreadId": 29,
+        "javaThreadName": "AWT-EventQueue-0",
+        "durationSeconds": "12.328667127"
+      }
+    ],
+    "tableFindSamplesByCycle": {
+      "1": 0,
+      "2": 1,
+      "3": 0
+    },
+    "matchedSamples": [
+      {
+        "cycle": 2,
+        "time": "2026-10-03T21:26:52.156058725+08:00",
+        "frames": [
+          [
+            "dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable",
+            "position"
+          ],
+          [
+            "dev.turboism.adapter.cubism.mesh.NativeMeshEdgeTable",
+            "find"
+          ],
+          [
+            "dev.turboism.adapter.cubism.mesh.NativeMeshEdgeLookup",
+            "find"
+          ],
+          [
+            "com.live2d.graphics3d.editableMesh.GEditableMesh2",
+            "checkExitingTypedEdge"
+          ],
+          [
+            "com.live2d.graphics3d.editableMesh.GEditableMesh2",
+            "addEdge"
+          ]
+        ]
+      }
+    ],
+    "outputRows": 2133,
+    "referenceMismatchCountByField": {
+      "cycle": 0,
+      "sourceIdBase64": 0,
+      "pointCount": 0,
+      "positionValues": 0,
+      "indexValues": 0,
+      "positionsSha256": 0,
+      "indicesSha256": 0
+    }
+  },
+  "performanceAcceptance": "NOT_GRANTED",
+  "retryPerformed": false,
+  "evidencePins": {
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/failure-review.json": "fe1cbdc35a46d1ec4244276d6ed23747bde102a2c9907a953ed03fce1acf0690",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/post-failure-review.json": "617896696c65337d9b367a428b33029b37ac792f14ca457bc5850ed42420deed",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/post-failure-evidence/pins.json": "bdc3512a1b9539b54ddd9ad2d57bbeff5df10ad5bd3b31871341813a9dc42419",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/run.json": "71cc33474c41057ca1add3b2456024dd3e801917a168dc4a022d12d30d477626",
+    "build/t086-native-mesh-host-proof-r1/native5303-index-proof-r1/outcome.json": "aa88856660f3ed3646448211467ed0cd73de401809665b4aa50ede987f5f3c8b"
+  }
+}

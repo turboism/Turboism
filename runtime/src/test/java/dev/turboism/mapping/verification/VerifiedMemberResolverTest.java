@@ -1,32 +1,89 @@
 package dev.turboism.mapping.verification;
 
-import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
-import dev.turboism.mapping.verification.fixture.PackagePrivateMethodHost;
-import org.junit.jupiter.api.Test;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicReference;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.mapping.verification.fixture.PackagePrivateConstructorHost;
+import dev.turboism.mapping.verification.fixture.PackagePrivateMethodHost;
+import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.Test;
+
 class VerifiedMemberResolverTest {
+    @Test
+    void resolvesTheDescriptorExactOverloadWhenReturnTypesDiffer() {
+        // Real Cubism 5.2.03 ToolMode_MeshEdit_Manual declares two zero-argument getToolPanel()
+        // contracts that differ only in return type: the covariant method and the compiler bridge
+        // that preserves the supertype contract. Name plus parameter types are therefore not a
+        // complete identity, and resolution must select by the full descriptor.
+        final String owner = internalName(SyntheticCovariantHost.class);
+        final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
+                plan(
+                        StaticSelector.method(
+                                "fixture.overload.panel",
+                                owner,
+                                "getToolPanel",
+                                "()Ldev/turboism/mapping/verification/VerifiedMemberResolverTest$SyntheticToolPanel;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.overload.widget",
+                                owner,
+                                "getToolPanel",
+                                "()Ldev/turboism/mapping/verification/VerifiedMemberResolverTest$SyntheticWidget;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                SyntheticCovariantHost.class.getClassLoader());
+        final SyntheticCovariantHost target = new SyntheticCovariantHost();
+        final SyntheticToolPanel panel = SyntheticCovariantHost.PANEL;
+
+        assertSame(panel, resolver.invoke("fixture.overload.panel", target));
+        assertSame(panel, resolver.invoke("fixture.overload.widget", target));
+        assertSame(panel, resolver.bind("fixture.overload.panel").invoke(target));
+        assertSame(panel, resolver.bind("fixture.overload.widget").invoke(target));
+
+        final VerifiedMemberResolver unsatisfiable = new VerifiedMemberResolver(
+                plan(StaticSelector.method(
+                        "fixture.overload.missing", owner, "getToolPanel", "()I", StaticSelector.ACCESS_PUBLIC)),
+                SyntheticCovariantHost.class.getClassLoader());
+        assertThrows(VerifiedAccessException.class, () -> unsatisfiable.invoke("fixture.overload.missing", target));
+        assertThrows(VerifiedAccessException.class, () -> unsatisfiable.bind("fixture.overload.missing"));
+    }
+
+    /** Supertype contract that the covariant override must keep satisfying. */
+    public interface SyntheticWidget {}
+
+    /** Covariant return type of the overriding method. */
+    public static final class SyntheticToolPanel implements SyntheticWidget {}
+
+    /** Supertype declaration that forces the compiler to emit a bridge method. */
+    public interface SyntheticWidgetSource {
+        SyntheticWidget getToolPanel();
+    }
+
+    /** Host whose zero-argument method exists twice at runtime with different return types. */
+    public static final class SyntheticCovariantHost implements SyntheticWidgetSource {
+        static final SyntheticToolPanel PANEL = new SyntheticToolPanel();
+
+        @Override
+        public SyntheticToolPanel getToolPanel() {
+            return PANEL;
+        }
+    }
 
     @Test
     void failedRuntimeDependencyDisablesOnlyCapabilitiesThatRequireIt() {
         final var capabilities = java.util.Set.of("fixture.read", "fixture.write");
-        final var conditions = java.util.Map.of(
-            "fixture.read", List.of("structure"), "fixture.write", List.of("hook:fixture-hook"));
+        final var conditions =
+                java.util.Map.of("fixture.read", List.of("structure"), "fixture.write", List.of("hook:fixture-hook"));
         final var selectors = List.of(StaticSelector.classSelector("fixture.class", internalName(SyntheticHost.class)));
         final var loader = SyntheticHost.class.getClassLoader();
         for (final var resolver : List.of(
-            TestVerifiedResolvers.create("5.3.02", "fixture", capabilities, conditions, selectors, loader),
-            TestVerifiedResolvers.createCompatible("5.3.02", "5.3.99", "fixture",
-                capabilities, conditions, selectors, loader)
-        )) {
+                TestVerifiedResolvers.create("5.3.02", "fixture", capabilities, conditions, selectors, loader),
+                TestVerifiedResolvers.createCompatible(
+                        "5.3.02", "5.3.99", "fixture", capabilities, conditions, selectors, loader))) {
             assertTrue(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
             resolver.deferCapabilitiesRequiringHook("fixture-hook");
             assertFalse(resolver.authorizesFeature("fixture", "fixture.write", java.util.Set.of("fixture.class")));
@@ -43,7 +100,9 @@ class VerifiedMemberResolverTest {
             assertFalse(resolver.authorizes("fixture", capabilities, java.util.Set.of("fixture.class")));
             assertEquals(java.util.Set.of("fixture.write"), resolver.disabledCapabilities());
             assertEquals(java.util.Set.of(), resolver.disableCapabilitiesRequiringHook("another-hook"));
-            assertThrows(UnsupportedOperationException.class, () -> resolver.disabledCapabilities().clear());
+            assertThrows(
+                    UnsupportedOperationException.class,
+                    () -> resolver.disabledCapabilities().clear());
         }
     }
 
@@ -51,12 +110,7 @@ class VerifiedMemberResolverTest {
     void exposesOnlyTheAttestedDefiningClassloader() {
         ClassLoader loader = SyntheticHost.class.getClassLoader();
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.classSelector(
-                "fixture.host-class",
-                internalName(SyntheticHost.class)
-            )),
-            loader
-        );
+                plan(StaticSelector.classSelector("fixture.host-class", internalName(SyntheticHost.class))), loader);
 
         assertEquals(loader, resolver.hostClassLoader());
     }
@@ -64,24 +118,20 @@ class VerifiedMemberResolverTest {
     @Test
     void invokesOnlyExactVerifiedStaticAndInstanceMethods() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(
-                StaticSelector.staticMethod(
-                    "fixture.static-value",
-                    internalName(SyntheticHost.class),
-                    "staticValue",
-                    "()Ljava/lang/String;",
-                    StaticSelector.ACCESS_PUBLIC
-                ),
-                StaticSelector.method(
-                    "fixture.instance-value",
-                    internalName(SyntheticHost.class),
-                    "instanceValue",
-                    "()Ljava/lang/String;",
-                    StaticSelector.ACCESS_PUBLIC
-                )
-            ),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(
+                        StaticSelector.staticMethod(
+                                "fixture.static-value",
+                                internalName(SyntheticHost.class),
+                                "staticValue",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.method(
+                                "fixture.instance-value",
+                                internalName(SyntheticHost.class),
+                                "instanceValue",
+                                "()Ljava/lang/String;",
+                                StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
 
         assertEquals("static", resolver.invokeStatic("fixture.static-value"));
         assertEquals("instance", resolver.invoke("fixture.instance-value", new SyntheticHost()));
@@ -97,9 +147,14 @@ class VerifiedMemberResolverTest {
         final var allocations = (com.sun.management.ThreadMXBean) bean;
         org.junit.jupiter.api.Assumptions.assumeTrue(allocations.isThreadAllocatedMemorySupported());
         allocations.setThreadAllocatedMemoryEnabled(true);
-        final var resolver = new VerifiedMemberResolver(plan(StaticSelector.method(
-            "fixture.instance-value", internalName(SyntheticHost.class), "instanceValue",
-            "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)), SyntheticHost.class.getClassLoader());
+        final var resolver = new VerifiedMemberResolver(
+                plan(StaticSelector.method(
+                        "fixture.instance-value",
+                        internalName(SyntheticHost.class),
+                        "instanceValue",
+                        "()Ljava/lang/String;",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
         final var target = new SyntheticHost();
         for (int i = 0; i < 10000; i++) allocationSink = resolver.invoke("fixture.instance-value", target);
         final long thread = Thread.currentThread().getId();
@@ -117,54 +172,40 @@ class VerifiedMemberResolverTest {
     @Test
     void invokesExactVerifiedPublicMethodsDeclaredByPackagePrivateHostTypes() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.method(
-                "fixture.package-private-owner-method",
-                internalName(PackagePrivateMethodHost.type()),
-                "value",
-                "()Ljava/lang/String;",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.method(
+                        "fixture.package-private-owner-method",
+                        internalName(PackagePrivateMethodHost.type()),
+                        "value",
+                        "()Ljava/lang/String;",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
 
         assertEquals(
-            "package-private-owner",
-            resolver.invoke("fixture.package-private-owner-method", PackagePrivateMethodHost.create())
-        );
+                "package-private-owner",
+                resolver.invoke("fixture.package-private-owner-method", PackagePrivateMethodHost.create()));
     }
 
     @Test
     void readsOnlyExactVerifiedPublicStaticFields() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.field(
-                "fixture.static-field",
-                internalName(SyntheticHost.class),
-                "STATIC_VALUE",
-                "Ljava/lang/String;",
-                StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.field(
+                        "fixture.static-field",
+                        internalName(SyntheticHost.class),
+                        "STATIC_VALUE",
+                        "Ljava/lang/String;",
+                        StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC)),
+                SyntheticHost.class.getClassLoader());
 
         assertEquals("field", resolver.readStaticField("fixture.static-field"));
-        assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.readStaticField("fixture.unverified")
-        );
+        assertThrows(VerifiedAccessException.class, () -> resolver.readStaticField("fixture.unverified"));
     }
 
     @Test
     void readsOnlyExactVerifiedPrivateInstanceFields() {
         final VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.field(
-                "fixture.instance-field",
-                internalName(SyntheticHost.class),
-                "value",
-                "Ljava/lang/String;",
-                0
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.field(
+                        "fixture.instance-field", internalName(SyntheticHost.class), "value", "Ljava/lang/String;", 0)),
+                SyntheticHost.class.getClassLoader());
 
         assertEquals("instance", resolver.readField("fixture.instance-field", new SyntheticHost()));
         assertThrows(VerifiedAccessException.class, () -> resolver.readField("fixture.instance-field", new Object()));
@@ -173,14 +214,12 @@ class VerifiedMemberResolverTest {
     @Test
     void constructsOnlyExactVerifiedConstructors() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.constructor(
-                "fixture.constructor",
-                internalName(SyntheticHost.class),
-                "(Ljava/lang/String;)V",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.constructor(
+                        "fixture.constructor",
+                        internalName(SyntheticHost.class),
+                        "(Ljava/lang/String;)V",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
 
         SyntheticHost host = (SyntheticHost) resolver.construct("fixture.constructor", "constructed");
 
@@ -191,19 +230,15 @@ class VerifiedMemberResolverTest {
     @Test
     void constructsExactVerifiedPackagePrivateHostConstructors() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.constructor(
-                "fixture.package-private-constructor",
-                internalName(PackagePrivateConstructorHost.class),
-                "(Ljava/lang/String;)V",
-                0
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.constructor(
+                        "fixture.package-private-constructor",
+                        internalName(PackagePrivateConstructorHost.class),
+                        "(Ljava/lang/String;)V",
+                        0)),
+                SyntheticHost.class.getClassLoader());
 
-        PackagePrivateConstructorHost host = (PackagePrivateConstructorHost) resolver.construct(
-            "fixture.package-private-constructor",
-            "constructed"
-        );
+        PackagePrivateConstructorHost host = (PackagePrivateConstructorHost)
+                resolver.construct("fixture.package-private-constructor", "constructed");
 
         assertEquals("constructed", host.value());
     }
@@ -211,236 +246,226 @@ class VerifiedMemberResolverTest {
     @Test
     void doesNotOpenUnverifiedPrivateHostConstructors() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.constructor(
-                "fixture.private-constructor",
-                internalName(PrivateConstructorHost.class),
-                "()V",
-                0
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.constructor(
+                        "fixture.private-constructor", internalName(PrivateConstructorHost.class), "()V", 0)),
+                SyntheticHost.class.getClassLoader());
 
-        assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.construct("fixture.private-constructor")
-        );
+        assertThrows(VerifiedAccessException.class, () -> resolver.construct("fixture.private-constructor"));
     }
 
     @Test
     void createsOnlyExactVerifiedSingleAbstractMethodHostProxies() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(
-                StaticSelector.classSelector(
-                    "fixture.callback",
-                    internalName(SyntheticCallback.class)
-                ),
-                StaticSelector.classSelector(
-                    "fixture.not-interface",
-                    internalName(SyntheticHost.class)
-                ),
-                StaticSelector.classSelector(
-                    "fixture.not-sam",
-                    internalName(NotSingleAbstractMethod.class)
-                )
-            ),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(
+                        StaticSelector.classSelector("fixture.callback", internalName(SyntheticCallback.class)),
+                        StaticSelector.classSelector("fixture.not-interface", internalName(SyntheticHost.class)),
+                        StaticSelector.classSelector("fixture.not-sam", internalName(NotSingleAbstractMethod.class))),
+                SyntheticHost.class.getClassLoader());
         AtomicReference<Object> argument = new AtomicReference<>();
 
-        SyntheticCallback callback = (SyntheticCallback) resolver.createFunctionalProxy(
-            "fixture.callback",
-            value -> {
-                argument.set(value);
-                return "handled";
-            }
-        );
+        SyntheticCallback callback = (SyntheticCallback) resolver.createFunctionalProxy("fixture.callback", value -> {
+            argument.set(value);
+            return "handled";
+        });
 
         assertEquals("handled", callback.apply("event"));
         assertEquals("event", argument.get());
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalProxy("fixture.not-interface", ignored -> null)
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalProxy("fixture.not-interface", ignored -> null));
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalProxy("fixture.not-sam", ignored -> null)
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalProxy("fixture.not-sam", ignored -> null));
     }
 
     @Test
     void createsCallbackProxyOnlyFromAnExactVerifiedMethodParameter() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.staticMethod(
-                "fixture.callback-consumer",
-                internalName(SyntheticHost.class),
-                "callCallback",
-                "(L" + internalName(SyntheticZeroCallback.class) + ";)Ljava/lang/Object;",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.staticMethod(
+                        "fixture.callback-consumer",
+                        internalName(SyntheticHost.class),
+                        "callCallback",
+                        "(L" + internalName(SyntheticZeroCallback.class) + ";)Ljava/lang/Object;",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
         AtomicReference<Object> argument = new AtomicReference<>("not-called");
 
         SyntheticZeroCallback callback = (SyntheticZeroCallback)
-            resolver.createFunctionalArgumentProxy(
-                "fixture.callback-consumer",
-                0,
-                value -> {
+                resolver.createFunctionalArgumentProxy("fixture.callback-consumer", 0, value -> {
                     argument.set(value);
                     return "handled";
-                }
-            );
+                });
 
         assertEquals("handled", SyntheticHost.callCallback(callback));
         assertEquals(null, argument.get());
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalArgumentProxy(
-                "fixture.callback-consumer",
-                1,
-                ignored -> null
-            )
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalArgumentProxy("fixture.callback-consumer", 1, ignored -> null));
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalArgumentProxy(
-                "fixture.unverified",
-                0,
-                ignored -> null
-            )
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalArgumentProxy("fixture.unverified", 0, ignored -> null));
     }
 
     @Test
     void createsCallbackProxyOnlyFromAnExactVerifiedConstructorParameter() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.constructor(
-                "fixture.callback-constructor",
-                internalName(SyntheticConstructorConsumer.class),
-                "(L" + internalName(SyntheticZeroCallback.class) + ";)V",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.constructor(
+                        "fixture.callback-constructor",
+                        internalName(SyntheticConstructorConsumer.class),
+                        "(L" + internalName(SyntheticZeroCallback.class) + ";)V",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
         AtomicReference<Object> argument = new AtomicReference<>("not-called");
 
         SyntheticZeroCallback callback = (SyntheticZeroCallback)
-            resolver.createFunctionalConstructorArgumentProxy(
-                "fixture.callback-constructor",
-                0,
-                value -> {
+                resolver.createFunctionalConstructorArgumentProxy("fixture.callback-constructor", 0, value -> {
                     argument.set(value);
                     return "handled";
-                }
-            );
-        SyntheticConstructorConsumer consumer = (SyntheticConstructorConsumer) resolver.construct(
-            "fixture.callback-constructor",
-            callback
-        );
+                });
+        SyntheticConstructorConsumer consumer =
+                (SyntheticConstructorConsumer) resolver.construct("fixture.callback-constructor", callback);
 
         assertEquals("handled", consumer.invoke());
         assertEquals(null, argument.get());
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalConstructorArgumentProxy(
-                "fixture.callback-constructor",
-                1,
-                ignored -> null
-            )
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalConstructorArgumentProxy(
+                        "fixture.callback-constructor", 1, ignored -> null));
         assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.createFunctionalConstructorArgumentProxy(
-                "fixture.unverified",
-                0,
-                ignored -> null
-            )
-        );
+                VerifiedAccessException.class,
+                () -> resolver.createFunctionalConstructorArgumentProxy("fixture.unverified", 0, ignored -> null));
     }
 
     @Test
     void checksInstancesOnlyAgainstExactVerifiedClassAliases() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.classSelector(
-                "fixture.host-class",
-                internalName(SyntheticHost.class)
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.classSelector("fixture.host-class", internalName(SyntheticHost.class))),
+                SyntheticHost.class.getClassLoader());
 
         assertTrue(resolver.isInstance("fixture.host-class", new SyntheticHost()));
         assertFalse(resolver.isInstance("fixture.host-class", new Object()));
         assertFalse(resolver.isInstance("fixture.host-class", null));
-        assertThrows(VerifiedAccessException.class, () -> resolver.isInstance("fixture.unverified", new SyntheticHost()));
+        assertThrows(
+                VerifiedAccessException.class, () -> resolver.isInstance("fixture.unverified", new SyntheticHost()));
     }
 
     @Test
     void rejectsMethodAliasForInstanceCheck() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.method(
-                "fixture.instance-value",
-                internalName(SyntheticHost.class),
-                "instanceValue",
-                "()Ljava/lang/String;",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.method(
+                        "fixture.instance-value",
+                        internalName(SyntheticHost.class),
+                        "instanceValue",
+                        "()Ljava/lang/String;",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
 
-        assertThrows(VerifiedAccessException.class, () -> resolver.isInstance("fixture.instance-value", new SyntheticHost()));
+        assertThrows(
+                VerifiedAccessException.class,
+                () -> resolver.isInstance("fixture.instance-value", new SyntheticHost()));
     }
 
     @Test
     void sanitizesHostExceptions() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(
-            plan(StaticSelector.method(
-                "fixture.failure",
-                internalName(SyntheticHost.class),
-                "fail",
-                "()Ljava/lang/String;",
-                StaticSelector.ACCESS_PUBLIC
-            )),
-            SyntheticHost.class.getClassLoader()
-        );
+                plan(StaticSelector.method(
+                        "fixture.failure",
+                        internalName(SyntheticHost.class),
+                        "fail",
+                        "()Ljava/lang/String;",
+                        StaticSelector.ACCESS_PUBLIC)),
+                SyntheticHost.class.getClassLoader());
 
         VerifiedAccessException failure = assertThrows(
-            VerifiedAccessException.class,
-            () -> resolver.invoke("fixture.failure", new SyntheticHost())
-        );
+                VerifiedAccessException.class, () -> resolver.invoke("fixture.failure", new SyntheticHost()));
 
         assertEquals("fixture.failure", failure.alias());
         assertFalse(failure.getMessage().contains("private-host-detail"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.ILLEGAL_STATE, failure.hostFailureCategory());
+        assertEquals(null, failure.getCause());
+    }
+
+    @Test
+    void preservesOnlyBoundedFailureCategoriesFromMethodAndConstructor() {
+        final var resolver = new VerifiedMemberResolver(
+                plan(
+                        StaticSelector.method(
+                                "fixture.nested-failure",
+                                internalName(FailingHost.class),
+                                "fail",
+                                "()V",
+                                StaticSelector.ACCESS_PUBLIC),
+                        StaticSelector.constructor(
+                                "fixture.failed-constructor",
+                                internalName(FailingHost.class),
+                                "(Ljava/lang/String;)V",
+                                StaticSelector.ACCESS_PUBLIC)),
+                FailingHost.class.getClassLoader());
+        final var methodFailure = assertThrows(
+                VerifiedAccessException.class, () -> resolver.invoke("fixture.nested-failure", new FailingHost()));
+        final var constructorFailure = assertThrows(
+                VerifiedAccessException.class,
+                () -> resolver.construct("fixture.failed-constructor", "private-host-detail"));
+        assertEquals(VerifiedAccessException.HostFailureCategory.OUT_OF_MEMORY, methodFailure.hostFailureCategory());
+        assertEquals(VerifiedAccessException.HostFailureCategory.IO, constructorFailure.hostFailureCategory());
+        for (final var failure : List.of(methodFailure, constructorFailure)) {
+            assertEquals(null, failure.getCause());
+            assertEquals(0, failure.getSuppressed().length);
+            assertFalse(failure.toString().contains("private-host-detail"));
+            assertFalse(failure.toString().contains(FailingHost.class.getName()));
+        }
+    }
+
+    @Test
+    void unknownCyclicAndOverlongCausesRemainUnknown() {
+        final var cycle = new RuntimeException("private-host-detail");
+        final var nested = new IllegalStateException(cycle);
+        cycle.initCause(nested);
+        Throwable overlong = new OutOfMemoryError("private-host-detail");
+        for (int i = 0; i < 20; i++) overlong = new IllegalStateException(overlong);
+        for (final var cause : List.of(cycle, overlong, new AssertionError("private-host-detail"))) {
+            final var failure = VerifiedAccessException.invocationFailure("fixture.failure", "safe", cause);
+            assertEquals(VerifiedAccessException.HostFailureCategory.UNKNOWN, failure.hostFailureCategory());
+            assertEquals(null, failure.getCause());
+        }
+    }
+
+    public static final class FailingHost {
+        public FailingHost() {}
+
+        public FailingHost(final String detail) {
+            throw new IllegalStateException(new java.io.IOException(detail));
+        }
+
+        public void fail() {
+            throw new IllegalStateException(new OutOfMemoryError("private-host-detail"));
+        }
     }
 
     private static VerifiedAccessPlan plan(final StaticSelector... selectors) {
         HostArtifactFingerprint fingerprint = new HostArtifactFingerprint("5.3.02", 1, "a".repeat(64));
         StaticVerificationRecord record = new StaticVerificationRecord(
-            "fixture.static",
-            "adapter.project-workspace.readonly",
-            List.of("cubism.project.read"),
-            java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
-            "5.3.02",
-            "cubism-5.3.02",
-            fingerprint,
-            "docs/migration/verification/static/fixture.json",
-            "runtime-adapter",
-            "test",
-            Instant.parse("2026-07-10T00:00:00Z"),
-            "Fail closed.",
-            List.of(selectors)
-        );
+                "fixture.static",
+                "adapter.project-workspace.readonly",
+                List.of("cubism.project.read"),
+                java.util.Map.of("cubism.project.read", java.util.List.of("structure")),
+                "5.3.02",
+                "cubism-5.3.02",
+                fingerprint,
+                "docs/migration/verification/static/fixture.json",
+                "runtime-adapter",
+                "test",
+                Instant.parse("2026-07-10T00:00:00Z"),
+                "Fail closed.",
+                List.of(selectors));
         StaticVerificationReport report = new StaticVerificationReport(
-            fingerprint,
-            fingerprint,
-            true,
-            List.of(selectors).stream()
-                .map(selector -> new StaticSelectorResult(
-                    selector,
-                    StaticVerificationStatus.VERIFIED_STATIC,
-                    "verified"
-                ))
-                .toList()
-        );
+                fingerprint,
+                fingerprint,
+                true,
+                List.of(selectors).stream()
+                        .map(selector -> new StaticSelectorResult(
+                                selector, StaticVerificationStatus.VERIFIED_STATIC, "verified"))
+                        .toList());
         return VerifiedAccessPlan.from(record, report);
     }
 
@@ -458,11 +483,12 @@ class VerifiedMemberResolverTest {
 
     public interface NotSingleAbstractMethod {
         Object first(Object value);
+
         Object second(Object value);
     }
 
     public static final class PrivateConstructorHost {
-        private PrivateConstructorHost() { }
+        private PrivateConstructorHost() {}
     }
 
     public static final class SyntheticConstructorConsumer {

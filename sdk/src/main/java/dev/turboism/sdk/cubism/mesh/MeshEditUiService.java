@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.function.Consumer;
 
@@ -19,7 +18,8 @@ public interface MeshEditUiService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -38,30 +38,27 @@ public interface MeshEditUiService {
     enum Unavailable implements MeshEditUiService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contributeMirrorAxisAngleControl(
-            final MirrorAxisAngleControl contribution
-        ) {
+        @Override
+        public Registration contributeMirrorAxisAngleControl(final MirrorAxisAngleControl contribution) {
             Objects.requireNonNull(contribution, "contribution");
-            throw new UnsupportedOperationException(
-                "meshEditUi service is not available");
+            throw new UnsupportedOperationException("meshEditUi service is not available");
         }
     }
 
-
     /** Definition of one contributed mirror-axis angle control; degrees bound the range. */
     record MirrorAxisAngleControl(
-        String contributionId,
-        String label,
-        String resetToolTip,
-        float minimumDegrees,
-        float maximumDegrees,
-        float stepDegrees,
-        Consumer<Float> onAngleChanged
-    ) {
+            String contributionId,
+            String label,
+            String resetToolTip,
+            float minimumDegrees,
+            float maximumDegrees,
+            float stepDegrees,
+            Consumer<Float> onAngleChanged) {
         public MirrorAxisAngleControl {
             if (contributionId == null || contributionId.isBlank()) {
                 throw new IllegalArgumentException("contributionId must not be blank");
@@ -70,9 +67,11 @@ public interface MeshEditUiService {
                 throw new IllegalArgumentException("label must not be blank");
             }
             resetToolTip = resetToolTip == null ? "" : resetToolTip;
-            if (!Float.isFinite(minimumDegrees) || !Float.isFinite(maximumDegrees)
-                || !Float.isFinite(stepDegrees) || minimumDegrees >= maximumDegrees
-                || stepDegrees <= 0.0f) {
+            if (!Float.isFinite(minimumDegrees)
+                    || !Float.isFinite(maximumDegrees)
+                    || !Float.isFinite(stepDegrees)
+                    || minimumDegrees >= maximumDegrees
+                    || stepDegrees <= 0.0f) {
                 throw new IllegalArgumentException("mirror-axis angle range is invalid");
             }
             onAngleChanged = Objects.requireNonNull(onAngleChanged, "onAngleChanged");

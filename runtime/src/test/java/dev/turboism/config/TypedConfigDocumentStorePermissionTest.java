@@ -1,8 +1,9 @@
 package dev.turboism.config;
 
-import org.junit.jupiter.api.Assumptions;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -18,11 +19,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Focused regression for the owner-only typed-config persistence invariant.
@@ -41,10 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class TypedConfigDocumentStorePermissionTest {
 
-    private static final Set<PosixFilePermission> FILE_OWNER_ONLY =
-        PosixFilePermissions.fromString("rw-------");
-    private static final Set<PosixFilePermission> DIR_OWNER_ONLY =
-        PosixFilePermissions.fromString("rwx------");
+    private static final Set<PosixFilePermission> FILE_OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
+    private static final Set<PosixFilePermission> DIR_OWNER_ONLY = PosixFilePermissions.fromString("rwx------");
 
     @TempDir
     Path temporary;
@@ -52,11 +49,9 @@ class TypedConfigDocumentStorePermissionTest {
     /** Skips a POSIX-only test when the file system exposes no POSIX attribute view. */
     private static void assumePosixAvailable(final Path path) {
         Assumptions.assumeTrue(
-            Files.getFileAttributeView(path, PosixFileAttributeView.class) != null,
-            "POSIX attribute view is unavailable; skipping POSIX-only assertion"
-        );
+                Files.getFileAttributeView(path, PosixFileAttributeView.class) != null,
+                "POSIX attribute view is unavailable; skipping POSIX-only assertion");
     }
-
 
     @Test
     void absentRootReadStillRejectsTraversalWithoutMaterializingAnything() throws Exception {
@@ -78,10 +73,7 @@ class TypedConfigDocumentStorePermissionTest {
         Files.move(config, temporary.resolve("original-config"));
         Files.createSymbolicLink(config, outside);
 
-        assertThrows(
-            java.io.IOException.class,
-            () -> store.writeAtomic("settings.cfg", document("line=value"))
-        );
+        assertThrows(java.io.IOException.class, () -> store.writeAtomic("settings.cfg", document("line=value")));
         assertFalse(Files.exists(outside.resolve("settings.cfg")));
     }
 
@@ -121,8 +113,7 @@ class TypedConfigDocumentStorePermissionTest {
 
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
 
-        final Optional<TypedConfigDocumentStore.StoredDocument> stored =
-            store.read("plugin/webdav.cfg");
+        final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
 
         assertTrue(stored.isPresent(), "existing config must remain readable after tightening");
         assertEquals("secret", stored.orElseThrow().encodedValues().get("password"));
@@ -147,8 +138,9 @@ class TypedConfigDocumentStorePermissionTest {
         store.writeAtomic("plugin/webdav.cfg", document("new=2"));
 
         assertEquals(FILE_OWNER_ONLY, Files.getPosixFilePermissions(existing));
-        assertTrue(Files.readString(existing).contains("bmV3:Mg"),
-            "replacement must have atomically replaced the file content");
+        assertTrue(
+                Files.readString(existing).contains("bmV3:Mg"),
+                "replacement must have atomically replaced the file content");
         final Optional<TypedConfigDocumentStore.StoredDocument> stored = store.read("plugin/webdav.cfg");
         assertEquals("2", stored.orElseThrow().encodedValues().get("new"));
     }
@@ -174,13 +166,11 @@ class TypedConfigDocumentStorePermissionTest {
         assertEquals(FILE_OWNER_ONLY, Files.getPosixFilePermissions(invalid));
     }
 
-
-
     @Test
     void aclOwnerEntryRetainsTheWindowsSynchronizePermission() {
-        assertTrue(TypedConfigDocumentStore.ownerOnlyEntry(
-            () -> "owner", false
-        ).permissions().contains(AclEntryPermission.SYNCHRONIZE));
+        assertTrue(TypedConfigDocumentStore.ownerOnlyEntry(() -> "owner", false)
+                .permissions()
+                .contains(AclEntryPermission.SYNCHRONIZE));
     }
 
     @Test
@@ -195,8 +185,7 @@ class TypedConfigDocumentStorePermissionTest {
             } catch (java.io.IOException expected) {
                 failed = true;
             }
-            assertTrue(failed,
-                "a file system exposing neither POSIX nor ACL controls must fail closed");
+            assertTrue(failed, "a file system exposing neither POSIX nor ACL controls must fail closed");
             assertTrue(Files.notExists(root.resolve("plugin/webdav.cfg")));
         }
     }
@@ -210,12 +199,14 @@ class TypedConfigDocumentStorePermissionTest {
     private static String encode(final TypedConfigDocumentStore.StoredDocument document) {
         final Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
         final StringBuilder builder = new StringBuilder();
-        builder.append("turboism-typed-config-v1\n").append("schemaVersion=1\n")
-            .append("revision=0\n").append("count=").append(document.encodedValues().size())
-            .append("\n");
+        builder.append("turboism-typed-config-v1\n")
+                .append("schemaVersion=1\n")
+                .append("revision=0\n")
+                .append("count=")
+                .append(document.encodedValues().size())
+                .append("\n");
         final TreeMap<String, String> sorted = new TreeMap<>(document.encodedValues());
-        sorted.forEach((key, value) ->
-            builder.append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
+        sorted.forEach((key, value) -> builder.append(encoder.encodeToString(key.getBytes(StandardCharsets.UTF_8)))
                 .append(':')
                 .append(encoder.encodeToString(value.getBytes(StandardCharsets.UTF_8)))
                 .append('\n'));

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui.toolbar;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -55,11 +54,13 @@ public interface MainToolbarRegistry {
     enum Unavailable implements MainToolbarRegistry {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration contribute(final MainToolbarContribution contribution) {
+        @Override
+        public Registration contribute(final MainToolbarContribution contribution) {
             Objects.requireNonNull(contribution, "contribution");
             throw new UnsupportedOperationException("mainToolbar registry is not available");
         }
@@ -76,13 +77,12 @@ public interface MainToolbarRegistry {
      * @param order tie-breaker among entries sharing an anchor
      */
     record MainToolbarContribution(
-        String contributionId,
-        String actionId,
-        String labelKey,
-        String iconResourcePath,
-        String anchor,
-        int order
-    ) {
+            String contributionId,
+            String actionId,
+            String labelKey,
+            String iconResourcePath,
+            String anchor,
+            int order) {
         /** @throws IllegalArgumentException when any text component is blank */
         public MainToolbarContribution {
             contributionId = requireText(contributionId, "contributionId");
@@ -105,14 +105,13 @@ public interface MainToolbarRegistry {
      * @param order tie-breaker among entries sharing a placement
      */
     record MainToolbarButtonContribution(
-        String contributionId,
-        String actionId,
-        String labelKey,
-        String tooltipKey,
-        IconVariants icons,
-        Placement placement,
-        int order
-    ) {
+            String contributionId,
+            String actionId,
+            String labelKey,
+            String tooltipKey,
+            IconVariants icons,
+            Placement placement,
+            int order) {
         /**
          * @throws IllegalArgumentException when any text component is blank
          * @throws NullPointerException when icons or placement are null
@@ -133,13 +132,7 @@ public interface MainToolbarRegistry {
          */
         public MainToolbarContribution toLegacyContribution() {
             return new MainToolbarContribution(
-                contributionId,
-                actionId,
-                labelKey,
-                icons.normal(),
-                placement.legacyAnchor(),
-                order
-            );
+                    contributionId, actionId, labelKey, icons.normal(), placement.legacyAnchor(), order);
         }
     }
 
@@ -156,13 +149,12 @@ public interface MainToolbarRegistry {
      * @param dark icon for dark themes
      */
     record IconVariants(
-        String normal,
-        Optional<String> hover,
-        Optional<String> selected,
-        Optional<String> disabled,
-        Optional<String> light,
-        Optional<String> dark
-    ) {
+            String normal,
+            Optional<String> hover,
+            Optional<String> selected,
+            Optional<String> disabled,
+            Optional<String> light,
+            Optional<String> dark) {
         /** @throws IllegalArgumentException when any present path is blank */
         public IconVariants {
             normal = requireText(normal, "normal");
@@ -181,13 +173,12 @@ public interface MainToolbarRegistry {
          */
         public static IconVariants normal(final String resourcePath) {
             return new IconVariants(
-                resourcePath,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty()
-            );
+                    resourcePath,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
         }
     }
 
@@ -206,9 +197,7 @@ public interface MainToolbarRegistry {
             position = Objects.requireNonNull(position, "position");
             anchor = Objects.requireNonNull(anchor, "anchor");
             if ((position == Position.BEFORE || position == Position.AFTER) != anchor.isPresent()) {
-                throw new IllegalArgumentException(
-                    "BEFORE/AFTER require one semantic anchor; FIRST/LAST require none"
-                );
+                throw new IllegalArgumentException("BEFORE/AFTER require one semantic anchor; FIRST/LAST require none");
             }
         }
 
@@ -275,7 +264,9 @@ public interface MainToolbarRegistry {
     /** Host toolbar entries a plugin may anchor against by name rather than by index. */
     enum Anchor {
         /** The host's home entry. */
-        HOST_HOME_ENTRY("host-home-entry");
+        HOST_HOME_ENTRY("host-home-entry"),
+        /** Native brush selection tool. AFTER inserts before its following separator. */
+        HOST_BRUSH_SELECTION_TOOL("host-brush-selection-tool");
 
         private final String id;
 

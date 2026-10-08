@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.Objects;
 import java.util.Optional;
 

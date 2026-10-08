@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.mesh;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Set;
 
 /** Extends the native set of mesh subtools that may keep mirror editing active. */
@@ -18,7 +17,8 @@ public interface MeshMirrorToolEligibility {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -37,13 +37,14 @@ public interface MeshMirrorToolEligibility {
     enum Unavailable implements MeshMirrorToolEligibility {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration extendEligibleTools(final Set<MeshEditTool> tools) {
-            throw new UnsupportedOperationException(
-                "meshMirrorToolEligibility service is not available");
+        @Override
+        public Registration extendEligibleTools(final Set<MeshEditTool> tools) {
+            throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
         }
     }
 }

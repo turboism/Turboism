@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.event.PartNameEvent;
 import dev.turboism.sdk.cubism.event.PartOpacityEvent;
@@ -8,7 +9,6 @@ import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
-
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
@@ -29,7 +29,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     private final ThreadLocal<Boolean> partNameWriteActive = ThreadLocal.withInitial(() -> false);
 
     public PartLifecycleCoordinator() {
-        this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
+        this(new PluginWorkExecutorRegistry(1, 64, ignored -> {}, Clock.systemUTC()));
     }
 
     public PartLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
@@ -41,9 +41,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (registrationLock) {
             if (eventBroker != null && eventBroker != value) {
-                throw new IllegalStateException(
-                    "Part lifecycle already belongs to another Runtime event broker."
-                );
+                throw new IllegalStateException("Part lifecycle already belongs to another Runtime event broker.");
             }
             eventBroker = value;
         }
@@ -60,7 +58,11 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(value.descriptor().id()));
+            plugins.removeIf(registration -> registration
+                    .plugin()
+                    .descriptor()
+                    .id()
+                    .equals(value.descriptor().id()));
             callbacks.shutdown(value.descriptor().id());
             plugins.add(new Registration(token, value));
         }
@@ -68,10 +70,8 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
 
     void register(final Object token, final PluginHooks plugin) {
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(
+                    new Registration(Objects.requireNonNull(token, "token"), Objects.requireNonNull(plugin, "plugin")));
         }
     }
 
@@ -86,7 +86,8 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
-            plugins.removeIf(registration -> registration.plugin().descriptor().id().equals(id));
+            plugins.removeIf(
+                    registration -> registration.plugin().descriptor().id().equals(id));
             callbacks.shutdown(id);
         }
     }
@@ -95,13 +96,12 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         final String id = requireText(pluginId, "pluginId");
         final Object generation = Objects.requireNonNull(token, "token");
         synchronized (registrationLock) {
-            final boolean removed = plugins.removeIf(registration ->
-                registration.token() == generation
-                    && registration.plugin().descriptor().id().equals(id)
-            );
-            if (removed && plugins.stream().noneMatch(registration ->
-                registration.plugin().descriptor().id().equals(id)
-            )) {
+            final boolean removed = plugins.removeIf(registration -> registration.token() == generation
+                    && registration.plugin().descriptor().id().equals(id));
+            if (removed
+                    && plugins.stream()
+                            .noneMatch(registration ->
+                                    registration.plugin().descriptor().id().equals(id))) {
                 callbacks.shutdown(id);
             }
         }
@@ -122,11 +122,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalArgumentException when the effective opacity is not finite
      * @throws IllegalStateException when invoked from within another Part opacity write on this thread
      */
-    public void setOpacity(
-        final Part part,
-        final float requestedOpacity,
-        final Consumer<Float> nativeOperation
-    ) {
+    public void setOpacity(final Part part, final float requestedOpacity, final Consumer<Float> nativeOperation) {
         Objects.requireNonNull(part, "part");
         Objects.requireNonNull(nativeOperation, "nativeOperation");
         if (partWriteActive.get()) {
@@ -155,11 +151,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
      * @throws IllegalArgumentException when {@code requestedName} is blank
      * @throws IllegalStateException when invoked from within another Part rename on this thread
      */
-    public void setName(
-        final Part part,
-        final String requestedName,
-        final Consumer<String> nativeOperation
-    ) {
+    public void setName(final Part part, final String requestedName, final Consumer<String> nativeOperation) {
         Objects.requireNonNull(part, "part");
         Objects.requireNonNull(nativeOperation, "nativeOperation");
         if (partNameWriteActive.get()) {
@@ -174,10 +166,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     }
 
     private void setOpacityGuarded(
-        final Part part,
-        final float requestedOpacity,
-        final Consumer<Float> nativeOperation
-    ) {
+            final Part part, final float requestedOpacity, final Consumer<Float> nativeOperation) {
         float effectiveOpacity = requestedOpacity;
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
@@ -186,10 +175,9 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                 try {
                     final float transformed = hook.beforeSetPartOpacity(part, effectiveOpacity);
                     if (Float.isFinite(transformed)) effectiveOpacity = transformed;
-                    else plugin.logger().warn(
-                        "Ignored non-finite beforeSetPartOpacity result for " + OPERATION_ID
-                    );
+                    else plugin.logger().warn("Ignored non-finite beforeSetPartOpacity result for " + OPERATION_ID);
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeSetPartOpacity", failure);
                 }
             }
@@ -198,24 +186,24 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         if (broker != null) {
             final Part detached = DetachedPart.capture(part, part.name(), part.getOpacity());
             effectiveOpacity = broker.publishRuntimeTransform(
-                PartOpacityEvent.Before.class,
-                effectiveOpacity,
-                candidate -> {
-                    final PartOpacityEvent.Before.Callback callback =
-                        PartOpacityEvent.Before.openCallback(
-                            detached,
-                            requestedOpacity,
-                            candidate
-                        );
-                    return new RuntimeEventBroker.TransformCallback() {
-                        @Override public PartOpacityEvent.Before event() {
-                            return callback.event();
-                        }
-                        @Override public void close() { callback.close(); }
-                    };
-                },
-                event -> ((PartOpacityEvent.Before) event).opacity()
-            );
+                    PartOpacityEvent.Before.class,
+                    effectiveOpacity,
+                    candidate -> {
+                        final PartOpacityEvent.Before.Callback callback =
+                                PartOpacityEvent.Before.openCallback(detached, requestedOpacity, candidate);
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override
+                            public PartOpacityEvent.Before event() {
+                                return callback.event();
+                            }
+
+                            @Override
+                            public void close() {
+                                callback.close();
+                            }
+                        };
+                    },
+                    event -> ((PartOpacityEvent.Before) event).opacity());
         }
 
         if (!Float.isFinite(effectiveOpacity)) {
@@ -227,11 +215,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         publishCompletion(part, oldOpacity, finalOpacity);
     }
 
-    private void setNameGuarded(
-        final Part part,
-        final String requestedName,
-        final Consumer<String> nativeOperation
-    ) {
+    private void setNameGuarded(final Part part, final String requestedName, final Consumer<String> nativeOperation) {
         String effectiveName = requireName(requestedName);
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
@@ -240,6 +224,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                 try {
                     effectiveName = requireName(hook.beforeSetPartName(part, effectiveName));
                 } catch (Throwable failure) {
+                    FatalErrors.rethrowIfFatal(failure);
                     logHookFailure(plugin, "beforeSetPartName", failure);
                 }
             }
@@ -248,25 +233,25 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         if (broker != null) {
             final Part detached = DetachedPart.capture(part, part.name(), part.getOpacity());
             effectiveName = broker.publishRuntimeTransform(
-                PartNameEvent.Before.class,
-                effectiveName,
-                candidate -> {
-                    final PartNameEvent.Before.Callback callback =
-                        PartNameEvent.Before.openCallback(
-                            detached,
-                            requestedName,
-                            candidate
-                        );
-                    return new RuntimeEventBroker.TransformCallback() {
-                        @Override public PartNameEvent.Before event() {
-                            return callback.event();
-                        }
-                        @Override public void close() { callback.close(); }
-                    };
-                },
-                event -> ((PartNameEvent.Before) event).name(),
-                value -> value != null && !value.isBlank()
-            );
+                    PartNameEvent.Before.class,
+                    effectiveName,
+                    candidate -> {
+                        final PartNameEvent.Before.Callback callback =
+                                PartNameEvent.Before.openCallback(detached, requestedName, candidate);
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override
+                            public PartNameEvent.Before event() {
+                                return callback.event();
+                            }
+
+                            @Override
+                            public void close() {
+                                callback.close();
+                            }
+                        };
+                    },
+                    event -> ((PartNameEvent.Before) event).name(),
+                    value -> value != null && !value.isBlank());
         }
         final String oldName = part.name();
         nativeOperation.accept(effectiveName);
@@ -274,11 +259,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         publishNameCompletion(part, oldName, finalName);
     }
 
-    private void publishCompletion(
-        final Part part,
-        final float oldOpacity,
-        final float finalOpacity
-    ) {
+    private void publishCompletion(final Part part, final float oldOpacity, final float finalOpacity) {
         final boolean changed = Float.compare(oldOpacity, finalOpacity) != 0;
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
@@ -290,12 +271,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                         try {
                             hook.onPartOpacityChanged(part, oldOpacity, finalOpacity);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onPartOpacityChanged", failure);
                         }
                     }
                     try {
                         hook.afterSetPartOpacity(part, finalOpacity);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterSetPartOpacity", failure);
                     }
                 }
@@ -305,19 +288,13 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         if (broker != null) {
             final Part detached = DetachedPart.capture(part, part.name(), finalOpacity);
             if (changed) {
-                broker.publishRuntime(new PartOpacityEvent.On(
-                    detached, oldOpacity, finalOpacity
-                ));
+                broker.publishRuntime(new PartOpacityEvent.On(detached, oldOpacity, finalOpacity));
             }
             broker.publishRuntime(new PartOpacityEvent.After(detached, finalOpacity));
         }
     }
 
-    private void publishNameCompletion(
-        final Part part,
-        final String oldName,
-        final String finalName
-    ) {
+    private void publishNameCompletion(final Part part, final String oldName, final String finalName) {
         final boolean changed = !oldName.equals(finalName);
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
@@ -329,12 +306,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                         try {
                             hook.onPartNameChanged(part, oldName, finalName);
                         } catch (Throwable failure) {
+                            FatalErrors.rethrowIfFatal(failure);
                             logHookFailure(plugin, "onPartNameChanged", failure);
                         }
                     }
                     try {
                         hook.afterSetPartName(part, finalName);
                     } catch (Throwable failure) {
+                        FatalErrors.rethrowIfFatal(failure);
                         logHookFailure(plugin, "afterSetPartName", failure);
                     }
                 }
@@ -367,36 +346,25 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         submit(registration, OPERATION_ID, callback);
     }
 
-    private void submit(
-        final Registration registration,
-        final String operationId,
-        final Runnable callback
-    ) {
+    private void submit(final Registration registration, final String operationId, final Runnable callback) {
         synchronized (registrationLock) {
             if (!plugins.contains(registration)) {
                 return;
             }
-            callbacks.submit(
-                registration.plugin().descriptor().id(),
-                operationId,
-                callback
-            );
+            callbacks.submit(registration.plugin().descriptor().id(), operationId, callback);
         }
     }
 
-    private static void logHookFailure(
-        final PluginHooks plugin,
-        final String phase,
-        final Throwable failure
-    ) {
+    private static void logHookFailure(final PluginHooks plugin, final String phase, final Throwable failure) {
         try {
             plugin.logger().error("Cubism Part lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Hook and diagnostic failures must not escape into the Cubism operation.
         }
     }
 
-    private record Registration(Object token, PluginHooks plugin) { }
+    private record Registration(Object token, PluginHooks plugin) {}
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
@@ -420,12 +388,11 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
      * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
      */
     public record PluginHooks(
-        PluginDescriptor descriptor,
-        List<? extends PartHooks> entrypoints,
-        PluginLogger logger,
-        boolean interceptAllowed,
-        boolean observeAllowed
-    ) {
+            PluginDescriptor descriptor,
+            List<? extends PartHooks> entrypoints,
+            PluginLogger logger,
+            boolean interceptAllowed,
+            boolean observeAllowed) {
         /**
          * Registers a plugin with both interception and observation permitted.
          *
@@ -434,10 +401,9 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
          * @param logger sink for hook failures raised by this plugin
          */
         public PluginHooks(
-            final PluginDescriptor descriptor,
-            final List<? extends PartHooks> entrypoints,
-            final PluginLogger logger
-        ) {
+                final PluginDescriptor descriptor,
+                final List<? extends PartHooks> entrypoints,
+                final PluginLogger logger) {
             this(descriptor, entrypoints, logger, true, true);
         }
 

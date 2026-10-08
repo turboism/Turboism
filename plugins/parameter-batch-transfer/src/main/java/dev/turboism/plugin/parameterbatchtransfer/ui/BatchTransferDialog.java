@@ -1,23 +1,11 @@
 package dev.turboism.plugin.parameterbatchtransfer.ui;
 
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BatchTransferRow;
-import dev.turboism.plugin.parameterbatchtransfer.b1.domain.BoundParameterSnapshot;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BatchTransferRow;
+import dev.turboism.plugin.parameterbatchtransfer.domain.BoundParameterSnapshot;
 import dev.turboism.plugin.parameterbatchtransfer.service.ParameterBatchTransferService;
-import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JComboBox;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JComponent;
-import javax.swing.SwingConstants;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -27,9 +15,21 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import javax.swing.BorderFactory;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.SwingConstants;
+
 /**
  * Plugin-owned modal Swing dialog for one batch-transfer session.
  *
@@ -53,10 +53,9 @@ public final class BatchTransferDialog extends JDialog {
     private List<BatchTransferRow> result;
 
     public BatchTransferDialog(
-        final PluginLocalization localization,
-        final ParameterBatchTransferService service,
-        final ParameterBatchTransferService.Session session
-    ) {
+            final PluginLocalization localization,
+            final ParameterBatchTransferService service,
+            final ParameterBatchTransferService.Session session) {
         super((Frame) null, localization.text("dialog.title"), true);
         TurboismWindowFactory.style(this);
         this.localization = localization;
@@ -133,9 +132,10 @@ public final class BatchTransferDialog extends JDialog {
         final JScrollPane scroll = new JScrollPane(rows);
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.setPreferredSize(new Dimension(
-            DIALOG_WIDTH,
-            Math.min(SCROLL_MAX_HEIGHT, Math.max(SCROLL_MIN_HEIGHT, session.bound().size() * ROW_HEIGHT))
-        ));
+                DIALOG_WIDTH,
+                Math.min(
+                        SCROLL_MAX_HEIGHT,
+                        Math.max(SCROLL_MIN_HEIGHT, session.bound().size() * ROW_HEIGHT))));
         return scroll;
     }
 
@@ -161,8 +161,7 @@ public final class BatchTransferDialog extends JDialog {
         return rows;
     }
 
-    record RowComponents(JComponent source, JComponent target, JComponent invert) {
-    }
+    record RowComponents(JComponent source, JComponent target, JComponent invert) {}
 
     private JPanel buildActions() {
         final JButton confirm = new JButton(localization.text("dialog.confirm"));
@@ -171,10 +170,9 @@ public final class BatchTransferDialog extends JDialog {
             final List<BatchTransferRow> rows = new ArrayList<>();
             for (int index = 0; index < targetCombos.size(); index++) {
                 rows.add(new BatchTransferRow(
-                    session.bound().get(index),
-                    ((BoundParameterSnapshot) targetCombos.get(index).getSelectedItem()).parameterId(),
-                    invertChecks.get(index).isSelected()
-                ));
+                        session.bound().get(index),
+                        ((BoundParameterSnapshot) targetCombos.get(index).getSelectedItem()).parameterId(),
+                        invertChecks.get(index).isSelected()));
             }
             result = rows;
             dispose();
@@ -188,22 +186,20 @@ public final class BatchTransferDialog extends JDialog {
     }
 
     static List<BoundParameterSnapshot> availableTargets(
-        final ParameterBatchTransferService service,
-        final ParameterBatchTransferService.Session session,
-        final BoundParameterSnapshot source,
-        final Set<ParameterId> reserved
-    ) {
+            final ParameterBatchTransferService service,
+            final ParameterBatchTransferService.Session session,
+            final BoundParameterSnapshot source,
+            final Set<ParameterId> reserved) {
         return service.targetCandidates(session, source).stream()
-            .filter(candidate -> candidate.parameterId().equals(source.parameterId())
-                || !reserved.contains(candidate.parameterId()))
-            .toList();
+                .filter(candidate -> candidate.parameterId().equals(source.parameterId())
+                        || !reserved.contains(candidate.parameterId()))
+                .toList();
     }
 
     static List<ParameterId> normalizeTargets(
-        final ParameterBatchTransferService service,
-        final ParameterBatchTransferService.Session session,
-        final List<ParameterId> requested
-    ) {
+            final ParameterBatchTransferService service,
+            final ParameterBatchTransferService.Session session,
+            final List<ParameterId> requested) {
         if (requested.size() != session.bound().size()) {
             throw new IllegalArgumentException("requested target count must match bound rows");
         }
@@ -211,14 +207,14 @@ public final class BatchTransferDialog extends JDialog {
         final ArrayList<ParameterId> normalized = new ArrayList<>(requested.size());
         for (int index = 0; index < requested.size(); index++) {
             final BoundParameterSnapshot source = session.bound().get(index);
-            final List<BoundParameterSnapshot> candidates = availableTargets(
-                service, session, source, reserved
-            );
+            final List<BoundParameterSnapshot> candidates = availableTargets(service, session, source, reserved);
             final ParameterId desired = requested.get(index);
-            final ParameterId selected = desired != null && candidates.stream()
-                .anyMatch(candidate -> candidate.parameterId().equals(desired))
-                ? desired
-                : source.parameterId();
+            final ParameterId selected = desired != null
+                            && candidates.stream()
+                                    .anyMatch(
+                                            candidate -> candidate.parameterId().equals(desired))
+                    ? desired
+                    : source.parameterId();
             normalized.add(selected);
             if (!selected.equals(source.parameterId())) {
                 reserved.add(selected);
@@ -232,24 +228,20 @@ public final class BatchTransferDialog extends JDialog {
         updatingTargets = true;
         try {
             final List<ParameterId> requested = targetCombos.stream()
-                .map(BatchTransferDialog::selectedParameterId)
-                .toList();
+                    .map(BatchTransferDialog::selectedParameterId)
+                    .toList();
             final List<ParameterId> normalized = normalizeTargets(service, session, requested);
             final Set<ParameterId> reserved = new HashSet<>();
             for (int index = 0; index < targetCombos.size(); index++) {
                 final BoundParameterSnapshot source = session.bound().get(index);
-                final List<BoundParameterSnapshot> candidates = availableTargets(
-                    service, session, source, reserved
-                );
+                final List<BoundParameterSnapshot> candidates = availableTargets(service, session, source, reserved);
                 final ParameterId selectedId = normalized.get(index);
                 final BoundParameterSnapshot selected = candidates.stream()
-                    .filter(candidate -> candidate.parameterId().equals(selectedId))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Normalized target is unavailable"));
+                        .filter(candidate -> candidate.parameterId().equals(selectedId))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("Normalized target is unavailable"));
                 final JComboBox<BoundParameterSnapshot> combo = targetCombos.get(index);
-                combo.setModel(new DefaultComboBoxModel<>(
-                    candidates.toArray(new BoundParameterSnapshot[0])
-                ));
+                combo.setModel(new DefaultComboBoxModel<>(candidates.toArray(new BoundParameterSnapshot[0])));
                 combo.setRenderer(new MarkerListRenderer());
                 combo.setSelectedItem(selected);
                 if (!selectedId.equals(source.parameterId())) {
@@ -267,18 +259,14 @@ public final class BatchTransferDialog extends JDialog {
     }
 
     private JComboBox<BoundParameterSnapshot> targetCombo(final BoundParameterSnapshot source) {
-        final List<BoundParameterSnapshot> candidates = availableTargets(
-            service, session, source, Set.of()
-        );
-        final JComboBox<BoundParameterSnapshot> combo = new JComboBox<>(
-            candidates.toArray(new BoundParameterSnapshot[0])
-        );
+        final List<BoundParameterSnapshot> candidates = availableTargets(service, session, source, Set.of());
+        final JComboBox<BoundParameterSnapshot> combo =
+                new JComboBox<>(candidates.toArray(new BoundParameterSnapshot[0]));
         combo.setRenderer(new MarkerListRenderer());
         combo.setSelectedItem(candidates.stream()
-            .filter(candidate -> candidate.parameterId().equals(source.parameterId()))
-            .findFirst()
-            .orElseThrow(() -> new IllegalStateException("Source target is unavailable"))
-        );
+                .filter(candidate -> candidate.parameterId().equals(source.parameterId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Source target is unavailable")));
         return combo;
     }
 
@@ -307,20 +295,19 @@ public final class BatchTransferDialog extends JDialog {
     private static final class MarkerListRenderer extends javax.swing.DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(
-            final javax.swing.JList<?> list,
-            final Object value,
-            final int index,
-            final boolean isSelected,
-            final boolean cellHasFocus
-        ) {
+                final javax.swing.JList<?> list,
+                final Object value,
+                final int index,
+                final boolean isSelected,
+                final boolean cellHasFocus) {
             final JLabel label = (JLabel) super.getListCellRendererComponent(
-                list,
-                value instanceof BoundParameterSnapshot snapshot ? snapshot.label() : value,
-                index,
-                isSelected,
-                cellHasFocus
-            );
-            if (value instanceof BoundParameterSnapshot snapshot && !snapshot.markers().isEmpty()) {
+                    list,
+                    value instanceof BoundParameterSnapshot snapshot ? snapshot.label() : value,
+                    index,
+                    isSelected,
+                    cellHasFocus);
+            if (value instanceof BoundParameterSnapshot snapshot
+                    && !snapshot.markers().isEmpty()) {
                 label.setText(snapshot.markers() + "  " + snapshot.label());
             }
             return label;

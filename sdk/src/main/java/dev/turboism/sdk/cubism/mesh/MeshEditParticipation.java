@@ -19,7 +19,8 @@ public interface MeshEditParticipation {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -38,13 +39,14 @@ public interface MeshEditParticipation {
     enum Unavailable implements MeshEditParticipation {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Registration participate(final MeshEditParticipant participant) {
-            throw new UnsupportedOperationException(
-                "meshEditParticipation service is not available");
+        @Override
+        public Registration participate(final MeshEditParticipant participant) {
+            throw new UnsupportedOperationException("meshEditParticipation service is not available");
         }
     }
 }

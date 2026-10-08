@@ -1,7 +1,6 @@
 package dev.turboism.adapter.cubism.warp;
 
 import dev.turboism.sdk.cubism.mirror.WarpMirrorDirection;
-
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -29,7 +28,7 @@ import java.util.Set;
  */
 public final class WarpMirrorPairing {
 
-    private WarpMirrorPairing() { }
+    private WarpMirrorPairing() {}
 
     /**
      * Computes mirrored control-point positions for a whole warp grid.
@@ -43,13 +42,11 @@ public final class WarpMirrorPairing {
      *         or contains non-finite positions
      */
     public static Result mirror(
-        final float[] positions,
-        final int pointColumns,
-        final int pointRows,
-        final WarpMirrorDirection direction
-    ) {
-        if (positions == null || pointColumns < 2 || pointRows < 2
-            || positions.length != pointColumns * pointRows * 2) {
+            final float[] positions, final int pointColumns, final int pointRows, final WarpMirrorDirection direction) {
+        if (positions == null
+                || pointColumns < 2
+                || pointRows < 2
+                || positions.length != pointColumns * pointRows * 2) {
             return null;
         }
         for (float value : positions) {
@@ -58,8 +55,8 @@ public final class WarpMirrorPairing {
             }
         }
 
-        final boolean verticalAxis = direction == WarpMirrorDirection.LEFT_TO_RIGHT
-            || direction == WarpMirrorDirection.RIGHT_TO_LEFT;
+        final boolean verticalAxis =
+                direction == WarpMirrorDirection.LEFT_TO_RIGHT || direction == WarpMirrorDirection.RIGHT_TO_LEFT;
         // Points along the mirrored axis direction (columns for left/right,
         // rows for top/bottom); each perpendicular line is mirrored pairwise.
         final int lineCount = verticalAxis ? pointColumns : pointRows;
@@ -71,9 +68,9 @@ public final class WarpMirrorPairing {
         // flattened column/row order runs opposite to the canvas still mirrors
         // the side the user named. Index pairing stays symmetric either way.
         final boolean ascending = lineMean(positions, pointColumns, verticalAxis, 0)
-            <= lineMean(positions, pointColumns, verticalAxis, lineCount - 1);
-        final boolean wantsLowSide = direction == WarpMirrorDirection.LEFT_TO_RIGHT
-            || direction == WarpMirrorDirection.TOP_TO_BOTTOM;
+                <= lineMean(positions, pointColumns, verticalAxis, lineCount - 1);
+        final boolean wantsLowSide =
+                direction == WarpMirrorDirection.LEFT_TO_RIGHT || direction == WarpMirrorDirection.TOP_TO_BOTTOM;
         final boolean lowerIsSource = wantsLowSide == ascending;
 
         final float[] mirrored = positions.clone();
@@ -83,9 +80,7 @@ public final class WarpMirrorPairing {
             for (int index = 0; index < lineCount; index++) {
                 // Targets are the indices strictly on the far side of the fold:
                 // for an odd line count the centre index stays untouched.
-                final boolean target = lowerIsSource
-                    ? index > centerLeft
-                    : index < centerRight;
+                final boolean target = lowerIsSource ? index > centerLeft : index < centerRight;
                 if (!target) {
                     continue;
                 }
@@ -117,14 +112,14 @@ public final class WarpMirrorPairing {
      * indices coincide, so the axis passes through the centre line itself.
      */
     private static float foldAxis(
-        final float[] positions,
-        final int pointColumns,
-        final boolean verticalAxis,
-        final int centerLeft,
-        final int centerRight
-    ) {
+            final float[] positions,
+            final int pointColumns,
+            final boolean verticalAxis,
+            final int centerLeft,
+            final int centerRight) {
         return (lineMean(positions, pointColumns, verticalAxis, centerLeft)
-            + lineMean(positions, pointColumns, verticalAxis, centerRight)) * 0.5f;
+                        + lineMean(positions, pointColumns, verticalAxis, centerRight))
+                * 0.5f;
     }
 
     /**
@@ -132,32 +127,19 @@ public final class WarpMirrorPairing {
      * (vertical axis) or row (horizontal axis).
      */
     private static float lineMean(
-        final float[] positions,
-        final int pointColumns,
-        final boolean verticalAxis,
-        final int index
-    ) {
+            final float[] positions, final int pointColumns, final boolean verticalAxis, final int index) {
         final int lineSize = verticalAxis ? (positions.length / 2) / pointColumns : pointColumns;
         float sum = 0f;
         for (int line = 0; line < lineSize; line++) {
-            final int point = verticalAxis
-                ? line * pointColumns + index
-                : index * pointColumns + line;
+            final int point = verticalAxis ? line * pointColumns + index : index * pointColumns + line;
             sum += positions[point * 2 + (verticalAxis ? 0 : 1)];
         }
         return sum / lineSize;
     }
 
     /** Flattened index of grid point {@code index} on perpendicular {@code line}. */
-    private static int pointIndex(
-        final int line,
-        final int index,
-        final int pointColumns,
-        final boolean verticalAxis
-    ) {
-        return verticalAxis
-            ? line * pointColumns + index
-            : index * pointColumns + line;
+    private static int pointIndex(final int line, final int index, final int pointColumns, final boolean verticalAxis) {
+        return verticalAxis ? line * pointColumns + index : index * pointColumns + line;
     }
 
     /**
@@ -167,5 +149,5 @@ public final class WarpMirrorPairing {
      * @param pairedCount number of target-side points rewritten
      * @param changedPointIndices indices of rewritten control points
      */
-    public record Result(float[] positions, int pairedCount, Set<Integer> changedPointIndices) { }
+    public record Result(float[] positions, int pairedCount, Set<Integer> changedPointIndices) {}
 }

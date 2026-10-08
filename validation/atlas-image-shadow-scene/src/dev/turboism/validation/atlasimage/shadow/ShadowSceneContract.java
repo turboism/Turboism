@@ -6,14 +6,16 @@ import java.util.regex.Pattern;
 /** Fixed T040 identity, allowlisted fixtures and menu contract. */
 final class ShadowSceneContract {
     static final String VERSION_5303 = "5303";
+    static final String VERSION_5302 = "5302";
     static final String VERSION_5203 = "5203";
     /**
      * The scene family keeps one name across host profiles; the version suffix records
-     * the exact host. The 5203 profile runs the identical UI scene but has no T039
-     * shadow capture (that agent targets 5303-only bytes), so its payload carries no
-     * {@code freeze.*} keys.
+     * the exact host. The 5203 and 5302 profiles run the identical UI scene but have no
+     * T039 shadow capture (that agent targets 5303-only bytes), so their payloads carry
+     * no {@code freeze.*} keys.
      */
     static final String SCENE_5303 = "atlas-image-shadow:5303";
+    static final String SCENE_5302 = "atlas-image-shadow:5302";
     static final String SCENE_5203 = "atlas-image-shadow:5203";
     /**
      * Allowlisted measurement fixtures. A name and a hash are never checked independently: a pair
@@ -36,6 +38,8 @@ final class ShadowSceneContract {
         "331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028";
     static final String OFFICIAL_JAR_SHA256 =
         "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166";
+    static final String OFFICIAL_JAR_SHA256_5302 =
+        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
     static final String OFFICIAL_JAR_SHA256_5203 =
         "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd";
     static final String T039_CLASS_SHA256 =
@@ -96,6 +100,7 @@ final class ShadowSceneContract {
     static final String EXIT_PROMPT_ANSWER = "noButtonText";
 
     static final String NAMED_PREFIX = "turboism.validation.atlasImageShadow.";
+    static final String TLPROD_OPT_IN = "TLPROD_EXPLICIT_OPT_IN";
     /**
      * The scene's only per-job parameter: which side of the host's 0.45 kernel threshold the run
      * lands on. The queue hands the wrapper only {@code {version}} and {@code {runLabel}}, so the
@@ -224,23 +229,26 @@ final class ShadowSceneContract {
     private ShadowSceneContract() {}
 
     /**
-     * Two-value host allowlist. The version selects the official JAR hash, the scene
+     * Three-value host allowlist. The version selects the official JAR hash, the scene
      * identity and whether the T039 shadow capture is part of the run; anything else
      * must fail closed instead of driving an unreviewed host.
      */
     static String requireVersion(final String value) {
-        if (!VERSION_5303.equals(value) && !VERSION_5203.equals(value)) {
-            throw new IllegalArgumentException("scene version must be 5303 or 5203");
+        if (!VERSION_5303.equals(value) && !VERSION_5302.equals(value)
+                && !VERSION_5203.equals(value)) {
+            throw new IllegalArgumentException("scene version must be 5203, 5302, or 5303");
         }
         return value;
     }
 
     static String sceneFor(final String version) {
-        return VERSION_5203.equals(version) ? SCENE_5203 : SCENE_5303;
+        if (VERSION_5203.equals(version)) return SCENE_5203;
+        return VERSION_5302.equals(version) ? SCENE_5302 : SCENE_5303;
     }
 
     static String jarSha256For(final String version) {
-        return VERSION_5203.equals(version) ? OFFICIAL_JAR_SHA256_5203 : OFFICIAL_JAR_SHA256;
+        if (VERSION_5203.equals(version)) return OFFICIAL_JAR_SHA256_5203;
+        return VERSION_5302.equals(version) ? OFFICIAL_JAR_SHA256_5302 : OFFICIAL_JAR_SHA256;
     }
 
     /**
@@ -344,15 +352,26 @@ final class ShadowSceneContract {
     /**
      * Returns the allowlisted fixture name only when the Runner-expanded name and the hash belong
      * to the same entry. The runtime name is always {@code taskId + "-" + fixtureName}, so the pair
-     * is matched on that exact expansion rather than on the bare file name. Each host profile has
-     * its own reviewed pair set: the 5203 fixture is never admissible on a 5303 run and vice versa.
+     * is matched on that exact expansion rather than on the bare file name. The opacity52 pair
+     * stays 5203-only; heavy is additionally admitted on 5203 only with the explicit production
+     * token. This never widens the ordinary 5203 scene's fixture set.
      */
     static String requireAllowlistedFixture(final String version, final String taskId,
                                             final String fixtureName,
                                             final String fixtureSha256) {
+        requireVersion(version);
         requireTaskId(taskId, "taskId");
         requireHash(fixtureSha256, "fixtureSha256");
+        final String productionToken = System.getProperty(NAMED_PREFIX + "tlprodOptIn");
+        if (productionToken != null && !TLPROD_OPT_IN.equals(productionToken)) {
+            throw new IllegalArgumentException("production fixture opt-in token is invalid");
+        }
         if (VERSION_5203.equals(version)) {
+            if (TLPROD_OPT_IN.equals(productionToken)
+                    && (taskId + "-" + FIXTURE_HEAVY_NAME).equals(fixtureName)
+                    && FIXTURE_HEAVY_SHA256.equals(fixtureSha256)) {
+                return FIXTURE_HEAVY_NAME;
+            }
             if ((taskId + "-" + FIXTURE_OPACITY52_NAME).equals(fixtureName)
                     && FIXTURE_OPACITY52_SHA256.equals(fixtureSha256)) {
                 return FIXTURE_OPACITY52_NAME;

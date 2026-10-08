@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.sdk.script.ScriptDescriptor;
 import dev.turboism.sdk.script.ScriptId;
 import dev.turboism.sdk.script.ScriptLanguage;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -40,27 +39,48 @@ class ScriptRegistry {
     // Worst-case JSON escaping expands one source byte to six protocol chars.
     // 384 KiB leaves room for the maximum argument map inside the 4 MiB RUN frame.
     private static final int MAX_SOURCE_BYTES = 384 * 1024;
-    private static final Set<String> MANIFEST_FIELDS = Set.of(
-        "schemaVersion", "id", "name", "version", "language", "entry", "sourceSha256", "permissions"
-    );
+    private static final Set<String> MANIFEST_FIELDS =
+            Set.of("schemaVersion", "id", "name", "version", "language", "entry", "sourceSha256", "permissions");
     private static final Set<String> KNOWN_PERMISSIONS = Set.of(
-        "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
-        "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
-        "turboism.cubism.model.observe", "turboism.cubism.model.intercept",
-        "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
-        "turboism.cubism.recent-file.read", "turboism.file.read", "turboism.file.write",
-        "turboism.network.fetch", "turboism.process.run", "turboism.action.register",
-        "turboism.ui.menu.contribute", "turboism.ui.toolbar.main.contribute",
-        "turboism.ui.toolbar.palette.contribute", "turboism.ui.context-menu.contribute",
-        "turboism.ui.context-source.read", "turboism.ui.overlay.contribute",
-        "turboism.ui.viewport.read", "turboism.ui.recent-preview.contribute",
-        "turboism.ui.dialog.contribute", "turboism.ui.dialog.automate",
-        "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
-        "turboism.ui.status.notify", "turboism.ui.canvas.hint", "turboism.ui.appearance.modify",
-        "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
-        "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
-        "turboism.performance.stats.read", "turboism.host.unsafe"
-    );
+            "turboism.ui.menu",
+            "turboism.ui.toolbar",
+            "turboism.ui.palette",
+            "turboism.cubism.project.read",
+            "turboism.cubism.model.read",
+            "turboism.cubism.model.write",
+            "turboism.cubism.model.observe",
+            "turboism.cubism.model.intercept",
+            "turboism.cubism.parameter.read",
+            "turboism.cubism.mesh.read",
+            "turboism.cubism.recent-file.read",
+            "turboism.file.read",
+            "turboism.file.write",
+            "turboism.network.fetch",
+            "turboism.process.run",
+            "turboism.action.register",
+            "turboism.action.invoke",
+            "turboism.ui.menu.contribute",
+            "turboism.ui.toolbar.main.contribute",
+            "turboism.ui.toolbar.palette.contribute",
+            "turboism.ui.context-menu.contribute",
+            "turboism.ui.context-source.read",
+            "turboism.ui.overlay.contribute",
+            "turboism.ui.viewport.read",
+            "turboism.ui.recent-preview.contribute",
+            "turboism.ui.dialog.contribute",
+            "turboism.ui.dialog.automate",
+            "turboism.ui.panel.contribute",
+            "turboism.ui.file-chooser.request",
+            "turboism.ui.status.notify",
+            "turboism.ui.canvas.hint",
+            "turboism.ui.appearance.modify",
+            "turboism.ui.toolbar.contribute",
+            "turboism.config.plugin.read",
+            "turboism.config.plugin.write",
+            "turboism.event.subscribe",
+            "turboism.event.publish",
+            "turboism.performance.stats.read",
+            "turboism.host.unsafe");
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final Path confinementRoot;
@@ -72,13 +92,10 @@ class ScriptRegistry {
         this(turboismHome, diagnostics, path -> Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS));
     }
 
-    ScriptRegistry(
-        final Path turboismHome,
-        final Consumer<String> diagnostics,
-        final FileOpener fileOpener
-    ) {
+    ScriptRegistry(final Path turboismHome, final Consumer<String> diagnostics, final FileOpener fileOpener) {
         final Path home = Objects.requireNonNull(turboismHome, "turboismHome")
-            .toAbsolutePath().normalize();
+                .toAbsolutePath()
+                .normalize();
         this.confinementRoot = home;
         this.scriptsRoot = home.resolve("scripts").normalize();
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
@@ -98,8 +115,8 @@ class ScriptRegistry {
             return List.of();
         }
         final PriorityQueue<Path> candidates = new PriorityQueue<>(
-            Comparator.comparing((Path candidate) -> candidate.getFileName().toString()).reversed()
-        );
+                Comparator.comparing((Path candidate) -> candidate.getFileName().toString())
+                        .reversed());
         boolean limitReached = false;
         int entriesInspected = 0;
         try (DirectoryStream<Path> directories = Files.newDirectoryStream(scriptsRoot)) {
@@ -123,10 +140,8 @@ class ScriptRegistry {
             return List.of();
         }
         if (limitReached) {
-            diagnostics.accept(
-                "SCRIPT_LIMIT_REACHED: inspected at most " + MAX_DIRECTORY_ENTRIES
-                    + " entries and admitted at most " + MAX_SCRIPTS + " scripts"
-            );
+            diagnostics.accept("SCRIPT_LIMIT_REACHED: inspected at most " + MAX_DIRECTORY_ENTRIES
+                    + " entries and admitted at most " + MAX_SCRIPTS + " scripts");
         }
         final List<Path> admitted = new ArrayList<>(candidates);
         admitted.sort(Comparator.comparing(candidate -> candidate.getFileName().toString()));
@@ -134,26 +149,30 @@ class ScriptRegistry {
         for (Path candidate : admitted) {
             try {
                 final InstalledScript script = read(candidate, root);
-                grouped.computeIfAbsent(script.descriptor().id(), ignored -> new ArrayList<>()).add(script);
+                grouped.computeIfAbsent(script.descriptor().id(), ignored -> new ArrayList<>())
+                        .add(script);
             } catch (RuntimeException | IOException invalid) {
                 diagnostics.accept("SCRIPT_INVALID " + candidate.getFileName() + ": " + safeMessage(invalid));
             }
         }
         final List<InstalledScript> unique = new ArrayList<>();
-        grouped.entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.comparing(ScriptId::value)))
-            .forEach(group -> {
-                if (group.getValue().size() == 1) {
-                    unique.add(group.getValue().get(0));
-                } else {
-                    diagnostics.accept("SCRIPT_DUPLICATE_ID: " + group.getKey());
-                }
-            });
+        grouped.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.comparing(ScriptId::value)))
+                .forEach(group -> {
+                    if (group.getValue().size() == 1) {
+                        unique.add(group.getValue().get(0));
+                    } else {
+                        diagnostics.accept("SCRIPT_DUPLICATE_ID: " + group.getKey());
+                    }
+                });
         return List.copyOf(unique);
     }
 
     Optional<InstalledScript> find(final ScriptId id) {
         Objects.requireNonNull(id, "id");
-        return discover().stream().filter(script -> script.descriptor().id().equals(id)).findFirst();
+        return discover().stream()
+                .filter(script -> script.descriptor().id().equals(id))
+                .findFirst();
     }
 
     private InstalledScript read(final Path rawRoot, final DirectoryIdentity scriptsDirectory) throws IOException {
@@ -164,8 +183,7 @@ class ScriptRegistry {
         final DirectoryIdentity scriptDirectory = directoryIdentity(root);
         scriptsDirectory.requireCurrent("scripts root");
         final StableFile manifest = readBoundedRegularFile(
-            root.resolve("script.json").normalize(), MAX_MANIFEST_BYTES, "manifest", fileOpener
-        );
+                root.resolve("script.json").normalize(), MAX_MANIFEST_BYTES, "manifest", fileOpener);
         manifest.requireCurrent("manifest");
         final JsonNode node = mapper.readTree(manifest.bytes());
         if (node == null || !node.isObject()) {
@@ -177,8 +195,10 @@ class ScriptRegistry {
             }
         });
         final JsonNode schemaVersion = node.get("schemaVersion");
-        if (schemaVersion == null || !schemaVersion.isIntegralNumber()
-            || !schemaVersion.canConvertToInt() || schemaVersion.intValue() != 2) {
+        if (schemaVersion == null
+                || !schemaVersion.isIntegralNumber()
+                || !schemaVersion.canConvertToInt()
+                || schemaVersion.intValue() != 2) {
             throw new IllegalArgumentException("Only script schemaVersion 2 is supported");
         }
         final ScriptId id = new ScriptId(requiredText(node, "id", 128));
@@ -194,16 +214,15 @@ class ScriptRegistry {
         scriptDirectory.requireCurrent("script directory");
         scriptsDirectory.requireCurrent("scripts root");
         return new InstalledScript(
-            new ScriptDescriptor(id, name, version, language, entry, permissions),
-            root,
-            sourcePath,
-            scriptsDirectory,
-            scriptDirectory,
-            manifest,
-            sourceIdentity,
-            sourceDigest,
-            fileOpener
-        );
+                new ScriptDescriptor(id, name, version, language, entry, permissions),
+                root,
+                sourcePath,
+                scriptsDirectory,
+                scriptDirectory,
+                manifest,
+                sourceIdentity,
+                sourceDigest,
+                fileOpener);
     }
 
     private Path resolveEntry(final Path root, final String entry) throws IOException {
@@ -234,9 +253,8 @@ class ScriptRegistry {
         if (!pathHasNoLinks(path)) {
             throw new IllegalArgumentException("Script directory must not traverse a symbolic link or junction");
         }
-        final BasicFileAttributes attributes = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
+        final BasicFileAttributes attributes =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!attributes.isDirectory()) {
             throw new IllegalArgumentException("Script directory is missing or is not a directory");
         }
@@ -244,11 +262,7 @@ class ScriptRegistry {
     }
 
     private StableFile readBoundedRegularFile(
-        final Path path,
-        final int maxBytes,
-        final String label,
-        final FileOpener fileOpener
-    ) throws IOException {
+            final Path path, final int maxBytes, final String label, final FileOpener fileOpener) throws IOException {
         final FileIdentity identity = regularFileIdentity(path, label);
         final byte[] bytes;
         try (InputStream input = fileOpener.open(path)) {
@@ -263,29 +277,19 @@ class ScriptRegistry {
     private static byte[] sourceDigest(final JsonNode manifest) {
         final String value = requiredText(manifest, "sourceSha256", 64);
         if (!value.matches("[0-9a-fA-F]{64}")) {
-            throw new IllegalArgumentException(
-                "sourceSha256 must contain exactly 64 hexadecimal characters"
-            );
+            throw new IllegalArgumentException("sourceSha256 must contain exactly 64 hexadecimal characters");
         }
         return java.util.HexFormat.of().parseHex(value);
     }
 
-    private FileIdentity regularFileIdentity(
-        final Path path,
-        final String label
-    ) throws IOException {
+    private FileIdentity regularFileIdentity(final Path path, final String label) throws IOException {
         if (!pathHasNoLinks(path)) {
-            throw new IllegalArgumentException(
-                "Script " + label + " must not traverse a symbolic link or junction"
-            );
+            throw new IllegalArgumentException("Script " + label + " must not traverse a symbolic link or junction");
         }
-        final BasicFileAttributes attributes = Files.readAttributes(
-            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-        );
+        final BasicFileAttributes attributes =
+                Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
         if (!attributes.isRegularFile()) {
-            throw new IllegalArgumentException(
-                "Script " + label + " is missing or is not a regular file"
-            );
+            throw new IllegalArgumentException("Script " + label + " is missing or is not a regular file");
         }
         return FileIdentity.from(attributes);
     }
@@ -315,9 +319,8 @@ class ScriptRegistry {
             // reparse point, including directory junctions, as "other" when links
             // are not followed. There is no standard dos:reparsePoint attribute;
             // requesting it makes ordinary paths fail under Windows and Wine.
-            return Files.readAttributes(
-                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-            ).isOther();
+            return Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS)
+                    .isOther();
         } catch (UnsupportedOperationException | IllegalArgumentException | IOException unavailable) {
             // On Windows, failure to inspect an untrusted path component must not
             // downgrade a junction/reparse-point check to "not a reparse point".
@@ -327,8 +330,8 @@ class ScriptRegistry {
 
     private static boolean isWindows() {
         return System.getProperty("os.name", "")
-            .toLowerCase(java.util.Locale.ROOT)
-            .contains("win");
+                .toLowerCase(java.util.Locale.ROOT)
+                .contains("win");
     }
 
     private static List<String> permissions(final JsonNode node) {
@@ -391,8 +394,8 @@ class ScriptRegistry {
 
         private boolean matches(final BasicFileAttributes attributes) {
             return Objects.equals(fileKey, attributes.fileKey())
-                && size == attributes.size()
-                && modified.equals(attributes.lastModifiedTime());
+                    && size == attributes.size()
+                    && modified.equals(attributes.lastModifiedTime());
         }
     }
 
@@ -409,9 +412,8 @@ class ScriptRegistry {
             if (!pathHasNoLinks(path)) {
                 throw new IllegalArgumentException("Script " + label + " traversed a symbolic link or junction");
             }
-            final BasicFileAttributes attributes = Files.readAttributes(
-                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-            );
+            final BasicFileAttributes attributes =
+                    Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             if (!attributes.isDirectory() || !identity.matches(attributes)) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");
             }
@@ -424,12 +426,7 @@ class ScriptRegistry {
         private final byte[] digest;
         private final byte[] bytes;
 
-        private StableFile(
-            final Path path,
-            final FileIdentity identity,
-            final byte[] digest,
-            final byte[] bytes
-        ) {
+        private StableFile(final Path path, final FileIdentity identity, final byte[] digest, final byte[] bytes) {
             this.path = path;
             this.identity = identity;
             this.digest = digest;
@@ -452,9 +449,8 @@ class ScriptRegistry {
             if (!pathHasNoLinks(path)) {
                 throw new IllegalArgumentException("Script " + label + " traversed a symbolic link or junction");
             }
-            final BasicFileAttributes attributes = Files.readAttributes(
-                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
-            );
+            final BasicFileAttributes attributes =
+                    Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
             if (!attributes.isRegularFile() || !identity.matches(attributes)) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");
             }
@@ -462,8 +458,7 @@ class ScriptRegistry {
             try (InputStream input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
                 current = input.readNBytes(bytes.length + 1);
             }
-            if (current.length != bytes.length
-                || !MessageDigest.isEqual(digest, ScriptRegistry.digest(current))) {
+            if (current.length != bytes.length || !MessageDigest.isEqual(digest, ScriptRegistry.digest(current))) {
                 throw new IllegalArgumentException("Script " + label + " changed while reading");
             }
         }
@@ -481,28 +476,24 @@ class ScriptRegistry {
         private final FileOpener fileOpener;
 
         private InstalledScript(
-            final ScriptDescriptor descriptor,
-            final Path root,
-            final Path sourcePath,
-            final DirectoryIdentity scriptsDirectory,
-            final DirectoryIdentity scriptDirectory,
-            final StableFile manifest,
-            final FileIdentity sourceIdentity,
-            final byte[] sourceDigest,
-            final FileOpener fileOpener
-        ) {
+                final ScriptDescriptor descriptor,
+                final Path root,
+                final Path sourcePath,
+                final DirectoryIdentity scriptsDirectory,
+                final DirectoryIdentity scriptDirectory,
+                final StableFile manifest,
+                final FileIdentity sourceIdentity,
+                final byte[] sourceDigest,
+                final FileOpener fileOpener) {
             this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
             this.root = Objects.requireNonNull(root, "root");
             this.sourcePath = Objects.requireNonNull(sourcePath, "sourcePath");
-            this.scriptsDirectory = Objects.requireNonNull(
-                scriptsDirectory, "scriptsDirectory"
-            );
-            this.scriptDirectory = Objects.requireNonNull(
-                scriptDirectory, "scriptDirectory"
-            );
+            this.scriptsDirectory = Objects.requireNonNull(scriptsDirectory, "scriptsDirectory");
+            this.scriptDirectory = Objects.requireNonNull(scriptDirectory, "scriptDirectory");
             this.manifest = Objects.requireNonNull(manifest, "manifest");
             this.sourceIdentity = Objects.requireNonNull(sourceIdentity, "sourceIdentity");
-            this.sourceDigest = Objects.requireNonNull(sourceDigest, "sourceDigest").clone();
+            this.sourceDigest =
+                    Objects.requireNonNull(sourceDigest, "sourceDigest").clone();
             this.fileOpener = Objects.requireNonNull(fileOpener, "fileOpener");
         }
 
@@ -523,12 +514,10 @@ class ScriptRegistry {
                 scriptsDirectory.requireCurrent("scripts root");
                 scriptDirectory.requireCurrent("script directory");
                 manifest.requireCurrent("manifest");
-                final StableFile source = readBoundedRegularFile(
-                    sourcePath, MAX_SOURCE_BYTES, "source", fileOpener
-                );
+                final StableFile source = readBoundedRegularFile(sourcePath, MAX_SOURCE_BYTES, "source", fileOpener);
                 source.requireCurrent("source");
                 if (!sourceIdentity.equals(source.identity())
-                    || !MessageDigest.isEqual(sourceDigest, source.digest())) {
+                        || !MessageDigest.isEqual(sourceDigest, source.digest())) {
                     throw new IllegalArgumentException("Script source changed after discovery");
                 }
                 scriptsDirectory.requireCurrent("scripts root");
@@ -536,10 +525,7 @@ class ScriptRegistry {
                 manifest.requireCurrent("manifest");
                 return new String(source.bytes(), StandardCharsets.UTF_8);
             } catch (IOException failure) {
-                throw new IllegalArgumentException(
-                    "Script source could not be read: " + safeMessage(failure),
-                    failure
-                );
+                throw new IllegalArgumentException("Script source could not be read: " + safeMessage(failure), failure);
             }
         }
     }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.command;
 
-
 import java.util.Set;
 
 /** Executes the safe typed subset of native Cubism Editor menu operations. */
@@ -36,7 +35,8 @@ public interface EditorCommandService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -51,7 +51,8 @@ public interface EditorCommandService {
     enum Unavailable implements EditorCommandService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
@@ -77,6 +78,5 @@ public interface EditorCommandService {
             java.util.Objects.requireNonNull(request, "request");
             return new EditorCommandResult(EditorCommandResult.Status.UNAVAILABLE, request.commandId());
         }
-
     }
 }

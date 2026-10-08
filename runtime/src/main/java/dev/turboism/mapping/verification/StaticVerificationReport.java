@@ -14,11 +14,10 @@ import java.util.Objects;
  * @param results one verdict per requested selector, defensively copied
  */
 public record StaticVerificationReport(
-    HostArtifactFingerprint expectedFingerprint,
-    HostArtifactFingerprint actualFingerprint,
-    boolean artifactMatched,
-    List<StaticSelectorResult> results
-) {
+        HostArtifactFingerprint expectedFingerprint,
+        HostArtifactFingerprint actualFingerprint,
+        boolean artifactMatched,
+        List<StaticSelectorResult> results) {
     public StaticVerificationReport {
         expectedFingerprint = Objects.requireNonNull(expectedFingerprint, "expectedFingerprint");
         actualFingerprint = Objects.requireNonNull(actualFingerprint, "actualFingerprint");
@@ -31,7 +30,7 @@ public record StaticVerificationReport(
      */
     public boolean allSelectorsVerified() {
         return artifactMatched
-            && !results.isEmpty()
-            && results.stream().allMatch(result -> result.status() == StaticVerificationStatus.VERIFIED_STATIC);
+                && !results.isEmpty()
+                && results.stream().allMatch(result -> result.status() == StaticVerificationStatus.VERIFIED_STATIC);
     }
 }

@@ -1,25 +1,18 @@
 package dev.turboism.preview;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class StartupBannerTest {
 
     @Test
     void rendersTheCompleteAuthoritativeStartupSummary() {
         final String banner = StartupBanner.render(new StartupBanner.Details(
-            "0.43.3",
-            "25.0.4",
-            "25.2.4 (managed)",
-            "5.3.03",
-            25,
-            "3 discovered; host available"
-        ));
+                "0.43.3", "25.0.4", "25.2.4 (managed)", "5.3.03", 25, "3 discovered; host available"));
 
         assertTrue(banner.startsWith(" _____ _   _ ____  ____   ___ ___ ____  __  __"));
         assertTrue(banner.contains("For you, a bouquet."));
@@ -39,9 +32,7 @@ final class StartupBannerTest {
         final List<String> runtimeLog = new ArrayList<>();
         final List<String> hostConsole = new ArrayList<>();
         final StartupBanner.Details details = new StartupBanner.Details(
-            "0.43.3", "17", "unavailable (standard JVM)", "5.2.03", 4,
-            "0 discovered; host unavailable"
-        );
+                "0.43.3", "17", "unavailable (standard JVM)", "5.2.03", 4, "0 discovered; host unavailable");
 
         banner.publish(List.of(runtimeLog::add, hostConsole::add), details);
         banner.publish(List.of(runtimeLog::add, hostConsole::add), details);

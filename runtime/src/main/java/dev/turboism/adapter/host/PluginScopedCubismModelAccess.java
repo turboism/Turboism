@@ -1,38 +1,31 @@
 package dev.turboism.adapter.host;
 
-import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
-import dev.turboism.permissions.PermissionChecker;
-import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
-import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
-import dev.turboism.ui.appearance.control.RuntimeModelAppearanceComposition;
-import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.model.CubismModel;
-
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.ui.appearance.control.PaletteAppearanceCoordinator;
+import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
+import dev.turboism.ui.appearance.control.RuntimeModelAppearanceComposition;
 import java.util.Objects;
 import java.util.function.LongSupplier;
-import java.util.List;
-import java.util.Optional;
 
 /** Runtime composition helper that invalidates one plugin's model references on scope close. */
 public final class PluginScopedCubismModelAccess {
 
-    private PluginScopedCubismModelAccess() {
-    }
+    private PluginScopedCubismModelAccess() {}
 
     /** Builds the narrow host source used only by model appearance projections. */
     public static HostSnapshotSource appearanceSource(
-        final ProjectWorkspaceAdapter projectWorkspace,
-        final CubismModelAccess modelAccess
-    ) {
+            final ProjectWorkspaceAdapter projectWorkspace, final CubismModelAccess modelAccess) {
         return new AppearanceSource(
-            Objects.requireNonNull(projectWorkspace, "projectWorkspace"),
-            Objects.requireNonNull(modelAccess, "modelAccess")
-        );
+                Objects.requireNonNull(projectWorkspace, "projectWorkspace"),
+                Objects.requireNonNull(modelAccess, "modelAccess"));
     }
 
     /**
@@ -44,10 +37,7 @@ public final class PluginScopedCubismModelAccess {
      * @return a model access valid only for the lifetime of the scope
      * @throws NullPointerException if either argument is null
      */
-    public static CubismModelAccess bind(
-        final CubismModelAccess delegate,
-        final DisposableScope scope
-    ) {
+    public static CubismModelAccess bind(final CubismModelAccess delegate, final DisposableScope scope) {
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
         access.connect(Objects.requireNonNull(delegate, "delegate"));
         Objects.requireNonNull(scope, "scope").register(access::deactivate);
@@ -71,39 +61,34 @@ public final class PluginScopedCubismModelAccess {
      * @throws NullPointerException if any argument is null
      */
     public static CubismModelAccess bind(
-        final CubismModelAccess delegate,
-        final DisposableScope scope,
-        final String pluginId,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator,
-        final NativeLabelColorAuthoring nativeLabelColorAuthoring
-    ) {
+            final CubismModelAccess delegate,
+            final DisposableScope scope,
+            final String pluginId,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator,
+            final NativeLabelColorAuthoring nativeLabelColorAuthoring) {
         final CubismModelAccess hostAccess = Objects.requireNonNull(delegate, "delegate");
         final DisposableScope owner = Objects.requireNonNull(scope, "scope");
         final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
-        final PaletteAppearanceCoordinator appearanceCoordinator = Objects.requireNonNull(
-            coordinator, "coordinator"
-        );
+        final PaletteAppearanceCoordinator appearanceCoordinator = Objects.requireNonNull(coordinator, "coordinator");
         final LongSupplier hostGeneration = appearanceCoordinator::hostGeneration;
         final RuntimeModelAppearanceComposition composition = new RuntimeModelAppearanceComposition(
-            appearanceCoordinator,
-            access::modelGeneration,
-            hostGeneration,
-            hostGeneration,
-            Objects.requireNonNull(nativeLabelColorAuthoring, "nativeLabelColorAuthoring")
-        );
+                appearanceCoordinator,
+                access::modelGeneration,
+                hostGeneration,
+                hostGeneration,
+                Objects.requireNonNull(nativeLabelColorAuthoring, "nativeLabelColorAuthoring"));
         final RuntimeModelAppearanceAccess appearance = RuntimeModelAppearanceAccess.create(
-            pluginId,
-            1L,
-            Objects.requireNonNull(permissionChecker, "permissionChecker"),
-            Objects.requireNonNull(source, "source"),
-            composition.coordinator(),
-            composition::modelGeneration,
-            composition::hostGeneration,
-            composition::providerGeneration,
-            composition.nativeLabelColorAuthoring()
-        );
+                pluginId,
+                1L,
+                Objects.requireNonNull(permissionChecker, "permissionChecker"),
+                Objects.requireNonNull(source, "source"),
+                composition.coordinator(),
+                composition::modelGeneration,
+                composition::hostGeneration,
+                composition::providerGeneration,
+                composition.nativeLabelColorAuthoring());
         access.attachAppearanceAccess(appearance);
         access.connect(hostAccess);
         appearance.bind(owner);
@@ -117,10 +102,7 @@ public final class PluginScopedCubismModelAccess {
         private String activeKey;
         private long activationToken;
 
-        private AppearanceSource(
-            final ProjectWorkspaceAdapter projectWorkspace,
-            final CubismModelAccess modelAccess
-        ) {
+        private AppearanceSource(final ProjectWorkspaceAdapter projectWorkspace, final CubismModelAccess modelAccess) {
             this.projectWorkspace = projectWorkspace;
             this.modelAccess = modelAccess;
         }
@@ -142,8 +124,11 @@ public final class PluginScopedCubismModelAccess {
 
         @Override
         public HostSelection selection() {
-            return new HostSelection(java.util.List.of(), java.util.Optional.empty(),
-                java.util.Optional.empty(), java.util.Optional.empty());
+            return new HostSelection(
+                    java.util.List.of(),
+                    java.util.Optional.empty(),
+                    java.util.Optional.empty(),
+                    java.util.Optional.empty());
         }
 
         @Override
@@ -167,12 +152,11 @@ public final class PluginScopedCubismModelAccess {
                 observedToken = activationToken;
             }
             return new Observation(
-                java.util.Optional.empty(),
-                current.map(Current::document),
-                current.flatMap(Current::model),
-                selection(),
-                new ObservedToken(observedToken)
-            );
+                    java.util.Optional.empty(),
+                    current.map(Current::document),
+                    current.flatMap(Current::model),
+                    selection(),
+                    new ObservedToken(observedToken));
         }
 
         @Override
@@ -185,7 +169,7 @@ public final class PluginScopedCubismModelAccess {
         }
 
         /** The activation token as of one observation, so versionOf never re-reads the host. */
-        private record ObservedToken(long value) { }
+        private record ObservedToken(long value) {}
 
         private synchronized java.util.Optional<Current> current() {
             final java.util.Optional<DocumentSnapshot> snapshot = activeDocumentSnapshot();
@@ -213,43 +197,64 @@ public final class PluginScopedCubismModelAccess {
                 changeKey(null);
                 return java.util.Optional.of(new Current(document(document, contentId), java.util.Optional.empty()));
             }
+            final dev.turboism.sdk.cubism.ModelSnapshot observedModel =
+                    document.model().orElseThrow();
             final HostModel hostModel = new HostModel(
-                modelId,
-                document.model().orElseThrow().name(),
-                java.util.List.of(), java.util.List.of(), java.util.List.of()
-            );
+                    modelId,
+                    observedModel.name(),
+                    observedModel.parameters().stream()
+                            .map(AppearanceSource::hostParameter)
+                            .toList(),
+                    java.util.List.of(),
+                    java.util.List.of());
             changeKey(contentId + "\\u0000" + modelId);
-            return java.util.Optional.of(new Current(
-                document(document, contentId, hostModel), java.util.Optional.of(hostModel)
-            ));
+            return java.util.Optional.of(
+                    new Current(document(document, contentId, hostModel), java.util.Optional.of(hostModel)));
         }
 
         private java.util.Optional<DocumentSnapshot> activeDocumentSnapshot() {
             final ProjectWorkspaceAdapter.AdapterResult<java.util.Optional<DocumentSnapshot>> result =
-                projectWorkspace.activeDocument();
-            return result.isAvailable() ? result.value().orElse(java.util.Optional.empty())
-                : java.util.Optional.empty();
+                    projectWorkspace.activeDocument();
+            return result.isAvailable()
+                    ? result.value().orElse(java.util.Optional.empty())
+                    : java.util.Optional.empty();
+        }
+
+        private static HostParameter hostParameter(final dev.turboism.sdk.cubism.ParameterSnapshot value) {
+            return new HostParameter(
+                    value.id(),
+                    value.name(),
+                    value.value(),
+                    value.defaultValue(),
+                    value.minValue(),
+                    value.maxValue(),
+                    value.visible(),
+                    value.editable());
+        }
+
+        private static HostDocument document(final DocumentSnapshot source, final String contentId) {
+            return new HostDocument(
+                    source.documentId(),
+                    source.name(),
+                    source.kind(),
+                    source.relativePath(),
+                    source.filePath(),
+                    java.util.Optional.of(contentId),
+                    java.util.Optional.empty(),
+                    java.util.Optional.empty());
         }
 
         private static HostDocument document(
-            final DocumentSnapshot source,
-            final String contentId
-        ) {
+                final DocumentSnapshot source, final String contentId, final HostModel model) {
             return new HostDocument(
-                source.documentId(), source.name(), source.kind(), source.relativePath(), source.filePath(),
-                java.util.Optional.of(contentId), java.util.Optional.empty(), java.util.Optional.empty()
-            );
-        }
-
-        private static HostDocument document(
-            final DocumentSnapshot source,
-            final String contentId,
-            final HostModel model
-        ) {
-            return new HostDocument(
-                source.documentId(), source.name(), DocumentKind.MODEL, source.relativePath(), source.filePath(),
-                java.util.Optional.of(contentId), java.util.Optional.of(model), java.util.Optional.empty()
-            );
+                    source.documentId(),
+                    source.name(),
+                    DocumentKind.MODEL,
+                    source.relativePath(),
+                    source.filePath(),
+                    java.util.Optional.of(contentId),
+                    java.util.Optional.of(model),
+                    java.util.Optional.empty());
         }
 
         private void changeKey(final String nextKey) {
@@ -259,6 +264,6 @@ public final class PluginScopedCubismModelAccess {
             }
         }
 
-        private record Current(HostDocument document, java.util.Optional<HostModel> model) { }
+        private record Current(HostDocument document, java.util.Optional<HostModel> model) {}
     }
 }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** Immutable Editor model profile metrics for one Cubism model generation. */
 public interface ModelProfile {
 

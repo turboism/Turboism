@@ -1,27 +1,26 @@
 package dev.turboism.exportsettings;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
 import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
 import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.DisposableScope;
-import org.junit.jupiter.api.Test;
-import javax.swing.SwingUtilities;
+import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTimeout;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeExportSettingsContributionRegistryTest {
 
@@ -38,10 +37,9 @@ final class RuntimeExportSettingsContributionRegistryTest {
             return ExportSettingsDecision.proceedUnchanged();
         }));
         assertThrows(
-            IllegalArgumentException.class,
-            () -> registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-                ExportSettingsDecision.proceedUnchanged()))
-        );
+                IllegalArgumentException.class,
+                () -> registry.contribute(contribution(
+                        OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged())));
         final ExportSettingsDecision decision = invoke(registry, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
         assertTrue(firstCalled.get(), "first contribution must remain registered");
@@ -61,8 +59,8 @@ final class RuntimeExportSettingsContributionRegistryTest {
     @Test
     void selectedCallbackRejectionPropagatesWithItsBoundedIdentity() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-            ExportSettingsDecision.reject("plugin.export.rejected")));
+        registry.contribute(contribution(
+                OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.reject("plugin.export.rejected")));
         final ExportSettingsDecision decision = invoke(registry, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
         assertEquals("plugin.export.rejected", decision.messageKey());
@@ -71,12 +69,11 @@ final class RuntimeExportSettingsContributionRegistryTest {
     @Test
     void selectedUnexpectedProceedIsRejectedByTheRegistryRatherThanImplyingExecution() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-            ExportSettingsDecision.proceedUnchanged()));
+        registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
         final ExportSettingsDecision decision = invoke(registry, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY,
-            decision.messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY, decision.messageKey());
     }
 
     @Test
@@ -84,7 +81,7 @@ final class RuntimeExportSettingsContributionRegistryTest {
         final RuntimeExportSettingsContributionRegistry registry = registry();
         final AtomicReference<Object[]> captured = new AtomicReference<>();
         registry.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
-            captured.set(new Object[]{selected, documentId, modelId});
+            captured.set(new Object[] {selected, documentId, modelId});
             return ExportSettingsDecision.reject("plugin.export.rejected");
         }));
         invoke(registry, true);
@@ -94,25 +91,23 @@ final class RuntimeExportSettingsContributionRegistryTest {
     @Test
     void staleGenerationIsRejectedAfterScopeCleanup() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-            ExportSettingsDecision.proceedUnchanged()));
+        registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
         final long token = registry.generation();
         registry.close();
         final ExportSettingsDecision decision = invoke(registry, token, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-            decision.messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY, decision.messageKey());
     }
 
     @Test
     void wrongGenerationTokenIsRejectedWithoutClosing() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-            ExportSettingsDecision.proceedUnchanged()));
+        registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
         final ExportSettingsDecision decision = invoke(registry, registry.generation() + 1, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-            decision.messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY, decision.messageKey());
     }
 
     @Test
@@ -120,16 +115,15 @@ final class RuntimeExportSettingsContributionRegistryTest {
         final RuntimeExportSettingsContributionRegistry registry = registry();
         final AtomicReference<ExportSettingsDecision> nested = new AtomicReference<>();
         registry.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
-            nested.set(registry.invoke(
-                OPTION, true, DOCUMENT, MODEL, registry.generation()));
+            nested.set(registry.invoke(OPTION, true, DOCUMENT, MODEL, registry.generation()));
             return nested.get();
         }));
         final ExportSettingsDecision decision = invoke(registry, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.RECURSION_KEY,
-            decision.messageKey());
-        assertEquals(RuntimeExportSettingsContributionRegistry.RECURSION_KEY,
-            nested.get().messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.RECURSION_KEY, decision.messageKey());
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.RECURSION_KEY,
+                nested.get().messageKey());
         // The guard must be cleared: a later invocation works normally.
         final ExportSettingsDecision after = invoke(registry, false);
         assertEquals(ExportSettingsDecision.Outcome.PROCEED_UNCHANGED, after.outcome());
@@ -145,9 +139,8 @@ final class RuntimeExportSettingsContributionRegistryTest {
                 return ExportSettingsDecision.reject("callback.rejected");
             })));
             assertEquals(
-                RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-                invoke(registrationRegistry, true).messageKey()
-            );
+                    RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+                    invoke(registrationRegistry, true).messageKey());
 
             final RuntimeExportSettingsContributionRegistry closedRegistry = registry();
             closedRegistry.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
@@ -155,9 +148,8 @@ final class RuntimeExportSettingsContributionRegistryTest {
                 return ExportSettingsDecision.reject("callback.rejected");
             }));
             assertEquals(
-                RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-                invoke(closedRegistry, true).messageKey()
-            );
+                    RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+                    invoke(closedRegistry, true).messageKey());
         });
     }
 
@@ -183,21 +175,19 @@ final class RuntimeExportSettingsContributionRegistryTest {
             return ExportSettingsDecision.proceedUnchanged();
         }));
 
-        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
-            SwingUtilities.invokeAndWait(() -> decision.set(invoke(registry, true)))
-        );
+        assertTimeoutPreemptively(
+                Duration.ofSeconds(2), () -> SwingUtilities.invokeAndWait(() -> decision.set(invoke(registry, true))));
 
         assertTrue(callbackOnEdt.get());
         assertTrue(scopeFailure.get() instanceof IllegalStateException);
         assertEquals(
-            RuntimeExportSettingsContributionRegistry.CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY,
-            scopeFailure.get().getMessage()
-        );
+                RuntimeExportSettingsContributionRegistry.CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY,
+                scopeFailure.get().getMessage());
         assertFalse(loaderClosed.get(), "a failed scope close must retain the plugin loader");
-        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-            decision.get().messageKey());
-        final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot snapshot =
-            registry.lifecycleSnapshot();
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+                decision.get().messageKey());
+        final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot snapshot = registry.lifecycleSnapshot();
         assertTrue(snapshot.closed());
         assertEquals(0, snapshot.activeCallbacks());
         assertTrue(snapshot.closeReturnedReentrantly());
@@ -228,10 +218,8 @@ final class RuntimeExportSettingsContributionRegistryTest {
             }
             return ExportSettingsDecision.reject("callback.rejected");
         }));
-        final Thread callbackThread = new Thread(
-            () -> callbackDecision.set(invoke(registry, true)),
-            "export-settings-callback"
-        );
+        final Thread callbackThread =
+                new Thread(() -> callbackDecision.set(invoke(registry, true)), "export-settings-callback");
         callbackThread.start();
 
         try {
@@ -246,10 +234,10 @@ final class RuntimeExportSettingsContributionRegistryTest {
                 }
             });
             assertFalse(loaderClosed.get(), "a timeout must retain the plugin loader");
-            assertEquals(RuntimeExportSettingsContributionRegistry.CALLBACK_DRAIN_TIMEOUT_KEY,
-                scopeFailure.get().getMessage());
-            final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot timedOut =
-                registry.lifecycleSnapshot();
+            assertEquals(
+                    RuntimeExportSettingsContributionRegistry.CALLBACK_DRAIN_TIMEOUT_KEY,
+                    scopeFailure.get().getMessage());
+            final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot timedOut = registry.lifecycleSnapshot();
             assertTrue(timedOut.closed());
             assertEquals(1, timedOut.activeCallbacks());
             assertFalse(timedOut.closeReturnedReentrantly());
@@ -262,8 +250,9 @@ final class RuntimeExportSettingsContributionRegistryTest {
         }
 
         assertFalse(callbackThread.isAlive());
-        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-            callbackDecision.get().messageKey());
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+                callbackDecision.get().messageKey());
         assertEquals(0, registry.lifecycleSnapshot().activeCallbacks());
         assertTrue(registry.lifecycleSnapshot().closeDrainTimedOut());
     }
@@ -274,56 +263,59 @@ final class RuntimeExportSettingsContributionRegistryTest {
         runtime.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
             throw new RuntimeException("boom");
         }));
-        assertEquals(RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
-            invoke(runtime, true).messageKey());
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
+                invoke(runtime, true).messageKey());
 
         final RuntimeExportSettingsContributionRegistry fatal = registry();
         fatal.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
             throw new AssertionError("boom");
         }));
-        assertEquals(RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
-            invoke(fatal, true).messageKey());
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
+                invoke(fatal, true).messageKey());
 
         final RuntimeExportSettingsContributionRegistry nullResult = registry();
         nullResult.contribute(contribution(OPTION, (selected, documentId, modelId) -> null));
-        assertEquals(RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
-            invoke(nullResult, true).messageKey());
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.CALLBACK_FAILED_KEY,
+                invoke(nullResult, true).messageKey());
     }
 
     @Test
     void registrationCloseRemovesTheContributionAndIsIdempotent() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        final Registration registration = registry.contribute(contribution(OPTION,
-            (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
+        final Registration registration = registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
         registration.close();
         registration.close();
         final ExportSettingsDecision decision = invoke(registry, true);
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.UNKNOWN_OPTION_KEY,
-            decision.messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.UNKNOWN_OPTION_KEY, decision.messageKey());
     }
 
     @Test
     void selectedUnknownOptionFailsClosed() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        final ExportSettingsDecision decision = registry.invoke(
-            "option-unknown", true, DOCUMENT, MODEL, registry.generation());
+        final ExportSettingsDecision decision =
+                registry.invoke("option-unknown", true, DOCUMENT, MODEL, registry.generation());
         assertEquals(ExportSettingsDecision.Outcome.REJECT, decision.outcome());
-        assertEquals(RuntimeExportSettingsContributionRegistry.UNKNOWN_OPTION_KEY,
-            decision.messageKey());
+        assertEquals(RuntimeExportSettingsContributionRegistry.UNKNOWN_OPTION_KEY, decision.messageKey());
     }
 
     @Test
     void scopeCleanupRemovesAllContributionsAndRejectsFurtherUse() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
-        registry.contribute(contribution(OPTION, (selected, documentId, modelId) ->
-            ExportSettingsDecision.proceedUnchanged()));
+        registry.contribute(
+                contribution(OPTION, (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()));
         registry.close();
-        assertThrows(IllegalStateException.class, () -> registry.contribute(
-            contribution("option-2", (selected, documentId, modelId) ->
-                ExportSettingsDecision.proceedUnchanged())));
-        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
-            invoke(registry, true).messageKey());
+        assertThrows(
+                IllegalStateException.class,
+                () -> registry.contribute(contribution(
+                        "option-2", (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged())));
+        assertEquals(
+                RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+                invoke(registry, true).messageKey());
     }
 
     @Test
@@ -332,52 +324,44 @@ final class RuntimeExportSettingsContributionRegistryTest {
         assertThrows(NullPointerException.class, () -> registry(null, 0L));
         final RuntimeExportSettingsContributionRegistry registry = registry();
         assertThrows(NullPointerException.class, () -> registry.contribute(null));
-        assertThrows(NullPointerException.class, () -> registry.invoke(
-            null, true, DOCUMENT, MODEL, registry.generation()));
-        assertThrows(NullPointerException.class, () -> registry.invoke(
-            OPTION, true, null, MODEL, registry.generation()));
-        assertThrows(NullPointerException.class, () -> registry.invoke(
-            OPTION, true, DOCUMENT, null, registry.generation()));
+        assertThrows(
+                NullPointerException.class, () -> registry.invoke(null, true, DOCUMENT, MODEL, registry.generation()));
+        assertThrows(
+                NullPointerException.class, () -> registry.invoke(OPTION, true, null, MODEL, registry.generation()));
+        assertThrows(
+                NullPointerException.class, () -> registry.invoke(OPTION, true, DOCUMENT, null, registry.generation()));
     }
 
     @Test
     void registryImplementsThePreviewServiceContract() {
         final RuntimeExportSettingsContributionRegistry registry = registry();
         assertTrue(registry instanceof ExportSettingsContributionService);
-        assertFalse(ExportSettingsContributionService.unavailable() instanceof
-            RuntimeExportSettingsContributionRegistry);
+        assertFalse(
+                ExportSettingsContributionService.unavailable() instanceof RuntimeExportSettingsContributionRegistry);
     }
 
     private static RuntimeExportSettingsContributionRegistry registry() {
         return registry("plugin-1", 7L);
     }
 
-    private static RuntimeExportSettingsContributionRegistry registry(
-        final String pluginId,
-        final long generation
-    ) {
+    private static RuntimeExportSettingsContributionRegistry registry(final String pluginId, final long generation) {
         return new RuntimeExportSettingsContributionRegistry(pluginId, generation);
     }
 
     private static ExportSettingsContribution contribution(
-        final String optionId,
-        final ExportSettingsDecisionCallback callback
-    ) {
+            final String optionId, final ExportSettingsDecisionCallback callback) {
         return new ExportSettingsContribution(optionId, "label." + optionId, callback);
     }
 
     private static ExportSettingsDecision invoke(
-        final RuntimeExportSettingsContributionRegistry registry,
-        final boolean selected
-    ) {
+            final RuntimeExportSettingsContributionRegistry registry, final boolean selected) {
         return invoke(registry, registry.generation(), selected);
     }
 
     private static ExportSettingsDecision invoke(
-        final RuntimeExportSettingsContributionRegistry registry,
-        final long expectedGeneration,
-        final boolean selected
-    ) {
+            final RuntimeExportSettingsContributionRegistry registry,
+            final long expectedGeneration,
+            final boolean selected) {
         return registry.invoke(OPTION, selected, DOCUMENT, MODEL, expectedGeneration);
     }
 

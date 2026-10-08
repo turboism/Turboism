@@ -7,6 +7,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ParameterSnapshot;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -25,11 +26,11 @@ import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.ui.appearance.model.ParameterGroupAppearance;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
-
+import dev.turboism.ui.host.HostReadEpoch;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.LongSupplier;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 
 /** Plugin-scoped, fail-closed projection of model-owned Cubism palette entries. */
 public final class RuntimeModelAppearanceAccess implements AutoCloseable {
@@ -44,69 +45,69 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
     private final LongSupplier hostGeneration;
     private final LongSupplier providerGeneration;
     private final AtomicBoolean active = new AtomicBoolean(true);
+    /**
+     * The observation captured for the calling thread's current {@link HostReadEpoch}. Every
+     * scope capture and parameter read in one dispatched host-read task reuses it, so listing
+     * N parameters costs one host observation instead of re-observing per read.
+     */
+    private final ThreadLocal<EpochObservation> epochCache = new ThreadLocal<>();
 
     RuntimeModelAppearanceAccess(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator) {
         this(
-            pluginId,
-            pluginGeneration,
-            permissionChecker,
-            source,
-            coordinator,
-            null,
-            () -> 0L,
-            () -> 0L,
-            NativeLabelColorAuthoring.unavailable()
-        );
+                pluginId,
+                pluginGeneration,
+                permissionChecker,
+                source,
+                coordinator,
+                null,
+                () -> 0L,
+                () -> 0L,
+                NativeLabelColorAuthoring.unavailable());
     }
 
     RuntimeModelAppearanceAccess(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator,
-        final NativeLabelColorAuthoring nativeAuthoring
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator,
+            final NativeLabelColorAuthoring nativeAuthoring) {
         this(
-            pluginId,
-            pluginGeneration,
-            permissionChecker,
-            source,
-            coordinator,
-            null,
-            () -> 0L,
-            () -> 0L,
-            nativeAuthoring
-        );
+                pluginId,
+                pluginGeneration,
+                permissionChecker,
+                source,
+                coordinator,
+                null,
+                () -> 0L,
+                () -> 0L,
+                nativeAuthoring);
     }
 
     RuntimeModelAppearanceAccess(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator,
-        final LongSupplier hostGeneration,
-        final LongSupplier providerGeneration,
-        final NativeLabelColorAuthoring nativeAuthoring
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator,
+            final LongSupplier hostGeneration,
+            final LongSupplier providerGeneration,
+            final NativeLabelColorAuthoring nativeAuthoring) {
         this(
-            pluginId,
-            pluginGeneration,
-            permissionChecker,
-            source,
-            coordinator,
-            null,
-            hostGeneration,
-            providerGeneration,
-            nativeAuthoring
-        );
+                pluginId,
+                pluginGeneration,
+                permissionChecker,
+                source,
+                coordinator,
+                null,
+                hostGeneration,
+                providerGeneration,
+                nativeAuthoring);
     }
 
     /**
@@ -133,40 +134,37 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      *     positive
      */
     public static RuntimeModelAppearanceAccess create(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator,
-        final LongSupplier currentModelGeneration,
-        final LongSupplier hostGeneration,
-        final LongSupplier providerGeneration,
-        final NativeLabelColorAuthoring nativeAuthoring
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator,
+            final LongSupplier currentModelGeneration,
+            final LongSupplier hostGeneration,
+            final LongSupplier providerGeneration,
+            final NativeLabelColorAuthoring nativeAuthoring) {
         return new RuntimeModelAppearanceAccess(
-            pluginId,
-            pluginGeneration,
-            permissionChecker,
-            source,
-            coordinator,
-            currentModelGeneration,
-            hostGeneration,
-            providerGeneration,
-            nativeAuthoring
-        );
+                pluginId,
+                pluginGeneration,
+                permissionChecker,
+                source,
+                coordinator,
+                currentModelGeneration,
+                hostGeneration,
+                providerGeneration,
+                nativeAuthoring);
     }
 
     RuntimeModelAppearanceAccess(
-        final String pluginId,
-        final long pluginGeneration,
-        final PermissionChecker permissionChecker,
-        final HostSnapshotSource source,
-        final PaletteAppearanceCoordinator coordinator,
-        final LongSupplier currentModelGeneration,
-        final LongSupplier hostGeneration,
-        final LongSupplier providerGeneration,
-        final NativeLabelColorAuthoring nativeAuthoring
-    ) {
+            final String pluginId,
+            final long pluginGeneration,
+            final PermissionChecker permissionChecker,
+            final HostSnapshotSource source,
+            final PaletteAppearanceCoordinator coordinator,
+            final LongSupplier currentModelGeneration,
+            final LongSupplier hostGeneration,
+            final LongSupplier providerGeneration,
+            final NativeLabelColorAuthoring nativeAuthoring) {
         this.pluginId = requireText(pluginId, "pluginId");
         requireGeneration(pluginGeneration, "pluginGeneration");
         this.pluginGeneration = pluginGeneration;
@@ -210,8 +208,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      */
     public DeformerAppearance deformer(final Deformer deformer, final long modelGeneration) {
         final Bound bound = bound(deformer, modelGeneration, "deformer");
-        return bound == null ? DeformerAppearance.unavailable()
-            : new DeformerFacade(bound.scope(), bound.id());
+        return bound == null ? DeformerAppearance.unavailable() : new DeformerFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -225,8 +222,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      */
     public ParameterAppearance parameter(final Parameter parameter, final long modelGeneration) {
         final Bound bound = bound(parameter, modelGeneration, "parameter");
-        return bound == null ? ParameterAppearance.unavailable()
-            : new ParameterFacade(bound.scope(), bound.id());
+        return bound == null ? ParameterAppearance.unavailable() : new ParameterFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -239,13 +235,11 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      *     generation no longer matches, or no scope could be captured
      * @throws NullPointerException if {@code group} is {@code null}
      */
-    public ParameterGroupAppearance parameterGroup(
-        final ParameterGroup group,
-        final long modelGeneration
-    ) {
+    public ParameterGroupAppearance parameterGroup(final ParameterGroup group, final long modelGeneration) {
         final Bound bound = bound(group, modelGeneration, "parameter group");
-        return bound == null ? ParameterGroupAppearance.unavailable()
-            : new ParameterGroupFacade(bound.scope(), bound.id());
+        return bound == null
+                ? ParameterGroupAppearance.unavailable()
+                : new ParameterGroupFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -274,11 +268,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      * @return a facade bound to the captured scope, or {@code PartAppearance.unavailable()} when this
      *     projection is closed, the model or generation does not match, or the id is blank
      */
-    public PartAppearance part(
-        final String modelId,
-        final String partId,
-        final long modelGeneration
-    ) {
+    public PartAppearance part(final String modelId, final String partId, final long modelGeneration) {
         final Bound bound = bound(modelId, modelGeneration, partId, "part");
         return bound == null ? PartAppearance.unavailable() : new PartFacade(bound.scope(), bound.id());
     }
@@ -293,14 +283,9 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      * @return a facade bound to the captured scope, or {@code DeformerAppearance.unavailable()} when
      *     this projection is closed, the model or generation does not match, or the id is blank
      */
-    public DeformerAppearance deformer(
-        final String modelId,
-        final String deformerId,
-        final long modelGeneration
-    ) {
+    public DeformerAppearance deformer(final String modelId, final String deformerId, final long modelGeneration) {
         final Bound bound = bound(modelId, modelGeneration, deformerId, "deformer");
-        return bound == null ? DeformerAppearance.unavailable()
-            : new DeformerFacade(bound.scope(), bound.id());
+        return bound == null ? DeformerAppearance.unavailable() : new DeformerFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -313,14 +298,9 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      * @return a facade bound to the captured scope, or {@code ParameterAppearance.unavailable()} when
      *     this projection is closed, the model or generation does not match, or the id is blank
      */
-    public ParameterAppearance parameter(
-        final String modelId,
-        final String parameterId,
-        final long modelGeneration
-    ) {
+    public ParameterAppearance parameter(final String modelId, final String parameterId, final long modelGeneration) {
         final Bound bound = bound(modelId, modelGeneration, parameterId, "parameter");
-        return bound == null ? ParameterAppearance.unavailable()
-            : new ParameterFacade(bound.scope(), bound.id());
+        return bound == null ? ParameterAppearance.unavailable() : new ParameterFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -335,13 +315,11 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      *     generation does not match, or the id is blank
      */
     public ParameterGroupAppearance parameterGroup(
-        final String modelId,
-        final String groupId,
-        final long modelGeneration
-    ) {
+            final String modelId, final String groupId, final long modelGeneration) {
         final Bound bound = bound(modelId, modelGeneration, groupId, "parameter group");
-        return bound == null ? ParameterGroupAppearance.unavailable()
-            : new ParameterGroupFacade(bound.scope(), bound.id());
+        return bound == null
+                ? ParameterGroupAppearance.unavailable()
+                : new ParameterGroupFacade(bound.scope(), bound.id());
     }
 
     /**
@@ -357,16 +335,11 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
      * @return a facade bound to the captured scope, or {@code DrawableAppearance.unavailable()} when
      *     this projection is closed, the model or generation does not match, or the id is blank
      */
-    public DrawableAppearance drawable(
-        final String modelId,
-        final String drawableId,
-        final long modelGeneration
-    ) {
+    public DrawableAppearance drawable(final String modelId, final String drawableId, final long modelGeneration) {
         // ArtMesh rows render through the verified deformer-tree and part-tree seams
         // on the DEFORMER_PART palette (partPaletteEntry).
         final Bound bound = bound(modelId, modelGeneration, drawableId, "drawable");
-        return bound == null ? DrawableAppearance.unavailable()
-            : new DrawableFacade(bound.scope(), bound.id());
+        return bound == null ? DrawableAppearance.unavailable() : new DrawableFacade(bound.scope(), bound.id());
     }
 
     @Override
@@ -396,24 +369,16 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         return bind(null, modelGeneration, () -> group.id().value());
     }
 
-    private Bound bound(
-        final String modelId,
-        final long modelGeneration,
-        final String objectId,
-        final String kind
-    ) {
+    private Bound bound(final String modelId, final long modelGeneration, final String objectId, final String kind) {
         return bind(modelId, modelGeneration, () -> objectId);
     }
 
     private Bound bind(
-        final String expectedModelId,
-        final long modelGeneration,
-        final java.util.function.Supplier<String> idSupplier
-    ) {
+            final String expectedModelId,
+            final long modelGeneration,
+            final java.util.function.Supplier<String> idSupplier) {
         if (!active.get()) return null;
-        final Optional<PaletteAppearanceCoordinator.Scope> scope = captureScope(
-            expectedModelId, modelGeneration
-        );
+        final Optional<PaletteAppearanceCoordinator.Scope> scope = captureScope(expectedModelId, modelGeneration);
         if (scope.isEmpty()) return null;
         try {
             return new Bound(scope.orElseThrow(), requireText(idSupplier.get(), "objectId"));
@@ -422,38 +387,31 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         }
     }
 
-    private Optional<PaletteAppearanceCoordinator.Scope> captureScope(
-        final long modelGeneration
-    ) {
+    private Optional<PaletteAppearanceCoordinator.Scope> captureScope(final long modelGeneration) {
         return captureScope(null, modelGeneration);
     }
 
     private Optional<PaletteAppearanceCoordinator.Scope> captureScope(
-        final String expectedModelId,
-        final long modelGeneration
-    ) {
+            final String expectedModelId, final long modelGeneration) {
         if (!active.get()) return Optional.empty();
         try {
-            if (currentModelGeneration != null
-                && currentModelGeneration.getAsLong() != modelGeneration) {
+            if (currentModelGeneration != null && currentModelGeneration.getAsLong() != modelGeneration) {
                 return Optional.empty();
             }
-            final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
-            final ScopeInput input = observed.host() != null
-                ? hostScopeInput(observed.host())
-                : sdkScopeInput(observed);
+            final HostSnapshotSource.SdkRuntimeObservation observed = observedRuntime();
+            final ScopeInput input =
+                    observed.host() != null ? hostScopeInput(observed.host()) : sdkScopeInput(observed);
             if (input == null) return deactivate();
             if (expectedModelId != null && !expectedModelId.equals(input.modelId())) {
                 return Optional.empty();
             }
             final PaletteAppearanceCoordinator.Scope scope = new PaletteAppearanceCoordinator.Scope(
-                input.contentId(),
-                source.versionOfSdkRuntime(observed),
-                input.modelId(),
-                modelGeneration,
-                hostGeneration.getAsLong(),
-                providerGeneration.getAsLong()
-            );
+                    input.contentId(),
+                    source.versionOfSdkRuntime(observed),
+                    input.modelId(),
+                    modelGeneration,
+                    hostGeneration.getAsLong(),
+                    providerGeneration.getAsLong());
             coordinator.reconcile(scope);
             return Optional.of(scope);
         } catch (RuntimeException unavailable) {
@@ -467,9 +425,50 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         return Optional.empty();
     }
 
-    /** The document/model fields {@link #captureScope} needs, or null when the scope is gone. */
-    private record ScopeInput(String contentId, String modelId) {
+    /**
+     * One coherent host observation for the calling thread's current read epoch. Inside a
+     * dispatched host task the first caller pays {@code source.observeSdkRuntime()} and every
+     * later scope capture or parameter read in the same task reuses it; outside any epoch — or
+     * after a nested dispatched body or a generation change — the host is observed fresh. A
+     * reused observation can therefore never hide a document/model switch or a write performed
+     * by nested dispatched work, and scope staleness keeps judging against the same generations
+     * it always did.
+     */
+    private HostSnapshotSource.SdkRuntimeObservation observedRuntime() {
+        final long epoch = HostReadEpoch.current();
+        if (epoch == 0L) {
+            return source.observeSdkRuntime();
+        }
+        final long liveModelGeneration = currentModelGeneration == null ? 0L : currentModelGeneration.getAsLong();
+        final long liveHostGeneration = hostGeneration.getAsLong();
+        final long liveProviderGeneration = providerGeneration.getAsLong();
+        final long writes = HostReadEpoch.writes();
+        final EpochObservation cached = epochCache.get();
+        if (cached != null
+                && cached.epoch() == epoch
+                && cached.writes() == writes
+                && cached.modelGeneration() == liveModelGeneration
+                && cached.hostGeneration() == liveHostGeneration
+                && cached.providerGeneration() == liveProviderGeneration) {
+            return cached.observed();
+        }
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        epochCache.set(new EpochObservation(
+                epoch, writes, liveModelGeneration, liveHostGeneration, liveProviderGeneration, observed));
+        return observed;
     }
+
+    /** The memoized observation for one {@link HostReadEpoch} frame plus the generations read alongside it. */
+    private record EpochObservation(
+            long epoch,
+            long writes,
+            long modelGeneration,
+            long hostGeneration,
+            long providerGeneration,
+            HostSnapshotSource.SdkRuntimeObservation observed) {}
+
+    /** The document/model fields {@link #captureScope} needs, or null when the scope is gone. */
+    private record ScopeInput(String contentId, String modelId) {}
 
     private ScopeInput hostScopeInput(final HostSnapshotSource.Observation observation) {
         if (observation.project().isEmpty() && observation.document().isEmpty()) return null;
@@ -479,14 +478,11 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         final HostSnapshotSource.HostDocument currentDocument = document.orElseThrow();
         final HostSnapshotSource.HostModel currentModel = model.orElseThrow();
         if (currentDocument.kind() != DocumentKind.MODEL
-            || currentDocument.model().isEmpty()
-            || !currentDocument.model().orElseThrow().modelId().equals(currentModel.modelId())) {
+                || currentDocument.model().isEmpty()
+                || !currentDocument.model().orElseThrow().modelId().equals(currentModel.modelId())) {
             return null;
         }
-        return new ScopeInput(
-            currentDocument.contentId().orElse(currentDocument.documentId()),
-            currentModel.modelId()
-        );
+        return new ScopeInput(currentDocument.contentId().orElse(currentDocument.documentId()), currentModel.modelId());
     }
 
     private ScopeInput sdkScopeInput(final HostSnapshotSource.SdkRuntimeObservation observed) {
@@ -497,18 +493,14 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         final Optional<ModelSnapshot> model = currentDocument.model();
         if (currentDocument.kind() != DocumentKind.MODEL || model.isEmpty()) return null;
         return new ScopeInput(
-            currentDocument.contentId().orElse(currentDocument.documentId()),
-            model.orElseThrow().modelId()
-        );
+                currentDocument.contentId().orElse(currentDocument.documentId()),
+                model.orElseThrow().modelId());
     }
 
-    private PaletteAppearanceCoordinator.Scope requireScope(
-        final PaletteAppearanceCoordinator.Scope expected
-    ) {
+    private PaletteAppearanceCoordinator.Scope requireScope(final PaletteAppearanceCoordinator.Scope expected) {
         if (!active.get()) throw stale();
-        final PaletteAppearanceCoordinator.Scope current = captureScope(
-            expected.modelId(), expected.modelGeneration()
-        ).orElseThrow(this::stale);
+        final PaletteAppearanceCoordinator.Scope current =
+                captureScope(expected.modelId(), expected.modelGeneration()).orElseThrow(this::stale);
         if (!expected.equals(current)) throw stale();
         return current;
     }
@@ -530,10 +522,9 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
     }
 
     private PaletteEntry entry(
-        final PaletteAppearanceCoordinator.Scope scope,
-        final PaletteAppearanceCoordinator.Palette palette,
-        final String objectId
-    ) {
+            final PaletteAppearanceCoordinator.Scope scope,
+            final PaletteAppearanceCoordinator.Palette palette,
+            final String objectId) {
         return new Entry(scope, palette, objectId);
     }
 
@@ -543,10 +534,9 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         private final String objectId;
 
         private Entry(
-            final PaletteAppearanceCoordinator.Scope scope,
-            final PaletteAppearanceCoordinator.Palette palette,
-            final String objectId
-        ) {
+                final PaletteAppearanceCoordinator.Scope scope,
+                final PaletteAppearanceCoordinator.Palette palette,
+                final String objectId) {
             this.scope = scope;
             this.palette = palette;
             this.objectId = objectId;
@@ -554,32 +544,34 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
 
         @Override
         public Registration overrideFontSize(final float points) {
-            return register(PaletteAppearanceCoordinator.Property.FONT_SIZE, points,
-                "model.appearance.override-font-size");
+            return register(
+                    PaletteAppearanceCoordinator.Property.FONT_SIZE, points, "model.appearance.override-font-size");
         }
 
         @Override
         public Registration overrideBold(final boolean bold) {
-            return register(PaletteAppearanceCoordinator.Property.BOLD, bold,
-                "model.appearance.override-bold");
+            return register(PaletteAppearanceCoordinator.Property.BOLD, bold, "model.appearance.override-bold");
         }
 
         @Override
         public Registration overrideItalic(final boolean italic) {
-            return register(PaletteAppearanceCoordinator.Property.ITALIC, italic,
-                "model.appearance.override-italic");
+            return register(PaletteAppearanceCoordinator.Property.ITALIC, italic, "model.appearance.override-italic");
         }
 
         @Override
         public Registration overrideTextColor(final UiColor color) {
-            return register(PaletteAppearanceCoordinator.Property.TEXT_COLOR,
-                Objects.requireNonNull(color, "color"), "model.appearance.override-text-color");
+            return register(
+                    PaletteAppearanceCoordinator.Property.TEXT_COLOR,
+                    Objects.requireNonNull(color, "color"),
+                    "model.appearance.override-text-color");
         }
 
         @Override
         public Registration overrideBackgroundColor(final UiColor color) {
-            return register(PaletteAppearanceCoordinator.Property.BACKGROUND_COLOR,
-                Objects.requireNonNull(color, "color"), "model.appearance.override-background-color");
+            return register(
+                    PaletteAppearanceCoordinator.Property.BACKGROUND_COLOR,
+                    Objects.requireNonNull(color, "color"),
+                    "model.appearance.override-background-color");
         }
 
         @Override
@@ -597,21 +589,10 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         }
 
         private Registration register(
-            final PaletteAppearanceCoordinator.Property property,
-            final Object value,
-            final String operation
-        ) {
+                final PaletteAppearanceCoordinator.Property property, final Object value, final String operation) {
             appearanceModifyPermission(operation);
             final PaletteAppearanceCoordinator.Scope current = requireScope(scope);
-            return coordinator.register(
-                pluginId,
-                pluginGeneration,
-                current,
-                palette,
-                objectId,
-                property,
-                value
-            );
+            return coordinator.register(pluginId, pluginGeneration, current, palette, objectId, property, value);
         }
     }
 
@@ -635,9 +616,10 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             readPermission("model.part.native-label-color.read");
             requireScope(scope);
             try {
-                return Optional.of(Objects.requireNonNull(nativeAuthoring.readNativeLabelColor(
-                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, objectId)
-                ), "native label-color state"));
+                return Optional.of(Objects.requireNonNull(
+                        nativeAuthoring.readNativeLabelColor(
+                                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, objectId)),
+                        "native label-color state"));
             } catch (UnsupportedOperationException unavailable) {
                 return Optional.empty();
             }
@@ -648,9 +630,8 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             modelWritePermission("model.part.native-label-color.write");
             requireScope(scope);
             nativeAuthoring.setNativeLabelColor(
-                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, objectId),
-                Objects.requireNonNull(color, "color")
-            );
+                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PART, objectId),
+                    Objects.requireNonNull(color, "color"));
         }
     }
 
@@ -680,9 +661,10 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             readPermission("model.drawable.native-label-color.read");
             requireScope(scope);
             try {
-                return Optional.of(Objects.requireNonNull(nativeAuthoring.readNativeLabelColor(
-                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId)
-                ), "native label-color state"));
+                return Optional.of(Objects.requireNonNull(
+                        nativeAuthoring.readNativeLabelColor(
+                                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId)),
+                        "native label-color state"));
             } catch (UnsupportedOperationException unavailable) {
                 return Optional.empty();
             }
@@ -693,9 +675,8 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             modelWritePermission("model.drawable.native-label-color.write");
             requireScope(scope);
             nativeAuthoring.setNativeLabelColor(
-                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId),
-                Objects.requireNonNull(color, "color")
-            );
+                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.ART_MESH, objectId),
+                    Objects.requireNonNull(color, "color"));
         }
     }
 
@@ -725,9 +706,10 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             readPermission("model.deformer.native-label-color.read");
             requireScope(scope);
             try {
-                return Optional.of(Objects.requireNonNull(nativeAuthoring.readNativeLabelColor(
-                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, objectId)
-                ), "native label-color state"));
+                return Optional.of(Objects.requireNonNull(
+                        nativeAuthoring.readNativeLabelColor(
+                                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, objectId)),
+                        "native label-color state"));
             } catch (UnsupportedOperationException unavailable) {
                 return Optional.empty();
             }
@@ -738,9 +720,8 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             modelWritePermission("model.deformer.native-label-color.write");
             requireScope(scope);
             nativeAuthoring.setNativeLabelColor(
-                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, objectId),
-                Objects.requireNonNull(color, "color")
-            );
+                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.DEFORMER, objectId),
+                    Objects.requireNonNull(color, "color"));
         }
     }
 
@@ -757,6 +738,46 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         public Optional<PaletteEntry> parameterPaletteEntry() {
             requireScope(scope);
             return Optional.of(entry(scope, PaletteAppearanceCoordinator.Palette.PARAMETER, objectId));
+        }
+
+        @Override
+        public Optional<Boolean> visible() {
+            readPermission("model.parameter.visible.read");
+            requireScope(scope);
+            return hostParameter().map(HostSnapshotSource.HostParameter::visible);
+        }
+
+        @Override
+        public Optional<Boolean> editable() {
+            readPermission("model.parameter.editable.read");
+            requireScope(scope);
+            return hostParameter().map(HostSnapshotSource.HostParameter::editable);
+        }
+
+        /**
+         * Reads the parameter's palette state from the observed model: the parameter list of the
+         * same coherent observation {@link #requireScope} validated, keyed by this facade's
+         * parameter id. Within one host-read epoch that observation is the memoized one, so a
+         * parameter list traversal costs no additional host read.
+         */
+        private Optional<HostSnapshotSource.HostParameter> hostParameter() {
+            final HostSnapshotSource.SdkRuntimeObservation observed = observedRuntime();
+            if (observed.host() != null) {
+                return observed.host()
+                        .model()
+                        .flatMap(model -> model.parameters().stream()
+                                .filter(parameter -> parameter.id().equals(objectId))
+                                .findFirst());
+            }
+            final DocumentSnapshot document = observed.document();
+            if (document == null || document.kind() != DocumentKind.MODEL) {
+                return Optional.empty();
+            }
+            return document.model()
+                    .flatMap(model -> model.parameters().stream()
+                            .filter(parameter -> parameter.id().equals(objectId))
+                            .findFirst()
+                            .map(RuntimeModelAppearanceAccess::toHostParameter));
         }
     }
 
@@ -780,9 +801,10 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             readPermission("model.parameter-group.native-label-color.read");
             requireScope(scope);
             try {
-                return Optional.of(Objects.requireNonNull(nativeAuthoring.readNativeLabelColor(
-                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, objectId)
-                ), "native label-color state"));
+                return Optional.of(Objects.requireNonNull(
+                        nativeAuthoring.readNativeLabelColor(
+                                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, objectId)),
+                        "native label-color state"));
             } catch (UnsupportedOperationException unavailable) {
                 return Optional.empty();
             }
@@ -793,13 +815,24 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             modelWritePermission("model.parameter-group.native-label-color.write");
             requireScope(scope);
             nativeAuthoring.setNativeLabelColor(
-                new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, objectId),
-                Objects.requireNonNull(color, "color")
-            );
+                    new NativeLabelColorTarget(NativeLabelColorTarget.Palette.PARAMETER_GROUP, objectId),
+                    Objects.requireNonNull(color, "color"));
         }
     }
 
-    private record Bound(PaletteAppearanceCoordinator.Scope scope, String id) { }
+    private record Bound(PaletteAppearanceCoordinator.Scope scope, String id) {}
+
+    private static HostSnapshotSource.HostParameter toHostParameter(final ParameterSnapshot snapshot) {
+        return new HostSnapshotSource.HostParameter(
+                snapshot.id(),
+                snapshot.name(),
+                snapshot.value(),
+                snapshot.defaultValue(),
+                snapshot.minValue(),
+                snapshot.maxValue(),
+                snapshot.visible(),
+                snapshot.editable());
+    }
 
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);

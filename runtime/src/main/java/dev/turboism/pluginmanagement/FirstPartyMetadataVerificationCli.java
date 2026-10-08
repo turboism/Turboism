@@ -6,7 +6,6 @@ import dev.turboism.core.descriptor.DescriptorParseException;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.core.plugin.PluginJarContract;
 import dev.turboism.sdk.plugin.PluginDescriptor;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -31,8 +30,7 @@ public final class FirstPartyMetadataVerificationCli {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private FirstPartyMetadataVerificationCli() {
-    }
+    private FirstPartyMetadataVerificationCli() {}
 
     /**
      * Verifies each explicitly supplied descriptor/JAR pair and reports the outcome on standard output.
@@ -73,44 +71,56 @@ public final class FirstPartyMetadataVerificationCli {
         try (InputStream tracked = Files.newInputStream(descriptorPath)) {
             source = new PluginDescriptorParser().parse(tracked);
         } catch (IOException | DescriptorParseException failure) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID",
-                "tracked descriptor is not parseable: " + failure.getMessage());
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID",
+                    "tracked descriptor is not parseable: " + failure.getMessage());
         }
         if (!PluginCategoryRegistry.isRegistered(source.category().orElse(null))) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_CATEGORY_UNREGISTERED",
-                "tracked category '" + source.category().orElse("<none>")
-                    + "' is not in the official registry");
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_CATEGORY_UNREGISTERED",
+                    "tracked category '" + source.category().orElse("<none>") + "' is not in the official registry");
         }
         if (schemaVersion(descriptorPath) != 3) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_SCHEMA_NOT_V3",
-                "tracked descriptor must declare schemaVersion 3");
+            throw new FirstPartyRejection(
+                    descriptorPath, "FIRST_PARTY_SCHEMA_NOT_V3", "tracked descriptor must declare schemaVersion 3");
         }
         final PluginDescriptor embedded;
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             final JarEntry entry = jar.getJarEntry("META-INF/turboism/plugin.json");
             if (entry == null || entry.isDirectory()) {
-                throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_JAR_MISSING_DESCRIPTOR",
-                    "built JAR has no embedded descriptor");
+                throw new FirstPartyRejection(
+                        descriptorPath, "FIRST_PARTY_JAR_MISSING_DESCRIPTOR", "built JAR has no embedded descriptor");
             }
             try (InputStream input = jar.getInputStream(entry)) {
                 embedded = new PluginDescriptorParser().parse(input);
             } catch (DescriptorParseException failure) {
-                throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_EMBEDDED_DESCRIPTOR_INVALID",
-                    "embedded descriptor rejected: " + failure.code() + " " + failure.getMessage());
+                throw new FirstPartyRejection(
+                        descriptorPath,
+                        "FIRST_PARTY_EMBEDDED_DESCRIPTOR_INVALID",
+                        "embedded descriptor rejected: " + failure.code() + " " + failure.getMessage());
             }
             try {
-                PluginJarContract.validate(embedded, entryNames(jar), jarPath.getFileName().toString());
+                PluginJarContract.validate(
+                        embedded, entryNames(jar), jarPath.getFileName().toString());
             } catch (PluginJarContract.PluginJarContractException failure) {
-                throw new FirstPartyRejection(descriptorPath, "PLUGIN_JAR_CONTRACT_" + failure.code(),
-                    failure.getMessage() + " at " + failure.path());
+                throw new FirstPartyRejection(
+                        descriptorPath,
+                        "PLUGIN_JAR_CONTRACT_" + failure.code(),
+                        failure.getMessage() + " at " + failure.path());
             }
         } catch (IOException failure) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_JAR_UNREADABLE",
-                "built JAR cannot be inspected: " + failure.getMessage());
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_JAR_UNREADABLE",
+                    "built JAR cannot be inspected: " + failure.getMessage());
         }
         if (!source.category().equals(embedded.category()) || !source.tags().equals(embedded.tags())) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_CLASSIFICATION_MISMATCH",
-                "packaged category/tags differ from tracked metadata");
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_CLASSIFICATION_MISMATCH",
+                    "packaged category/tags differ from tracked metadata");
         }
     }
 
@@ -131,8 +141,10 @@ public final class FirstPartyMetadataVerificationCli {
             final JsonNode root = JSON.readTree(Files.readAllBytes(descriptorPath));
             return root.path("schemaVersion").asInt(-1);
         } catch (IOException failure) {
-            throw new FirstPartyRejection(descriptorPath, "FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID",
-                "tracked descriptor is not readable: " + failure.getMessage());
+            throw new FirstPartyRejection(
+                    descriptorPath,
+                    "FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID",
+                    "tracked descriptor is not readable: " + failure.getMessage());
         }
     }
 

@@ -8,12 +8,11 @@ import dev.turboism.adapter.cubism.SnapshotWithVersion;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
-import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,12 +47,11 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     private final HostSnapshotSource observationSource;
 
     public SelectionQueryServiceImpl(
-        final CubismFacadeImpl facade,
-        final CubismPermissionGate permissionGate,
-        final RuntimeEventBroker eventBroker,
-        final AtomicReference<SelectionObservation> observedSelection,
-        final HostSnapshotSource observationSource
-    ) {
+            final CubismFacadeImpl facade,
+            final CubismPermissionGate permissionGate,
+            final RuntimeEventBroker eventBroker,
+            final AtomicReference<SelectionObservation> observedSelection,
+            final HostSnapshotSource observationSource) {
         this.facade = Objects.requireNonNull(facade, "facade");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.eventBroker = Objects.requireNonNull(eventBroker, "eventBroker");
@@ -67,10 +65,14 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
     public SelectionSummary currentSelection() throws CubismServiceException {
         requireModelRead(CURRENT_SELECTION_OPERATION);
         final SnapshotWithVersion versioned = runtimeWithServiceError();
-        final SelectionSummary summary =
-            SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
+        final SelectionSummary summary = SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
         publishSelectionChanges(versioned, summary);
         return summary;
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return facade.isModelAccessAvailable();
     }
 
     @Override
@@ -78,45 +80,43 @@ public final class SelectionQueryServiceImpl implements SelectionQueryService {
         Objects.requireNonNull(kind, "kind");
         requireModelRead(SELECTED_IDS_OPERATION);
         final SnapshotWithVersion versioned = runtimeWithServiceError();
-        final SelectionSummary summary =
-            SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
+        final SelectionSummary summary = SelectionSummaries.fromRuntimeSnapshot(versioned.snapshot());
         publishSelectionChanges(versioned, summary);
         return switch (kind) {
             case MODEL, GROUP, PART, UNKNOWN -> summary.selectedModelObjectIds();
-            case PARAMETER -> summary.selectedParameterIds().stream().map(id -> new ModelObjectId(id.value())).toList();
-            case ART_MESH -> summary.selectedArtMeshIds().stream().map(id -> new ModelObjectId(id.value())).toList();
-            case DEFORMER -> summary.selectedDeformerIds().stream().map(id -> new ModelObjectId(id.value())).toList();
+            case PARAMETER ->
+                summary.selectedParameterIds().stream()
+                        .map(id -> new ModelObjectId(id.value()))
+                        .toList();
+            case ART_MESH ->
+                summary.selectedArtMeshIds().stream()
+                        .map(id -> new ModelObjectId(id.value()))
+                        .toList();
+            case DEFORMER ->
+                summary.selectedDeformerIds().stream()
+                        .map(id -> new ModelObjectId(id.value()))
+                        .toList();
         };
     }
 
     private void requireModelRead(final String operationId) {
-        permissionGate.require(
-            CubismFacadeImpl.MODEL_READ_PERMISSION,
-            operationId,
-            SELECTION_READ_CAPABILITY
-        );
+        permissionGate.require(CubismFacadeImpl.MODEL_READ_PERMISSION, operationId, SELECTION_READ_CAPABILITY);
     }
 
     private SnapshotWithVersion runtimeWithServiceError() throws CubismServiceException {
         try {
             return facade.runtimeWithVersion();
         } catch (IllegalArgumentException | IllegalStateException error) {
-            throw new CubismServiceException(ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
+            throw new CubismServiceException(
+                    ServiceError.INVALID_SNAPSHOT, "Cubism runtime snapshot is invalid.", error);
         }
     }
 
-    private void publishSelectionChanges(
-        final SnapshotWithVersion versioned,
-        final SelectionSummary currentSelection
-    ) {
-        final SelectionSummary identity =
-            SelectionSummaries.observedIdentity(currentSelection);
+    private void publishSelectionChanges(final SnapshotWithVersion versioned, final SelectionSummary currentSelection) {
+        final SelectionSummary identity = SelectionSummaries.observedIdentity(currentSelection);
         SelectionObservation.commit(
-            observedSelection,
-            new SelectionObservation(observationSource, versioned.version(), identity),
-            (previous, current) -> eventBroker.publishRuntime(
-                new SelectionChangedEvent(previous, current)
-            )
-        );
+                observedSelection,
+                new SelectionObservation(observationSource, versioned.version(), identity),
+                (previous, current) -> eventBroker.publishRuntime(new SelectionChangedEvent(previous, current)));
     }
 }

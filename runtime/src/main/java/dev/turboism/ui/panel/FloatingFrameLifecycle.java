@@ -37,11 +37,7 @@ public final class FloatingFrameLifecycle {
      * @throws NullPointerException if {@code frame} or {@code palette} is {@code null}
      */
     public synchronized void remember(
-        final Object frame,
-        final Object palette,
-        final Object siblingAnchor,
-        final Object originalBox
-    ) {
+            final Object frame, final Object palette, final Object siblingAnchor, final Object originalBox) {
         Objects.requireNonNull(frame, "frame");
         Objects.requireNonNull(palette, "palette");
         final Object previousFrame = frameByPalette.put(palette, frame);
@@ -54,8 +50,9 @@ public final class FloatingFrameLifecycle {
                 }
             }
         }
-        entriesByFrame.computeIfAbsent(frame, ignored -> new IdentityHashMap<>())
-            .put(palette, new Anchor(siblingAnchor, originalBox));
+        entriesByFrame
+                .computeIfAbsent(frame, ignored -> new IdentityHashMap<>())
+                .put(palette, new Anchor(siblingAnchor, originalBox));
     }
 
     /**
@@ -80,11 +77,7 @@ public final class FloatingFrameLifecycle {
         for (Map.Entry<Object, Anchor> entry : entries.entrySet()) {
             if (frameByPalette.get(entry.getKey()) == frame) {
                 frameByPalette.remove(entry.getKey());
-                result.add(new Entry(
-                    entry.getKey(),
-                    entry.getValue().siblingAnchor,
-                    entry.getValue().originalBox
-                ));
+                result.add(new Entry(entry.getKey(), entry.getValue().siblingAnchor, entry.getValue().originalBox));
             }
         }
         return List.copyOf(result);

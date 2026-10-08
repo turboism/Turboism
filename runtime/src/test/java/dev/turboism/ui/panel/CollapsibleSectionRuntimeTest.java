@@ -1,20 +1,19 @@
 package dev.turboism.ui.panel;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import javax.swing.JPanel;
 import java.awt.Cursor;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
-import java.util.Locale;
 import java.awt.image.BufferedImage;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.Locale;
+import javax.swing.JPanel;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class CollapsibleSectionRuntimeTest {
 
@@ -40,13 +39,20 @@ class CollapsibleSectionRuntimeTest {
     }
 
     private static MouseEvent click(JPanel panel, Point point) {
-        return new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0,
-                point.x, point.y, 1, false, MouseEvent.BUTTON1);
+        return new MouseEvent(
+                panel,
+                MouseEvent.MOUSE_CLICKED,
+                System.currentTimeMillis(),
+                0,
+                point.x,
+                point.y,
+                1,
+                false,
+                MouseEvent.BUTTON1);
     }
 
     private static MouseEvent move(JPanel panel, Point point) {
-        return new MouseEvent(panel, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 0,
-                point.x, point.y, 0, false);
+        return new MouseEvent(panel, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 0, point.x, point.y, 0, false);
     }
 
     private static Point centerOf(java.awt.Rectangle bounds) {

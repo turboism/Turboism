@@ -1,18 +1,17 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Area;
-import java.awt.geom.Path2D;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasItemLayoutPolicy;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonItem;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlacement;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
+import java.awt.geom.Path2D;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Independent plan validator for polygon layouts, evaluated against freshly read
@@ -33,36 +32,32 @@ final class TextureAtlasPolygonPlanValidator {
 
     private static final double TOLERANCE = 1e-4;
 
-    private TextureAtlasPolygonPlanValidator() {
-    }
+    private TextureAtlasPolygonPlanValidator() {}
 
     /** Violation reported in plan order; {@code message} is operator-facing. */
-    record Violation(String code, String message) {
-    }
+    record Violation(String code, String message) {}
 
-    static List<Violation> validate(final List<TextureAtlasPolygonItem> items,
-        final TextureAtlasPolygonConstraints constraints,
-        final TextureAtlasPolygonPlan plan) {
+    static List<Violation> validate(
+            final List<TextureAtlasPolygonItem> items,
+            final TextureAtlasPolygonConstraints constraints,
+            final TextureAtlasPolygonPlan plan) {
         Objects.requireNonNull(items, "items");
         Objects.requireNonNull(constraints, "constraints");
         Objects.requireNonNull(plan, "plan");
         final List<Violation> violations = new ArrayList<>();
-        if (plan.pageWidth() != constraints.pageWidth()
-            || plan.pageHeight() != constraints.pageHeight()) {
-            violations.add(new Violation("page-mismatch",
-                "plan page " + plan.pageWidth() + "x" + plan.pageHeight()
-                    + " does not match the issued page "
-                    + constraints.pageWidth() + "x" + constraints.pageHeight()));
+        if (plan.pageWidth() != constraints.pageWidth() || plan.pageHeight() != constraints.pageHeight()) {
+            violations.add(new Violation(
+                    "page-mismatch",
+                    "plan page " + plan.pageWidth() + "x" + plan.pageHeight()
+                            + " does not match the issued page "
+                            + constraints.pageWidth() + "x" + constraints.pageHeight()));
         }
         final double requested = constraints.requestedScale();
-        if (requested > 0
-            && Math.abs(plan.scale() - requested) > 1e-12 * requested) {
-            violations.add(new Violation("scale",
-                "plan scale " + plan.scale()
-                    + " does not respect the requested scale " + requested));
+        if (requested > 0 && Math.abs(plan.scale() - requested) > 1e-12 * requested) {
+            violations.add(new Violation(
+                    "scale", "plan scale " + plan.scale() + " does not respect the requested scale " + requested));
         } else if (requested == 0 && plan.scale() > 1 + TOLERANCE) {
-            violations.add(new Violation("scale",
-                "automatic scale must not exceed 1, got " + plan.scale()));
+            violations.add(new Violation("scale", "automatic scale must not exceed 1, got " + plan.scale()));
         }
         final int margin = constraints.margin();
         // The issued session mode is the writable bound; a plan may declare the
@@ -73,12 +68,11 @@ final class TextureAtlasPolygonPlanValidator {
         if (declaredValue != null) {
             final TextureAtlasRotationMode declared = parseRotationMode(declaredValue);
             if (declared == null) {
-                violations.add(new Violation("rotation-mode",
-                    "plan declares unknown rotationMode '" + declaredValue + "'"));
+                violations.add(
+                        new Violation("rotation-mode", "plan declares unknown rotationMode '" + declaredValue + "'"));
             } else if (declared.ordinal() > sessionMode.ordinal()) {
-                violations.add(new Violation("rotation-mode",
-                    "plan rotationMode " + declared
-                        + " exceeds the issued mode " + sessionMode));
+                violations.add(new Violation(
+                        "rotation-mode", "plan rotationMode " + declared + " exceeds the issued mode " + sessionMode));
             } else {
                 effectiveMode = declared;
             }
@@ -93,86 +87,85 @@ final class TextureAtlasPolygonPlanValidator {
         for (final TextureAtlasPolygonPlacement placement : plan.placements()) {
             final TextureAtlasPolygonItem item = byId.get(placement.textureId());
             if (item == null) {
-                violations.add(new Violation("unknown-item",
-                    "placement for unknown textureId " + placement.textureId()));
+                violations.add(
+                        new Violation("unknown-item", "placement for unknown textureId " + placement.textureId()));
                 continue;
             }
             if (!placedIds.add(placement.textureId())) {
-                violations.add(new Violation("duplicate-item",
-                    "duplicate placement for " + placement.textureId()));
+                violations.add(new Violation("duplicate-item", "duplicate placement for " + placement.textureId()));
                 continue;
             }
             final TextureAtlasItemLayoutPolicy policy = item.policy();
             if (policy != null && !policy.participate() && !item.currentlyPlaced()) {
-                violations.add(new Violation("excluded-item",
-                    "placement for excluded off-page item " + placement.textureId()));
+                violations.add(new Violation(
+                        "excluded-item", "placement for excluded off-page item " + placement.textureId()));
                 continue;
             }
-            if (!Double.isFinite(placement.x()) || !Double.isFinite(placement.y())
-                || !Double.isFinite(placement.angleDeg())
-                || !(placement.scale() > 0) || !Double.isFinite(placement.scale())) {
-                violations.add(new Violation("invalid-placement",
-                    "non-finite transform or non-positive scale for "
-                        + placement.textureId()));
+            if (!Double.isFinite(placement.x())
+                    || !Double.isFinite(placement.y())
+                    || !Double.isFinite(placement.angleDeg())
+                    || !(placement.scale() > 0)
+                    || !Double.isFinite(placement.scale())) {
+                violations.add(new Violation(
+                        "invalid-placement",
+                        "non-finite transform or non-positive scale for " + placement.textureId()));
                 continue;
             }
             final double normalized = normalizeAngle(placement.angleDeg());
-            final double issuedAngle = item.currentMatrix() == null ? 0
-                : item.currentAngleDeg();
+            final double issuedAngle = item.currentMatrix() == null ? 0 : item.currentAngleDeg();
             if (lockedAngle(item)) {
                 if (Math.abs(normalizeAngle(normalized - issuedAngle)) > TOLERANCE) {
-                    violations.add(new Violation("locked-angle",
-                        "angle-locked item " + placement.textureId()
-                            + " rotated from " + issuedAngle + " to " + normalized));
+                    violations.add(new Violation(
+                            "locked-angle",
+                            "angle-locked item " + placement.textureId() + " rotated from " + issuedAngle + " to "
+                                    + normalized));
                 }
             } else if (effectiveMode == TextureAtlasRotationMode.NONE) {
                 if (Math.abs(normalizeAngle(normalized - issuedAngle)) > TOLERANCE) {
-                    violations.add(new Violation("rotation-mode",
-                        "rotation NONE but " + placement.textureId() + " rotated to "
-                            + normalized));
+                    violations.add(new Violation(
+                            "rotation-mode",
+                            "rotation NONE but " + placement.textureId() + " rotated to " + normalized));
                 }
             } else if (effectiveMode == TextureAtlasRotationMode.QUARTER) {
-                if (Math.abs(normalized % 90) > TOLERANCE
-                    && Math.abs(normalized % 90 - 90) > TOLERANCE) {
-                    violations.add(new Violation("rotation-mode",
-                        "rotation QUARTER but " + placement.textureId() + " rotated to "
-                            + normalized));
+                if (Math.abs(normalized % 90) > TOLERANCE && Math.abs(normalized % 90 - 90) > TOLERANCE) {
+                    violations.add(new Violation(
+                            "rotation-mode",
+                            "rotation QUARTER but " + placement.textureId() + " rotated to " + normalized));
                 }
             }
-            if (lockedScale(item)
-                && Math.abs(placement.scale() - item.currentScale()) > TOLERANCE) {
-                violations.add(new Violation("locked-scale",
-                    "scale-locked item " + placement.textureId() + " rescaled from "
-                        + item.currentScale() + " to " + placement.scale()));
+            if (lockedScale(item) && Math.abs(placement.scale() - item.currentScale()) > TOLERANCE) {
+                violations.add(new Violation(
+                        "locked-scale",
+                        "scale-locked item " + placement.textureId() + " rescaled from " + item.currentScale() + " to "
+                                + placement.scale()));
             }
             if (lockedPosition(item)) {
                 final double[] matrix = item.currentMatrix();
-                if (matrix == null || Math.abs(placement.x() - matrix[4]) > TOLERANCE
-                    || Math.abs(placement.y() - matrix[5]) > TOLERANCE
-                    || Math.abs(normalizeAngle(normalized - issuedAngle)) > TOLERANCE) {
-                    violations.add(new Violation("fixed-position",
-                        "fixed-position item " + placement.textureId() + " moved"));
+                if (matrix == null
+                        || Math.abs(placement.x() - matrix[4]) > TOLERANCE
+                        || Math.abs(placement.y() - matrix[5]) > TOLERANCE
+                        || Math.abs(normalizeAngle(normalized - issuedAngle)) > TOLERANCE) {
+                    violations.add(
+                            new Violation("fixed-position", "fixed-position item " + placement.textureId() + " moved"));
                 }
             }
             final Area area = transformedArea(item, placement);
             final java.awt.geom.Rectangle2D bounds = area.getBounds2D();
             if (bounds.getMinX() < margin - TOLERANCE
-                || bounds.getMinY() < margin - TOLERANCE
-                || bounds.getMaxX() > plan.pageWidth() - margin + TOLERANCE
-                || bounds.getMaxY() > plan.pageHeight() - margin + TOLERANCE) {
-                violations.add(new Violation("margin",
-                    "item " + placement.textureId() + " violates page margin"));
+                    || bounds.getMinY() < margin - TOLERANCE
+                    || bounds.getMaxX() > plan.pageWidth() - margin + TOLERANCE
+                    || bounds.getMaxY() > plan.pageHeight() - margin + TOLERANCE) {
+                violations.add(new Violation("margin", "item " + placement.textureId() + " violates page margin"));
                 continue;
             }
             for (int i = 0; i < placedAreas.size(); i++) {
                 final Area other = placedAreas.get(i);
                 final Area test = new Area(area);
                 test.intersect(other);
-                if (!test.isEmpty() && test.getBounds2D().getWidth() * test.getBounds2D().getHeight()
-                    > TOLERANCE) {
-                    violations.add(new Violation("overlap",
-                        "item " + placement.textureId() + " overlaps "
-                            + placedNames.get(i)));
+                if (!test.isEmpty()
+                        && test.getBounds2D().getWidth() * test.getBounds2D().getHeight() > TOLERANCE) {
+                    violations.add(new Violation(
+                            "overlap", "item " + placement.textureId() + " overlaps " + placedNames.get(i)));
                     break;
                 }
             }
@@ -182,35 +175,30 @@ final class TextureAtlasPolygonPlanValidator {
         final java.util.Set<String> overflowIds = new java.util.HashSet<>();
         for (final String overflowId : plan.overflowTextureIds()) {
             if (!byId.containsKey(overflowId)) {
-                violations.add(new Violation("unknown-item",
-                    "overflow for unknown textureId " + overflowId));
+                violations.add(new Violation("unknown-item", "overflow for unknown textureId " + overflowId));
             }
             if (!overflowIds.add(overflowId)) {
-                violations.add(new Violation("duplicate-item",
-                    "duplicate overflow entry for " + overflowId));
+                violations.add(new Violation("duplicate-item", "duplicate overflow entry for " + overflowId));
             }
             if (placedIds.contains(overflowId)) {
-                violations.add(new Violation("duplicate-item",
-                    overflowId + " is both placed and overflowed"));
+                violations.add(new Violation("duplicate-item", overflowId + " is both placed and overflowed"));
             }
         }
         for (final TextureAtlasPolygonItem item : items) {
             final TextureAtlasItemLayoutPolicy policy = item.policy();
-            final boolean mustPlace = policy == null || policy.participate()
-                || item.currentlyPlaced();
+            final boolean mustPlace = policy == null || policy.participate() || item.currentlyPlaced();
             if (!mustPlace || placedIds.contains(item.textureId())) {
                 continue;
             }
             if (policy != null && !policy.participate() && item.currentlyPlaced()) {
                 // a placed non-participant keeps its issued transform and must
                 // stay on the page - overflow would silently remove it
-                violations.add(new Violation("excluded-item",
-                    "excluded on-page item " + item.textureId()
-                        + " was removed from the page"));
+                violations.add(new Violation(
+                        "excluded-item", "excluded on-page item " + item.textureId() + " was removed from the page"));
             } else if (!plan.overflowTextureIds().contains(item.textureId())) {
-                violations.add(new Violation("missing-item",
-                    "participating item " + item.textureId()
-                        + " has neither placement nor overflow"));
+                violations.add(new Violation(
+                        "missing-item",
+                        "participating item " + item.textureId() + " has neither placement nor overflow"));
             }
         }
         return violations;
@@ -231,18 +219,16 @@ final class TextureAtlasPolygonPlanValidator {
 
     private static boolean lockedScale(final TextureAtlasPolygonItem item) {
         final TextureAtlasItemLayoutPolicy policy = item.policy();
-        return policy != null && (policy.preserveScale()
-            || (!policy.participate() && item.currentlyPlaced()));
+        return policy != null && (policy.preserveScale() || (!policy.participate() && item.currentlyPlaced()));
     }
 
     private static boolean lockedPosition(final TextureAtlasPolygonItem item) {
         final TextureAtlasItemLayoutPolicy policy = item.policy();
-        return policy != null && (policy.preservePosition() || !policy.participate())
-            && item.currentlyPlaced();
+        return policy != null && (policy.preservePosition() || !policy.participate()) && item.currentlyPlaced();
     }
 
-    private static Area transformedArea(final TextureAtlasPolygonItem item,
-        final TextureAtlasPolygonPlacement placement) {
+    private static Area transformedArea(
+            final TextureAtlasPolygonItem item, final TextureAtlasPolygonPlacement placement) {
         final AffineTransform at = new AffineTransform();
         at.translate(placement.x(), placement.y());
         at.rotate(Math.toRadians(placement.angleDeg()));

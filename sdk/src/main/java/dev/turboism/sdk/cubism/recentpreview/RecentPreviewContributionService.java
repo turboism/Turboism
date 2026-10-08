@@ -21,13 +21,13 @@ public interface RecentPreviewContributionService {
      * asynchronous capture completes so the new image appears without re-hovering).
      * No-op when no popup is active.
      */
-    default void refresh() {
-    }
+    default void refresh() {}
 
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -42,7 +42,8 @@ public interface RecentPreviewContributionService {
     enum Unavailable implements RecentPreviewContributionService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
@@ -52,7 +53,6 @@ public interface RecentPreviewContributionService {
         }
 
         @Override
-        public void refresh() {
-        }
+        public void refresh() {}
     }
 }

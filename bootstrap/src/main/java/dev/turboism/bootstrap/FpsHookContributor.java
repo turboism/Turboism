@@ -2,6 +2,7 @@ package dev.turboism.bootstrap;
 
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
+import dev.turboism.core.runtime.work.FatalErrors;
 
 /**
  * Declarative contributor for the FPS counting hook. It publishes the agent-
@@ -10,29 +11,33 @@ import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
  */
 final class FpsHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_FPS_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.HOST_RESOLVED;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var host = environment.host().orElseThrow();
         final PerformanceFpsHookInstaller installer = new PerformanceFpsHookInstaller(
-            environment.instrumentation(),
-            host.artifact(),
-            host.classLoader(),
-            environment.admittedRuntimeGeneration()
-        );
+                environment.instrumentation(),
+                host.artifact(),
+                host.classLoader(),
+                environment.admittedRuntimeGeneration());
         try {
             PerformanceFpsHookRegistry.publish(installer);
         } catch (Throwable failure) {
+            FatalErrors.rethrowIfFatal(failure);
             installer.close();
             throw failure;
         }
@@ -47,7 +52,8 @@ final class FpsHookContributor implements HookContributor {
             this.hook = hook;
         }
 
-        @Override public void close() {
+        @Override
+        public void close() {
             if (closed) {
                 return;
             }

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -23,7 +22,8 @@ public interface ScreenshotCaptureService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -38,15 +38,15 @@ public interface ScreenshotCaptureService {
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
         @Override
         public CompletionStage<ScreenshotCaptureResult> capture(final ScreenshotCaptureRequest request) {
             return CompletableFuture.failedStage(
-                new UnsupportedOperationException("screenshot capture service is not available")
-            );
+                    new UnsupportedOperationException("screenshot capture service is not available"));
         }
     }
 }

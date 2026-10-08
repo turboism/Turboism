@@ -1,5 +1,10 @@
 package dev.turboism.ui.table;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -11,22 +16,17 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeSceneTableServiceTest {
 
@@ -58,10 +58,9 @@ final class RuntimeSceneTableServiceTest {
         service.setItemOrder(SceneTableService.SCENE_TABLE_ID, List.of("scene-2", "scene-1"));
         service.publishHeaderClick("name");
         service.publishSnapshot(new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            List.of(new SceneTableService.Column("name", "Name")),
-            List.of(new SceneTableService.Item("scene-1", Map.of("name", "Scene 1")))
-        ));
+                SceneTableService.SCENE_TABLE_ID,
+                List.of(new SceneTableService.Column("name", "Name")),
+                List.of(new SceneTableService.Item("scene-1", Map.of("name", "Scene 1")))));
 
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(List.of("name=Name ↓"), host.headers);
@@ -80,10 +79,9 @@ final class RuntimeSceneTableServiceTest {
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         service.attachEventBroker(broker);
         service.publishSnapshot(new SceneTableService.TableSnapshot(
-            SceneTableService.SCENE_TABLE_ID,
-            List.of(new SceneTableService.Column("name", "Name")),
-            List.of(new SceneTableService.Item("scene-1", Map.of("name", "Scene 1")))
-        ));
+                SceneTableService.SCENE_TABLE_ID,
+                List.of(new SceneTableService.Column("name", "Name")),
+                List.of(new SceneTableService.Item("scene-1", Map.of("name", "Scene 1")))));
         final RuntimeEventBroker.Owner observerOwner = broker.admit("plugin.late-observer");
         final AtomicReference<SceneTableSnapshotEvent> replayed = new AtomicReference<>();
         final CountDownLatch delivered = new CountDownLatch(1);
@@ -105,25 +103,44 @@ final class RuntimeSceneTableServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.setItemPosition("scene", "id", -1));
     }
 
+    @Test
+    void availabilityFollowsTheHostSeam() {
+        assertTrue(new RuntimeSceneTableService(new RecordingHost()).isAvailable());
+
+        final RuntimeSceneTableService.Host detached = new RuntimeSceneTableService.Host() {
+            @Override
+            public void setHeader(final String columnId, final String label) {}
+
+            @Override
+            public void setItemPosition(final String itemId, final int position) {}
+
+            @Override
+            public void setItemOrder(final List<String> itemIds) {}
+
+            @Override
+            public void setManualReordering(final boolean enabled) {}
+
+            @Override
+            public boolean available() {
+                return false;
+            }
+        };
+        assertFalse(new RuntimeSceneTableService(detached).isAvailable());
+    }
+
     private static RuntimeScheduler scheduler() {
-        final Clock clock = Clock.fixed(
-            Instant.parse("2026-08-23T00:00:00Z"),
-            ZoneOffset.UTC
-        );
+        final Clock clock = Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC);
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, clock),
-            new SidecarDispatcher() {
-                @Override
-                public java.util.concurrent.CompletionStage<SidecarResult> dispatch(
-                    final PluginTask task,
-                    final Runnable callback
-                ) {
-                    return CompletableFuture.completedFuture(SidecarResult.success(""));
-                }
-            },
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, clock),
+                new SidecarDispatcher() {
+                    @Override
+                    public java.util.concurrent.CompletionStage<SidecarResult> dispatch(
+                            final PluginTask task, final Runnable callback) {
+                        return CompletableFuture.completedFuture(SidecarResult.success(""));
+                    }
+                },
+                ignored -> {});
     }
 
     private static final class RecordingHost implements RuntimeSceneTableService.Host {

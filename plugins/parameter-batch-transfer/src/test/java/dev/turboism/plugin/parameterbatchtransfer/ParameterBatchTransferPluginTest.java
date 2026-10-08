@@ -1,5 +1,11 @@
 package dev.turboism.plugin.parameterbatchtransfer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.plugin.parameterbatchtransfer.service.ParameterBatchTransferService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -43,19 +49,12 @@ import dev.turboism.sdk.ui.context.ContextMenuSelection;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ParameterBatchTransferPluginTest {
 
@@ -69,23 +68,20 @@ class ParameterBatchTransferPluginTest {
         assertEquals(2, fixture.contextMenus.contributions.size());
 
         final ContextMenuRegistry.ContextMenuContribution deformer =
-            fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_DEFORMER_ID);
+                fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_DEFORMER_ID);
         final ContextMenuRegistry.ContextMenuContribution part =
-            fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_PART_ID);
+                fixture.contextMenus.byId(ParameterBatchTransferPlugin.CONTEXT_MENU_PART_ID);
 
         assertEquals(ContextMenuRegistry.Location.DEFORMER_TAB, deformer.location());
         assertEquals(ContextMenuRegistry.Location.PART_TAB, part.location());
-        for (final ContextMenuRegistry.ContextMenuContribution contribution :
-            fixture.contextMenus.contributions) {
+        for (final ContextMenuRegistry.ContextMenuContribution contribution : fixture.contextMenus.contributions) {
             assertEquals(ParameterBatchTransferPlugin.ACTION_ID, contribution.actionId());
             assertEquals(
-                Set.of(
-                    ContextMenuRegistry.ObjectKind.ART_MESH,
-                    ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
-                    ContextMenuRegistry.ObjectKind.ROTATION_DEFORMER
-                ),
-                contribution.objectKinds()
-            );
+                    Set.of(
+                            ContextMenuRegistry.ObjectKind.ART_MESH,
+                            ContextMenuRegistry.ObjectKind.WARP_DEFORMER,
+                            ContextMenuRegistry.ObjectKind.ROTATION_DEFORMER),
+                    contribution.objectKinds());
             assertSame(ParameterBatchTransferPlugin.SINGLE_SELECTION, contribution.visibleWhen());
         }
         assertEquals("menu.batchTransfer", deformer.label());
@@ -94,16 +90,17 @@ class ParameterBatchTransferPluginTest {
     @Test
     void singleSelectionPredicateAcceptsExactlyOneItem() {
         final ContextMenuSelection single = new ContextMenuSelection(
-            1L, "document-a", ContextMenuRegistry.Location.DEFORMER_TAB,
-            List.of(new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"))
-        );
+                1L,
+                "document-a",
+                ContextMenuRegistry.Location.DEFORMER_TAB,
+                List.of(new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")));
         final ContextMenuSelection multiple = new ContextMenuSelection(
-            1L, "document-a", ContextMenuRegistry.Location.DEFORMER_TAB,
-            List.of(
-                new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
-                new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
-            )
-        );
+                1L,
+                "document-a",
+                ContextMenuRegistry.Location.DEFORMER_TAB,
+                List.of(
+                        new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+                        new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")));
 
         assertTrue(ParameterBatchTransferPlugin.SINGLE_SELECTION.test(single));
         assertFalse(ParameterBatchTransferPlugin.SINGLE_SELECTION.test(multiple));
@@ -115,16 +112,15 @@ class ParameterBatchTransferPluginTest {
         fixture.plugin.init(fixture.context);
         fixture.plugin.enable();
 
-        fixture.actions.byId(ParameterBatchTransferPlugin.ACTION_ID)
-            .handler()
-            .accept(new ActionRegistry.ActionContext() { });
+        fixture.actions
+                .byId(ParameterBatchTransferPlugin.ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {});
 
         assertEquals(
-            List.of(new StatusNotification(
-                "parameter.batchTransfer.status.noSelection", "INFO", "status.noSelection"
-            )),
-            fixture.uiHost.notifications
-        );
+                List.of(new StatusNotification(
+                        "parameter.batchTransfer.status.noSelection", "INFO", "status.noSelection")),
+                fixture.uiHost.notifications);
         assertFalse(fixture.cubism.accessed);
     }
 
@@ -134,23 +130,28 @@ class ParameterBatchTransferPluginTest {
         fixture.plugin.init(fixture.context);
         fixture.plugin.enable();
 
-        fixture.actions.byId(ParameterBatchTransferPlugin.ACTION_ID)
-            .handler()
-            .accept(new ActionRegistry.ActionContext() {
-                @Override
-                public Optional<ContextMenuSelection> contextMenuSelection() {
-                    return Optional.of(new ContextMenuSelection(
-                        1L, "document-a", ContextMenuRegistry.Location.PART_TAB,
-                        List.of(
-                            new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
-                            new ContextMenuSelection.Item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
-                        )
-                    ));
-                }
-            });
+        fixture.actions
+                .byId(ParameterBatchTransferPlugin.ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {
+                    @Override
+                    public Optional<ContextMenuSelection> contextMenuSelection() {
+                        return Optional.of(new ContextMenuSelection(
+                                1L,
+                                "document-a",
+                                ContextMenuRegistry.Location.PART_TAB,
+                                List.of(
+                                        new ContextMenuSelection.Item(
+                                                ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+                                        new ContextMenuSelection.Item(
+                                                ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2"))));
+                    }
+                });
 
         assertEquals(1, fixture.uiHost.notifications.size());
-        assertEquals("parameter.batchTransfer.status.noSelection", fixture.uiHost.notifications.get(0).id());
+        assertEquals(
+                "parameter.batchTransfer.status.noSelection",
+                fixture.uiHost.notifications.get(0).id());
     }
 
     @Test
@@ -159,26 +160,25 @@ class ParameterBatchTransferPluginTest {
         fixture.plugin.init(fixture.context);
         fixture.plugin.enable();
 
-        fixture.actions.byId(ParameterBatchTransferPlugin.ACTION_ID)
-            .handler()
-            .accept(new ActionRegistry.ActionContext() {
-                @Override
-                public Optional<ContextMenuSelection> contextMenuSelection() {
-                    return Optional.of(new ContextMenuSelection(
-                        1L, "document-a", ContextMenuRegistry.Location.DEFORMER_TAB,
-                        List.of(new ContextMenuSelection.Item(
-                            ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"
-                        ))
-                    ));
-                }
-            });
+        fixture.actions
+                .byId(ParameterBatchTransferPlugin.ACTION_ID)
+                .handler()
+                .accept(new ActionRegistry.ActionContext() {
+                    @Override
+                    public Optional<ContextMenuSelection> contextMenuSelection() {
+                        return Optional.of(new ContextMenuSelection(
+                                1L,
+                                "document-a",
+                                ContextMenuRegistry.Location.DEFORMER_TAB,
+                                List.of(new ContextMenuSelection.Item(
+                                        ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"))));
+                    }
+                });
 
         assertEquals(
-            List.of(new StatusNotification(
-                "parameter.batchTransfer.status.noBoundParameters", "INFO", "status.noBoundParameters"
-            )),
-            fixture.uiHost.notifications
-        );
+                List.of(new StatusNotification(
+                        "parameter.batchTransfer.status.noBoundParameters", "INFO", "status.noBoundParameters")),
+                fixture.uiHost.notifications);
         assertTrue(fixture.cubism.accessed);
     }
 
@@ -191,7 +191,7 @@ class ParameterBatchTransferPluginTest {
         assertThrows(IllegalStateException.class, fixture.plugin::enable);
 
         // A closed disposable scope rejects further registrations.
-        assertThrows(IllegalStateException.class, () -> fixture.scope.register(() -> { }));
+        assertThrows(IllegalStateException.class, () -> fixture.scope.register(() -> {}));
     }
 
     private static final class Fixture {
@@ -201,9 +201,8 @@ class ParameterBatchTransferPluginTest {
         final RecordingCubism cubism = new RecordingCubism();
         final DisposableScope scope = new DisposableScope();
         final PluginContext context = new RecordingContext(actions, contextMenus, uiHost, cubism, scope);
-        final ParameterBatchTransferPlugin plugin = new ParameterBatchTransferPlugin(
-            new ParameterBatchTransferService()
-        );
+        final ParameterBatchTransferPlugin plugin =
+                new ParameterBatchTransferPlugin(new ParameterBatchTransferService());
     }
 
     private static final class RecordingContext implements PluginContext {
@@ -214,12 +213,11 @@ class ParameterBatchTransferPluginTest {
         private final DisposableScope scope;
 
         RecordingContext(
-            final RecordingActions actions,
-            final RecordingContextMenus contextMenus,
-            final RecordingUiHost uiHost,
-            final RecordingCubism cubism,
-            final DisposableScope scope
-        ) {
+                final RecordingActions actions,
+                final RecordingContextMenus contextMenus,
+                final RecordingUiHost uiHost,
+                final RecordingCubism cubism,
+                final DisposableScope scope) {
             this.actions = actions;
             this.contextMenus = contextMenus;
             this.uiHost = uiHost;
@@ -227,42 +225,131 @@ class ParameterBatchTransferPluginTest {
             this.scope = scope;
         }
 
-        @Override public PluginDescriptor descriptor() { throw new UnsupportedOperationException(); }
-        @Override public PluginLogger logger() { return new PluginLogger() {
-            @Override public void debug(String message) { }
-            @Override public void info(String message) { }
-            @Override public void warn(String message) { }
-            @Override public void error(String message) { }
-            @Override public void error(String message, Throwable throwable) { }
-        }; }
-        @Override public PluginPaths paths() { throw new UnsupportedOperationException(); }
-        @Override public dev.turboism.sdk.config.PluginConfigRegistry config() {
+        @Override
+        public PluginDescriptor descriptor() {
             throw new UnsupportedOperationException();
         }
-        @Override public CubismFacade cubism() { return cubism; }
-        @Override public List<PluginPermission> permissions() { throw new UnsupportedOperationException(); }
-        @Override public EventBus eventBus() { throw new UnsupportedOperationException(); }
-        @Override public ActionRegistry actions() { return actions; }
-        @Override public MenuRegistry menus() { throw new UnsupportedOperationException(); }
-        @Override public UiScheduler uiScheduler() { throw new UnsupportedOperationException(); }
-        @Override public ContextMenuRegistry contextMenu() { return contextMenus; }
-        @Override public PluginLocalization localization() { return new PluginLocalization() {
-            @Override public Locale locale() { return Locale.ROOT; }
-            @Override public String text(String key) { return key; }
-            @Override public String format(String key, Object... arguments) { return key; }
-            @Override public boolean contains(String key) { return true; }
-        }; }
-        @Override public DiagnosticReport diagnostics() { throw new UnsupportedOperationException(); }
-        @Override public DisposableScope disposableScope() { return scope; }
-        @Override public UiHostCapabilityService uiHost() { return uiHost; }
+
+        @Override
+        public PluginLogger logger() {
+            return new PluginLogger() {
+                @Override
+                public void debug(String message) {}
+
+                @Override
+                public void info(String message) {}
+
+                @Override
+                public void warn(String message) {}
+
+                @Override
+                public void error(String message) {}
+
+                @Override
+                public void error(String message, Throwable throwable) {}
+            };
+        }
+
+        @Override
+        public PluginPaths paths() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public dev.turboism.sdk.config.PluginConfigRegistry config() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            return cubism;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ActionRegistry actions() {
+            return actions;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            throw new UnsupportedOperationException();
+        }
+
+        public ContextMenuRegistry contextMenu() {
+            return contextMenus;
+        }
+
+        @Override
+        public PluginLocalization localization() {
+            return new PluginLocalization() {
+                @Override
+                public Locale locale() {
+                    return Locale.ROOT;
+                }
+
+                @Override
+                public String text(String key) {
+                    return key;
+                }
+
+                @Override
+                public String format(String key, Object... arguments) {
+                    return key;
+                }
+
+                @Override
+                public boolean contains(String key) {
+                    return true;
+                }
+            };
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return scope;
+        }
+
+        public UiHostCapabilityService uiHost() {
+            return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
+        }
     }
 
     private static final class RecordingActions implements ActionRegistry {
         final List<ActionRegistry.Action> actions = new ArrayList<>();
 
-        @Override public Registration register(final String id, final ActionRegistry.Action action) {
+        @Override
+        public Registration register(final String id, final ActionRegistry.Action action) {
             actions.add(action);
-            return () -> { };
+            return () -> {};
         }
 
         List<String> ids() {
@@ -270,7 +357,10 @@ class ParameterBatchTransferPluginTest {
         }
 
         ActionRegistry.Action byId(final String id) {
-            return actions.stream().filter(action -> action.id().equals(id)).findFirst().orElseThrow();
+            return actions.stream()
+                    .filter(action -> action.id().equals(id))
+                    .findFirst()
+                    .orElseThrow();
         }
     }
 
@@ -278,54 +368,84 @@ class ParameterBatchTransferPluginTest {
         final List<ContextMenuRegistry.ContextMenuContribution> contributions = new ArrayList<>();
         boolean failOnContribute;
 
-        @Override public Registration contribute(final ContextMenuRegistry.ContextMenuContribution contribution) {
+        @Override
+        public Registration contribute(final ContextMenuRegistry.ContextMenuContribution contribution) {
             if (failOnContribute) {
                 throw new IllegalStateException("contribute failed");
             }
             contributions.add(contribution);
-            return () -> { };
+            return () -> {};
         }
 
         ContextMenuRegistry.ContextMenuContribution byId(final String id) {
-            return contributions.stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
+            return contributions.stream()
+                    .filter(value -> value.id().equals(id))
+                    .findFirst()
+                    .orElseThrow();
         }
     }
 
     private static final class RecordingUiHost implements UiHostCapabilityService {
         final List<StatusNotification> notifications = new ArrayList<>();
 
-        @Override public Registration notifyStatus(final StatusNotification notification) {
+        @Override
+        public Registration notifyStatus(final StatusNotification notification) {
             notifications.add(notification);
-            return () -> { };
+            return () -> {};
         }
 
-        @Override public Registration contributeOverlay(OverlayContribution contribution) {
+        @Override
+        public Registration contributeOverlay(OverlayContribution contribution) {
             throw new UnsupportedOperationException();
         }
-        @Override public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
+
+        @Override
+        public Registration contributeBoundingBoxOverlayButton(BoundingBoxOverlayButton contribution) {
             throw new UnsupportedOperationException();
         }
-        @Override public ContextSourceSnapshot contextSource() { throw new UnsupportedOperationException(); }
-        @Override public ViewportSnapshot viewport() { throw new UnsupportedOperationException(); }
-        @Override public Registration openDialog(DialogRequest request) { throw new UnsupportedOperationException(); }
-        @Override public boolean confirmDialog(DialogRequest request) { throw new UnsupportedOperationException(); }
-        @Override public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
+
+        @Override
+        public ContextSourceSnapshot contextSource() {
             throw new UnsupportedOperationException();
         }
-        @Override public Optional<String> requestFile(FileChooserRequest request) {
+
+        @Override
+        public ViewportSnapshot viewport() {
             throw new UnsupportedOperationException();
         }
-        @Override public Registration contributeContextMenu(
-            ContextMenuRegistry.ContextMenuContribution contribution
-        ) {
+
+        @Override
+        public Registration openDialog(DialogRequest request) {
             throw new UnsupportedOperationException();
         }
-        @Override public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
+
+        @Override
+        public boolean confirmDialog(DialogRequest request) {
             throw new UnsupportedOperationException();
         }
-        @Override public Registration contributePaletteToolbar(
-            PaletteToolbarRegistry.PaletteToolbarContribution contribution
-        ) {
+
+        @Override
+        public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<String> requestFile(FileChooserRequest request) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             throw new UnsupportedOperationException();
         }
     }
@@ -334,47 +454,104 @@ class ParameterBatchTransferPluginTest {
         boolean accessed;
         final CubismModel model = new EmptyModel();
 
-        @Override public CubismRuntimeSnapshot runtime() { throw new UnsupportedOperationException(); }
-        @Override public Optional<ProjectSnapshot> activeProject() { throw new UnsupportedOperationException(); }
-        @Override public Optional<DocumentSnapshot> activeDocument() { throw new UnsupportedOperationException(); }
-        @Override public Optional<ModelSnapshot> activeModel() { throw new UnsupportedOperationException(); }
-        @Override public boolean isHostPresent() { return true; }
-        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+        @Override
+        public CubismRuntimeSnapshot runtime() {
             throw new UnsupportedOperationException();
         }
 
-        @Override public CubismModelAccess model() {
+        @Override
+        public Optional<ProjectSnapshot> activeProject() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<DocumentSnapshot> activeDocument() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<ModelSnapshot> activeModel() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isHostPresent() {
+            return true;
+        }
+
+        @Override
+        public CubismModelAccess model() {
             accessed = true;
             return () -> model;
         }
     }
 
     private static final class EmptyModel implements CubismModel {
-        @Override public ModelId id() { return new ModelId("model-1"); }
-        @Override public Parameters parameters() { return new Parameters() {
-            @Override public List<Parameter> all() { return List.of(); }
-            @Override public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
-                throw new java.util.NoSuchElementException(id.value());
-            }
-        }; }
-        @Override public Parts parts() { throw new UnsupportedOperationException(); }
-        @Override public Drawables drawables() { return new Drawables() {
-            @Override public List<dev.turboism.sdk.cubism.model.Drawable> all() { return List.of(); }
-            @Override public dev.turboism.sdk.cubism.model.Drawable find(final ArtMeshId id) {
-                throw new java.util.NoSuchElementException(id.value());
-            }
-        }; }
-        @Override public Deformers deformers() { return new Deformers() {
-            @Override public List<dev.turboism.sdk.cubism.model.Deformer> all() { return List.of(); }
-            @Override public dev.turboism.sdk.cubism.model.Deformer find(
-                final dev.turboism.sdk.cubism.id.DeformerId id
-            ) {
-                throw new java.util.NoSuchElementException(id.value());
-            }
-        }; }
-        @Override public Glues glues() { throw new UnsupportedOperationException(); }
-        @Override public void update() { }
-        @Override public ParameterBindingBatchOperations parameterBindingBatch() {
+        @Override
+        public ModelId id() {
+            return new ModelId("model-1");
+        }
+
+        @Override
+        public Parameters parameters() {
+            return new Parameters() {
+                @Override
+                public List<Parameter> all() {
+                    return List.of();
+                }
+
+                @Override
+                public Parameter find(final dev.turboism.sdk.cubism.id.ParameterId id) {
+                    throw new java.util.NoSuchElementException(id.value());
+                }
+            };
+        }
+
+        @Override
+        public Parts parts() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Drawables drawables() {
+            return new Drawables() {
+                @Override
+                public List<dev.turboism.sdk.cubism.model.Drawable> all() {
+                    return List.of();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.Drawable find(final ArtMeshId id) {
+                    throw new java.util.NoSuchElementException(id.value());
+                }
+            };
+        }
+
+        @Override
+        public Deformers deformers() {
+            return new Deformers() {
+                @Override
+                public List<dev.turboism.sdk.cubism.model.Deformer> all() {
+                    return List.of();
+                }
+
+                @Override
+                public dev.turboism.sdk.cubism.model.Deformer find(final dev.turboism.sdk.cubism.id.DeformerId id) {
+                    throw new java.util.NoSuchElementException(id.value());
+                }
+            };
+        }
+
+        @Override
+        public Glues glues() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void update() {}
+
+        @Override
+        public ParameterBindingBatchOperations parameterBindingBatch() {
             throw new UnsupportedOperationException();
         }
     }

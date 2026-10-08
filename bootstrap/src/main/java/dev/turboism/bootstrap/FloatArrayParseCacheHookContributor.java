@@ -6,24 +6,23 @@ import dev.turboism.adapter.cubism.optimization.serialization.FloatArrayParseBri
 final class FloatArrayParseCacheHookContributor extends NativeOptimizationHookContributor {
 
     FloatArrayParseCacheHookContributor() {
-        super("TURBOISM_FLOAT_ARRAY_PARSE_CACHE");
+        super("TURBOISM_FLOAT_ARRAY_PARSE_CACHE", VerifiedFloatArrayParseCacheInstaller.HOOK_ID);
     }
 
-    @Override AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
+    @Override
+    AutoCloseable installAdmitted(final HookEnvironment environment) throws Exception {
         if (!Boolean.getBoolean(FloatArrayParseBridge.ENABLE_PROPERTY)) {
             return noOp();
         }
         final var host = environment.host().orElseThrow();
         if (!VerifiedFloatArrayParseCacheInstaller.admitted(
-            host.artifact(),
-            NativeOptimizationPolicy.load(environment.options().home()),
-            true
-        )) {
+                host.artifact(),
+                NativeOptimizationPolicy.load(environment.options().home()),
+                true)) {
             log(environment, id() + " installation=NOT_ADMITTED");
             return noOp();
         }
-        final VerifiedFloatArrayParseCacheInstaller installer =
-            new VerifiedFloatArrayParseCacheInstaller(
+        final VerifiedFloatArrayParseCacheInstaller installer = new VerifiedFloatArrayParseCacheInstaller(
                 environment.instrumentation(), host.artifact(), host.classLoader());
         installer.install();
         return installer;

@@ -11,12 +11,11 @@ import dev.turboism.sdk.cubism.model.ParameterBinding;
 import dev.turboism.sdk.cubism.model.ParameterBindingFamily;
 import dev.turboism.sdk.cubism.model.ParameterBindingPoint;
 import dev.turboism.sdk.cubism.model.ParameterBindingTarget;
-import dev.turboism.sdk.cubism.model.ParameterBindingTargetType;
 import dev.turboism.sdk.cubism.model.ParameterBindingTransferPlan;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterType;
+import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.permission.CubismPermissionException;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,8 +31,7 @@ final class McpParameterDomain {
     static final String BINDINGS_APPLY = "turboism.parameter_bindings.apply";
     static final String PARAMETERS_URI = "turboism://active/model/parameters";
     static final String PARAMETER_URI_TEMPLATE = "turboism://active/model/parameters/{parameterId}";
-    static final String BINDINGS_URI_TEMPLATE =
-        "turboism://active/model/parameters/{parameterId}/bindings";
+    static final String BINDINGS_URI_TEMPLATE = "turboism://active/model/parameters/{parameterId}/bindings";
 
     private final CubismFacade cubism;
     private final McpExecutionBridge execution;
@@ -56,37 +54,32 @@ final class McpParameterDomain {
                 throw new McpResourceCatalog.ResourceNotFound(uri);
             }
             return List.of(linked(
-                entry("uri", uri),
-                entry("mimeType", "application/json"),
-                entry("text", Json.stringify(content))
-            ));
+                    entry("uri", uri),
+                    entry("mimeType", "application/json"),
+                    entry("text", McpJsonSupport.stringify(content))));
         });
     }
 
     List<Map<String, Object>> resources() {
         return List.of(linked(
-            entry("uri", PARAMETERS_URI),
-            entry("name", "Active model parameters"),
-            entry("description", "Actual parameter state for the active Cubism model."),
-            entry("mimeType", "application/json")
-        ));
+                entry("uri", PARAMETERS_URI),
+                entry("name", "Active model parameters"),
+                entry("description", "Actual parameter state for the active Cubism model."),
+                entry("mimeType", "application/json")));
     }
 
     List<Map<String, Object>> resourceTemplates() {
         return List.of(
-            linked(
-                entry("uriTemplate", PARAMETER_URI_TEMPLATE),
-                entry("name", "Active model parameter"),
-                entry("description", "Actual state for one active-model parameter."),
-                entry("mimeType", "application/json")
-            ),
-            linked(
-                entry("uriTemplate", BINDINGS_URI_TEMPLATE),
-                entry("name", "Active model parameter bindings"),
-                entry("description", "Actual binding state for one active-model parameter."),
-                entry("mimeType", "application/json")
-            )
-        );
+                linked(
+                        entry("uriTemplate", PARAMETER_URI_TEMPLATE),
+                        entry("name", "Active model parameter"),
+                        entry("description", "Actual state for one active-model parameter."),
+                        entry("mimeType", "application/json")),
+                linked(
+                        entry("uriTemplate", BINDINGS_URI_TEMPLATE),
+                        entry("name", "Active model parameter bindings"),
+                        entry("description", "Actual binding state for one active-model parameter."),
+                        entry("mimeType", "application/json")));
     }
 
     Map<String, Object> read(final String uri) {
@@ -95,25 +88,22 @@ final class McpParameterDomain {
 
     List<Map<String, Object>> tools() {
         return List.of(
-            tool(
-                PARAMETERS_APPLY,
-                "Apply parameter operations",
-                "Runs ordered parameter operations against the active Cubism model. Each completed write returns re-read actual state. "
-                    + "create_many and remove_many retain their native atomic semantics.",
-                applySchema(parameterOperationSchema()),
-                Map.of("readOnlyHint", false, "destructiveHint", true, "idempotentHint", false)
-            ),
-            tool(
-                BINDINGS_APPLY,
-                "Apply parameter binding operations",
-                "Runs ordered parameter-binding operations against the active Cubism model. Individual blend-shape binding CRUD is rejected; "
-                    + "batch transfer_morph_clamped remains available through the native atomic API. "
-                    + "invert_all_bindings requires scope=all_target_bindings and reverses every normal keyform binding on the targets, "
-                    + "not one parameter. The ambiguous legacy invert operation is rejected.",
-                applySchema(bindingOperationSchema()),
-                Map.of("readOnlyHint", false, "destructiveHint", true, "idempotentHint", false)
-            )
-        );
+                tool(
+                        PARAMETERS_APPLY,
+                        "Apply parameter operations",
+                        "Runs ordered parameter operations against the active Cubism model. Each completed write returns re-read actual state. "
+                                + "create_many and remove_many retain their native atomic semantics.",
+                        applySchema(parameterOperationSchema()),
+                        Map.of("readOnlyHint", false, "destructiveHint", true, "idempotentHint", false)),
+                tool(
+                        BINDINGS_APPLY,
+                        "Apply parameter binding operations",
+                        "Runs ordered parameter-binding operations against the active Cubism model. Individual blend-shape binding CRUD is rejected; "
+                                + "batch transfer_morph_clamped remains available through the native atomic API. "
+                                + "invert_all_bindings requires scope=all_target_bindings and reverses every normal keyform binding on the targets, "
+                                + "not one parameter. The ambiguous legacy invert operation is rejected.",
+                        applySchema(bindingOperationSchema()),
+                        Map.of("readOnlyHint", false, "destructiveHint", true, "idempotentHint", false)));
     }
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
@@ -145,13 +135,10 @@ final class McpParameterDomain {
         final String suffix = checked.substring(parameterPrefix.length());
         final int bindingsMarker = suffix.indexOf("/bindings");
         if (bindingsMarker >= 0) {
-            if (!suffix.endsWith("/bindings")
-                || bindingsMarker != suffix.length() - "/bindings".length()) {
+            if (!suffix.endsWith("/bindings") || bindingsMarker != suffix.length() - "/bindings".length()) {
                 throw new InputException("Invalid parameter bindings resource URI");
             }
-            final ParameterId id = parameterId(decodeUriSegment(
-                suffix.substring(0, bindingsMarker)
-            ));
+            final ParameterId id = parameterId(decodeUriSegment(suffix.substring(0, bindingsMarker)));
             return linked(entry("parameterId", id.value()), entry("bindings", bindings(model, id)));
         }
         if (suffix.isBlank() || suffix.contains("/")) {
@@ -162,10 +149,8 @@ final class McpParameterDomain {
 
     private static String decodeUriSegment(final String value) {
         try {
-            final String decoded = java.net.URLDecoder.decode(
-                value.replace("+", "%2B"),
-                java.nio.charset.StandardCharsets.UTF_8
-            );
+            final String decoded =
+                    java.net.URLDecoder.decode(value.replace("+", "%2B"), java.nio.charset.StandardCharsets.UTF_8);
             if (decoded.contains("/")) throw new InputException("parameterId must be one URI segment");
             return decoded;
         } catch (IllegalArgumentException failure) {
@@ -186,11 +171,10 @@ final class McpParameterDomain {
             final Map<String, Object> operation = copyObject(operations.get(index), "operations[" + index + "]");
             try {
                 results.add(linked(
-                    entry("index", index),
-                    entry("operation", operationName(operation)),
-                    entry("ok", true),
-                    entry("result", applyParameter(model, operation))
-                ));
+                        entry("index", index),
+                        entry("operation", operationName(operation)),
+                        entry("ok", true),
+                        entry("result", applyParameter(model, operation))));
             } catch (java.util.concurrent.CancellationException failure) {
                 throw failure;
             } catch (WriteOutcomeUnknownException failure) {
@@ -201,11 +185,8 @@ final class McpParameterDomain {
                 results.add(failure(index, operation, failure));
             }
         }
-        final Map<String, Object> output = linked(
-            entry("ok", !failed),
-            entry("stopOnError", stopOnError),
-            entry("results", List.copyOf(results))
-        );
+        final Map<String, Object> output =
+                linked(entry("ok", !failed), entry("stopOnError", stopOnError), entry("results", List.copyOf(results)));
         // The final snapshot is observational: it must never erase completed mutation receipts.
         try {
             output.put("parameters", parameters(model));
@@ -216,10 +197,7 @@ final class McpParameterDomain {
         return output;
     }
 
-    private Map<String, Object> applyParameter(
-        final CubismModel model,
-        final Map<String, Object> operation
-    ) {
+    private Map<String, Object> applyParameter(final CubismModel model, final Map<String, Object> operation) {
         final String name = operationName(operation);
         return switch (name) {
             case "set_value" -> {
@@ -228,74 +206,60 @@ final class McpParameterDomain {
                 final Parameter parameter = model.parameters().find(id);
                 final float value = requiredFloat(operation, "value");
                 yield parameterWrite(
-                    () -> {
-                        parameter.setValue(value);
-                        return linked(entry("parameterId", id.value()));
-                    },
-                    identity -> parameter(model, id)
-                );
+                        () -> {
+                            parameter.setValue(value);
+                            return linked(entry("parameterId", id.value()));
+                        },
+                        identity -> parameter(model, id));
             }
             case "reset_default" -> {
                 only(operation, "operation", "parameterId");
                 final ParameterId id = parameterId(operation);
                 final Parameter parameter = model.parameters().find(id);
                 yield parameterWrite(
-                    () -> {
-                        parameter.resetToDefault();
-                        return linked(entry("parameterId", id.value()));
-                    },
-                    identity -> parameter(model, id)
-                );
+                        () -> {
+                            parameter.resetToDefault();
+                            return linked(entry("parameterId", id.value()));
+                        },
+                        identity -> parameter(model, id));
             }
             case "create" -> {
                 only(operation, "operation", "definition");
-                final ParameterDefinition definition = definition(
-                    requiredObject(operation, "definition")
-                );
+                final ParameterDefinition definition = definition(requiredObject(operation, "definition"));
                 yield parameterWrite(
-                    () -> {
-                        final Parameter created = model.parameters().create(definition);
-                        return linked(entry("parameterId", created.id().value()));
-                    },
-                    identity -> parameter(
-                        model,
-                        new ParameterId((String) identity.get("parameterId"))
-                    )
-                );
+                        () -> {
+                            final Parameter created = model.parameters().create(definition);
+                            return linked(entry("parameterId", created.id().value()));
+                        },
+                        identity -> parameter(model, new ParameterId((String) identity.get("parameterId"))));
             }
             case "create_many" -> {
                 only(operation, "operation", "definitions");
-                final List<ParameterDefinition> definitions = definitions(
-                    required(operation, "definitions")
-                );
+                final List<ParameterDefinition> definitions = definitions(required(operation, "definitions"));
                 yield parameterWrite(
-                    () -> {
-                        final List<Parameter> created = model.parameters().createMany(definitions);
-                        return linked(entry(
-                            "parameterIds",
-                            created.stream().map(value -> value.id().value()).toList()
-                        ));
-                    },
-                    identity -> linked(entry(
-                        "created",
-                        parameterIds(identity.get("parameterIds")).stream()
-                            .map(id -> parameter(model, id)).toList()
-                    ))
-                );
+                        () -> {
+                            final List<Parameter> created = model.parameters().createMany(definitions);
+                            return linked(entry(
+                                    "parameterIds",
+                                    created.stream()
+                                            .map(value -> value.id().value())
+                                            .toList()));
+                        },
+                        identity -> linked(entry(
+                                "created",
+                                parameterIds(identity.get("parameterIds")).stream()
+                                        .map(id -> parameter(model, id))
+                                        .toList())));
             }
             case "copy" -> {
                 only(operation, "operation", "parameterId");
                 final ParameterId sourceId = parameterId(operation);
                 yield parameterWrite(
-                    () -> {
-                        final Parameter copied = model.parameters().copy(sourceId);
-                        return linked(entry("parameterId", copied.id().value()));
-                    },
-                    identity -> parameter(
-                        model,
-                        new ParameterId((String) identity.get("parameterId"))
-                    )
-                );
+                        () -> {
+                            final Parameter copied = model.parameters().copy(sourceId);
+                            return linked(entry("parameterId", copied.id().value()));
+                        },
+                        identity -> parameter(model, new ParameterId((String) identity.get("parameterId"))));
             }
             case "update_definition" -> {
                 only(operation, "operation", "parameterId", "definition");
@@ -303,40 +267,35 @@ final class McpParameterDomain {
                 final ParameterDefinition definition = definition(requiredObject(operation, "definition"));
                 final Parameter parameter = model.parameters().find(targetId);
                 yield parameterWrite(
-                    () -> {
-                        parameter.updateDefinition(definition);
-                        return linked(entry("parameterId", definition.id().value()));
-                    },
-                    identity -> parameter(model, definition.id())
-                );
+                        () -> {
+                            parameter.updateDefinition(definition);
+                            return linked(entry("parameterId", definition.id().value()));
+                        },
+                        identity -> parameter(model, definition.id()));
             }
             case "remove" -> {
                 only(operation, "operation", "parameterId");
                 final ParameterId id = parameterId(operation);
                 yield parameterWrite(
-                    () -> {
-                        model.parameters().remove(id);
-                        return linked(
-                            entry("parameterId", id.value()),
-                            entry("removed", true)
-                        );
-                    },
-                    identity -> identity
-                );
+                        () -> {
+                            model.parameters().remove(id);
+                            return linked(entry("parameterId", id.value()), entry("removed", true));
+                        },
+                        identity -> identity);
             }
             case "remove_many" -> {
                 only(operation, "operation", "parameterIds");
                 final List<ParameterId> ids = parameterIds(required(operation, "parameterIds"));
                 yield parameterWrite(
-                    () -> {
-                        model.parameters().removeMany(ids);
-                        return linked(
-                            entry("parameterIds", ids.stream().map(ParameterId::value).toList()),
-                            entry("removed", true)
-                        );
-                    },
-                    identity -> identity
-                );
+                        () -> {
+                            model.parameters().removeMany(ids);
+                            return linked(
+                                    entry(
+                                            "parameterIds",
+                                            ids.stream().map(ParameterId::value).toList()),
+                                    entry("removed", true));
+                        },
+                        identity -> identity);
             }
             default -> throw new InputException("Unknown parameter operation: " + name);
         };
@@ -355,11 +314,10 @@ final class McpParameterDomain {
             final Map<String, Object> operation = copyObject(operations.get(index), "operations[" + index + "]");
             try {
                 results.add(linked(
-                    entry("index", index),
-                    entry("operation", operationName(operation)),
-                    entry("ok", true),
-                    entry("result", applyBinding(model, operation))
-                ));
+                        entry("index", index),
+                        entry("operation", operationName(operation)),
+                        entry("ok", true),
+                        entry("result", applyBinding(model, operation))));
             } catch (java.util.concurrent.CancellationException failure) {
                 throw failure;
             } catch (WriteOutcomeUnknownException failure) {
@@ -373,10 +331,7 @@ final class McpParameterDomain {
         return linked(entry("ok", !failed), entry("stopOnError", stopOnError), entry("results", List.copyOf(results)));
     }
 
-    private Map<String, Object> applyBinding(
-        final CubismModel model,
-        final Map<String, Object> operation
-    ) {
+    private Map<String, Object> applyBinding(final CubismModel model, final Map<String, Object> operation) {
         final String name = operationName(operation);
         return switch (name) {
             case "bind" -> {
@@ -386,10 +341,9 @@ final class McpParameterDomain {
                 final ParameterBindingTarget target = target(requiredObject(operation, "target"));
                 final List<ParameterBindingPoint> points = points(required(operation, "points"));
                 yield bindingWrite(
-                    () -> model.parameterBindings(parameterId).bind(target, points),
-                    () -> bindingResult(model, parameterId, target),
-                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
-                );
+                        () -> model.parameterBindings(parameterId).bind(target, points),
+                        () -> bindingResult(model, parameterId, target),
+                        linked(entry("parameterId", parameterId.value()), entry("target", target(target))));
             }
             case "create_point" -> {
                 only(operation, "operation", "parameterId", "target", "point");
@@ -398,10 +352,9 @@ final class McpParameterDomain {
                 final ParameterBindingTarget target = target(requiredObject(operation, "target"));
                 final ParameterBindingPoint point = point(requiredObject(operation, "point"));
                 yield bindingWrite(
-                    () -> model.parameterBindings(parameterId).createPoint(target, point),
-                    () -> bindingResult(model, parameterId, target),
-                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
-                );
+                        () -> model.parameterBindings(parameterId).createPoint(target, point),
+                        () -> bindingResult(model, parameterId, target),
+                        linked(entry("parameterId", parameterId.value()), entry("target", target(target))));
             }
             case "move_point" -> {
                 only(operation, "operation", "parameterId", "target", "pointId", "value");
@@ -411,10 +364,9 @@ final class McpParameterDomain {
                 final ParameterBindingPointId pointId = pointId(operation);
                 final float value = requiredFloat(operation, "value");
                 yield bindingWrite(
-                    () -> model.parameterBindings(parameterId).movePoint(target, pointId, value),
-                    () -> bindingResult(model, parameterId, target),
-                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
-                );
+                        () -> model.parameterBindings(parameterId).movePoint(target, pointId, value),
+                        () -> bindingResult(model, parameterId, target),
+                        linked(entry("parameterId", parameterId.value()), entry("target", target(target))));
             }
             case "delete_point" -> {
                 only(operation, "operation", "parameterId", "target", "pointId");
@@ -423,10 +375,9 @@ final class McpParameterDomain {
                 final ParameterBindingTarget target = target(requiredObject(operation, "target"));
                 final ParameterBindingPointId pointId = pointId(operation);
                 yield bindingWrite(
-                    () -> model.parameterBindings(parameterId).deletePoint(target, pointId),
-                    () -> bindingResult(model, parameterId, target),
-                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
-                );
+                        () -> model.parameterBindings(parameterId).deletePoint(target, pointId),
+                        () -> bindingResult(model, parameterId, target),
+                        linked(entry("parameterId", parameterId.value()), entry("target", target(target))));
             }
             case "unbind" -> {
                 only(operation, "operation", "parameterId", "target");
@@ -434,10 +385,9 @@ final class McpParameterDomain {
                 rejectBlendShapeCrud(model, parameterId);
                 final ParameterBindingTarget target = target(requiredObject(operation, "target"));
                 yield bindingWrite(
-                    () -> model.parameterBindings(parameterId).unbind(target),
-                    () -> bindingResult(model, parameterId, target),
-                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
-                );
+                        () -> model.parameterBindings(parameterId).unbind(target),
+                        () -> bindingResult(model, parameterId, target),
+                        linked(entry("parameterId", parameterId.value()), entry("target", target(target))));
             }
             case "invert_all_bindings" -> {
                 only(operation, "operation", "scope", "targets");
@@ -445,67 +395,91 @@ final class McpParameterDomain {
                 // Observe the complete normal-keyform scope before submitting the native batch.
                 final List<Map<String, Object>> before = allTargetBindings(model, targets);
                 final Map<String, Object> identity = linked(
-                    entry("scope", "all_target_bindings"),
-                    entry("targets", targets.stream().map(McpParameterDomain::target).toList()),
-                    entry("affectedParameterIds", before.stream()
-                        .map(binding -> (String) binding.get("parameterId")).distinct().toList())
-                );
+                        entry("scope", "all_target_bindings"),
+                        entry(
+                                "targets",
+                                targets.stream().map(McpParameterDomain::target).toList()),
+                        entry(
+                                "affectedParameterIds",
+                                before.stream()
+                                        .map(binding -> (String) binding.get("parameterId"))
+                                        .distinct()
+                                        .toList()));
                 yield bindingWrite(
-                    () -> model.parameterBindingBatch().invert(targets),
-                    () -> {
-                        final Map<String, Object> readback = new LinkedHashMap<>(identity);
-                        readback.put("affectedBindings", allTargetBindings(model, targets));
-                        return readback;
-                    },
-                    identity
-                );
+                        () -> model.parameterBindingBatch().invert(targets),
+                        () -> {
+                            final Map<String, Object> readback = new LinkedHashMap<>(identity);
+                            readback.put("affectedBindings", allTargetBindings(model, targets));
+                            return readback;
+                        },
+                        identity);
             }
             case "transfer", "transfer_clamped" -> {
-                only(operation, "operation", "sourceParameterId", "targetParameterId", "targets", "invertAfterTransfer");
+                only(
+                        operation,
+                        "operation",
+                        "sourceParameterId",
+                        "targetParameterId",
+                        "targets",
+                        "invertAfterTransfer");
                 final ParameterBindingTransferPlan plan = transferPlan(operation);
                 yield bindingWrite(
-                    () -> {
-                        if ("transfer".equals(name)) {
-                            model.parameterBindingBatch().transfer(plan);
-                        } else {
-                            model.parameterBindingBatch().transferClamped(plan);
-                        }
-                    },
-                    () -> linked(
-                        entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
-                        entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))
-                    ),
-                    linked(
-                        entry("sourceParameterId", plan.sourceParameterId().value()),
-                        entry("targetParameterId", plan.targetParameterId().value()),
-                        entry("targets", plan.targets().stream().map(McpParameterDomain::target).toList())
-                    )
-                );
+                        () -> {
+                            if ("transfer".equals(name)) {
+                                model.parameterBindingBatch().transfer(plan);
+                            } else {
+                                model.parameterBindingBatch().transferClamped(plan);
+                            }
+                        },
+                        () -> linked(
+                                entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
+                                entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))),
+                        linked(
+                                entry(
+                                        "sourceParameterId",
+                                        plan.sourceParameterId().value()),
+                                entry(
+                                        "targetParameterId",
+                                        plan.targetParameterId().value()),
+                                entry(
+                                        "targets",
+                                        plan.targets().stream()
+                                                .map(McpParameterDomain::target)
+                                                .toList())));
             }
             case "transfer_morph_clamped" -> {
-                only(operation, "operation", "sourceParameterId", "targetParameterId", "targets", "invertAfterTransfer");
+                only(
+                        operation,
+                        "operation",
+                        "sourceParameterId",
+                        "targetParameterId",
+                        "targets",
+                        "invertAfterTransfer");
                 final ParameterBindingTransferPlan plan = transferPlan(operation);
                 yield bindingWrite(
-                    () -> model.parameterBindingBatch().transferMorphClamped(plan),
-                    () -> linked(
-                        entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
-                        entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))
-                    ),
-                    linked(
-                        entry("sourceParameterId", plan.sourceParameterId().value()),
-                        entry("targetParameterId", plan.targetParameterId().value()),
-                        entry("targets", plan.targets().stream().map(McpParameterDomain::target).toList())
-                    )
-                );
+                        () -> model.parameterBindingBatch().transferMorphClamped(plan),
+                        () -> linked(
+                                entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
+                                entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))),
+                        linked(
+                                entry(
+                                        "sourceParameterId",
+                                        plan.sourceParameterId().value()),
+                                entry(
+                                        "targetParameterId",
+                                        plan.targetParameterId().value()),
+                                entry(
+                                        "targets",
+                                        plan.targets().stream()
+                                                .map(McpParameterDomain::target)
+                                                .toList())));
             }
             default -> throw new InputException("Unknown parameter binding operation: " + name);
         };
     }
 
     private static List<Map<String, Object>> allTargetBindings(
-        final CubismModel model,
-        final List<ParameterBindingTarget> targets
-    ) {
+            final CubismModel model, final List<ParameterBindingTarget> targets) {
         final java.util.Set<ParameterBindingTarget> selected = java.util.Set.copyOf(targets);
         final List<Map<String, Object>> bindings = new ArrayList<>();
         for (Parameter parameter : model.parameters().all()) {
@@ -520,11 +494,10 @@ final class McpParameterDomain {
     }
 
     private static void validateBatchArguments(
-        final Map<String, Object> arguments,
-        final Map<String, Object> operationSchema
-    ) {
+            final Map<String, Object> arguments, final Map<String, Object> operationSchema) {
         if (!McpJsonSchema.validates(arguments, applySchema(operationSchema))) {
-            throw new InputException("Batch arguments must match the declared inputSchema before any operation is applied");
+            throw new InputException(
+                    "Batch arguments must match the declared inputSchema before any operation is applied");
         }
     }
 
@@ -534,26 +507,23 @@ final class McpParameterDomain {
 
     private static void rejectBlendShapeCrud(final CubismModel model, final ParameterId id) {
         if (model.parameters().find(id).isBlendShape()) {
-            throw new InputException("Individual blend_shape binding CRUD is not supported; use transfer_morph_clamped");
+            throw new InputException(
+                    "Individual blend_shape binding CRUD is not supported; use transfer_morph_clamped");
         }
     }
 
     private static Map<String, Object> toolEnvelope(final Map<String, Object> output) {
-        final boolean error = !Boolean.TRUE.equals(output.get("ok"));
+        final Map<String, Object> safe = McpJsonSupport.encodable(output);
+        final boolean error = !Boolean.TRUE.equals(safe.get("ok"));
         return linked(
-            entry("content", List.of(linked(
-                entry("type", "text"),
-                entry("text", Json.stringify(output))
-            ))),
-            entry("structuredContent", output),
-            entry("isError", error)
-        );
+                entry("content", List.of(linked(entry("type", "text"), entry("text", Json.stringify(safe))))),
+                entry("structuredContent", safe),
+                entry("isError", error));
     }
 
     private static Map<String, Object> parameterWrite(
-        final java.util.function.Supplier<Map<String, Object>> write,
-        final java.util.function.Function<Map<String, Object>, Map<String, Object>> readback
-    ) {
+            final java.util.function.Supplier<Map<String, Object>> write,
+            final java.util.function.Function<Map<String, Object>, Map<String, Object>> readback) {
         final Map<String, Object> identity;
         try {
             identity = write.get();
@@ -563,9 +533,7 @@ final class McpParameterDomain {
             throw new WriteOutcomeUnknownException(failure);
         }
         try {
-            final LinkedHashMap<String, Object> result = new LinkedHashMap<>(
-                readback.apply(identity)
-            );
+            final LinkedHashMap<String, Object> result = new LinkedHashMap<>(readback.apply(identity));
             result.put("outcome", WriteOutcome.APPLIED.name());
             result.put("retryable", false);
             return result;
@@ -580,10 +548,9 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> bindingWrite(
-        final Runnable write,
-        final java.util.function.Supplier<Map<String, Object>> readback,
-        final Map<String, Object> identity
-    ) {
+            final Runnable write,
+            final java.util.function.Supplier<Map<String, Object>> readback,
+            final Map<String, Object> identity) {
         try {
             write.run();
         } catch (RuntimeException failure) {
@@ -592,26 +559,16 @@ final class McpParameterDomain {
         try {
             return bindingWriteResult(WriteOutcome.APPLIED, readback.get(), null);
         } catch (RuntimeException failure) {
-            return bindingWriteResult(
-                WriteOutcome.APPLIED_WITH_READBACK_WARNING,
-                identity,
-                failure
-            );
+            return bindingWriteResult(WriteOutcome.APPLIED_WITH_READBACK_WARNING, identity, failure);
         }
     }
 
     private static Map<String, Object> bindingWriteResult(
-        final WriteOutcome outcome,
-        final Map<String, Object> readback,
-        final RuntimeException readbackFailure
-    ) {
+            final WriteOutcome outcome, final Map<String, Object> readback, final RuntimeException readbackFailure) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         result.put("outcome", outcome.name());
         result.put("retryable", false);
-        result.put(
-            "canonicalPointIds",
-            readbackFailure == null ? canonicalPointIds(readback) : null
-        );
+        result.put("canonicalPointIds", readbackFailure == null ? canonicalPointIds(readback) : null);
         result.putAll(readback);
         if (readbackFailure != null) {
             result.put("readbackWarning", error(readbackFailure));
@@ -626,16 +583,12 @@ final class McpParameterDomain {
         return List.copyOf(result);
     }
 
-    private static void collectCanonicalPointIds(
-        final Object value,
-        final java.util.Set<String> result
-    ) {
+    private static void collectCanonicalPointIds(final Object value, final java.util.Set<String> result) {
         if (value instanceof Map<?, ?> object) {
             final Object points = object.get("points");
             if (points instanceof List<?> list) {
                 for (Object point : list) {
-                    if (point instanceof Map<?, ?> pointObject
-                        && pointObject.get("id") instanceof String id) {
+                    if (point instanceof Map<?, ?> pointObject && pointObject.get("id") instanceof String id) {
                         result.add(id);
                     }
                 }
@@ -647,37 +600,32 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> outcomeUnknown(
-        final int index,
-        final Map<String, Object> operation,
-        final WriteOutcomeUnknownException failure
-    ) {
+            final int index, final Map<String, Object> operation, final WriteOutcomeUnknownException failure) {
         final RuntimeException cause = (RuntimeException) failure.getCause();
         return linked(
-            entry("index", index),
-            entry("operation", operation.get("operation")),
-            entry("ok", false),
-            entry("error", linked(
-                entry("code", WriteOutcome.OUTCOME_UNKNOWN.name()),
-                entry("message", safeMessage(cause)),
-                entry("outcome", WriteOutcome.OUTCOME_UNKNOWN.name()),
-                entry("retryable", false),
-                entry("canonicalPointIds", null),
-                entry("diagnosticId", java.util.UUID.randomUUID().toString())
-            ))
-        );
+                entry("index", index),
+                entry("operation", operation.get("operation")),
+                entry("ok", false),
+                entry(
+                        "error",
+                        linked(
+                                entry("code", WriteOutcome.OUTCOME_UNKNOWN.name()),
+                                entry("message", safeMessage(cause)),
+                                entry("outcome", WriteOutcome.OUTCOME_UNKNOWN.name()),
+                                entry("retryable", false),
+                                entry("canonicalPointIds", null),
+                                entry(
+                                        "diagnosticId",
+                                        java.util.UUID.randomUUID().toString()))));
     }
 
     private static Map<String, Object> failure(
-        final int index,
-        final Map<String, Object> operation,
-        final RuntimeException failure
-    ) {
+            final int index, final Map<String, Object> operation, final RuntimeException failure) {
         return linked(
-            entry("index", index),
-            entry("operation", operation.get("operation")),
-            entry("ok", false),
-            entry("error", error(failure))
-        );
+                entry("index", index),
+                entry("operation", operation.get("operation")),
+                entry("ok", false),
+                entry("error", error(failure)));
     }
 
     private static Map<String, Object> topLevelFailure(final RuntimeException failure) {
@@ -685,10 +633,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> error(final RuntimeException failure) {
-        return linked(
-            entry("code", errorCode(failure)),
-            entry("message", safeMessage(failure))
-        );
+        return linked(entry("code", errorCode(failure)), entry("message", safeMessage(failure)));
     }
 
     private static String errorCode(final RuntimeException failure) {
@@ -698,30 +643,27 @@ final class McpParameterDomain {
         }
         if (failure instanceof UnsupportedOperationException) return "UNAVAILABLE";
         if (failure instanceof McpExecutionBridge.ExecutionFailure
-            && safeMessage(failure).toLowerCase(Locale.ROOT).contains("timed out")) {
+                && safeMessage(failure).toLowerCase(Locale.ROOT).contains("timed out")) {
             return "TIMEOUT";
         }
         return "FAILED";
     }
 
     private static Map<String, Object> parameter(final CubismModel model, final ParameterId id) {
-        return parameter(model.parameters().find(id), model.parameterDefinitions().find(id));
+        return parameter(
+                model.parameters().find(id), model.parameterDefinitions().find(id));
     }
 
-    private static Map<String, Object> parameter(
-        final Parameter value,
-        final ParameterDefinition definition
-    ) {
+    private static Map<String, Object> parameter(final Parameter value, final ParameterDefinition definition) {
         return linked(
-            entry("id", value.id().value()),
-            entry("name", definition.name()),
-            entry("value", value.getValue()),
-            entry("minimumValue", value.getMinimumValue()),
-            entry("defaultValue", value.getDefaultValue()),
-            entry("maximumValue", value.getMaximumValue()),
-            entry("type", definition.type().name().toLowerCase(Locale.ROOT)),
-            entry("repeat", definition.repeat())
-        );
+                entry("id", value.id().value()),
+                entry("name", definition.name()),
+                entry("value", value.getValue()),
+                entry("minimumValue", value.getMinimumValue()),
+                entry("defaultValue", value.getDefaultValue()),
+                entry("maximumValue", value.getMaximumValue()),
+                entry("type", definition.type().name().toLowerCase(Locale.ROOT)),
+                entry("repeat", definition.repeat()));
     }
 
     private static List<Map<String, Object>> parameters(final CubismModel model) {
@@ -746,51 +688,47 @@ final class McpParameterDomain {
 
     private static List<Map<String, Object>> bindings(final CubismModel model, final ParameterId id) {
         return model.parameters().find(id).getParameterBindings().stream()
-            .map(McpParameterDomain::binding).toList();
+                .map(McpParameterDomain::binding)
+                .toList();
     }
 
     private static Map<String, Object> bindingResult(
-        final CubismModel model,
-        final ParameterId parameterId,
-        final ParameterBindingTarget target
-    ) {
-        final Map<String, Object> binding = model.parameters().find(parameterId)
-            .getParameterBindings().stream()
-            .filter(value -> value.target().equals(target))
-            .findFirst().map(McpParameterDomain::binding).orElse(null);
+            final CubismModel model, final ParameterId parameterId, final ParameterBindingTarget target) {
+        final Map<String, Object> binding = model.parameters().find(parameterId).getParameterBindings().stream()
+                .filter(value -> value.target().equals(target))
+                .findFirst()
+                .map(McpParameterDomain::binding)
+                .orElse(null);
         return linked(
-            entry("parameterId", parameterId.value()),
-            entry("target", target(target)),
-            entry("bound", binding != null),
-            entry("binding", binding)
-        );
+                entry("parameterId", parameterId.value()),
+                entry("target", target(target)),
+                entry("bound", binding != null),
+                entry("binding", binding));
     }
 
     private static Map<String, Object> bindingResults(
-        final CubismModel model,
-        final ParameterId parameterId,
-        final List<ParameterBindingTarget> targets
-    ) {
+            final CubismModel model, final ParameterId parameterId, final List<ParameterBindingTarget> targets) {
         return linked(
-            entry("parameterId", parameterId.value()),
-            entry("bindings", targets.stream().map(target -> bindingResult(model, parameterId, target)).toList())
-        );
+                entry("parameterId", parameterId.value()),
+                entry(
+                        "bindings",
+                        targets.stream()
+                                .map(target -> bindingResult(model, parameterId, target))
+                                .toList()));
     }
 
     private static Map<String, Object> binding(final ParameterBinding value) {
         return linked(
-            entry("parameterId", value.parameterId().value()),
-            entry("target", target(value.target())),
-            entry("family", value.family().name().toLowerCase(Locale.ROOT)),
-            entry("points", value.points().stream().map(McpParameterDomain::point).toList())
-        );
+                entry("parameterId", value.parameterId().value()),
+                entry("target", target(value.target())),
+                entry("family", value.family().name().toLowerCase(Locale.ROOT)),
+                entry(
+                        "points",
+                        value.points().stream().map(McpParameterDomain::point).toList()));
     }
 
     private static Map<String, Object> target(final ParameterBindingTarget value) {
-        return linked(
-            entry("type", value.type().name().toLowerCase(Locale.ROOT)),
-            entry("id", value.id())
-        );
+        return linked(entry("type", value.type().name().toLowerCase(Locale.ROOT)), entry("id", value.id()));
     }
 
     private static Map<String, Object> point(final ParameterBindingPoint value) {
@@ -815,30 +753,34 @@ final class McpParameterDomain {
 
     private static ParameterDefinition definition(final Map<String, Object> values) {
         only(values, "id", "name", "minimumValue", "defaultValue", "maximumValue", "type", "repeat");
-        final String type = requireText(values.get("type"), "definition.type", 64).toLowerCase(Locale.ROOT);
-        final ParameterType parameterType = switch (type) {
-            case "normal" -> ParameterType.NORMAL;
-            case "blend_shape" -> ParameterType.BLEND_SHAPE;
-            default -> throw new InputException("definition.type must be normal or blend_shape");
-        };
+        final String type =
+                requireText(values.get("type"), "definition.type", 64).toLowerCase(Locale.ROOT);
+        final ParameterType parameterType =
+                switch (type) {
+                    case "normal" -> ParameterType.NORMAL;
+                    case "blend_shape" -> ParameterType.BLEND_SHAPE;
+                    default -> throw new InputException("definition.type must be normal or blend_shape");
+                };
         return new ParameterDefinition(
-            parameterId(requireText(values.get("id"), "definition.id", 256)),
-            requireText(values.get("name"), "definition.name", 256),
-            requiredFloat(values, "minimumValue"),
-            requiredFloat(values, "defaultValue"),
-            requiredFloat(values, "maximumValue"),
-            parameterType,
-            requiredBoolean(values, "repeat")
-        );
+                parameterId(requireText(values.get("id"), "definition.id", 256)),
+                requireText(values.get("name"), "definition.name", 256),
+                requiredFloat(values, "minimumValue"),
+                requiredFloat(values, "defaultValue"),
+                requiredFloat(values, "maximumValue"),
+                parameterType,
+                requiredBoolean(values, "repeat"));
     }
 
     private static List<ParameterDefinition> definitions(final Object value) {
-        return array(value, "definitions").stream().map(item -> definition(copyObject(item, "definition"))).toList();
+        return array(value, "definitions").stream()
+                .map(item -> definition(copyObject(item, "definition")))
+                .toList();
     }
 
     private static List<ParameterId> parameterIds(final Object value) {
         return array(value, "parameterIds").stream()
-            .map(item -> parameterId(requireText(item, "parameterIds[]", 256))).toList();
+                .map(item -> parameterId(requireText(item, "parameterIds[]", 256)))
+                .toList();
     }
 
     private static ParameterBindingTarget target(final Map<String, Object> values) {
@@ -853,88 +795,85 @@ final class McpParameterDomain {
     }
 
     private static List<ParameterBindingTarget> targets(final Object value) {
-        return array(value, "targets").stream().map(item -> target(copyObject(item, "target"))).toList();
+        return array(value, "targets").stream()
+                .map(item -> target(copyObject(item, "target")))
+                .toList();
     }
 
     private static ParameterBindingPoint point(final Map<String, Object> values) {
         only(values, "id", "value");
         final String provisionalId = values.containsKey("id")
-            ? requireText(values.get("id"), "point.id", 256)
-            : "provisional:" + java.util.UUID.randomUUID();
-        return new ParameterBindingPoint(
-            new ParameterBindingPointId(provisionalId),
-            requiredFloat(values, "value")
-        );
+                ? requireText(values.get("id"), "point.id", 256)
+                : "provisional:" + java.util.UUID.randomUUID();
+        return new ParameterBindingPoint(new ParameterBindingPointId(provisionalId), requiredFloat(values, "value"));
     }
 
     private static List<ParameterBindingPoint> points(final Object value) {
-        return array(value, "points").stream().map(item -> point(copyObject(item, "point"))).toList();
+        return array(value, "points").stream()
+                .map(item -> point(copyObject(item, "point")))
+                .toList();
     }
 
     private static ParameterBindingTransferPlan transferPlan(final Map<String, Object> values) {
         return new ParameterBindingTransferPlan(
-            new ParameterId(requireText(values.get("sourceParameterId"), "sourceParameterId", 256)),
-            new ParameterId(requireText(values.get("targetParameterId"), "targetParameterId", 256)),
-            targets(required(values, "targets")),
-            optionalBoolean(values, "invertAfterTransfer").orElse(false)
-        );
+                new ParameterId(requireText(values.get("sourceParameterId"), "sourceParameterId", 256)),
+                new ParameterId(requireText(values.get("targetParameterId"), "targetParameterId", 256)),
+                targets(required(values, "targets")),
+                optionalBoolean(values, "invertAfterTransfer").orElse(false));
     }
 
     private static Map<String, Object> applySchema(final Map<String, Object> operationSchema) {
-        return objectSchema(properties(
-            entry("operations", linked(
-                entry("type", "array"),
-                entry("minItems", 1),
-                entry("items", operationSchema)
-            )),
-            entry("stopOnError", Map.of("type", "boolean"))
-        ), List.of("operations"));
+        return objectSchema(
+                properties(
+                        entry(
+                                "operations",
+                                linked(entry("type", "array"), entry("minItems", 1), entry("items", operationSchema))),
+                        entry("stopOnError", Map.of("type", "boolean"))),
+                List.of("operations"));
     }
 
     private static Map<String, Object> parameterOperationSchema() {
         return oneOf(
-            parameterOperation("set_value", properties(
-                entry("parameterId", stringSchema()),
-                entry("value", Map.of("type", "number"))
-            ), List.of("parameterId", "value")),
-            parameterOperation("reset_default", properties(
-                entry("parameterId", stringSchema())
-            ), List.of("parameterId")),
-            parameterOperation("create", properties(
-                entry("definition", definitionSchema())
-            ), List.of("definition")),
-            parameterOperation("create_many", properties(
-                entry("definitions", arraySchema(definitionSchema(), 1))
-            ), List.of("definitions")),
-            parameterOperation("copy", properties(
-                entry("parameterId", linked(
-                    entry("type", "string"),
-                    entry("minLength", 1),
-                    entry("maxLength", 256),
-                    entry("description", "Source Parameter ID. Cubism generates the copied Parameter ID returned by the service.")
-                ))
-            ), List.of("parameterId")),
-            parameterOperation("update_definition", properties(
-                entry("parameterId", stringSchema()),
-                entry("definition", definitionSchema())
-            ), List.of("parameterId", "definition")),
-            parameterOperation("remove", properties(
-                entry("parameterId", stringSchema())
-            ), List.of("parameterId")),
-            parameterOperation("remove_many", properties(
-                entry("parameterIds", arraySchema(stringSchema(), 1))
-            ), List.of("parameterIds"))
-        );
+                parameterOperation(
+                        "set_value",
+                        properties(entry("parameterId", stringSchema()), entry("value", Map.of("type", "number"))),
+                        List.of("parameterId", "value")),
+                parameterOperation(
+                        "reset_default", properties(entry("parameterId", stringSchema())), List.of("parameterId")),
+                parameterOperation(
+                        "create", properties(entry("definition", definitionSchema())), List.of("definition")),
+                parameterOperation(
+                        "create_many",
+                        properties(entry("definitions", arraySchema(definitionSchema(), 1))),
+                        List.of("definitions")),
+                parameterOperation(
+                        "copy",
+                        properties(
+                                entry(
+                                        "parameterId",
+                                        linked(
+                                                entry("type", "string"),
+                                                entry("minLength", 1),
+                                                entry("maxLength", 256),
+                                                entry(
+                                                        "description",
+                                                        "Source Parameter ID. Cubism generates the copied Parameter ID returned by the service.")))),
+                        List.of("parameterId")),
+                parameterOperation(
+                        "update_definition",
+                        properties(entry("parameterId", stringSchema()), entry("definition", definitionSchema())),
+                        List.of("parameterId", "definition")),
+                parameterOperation("remove", properties(entry("parameterId", stringSchema())), List.of("parameterId")),
+                parameterOperation(
+                        "remove_many",
+                        properties(entry("parameterIds", arraySchema(stringSchema(), 1))),
+                        List.of("parameterIds")));
     }
 
     private static Map<String, Object> parameterOperation(
-        final String operation,
-        final Map<String, Object> operationProperties,
-        final List<String> required
-    ) {
-        final LinkedHashMap<String, Object> properties = new LinkedHashMap<>(linked(
-            entry("operation", enumSchema(List.of(operation)))
-        ));
+            final String operation, final Map<String, Object> operationProperties, final List<String> required) {
+        final LinkedHashMap<String, Object> properties =
+                new LinkedHashMap<>(linked(entry("operation", enumSchema(List.of(operation)))));
         properties.putAll(operationProperties);
         final ArrayList<String> requiredFields = new ArrayList<>();
         requiredFields.add("operation");
@@ -944,123 +883,143 @@ final class McpParameterDomain {
 
     private static Map<String, Object> bindingOperationSchema() {
         return oneOf(
-            bindingOperation("bind", properties(
-                entry("parameterId", stringSchema()),
-                entry("target", targetSchema()),
-                entry("points", arraySchema(pointSchema(), 1))
-            ), List.of("parameterId", "target", "points")),
-            bindingOperation("create_point", properties(
-                entry("parameterId", stringSchema()),
-                entry("target", targetSchema()),
-                entry("point", pointSchema())
-            ), List.of("parameterId", "target", "point")),
-            bindingOperation("move_point", properties(
-                entry("parameterId", stringSchema()),
-                entry("target", targetSchema()),
-                entry("pointId", canonicalPointIdSchema()),
-                entry("value", Map.of("type", "number"))
-            ), List.of("parameterId", "target", "pointId", "value")),
-            bindingOperation("delete_point", properties(
-                entry("parameterId", stringSchema()),
-                entry("target", targetSchema()),
-                entry("pointId", canonicalPointIdSchema())
-            ), List.of("parameterId", "target", "pointId")),
-            bindingOperation("unbind", properties(
-                entry("parameterId", stringSchema()),
-                entry("target", targetSchema())
-            ), List.of("parameterId", "target")),
-            bindingOperation("invert_all_bindings", properties(
-                entry("scope", enumSchema(List.of("all_target_bindings"))),
-                entry("targets", arraySchema(targetSchema(), 1))
-            ), List.of("scope", "targets")),
-            transferOperation("transfer"),
-            transferOperation("transfer_clamped"),
-            transferOperation("transfer_morph_clamped")
-        );
+                bindingOperation(
+                        "bind",
+                        properties(
+                                entry("parameterId", stringSchema()),
+                                entry("target", targetSchema()),
+                                entry("points", arraySchema(pointSchema(), 1))),
+                        List.of("parameterId", "target", "points")),
+                bindingOperation(
+                        "create_point",
+                        properties(
+                                entry("parameterId", stringSchema()),
+                                entry("target", targetSchema()),
+                                entry("point", pointSchema())),
+                        List.of("parameterId", "target", "point")),
+                bindingOperation(
+                        "move_point",
+                        properties(
+                                entry("parameterId", stringSchema()),
+                                entry("target", targetSchema()),
+                                entry("pointId", canonicalPointIdSchema()),
+                                entry("value", Map.of("type", "number"))),
+                        List.of("parameterId", "target", "pointId", "value")),
+                bindingOperation(
+                        "delete_point",
+                        properties(
+                                entry("parameterId", stringSchema()),
+                                entry("target", targetSchema()),
+                                entry("pointId", canonicalPointIdSchema())),
+                        List.of("parameterId", "target", "pointId")),
+                bindingOperation(
+                        "unbind",
+                        properties(entry("parameterId", stringSchema()), entry("target", targetSchema())),
+                        List.of("parameterId", "target")),
+                bindingOperation(
+                        "invert_all_bindings",
+                        properties(
+                                entry("scope", enumSchema(List.of("all_target_bindings"))),
+                                entry("targets", arraySchema(targetSchema(), 1))),
+                        List.of("scope", "targets")),
+                transferOperation("transfer"),
+                transferOperation("transfer_clamped"),
+                transferOperation("transfer_morph_clamped"));
     }
 
     private static Map<String, Object> bindingOperation(
-        final String operation,
-        final Map<String, Object> operationProperties,
-        final List<String> required
-    ) {
+            final String operation, final Map<String, Object> operationProperties, final List<String> required) {
         return parameterOperation(operation, operationProperties, required);
     }
 
     private static Map<String, Object> transferOperation(final String operation) {
-        return bindingOperation(operation, properties(
-            entry("sourceParameterId", stringSchema()),
-            entry("targetParameterId", stringSchema()),
-            entry("targets", arraySchema(targetSchema(), 1)),
-            entry("invertAfterTransfer", Map.of("type", "boolean"))
-        ), List.of("sourceParameterId", "targetParameterId", "targets"));
+        return bindingOperation(
+                operation,
+                properties(
+                        entry("sourceParameterId", stringSchema()),
+                        entry("targetParameterId", stringSchema()),
+                        entry("targets", arraySchema(targetSchema(), 1)),
+                        entry("invertAfterTransfer", Map.of("type", "boolean"))),
+                List.of("sourceParameterId", "targetParameterId", "targets"));
     }
 
     private static Map<String, Object> definitionSchema() {
-        return objectSchema(properties(
-            entry("id", stringSchema()), entry("name", stringSchema()),
-            entry("minimumValue", Map.of("type", "number")), entry("defaultValue", Map.of("type", "number")),
-            entry("maximumValue", Map.of("type", "number")), entry("type", enumSchema(List.of("normal", "blend_shape"))),
-            entry("repeat", Map.of("type", "boolean"))
-        ), List.of("id", "name", "minimumValue", "defaultValue", "maximumValue", "type", "repeat"));
+        return objectSchema(
+                properties(
+                        entry("id", stringSchema()),
+                        entry("name", stringSchema()),
+                        entry("minimumValue", Map.of("type", "number")),
+                        entry("defaultValue", Map.of("type", "number")),
+                        entry("maximumValue", Map.of("type", "number")),
+                        entry("type", enumSchema(List.of("normal", "blend_shape"))),
+                        entry("repeat", Map.of("type", "boolean"))),
+                List.of("id", "name", "minimumValue", "defaultValue", "maximumValue", "type", "repeat"));
     }
 
     private static Map<String, Object> targetSchema() {
-        return objectSchema(properties(entry("type", enumSchema(List.of("art_mesh", "warp_deformer", "rotation_deformer"))), entry("id", stringSchema())), List.of("type", "id"));
+        return objectSchema(
+                properties(
+                        entry("type", enumSchema(List.of("art_mesh", "warp_deformer", "rotation_deformer"))),
+                        entry("id", stringSchema())),
+                List.of("type", "id"));
     }
 
     private static Map<String, Object> pointSchema() {
-        return objectSchema(properties(
-            entry("id", linked(
-                entry("type", "string"),
-                entry("minLength", 1),
-                entry("maxLength", 256),
-                entry("deprecated", true),
-                entry("description", "Optional provisional input label. Cubism may replace it; use the canonical ID returned by MCP for move/delete.")
-            )),
-            entry("value", Map.of("type", "number"))
-        ), List.of("value"));
+        return objectSchema(
+                properties(
+                        entry(
+                                "id",
+                                linked(
+                                        entry("type", "string"),
+                                        entry("minLength", 1),
+                                        entry("maxLength", 256),
+                                        entry("deprecated", true),
+                                        entry(
+                                                "description",
+                                                "Optional provisional input label. Cubism may replace it; use the canonical ID returned by MCP for move/delete."))),
+                        entry("value", Map.of("type", "number"))),
+                List.of("value"));
     }
 
     private static Map<String, Object> canonicalPointIdSchema() {
         return linked(
-            entry("type", "string"),
-            entry("minLength", 1),
-            entry("maxLength", 256),
-            entry("description", "Canonical binding point ID returned by the latest binding read/write response.")
-        );
+                entry("type", "string"),
+                entry("minLength", 1),
+                entry("maxLength", 256),
+                entry("description", "Canonical binding point ID returned by the latest binding read/write response."));
     }
 
-    private static Map<String, Object> tool(final String name, final String title, final String description, final Map<String, Object> schema, final Map<String, Object> annotations) {
-        final Map<String, Object> outputSchema = PARAMETERS_APPLY.equals(name)
-            ? McpOutputSchemas.parameterBatch() : McpOutputSchemas.bindingBatch();
+    private static Map<String, Object> tool(
+            final String name,
+            final String title,
+            final String description,
+            final Map<String, Object> schema,
+            final Map<String, Object> annotations) {
+        final Map<String, Object> outputSchema =
+                PARAMETERS_APPLY.equals(name) ? McpOutputSchemas.parameterBatch() : McpOutputSchemas.bindingBatch();
         return linked(
-            entry("name", name),
-            entry("title", title),
-            entry("description", description),
-            entry("inputSchema", schema),
-            entry("outputSchema", outputSchema),
-            entry("annotations", annotations)
-        );
+                entry("name", name),
+                entry("title", title),
+                entry("description", description),
+                entry("inputSchema", schema),
+                entry("outputSchema", outputSchema),
+                entry("annotations", annotations));
     }
 
     private static Map<String, Object> objectSchema(final Map<String, Object> properties, final List<String> required) {
-        return linked(entry("type", "object"), entry("properties", properties), entry("required", required), entry("additionalProperties", false));
+        return linked(
+                entry("type", "object"),
+                entry("properties", properties),
+                entry("required", required),
+                entry("additionalProperties", false));
     }
 
     private static Map<String, Object> arraySchema(final Map<String, Object> items) {
         return linked(entry("type", "array"), entry("items", items));
     }
 
-    private static Map<String, Object> arraySchema(
-        final Map<String, Object> items,
-        final int minimumItems
-    ) {
-        return linked(
-            entry("type", "array"),
-            entry("minItems", minimumItems),
-            entry("items", items)
-        );
+    private static Map<String, Object> arraySchema(final Map<String, Object> items, final int minimumItems) {
+        return linked(entry("type", "array"), entry("minItems", minimumItems), entry("items", items));
     }
 
     @SafeVarargs
@@ -1077,7 +1036,9 @@ final class McpParameterDomain {
     }
 
     @SafeVarargs
-    private static Map<String, Object> properties(final Map.Entry<String, Object>... values) { return linked(values); }
+    private static Map<String, Object> properties(final Map.Entry<String, Object>... values) {
+        return linked(values);
+    }
 
     @SafeVarargs
     private static Map<String, Object> linked(final Map.Entry<String, Object>... values) {
@@ -1095,19 +1056,23 @@ final class McpParameterDomain {
         return values.get(key);
     }
 
-    private static Map<String, Object> requiredObject(final Map<String, Object> values, final String key) { return copyObject(required(values, key), key); }
+    private static Map<String, Object> requiredObject(final Map<String, Object> values, final String key) {
+        return copyObject(required(values, key), key);
+    }
 
     private static String requireText(final Object value, final String label, final int maximum) {
         if (!(value instanceof String text)) throw new InputException(label + " must be a string");
         final String normalized = text.strip();
         if (normalized.isEmpty()) throw new InputException(label + " must not be blank");
-        if (normalized.length() > maximum) throw new InputException(label + " must not exceed " + maximum + " characters");
+        if (normalized.length() > maximum)
+            throw new InputException(label + " must not exceed " + maximum + " characters");
         return normalized;
     }
 
     private static float requiredFloat(final Map<String, Object> values, final String key) {
         final Object value = required(values, key);
-        if (!(value instanceof Number number) || !Float.isFinite(number.floatValue())) throw new InputException(key + " must be a finite number");
+        if (!(value instanceof Number number) || !Float.isFinite(number.floatValue()))
+            throw new InputException(key + " must be a finite number");
         return number.floatValue();
     }
 
@@ -1139,11 +1104,14 @@ final class McpParameterDomain {
 
     private static void only(final Map<String, Object> values, final String... names) {
         final java.util.Set<String> allowed = java.util.Set.of(names);
-        for (String key : values.keySet()) if (!allowed.contains(key)) throw new InputException("unknown argument: " + key);
+        for (String key : values.keySet())
+            if (!allowed.contains(key)) throw new InputException("unknown argument: " + key);
     }
 
     private static String safeMessage(final RuntimeException failure) {
-        return failure.getMessage() == null || failure.getMessage().isBlank() ? failure.getClass().getSimpleName() : failure.getMessage();
+        return failure.getMessage() == null || failure.getMessage().isBlank()
+                ? failure.getClass().getSimpleName()
+                : failure.getMessage();
     }
 
     private enum WriteOutcome {
@@ -1159,6 +1127,8 @@ final class McpParameterDomain {
     }
 
     private static final class InputException extends RuntimeException {
-        private InputException(final String message) { super(message); }
+        private InputException(final String message) {
+            super(message);
+        }
     }
 }

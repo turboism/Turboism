@@ -1,9 +1,8 @@
 package dev.turboism.sdk.cubism.command;
 
-
 /** Configures the Editor external-application integration endpoint. */
 public record EditorExternalAppSettingsRequest(int port, boolean allowRemoteConnections)
-    implements EditorParameterizedRequest {
+        implements EditorParameterizedRequest {
 
     public EditorExternalAppSettingsRequest {
         if (port < 1 || port > 65_535) {

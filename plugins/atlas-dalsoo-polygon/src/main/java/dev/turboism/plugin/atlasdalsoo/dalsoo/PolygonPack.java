@@ -1,11 +1,10 @@
 package dev.turboism.plugin.atlasdalsoo.dalsoo;
 
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
-
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 
 /**
  * Single-page polygon packer built on the ported Dalsoo kernel.
@@ -28,9 +27,13 @@ public final class PolygonPack {
     private final TextureAtlasRotationMode rotationMode;
     private final Double segmentMaxLength;
 
-    public PolygonPack(final double pageWidth, final double pageHeight,
-        final TextureAtlasRotationMode rotationMode, final boolean abey,
-        final double hSkew, final Double segmentMaxLength) {
+    public PolygonPack(
+            final double pageWidth,
+            final double pageHeight,
+            final TextureAtlasRotationMode rotationMode,
+            final boolean abey,
+            final double hSkew,
+            final Double segmentMaxLength) {
         this.pageWidth = pageWidth;
         this.pageHeight = pageHeight;
         this.rotationMode = rotationMode;
@@ -63,8 +66,7 @@ public final class PolygonPack {
      * items are inserted as obstacles at their issued transform and appear in the
      * outcomes with their issued cos/sin and translation.</p>
      */
-    public Result pack(final List<SourcePoly> sources,
-        final BooleanSupplier cancelled, final IntConsumer progress) {
+    public Result pack(final List<SourcePoly> sources, final BooleanSupplier cancelled, final IntConsumer progress) {
         final List<SourcePoly> pending = new ArrayList<>();
         final List<double[][]> trigos = new ArrayList<>();
         final List<PackedPoly> obstacles = new ArrayList<>();
@@ -84,8 +86,8 @@ public final class PolygonPack {
                 trigos.add(rotationCandidates(sp));
             }
         }
-        final Bin bin = new Bin(pending, obstacles, trigos, pageWidth, pageHeight,
-            hSkew, segmentMaxLength, cancelled, progress);
+        final Bin bin = new Bin(
+                pending, obstacles, trigos, pageWidth, pageHeight, hSkew, segmentMaxLength, cancelled, progress);
         bin.pack(abey);
         final List<PackOutcome> outcomes = new ArrayList<>(fixedOutcomes);
         for (final PackedPoly p : bin.packedPolys()) {

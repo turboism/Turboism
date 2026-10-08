@@ -72,6 +72,7 @@ final class StageEvidence {
     private String exitWindowClasses = "NONE";
     private int exitNonDaemonThreadCount;
     private String exitNonDaemonThreadNames = "NONE";
+    private boolean higherVersionLoadAcknowledged;
     private int readinessRounds;
     private int readinessSlowRounds;
     private long readinessLastRoundMillis;
@@ -101,6 +102,11 @@ final class StageEvidence {
         this.closePollBudgetSeconds = closePollBudgetSeconds;
         this.layoutDialogBudgetSeconds = layoutDialogBudgetSeconds;
         write();
+    }
+
+    synchronized void higherVersionLoadAcknowledged() {
+        higherVersionLoadAcknowledged = true;
+        event("MAIN_LOOKUP", "REVIEWED_5203_HEAVY_LOAD_ACKNOWLEDGED", 0L);
     }
 
     synchronized void stage(final String nextStage, final String nextEvent) {
@@ -413,6 +419,7 @@ final class StageEvidence {
         append(content, "onEdt.lastOperation", onEdtLastOperation);
         append(content, "onEdt.lastState", onEdtLastState);
         append(content, "onEdt.lastOutcome", onEdtLastOutcome);
+        append(content, "startup.higherVersionLoadAcknowledged", Boolean.toString(higherVersionLoadAcknowledged));
         append(content, "readiness.rounds", Integer.toString(readinessRounds));
         append(content, "readiness.slowRounds", Integer.toString(readinessSlowRounds));
         append(content, "readiness.lastRoundMillis", Long.toString(readinessLastRoundMillis));

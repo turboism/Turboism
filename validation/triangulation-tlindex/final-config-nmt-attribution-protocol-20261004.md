@@ -1,0 +1,11 @@
+# T101 controlled NMT memory attribution protocol
+
+Freeze before submission. One 5303 baseline T057 followed by one candidate T093, FIFO, no retries or replacements. Purpose: compare independent NMT accounting and Java-heap/outside-heap page residency under identical controlled inputs. This is diagnostic, not production performance acceptance; T088/T089/T097 failures and T057 delivery remain unchanged. T100 final-config gate stays unproven.
+
+Both legs use the identical 73e7ab52 NMT/context plugin, actual controlled 711 sources × three cycles, six input-state/CPU boundaries, disable attach, no JFR, no monitoring enable/forced GC/stack sampling. Direct NMT startup uses unchanged official BAT and the reviewed task-only ProxyConfig append. New pre-cleanup hook preserves final raw ProxyConfig and both final configuration/official BAT hashes before prefix removal. Changed/missing final evidence fails the leg. Never operate other/user sessions.
+
+Require standard identity/fixture/normal exit/safe cleanup, full 2,133-row controlled command geometry/version/cache differential, six nonempty native input snapshots and independent kernel CPU units. Historical reference failures are retained separately. Require 20 NMT/context snapshots, ready PID/start/cgroup/inode binding and raw smaps SHA recomputation, NMT heap reservation/address-span agreement and ≥4 whole captures per 30-second idle window. Report exact-contained heap, outside and crossing separately; crossing bytes are never distributed proportionally.
+
+Stop and preserve terminal raw evidence on any failed gate; no second leg after first fails. Sparse non-atomic page medians and NMT overhead are limitations. Committed/reserved is not RSS; outside heap includes untracked Wine/library memory. An independent diagnostic does not reproduce or causally explain prior formal memory failures merely by showing a difference.
+
+First preparation r1 failed before queue capture because --remote-pre-cleanup was appended after transport, violating normalized argument equality. That attempt is preserved; r2 uses normalized ordering, without a host retry. All scripts, plugins, artifacts, prepared inputs and analyzers are frozen by the JSON pins.

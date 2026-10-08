@@ -1,32 +1,29 @@
 package dev.turboism.plugin.historypanel;
 
-import dev.turboism.plugin.historypanel.service.HistoryPanelService;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.plugin.historypanel.service.HistoryPanelService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-import dev.turboism.sdk.plugin.CancellationToken;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.HorizontalToolbarContribution;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
+import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class HistoryPanelPluginTest {
 
@@ -39,7 +36,8 @@ class HistoryPanelPluginTest {
         plugin.enable();
 
         assertEquals(1, context.uiHost().verticalToolbars().size());
-        assertEquals("history.toolstrip", context.uiHost().verticalToolbars().get(0).contributionId());
+        assertEquals(
+                "history.toolstrip", context.uiHost().verticalToolbars().get(0).contributionId());
         assertEquals(0, context.uiHost().horizontalToolbars().size());
         assertEquals(0, context.uiHost().panels().size());
 
@@ -62,17 +60,27 @@ class HistoryPanelPluginTest {
     void entryNavigationUsesStableIdentityAndRejectsChangedSnapshotBinding() {
         final RecordingContext context = new RecordingContext();
         context.historySnapshot = new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            7,
-            11,
-            2,
-            List.of(
-                new HistoryEntry(0, "First", true, Optional.empty(), Optional.of(new HistoryEntryId("entry-a")), Optional.empty()),
-                new HistoryEntry(1, "Second", true, Optional.empty(), Optional.of(new HistoryEntryId("entry-b")), Optional.empty())
-            ),
-            true,
-            false
-        );
+                HistorySnapshot.Availability.AVAILABLE,
+                7,
+                11,
+                2,
+                List.of(
+                        new HistoryEntry(
+                                0,
+                                "First",
+                                true,
+                                Optional.empty(),
+                                Optional.of(new HistoryEntryId("entry-a")),
+                                Optional.empty()),
+                        new HistoryEntry(
+                                1,
+                                "Second",
+                                true,
+                                Optional.empty(),
+                                Optional.of(new HistoryEntryId("entry-b")),
+                                Optional.empty())),
+                true,
+                false);
         final HistoryPanelPlugin plugin = new HistoryPanelPlugin();
         plugin.init(context);
         plugin.enable();
@@ -82,14 +90,7 @@ class HistoryPanelPluginTest {
         assertEquals(List.of(0), context.movePositions);
 
         context.historySnapshot = new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            7,
-            12,
-            2,
-            context.historySnapshot.entries(),
-            true,
-            false
-        );
+                HistorySnapshot.Availability.AVAILABLE, 7, 12, 2, context.historySnapshot.entries(), true, false);
         context.actions().execute(HistoryPanelService.moveActionId("entry-b"));
         assertEquals(List.of(0), context.movePositions, "stale binding must not move by old index");
     }
@@ -102,7 +103,6 @@ class HistoryPanelPluginTest {
         private HistorySnapshot historySnapshot = HistorySnapshot.unavailable();
         private final List<Integer> movePositions = new ArrayList<>();
 
-        @Override
         public RecordingUiHost uiHost() {
             return uiHost;
         }
@@ -136,11 +136,6 @@ class HistoryPanelPluginTest {
                 }
 
                 @Override
-                public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-                    return null;
-                }
-
-                @Override
                 public CubismHistory history() {
                     return new CubismHistory() {
                         @Override
@@ -150,16 +145,10 @@ class HistoryPanelPluginTest {
 
                         @Override
                         public HistoryMoveResult moveTo(
-                            final long expectedGeneration,
-                            final long expectedRevision,
-                            final int position
-                        ) {
+                                final long expectedGeneration, final long expectedRevision, final int position) {
                             movePositions.add(position);
                             return new HistoryMoveResult(
-                                HistoryMoveResult.Outcome.MOVED,
-                                historySnapshot,
-                                Optional.empty()
-                            );
+                                    HistoryMoveResult.Outcome.MOVED, historySnapshot, Optional.empty());
                         }
                     };
                 }
@@ -171,12 +160,12 @@ class HistoryPanelPluginTest {
             return new UiScheduler() {
                 @Override
                 public Registration runOnUiThread(final Runnable work) {
-                    return () -> { };
+                    return () -> {};
                 }
 
                 @Override
                 public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
-                    return () -> { };
+                    return () -> {};
                 }
             };
         }
@@ -254,18 +243,29 @@ class HistoryPanelPluginTest {
         public PluginLogger logger() {
             return new PluginLogger() {
                 @Override
-                public void debug(final String message) { }
+                public void debug(final String message) {}
+
                 @Override
-                public void info(final String message) { }
+                public void info(final String message) {}
+
                 @Override
-                public void warn(final String message) { }
+                public void warn(final String message) {}
+
                 @Override
-                public void error(final String message) { }
+                public void error(final String message) {}
+
                 @Override
-                public void error(final String message, final Throwable throwable) { }
+                public void error(final String message, final Throwable throwable) {}
             };
         }
 
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.UiHostCapabilityService.class, () -> this.uiHost())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
+        }
     }
 
     private static final class RecordingActionRegistry implements dev.turboism.sdk.action.ActionRegistry {
@@ -273,9 +273,12 @@ class HistoryPanelPluginTest {
         private final List<dev.turboism.sdk.action.ActionRegistry.Action> actions = new ArrayList<>();
 
         private void execute(final String id) {
-            actions.stream().filter(action -> action.id().equals(id)).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("unknown action " + id))
-                .handler().accept(null);
+            actions.stream()
+                    .filter(action -> action.id().equals(id))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("unknown action " + id))
+                    .handler()
+                    .accept(null);
         }
 
         @Override
@@ -339,8 +342,7 @@ class HistoryPanelPluginTest {
 
         @Override
         public Registration contributeBoundingBoxOverlayButton(
-            final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
-        ) {
+                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
             return noOp();
         }
 
@@ -376,27 +378,24 @@ class HistoryPanelPluginTest {
 
         @Override
         public Registration contributeContextMenu(
-            final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution
-        ) {
+                final dev.turboism.sdk.ui.context.ContextMenuRegistry.ContextMenuContribution contribution) {
             return noOp();
         }
 
         @Override
         public Registration contributeMainToolbar(
-            final dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution
-        ) {
+                final dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.MainToolbarContribution contribution) {
             return noOp();
         }
 
         @Override
         public Registration contributePaletteToolbar(
-            final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution
-        ) {
+                final dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             return noOp();
         }
 
         private static Registration noOp() {
-            return () -> { };
+            return () -> {};
         }
     }
 }

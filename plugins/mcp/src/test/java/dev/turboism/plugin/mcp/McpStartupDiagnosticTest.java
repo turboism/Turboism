@@ -1,11 +1,16 @@
 package dev.turboism.plugin.mcp;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -19,9 +24,6 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -32,12 +34,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Diagnostic-only regression: a failed MCP startup surfaces the last
@@ -47,7 +45,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class McpStartupDiagnosticTest {
 
-
     @TempDir
     Path temporaryDirectory;
 
@@ -55,10 +52,8 @@ final class McpStartupDiagnosticTest {
     void failedContextAccessorReportsStageTopFrameAndExactCause() {
         final ThrowingContext context = new ThrowingContext();
 
-        final McpHttpServer.McpStartupFailure failure = assertThrows(
-            McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(context)
-        );
+        final McpHttpServer.McpStartupFailure failure =
+                assertThrows(McpHttpServer.McpStartupFailure.class, () -> McpHttpServer.start(context));
 
         assertEquals("context.cubismRead()", failure.stage());
         assertTrue(failure.getMessage().contains("context.cubismRead()"));
@@ -74,13 +69,10 @@ final class McpStartupDiagnosticTest {
             port = probe.getLocalPort();
         }
         final ThrowingLogger logger = new ThrowingLogger(false, false);
-        final McpHttpServerIntegrationTest.FakeReadServices reads =
-            new McpHttpServerIntegrationTest.FakeReadServices();
+        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
-            McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads, port))
-        );
+                McpHttpServer.McpStartupFailure.class, () -> McpHttpServer.start(dependencies(logger, reads, port)));
 
         assertEquals("connection-file publication", failure.stage());
         assertTrue(failure.getMessage().contains("connection-file publication"));
@@ -100,13 +92,10 @@ final class McpStartupDiagnosticTest {
     @Test
     void sameObjectCleanupFailureIsNotSelfSuppressedAndCauseIsPreserved() {
         final ThrowingLogger logger = new ThrowingLogger(true, false);
-        final McpHttpServerIntegrationTest.FakeReadServices reads =
-            new McpHttpServerIntegrationTest.FakeReadServices();
+        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
-            McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads, 0))
-        );
+                McpHttpServer.McpStartupFailure.class, () -> McpHttpServer.start(dependencies(logger, reads, 0)));
 
         assertEquals("connection-file publication", failure.stage());
         // The close-path logger failure rethrows the same object; it must not
@@ -119,13 +108,10 @@ final class McpStartupDiagnosticTest {
     @Test
     void distinctCleanupThrowableIsAddedAsSuppressedWithCauseIdentity() {
         final ThrowingLogger logger = new ThrowingLogger(true, true);
-        final McpHttpServerIntegrationTest.FakeReadServices reads =
-            new McpHttpServerIntegrationTest.FakeReadServices();
+        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
-            McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads, 0))
-        );
+                McpHttpServer.McpStartupFailure.class, () -> McpHttpServer.start(dependencies(logger, reads, 0)));
 
         assertEquals("connection-file publication", failure.stage());
         // Startup throwable is the first logger failure and stays the cause
@@ -138,8 +124,7 @@ final class McpStartupDiagnosticTest {
 
     @Test
     void executorCleanupFailureIsSuppressedOnExactOriginal() {
-        final IllegalStateException original =
-            new IllegalStateException("deterministic startup failure");
+        final IllegalStateException original = new IllegalStateException("deterministic startup failure");
         final ThrowingExecutor executor = new ThrowingExecutor();
 
         // Direct helper call: no transport/server involved, only the executor
@@ -158,22 +143,18 @@ final class McpStartupDiagnosticTest {
         final StackTraceElement[] frames = new StackTraceElement[7];
         for (int index = 0; index < frames.length; index++) {
             frames[index] = new StackTraceElement(
-                "dev.turboism.plugin.mcp.SyntheticOrigin",
-                "frame" + index,
-                "/private/secret/abs/SyntheticOrigin.java",
-                100 + index
-            );
+                    "dev.turboism.plugin.mcp.SyntheticOrigin",
+                    "frame" + index,
+                    "/private/secret/abs/SyntheticOrigin.java",
+                    100 + index);
         }
         final IllegalStateException original = new IllegalStateException("synthetic");
         original.setStackTrace(frames);
         final ThrowingLogger logger = new ThrowingLogger(original);
-        final McpHttpServerIntegrationTest.FakeReadServices reads =
-            new McpHttpServerIntegrationTest.FakeReadServices();
+        final McpHttpServerIntegrationTest.FakeReadServices reads = new McpHttpServerIntegrationTest.FakeReadServices();
 
         final McpHttpServer.McpStartupFailure failure = assertThrows(
-            McpHttpServer.McpStartupFailure.class,
-            () -> McpHttpServer.start(dependencies(logger, reads, 0))
-        );
+                McpHttpServer.McpStartupFailure.class, () -> McpHttpServer.start(dependencies(logger, reads, 0)));
 
         // Exact stage and exact original cause identity
         assertEquals("connection-file publication", failure.stage());
@@ -194,39 +175,34 @@ final class McpStartupDiagnosticTest {
         assertFalse(message.contains("/private/secret/abs/SyntheticOrigin.java"));
         assertFalse(message.contains("SyntheticOrigin.java"));
     }
+
     private McpHttpServer.Dependencies dependencies(
-        final PluginLogger logger,
-        final McpHttpServerIntegrationTest.FakeReadServices reads,
-        final int port
-    ) {
+            final PluginLogger logger, final McpHttpServerIntegrationTest.FakeReadServices reads, final int port) {
         return new McpHttpServer.Dependencies(
-            logger,
-            ModelObjectService.unavailable(),
-            reads.parameters,
-            reads.hierarchy,
-            reads.selection,
-            reads.read,
-            reads.clipMasks,
-            immediateUi(),
-            temporaryDirectory,
-            port,
-            120
-        );
+                logger,
+                ModelObjectService.unavailable(),
+                reads.hierarchy,
+                reads.selection,
+                reads.read,
+                reads.clipMasks,
+                immediateUi(),
+                temporaryDirectory,
+                port,
+                120);
     }
 
     private static UiScheduler immediateUi() {
         return new UiScheduler() {
-            @Override public Registration runOnUiThread(final Runnable work) {
+            @Override
+            public Registration runOnUiThread(final Runnable work) {
                 work.run();
-                return () -> { };
+                return () -> {};
             }
 
-            @Override public Registration runOnUiThreadLater(
-                final Runnable work,
-                final Duration delay
-            ) {
+            @Override
+            public Registration runOnUiThreadLater(final Runnable work, final Duration delay) {
                 work.run();
-                return () -> { };
+                return () -> {};
             }
         };
     }
@@ -259,11 +235,28 @@ final class McpStartupDiagnosticTest {
             this.injected = injected;
         }
 
-        @Override public void debug(final String message) { record(message); }
-        @Override public void info(final String message) { record(message); }
-        @Override public void warn(final String message) { record(message); }
-        @Override public void error(final String message) { record(message); }
-        @Override public void error(final String message, final Throwable throwable) {
+        @Override
+        public void debug(final String message) {
+            record(message);
+        }
+
+        @Override
+        public void info(final String message) {
+            record(message);
+        }
+
+        @Override
+        public void warn(final String message) {
+            record(message);
+        }
+
+        @Override
+        public void error(final String message) {
+            record(message);
+        }
+
+        @Override
+        public void error(final String message, final Throwable throwable) {
             record(message);
         }
 
@@ -300,10 +293,11 @@ final class McpStartupDiagnosticTest {
      */
     private static final class ThrowingExecutor extends AbstractExecutorService {
         private final IllegalStateException cleanupFailure =
-            new IllegalStateException("deterministic executor failure");
+                new IllegalStateException("deterministic executor failure");
         private int shutdownNowCalls;
 
-        @Override public List<Runnable> shutdownNow() {
+        @Override
+        public List<Runnable> shutdownNow() {
             shutdownNowCalls++;
             if (shutdownNowCalls == 1) {
                 throw cleanupFailure;
@@ -311,13 +305,26 @@ final class McpStartupDiagnosticTest {
             return List.of();
         }
 
-        @Override public void shutdown() { }
-        @Override public boolean isShutdown() { return true; }
-        @Override public boolean isTerminated() { return true; }
-        @Override public void execute(final Runnable command) {
+        @Override
+        public void shutdown() {}
+
+        @Override
+        public boolean isShutdown() {
+            return true;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return true;
+        }
+
+        @Override
+        public void execute(final Runnable command) {
             throw new UnsupportedOperationException();
         }
-        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) {
+
+        @Override
+        public boolean awaitTermination(final long timeout, final TimeUnit unit) {
             return true;
         }
     }
@@ -325,26 +332,86 @@ final class McpStartupDiagnosticTest {
     private static final class ThrowingContext implements PluginContext {
         private IllegalStateException captured;
 
-        @Override public PluginDescriptor descriptor() { return null; }
-        @Override public PluginLogger logger() { return null; }
-        @Override public PluginPaths paths() { return null; }
-        @Override public CubismFacade cubism() { return null; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public EventBus eventBus() { return null; }
-        @Override public ActionRegistry actions() { return null; }
-        @Override public MenuRegistry menus() { return null; }
-        @Override public UiScheduler uiScheduler() { return null; }
-        @Override public DisposableScope disposableScope() { return null; }
-        @Override public DiagnosticReport diagnostics() { return null; }
+        @Override
+        public PluginDescriptor descriptor() {
+            return null;
+        }
 
-        @Override public ParameterQueryService parameterQuery() { return null; }
-        @Override public SelectionQueryService selectionQuery() { return null; }
-        @Override public ModelHierarchyQueryService modelHierarchyQuery() { return null; }
-        @Override public CubismClipMaskService cubismClipMasks() { return null; }
+        @Override
+        public PluginLogger logger() {
+            return null;
+        }
 
-        @Override public CubismReadCapabilityService cubismRead() {
+        @Override
+        public PluginPaths paths() {
+            return null;
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            return null;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            return null;
+        }
+
+        @Override
+        public ActionRegistry actions() {
+            return null;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            return null;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            return null;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return null;
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            return null;
+        }
+
+        @Override
+        public SelectionQueryService selectionQuery() {
+            return null;
+        }
+
+        @Override
+        public ModelHierarchyQueryService modelHierarchyQuery() {
+            return null;
+        }
+
+        public CubismClipMaskService cubismClipMasks() {
+            return null;
+        }
+
+        @Override
+        public CubismReadCapabilityService cubismRead() {
             captured = new IllegalStateException("deterministic read failure");
             throw captured;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 }

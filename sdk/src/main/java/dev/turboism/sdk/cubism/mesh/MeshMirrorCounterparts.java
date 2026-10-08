@@ -24,7 +24,8 @@ public interface MeshMirrorCounterparts {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -43,21 +44,23 @@ public interface MeshMirrorCounterparts {
     enum Unavailable implements MeshMirrorCounterparts {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
+        @Override
+        public MeshEditContribution mirrorOf(final MeshDeletion deletion) {
             throw unavailable();
         }
 
-        @Override public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
+        @Override
+        public Registration overrideResolver(final MeshMirrorCounterpartResolver resolver) {
             throw unavailable();
         }
 
         private static UnsupportedOperationException unavailable() {
-            return new UnsupportedOperationException(
-                "meshMirrorCounterparts service is not available");
+            return new UnsupportedOperationException("meshMirrorCounterparts service is not available");
         }
     }
 }

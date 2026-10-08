@@ -1,10 +1,10 @@
 package dev.turboism.sdk.ui;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 class CollapsibleSectionContributionTest {
 
@@ -13,8 +13,8 @@ class CollapsibleSectionContributionTest {
     @Test
     void validContributionExposesAllAccessors() {
         PanelView content = PanelView.column(PanelView.text("state"));
-        CollapsibleSectionContribution contribution = new CollapsibleSectionContribution(
-            TARGET, "status", "Status", 3, false, content);
+        CollapsibleSectionContribution contribution =
+                new CollapsibleSectionContribution(TARGET, "status", "Status", 3, false, content);
 
         assertEquals(TARGET, contribution.targetPanelId());
         assertEquals("status", contribution.sectionId());
@@ -26,44 +26,50 @@ class CollapsibleSectionContributionTest {
 
     @Test
     void nullTargetPanelIdIsRejected() {
-        assertThrows(NullPointerException.class, () -> new CollapsibleSectionContribution(
-            null, "status", "Status", 0, true, PanelView.text("x")));
+        assertThrows(
+                NullPointerException.class,
+                () -> new CollapsibleSectionContribution(null, "status", "Status", 0, true, PanelView.text("x")));
     }
 
     @Test
     void blankSectionIdIsRejected() {
-        assertThrows(IllegalArgumentException.class, () -> new CollapsibleSectionContribution(
-            TARGET, "  ", "Status", 0, true, PanelView.text("x")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CollapsibleSectionContribution(TARGET, "  ", "Status", 0, true, PanelView.text("x")));
     }
 
     @Test
     void nullSectionIdIsRejected() {
-        assertThrows(NullPointerException.class, () -> new CollapsibleSectionContribution(
-            TARGET, null, "Status", 0, true, PanelView.text("x")));
+        assertThrows(
+                NullPointerException.class,
+                () -> new CollapsibleSectionContribution(TARGET, null, "Status", 0, true, PanelView.text("x")));
     }
 
     @Test
     void blankTitleIsRejected() {
-        assertThrows(IllegalArgumentException.class, () -> new CollapsibleSectionContribution(
-            TARGET, "status", "", 0, true, PanelView.text("x")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CollapsibleSectionContribution(TARGET, "status", "", 0, true, PanelView.text("x")));
     }
 
     @Test
     void negativeOrderIsRejected() {
-        assertThrows(IllegalArgumentException.class, () -> new CollapsibleSectionContribution(
-            TARGET, "status", "Status", -1, true, PanelView.text("x")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CollapsibleSectionContribution(TARGET, "status", "Status", -1, true, PanelView.text("x")));
     }
 
     @Test
     void nullContentIsRejected() {
-        assertThrows(NullPointerException.class, () -> new CollapsibleSectionContribution(
-            TARGET, "status", "Status", 0, true, null));
+        assertThrows(
+                NullPointerException.class,
+                () -> new CollapsibleSectionContribution(TARGET, "status", "Status", 0, true, null));
     }
 
     @Test
     void zeroOrderIsAccepted() {
-        CollapsibleSectionContribution contribution = new CollapsibleSectionContribution(
-            TARGET, "status", "Status", 0, true, PanelView.text("x"));
+        CollapsibleSectionContribution contribution =
+                new CollapsibleSectionContribution(TARGET, "status", "Status", 0, true, PanelView.text("x"));
         assertTrue(contribution.order() == 0);
     }
 }

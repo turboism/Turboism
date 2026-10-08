@@ -2,10 +2,9 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
-import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
@@ -20,30 +19,24 @@ final class EditorParameterCombinedAccess {
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
 
     EditorParameterCombinedAccess(
-        final VerifiedMemberResolver resolver,
-        final ModelGuard modelGuard,
-        final ParameterSourceLookup sourceLookup
-    ) {
+            final VerifiedMemberResolver resolver,
+            final ModelGuard modelGuard,
+            final ParameterSourceLookup sourceLookup) {
         this(resolver, modelGuard, sourceLookup, null);
     }
 
     EditorParameterCombinedAccess(
-        final VerifiedMemberResolver resolver,
-        final ModelGuard modelGuard,
-        final ParameterSourceLookup sourceLookup,
-        final EditorAuthoringTransactionCoordinator authoringCoordinator
-    ) {
+            final VerifiedMemberResolver resolver,
+            final ModelGuard modelGuard,
+            final ParameterSourceLookup sourceLookup,
+            final EditorAuthoringTransactionCoordinator authoringCoordinator) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.sourceLookup = Objects.requireNonNull(sourceLookup, "sourceLookup");
         this.authoringCoordinator = authoringCoordinator;
     }
 
-    Optional<ParameterId> partner(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id
-    ) {
+    Optional<ParameterId> partner(final String expectedIdentity, final Object expectedModel, final ParameterId id) {
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         final Object source = sourceLookup.source(expectedModel, id);
         final PairBinding pair = pairBinding(source);
@@ -55,11 +48,10 @@ final class EditorParameterCombinedAccess {
     }
 
     void combine(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id,
-        final ParameterId partnerId
-    ) {
+            final String expectedIdentity,
+            final Object expectedModel,
+            final ParameterId id,
+            final ParameterId partnerId) {
         EditorHostThread.dispatch("Cubism parameter combine", () -> {
             combineOnEdt(expectedIdentity, expectedModel, id, partnerId);
             return null;
@@ -67,11 +59,10 @@ final class EditorParameterCombinedAccess {
     }
 
     private void combineOnEdt(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id,
-        final ParameterId partnerId
-    ) {
+            final String expectedIdentity,
+            final Object expectedModel,
+            final ParameterId id,
+            final ParameterId partnerId) {
         Objects.requireNonNull(partnerId, "partnerId");
         if (id.equals(partnerId)) {
             throw new IllegalArgumentException("A parameter cannot be Combined with itself.");
@@ -82,18 +73,14 @@ final class EditorParameterCombinedAccess {
         final Object partner = sourceLookup.source(expectedModel, partnerId);
         final Object group = parentGroup(source);
         if (parentGroup(partner) != group) {
-            throw new IllegalStateException(
-                "Combined parameters must belong to the same Editor parameter group."
-            );
+            throw new IllegalStateException("Combined parameters must belong to the same Editor parameter group.");
         }
         final PairBinding current = pairBinding(source);
         if (current != null && current.contains(source, partner)) {
             return;
         }
         if (current != null || pairBinding(partner) != null) {
-            throw new IllegalStateException(
-                "One of the parameters is already Combined with another parameter."
-            );
+            throw new IllegalStateException("One of the parameters is already Combined with another parameter.");
         }
         edit(expectedIdentity, expectedModel, group, source, partner, () -> {
             final List<Object> children = groupChildren(group);
@@ -102,37 +89,24 @@ final class EditorParameterCombinedAccess {
                 throw unavailable("Editor Combined pair membership is unavailable.");
             }
             resolver.invoke(
-                "cubism.editor-model.parameter-group.remove",
-                group,
-                resolver.invoke("cubism.editor-model.parameter-source.guid", partner)
-            );
+                    "cubism.editor-model.parameter-group.remove",
+                    group,
+                    resolver.invoke("cubism.editor-model.parameter-source.guid", partner));
             resolver.invoke(
-                "cubism.editor-model.parameter-group.add",
-                group,
-                partner,
-                Integer.valueOf(sourceIndex + 1)
-            );
+                    "cubism.editor-model.parameter-group.add", group, partner, Integer.valueOf(sourceIndex + 1));
             setCombined(source, true);
             setCombined(partner, false);
         });
     }
 
-    void uncombine(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id
-    ) {
+    void uncombine(final String expectedIdentity, final Object expectedModel, final ParameterId id) {
         EditorHostThread.dispatch("Cubism parameter uncombine", () -> {
             uncombineOnEdt(expectedIdentity, expectedModel, id);
             return null;
         });
     }
 
-    private void uncombineOnEdt(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final ParameterId id
-    ) {
+    private void uncombineOnEdt(final String expectedIdentity, final Object expectedModel, final ParameterId id) {
         requireAuthorization();
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
         final Object source = sourceLookup.source(expectedModel, id);
@@ -140,154 +114,105 @@ final class EditorParameterCombinedAccess {
         if (pair == null) {
             return;
         }
-        edit(
-            expectedIdentity,
-            expectedModel,
-            parentGroup(source),
-            pair.first(),
-            pair.second(),
-            () -> {
-                setCombined(pair.first(), false);
-                setCombined(pair.second(), false);
-            }
-        );
+        edit(expectedIdentity, expectedModel, parentGroup(source), pair.first(), pair.second(), () -> {
+            setCombined(pair.first(), false);
+            setCombined(pair.second(), false);
+        });
     }
 
     private void edit(
-        final String expectedIdentity,
-        final Object expectedModel,
-        final Object group,
-        final Object firstSource,
-        final Object secondSource,
-        final Runnable mutation
-    ) {
+            final String expectedIdentity,
+            final Object expectedModel,
+            final Object group,
+            final Object firstSource,
+            final Object secondSource,
+            final Runnable mutation) {
         EditorHostThread.requireHostThread("Cubism parameter combine write");
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
-        );
+        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
         final var ambientJoin = HostUndoMutationScope.ambient(authoringCoordinator, resolver);
         if (ambientJoin.isPresent()) {
-            ambientJoin.orElseThrow().admit(
-                "cubism.parameter.combine-edit",
-                expectedIdentity + ":parameter-group:"
-                    + Integer.toHexString(System.identityHashCode(group)),
-                "Turboism: Edit Combined Parameters",
-                (edit, transactionLabel) -> {
-                    addUndo(edit, group);
-                    addUndo(edit, firstSource);
-                    addUndo(edit, secondSource);
-                    final Object listener = resolver.createFunctionalProxy(
-                        "cubism.editor-model.undo-listener.class",
-                        ignored -> {
-                            refreshUi(app);
-                            return null;
-                        }
-                    );
-                    resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
-                },
-                mutation,
-                () -> true,
-                EnumSet.of(
-                    EditorRefreshRequirement.PARAMETER_PALETTE,
-                    EditorRefreshRequirement.CANVAS,
-                    EditorRefreshRequirement.MARK_DIRTY
-                )
-            );
+            ambientJoin
+                    .orElseThrow()
+                    .admit(
+                            "cubism.parameter.combine-edit",
+                            expectedIdentity + ":parameter-group:"
+                                    + Integer.toHexString(System.identityHashCode(group)),
+                            "Turboism: Edit Combined Parameters",
+                            (edit, transactionLabel) -> {
+                                addUndo(edit, group);
+                                addUndo(edit, firstSource);
+                                addUndo(edit, secondSource);
+                                final Object listener = resolver.createFunctionalProxy(
+                                        "cubism.editor-model.undo-listener.class", ignored -> {
+                                            refreshUi(app);
+                                            return null;
+                                        });
+                                resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener);
+                            },
+                            mutation,
+                            () -> true,
+                            EnumSet.of(
+                                    EditorRefreshRequirement.PARAMETER_PALETTE,
+                                    EditorRefreshRequirement.CANVAS,
+                                    EditorRefreshRequirement.MARK_DIRTY));
             modelGuard.requireCurrent(expectedIdentity, expectedModel);
             return;
         }
-        EditorAmbientTransactionGuard.requireNoAmbientTransaction(
-            authoringCoordinator, "Parameter.combine/uncombine"
-        );
-        final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
-        );
-        final Object undo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Edit Combined Parameters"
-        );
+        EditorAmbientTransactionGuard.requireNoAmbientTransaction(authoringCoordinator, "Parameter.combine/uncombine");
+        final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
+        final Object undo =
+                resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, "Turboism: Edit Combined Parameters");
         boolean completed = false;
         try {
             addUndo(undo, group);
             addUndo(undo, firstSource);
             addUndo(undo, secondSource);
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    refreshUi(app);
-                    return null;
-                }
-            );
+            final Object listener =
+                    resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class", ignored -> {
+                        refreshUi(app);
+                        return null;
+                    });
             resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
             mutation.run();
             refreshUi(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
-            resolver.invoke(
-                "cubism.editor-model.edit-mode.end",
-                editMode,
-                Boolean.valueOf(!completed),
-                null
-            );
+            resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
         }
         modelGuard.requireCurrent(expectedIdentity, expectedModel);
     }
 
     private void addUndo(final Object edit, final Object target) {
         final Object targetUndo = resolver.construct(
-            "cubism.editor-model.simple-undo.create",
-            "Turboism: Edit Combined Parameters",
-            target,
-            null
-        );
-        final Object accepted = resolver.invoke(
-            "cubism.editor-model.undo.add",
-            edit,
-            targetUndo,
-            Boolean.TRUE
-        );
+                "cubism.editor-model.simple-undo.create", "Turboism: Edit Combined Parameters", target, null);
+        final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, targetUndo, Boolean.TRUE);
         if (!(accepted instanceof Boolean value) || !value) {
             throw new IllegalStateException("Cubism rejected the Combined parameter Undo entry.");
         }
     }
 
     private void refreshUi(final Object app) {
-        final Object mainFrame = resolver.invoke(
-            "cubism.editor-model.app-controller.main-frame", app
-        );
-        final Object palette = resolver.invoke(
-            "cubism.editor-model.main-frame.parameter-palette", mainFrame
-        );
-        final Object paletteView = resolver.invoke(
-            "cubism.editor-model.parameter-palette.view", palette
-        );
-        final Object operation = resolver.invoke(
-            "cubism.editor-model.parameter-palette-view.operation", paletteView
-        );
-        resolver.invoke(
-            "cubism.editor-model.parameter-operation.refresh",
-            operation,
-            Boolean.TRUE
-        );
+        final Object mainFrame = resolver.invoke("cubism.editor-model.app-controller.main-frame", app);
+        final Object palette = resolver.invoke("cubism.editor-model.main-frame.parameter-palette", mainFrame);
+        final Object paletteView = resolver.invoke("cubism.editor-model.parameter-palette.view", palette);
+        final Object operation = resolver.invoke("cubism.editor-model.parameter-palette-view.operation", paletteView);
+        resolver.invoke("cubism.editor-model.parameter-operation.refresh", operation, Boolean.TRUE);
     }
 
     private void requireAuthorization() {
         if (!resolver.authorizesFeature(
-            EditorParameterCombinedWriteSelectorContract.ADAPTER_SLICE_ID,
-            EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
-            EditorParameterCombinedWriteSelectorContract.REQUIRED_ALIASES
-        )) {
+                EditorParameterCombinedWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID,
+                EditorParameterCombinedWriteSelectorContract.REQUIRED_ALIASES)) {
             throw new UnsupportedOperationException(
-                "Parameter Combined editing is unavailable without exact verified host evidence."
-            );
+                    "Parameter Combined editing is unavailable without exact verified host evidence.");
         }
     }
 
     private Object parentGroup(final Object source) {
-        final Object group = resolver.invoke(
-            "cubism.editor-model.parameter-source.parent-group", source
-        );
+        final Object group = resolver.invoke("cubism.editor-model.parameter-source.parent-group", source);
         if (!resolver.isInstance("cubism.editor-model.parameter-group.class", group)) {
             throw unavailable("Editor parameter group is unavailable.");
         }
@@ -310,18 +235,14 @@ final class EditorParameterCombinedAccess {
         }
         if (combinedFlag(source)) {
             if (index + 1 >= children.size()
-                || !resolver.isInstance(
-                    "cubism.editor-model.parameter-source.class",
-                    children.get(index + 1)
-                )) {
+                    || !resolver.isInstance("cubism.editor-model.parameter-source.class", children.get(index + 1))) {
                 throw unavailable("Editor Combined pair is structurally invalid.");
             }
             return new PairBinding(source, children.get(index + 1));
         }
         if (index > 0) {
             final Object previous = children.get(index - 1);
-            if (resolver.isInstance("cubism.editor-model.parameter-source.class", previous)
-                && combinedFlag(previous)) {
+            if (resolver.isInstance("cubism.editor-model.parameter-source.class", previous) && combinedFlag(previous)) {
                 return new PairBinding(previous, source);
             }
         }
@@ -342,11 +263,7 @@ final class EditorParameterCombinedAccess {
     }
 
     private void setCombined(final Object source, final boolean combined) {
-        resolver.invoke(
-            "cubism.editor-model.parameter-source.set-combined",
-            source,
-            Boolean.valueOf(combined)
-        );
+        resolver.invoke("cubism.editor-model.parameter-source.set-combined", source, Boolean.valueOf(combined));
     }
 
     private static int identityIndex(final List<Object> values, final Object expected) {

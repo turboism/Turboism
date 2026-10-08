@@ -2,18 +2,15 @@ package dev.turboism.plugin.historypanel;
 
 import dev.turboism.plugin.historypanel.service.HistoryPanelService;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
-import dev.turboism.sdk.cubism.history.CubismHistory;
-import dev.turboism.sdk.cubism.history.HistoryMoveResult;
-import dev.turboism.sdk.cubism.history.HistorySnapshot;
-import dev.turboism.sdk.ui.EmbeddedPanelContribution;
-import dev.turboism.sdk.ui.HorizontalToolbarContribution;
-import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
-
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -49,19 +46,19 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         try {
-            context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
-            context.disposableScope().register(context.uiHost().contributeVerticalToolbar(
-                new VerticalToolbarContribution(
-                    STRIP_ID,
-                    List.of(new VerticalToolbarContribution.ToolButton(
-                        STRIP_BUTTON_ID,
-                        "icons/history.png",
-                        localization.text("history.button.tooltip"),
-                        TOGGLE_ACTION_ID
-                    )),
-                    VerticalToolbarContribution.VerticalSide.RIGHT
-                )
-            ));
+            context.disposableScope()
+                    .register(registerAction(TOGGLE_ACTION_ID, "History", "Ctrl+Alt+H", ignored -> toggle()));
+            context.disposableScope()
+                    .register(context.services()
+                            .require(UiHostCapabilityService.class)
+                            .contributeVerticalToolbar(new VerticalToolbarContribution(
+                                    STRIP_ID,
+                                    List.of(new VerticalToolbarContribution.ToolButton(
+                                            STRIP_BUTTON_ID,
+                                            "icons/history.png",
+                                            localization.text("history.button.tooltip"),
+                                            TOGGLE_ACTION_ID)),
+                                    VerticalToolbarContribution.VerticalSide.RIGHT)));
         } catch (RuntimeException failure) {
             closeDisposableScopeQuietly();
             throw failure;
@@ -85,13 +82,12 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
         if (panelRegistration == null) {
             try {
                 final HistoryPanelService service = new HistoryPanelService(
-                    context.cubism().history(),
-                    context.uiHost(),
-                    taskScheduler(),
-                    logger,
-                    localization,
-                    this::registerMoveActions
-                );
+                        context.cubism().history(),
+                        context.services().require(UiHostCapabilityService.class),
+                        taskScheduler(),
+                        logger,
+                        localization,
+                        this::registerMoveActions);
                 panelRegistration = service.enable();
             } catch (RuntimeException failure) {
                 // A previous incomplete close may have left the panel contributed;
@@ -148,8 +144,8 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
             return;
         }
         final List<String> expectedSequence = snapshot.entries().stream()
-            .map(entry -> entry.entryId().map(id -> id.value()).orElse(null))
-            .toList();
+                .map(entry -> entry.entryId().map(id -> id.value()).orElse(null))
+                .toList();
         if (expectedSequence.stream().anyMatch(java.util.Objects::isNull)) {
             logger.warn("History navigation disabled: stable entry identity unavailable");
             return;
@@ -168,36 +164,28 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
                     logger.warn("History navigation rejected: entry identity missing");
                     return;
                 }
-                final int targetPosition = entryIndex < current.position()
-                    ? entryIndex
-                    : entryIndex + 1;
-                final HistoryMoveResult result = history.moveTo(
-                    snapshot.generation(),
-                    snapshot.revision(),
-                    targetPosition
-                );
+                final int targetPosition = entryIndex < current.position() ? entryIndex : entryIndex + 1;
+                final HistoryMoveResult result =
+                        history.moveTo(snapshot.generation(), snapshot.revision(), targetPosition);
                 if (result.outcome() != HistoryMoveResult.Outcome.MOVED) {
-                    logger.warn("History navigation failed safely: " + result.diagnosticId().orElse("unknown"));
+                    logger.warn("History navigation failed safely: "
+                            + result.diagnosticId().orElse("unknown"));
                 }
             }));
         }
     }
 
     private static boolean matchesBinding(
-        final HistorySnapshot expected,
-        final List<String> expectedSequence,
-        final HistorySnapshot current
-    ) {
+            final HistorySnapshot expected, final List<String> expectedSequence, final HistorySnapshot current) {
         if (current.availability() != HistorySnapshot.Availability.AVAILABLE
-            || current.generation() != expected.generation()
-            || current.revision() != expected.revision()
-            || current.entries().size() != expectedSequence.size()) {
+                || current.generation() != expected.generation()
+                || current.revision() != expected.revision()
+                || current.entries().size() != expectedSequence.size()) {
             return false;
         }
         for (int index = 0; index < expectedSequence.size(); index++) {
-            final String currentId = current.entries().get(index).entryId()
-                .map(id -> id.value())
-                .orElse(null);
+            final String currentId =
+                    current.entries().get(index).entryId().map(id -> id.value()).orElse(null);
             if (!expectedSequence.get(index).equals(currentId)) {
                 return false;
             }
@@ -232,25 +220,15 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     }
 
     private Registration registerAction(
-        final String id,
-        final String label,
-        final Consumer<ActionRegistry.ActionContext> handler
-    ) {
-        return context.actions().register(id, new ActionRegistry.Action() {
-            @Override
-            public String id() {
-                return id;
-            }
+            final String id, final String label, final Consumer<ActionRegistry.ActionContext> handler) {
+        return registerAction(id, label, null, handler);
+    }
 
-            @Override
-            public String label() {
-                return label;
-            }
-
-            @Override
-            public Consumer<ActionRegistry.ActionContext> handler() {
-                return handler;
-            }
-        });
+    private Registration registerAction(
+            final String id,
+            final String label,
+            final String defaultShortcut,
+            final Consumer<ActionRegistry.ActionContext> handler) {
+        return context.actions().register(id, ActionRegistry.Action.of(id, label, defaultShortcut, handler));
     }
 }

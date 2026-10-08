@@ -1,17 +1,16 @@
 package dev.turboism.bootstrap;
 
-import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
-import org.junit.jupiter.api.Test;
-
-import java.lang.instrument.Instrumentation;
-import java.lang.instrument.ClassFileTransformer;
-import java.lang.reflect.Proxy;
-import java.util.ArrayList;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import dev.turboism.adapter.cubism.warpalt.WarpAltMirrorHostProfile;
+import java.lang.instrument.ClassFileTransformer;
+import java.lang.instrument.Instrumentation;
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class VerifiedWarpAltMirrorHookCloseTest {
 
@@ -62,24 +61,26 @@ class VerifiedWarpAltMirrorHookCloseTest {
         assertEquals(List.of("withdraw"), events);
     }
 
-    private static VerifiedWarpAltMirrorHookInstaller installer(
-        final List<String> events, final boolean failRemoval
-    ) {
+    private static VerifiedWarpAltMirrorHookInstaller installer(final List<String> events, final boolean failRemoval) {
         final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
-            Instrumentation.class.getClassLoader(), new Class<?>[] {Instrumentation.class},
-            (proxy, method, args) -> switch (method.getName()) {
-                case "isRetransformClassesSupported" -> true;
-                case "getAllLoadedClasses" -> new Class<?>[0];
-                case "addTransformer" -> null;
-                case "removeTransformer" -> {
-                    events.add("remove");
-                    if (failRemoval) throw new IllegalStateException("removal failed");
-                    yield true;
-                }
-                default -> throw new AssertionError(method.getName());
-            });
-        return new VerifiedWarpAltMirrorHookInstaller(instrumentation, null, null,
-            WarpAltMirrorHostProfile.forReviewedVersion("5.3.02").orElseThrow());
+                Instrumentation.class.getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported" -> true;
+                    case "getAllLoadedClasses" -> new Class<?>[0];
+                    case "addTransformer" -> null;
+                    case "removeTransformer" -> {
+                        events.add("remove");
+                        if (failRemoval) throw new IllegalStateException("removal failed");
+                        yield true;
+                    }
+                    default -> throw new AssertionError(method.getName());
+                });
+        return new VerifiedWarpAltMirrorHookInstaller(
+                instrumentation,
+                null,
+                null,
+                WarpAltMirrorHostProfile.forReviewedVersion("5.3.02").orElseThrow());
     }
 
     private static void assertRestoration(final boolean failFirstTarget) throws Exception {
@@ -87,44 +88,80 @@ class VerifiedWarpAltMirrorHookCloseTest {
         final ClassFileTransformer[] transformer = {null};
         final boolean[] targetsLoaded = {false};
         final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
-            Instrumentation.class.getClassLoader(), new Class<?>[] {Instrumentation.class},
-            (proxy, method, args) -> switch (method.getName()) {
-                case "isRetransformClassesSupported", "isModifiableClass" -> true;
-                case "getAllLoadedClasses" -> targetsLoaded[0]
-                    ? new Class<?>[] {Point.class, Drag.class, String.class} : new Class<?>[0];
-                case "addTransformer" -> { transformer[0] = (ClassFileTransformer) args[0]; yield null; }
-                case "removeTransformer" -> { events.add("remove"); yield true; }
-                case "retransformClasses" -> {
-                    for (final Class<?> type : (Class<?>[]) args[0]) {
-                        events.add("restore:" + type.getSimpleName());
-                        if (failFirstTarget && type == Point.class) {
-                            throw new IllegalStateException("point restoration failed");
-                        }
+                Instrumentation.class.getClassLoader(),
+                new Class<?>[] {Instrumentation.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "isRetransformClassesSupported", "isModifiableClass" -> true;
+                    case "getAllLoadedClasses" ->
+                        targetsLoaded[0] ? new Class<?>[] {Point.class, Drag.class, String.class} : new Class<?>[0];
+                    case "addTransformer" -> {
+                        transformer[0] = (ClassFileTransformer) args[0];
+                        yield null;
                     }
-                    yield null;
-                }
-                default -> throw new AssertionError(method.getName());
-            });
+                    case "removeTransformer" -> {
+                        events.add("remove");
+                        yield true;
+                    }
+                    case "retransformClasses" -> {
+                        for (final Class<?> type : (Class<?>[]) args[0]) {
+                            events.add("restore:" + type.getSimpleName());
+                            if (failFirstTarget && type == Point.class) {
+                                throw new IllegalStateException("point restoration failed");
+                            }
+                        }
+                        yield null;
+                    }
+                    default -> throw new AssertionError(method.getName());
+                });
         final var profile = new WarpAltMirrorHostProfile(
-            Point.class.getName().replace('.', '/'), "move", "(Ljava/lang/Object;F)V",
-            Drag.class.getName().replace('.', '/'), "drag", "(Ljava/lang/Object;Ljava/lang/Object;)V",
-            "fixture/UnusedStrip", "mount", "()V", "layout", "()V",
-            "fixture/UnusedGreen", "tick", "()V");
-        final var installer = new VerifiedWarpAltMirrorHookInstaller(
-            instrumentation, Point.class.getClassLoader(), null, profile);
+                Point.class.getName().replace('.', '/'),
+                "move",
+                "(Ljava/lang/Object;F)V",
+                Drag.class.getName().replace('.', '/'),
+                "drag",
+                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                "fixture/UnusedStrip",
+                "mount",
+                "()V",
+                "layout",
+                "()V",
+                "fixture/UnusedGreen",
+                "tick",
+                "()V",
+                "fixture/UnusedSelector",
+                "add",
+                "(Ljava/lang/Object;FZ)Z",
+                "setWeight",
+                "(Ljava/lang/Object;F)V",
+                "fixture/UnusedActionDispatch",
+                "dispatch",
+                "(Ljava/lang/Object;)V",
+                "claim",
+                "(Ljava/lang/Object;)V",
+                "fixture/UnusedInputIngress",
+                "ingress",
+                "(Ljava/lang/Object;)V");
+        final var installer =
+                new VerifiedWarpAltMirrorHookInstaller(instrumentation, Point.class.getClassLoader(), null, profile);
         installer.install();
         for (final Class<?> type : List.of(Point.class, Drag.class)) {
             final String owner = type.getName().replace('.', '/');
             try (var input = type.getResourceAsStream("/" + owner + ".class")) {
                 assertNotNull(input);
-                assertNotNull(transformer[0].transform(type.getModule(), type.getClassLoader(), owner,
-                    null, type.getProtectionDomain(), input.readAllBytes()));
+                assertNotNull(transformer[0].transform(
+                        type.getModule(),
+                        type.getClassLoader(),
+                        owner,
+                        null,
+                        type.getProtectionDomain(),
+                        input.readAllBytes()));
             }
         }
         targetsLoaded[0] = true;
-        assertThrows(IllegalStateException.class,
-            () -> installer.defineLazyTargets(new ClassLoader(Point.class.getClassLoader()) { }),
-            "binding must use the same loader as the resolved runtime host");
+        assertThrows(
+                IllegalStateException.class,
+                () -> installer.defineLazyTargets(new ClassLoader(Point.class.getClassLoader()) {}),
+                "binding must use the same loader as the resolved runtime host");
         installer.onClose(() -> events.add("withdraw"));
 
         if (failFirstTarget) assertThrows(IllegalStateException.class, installer::close);
@@ -134,10 +171,10 @@ class VerifiedWarpAltMirrorHookCloseTest {
     }
 
     public static final class Point {
-        public void move(final Object target, final float weight) { }
+        public void move(final Object target, final float weight) {}
     }
 
     public static final class Drag {
-        public void drag(final Object target, final Object event) { }
+        public void drag(final Object target, final Object event) {}
     }
 }

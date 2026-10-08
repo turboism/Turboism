@@ -9,13 +9,7 @@ import java.util.Objects;
 /** User-controlled MCP workflow prompts. */
 final class McpPromptCatalog {
 
-    record Prompt(
-        String name,
-        String title,
-        String description,
-        List<Map<String, Object>> arguments,
-        String text
-    ) {
+    record Prompt(String name, String title, String description, List<Map<String, Object>> arguments, String text) {
         Prompt {
             name = requireText(name, "name");
             title = requireText(title, "title");
@@ -26,11 +20,10 @@ final class McpPromptCatalog {
 
         Map<String, Object> definition() {
             return linked(
-                entry("name", name),
-                entry("title", title),
-                entry("description", description),
-                entry("arguments", arguments)
-            );
+                    entry("name", name),
+                    entry("title", title),
+                    entry("description", description),
+                    entry("arguments", arguments));
         }
 
         Map<String, Object> render(final Map<String, Object> values) {
@@ -38,12 +31,12 @@ final class McpPromptCatalog {
                 throw new IllegalArgumentException(name + " does not accept arguments");
             }
             return linked(
-                entry("description", description),
-                entry("messages", List.of(linked(
-                    entry("role", "user"),
-                    entry("content", linked(entry("type", "text"), entry("text", text)))
-                )))
-            );
+                    entry("description", description),
+                    entry(
+                            "messages",
+                            List.of(linked(
+                                    entry("role", "user"),
+                                    entry("content", linked(entry("type", "text"), entry("text", text)))))));
         }
     }
 
@@ -60,49 +53,64 @@ final class McpPromptCatalog {
 
     static McpPromptCatalog defaults() {
         return new McpPromptCatalog(List.of(
-            prompt("inspect_active_document", "Inspect active document",
-                "Inspect the current Cubism document and model before proposing edits.",
-                "Read the active document, overview, hierarchy, parameters, and selection resources. "
-                    + "Identify the smallest safe change and verify state after every mutation."),
-            prompt("edit_model_structure", "Edit model structure",
-                "Plan and execute a minimal batch of model-object structural changes.",
-                "Read the model hierarchy and selection, call turboism.model_objects.apply with the "
-                    + "smallest operation list, then re-read the hierarchy to verify the result."),
-            prompt("normalize_parameters", "Normalize parameters",
-                "Inspect and normalize parameter definitions and values.",
-                "Read the parameter resources, identify inconsistent names, ranges, defaults, or missing "
-                    + "parameters, apply the minimal changes, then re-read the resources."),
-            prompt("repair_parameter_bindings", "Repair parameter bindings",
-                "Inspect and repair parameter-binding relationships.",
-                "Read turboism://active/model/parameter-bindings to inspect the aggregate binding state. "
-                    + "For each parameter you may change, use the existing "
-                    + "turboism://active/model/parameters/{parameterId} and "
-                    + "turboism://active/model/parameters/{parameterId}/bindings templates, percent-encoding "
-                    + "parameterId as one URI segment. Apply the smallest binding change, then re-read the "
-                    + "aggregate and affected template resources to verify."),
-            prompt("recover_document_history", "Recover document history",
-                "Undo or redo the native document history with stale-state guards.",
-                "Call turboism.history.read, retain generation, revision, and the relevant entry or "
-                    + "transaction identity, then call turboism.history.undo or turboism.history.redo. "
-                    + "Verify the returned snapshot before making another history change."),
-            prompt("run_editor_command", "Run editor command",
-                "Discover and execute one available non-file Cubism Editor command.",
-                "Read turboism://host/editor-commands, select only a listed command, provide exactly its "
-                    + "declared parameters, execute it, and report the returned status."),
-            prompt("diagnose_environment", "Diagnose environment",
-                "Inspect Cubism Core, workspace, layout, and sanitized runtime diagnostics without mutation.",
-                "Read turboism://environment/cubism-core, turboism://environment/workspace, "
-                    + "turboism://environment/workspace/layout, turboism://environment/diagnostics, and "
-                    + "turboism://environment/runtime-diagnostics. Distinguish startup evidence from recent "
-                    + "runtime evidence and typed UNAVAILABLE states from permission, unsupported, timeout, "
-                    + "and cancellation errors. Report blockers and do not call mutation tools."),
-            prompt("inspect_model_diagnostics", "Inspect model diagnostics",
-                "Inspect active model scale and texture structure without mutation.",
-                "Read turboism://active/document, turboism://active/model/overview, "
-                    + "turboism://active/model/statistics, and turboism://active/model/textures. Summarize "
-                    + "model scale, texture organization, mask and offscreen risks, and unavailable data. "
-                    + "Do not call mutation tools.")
-        ));
+                prompt(
+                        "inspect_active_document",
+                        "Inspect active document",
+                        "Inspect the current Cubism document and model before proposing edits.",
+                        "Read the active document, overview, hierarchy, parameters, and selection resources. "
+                                + "Identify the smallest safe change and verify state after every mutation."),
+                prompt(
+                        "edit_model_structure",
+                        "Edit model structure",
+                        "Plan and execute a minimal batch of model-object structural changes.",
+                        "Read the model hierarchy and selection, call turboism.model_objects.apply with the "
+                                + "smallest operation list, then re-read the hierarchy to verify the result."),
+                prompt(
+                        "normalize_parameters",
+                        "Normalize parameters",
+                        "Inspect and normalize parameter definitions and values.",
+                        "Read the parameter resources, identify inconsistent names, ranges, defaults, or missing "
+                                + "parameters, apply the minimal changes, then re-read the resources."),
+                prompt(
+                        "repair_parameter_bindings",
+                        "Repair parameter bindings",
+                        "Inspect and repair parameter-binding relationships.",
+                        "Read turboism://active/model/parameter-bindings to inspect the aggregate binding state. "
+                                + "For each parameter you may change, use the existing "
+                                + "turboism://active/model/parameters/{parameterId} and "
+                                + "turboism://active/model/parameters/{parameterId}/bindings templates, percent-encoding "
+                                + "parameterId as one URI segment. Apply the smallest binding change, then re-read the "
+                                + "aggregate and affected template resources to verify."),
+                prompt(
+                        "recover_document_history",
+                        "Recover document history",
+                        "Undo or redo the native document history with stale-state guards.",
+                        "Call turboism.history.read, retain generation, revision, and the relevant entry or "
+                                + "transaction identity, then call turboism.history.undo or turboism.history.redo. "
+                                + "Verify the returned snapshot before making another history change."),
+                prompt(
+                        "run_editor_command",
+                        "Run editor command",
+                        "Discover and execute one available non-file Cubism Editor command.",
+                        "Read turboism://host/editor-commands, select only a listed command, provide exactly its "
+                                + "declared parameters, execute it, and report the returned status."),
+                prompt(
+                        "diagnose_environment",
+                        "Diagnose environment",
+                        "Inspect Cubism Core, workspace, layout, and sanitized runtime diagnostics without mutation.",
+                        "Read turboism://environment/cubism-core, turboism://environment/workspace, "
+                                + "turboism://environment/workspace/layout, turboism://environment/diagnostics, and "
+                                + "turboism://environment/runtime-diagnostics. Distinguish startup evidence from recent "
+                                + "runtime evidence and typed UNAVAILABLE states from permission, unsupported, timeout, "
+                                + "and cancellation errors. Report blockers and do not call mutation tools."),
+                prompt(
+                        "inspect_model_diagnostics",
+                        "Inspect model diagnostics",
+                        "Inspect active model scale and texture structure without mutation.",
+                        "Read turboism://active/document, turboism://active/model/overview, "
+                                + "turboism://active/model/statistics, and turboism://active/model/textures. Summarize "
+                                + "model scale, texture organization, mask and offscreen risks, and unavailable data. "
+                                + "Do not call mutation tools.")));
     }
 
     List<Map<String, Object>> definitions() {
@@ -115,19 +123,12 @@ final class McpPromptCatalog {
         return prompt.render(new LinkedHashMap<>(arguments));
     }
 
-    private static Prompt prompt(
-        final String name,
-        final String title,
-        final String description,
-        final String text
-    ) {
+    private static Prompt prompt(final String name, final String title, final String description, final String text) {
         return new Prompt(name, title, description, new ArrayList<>(), text);
     }
 
     @SafeVarargs
-    private static LinkedHashMap<String, Object> linked(
-        final Map.Entry<String, Object>... entries
-    ) {
+    private static LinkedHashMap<String, Object> linked(final Map.Entry<String, Object>... entries) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
         return result;

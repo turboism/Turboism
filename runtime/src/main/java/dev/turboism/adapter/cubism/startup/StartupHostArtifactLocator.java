@@ -14,8 +14,7 @@ final class StartupHostArtifactLocator {
 
     private static final String HOST_JAR_NAME = "live2d_cubism.jar";
 
-    private StartupHostArtifactLocator() {
-    }
+    private StartupHostArtifactLocator() {}
 
     static Result locate(final String classPath, final Path workingDirectory) {
         Objects.requireNonNull(workingDirectory, "workingDirectory");
@@ -36,12 +35,12 @@ final class StartupHostArtifactLocator {
             }
             final Path fileName = supplied.getFileName();
             if (fileName == null
-                || !fileName.toString().toLowerCase(Locale.ROOT).equals(HOST_JAR_NAME)) {
+                    || !fileName.toString().toLowerCase(Locale.ROOT).equals(HOST_JAR_NAME)) {
                 continue;
             }
             final Path resolved = (supplied.isAbsolute() ? supplied : cwd.resolve(supplied))
-                .toAbsolutePath()
-                .normalize();
+                    .toAbsolutePath()
+                    .normalize();
             try {
                 if (!Files.isRegularFile(resolved, LinkOption.NOFOLLOW_LINKS)) {
                     return new Result(Status.UNREADABLE, null);

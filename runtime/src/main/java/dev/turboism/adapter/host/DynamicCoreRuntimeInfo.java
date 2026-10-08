@@ -7,19 +7,14 @@ import dev.turboism.sdk.cubism.core.MocData;
 import dev.turboism.sdk.cubism.core.MocInfo;
 import dev.turboism.sdk.cubism.core.MocInspector;
 import dev.turboism.sdk.cubism.core.MocLoader;
-import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.MocVersion;
-
+import dev.turboism.sdk.cubism.core.OwnedMoc;
 import java.util.Objects;
 
 /** Stable generation-bound view over connection-owned Core runtime metadata. */
 final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
 
-    private static final CoreRuntimeInfo UNAVAILABLE = new CoreRuntimeInfo() {
-        @Override public CoreVersion version() { throw unavailable(); }
-        @Override public CoreCapabilities capabilities() { throw unavailable(); }
-        @Override public MocInspector mocInspector() { throw unavailable(); }
-    };
+    private static final CoreRuntimeInfo UNAVAILABLE = CoreRuntimeInfo.unavailable();
 
     private final Object lifecycle = new Object();
     private long generation;
@@ -40,6 +35,13 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
     }
 
     @Override
+    public boolean isAvailable() {
+        synchronized (lifecycle) {
+            return delegate.isAvailable();
+        }
+    }
+
+    @Override
     public CoreVersion version() {
         return current().delegate().version();
     }
@@ -54,12 +56,14 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
         final Current current = current();
         final MocInspector inspector = current.delegate().mocInspector();
         return new MocInspector() {
-            @Override public MocVersion latestVersion() {
+            @Override
+            public MocVersion latestVersion() {
                 requireCurrent(current.generation());
                 return inspector.latestVersion();
             }
 
-            @Override public MocInfo inspect(final MocData data) {
+            @Override
+            public MocInfo inspect(final MocData data) {
                 requireCurrent(current.generation());
                 return inspector.inspect(data);
             }
@@ -81,36 +85,28 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
      * {@code instanceof} probing always failed on the real host.
      */
     private final class GuardedMocLoader
-        implements MocLoader,
-            dev.turboism.adapter.cubism.core.OwnedModelParameterWriter {
+            implements MocLoader, dev.turboism.adapter.cubism.core.OwnedModelParameterWriter {
 
         private final long expectedGeneration;
         private final MocLoader delegateLoader;
 
-        private GuardedMocLoader(
-            final long expectedGeneration,
-            final MocLoader delegateLoader
-        ) {
+        private GuardedMocLoader(final long expectedGeneration, final MocLoader delegateLoader) {
             this.expectedGeneration = expectedGeneration;
             this.delegateLoader = delegateLoader;
         }
 
-        @Override public OwnedMoc load(final MocData data) {
+        @Override
+        public OwnedMoc load(final MocData data) {
             requireCurrent(expectedGeneration);
             return delegateLoader.load(data);
         }
 
-        @Override public void writeParameterValue(
-            final dev.turboism.sdk.cubism.core.OwnedModel model,
-            final String parameterId,
-            final float value
-        ) {
+        @Override
+        public void writeParameterValue(
+                final dev.turboism.sdk.cubism.core.OwnedModel model, final String parameterId, final float value) {
             requireCurrent(expectedGeneration);
-            if (!(delegateLoader instanceof
-                    dev.turboism.adapter.cubism.core.OwnedModelParameterWriter
-                        writer)) {
-                throw new IllegalStateException(
-                    "Core runtime does not support parameter writes.");
+            if (!(delegateLoader instanceof dev.turboism.adapter.cubism.core.OwnedModelParameterWriter writer)) {
+                throw new IllegalStateException("Core runtime does not support parameter writes.");
             }
             writer.writeParameterValue(model, parameterId, value);
         }
@@ -139,5 +135,5 @@ final class DynamicCoreRuntimeInfo implements CoreRuntimeInfo {
         return new UnsupportedOperationException("Core runtime metadata is unavailable.");
     }
 
-    private record Current(long generation, CoreRuntimeInfo delegate) { }
+    private record Current(long generation, CoreRuntimeInfo delegate) {}
 }

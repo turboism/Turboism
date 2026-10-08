@@ -7,13 +7,19 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mesh-edit-host-validation.sh <matrix|persistence> [run-label] [runner-options...]" >&2
+  echo "usage: run-mesh-edit-host-validation.sh <matrix|persistence|selection-brush VERSION> [run-label] [runner-options...]" >&2
   exit 2
 fi
 mode="$1"
 shift
+version=5203
 case "$mode" in
   matrix|persistence) ;;
+  selection-brush)
+    version="${1:-}"
+    case "$version" in 5203|5302|5303) ;; *) echo 'error: selection-brush requires 5203, 5302, or 5303' >&2; exit 2 ;; esac
+    shift
+    ;;
   *) echo "error: unsupported mode: $mode" >&2; exit 2 ;;
 esac
 run_label='r1'
@@ -26,22 +32,33 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/manual-test/$worktree_id/mesh-edit-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
-turboism_select_fixture 5203 || exit 2
+turboism_select_fixture "$version" || exit 2
 fixture="$fixture_src"
 
 [ -f "$bundle/turboism-agent.jar" ] || { echo "bundle missing: $bundle" >&2; exit 1; }
 
+plugin_args=()
+view_args=()
+if [ "$mode" = selection-brush ]; then
+  [ -f "$bundle/plugins/selection-brush.jar" ] || { echo "Selection Brush plugin missing: $bundle" >&2; exit 1; }
+  plugin_args=(--plugin "$bundle/plugins/selection-brush.jar:selection-brush.jar")
+  view_args=(--focus-editor-window)
+fi
+
 exec bash "$runner" \
   --name mesh-edit \
-  --version 5203 \
-  --run-label "$run_label-$mode" \
+  --version "$version" \
+  --run-label "$run_label-$mode-$version" \
   --bundle-root "$bundle" \
   --agent "$bundle/turboism-agent.jar" \
   --home-config "$bundle/home-config.json" \
   --plugin "$bundle/plugins/mesh-edit-mirror-axis-enhance.jar:mesh-edit-mirror-axis-enhance.jar" \
   --plugin "$bundle/plugins/mesh-edit-validation-probe.jar:mesh-edit-validation-probe.jar" \
+  "${plugin_args[@]}" \
+  "${view_args[@]}" \
   --fixture-remote "$fixture" \
   --fixture-sha256 "$fixture_sha256" \
+  --jvm-option "-Dturboism.validation.cubismVersion=$version" \
   --jvm-option "-Dturboism.meshEditValidation.mode=$mode" \
   --jvm-option '-Dturboism.validation.fixture={FIXTURE}' \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \

@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.warpalt;
 
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Shared plugin-policy registry consulted by the exact warp drag-tick hook. */
@@ -33,6 +32,21 @@ public final class RuntimeWarpAltMirrorParticipation implements WarpAltMirrorPar
     @Override
     public void setArmedAxis(final int axis) {
         NativeWarpAltMirrorBridge.setArmedAxis(axis);
+    }
+
+    @Override
+    public int weightMirrorAppliedCount() {
+        return NativeWarpAltMirrorBridge.weightMirrorAppliedCount();
+    }
+
+    @Override
+    public int weightMirrorLastSourceIndex() {
+        return NativeWarpAltMirrorBridge.weightMirrorLastSourceIndex();
+    }
+
+    @Override
+    public int weightMirrorLastCounterpartIndex() {
+        return NativeWarpAltMirrorBridge.weightMirrorLastCounterpartIndex();
     }
 
     boolean hasParticipants() {

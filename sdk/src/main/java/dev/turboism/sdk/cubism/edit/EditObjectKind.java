@@ -1,6 +1,8 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
+
 /**
  * The six object types the editor's parts palette can report, matching the official
  * {@code ModelObjectType} enumeration.
@@ -9,6 +11,7 @@ import dev.turboism.sdk.CubismEditor;
  * report {@link #ART_PATH} and {@link #GLUE} entries even though some operations do not accept
  * them as targets.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public enum EditObjectKind {
     PART,

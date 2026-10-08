@@ -3,7 +3,6 @@ package dev.turboism.exportsettings;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,15 +25,14 @@ import java.util.Optional;
  * must not be installed.</p>
  */
 public record ExportSettingsHostProfile(
-    String hostVersion,
-    StaticSelector dialogOwner,
-    StaticSelector dialogConstructor,
-    StaticSelector dialogShow,
-    StaticSelector dialogContentBuilder,
-    StaticSelector dialogWindowField,
-    StaticSelector windowClass,
-    StaticSelector windowJDialog
-) {
+        String hostVersion,
+        StaticSelector dialogOwner,
+        StaticSelector dialogConstructor,
+        StaticSelector dialogShow,
+        StaticSelector dialogContentBuilder,
+        StaticSelector dialogWindowField,
+        StaticSelector windowClass,
+        StaticSelector windowJDialog) {
 
     /** Alias of the dialog owner class selector. */
     public static final String DIALOG_OWNER_ALIAS = "cubism.export-settings.dialog.owner";
@@ -43,11 +41,9 @@ public record ExportSettingsHostProfile(
     /** Alias of the post-modal decision gate selector. */
     public static final String DIALOG_SHOW_ALIAS = "cubism.export-settings.dialog.show";
     /** Alias of the single-{@code RETURN} content builder selector. */
-    public static final String DIALOG_CONTENT_BUILDER_ALIAS =
-        "cubism.export-settings.dialog.content-builder";
+    public static final String DIALOG_CONTENT_BUILDER_ALIAS = "cubism.export-settings.dialog.content-builder";
     /** Alias of the dialog window field selector. */
-    public static final String DIALOG_WINDOW_FIELD_ALIAS =
-        "cubism.export-settings.dialog.window-field";
+    public static final String DIALOG_WINDOW_FIELD_ALIAS = "cubism.export-settings.dialog.window-field";
     /** Alias of the window base class selector. */
     public static final String WINDOW_CLASS_ALIAS = "cubism.export-settings.window.class";
     /** Alias of the window's {@code JDialog} accessor selector. */
@@ -58,67 +54,86 @@ public record ExportSettingsHostProfile(
 
     private static final String DIALOG_OWNER = "com/live2d/cubism/doc/model/exporter/e";
     private static final String DIALOG_SETTING_DATA =
-        "com/live2d/cubism/doc/model/exporter/CModelExportSettingDialogData";
+            "com/live2d/cubism/doc/model/exporter/CModelExportSettingDialogData";
     private static final String MODEL_SOURCE = "com/live2d/cubism/doc/model/CModelSource";
     private static final String WINDOW_PANEL_5_2 = "com/live2d/ui/window/X";
     private static final String WINDOW_PANEL_5_3 = "com/live2d/ui/window/V";
     private static final String WINDOW_BASE = "com/live2d/ui/window/y";
 
     /** The exact reviewed 5.2.03 tuple: identical shape with the {@code X} window panel. */
-    public static final ExportSettingsHostProfile CUBISM_5_2_03 = reviewedProfile(
-        "5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_03.export_settings."
-    );
+    public static final ExportSettingsHostProfile CUBISM_5_2_03 =
+            reviewedProfile("5.2.03", WINDOW_PANEL_5_2, "cubism.mapping.v5_2_03.export_settings.");
 
     /** The exact reviewed 5.3.02 tuple. */
-    public static final ExportSettingsHostProfile CUBISM_5_3_02 = reviewedProfile(
-        "5.3.02", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_02.export_settings."
-    );
+    public static final ExportSettingsHostProfile CUBISM_5_3_02 =
+            reviewedProfile("5.3.02", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_02.export_settings.");
 
     /** The exact reviewed 5.3.03 tuple: identical shape to 5.3.02 on its own reviewed build. */
-    public static final ExportSettingsHostProfile CUBISM_5_3_03 = reviewedProfile(
-        "5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_03.export_settings."
-    );
+    public static final ExportSettingsHostProfile CUBISM_5_3_03 =
+            reviewedProfile("5.3.03", WINDOW_PANEL_5_3, "cubism.mapping.v5_3_03.export_settings.");
 
     private static ExportSettingsHostProfile reviewedProfile(
-        final String hostVersion,
-        final String windowPanel,
-        final String mappingIdPrefix
-    ) {
+            final String hostVersion, final String windowPanel, final String mappingIdPrefix) {
         return new ExportSettingsHostProfile(
-            hostVersion,
-            new StaticSelector(
-                mappingIdPrefix + "dialog_owner", DIALOG_OWNER_ALIAS, StaticSelector.Kind.CLASS,
-                DIALOG_OWNER, "", "", ACCESS_PUBLIC, 0
-            ),
-            new StaticSelector(
-                mappingIdPrefix + "dialog_constructor", DIALOG_CONSTRUCTOR_ALIAS,
-                StaticSelector.Kind.CONSTRUCTOR, DIALOG_OWNER, "<init>",
-                "(" + descriptor(MODEL_SOURCE) + ")V", ACCESS_PUBLIC, FORBID_STATIC
-            ),
-            StaticSelector.method(
-                mappingIdPrefix + "dialog_show", DIALOG_SHOW_ALIAS, DIALOG_OWNER, "a",
-                "(" + descriptor(windowPanel) + descriptor(DIALOG_SETTING_DATA)
-                    + descriptor(DIALOG_SETTING_DATA) + ")Z",
-                ACCESS_PUBLIC
-            ),
-            StaticSelector.method(
-                mappingIdPrefix + "dialog_content_builder", DIALOG_CONTENT_BUILDER_ALIAS,
-                DIALOG_OWNER, "b", "()V", 0
-            ),
-            new StaticSelector(
-                mappingIdPrefix + "dialog_window_field", DIALOG_WINDOW_FIELD_ALIAS,
-                StaticSelector.Kind.FIELD, DIALOG_OWNER, "c", descriptor(WINDOW_BASE), 0,
-                FORBID_STATIC
-            ),
-            new StaticSelector(
-                mappingIdPrefix + "window_class", WINDOW_CLASS_ALIAS, StaticSelector.Kind.CLASS,
-                WINDOW_BASE, "", "", ACCESS_PUBLIC, 0
-            ),
-            StaticSelector.method(
-                mappingIdPrefix + "window_jdialog", WINDOW_JDIALOG_ALIAS, WINDOW_BASE, "e",
-                "()Ljavax/swing/JDialog;", ACCESS_PUBLIC
-            )
-        );
+                hostVersion,
+                new StaticSelector(
+                        mappingIdPrefix + "dialog_owner",
+                        DIALOG_OWNER_ALIAS,
+                        StaticSelector.Kind.CLASS,
+                        DIALOG_OWNER,
+                        "",
+                        "",
+                        ACCESS_PUBLIC,
+                        0),
+                new StaticSelector(
+                        mappingIdPrefix + "dialog_constructor",
+                        DIALOG_CONSTRUCTOR_ALIAS,
+                        StaticSelector.Kind.CONSTRUCTOR,
+                        DIALOG_OWNER,
+                        "<init>",
+                        "(" + descriptor(MODEL_SOURCE) + ")V",
+                        ACCESS_PUBLIC,
+                        FORBID_STATIC),
+                StaticSelector.method(
+                        mappingIdPrefix + "dialog_show",
+                        DIALOG_SHOW_ALIAS,
+                        DIALOG_OWNER,
+                        "a",
+                        "(" + descriptor(windowPanel) + descriptor(DIALOG_SETTING_DATA)
+                                + descriptor(DIALOG_SETTING_DATA) + ")Z",
+                        ACCESS_PUBLIC),
+                StaticSelector.method(
+                        mappingIdPrefix + "dialog_content_builder",
+                        DIALOG_CONTENT_BUILDER_ALIAS,
+                        DIALOG_OWNER,
+                        "b",
+                        "()V",
+                        0),
+                new StaticSelector(
+                        mappingIdPrefix + "dialog_window_field",
+                        DIALOG_WINDOW_FIELD_ALIAS,
+                        StaticSelector.Kind.FIELD,
+                        DIALOG_OWNER,
+                        "c",
+                        descriptor(WINDOW_BASE),
+                        0,
+                        FORBID_STATIC),
+                new StaticSelector(
+                        mappingIdPrefix + "window_class",
+                        WINDOW_CLASS_ALIAS,
+                        StaticSelector.Kind.CLASS,
+                        WINDOW_BASE,
+                        "",
+                        "",
+                        ACCESS_PUBLIC,
+                        0),
+                StaticSelector.method(
+                        mappingIdPrefix + "window_jdialog",
+                        WINDOW_JDIALOG_ALIAS,
+                        WINDOW_BASE,
+                        "e",
+                        "()Ljavax/swing/JDialog;",
+                        ACCESS_PUBLIC));
     }
 
     public ExportSettingsHostProfile {
@@ -135,23 +150,18 @@ public record ExportSettingsHostProfile(
     /** @return every pinned selector of this profile in installer order */
     public List<StaticSelector> selectors() {
         return List.of(
-            dialogOwner,
-            dialogConstructor,
-            dialogShow,
-            dialogContentBuilder,
-            dialogWindowField,
-            windowClass,
-            windowJDialog
-        );
+                dialogOwner,
+                dialogConstructor,
+                dialogShow,
+                dialogContentBuilder,
+                dialogWindowField,
+                windowClass,
+                windowJDialog);
     }
 
     /** @return the host versions whose reviewed artifacts carry an export-settings profile */
     public static List<String> supportedHostVersions() {
-        return List.of(
-            CUBISM_5_2_03.hostVersion(),
-            CUBISM_5_3_02.hostVersion(),
-            CUBISM_5_3_03.hostVersion()
-        );
+        return List.of(CUBISM_5_2_03.hostVersion(), CUBISM_5_3_02.hostVersion(), CUBISM_5_3_03.hostVersion());
     }
 
     /**

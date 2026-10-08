@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -10,17 +9,20 @@ import java.util.Optional;
  *
  * <p>The numeric Core parameter-type code is preserved verbatim; the adapter does not
  * invent enum names or clamp the current value.</p>
+ *
+ * <p>This record belongs to the detached {@link OwnedModel} plane — a Turboism-owned model that
+ * is not attached to an Editor document. It is not the write handle for the open Editor model;
+ * use {@link dev.turboism.sdk.cubism.model.Parameter} for that.
  */
 public record OwnedParameter(
-    String id,
-    int typeNumber,
-    float minimumValue,
-    float maximumValue,
-    float defaultValue,
-    float currentValue,
-    List<Float> keyValues,
-    Optional<Boolean> repeat
-) {
+        String id,
+        int typeNumber,
+        float minimumValue,
+        float maximumValue,
+        float defaultValue,
+        float currentValue,
+        List<Float> keyValues,
+        Optional<Boolean> repeat) {
 
     public OwnedParameter {
         Objects.requireNonNull(id, "id");

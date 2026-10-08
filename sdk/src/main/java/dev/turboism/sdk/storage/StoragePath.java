@@ -18,9 +18,7 @@ import java.util.regex.Pattern;
  */
 public record StoragePath(StorageRoot root, String relativePath) {
 
-    private static final Pattern URI_OR_DRIVE = Pattern.compile(
-        "^[A-Za-z][A-Za-z0-9+.-]*:.*"
-    );
+    private static final Pattern URI_OR_DRIVE = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:.*");
 
     public StoragePath {
         root = Objects.requireNonNull(root, "root");
@@ -29,9 +27,9 @@ public record StoragePath(StorageRoot root, String relativePath) {
             throw new IllegalArgumentException("relativePath must not be blank");
         }
         if (relativePath.startsWith("/")
-            || relativePath.startsWith("~")
-            || relativePath.indexOf('\\') >= 0
-            || URI_OR_DRIVE.matcher(relativePath).matches()) {
+                || relativePath.startsWith("~")
+                || relativePath.indexOf('\\') >= 0
+                || URI_OR_DRIVE.matcher(relativePath).matches()) {
             throw invalid();
         }
         final String[] segments = relativePath.split("/", -1);
@@ -49,8 +47,6 @@ public record StoragePath(StorageRoot root, String relativePath) {
     }
 
     private static IllegalArgumentException invalid() {
-        return new IllegalArgumentException(
-            "relativePath must be normalized portable relative text"
-        );
+        return new IllegalArgumentException("relativePath must be normalized portable relative text");
     }
 }

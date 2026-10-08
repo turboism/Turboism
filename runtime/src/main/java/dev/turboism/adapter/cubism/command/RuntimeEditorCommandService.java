@@ -1,17 +1,16 @@
 package dev.turboism.adapter.cubism.command;
 
+import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
-import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorParameterizedCommand;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
-import dev.turboism.sdk.ui.UserFileMode;
-import dev.turboism.adapter.cubism.CubismFacadeImpl;
+import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
-
+import dev.turboism.sdk.ui.UserFileMode;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
@@ -27,27 +26,22 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
     private final EditorFileCommandResolver fileResolver;
     private final BooleanSupplier active;
 
-    public RuntimeEditorCommandService(
-        final EditorCommandAdapter adapter,
-        final CubismPermissionGate permissions
-    ) {
+    public RuntimeEditorCommandService(final EditorCommandAdapter adapter, final CubismPermissionGate permissions) {
         this(adapter, permissions, EditorFileCommandResolver.unavailable());
     }
 
     public RuntimeEditorCommandService(
-        final EditorCommandAdapter adapter,
-        final CubismPermissionGate permissions,
-        final EditorFileCommandResolver fileResolver
-    ) {
+            final EditorCommandAdapter adapter,
+            final CubismPermissionGate permissions,
+            final EditorFileCommandResolver fileResolver) {
         this(adapter, permissions, fileResolver, () -> true);
     }
 
     public RuntimeEditorCommandService(
-        final EditorCommandAdapter adapter,
-        final CubismPermissionGate permissions,
-        final EditorFileCommandResolver fileResolver,
-        final BooleanSupplier active
-    ) {
+            final EditorCommandAdapter adapter,
+            final CubismPermissionGate permissions,
+            final EditorFileCommandResolver fileResolver,
+            final BooleanSupplier active) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.fileResolver = Objects.requireNonNull(fileResolver, "fileResolver");
@@ -90,14 +84,13 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
         if (!active.getAsBoolean()) return result(request.commandId(), EditorCommandResult.Status.UNAVAILABLE);
         try {
             permissions.require(
-                request.command().mode() == UserFileMode.READ ? READ_PERMISSION : WRITE_PERMISSION,
-                "cubism.editor-command." + request.commandId()
-            );
+                    request.command().mode() == UserFileMode.READ ? READ_PERMISSION : WRITE_PERMISSION,
+                    "cubism.editor-command." + request.commandId());
             permissions.require(
-                request.command().mode() == UserFileMode.READ
-                    ? PermissionIds.TURBOISM_FILE_READ : PermissionIds.TURBOISM_FILE_WRITE,
-                "cubism.editor-command." + request.commandId()
-            );
+                    request.command().mode() == UserFileMode.READ
+                            ? PermissionIds.TURBOISM_FILE_READ
+                            : PermissionIds.TURBOISM_FILE_WRITE,
+                    "cubism.editor-command." + request.commandId());
         } catch (CubismPermissionException exception) {
             return result(request.commandId(), EditorCommandResult.Status.PERMISSION_DENIED);
         }
@@ -122,10 +115,7 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
         Objects.requireNonNull(request, "request");
         if (!active.getAsBoolean()) return result(request.commandId(), EditorCommandResult.Status.UNAVAILABLE);
         try {
-            permissions.require(
-                parameterizedPermission(request),
-                "cubism.editor-command." + request.commandId()
-            );
+            permissions.require(parameterizedPermission(request), "cubism.editor-command." + request.commandId());
             if (request.command() == EditorParameterizedCommand.EXTERNAL_APP_SETTING) {
                 permissions.require(PermissionIds.TURBOISM_PROCESS, "cubism.editor-command." + request.commandId());
             }
@@ -163,46 +153,87 @@ public final class RuntimeEditorCommandService implements EditorCommandService {
     private static Set<String> permissions(final EditorCommand command) {
         return switch (command) {
             case SAVE -> Set.of(WRITE_PERMISSION, PermissionIds.TURBOISM_FILE_WRITE);
-            case OPEN_COMMUNITY_PAGE, OPEN_DOWNLOAD_PAGE, OPEN_FAQ_PAGE, OPEN_HOME_PAGE,
-                 OPEN_LIVE2D_HELP_PAGE, OPEN_MANUAL_PAGE, OPEN_PRODUCT_PAGE,
-                 OPEN_SAMPLE_MODEL_PAGE, OPEN_STORE_PAGE, SHOW_TUTORIAL_VIDEO
-                 -> Set.of(READ_PERMISSION, PermissionIds.TURBOISM_NETWORK);
-            case OPEN_BACKUP_DIR, OPEN_LOG_FILE
-                 -> Set.of(READ_PERMISSION, PermissionIds.TURBOISM_PROCESS);
+            case OPEN_COMMUNITY_PAGE,
+                    OPEN_DOWNLOAD_PAGE,
+                    OPEN_FAQ_PAGE,
+                    OPEN_HOME_PAGE,
+                    OPEN_LIVE2D_HELP_PAGE,
+                    OPEN_MANUAL_PAGE,
+                    OPEN_PRODUCT_PAGE,
+                    OPEN_SAMPLE_MODEL_PAGE,
+                    OPEN_STORE_PAGE,
+                    SHOW_TUTORIAL_VIDEO -> Set.of(READ_PERMISSION, PermissionIds.TURBOISM_NETWORK);
+            case OPEN_BACKUP_DIR, OPEN_LOG_FILE -> Set.of(READ_PERMISSION, PermissionIds.TURBOISM_PROCESS);
             case FOCUS_ON_SELECTED_OBJECTS,
-                 MOVE_START, MOVE_END, MOVE_START_WORKSPACE, MOVE_END_WORKSPACE,
-                 MOVE_TAB_NEXT, MOVE_TAB_PREV, NEXT_FRAME, PREV_FRAME,
-                 NEXT_KEYFRAME, PREV_KEYFRAME, NEXT_TRACK_KEYFRAME, PREV_TRACK_KEYFRAME,
-                 NEXT_TIMELINE_MARKER, PREV_TIMELINE_MARKER,
-                 NEXT_ONIONSKIN_MARKER, PREV_ONIONSKIN_MARKER,
-                 SET_ALL_VIEWS_TO_SAME_DISPLAY_POSITION,
-                 SHOW_FULL_SCENE, SHOW_FULL_WORKSPACE, SHOW_DEFAULT_ZOOM,
-                 SHOW_DEFORMER_PALETTE, SHOW_INSPECTOR_PALETTE, SHOW_LOG_PALETTE,
-                 SHOW_PARAMETER_PALETTE, SHOW_PARTS_PALETTE, SHOW_PROJECT_PALETTE,
-                 SHOW_SCENE_PALETTE, SHOW_TEMPLATE_PALETTE, SHOW_TIMELINE_PALETTE,
-                 SHOW_TOOL_PALETTE, SHOW_HOME_DIALOG, OPEN_ABOUT,
-                 SHOW_ARTMESH_POINT, SHOW_CHILD_UNDER_WARP_DEFORMER_CTRL_MODE,
-                 SHOW_GUI_GRID, SHOW_GUI_GUIDE, SHOW_GUI_GUIDE_FOR_MODELING,
-                 SHOW_MODEL_BY_RAW_IMAGE, SHOW_MODEL_BY_TEXTURE_ATLAS,
-                 SHOW_PARAMETER_BOOKMARK_FORM_SELECTED_ATTRIBUTE,
-                 SHOW_PARAM_CONTROLLER_TARGET_TRACKING, SHOW_PARAM_CTRL_MARKER,
-                 SHOW_POPUP_HOVERING_OBJECT, SHOW_USER_OPERATION, SHOW_VERTEX_INDEX
-                 -> Set.of(READ_PERMISSION);
+                    MOVE_START,
+                    MOVE_END,
+                    MOVE_START_WORKSPACE,
+                    MOVE_END_WORKSPACE,
+                    MOVE_TAB_NEXT,
+                    MOVE_TAB_PREV,
+                    NEXT_FRAME,
+                    PREV_FRAME,
+                    NEXT_KEYFRAME,
+                    PREV_KEYFRAME,
+                    NEXT_TRACK_KEYFRAME,
+                    PREV_TRACK_KEYFRAME,
+                    NEXT_TIMELINE_MARKER,
+                    PREV_TIMELINE_MARKER,
+                    NEXT_ONIONSKIN_MARKER,
+                    PREV_ONIONSKIN_MARKER,
+                    SET_ALL_VIEWS_TO_SAME_DISPLAY_POSITION,
+                    SHOW_FULL_SCENE,
+                    SHOW_FULL_WORKSPACE,
+                    SHOW_DEFAULT_ZOOM,
+                    SHOW_DEFORMER_PALETTE,
+                    SHOW_INSPECTOR_PALETTE,
+                    SHOW_LOG_PALETTE,
+                    SHOW_PARAMETER_PALETTE,
+                    SHOW_PARTS_PALETTE,
+                    SHOW_PROJECT_PALETTE,
+                    SHOW_SCENE_PALETTE,
+                    SHOW_TEMPLATE_PALETTE,
+                    SHOW_TIMELINE_PALETTE,
+                    SHOW_TOOL_PALETTE,
+                    SHOW_HOME_DIALOG,
+                    OPEN_ABOUT,
+                    SHOW_ARTMESH_POINT,
+                    SHOW_CHILD_UNDER_WARP_DEFORMER_CTRL_MODE,
+                    SHOW_GUI_GRID,
+                    SHOW_GUI_GUIDE,
+                    SHOW_GUI_GUIDE_FOR_MODELING,
+                    SHOW_MODEL_BY_RAW_IMAGE,
+                    SHOW_MODEL_BY_TEXTURE_ATLAS,
+                    SHOW_PARAMETER_BOOKMARK_FORM_SELECTED_ATTRIBUTE,
+                    SHOW_PARAM_CONTROLLER_TARGET_TRACKING,
+                    SHOW_PARAM_CTRL_MARKER,
+                    SHOW_POPUP_HOVERING_OBJECT,
+                    SHOW_USER_OPERATION,
+                    SHOW_VERTEX_INDEX -> Set.of(READ_PERMISSION);
             default -> Set.of(WRITE_PERMISSION);
         };
     }
 
-    private static EditorCommandResult result(
-        final EditorCommand command,
-        final EditorCommandResult.Status status
-    ) {
+    @Override
+    public boolean isAvailable() {
+        if (!active.getAsBoolean()) {
+            return false;
+        }
+        // A probe failure (for example a delegate mid-teardown) means the
+        // command surface is unavailable; the contract never throws.
+        try {
+            return adapter.isAvailable();
+        } catch (Throwable failure) {
+            dev.turboism.core.runtime.work.FatalErrors.rethrowIfFatal(failure);
+            return false;
+        }
+    }
+
+    private static EditorCommandResult result(final EditorCommand command, final EditorCommandResult.Status status) {
         return new EditorCommandResult(status, command.id());
     }
 
-    private static EditorCommandResult result(
-        final String commandId,
-        final EditorCommandResult.Status status
-    ) {
+    private static EditorCommandResult result(final String commandId, final EditorCommandResult.Status status) {
         return new EditorCommandResult(status, commandId);
     }
 }

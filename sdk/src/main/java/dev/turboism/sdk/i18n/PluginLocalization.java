@@ -20,6 +20,26 @@ public interface PluginLocalization {
      */
     String text(String key);
 
+    /**
+     * Returns the localized text for {@code key}, or {@code fallback} when the key is
+     * absent, resolves to a blank value, or this catalog is the {@link #unavailable()}
+     * sentinel. This member never throws for a missing catalog or key: a {@code null}
+     * or blank {@code key} has no translation and yields {@code fallback}. A
+     * {@code null} {@code fallback} is permitted and simply makes the fallback
+     * value {@code null}.
+     *
+     * @param key the catalog key to resolve; {@code null} or blank yields {@code fallback}
+     * @param fallback the value returned when no usable translation exists; may be {@code null}
+     * @return the localized text, or {@code fallback}
+     */
+    default String text(final String key, final String fallback) {
+        if (key == null || key.isBlank() || !isAvailable() || !contains(key)) {
+            return fallback;
+        }
+        final String value = text(key);
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
     /** Returns the localized text for {@code key} with {@code arguments} applied. */
     String format(String key, Object... arguments);
 
@@ -48,23 +68,28 @@ public interface PluginLocalization {
     enum Unavailable implements PluginLocalization {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Locale locale() {
+        @Override
+        public Locale locale() {
             throw unavailable();
         }
 
-        @Override public String text(final String key) {
+        @Override
+        public String text(final String key) {
             throw unavailable();
         }
 
-        @Override public String format(final String key, final Object... arguments) {
+        @Override
+        public String format(final String key, final Object... arguments) {
             throw unavailable();
         }
 
-        @Override public boolean contains(final String key) {
+        @Override
+        public boolean contains(final String key) {
             throw unavailable();
         }
 

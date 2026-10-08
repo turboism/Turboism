@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-
 /**
  * Machine-readable reason a texture-atlas layout apply did not take effect.
  *

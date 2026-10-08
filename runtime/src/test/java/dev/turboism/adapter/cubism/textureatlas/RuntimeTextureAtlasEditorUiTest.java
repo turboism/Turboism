@@ -1,23 +1,23 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.mapping.verification.StaticSelector;
-import dev.turboism.mapping.verification.TestVerifiedResolvers;
-import dev.turboism.mapping.verification.VerifiedMemberResolver;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
-import java.awt.BorderLayout;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import java.awt.BorderLayout;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.Test;
 
 class RuntimeTextureAtlasEditorUiTest {
 
@@ -141,6 +141,16 @@ class RuntimeTextureAtlasEditorUiTest {
         ui.close();
     }
 
+    @Test
+    void isAvailableReflectsTheClosedState() {
+        final RuntimeTextureAtlasEditorUi ui = new RuntimeTextureAtlasEditorUi();
+
+        assertTrue(ui.isAvailable(), "an open editor UI surface reports available");
+
+        ui.close();
+        assertFalse(ui.isAvailable(), "a closed surface reports unavailable");
+    }
+
     private static RuntimeTextureAtlasEditorUi boundUi() {
         final RuntimeTextureAtlasEditorUi ui = new RuntimeTextureAtlasEditorUi();
         ui.bind(1, resolver());
@@ -149,12 +159,12 @@ class RuntimeTextureAtlasEditorUiTest {
 
     private static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
-            Set.of(VerifiedTextureAtlasSelectorContract.CAPABILITY_ID),
-            List.of(StaticSelector.classSelector("test.ui", Object.class.getName().replace('.', '/'))),
-            RuntimeTextureAtlasEditorUiTest.class.getClassLoader()
-        );
+                "5.3.02",
+                VerifiedTextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(VerifiedTextureAtlasSelectorContract.CAPABILITY_ID),
+                List.of(StaticSelector.classSelector(
+                        "test.ui", Object.class.getName().replace('.', '/'))),
+                RuntimeTextureAtlasEditorUiTest.class.getClassLoader());
     }
 
     private static final class RecordingPanel extends JPanel {
@@ -165,8 +175,15 @@ class RuntimeTextureAtlasEditorUiTest {
             super(new BorderLayout());
         }
 
-        @Override public void revalidate() { revalidations++; }
-        @Override public void repaint() { repaints++; }
+        @Override
+        public void revalidate() {
+            revalidations++;
+        }
+
+        @Override
+        public void repaint() {
+            repaints++;
+        }
 
         private void reset() {
             revalidations = 0;
@@ -182,22 +199,26 @@ class RuntimeTextureAtlasEditorUiTest {
             offEdtMutation = new AtomicBoolean();
         }
 
-        @Override public void add(final java.awt.Component component, final Object constraints) {
+        @Override
+        public void add(final java.awt.Component component, final Object constraints) {
             checkEdt();
             super.add(component, constraints);
         }
 
-        @Override public void remove(final java.awt.Component component) {
+        @Override
+        public void remove(final java.awt.Component component) {
             checkEdt();
             super.remove(component);
         }
 
-        @Override public void revalidate() {
+        @Override
+        public void revalidate() {
             checkEdt();
             super.revalidate();
         }
 
-        @Override public void repaint() {
+        @Override
+        public void repaint() {
             checkEdt();
             super.repaint();
         }

@@ -1,5 +1,10 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
@@ -10,8 +15,6 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPlacement;
 import dev.turboism.sdk.permission.PluginPermission;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,20 +22,14 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class RuntimeTextureAtlasLayoutServiceTest {
 
     private static final TextureAtlasLayoutConstraints CONSTRAINTS =
-        new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false);
-    private static final List<TextureAtlasLayoutItem> ITEMS = List.of(
-        new TextureAtlasLayoutItem("texture-a", 4, 3),
-        new TextureAtlasLayoutItem("texture-b", 2, 2)
-    );
+            new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false);
+    private static final List<TextureAtlasLayoutItem> ITEMS =
+            List.of(new TextureAtlasLayoutItem("texture-a", 4, 3), new TextureAtlasLayoutItem("texture-b", 2, 2));
     private static final TextureAtlasLayoutPlan CURRENT = plan(1, 6);
 
     @Test
@@ -79,73 +76,99 @@ class RuntimeTextureAtlasLayoutServiceTest {
         final TextureAtlasLayoutSnapshot snapshot = service.current().orElseThrow();
 
         final List<TextureAtlasLayoutPlan> invalid = List.of(
-            new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false)
-            )),
-            new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 1, 1, 3, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
-            )),
-            new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 0, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
-            )),
-            new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 5, 1, 2, 2, false)
-            ))
-        );
+                new TextureAtlasLayoutPlan(
+                        16, 8, 1, List.of(new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false))),
+                new TextureAtlasLayoutPlan(
+                        16,
+                        8,
+                        1,
+                        List.of(
+                                new TextureAtlasPlacement("texture-a", 0, 1, 1, 3, 3, false),
+                                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false))),
+                new TextureAtlasLayoutPlan(
+                        16,
+                        8,
+                        1,
+                        List.of(
+                                new TextureAtlasPlacement("texture-a", 0, 0, 1, 4, 3, false),
+                                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false))),
+                new TextureAtlasLayoutPlan(
+                        16,
+                        8,
+                        1,
+                        List.of(
+                                new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                                new TextureAtlasPlacement("texture-b", 0, 5, 1, 2, 2, false))));
 
         for (TextureAtlasLayoutPlan plan : invalid) {
             assertEquals(
-                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
-                service.apply(snapshot.target(), plan).failureCode()
-            );
+                    Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                    service.apply(snapshot.target(), plan).failureCode());
         }
         assertEquals(0, provider.applyCount.get());
     }
 
     @Test
     void rejectsTrailingSparsePagesAndAcceptsEveryRepresentedDeclaredPage() {
-        final TextureAtlasLayoutConstraints twoPages =
-            new TextureAtlasLayoutConstraints(8, 8, 0, 0, 3, false, false);
+        final TextureAtlasLayoutConstraints twoPages = new TextureAtlasLayoutConstraints(8, 8, 0, 0, 3, false, false);
         final List<TextureAtlasLayoutItem> items = List.of(
-            new TextureAtlasLayoutItem("texture-a", 4, 3),
-            new TextureAtlasLayoutItem("texture-b", 2, 2),
-            new TextureAtlasLayoutItem("texture-c", 1, 1)
-        );
+                new TextureAtlasLayoutItem("texture-a", 4, 3),
+                new TextureAtlasLayoutItem("texture-b", 2, 2),
+                new TextureAtlasLayoutItem("texture-c", 1, 1));
         final RecordingProvider provider = new RecordingProvider(new TextureAtlasAuthoringState(
-            "document-a", "model-a", "atlas-a", 7, twoPages, items,
-            new TextureAtlasLayoutPlan(8, 8, 1, List.of(
-                new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 4, 0, 2, 2, false),
-                new TextureAtlasPlacement("texture-c", 0, 6, 0, 1, 1, false)
-            ))
-        ));
+                "document-a",
+                "model-a",
+                "atlas-a",
+                7,
+                twoPages,
+                items,
+                new TextureAtlasLayoutPlan(
+                        8,
+                        8,
+                        1,
+                        List.of(
+                                new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
+                                new TextureAtlasPlacement("texture-b", 0, 4, 0, 2, 2, false),
+                                new TextureAtlasPlacement("texture-c", 0, 6, 0, 1, 1, false)))));
         final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();
         coordinator.connect(provider);
         final RuntimeTextureAtlasLayoutService service = service(coordinator, permissions(), new ArrayList<>());
         final TextureAtlasLayoutSnapshot snapshot = service.current().orElseThrow();
 
-        final TextureAtlasLayoutPlan trailing = new TextureAtlasLayoutPlan(8, 8, 3, List.of(
-            new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
-            new TextureAtlasPlacement("texture-b", 0, 4, 0, 2, 2, false),
-            new TextureAtlasPlacement("texture-c", 0, 6, 0, 1, 1, false)
-        ));
-        final TextureAtlasLayoutPlan sparse = new TextureAtlasLayoutPlan(8, 8, 3, List.of(
-            new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
-            new TextureAtlasPlacement("texture-b", 2, 0, 0, 2, 2, false),
-            new TextureAtlasPlacement("texture-c", 2, 2, 0, 1, 1, false)
-        ));
-        final TextureAtlasLayoutPlan complete = new TextureAtlasLayoutPlan(8, 8, 3, List.of(
-            new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
-            new TextureAtlasPlacement("texture-b", 1, 0, 0, 2, 2, false),
-            new TextureAtlasPlacement("texture-c", 2, 0, 0, 1, 1, false)
-        ));
+        final TextureAtlasLayoutPlan trailing = new TextureAtlasLayoutPlan(
+                8,
+                8,
+                3,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 4, 0, 2, 2, false),
+                        new TextureAtlasPlacement("texture-c", 0, 6, 0, 1, 1, false)));
+        final TextureAtlasLayoutPlan sparse = new TextureAtlasLayoutPlan(
+                8,
+                8,
+                3,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 2, 0, 0, 2, 2, false),
+                        new TextureAtlasPlacement("texture-c", 2, 2, 0, 1, 1, false)));
+        final TextureAtlasLayoutPlan complete = new TextureAtlasLayoutPlan(
+                8,
+                8,
+                3,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 0, 0, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 1, 0, 0, 2, 2, false),
+                        new TextureAtlasPlacement("texture-c", 2, 0, 0, 1, 1, false)));
 
-        assertEquals(Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID), service.apply(snapshot.target(), trailing).failureCode());
-        assertEquals(Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID), service.apply(snapshot.target(), sparse).failureCode());
-        assertEquals(Optional.of(TextureAtlasLayoutApplyStatus.APPLIED), service.apply(snapshot.target(), complete).status());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), trailing).failureCode());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                service.apply(snapshot.target(), sparse).failureCode());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                service.apply(snapshot.target(), complete).status());
         assertEquals(1, provider.applyCount.get());
     }
 
@@ -160,14 +183,12 @@ class RuntimeTextureAtlasLayoutServiceTest {
         final TextureAtlasLayoutSnapshot old = owner.current().orElseThrow();
 
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
-            other.apply(old.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
+                other.apply(old.target(), plan(1, 7)).failureCode());
         coordinator.connect(second);
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
-            owner.apply(old.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
+                owner.apply(old.target(), plan(1, 7)).failureCode());
         assertEquals(0, first.applyCount.get());
         assertEquals(0, second.applyCount.get());
         assertNotEquals(old.target(), owner.current().orElseThrow().target());
@@ -181,14 +202,17 @@ class RuntimeTextureAtlasLayoutServiceTest {
         final RuntimeTextureAtlasLayoutService service = service(coordinator, permissions(), new ArrayList<>());
         final TextureAtlasLayoutSnapshot snapshot = service.current().orElseThrow();
         provider.state = new TextureAtlasAuthoringState(
-            "document-a", "model-a", "atlas-a", 7,
-            new TextureAtlasLayoutConstraints(16, 8, 2, 1, 1, false, false), ITEMS, CURRENT
-        );
+                "document-a",
+                "model-a",
+                "atlas-a",
+                7,
+                new TextureAtlasLayoutConstraints(16, 8, 2, 1, 1, false, false),
+                ITEMS,
+                CURRENT);
 
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
-            service.apply(snapshot.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE),
+                service.apply(snapshot.target(), plan(1, 7)).failureCode());
         assertEquals(0, provider.applyCount.get());
     }
 
@@ -207,29 +231,24 @@ class RuntimeTextureAtlasLayoutServiceTest {
         org.junit.jupiter.api.Assertions.assertThrows(AssertionError.class, errorService::current);
         assertTrue(errorService.current().isEmpty());
 
-        final ApplyThrowingProvider applyRuntime = new ApplyThrowingProvider(
-            state(7), new IllegalStateException("apply-secret")
-        );
+        final ApplyThrowingProvider applyRuntime =
+                new ApplyThrowingProvider(state(7), new IllegalStateException("apply-secret"));
         final TextureAtlasLayoutCoordinator third = new TextureAtlasLayoutCoordinator();
         third.connect(applyRuntime);
         final RuntimeTextureAtlasLayoutService applyService = service(third, permissions(), new ArrayList<>());
         final TextureAtlasLayoutSnapshot target = applyService.current().orElseThrow();
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.PROVIDER_FAILED),
-            applyService.apply(target.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.PROVIDER_FAILED),
+                applyService.apply(target.target(), plan(1, 7)).failureCode());
 
-        final ApplyThrowingProvider applyError = new ApplyThrowingProvider(
-            state(7), new AssertionError("apply-error")
-        );
+        final ApplyThrowingProvider applyError = new ApplyThrowingProvider(state(7), new AssertionError("apply-error"));
         final TextureAtlasLayoutCoordinator fourth = new TextureAtlasLayoutCoordinator();
         fourth.connect(applyError);
         final RuntimeTextureAtlasLayoutService applyErrorService = service(fourth, permissions(), new ArrayList<>());
-        final TextureAtlasLayoutSnapshot errorTarget = applyErrorService.current().orElseThrow();
+        final TextureAtlasLayoutSnapshot errorTarget =
+                applyErrorService.current().orElseThrow();
         org.junit.jupiter.api.Assertions.assertThrows(
-            AssertionError.class,
-            () -> applyErrorService.apply(errorTarget.target(), plan(1, 7))
-        );
+                AssertionError.class, () -> applyErrorService.apply(errorTarget.target(), plan(1, 7)));
         assertTrue(applyErrorService.current().isEmpty());
     }
 
@@ -259,25 +278,35 @@ class RuntimeTextureAtlasLayoutServiceTest {
         coordinator.deactivate();
         assertFalse(service.current().isPresent());
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE),
-            service.apply(stale.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE),
+                service.apply(stale.target(), plan(1, 7)).failureCode());
         coordinator.close();
         assertEquals(
-            Optional.of(TextureAtlasLayoutFailureCode.RUNTIME_CLOSED),
-            service.apply(stale.target(), plan(1, 7)).failureCode()
-        );
+                Optional.of(TextureAtlasLayoutFailureCode.RUNTIME_CLOSED),
+                service.apply(stale.target(), plan(1, 7)).failureCode());
+    }
+
+    @Test
+    void isAvailableReflectsTheBackendState() {
+        final TextureAtlasLayoutCoordinator coordinator = new TextureAtlasLayoutCoordinator();
+        final RuntimeTextureAtlasLayoutService service = service(coordinator, permissions(), new ArrayList<>());
+
+        assertFalse(service.isAvailable(), "no provider and no native invocation means unavailable");
+
+        coordinator.connect(new RecordingProvider(state(7)));
+        assertTrue(service.isAvailable(), "a connected provider makes the service available");
+
+        coordinator.deactivate();
+        assertFalse(service.isAvailable(), "a detached provider reports unavailable again");
     }
 
     private static RuntimeTextureAtlasLayoutService service(
-        final TextureAtlasLayoutCoordinator coordinator,
-        final List<PluginPermission> permissions,
-        final List<CubismFacadeAuditEvent> audit
-    ) {
+            final TextureAtlasLayoutCoordinator coordinator,
+            final List<PluginPermission> permissions,
+            final List<CubismFacadeAuditEvent> audit) {
         return new RuntimeTextureAtlasLayoutService(
-            coordinator,
-            new CubismPermissionGate("plugin.texture-atlas", permissions, audit::add, Clock.systemUTC())
-        );
+                coordinator,
+                new CubismPermissionGate("plugin.texture-atlas", permissions, audit::add, Clock.systemUTC()));
     }
 
     private static List<PluginPermission> permissions() {
@@ -290,9 +319,20 @@ class RuntimeTextureAtlasLayoutServiceTest {
 
     private static PluginPermission permission(final String id) {
         return new PluginPermission() {
-            @Override public String id() { return id; }
-            @Override public String scope() { return "test"; }
-            @Override public String reason() { return "test"; }
+            @Override
+            public String id() {
+                return id;
+            }
+
+            @Override
+            public String scope() {
+                return "test";
+            }
+
+            @Override
+            public String reason() {
+                return "test";
+            }
         };
     }
 
@@ -302,38 +342,34 @@ class RuntimeTextureAtlasLayoutServiceTest {
 
     private static TextureAtlasAuthoringState state(final long revision, final TextureAtlasLayoutPlan current) {
         return new TextureAtlasAuthoringState(
-            "document-a",
-            "model-a",
-            "atlas-a",
-            revision,
-            CONSTRAINTS,
-            ITEMS,
-            current
-        );
+                "document-a", "model-a", "atlas-a", revision, CONSTRAINTS, ITEMS, current);
     }
 
     private static TextureAtlasLayoutPlan plan(final int firstX, final int secondX) {
         return new TextureAtlasLayoutPlan(
-            16,
-            8,
-            1,
-            List.of(
-                new TextureAtlasPlacement("texture-a", 0, firstX, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, secondX, 1, 2, 2, false)
-            )
-        );
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, firstX, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, secondX, 1, 2, 2, false)));
     }
 
     private static class RecordingProvider implements TextureAtlasLayoutProvider {
         volatile TextureAtlasAuthoringState state;
         final AtomicInteger applyCount = new AtomicInteger();
 
-        RecordingProvider(final TextureAtlasAuthoringState state) { this.state = state; }
-        @Override public Optional<TextureAtlasAuthoringState> current() { return Optional.ofNullable(state); }
-        @Override public ApplyOutcome apply(
-            final TextureAtlasAuthoringState expected,
-            final TextureAtlasLayoutPlan plan
-        ) {
+        RecordingProvider(final TextureAtlasAuthoringState state) {
+            this.state = state;
+        }
+
+        @Override
+        public Optional<TextureAtlasAuthoringState> current() {
+            return Optional.ofNullable(state);
+        }
+
+        @Override
+        public ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
             applyCount.incrementAndGet();
             return plan.equals(state.currentPlan()) ? ApplyOutcome.NO_CHANGE : ApplyOutcome.APPLIED;
         }
@@ -341,29 +377,33 @@ class RuntimeTextureAtlasLayoutServiceTest {
 
     private static final class ThrowingProvider implements TextureAtlasLayoutProvider {
         private final Throwable failure;
-        ThrowingProvider(final Throwable failure) { this.failure = failure; }
-        @Override public Optional<TextureAtlasAuthoringState> current() {
+
+        ThrowingProvider(final Throwable failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public Optional<TextureAtlasAuthoringState> current() {
             if (failure instanceof Error error) throw error;
             throw (RuntimeException) failure;
         }
-        @Override public ApplyOutcome apply(
-            final TextureAtlasAuthoringState expected,
-            final TextureAtlasLayoutPlan plan
-        ) {
+
+        @Override
+        public ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
             return ApplyOutcome.REJECTED;
         }
     }
 
     private static final class ApplyThrowingProvider extends RecordingProvider {
         private final Throwable failure;
+
         ApplyThrowingProvider(final TextureAtlasAuthoringState state, final Throwable failure) {
             super(state);
             this.failure = failure;
         }
-        @Override public ApplyOutcome apply(
-            final TextureAtlasAuthoringState expected,
-            final TextureAtlasLayoutPlan plan
-        ) {
+
+        @Override
+        public ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
             if (failure instanceof Error error) throw error;
             throw (RuntimeException) failure;
         }
@@ -375,11 +415,12 @@ class RuntimeTextureAtlasLayoutServiceTest {
         final AtomicInteger active = new AtomicInteger();
         final AtomicInteger maxActive = new AtomicInteger();
 
-        BlockingProvider(final TextureAtlasAuthoringState state) { super(state); }
-        @Override public ApplyOutcome apply(
-            final TextureAtlasAuthoringState expected,
-            final TextureAtlasLayoutPlan plan
-        ) {
+        BlockingProvider(final TextureAtlasAuthoringState state) {
+            super(state);
+        }
+
+        @Override
+        public ApplyOutcome apply(final TextureAtlasAuthoringState expected, final TextureAtlasLayoutPlan plan) {
             final int count = active.incrementAndGet();
             maxActive.accumulateAndGet(count, Math::max);
             entered.countDown();

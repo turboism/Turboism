@@ -10,6 +10,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
+- Reworked the development-only agent chat plugin into the generic `Turboism ACP` plugin
+  (`dev.turboism.plugin.acp`): it launches user-installed ACP-compatible agents (Claude Agent ACP,
+  Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command), detects
+  executables on PATH, drives ACP authentication and durable sessions, and still attaches the
+  authenticated Turboism MCP endpoint when the agent advertises HTTP MCP support.
+
 - Animation workspace support in the SDK and runtime: plugins can enumerate animation documents,
   project timelines, tracks, attributes and keyframes, activate and rename scenes, seek playback,
   apply batched keyframe edits and curve types, and record/bake evaluated values. A pure-SDK
@@ -18,6 +24,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `PluginContext.availableServices()` and the `PluginService` enum report which optional context
   services the runtime actually installed, so plugins no longer have to probe getters or guess at
   `unavailable()` sentinels; the default fails closed with an empty set.
+- `PluginContext.services()` and `PluginServiceDirectory` give plugins a typed lookup of the
+  optional context services the runtime actually installed (`services().find(ServiceType.class)`
+  returns an empty `Optional` when absent); each `PluginService` member now carries its service type. The
+  pre-existing per-service `PluginContext` getters remain as deprecated bridges for binary
+  compatibility, and new optional services land on the directory instead of growing the context.
+- `@Incubating` marks SDK types and members that are published for early adopters but not yet
+  covered by the stable-API compatibility promises; the MCP surface, the generated-subscriber
+  catalog machinery and the new service directory ship incubating.
 - `TurboismWindowFactory.installWindowIcon` installs a process-wide window-icon override, so every
   plugin-owned window carries the same product icon the user picked for the main-toolbar button
   (text vs installer mode) instead of the bundled default.
@@ -52,9 +66,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   drag-tick hook admits the exact reviewed Cubism 5.2.03, 5.3.02 and 5.3.03 artifacts —
   inside the native drag tick it provides live mirrored preview and a single undo entry —
   while unreviewed hosts keep the release-time AWT fallback with identical results.
+  While an axis is armed, selection-weight writes (the Brush Selection Tool and every other
+  weighted-selection flow) are mirrored onto the axis counterpart point in the same
+  selection/undo envelope, so weight painting stays symmetric in real time.
 - `Action.of` and `MenuContribution.of` build single-point contribution registrations as plain
   `SimpleAction`/`SimpleMenuContribution` values, so a plugin no longer needs an anonymous class
   for every action or menu item it contributes.
+- Runtime-owned keybinding authority and a Keybindings window: the Turboism menu gains a
+  "Keybindings" item opening a table of every bindable row — plugin actions (including the core
+  shell's own) and native commands enumerated live from the host's menu accelerators, so the
+  catalog always mirrors the shortcuts the running Cubism version actually declares; shortcuts
+  not exposed through menus can still be added as key-forwarding rows. A global AWT key dispatcher intercepts host key
+  events so a bound key invokes a plugin action through the action router, while a native rebind
+  is translated back into the host's original shortcut and the displaced key is suppressed.
+  Rows carry a tri-state binding (unset/bound/disabled) persisted under
+  `state/runtime/keybindings.properties`, conflicting claims are marked in the table, plain
+  single-key bindings stay inactive while a text field holds focus, and the capture dialog
+  suspends interception while recording. `ActionRegistry.Action.defaultShortcut()` plus the new
+  `Action.of(id, label, shortcut, handler)` overload let plugins declare a default shortcut the
+  user can rebind. The core shell declares defaults for its window actions (Settings
+  `Ctrl+Alt+S`, Plugins `Ctrl+Alt+P`, Logs `Ctrl+Alt+L`, Keybindings `Ctrl+Shift+K`), and the
+  first-party mesh-inspect, history-toggle and demo actions ship declared defaults as SDK
+  examples. Double-clicking a row's shortcut cell opens the capture dialog directly.
+
+### Removed
+
+- Removed the managed fx runtime entirely: no bundled or downloaded agent binaries, no runtime
+  manifest/hash pinning, no Turboism-managed provider profiles or credential store, and no
+  Gateway/OpenAI adapter — agent authentication, provider, and model stay with the agent itself.
+  The development-only `turboism-with-fx` plugin id is retired, and release tooling no longer
+  references fx packaging or validation fixtures.
 
 ### Changed
 
@@ -111,6 +152,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `dev.turboism.sdk.cubism.event`; the retired package is rejected by the boundary and
   package-layout checks so the deprecated shape cannot regress. **Plugin API migration may be
   required:** update event imports.
+- The pre-1.0 SDK contract convergence removes the deprecated per-service `PluginContext`
+  accessors (the 34 bridges deprecated in v12 plus `actionCatalog()`), `availableServices()`,
+  `CubismFacade.transactionManager()`, the `dev.turboism.sdk.cubism.write` command queue and the
+  `cubism.transaction` queue types (`TransactionManager`, `ModelTransaction`, `TransactionStatus`,
+  queue exceptions). `ctx.services().find/require(Class)` is now the single service entry point
+  (`availableServices()` → `services().installed()`); writes go through `Parameter.setValue` and
+  `authoringTransactions()`. The internal `dev.turboism.protocol.json.StrictJson` codec is
+  replaced by `dev.turboism.sdk.json.Json` (`Map<String,?>`/`List<?>` roots), and the backup
+  file-path surfaces (`BackupSyncTarget.sync(List<File>)`, `BackupRunResult.newBackupFiles()`,
+  `EditorAutoBackupSettings.backupDir()`, `EditorAutoBackupStatus.filePath`) are replaced by
+  `BackupArtifactHandle`/`BackupArtifact` metadata with `artifacts()`/`backupDirDisplay()`.
+  `CubismFacade.model()`/`coreRuntime()` and the texture-atlas accessors now return `unavailable()`
+  sentinels instead of throwing. The `cubism.edit` and `sdk.script` surfaces and the
+  `PluginService` constants `SCRIPTS`, `MESH_TOOLS`, `MODELING_TOOLS` and `MCP_CONNECTIONS` are
+  `@Incubating` and leave the stable exact-API gate; the reviewed exact baseline is now v13, with
+  v2–v12 retained as historical audits. **Plugin API migration is required:** resolve services
+  through `ctx.services()`, route writes through `Parameter.setValue`/authoring transactions,
+  and read backup artifacts via handles.
+- The parameter query read plane is removed from the SDK: `ParameterQueryService` (and its
+  `Unavailable` sentinel), `ParameterSummary`, `ParameterBounds`, `PluginContext.parameterQuery()`
+  and `PluginService.PARAMETER_QUERY` are gone, and `ParameterAppearance` gains `visible()` /
+  `editable()` `Optional<Boolean>` projections of the parameter palette state. Deleting the enum
+  constant shifts real `PluginService.ordinal()` values by −1 for everything declared after it, so
+  persisted ordinals must be rewritten. The reviewed exact baseline is now v14, with v2–v13 retained
+  as historical audits. **Plugin API migration is required:** list parameters through
+  `cubism().model().active().parameters().all()`, resolve one through `parameters().findById(id)`,
+  read values through `Parameter.getValue`/`getMinimumValue`/`getMaximumValue`/`getDefaultValue`,
+  read palette flags through `parameter.ui().visible()`/`editable()`, and declare
+  `turboism.cubism.model.read` instead of `turboism.cubism.parameter.read`.
 - Install-time host hooks are declared in `META-INF/turboism/hooks` and scanned by the agent
   instead of being hand-wired: each `HookContributor` checks its own admission and forwards
   install/bind/uninstall through `HookRegistry`, so a new hook is a manifest line plus a
@@ -128,6 +198,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- ACP-attached agents can use Turboism MCP write tools again: the MCP plugin publishes a
+  credential-free stdio launch descriptor on the connection snapshot, and the ACP plugin
+  attaches it as a stdio MCP server — the precompiled bridge inside the MCP plugin JAR reads
+  the bearer token itself, so it also works on JREs without `jdk.compiler`. The HTTP endpoint
+  remains a read-only fallback, endpoint drift now reconnects any MCP-attached session, and
+  the Agent transcript reports whether tools attached writable or read-only.
+- `ClassPinTable.load` now falls back to the system class loader when the agent classes have no
+  defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
+  so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely
+  instead of starting on a real host.
 - Removed machine-specific literals from tooling: preview launch scripts no longer probe a
   personal `F:\Live2D` install path, the parameter-validation GraalVM probe derives its Proton
   `Z:` path from `$HOME` instead of a hardcoded username, the release API monitor reads its

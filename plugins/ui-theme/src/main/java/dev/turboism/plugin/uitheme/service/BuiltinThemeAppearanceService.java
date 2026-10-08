@@ -1,16 +1,15 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.BuiltinThemeCatalog;
-import dev.turboism.plugin.uitheme.b1.domain.LegacyThemePaletteResolver;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageCodec;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageEntry;
+import dev.turboism.plugin.uitheme.domain.BuiltinThemeCatalog;
+import dev.turboism.plugin.uitheme.domain.LegacyThemePaletteResolver;
+import dev.turboism.plugin.uitheme.domain.ThemePackageCodec;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.ThemePackageEntry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -27,11 +26,10 @@ public final class BuiltinThemeAppearanceService {
     private final PluginLocalization localization;
 
     public BuiltinThemeAppearanceService(
-        final ClassLoader classLoader,
-        final AppearanceService appearance,
-        final UiHostCapabilityService uiHost,
-        final PluginLocalization localization
-    ) {
+            final ClassLoader classLoader,
+            final AppearanceService appearance,
+            final UiHostCapabilityService uiHost,
+            final PluginLocalization localization) {
         this.classLoader = Objects.requireNonNull(classLoader, "classLoader");
         this.appearance = Objects.requireNonNull(appearance, "appearance");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
@@ -52,18 +50,19 @@ public final class BuiltinThemeAppearanceService {
     public void applyDefault() {
         final ThemePackageData theme = load(DEFAULT_THEME_ID);
         final long revision = appearance.current().toCompletableFuture().join().revision();
-        final AppearanceApplyResult result = appearance.apply(
-            LegacyThemePaletteResolver.resolve(theme, revision)
-        ).toCompletableFuture().join();
+        final AppearanceApplyResult result = appearance
+                .apply(LegacyThemePaletteResolver.resolve(theme, revision))
+                .toCompletableFuture()
+                .join();
         final boolean applied = result.outcome() == AppearanceApplyResult.Outcome.APPLIED
-            || result.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE;
+                || result.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE;
         uiHost.notifyStatus(new StatusNotification(
-            "ui-theme.appearance.apply." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            applied ? "INFO" : "WARNING",
-            applied
-                ? localization.format("theme.selection.applied", theme.metadata().name())
-                : localization.text("theme.selection.failed")
-        ));
+                "ui-theme.appearance.apply." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
+                applied ? "INFO" : "WARNING",
+                applied
+                        ? localization.format(
+                                "theme.selection.applied", theme.metadata().name())
+                        : localization.text("theme.selection.failed")));
     }
 
     /**
@@ -80,14 +79,13 @@ public final class BuiltinThemeAppearanceService {
      */
     public ThemePackageData load(final String themeId) {
         final BuiltinThemeCatalog.Entry entry = BuiltinThemeCatalog.entries().stream()
-            .filter(candidate -> candidate.id().equals(themeId))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("Unknown built-in theme: " + themeId));
+                .filter(candidate -> candidate.id().equals(themeId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown built-in theme: " + themeId));
         final String root = "themes/" + entry.resourceDirectory() + "/";
         final var decoded = ThemePackageCodec.decode(List.of(
-            resource(root + ThemePackageCodec.THEME_PROPERTIES),
-            resource(root + ThemePackageCodec.COLORS_PROPERTIES)
-        ));
+                resource(root + ThemePackageCodec.THEME_PROPERTIES),
+                resource(root + ThemePackageCodec.COLORS_PROPERTIES)));
         if (!decoded.valid()) {
             throw new IllegalStateException("Built-in theme is invalid: " + decoded.issues());
         }

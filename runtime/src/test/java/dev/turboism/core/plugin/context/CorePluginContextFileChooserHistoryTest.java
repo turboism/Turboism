@@ -1,26 +1,28 @@
 package dev.turboism.core.plugin.context;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import dev.turboism.adapter.RuntimeHostAdapters;
-import dev.turboism.ui.resource.RuntimeUiResourceService;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
-import dev.turboism.sdk.ui.resource.CubismIcon;
-import dev.turboism.sdk.ui.resource.UiIconAvailability;
-import dev.turboism.sdk.ui.resource.UiIconRef;
-import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.ui.UiScheduler;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconAvailability;
+import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.sdk.ui.resource.UiResourceService;
+import dev.turboism.ui.resource.RuntimeUiResourceService;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -30,27 +32,28 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Covers Runtime UI-resource and file-chooser exposure on {@link CorePluginContext}. */
 class CorePluginContextFileChooserHistoryTest {
 
-    private static final Clock CLOCK =
-        Clock.fixed(Instant.parse("2026-08-07T00:00:00Z"), ZoneOffset.UTC);
+    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-08-07T00:00:00Z"), ZoneOffset.UTC);
 
     @Test
     void defaultsToUnavailableWithoutInjection() {
-        final CorePluginContext context =
-            new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
-        assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
+        final CorePluginContext context = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
+        assertSame(
+                FileChooserHistoryService.unavailable(),
+                context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable()));
         assertThrows(
-            UnsupportedOperationException.class,
-            () -> context.fileChooserHistory().setExportRecentDirectory(Path.of("x"))
-        );
+                UnsupportedOperationException.class,
+                () -> context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable())
+                        .setExportRecentDirectory(Path.of("x")));
     }
 
     @Test
@@ -59,20 +62,26 @@ class CorePluginContextFileChooserHistoryTest {
         final RuntimeUiResourceService owner = RuntimeUiResourceService.unavailable();
         final UiResourceService injected = owner.sdkView();
         final RuntimeHostAdapters composed =
-            RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), injected);
+                RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), injected);
 
         final CorePluginContext first = new CorePluginContext(dependencies(TEMP), composed);
         final CorePluginContext second = new CorePluginContext(dependencies(TEMP), composed);
-        final CorePluginContext safe =
-            new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
+        final CorePluginContext safe = new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
 
         assertFalse(injected instanceof AutoCloseable);
         assertSame(injected, owner.sdkView());
-        assertSame(UiResourceService.unavailable(), safe.uiResources());
+        assertSame(
+                UiResourceService.unavailable(),
+                safe.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
         assertSame(injected, composed.uiResources());
-        assertSame(injected, first.uiResources());
-        assertSame(injected, second.uiResources());
-        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, first.uiResources().availability(reference));
+        assertSame(injected, first.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
+        assertSame(injected, second.services().find(UiResourceService.class).orElse(UiResourceService.unavailable()));
+        assertEquals(
+                UiIconAvailability.SERVICE_UNAVAILABLE,
+                first.services()
+                        .find(UiResourceService.class)
+                        .orElse(UiResourceService.unavailable())
+                        .availability(reference));
     }
 
     @Test
@@ -80,79 +89,154 @@ class CorePluginContextFileChooserHistoryTest {
         final AtomicInteger calls = new AtomicInteger();
         final FileChooserHistoryService injected = recordingService(calls);
         final CorePluginContext context = new CorePluginContext(
-            dependencies(TEMP),
-            RuntimeHostAdapters.safeMode(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            injected
-        );
+                dependencies(TEMP), RuntimeHostAdapters.safeMode(), null, null, null, null, null, injected);
 
         assertThrows(
-            dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
-            context.fileChooserHistory()::projectRecentDirectory
-        );
+                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                context.services().find(FileChooserHistoryService.class).orElse(FileChooserHistoryService.unavailable())
+                        ::projectRecentDirectory);
         assertEquals(0, calls.get());
     }
 
     private static FileChooserHistoryService recordingService(final AtomicInteger calls) {
         return new FileChooserHistoryService() {
-            @Override public Optional<Path> projectRecentDirectory() {
+            @Override
+            public Optional<Path> projectRecentDirectory() {
                 calls.incrementAndGet();
                 return Optional.empty();
             }
-            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
-            @Override public void setProjectRecentDirectory(final Path dir) { }
-            @Override public void setExportRecentDirectory(final Path dir) { }
-            @Override public boolean exportSeparationEnabled() { return false; }
-            @Override public Registration registerProvider(final Provider provider) {
-                return () -> { };
+
+            @Override
+            public Optional<Path> exportRecentDirectory() {
+                return Optional.empty();
+            }
+
+            @Override
+            public void setProjectRecentDirectory(final Path dir) {}
+
+            @Override
+            public void setExportRecentDirectory(final Path dir) {}
+
+            @Override
+            public boolean exportSeparationEnabled() {
+                return false;
+            }
+
+            @Override
+            public Registration registerProvider(final Provider provider) {
+                return () -> {};
             }
         };
     }
 
     private static CorePluginContext.Dependencies dependencies(final Path dataDir) {
         return new CorePluginContext.Dependencies(
-            descriptor(),
-            logger(),
-            paths(dataDir),
-            uiScheduler(),
-            scheduler(),
-            diagnostics(),
-            new DisposableScope(),
-            noopHostSnapshotSource(),
-            ignored -> { },
-            CLOCK
-        );
+                descriptor(),
+                logger(),
+                paths(dataDir),
+                uiScheduler(),
+                scheduler(),
+                diagnostics(),
+                new DisposableScope(),
+                noopHostSnapshotSource(),
+                ignored -> {},
+                CLOCK);
     }
 
     private static PluginDescriptor descriptor() {
         return new PluginDescriptor() {
-            @Override public String id() { return "dev.turboism.test.FileChooserHistoryTest"; }
-            @Override public String name() { return "File Chooser History Test"; }
-            @Override public String version() { return "0.1.0"; }
-            @Override public String description() { return "Test"; }
-            @Override public List<String> entrypoints() { return List.of("dev.turboism.test.FileChooserHistoryPlugin"); }
-            @Override public String turboismApi() { return "[0.1.0,0.2.0)"; }
-            @Override public List<Author> authors() { return List.of(); }
-            @Override public String license() { return "Project License"; }
-            @Override public Optional<String> website() { return Optional.of("https://turboism.dev"); }
-            @Override public List<String> resources() { return List.of(); }
-            @Override public I18n i18n() {
+            @Override
+            public String id() {
+                return "dev.turboism.test.FileChooserHistoryTest";
+            }
+
+            @Override
+            public String name() {
+                return "File Chooser History Test";
+            }
+
+            @Override
+            public String version() {
+                return "0.1.0";
+            }
+
+            @Override
+            public String description() {
+                return "Test";
+            }
+
+            @Override
+            public List<String> entrypoints() {
+                return List.of("dev.turboism.test.FileChooserHistoryPlugin");
+            }
+
+            @Override
+            public String turboismApi() {
+                return "[0.1.0,0.2.0)";
+            }
+
+            @Override
+            public List<Author> authors() {
+                return List.of();
+            }
+
+            @Override
+            public String license() {
+                return "Project License";
+            }
+
+            @Override
+            public Optional<String> website() {
+                return Optional.of("https://turboism.dev");
+            }
+
+            @Override
+            public List<String> resources() {
+                return List.of();
+            }
+
+            @Override
+            public I18n i18n() {
                 return new I18n() {
-                    @Override public String baseName() { return "META-INF/turboism/i18n/messages"; }
-                    @Override public List<String> locales() { return List.of(); }
+                    @Override
+                    public String baseName() {
+                        return "META-INF/turboism/i18n/messages";
+                    }
+
+                    @Override
+                    public List<String> locales() {
+                        return List.of();
+                    }
                 };
             }
-            @Override public List<DependencyRef> dependencies() { return List.of(); }
-            @Override public List<PermissionRef> permissions() { return List.of(); }
-            @Override public List<String> capabilities() { return List.of(); }
-            @Override public Environment environment() {
+
+            @Override
+            public List<DependencyRef> dependencies() {
+                return List.of();
+            }
+
+            @Override
+            public List<PermissionRef> permissions() {
+                return List.of();
+            }
+
+            @Override
+            public List<String> capabilities() {
+                return List.of();
+            }
+
+            @Override
+            public Environment environment() {
                 return new Environment() {
-                    @Override public boolean requiresCubism() { return false; }
-                    @Override public String ui() { return "none"; }
+                    @Override
+                    public boolean requiresCubism() {
+                        return false;
+                    }
+
+                    @Override
+                    public String ui() {
+                        return "none";
+                    }
                 };
             }
         };
@@ -160,62 +244,120 @@ class CorePluginContextFileChooserHistoryTest {
 
     private static PluginLogger logger() {
         return new PluginLogger() {
-            @Override public void debug(String message) { }
-            @Override public void info(String message) { }
-            @Override public void warn(String message) { }
-            @Override public void error(String message) { }
-            @Override public void error(String message, Throwable throwable) { }
+            @Override
+            public void debug(String message) {}
+
+            @Override
+            public void info(String message) {}
+
+            @Override
+            public void warn(String message) {}
+
+            @Override
+            public void error(String message) {}
+
+            @Override
+            public void error(String message, Throwable throwable) {}
         };
     }
 
     private static PluginPaths paths(Path dataDir) {
         return new PluginPaths() {
-            @Override public Path dataDir() { return dataDir; }
-            @Override public Path logsDir() { return dataDir; }
-            @Override public Path stateDir() { return dataDir; }
-            @Override public Path cacheDir() { return dataDir; }
+            @Override
+            public Path dataDir() {
+                return dataDir;
+            }
+
+            @Override
+            public Path logsDir() {
+                return dataDir;
+            }
+
+            @Override
+            public Path stateDir() {
+                return dataDir;
+            }
+
+            @Override
+            public Path cacheDir() {
+                return dataDir;
+            }
         };
     }
 
     private static UiScheduler uiScheduler() {
         return new UiScheduler() {
-            @Override public dev.turboism.sdk.plugin.Registration runOnUiThread(Runnable work) { work.run(); return () -> { }; }
-            @Override public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(Runnable work, Duration delay) { return () -> { }; }
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThread(Runnable work) {
+                work.run();
+                return () -> {};
+            }
+
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(Runnable work, Duration delay) {
+                return () -> {};
+            }
         };
     }
 
     private static RuntimeScheduler scheduler() {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
-            (task, callback) -> {
-                callback.run();
-                return java.util.concurrent.CompletableFuture.completedFuture(
-                    dev.turboism.core.runtime.sidecar.SidecarResult.success("")
-                );
-            },
-            events::add
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+                (task, callback) -> {
+                    callback.run();
+                    return java.util.concurrent.CompletableFuture.completedFuture(
+                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+                },
+                events::add);
     }
 
     private static DiagnosticReport diagnostics() {
         return new DiagnosticReport() {
-            @Override public Instant createdAt() { return CLOCK.instant(); }
-            @Override public List<Problem> problems() { return List.of(); }
+            @Override
+            public Instant createdAt() {
+                return CLOCK.instant();
+            }
+
+            @Override
+            public List<Problem> problems() {
+                return List.of();
+            }
         };
     }
 
     private static HostSnapshotSource noopHostSnapshotSource() {
         return new HostSnapshotSource() {
-            @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
-            @Override public Optional<HostDocument> activeDocument() { return Optional.empty(); }
-            @Override public Optional<HostModel> activeModel() { return Optional.empty(); }
-            @Override public HostSelection selection() {
+            @Override
+            public Optional<HostProject> activeProject() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<HostDocument> activeDocument() {
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<HostModel> activeModel() {
+                return Optional.empty();
+            }
+
+            @Override
+            public HostSelection selection() {
                 return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
             }
-            @Override public boolean isHostPresent() { return false; }
-            @Override public long invalidationToken() { return 0; }
+
+            @Override
+            public boolean isHostPresent() {
+                return false;
+            }
+
+            @Override
+            public long invalidationToken() {
+                return 0;
+            }
         };
     }
 

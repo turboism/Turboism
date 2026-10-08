@@ -1,16 +1,13 @@
 package dev.turboism.sdk.script;
 
-
+import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Terminal result of one script execution. */
+@Incubating
 public record ScriptRunResult(
-    ScriptExecutionId executionId,
-    ScriptRunStatus status,
-    String output,
-    Optional<ScriptFailure> failure
-) {
+        ScriptExecutionId executionId, ScriptRunStatus status, String output, Optional<ScriptFailure> failure) {
 
     public ScriptRunResult {
         executionId = Objects.requireNonNull(executionId, "executionId");
@@ -45,17 +42,14 @@ public record ScriptRunResult(
      * @return a failed, rejected, cancelled, or timed-out result
      */
     public static ScriptRunResult failure(
-        final ScriptExecutionId id,
-        final ScriptRunStatus status,
-        final String code,
-        final String message,
-        final String output
-    ) {
+            final ScriptExecutionId id,
+            final ScriptRunStatus status,
+            final String code,
+            final String message,
+            final String output) {
         if (status == ScriptRunStatus.SUCCEEDED) {
             throw new IllegalArgumentException("Failure result cannot use SUCCEEDED status");
         }
-        return new ScriptRunResult(
-            id, status, output, Optional.of(new ScriptFailure(code, message))
-        );
+        return new ScriptRunResult(id, status, output, Optional.of(new ScriptFailure(code, message)));
     }
 }

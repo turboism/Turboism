@@ -5,7 +5,6 @@ import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.util.Objects;
 
 /** Per-plugin permission and lifetime boundary over mirror movement policy. */
@@ -16,10 +15,9 @@ public final class AuthorizedMeshMirrorMoveParticipation implements MeshMirrorMo
     private final DisposableScope scope;
 
     public AuthorizedMeshMirrorMoveParticipation(
-        final RuntimeMeshMirrorMoveParticipation delegate,
-        final PermissionChecker permissions,
-        final DisposableScope scope
-    ) {
+            final RuntimeMeshMirrorMoveParticipation delegate,
+            final PermissionChecker permissions,
+            final DisposableScope scope) {
         this.delegate = Objects.requireNonNull(delegate, "delegate");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.scope = Objects.requireNonNull(scope, "scope");
@@ -27,10 +25,7 @@ public final class AuthorizedMeshMirrorMoveParticipation implements MeshMirrorMo
 
     @Override
     public Registration participate() {
-        permissions.check(
-            PermissionIds.TURBOISM_CUBISM_MODEL_WRITE,
-            "cubism.mesh.mirror-move.participate"
-        );
+        permissions.check(PermissionIds.TURBOISM_CUBISM_MODEL_WRITE, "cubism.mesh.mirror-move.participate");
         final Registration registration = delegate.participate();
         try {
             return scope.register(registration);
@@ -38,5 +33,10 @@ public final class AuthorizedMeshMirrorMoveParticipation implements MeshMirrorMo
             registration.close();
             throw failure;
         }
+    }
+
+    @Override
+    public boolean isAvailable() {
+        return delegate.isAvailable();
     }
 }

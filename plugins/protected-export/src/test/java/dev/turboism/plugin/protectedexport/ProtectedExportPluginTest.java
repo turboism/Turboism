@@ -1,5 +1,11 @@
 package dev.turboism.plugin.protectedexport;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
@@ -17,20 +23,13 @@ import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class ProtectedExportPluginTest {
 
@@ -40,8 +39,8 @@ class ProtectedExportPluginTest {
     @Test
     void enableRegistersOneDefaultOffOptionAndRepeatedEnableIsIdempotent() {
         final RecordingService service = new RecordingService();
-        final RecordingCubism cubism = RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID),
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism =
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
 
         plugin.enable();
@@ -59,8 +58,9 @@ class ProtectedExportPluginTest {
     @Test
     void disableAndShutdownCloseRegistrationExactlyOnce() {
         final RecordingService service = new RecordingService();
-        final ProtectedExportPlugin plugin = initialized(service,
-            RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
+        final ProtectedExportPlugin plugin = initialized(
+                service,
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
         plugin.enable();
         final RecordingRegistration registration = service.registrations.get(0);
 
@@ -78,8 +78,7 @@ class ProtectedExportPluginTest {
     void disableThenEnableCreatesOneFreshRegistration() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
 
         plugin.enable();
@@ -91,24 +90,25 @@ class ProtectedExportPluginTest {
         assertEquals(2, service.contributeCalls);
         assertEquals(1, service.activeRegistrations());
         assertEquals(
-            ExportSettingsDecision.Outcome.REJECT,
-            first.callback().decide(true, DOCUMENT_ID, MODEL_ID).outcome()
-        );
+                ExportSettingsDecision.Outcome.REJECT,
+                first.callback().decide(true, DOCUMENT_ID, MODEL_ID).outcome());
         assertEquals(0, model.partsReads);
     }
 
     @Test
     void shutdownThenInitAllowsASeparateFreshLifecycle() {
         final RecordingService firstService = new RecordingService();
-        final ProtectedExportPlugin plugin = initialized(firstService,
-            RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
+        final ProtectedExportPlugin plugin = initialized(
+                firstService,
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
         plugin.enable();
         plugin.shutdown();
 
         final RecordingService secondService = new RecordingService();
-        plugin.init(pluginContext(secondService,
-            RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())),
-            new RecordingLogger()));
+        plugin.init(pluginContext(
+                secondService,
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())),
+                new RecordingLogger()));
         plugin.enable();
 
         assertTrue(plugin.enabled());
@@ -121,9 +121,10 @@ class ProtectedExportPluginTest {
     void unavailableServiceFailsClosedWithoutARegistration() {
         final RecordingLogger logger = new RecordingLogger();
         final ProtectedExportPlugin plugin = new ProtectedExportPlugin();
-        plugin.init(pluginContext(ExportSettingsContributionService.unavailable(),
-            RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())),
-            logger));
+        plugin.init(pluginContext(
+                ExportSettingsContributionService.unavailable(),
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())),
+                logger));
 
         assertDoesNotThrow(plugin::enable);
 
@@ -135,8 +136,9 @@ class ProtectedExportPluginTest {
     void contributionFailureLeavesPluginDisabledAndUnregistered() {
         final RecordingService service = new RecordingService();
         service.failure = new IllegalStateException("service unavailable");
-        final ProtectedExportPlugin plugin = initialized(service,
-            RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
+        final ProtectedExportPlugin plugin = initialized(
+                service,
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value())));
 
         assertDoesNotThrow(plugin::enable);
 
@@ -167,8 +169,8 @@ class ProtectedExportPluginTest {
     @Test
     void lateSelectedCallbackAfterShutdownRejectsWithoutContext() {
         final RecordingService service = new RecordingService();
-        final RecordingCubism cubism = RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID),
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism =
+                RecordingCubism.withDocument(RecordingModel.empty(MODEL_ID), document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
         final var callback = service.contributions.get(0).callback();
@@ -183,12 +185,12 @@ class ProtectedExportPluginTest {
     void uncheckedCallbackIsNativePassthroughWithoutAnyRead() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        final ExportSettingsDecision decision = service.contributions.get(0).callback().decide(false, null, null);
+        final ExportSettingsDecision decision =
+                service.contributions.get(0).callback().decide(false, null, null);
 
         assertEquals(ExportSettingsDecision.Outcome.PROCEED_UNCHANGED, decision.outcome());
         assertEquals(0, cubism.activeDocumentReads);
@@ -201,13 +203,12 @@ class ProtectedExportPluginTest {
     void checkedCallbackRejectsWhenDocumentIdentityDoesNotMatchBeforePlanner() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        final ExportSettingsDecision decision = service.contributions.get(0).callback()
-            .decide(true, "different-document", MODEL_ID);
+        final ExportSettingsDecision decision =
+                service.contributions.get(0).callback().decide(true, "different-document", MODEL_ID);
 
         assertUnavailable(decision);
         assertEquals(1, cubism.activeDocumentReads);
@@ -219,13 +220,12 @@ class ProtectedExportPluginTest {
     void checkedCallbackRejectsWhenActiveModelIdentityDoesNotMatchBeforePlanner() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(new ModelId("actual-model"));
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            document(DOCUMENT_ID, "callback-model"));
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, "callback-model"));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        final ExportSettingsDecision decision = service.contributions.get(0).callback()
-            .decide(true, DOCUMENT_ID, new ModelId("callback-model"));
+        final ExportSettingsDecision decision =
+                service.contributions.get(0).callback().decide(true, DOCUMENT_ID, new ModelId("callback-model"));
 
         assertUnavailable(decision);
         assertEquals(1, cubism.activeDocumentReads);
@@ -237,8 +237,8 @@ class ProtectedExportPluginTest {
     void checkedCallbackRejectsWhenDocumentModelProofIsUnavailable() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            new DocumentSnapshot(DOCUMENT_ID, "Model", "model.cmo3", Optional.empty(), Optional.empty()));
+        final RecordingCubism cubism = RecordingCubism.withDocument(
+                model, new DocumentSnapshot(DOCUMENT_ID, "Model", "model.cmo3", Optional.empty(), Optional.empty()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
@@ -251,13 +251,12 @@ class ProtectedExportPluginTest {
     void checkedCallbackRunsReadOnlyPlannerButUnresolvedConditionCannotProceed() {
         final RecordingService service = new RecordingService();
         final RecordingModel model = RecordingModel.empty(MODEL_ID);
-        final RecordingCubism cubism = RecordingCubism.withDocument(model,
-            document(DOCUMENT_ID, MODEL_ID.value()));
+        final RecordingCubism cubism = RecordingCubism.withDocument(model, document(DOCUMENT_ID, MODEL_ID.value()));
         final ProtectedExportPlugin plugin = initialized(service, cubism);
         plugin.enable();
 
-        final ExportSettingsDecision decision = service.contributions.get(0).callback()
-            .decide(true, DOCUMENT_ID, MODEL_ID);
+        final ExportSettingsDecision decision =
+                service.contributions.get(0).callback().decide(true, DOCUMENT_ID, MODEL_ID);
 
         assertUnavailable(decision);
         assertTrue(model.partsReads > 0);
@@ -283,36 +282,36 @@ class ProtectedExportPluginTest {
     }
 
     private static ProtectedExportPlugin initialized(
-        final ExportSettingsContributionService exportSettings,
-        final RecordingCubism cubism
-    ) {
+            final ExportSettingsContributionService exportSettings, final RecordingCubism cubism) {
         final ProtectedExportPlugin plugin = new ProtectedExportPlugin();
         plugin.init(pluginContext(exportSettings, cubism, new RecordingLogger()));
         return plugin;
     }
 
     private static PluginContext pluginContext(
-        final ExportSettingsContributionService exportSettings,
-        final RecordingCubism cubism,
-        final RecordingLogger logger
-    ) {
+            final ExportSettingsContributionService exportSettings,
+            final RecordingCubism cubism,
+            final RecordingLogger logger) {
         return proxy(PluginContext.class, (proxy, method, arguments) -> switch (method.getName()) {
-            case "exportSettings" -> exportSettings;
             case "cubism" -> cubism.facade;
             case "logger" -> logger;
             case "permissions" -> List.of();
+            case "services" ->
+                dev.turboism.sdk.plugin.PluginServices.builder()
+                        .install(ExportSettingsContributionService.class, exportSettings)
+                        .fallback(dev.turboism.sdk.plugin.PluginServices.of((PluginContext) proxy))
+                        .build();
             default -> defaultValue(method.getReturnType());
         });
     }
 
     private static DocumentSnapshot document(final String documentId, final String modelId) {
         return new DocumentSnapshot(
-            documentId,
-            "Model",
-            "model.cmo3",
-            Optional.empty(),
-            Optional.of(new ModelSnapshot(modelId, "Model", List.of(), List.of(), List.of(), List.of()))
-        );
+                documentId,
+                "Model",
+                "model.cmo3",
+                Optional.empty(),
+                Optional.of(new ModelSnapshot(modelId, "Model", List.of(), List.of(), List.of(), List.of())));
     }
 
     private static void assertUnavailable(final ExportSettingsDecision decision) {
@@ -321,7 +320,7 @@ class ProtectedExportPluginTest {
     }
 
     private static <T> T proxy(final Class<T> type, final InvocationHandler handler) {
-        return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, handler));
+        return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, handler));
     }
 
     private static Object defaultValue(final Class<?> type) {
@@ -358,7 +357,9 @@ class ProtectedExportPluginTest {
         }
 
         int activeRegistrations() {
-            return (int) registrations.stream().filter(registration -> !registration.closed).count();
+            return (int) registrations.stream()
+                    .filter(registration -> !registration.closed)
+                    .count();
         }
     }
 
@@ -379,12 +380,10 @@ class ProtectedExportPluginTest {
         private final List<String> warnings = new ArrayList<>();
 
         @Override
-        public void debug(final String message) {
-        }
+        public void debug(final String message) {}
 
         @Override
-        public void info(final String message) {
-        }
+        public void info(final String message) {}
 
         @Override
         public void warn(final String message) {
@@ -392,12 +391,10 @@ class ProtectedExportPluginTest {
         }
 
         @Override
-        public void error(final String message) {
-        }
+        public void error(final String message) {}
 
         @Override
-        public void error(final String message, final Throwable throwable) {
-        }
+        public void error(final String message, final Throwable throwable) {}
     }
 
     private static final class RecordingCubism {
@@ -427,17 +424,11 @@ class ProtectedExportPluginTest {
             });
         }
 
-        static RecordingCubism withDocument(
-            final RecordingModel model,
-            final DocumentSnapshot document
-        ) {
+        static RecordingCubism withDocument(final RecordingModel model, final DocumentSnapshot document) {
             return new RecordingCubism(model.model, Optional.of(document));
         }
 
-        static RecordingCubism withDocument(
-            final RecordingModel model,
-            final Optional<DocumentSnapshot> document
-        ) {
+        static RecordingCubism withDocument(final RecordingModel model, final Optional<DocumentSnapshot> document) {
             return new RecordingCubism(model.model, document);
         }
     }

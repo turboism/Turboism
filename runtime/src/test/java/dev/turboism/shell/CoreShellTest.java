@@ -1,12 +1,20 @@
 package dev.turboism.shell;
 
-import dev.turboism.internal.core.CubismJvmSettingsService;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.internal.core.AtlasCacheReuseSettingsService;
+import dev.turboism.internal.core.AtlasTileBboxSettingsService;
 import dev.turboism.internal.core.CorePluginManagement;
 import dev.turboism.internal.core.CoreUpdateService;
-import dev.turboism.internal.core.ShellServices;
+import dev.turboism.internal.core.CubismJvmSettingsService;
 import dev.turboism.internal.core.MeshTriangulationSettingsService;
-import dev.turboism.internal.core.AtlasTileBboxSettingsService;
-import dev.turboism.internal.core.AtlasCacheReuseSettingsService;
+import dev.turboism.internal.core.ShellServices;
+import dev.turboism.internal.core.TriangulationEdgeIndexSettingsService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -53,26 +61,18 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.awt.GraphicsEnvironment;
 import java.awt.Window;
 import java.nio.file.Path;
-import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import javax.swing.SwingUtilities;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class CoreShellTest {
 
@@ -84,39 +84,47 @@ class CoreShellTest {
         plugin.start(context);
 
         assertTrue(context.actions().actions().stream()
-            .map(ActionRegistry.Action::id)
-            .toList()
-            .containsAll(List.of(
-                "turboism.core.open", "turboism.core.logs.open", "turboism.core.about.open"
-            )));
-        assertEquals(
-            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
-                "turboism.core.home-entry",
-                "turboism.core.open",
-                "main-toolbar.home.aria-label",
-                "main-toolbar.home.tooltip",
-                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
-                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
-                10
-            )),
-            context.mainToolbar().buttonContributions()
-        );
-        assertEquals(16, context.uiHost().settingsContributions().size());
-        assertEquals(
-            List.of("cubism-graalvm-path", "cubism-jvm", "cubism-disable-auto-backup",
-                "cubism-zgc", "cubism-memory-profile", "cubism-memory-profile-note",
-                "model-update-skip", "incremental-update", "uniform-location-cache",
-                "upload-elision", "input-path-elision", "mesa-gl-thread",
-                "performance-restart-note", "mesh-triangulation-hash",
-                "atlas-tile-bbox", "atlas-cache-reuse"),
-            context.uiHost().settingsContributions().stream()
-                .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
+                .map(ActionRegistry.Action::id)
                 .toList()
-        );
+                .containsAll(List.of("turboism.core.open", "turboism.core.logs.open", "turboism.core.about.open")));
+        assertEquals(
+                List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
+                        "turboism.core.home-entry",
+                        "turboism.core.open",
+                        "main-toolbar.home.aria-label",
+                        "main-toolbar.home.tooltip",
+                        MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        10)),
+                context.mainToolbar().buttonContributions());
+        assertEquals(17, context.uiHost().settingsContributions().size());
+        assertEquals(
+                List.of(
+                        "cubism-graalvm-path",
+                        "cubism-jvm",
+                        "cubism-disable-auto-backup",
+                        "cubism-zgc",
+                        "cubism-memory-profile",
+                        "cubism-memory-profile-note",
+                        "model-update-skip",
+                        "incremental-update",
+                        "uniform-location-cache",
+                        "upload-elision",
+                        "input-path-elision",
+                        "mesa-gl-thread",
+                        "performance-restart-note",
+                        "mesh-triangulation-hash",
+                        "triangulation-edge-index",
+                        "atlas-tile-bbox",
+                        "atlas-cache-reuse"),
+                context.uiHost().settingsContributions().stream()
+                        .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
+                        .toList());
         assertTrue(context.uiHost().settingsContributions().stream()
-            .allMatch(contribution -> contribution.tab().id().equals("performance")));
+                .allMatch(contribution -> contribution.tab().id().equals("performance")));
         assertEquals(1, context.uiHost().panelContributions().size());
-        final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
+        final EmbeddedPanelContribution panel =
+                context.uiHost().panelContributions().get(0);
         assertEquals("turboism.panel.main", panel.id());
         assertTrue(!panel.content().toString().contains("Turboism"));
         assertTrue(!panel.content().toString().contains("open-settings"));
@@ -128,16 +136,15 @@ class CoreShellTest {
         assertTrue(!panel.content().toString().contains("Logs"));
         assertTrue(!panel.content().toString().contains("Safe Mode"));
         assertEquals(
-            List.of(
-                "Plugins/Settings:turboism.core.settings.open:10",
-                "Plugins/Plugin Management:turboism.core.plugins.open:11",
-                "Plugins/Logs:turboism.core.logs.open:12",
-                "Plugins/About:turboism.core.about.open:13"
-            ),
-            context.menus().contributions().stream()
-                .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
-                .toList()
-        );
+                List.of(
+                        "Plugins/Settings:turboism.core.settings.open:10",
+                        "Plugins/Plugin Management:turboism.core.plugins.open:11",
+                        "Plugins/Logs:turboism.core.logs.open:12",
+                        "Plugins/Keybindings:turboism.core.keybindings.open:13",
+                        "Plugins/About:turboism.core.about.open:14"),
+                context.menus().contributions().stream()
+                        .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
+                        .toList());
     }
 
     @Test
@@ -148,20 +155,21 @@ class CoreShellTest {
         plugin.start(context);
 
         assertEquals(
-            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
-                "turboism.core.home-entry",
-                "turboism.core.open",
-                "main-toolbar.home.aria-label",
-                "main-toolbar.home.tooltip",
-                new MainToolbarRegistry.IconVariants(
-                    "icons/main-toolbar-home.png", Optional.of("icons/main-toolbar-home-hover.png"),
-                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
-                ),
-                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
-                10
-            )),
-            context.mainToolbar().buttonContributions()
-        );
+                List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
+                        "turboism.core.home-entry",
+                        "turboism.core.open",
+                        "main-toolbar.home.aria-label",
+                        "main-toolbar.home.tooltip",
+                        new MainToolbarRegistry.IconVariants(
+                                "icons/main-toolbar-home.png",
+                                Optional.of("icons/main-toolbar-home-hover.png"),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                        10)),
+                context.mainToolbar().buttonContributions());
     }
 
     @Test
@@ -186,22 +194,26 @@ class CoreShellTest {
     void cleanEmptyDocksActionUsesRuntimeSettingsService() throws Exception {
         final int[] cleanups = {0};
         final RuntimeSettingsService settings = new RuntimeSettingsService() {
-            private RuntimeSettings value =
-                new RuntimeSettings(false, "INFO", false, false, false);
+            private RuntimeSettings value = new RuntimeSettings(false, "INFO", false, false, false);
 
-            @Override public RuntimeSettings read() { return value; }
-            @Override public RuntimeSettings save(final RuntimeSettings next) {
+            @Override
+            public RuntimeSettings read() {
+                return value;
+            }
+
+            @Override
+            public RuntimeSettings save(final RuntimeSettings next) {
                 value = next;
                 return value;
             }
-            @Override public DockCleanupResult cleanEmptyDocks() {
+
+            @Override
+            public DockCleanupResult cleanEmptyDocks() {
                 cleanups[0]++;
                 return new DockCleanupResult("Empty dock cleanup completed.");
             }
         };
-        final CoreShell plugin = new CoreShell(
-            new ShellServices(settings, plugins())
-        );
+        final CoreShell plugin = new CoreShell(new ShellServices(settings, plugins()));
         final RecordingPluginContext context = new RecordingPluginContext();
 
         plugin.start(context);
@@ -244,15 +256,33 @@ class CoreShellTest {
     void pluginActionFailureIsReportedAndPanelRefreshesWithoutThrowing() throws Exception {
         final RecordingPluginContext context = new RecordingPluginContext();
         final CorePluginManagement management = new CorePluginManagement() {
-            @Override public List<PluginInfo> plugins() {
+            @Override
+            public List<PluginInfo> plugins() {
                 return List.of(new PluginInfo(
-                    "example.plugin", "Example", "1.0.0", "", "ENABLED", "ENABLED", false, Optional.empty(),
-                    "other", List.of()
-                ));
+                        "example.plugin",
+                        "Example",
+                        "1.0.0",
+                        "",
+                        "ENABLED",
+                        "ENABLED",
+                        false,
+                        Optional.empty(),
+                        "other",
+                        List.of()));
             }
-            @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
-            @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
-            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+
+            @Override
+            public OperationResult install() {
+                return OperationResult.rejected("Unavailable");
+            }
+
+            @Override
+            public OperationResult uninstall(final String id) {
+                return OperationResult.rejected("Unavailable");
+            }
+
+            @Override
+            public OperationResult setEnabled(final String id, final boolean enabled) {
                 throw new IllegalStateException("duplicate desired-state write");
             }
         };
@@ -280,10 +310,7 @@ class CoreShellTest {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(false, true));
         CoreShell plugin = plugin();
 
-        CubismPermissionException denied = assertThrows(
-            CubismPermissionException.class,
-            () -> plugin.start(context)
-        );
+        CubismPermissionException denied = assertThrows(CubismPermissionException.class, () -> plugin.start(context));
         assertTrue(denied.getMessage().contains(PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE));
         assertTrue(context.mainToolbar().buttonContributions().isEmpty());
     }
@@ -310,15 +337,15 @@ class CoreShellTest {
         plugin.start(context);
         // Settle any start-time window work so the diff below observes only the
         // window this action opens.
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
         final Set<Window> before = new HashSet<>(List.of(Window.getWindows()));
         final List<Window> owned;
         try {
             context.actions().execute("turboism.core.open");
-            SwingUtilities.invokeAndWait(() -> { });
+            SwingUtilities.invokeAndWait(() -> {});
             owned = Arrays.stream(Window.getWindows())
-                .filter(window -> !before.contains(window) && window.isShowing())
-                .toList();
+                    .filter(window -> !before.contains(window) && window.isShowing())
+                    .toList();
             if (GraphicsEnvironment.isHeadless()) {
                 // No AWT window can exist without a display; there is nothing to leak.
                 assertTrue(owned.isEmpty());
@@ -330,10 +357,7 @@ class CoreShellTest {
             closePluginScope(context);
         }
         for (Window window : owned) {
-            assertFalse(
-                window.isDisplayable(),
-                "the owned settings window must be disposed with the plugin scope"
-            );
+            assertFalse(window.isDisplayable(), "the owned settings window must be disposed with the plugin scope");
         }
     }
 
@@ -346,18 +370,16 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.10"),
-            java.util.OptionalLong.of(5L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.10"),
+                java.util.OptionalLong.of(5L),
+                false,
+                true));
 
         // The update is presented in the host's own drawing-area hint, not in the docked panel.
-        assertTrue(context.uiHost().panelContributions().stream().noneMatch(
-            contribution -> contribution.content().toString().contains("updates")
-        ));
+        assertTrue(context.uiHost().panelContributions().stream()
+                .noneMatch(contribution -> contribution.content().toString().contains("updates")));
         assertEquals(List.of(), context.uiHost().notifications());
 
         final RecordedHint hint = context.uiHost().lastCanvasHint();
@@ -365,10 +387,7 @@ class CoreShellTest {
         assertEquals("turboism-update-available", hint.notification.id());
         assertEquals("Turboism update available", hint.notification.message());
         assertTrue(hint.notification.onClick().isPresent(), "the hint must be clickable");
-        assertEquals(
-            dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED,
-            hint.notification.durationSeconds()
-        );
+        assertEquals(dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED, hint.notification.durationSeconds());
 
         // The condition watch keeps it alive while the update is still offered.
         assertTrue(context.hasDelayedUiWork());
@@ -386,25 +405,23 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.10"),
-            java.util.OptionalLong.of(5L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.10"),
+                java.util.OptionalLong.of(5L),
+                false,
+                true));
         final RecordedHint hint = context.uiHost().lastCanvasHint();
         assertNotNull(hint);
 
         // The condition now fails, so the watch releases the hint instead of renewing it.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UP_TO_DATE,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            false,
-            false
-        ));
+                CoreUpdateService.Status.UP_TO_DATE,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                false,
+                false));
         assertTrue(hint.closed, "a resolved update must clear its hint");
     }
 
@@ -417,25 +434,23 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.10"),
-            java.util.OptionalLong.of(5L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.10"),
+                java.util.OptionalLong.of(5L),
+                false,
+                true));
         final RecordedHint hint = context.uiHost().lastCanvasHint();
         assertNotNull(hint);
 
         // Starting another check says nothing about the update, so the message stays readable.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.CHECKING,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            true,
-            false
-        ));
+                CoreUpdateService.Status.CHECKING,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                true,
+                false));
         assertFalse(hint.closed);
         assertEquals(1, context.uiHost().canvasHints.size());
         // The watch agrees: an in-flight check keeps the message up.
@@ -453,24 +468,22 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.10"),
-            java.util.OptionalLong.of(5L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.10"),
+                java.util.OptionalLong.of(5L),
+                false,
+                true));
         final RecordedHint first = context.uiHost().lastCanvasHint();
         assertNotNull(first);
 
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.11"),
-            java.util.OptionalLong.of(6L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.11"),
+                java.util.OptionalLong.of(6L),
+                false,
+                true));
 
         assertTrue(first.closed, "the previous build's message must not stay on screen");
         final RecordedHint second = context.uiHost().lastCanvasHint();
@@ -491,26 +504,24 @@ class CoreShellTest {
 
         // An automatic failure is silent: no hint, no notification.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UNAVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            false,
-            false
-        ));
+                CoreUpdateService.Status.UNAVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                false,
+                false));
         assertEquals(List.of(), context.uiHost().notifications());
         assertNull(context.uiHost().lastDismissibleCanvasHint());
         assertNull(context.uiHost().lastCanvasHint());
 
         // The same failure, but the user asked for it, must say so.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UNAVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            true,
-            false
-        ));
+                CoreUpdateService.Status.UNAVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                true,
+                false));
         final RecordedHint result = context.uiHost().lastDismissibleCanvasHint();
         assertNotNull(result, "a user-requested failure must be reported");
         assertEquals("Turboism updates are currently unavailable.", result.notification.message());
@@ -527,29 +538,24 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UP_TO_DATE,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            false,
-            false
-        ));
+                CoreUpdateService.Status.UP_TO_DATE,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                false,
+                false));
         assertNull(context.uiHost().lastDismissibleCanvasHint());
 
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UP_TO_DATE,
-            "0.43.10 (stable, Build 4)",
-            Optional.empty(),
-            java.util.OptionalLong.empty(),
-            true,
-            false
-        ));
+                CoreUpdateService.Status.UP_TO_DATE,
+                "0.43.10 (stable, Build 4)",
+                Optional.empty(),
+                java.util.OptionalLong.empty(),
+                true,
+                false));
         final RecordedHint result = context.uiHost().lastDismissibleCanvasHint();
         assertNotNull(result);
-        assertEquals(
-            "Turboism 0.43.10 (stable, Build 4) is up to date.",
-            result.notification.message()
-        );
+        assertEquals("Turboism 0.43.10 (stable, Build 4) is up to date.", result.notification.message());
     }
 
     @Test
@@ -563,13 +569,12 @@ class CoreShellTest {
         try {
             plugin.start(context);
             updates.publish(new CoreUpdateService.Snapshot(
-                CoreUpdateService.Status.UPDATE_AVAILABLE,
-                "0.43.10 (stable, Build 4)",
-                Optional.of("0.43.11"),
-                java.util.OptionalLong.of(7L),
-                false,
-                true
-            ));
+                    CoreUpdateService.Status.UPDATE_AVAILABLE,
+                    "0.43.10 (stable, Build 4)",
+                    Optional.of("0.43.11"),
+                    java.util.OptionalLong.of(7L),
+                    false,
+                    true));
             final RecordedHint hint = context.uiHost().lastCanvasHint();
             assertNotNull(hint);
             hint.notification.onClick().orElseThrow().run();
@@ -590,40 +595,36 @@ class CoreShellTest {
 
         plugin.start(context);
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.11"),
-            java.util.OptionalLong.of(7L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.11"),
+                java.util.OptionalLong.of(7L),
+                false,
+                true));
         final RecordedHint dismissed = context.uiHost().lastCanvasHint();
         assertNotNull(dismissed);
         dismissed.notification.onClick().orElseThrow().run();
 
         // The same offered build must not reappear merely because another snapshot arrived.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.11"),
-            java.util.OptionalLong.of(7L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.11"),
+                java.util.OptionalLong.of(7L),
+                false,
+                true));
         assertEquals(1, context.uiHost().canvasHints.size(), "the dismissed build reappeared");
 
         // A newer build is new information, so it is shown even though the last one was dismissed.
         updates.publish(new CoreUpdateService.Snapshot(
-            CoreUpdateService.Status.UPDATE_AVAILABLE,
-            "0.43.10 (stable, Build 4)",
-            Optional.of("0.43.12"),
-            java.util.OptionalLong.of(8L),
-            false,
-            true
-        ));
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.12"),
+                java.util.OptionalLong.of(8L),
+                false,
+                true));
         assertEquals(2, context.uiHost().canvasHints.size());
-        assertTrue(context.uiHost().lastCanvasHint() != dismissed,
-            "a newer build must present a fresh hint");
+        assertTrue(context.uiHost().lastCanvasHint() != dismissed, "a newer build must present a fresh hint");
     }
 
     @Test
@@ -634,12 +635,10 @@ class CoreShellTest {
 
         plugin.start(context);
 
-        assertTrue(context.menus().contributions().stream().anyMatch(
-            contribution -> CoreUpdateService.MANUAL_CHECK_ACTION_ID.equals(contribution.actionId())
-        ));
-        assertTrue(context.uiHost().panelContributions().stream().noneMatch(
-            contribution -> contribution.content().toString().contains("updates")
-        ));
+        assertTrue(context.menus().contributions().stream()
+                .anyMatch(contribution -> CoreUpdateService.MANUAL_CHECK_ACTION_ID.equals(contribution.actionId())));
+        assertTrue(context.uiHost().panelContributions().stream()
+                .noneMatch(contribution -> contribution.content().toString().contains("updates")));
     }
 
     @Test
@@ -650,9 +649,8 @@ class CoreShellTest {
 
         plugin.start(context);
 
-        assertTrue(context.uiHost().settingsContributions().stream().anyMatch(
-            contribution -> "turboism-updates-automatic".equals(contribution.id())
-        ));
+        assertTrue(context.uiHost().settingsContributions().stream()
+                .anyMatch(contribution -> "turboism-updates-automatic".equals(contribution.id())));
     }
 
     /**
@@ -663,7 +661,7 @@ class CoreShellTest {
      */
     private static void closePluginScope(final RecordingPluginContext context) throws Exception {
         context.disposableScope().close();
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {});
     }
 
     private static CoreShell plugin() {
@@ -671,32 +669,29 @@ class CoreShellTest {
     }
 
     private static CoreShell plugin(final boolean useTextIcon) {
-        return new CoreShell(
-            new ShellServices(settings(useTextIcon), plugins())
-        );
+        return new CoreShell(new ShellServices(settings(useTextIcon), plugins()));
     }
 
     private static CoreShell plugin(final CoreUpdateService updates) {
-        return new CoreShell(
-            new ShellServices(
+        return new CoreShell(new ShellServices(
                 settings(),
                 CubismJvmSettingsService.unavailable(),
                 MeshTriangulationSettingsService.unavailable(),
                 AtlasTileBboxSettingsService.unavailable(),
                 AtlasCacheReuseSettingsService.unavailable(),
+                TriangulationEdgeIndexSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
-                updates
-            )
-        );
+                updates,
+                dev.turboism.internal.core.KeybindingService.unavailable()));
     }
 
     /** Scripted update service used to drive core UI behaviour without any network access. */
     private static final class FakeUpdateService implements CoreUpdateService {
         private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Snapshot>> listeners =
-            new java.util.concurrent.CopyOnWriteArrayList<>();
+                new java.util.concurrent.CopyOnWriteArrayList<>();
         private volatile Snapshot current = Snapshot.idle("0.43.10 (stable, Build 4)");
         private volatile Preferences stored = new Preferences(true);
         private boolean started;
@@ -755,9 +750,7 @@ class CoreShellTest {
     }
 
     private static CoreShell plugin(final CorePluginManagement management) {
-        return new CoreShell(
-            new ShellServices(settings(), management)
-        );
+        return new CoreShell(new ShellServices(settings(), management));
     }
 
     private static dev.turboism.sdk.runtime.RuntimeSettingsService settings() {
@@ -766,15 +759,22 @@ class CoreShellTest {
 
     private static dev.turboism.sdk.runtime.RuntimeSettingsService settings(final boolean useTextIcon) {
         return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
-            private dev.turboism.sdk.runtime.RuntimeSettings value =
-                new dev.turboism.sdk.runtime.RuntimeSettings(
-                    false, "INFO", 100, false, false, false, false, "system", useTextIcon
-                );
-            @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return value; }
-            @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
-                dev.turboism.sdk.runtime.RuntimeSettings settings
-            ) { value = settings; return value; }
-            @Override public DockCleanupResult cleanEmptyDocks() {
+            private dev.turboism.sdk.runtime.RuntimeSettings value = new dev.turboism.sdk.runtime.RuntimeSettings(
+                    false, "INFO", 100, false, false, false, false, "system", useTextIcon);
+
+            @Override
+            public dev.turboism.sdk.runtime.RuntimeSettings read() {
+                return value;
+            }
+
+            @Override
+            public dev.turboism.sdk.runtime.RuntimeSettings save(dev.turboism.sdk.runtime.RuntimeSettings settings) {
+                value = settings;
+                return value;
+            }
+
+            @Override
+            public DockCleanupResult cleanEmptyDocks() {
                 return new DockCleanupResult("Empty dock cleanup completed.");
             }
         };
@@ -782,10 +782,23 @@ class CoreShellTest {
 
     private static CorePluginManagement plugins() {
         return new CorePluginManagement() {
-            @Override public List<PluginInfo> plugins() { return List.of(); }
-            @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
-            @Override public OperationResult uninstall(String id) { return OperationResult.rejected("Unavailable"); }
-            @Override public OperationResult setEnabled(String id, boolean enabled) {
+            @Override
+            public List<PluginInfo> plugins() {
+                return List.of();
+            }
+
+            @Override
+            public OperationResult install() {
+                return OperationResult.rejected("Unavailable");
+            }
+
+            @Override
+            public OperationResult uninstall(String id) {
+                return OperationResult.rejected("Unavailable");
+            }
+
+            @Override
+            public OperationResult setEnabled(String id, boolean enabled) {
                 return OperationResult.rejected("Unavailable");
             }
         };
@@ -796,40 +809,73 @@ class CoreShellTest {
         private int synchronousInstalls;
         private boolean closed;
 
-        @Override public List<PluginInfo> plugins() { return List.of(); }
-        @Override public OperationResult install() {
+        @Override
+        public List<PluginInfo> plugins() {
+            return List.of();
+        }
+
+        @Override
+        public OperationResult install() {
             synchronousInstalls++;
             return OperationResult.rejected("Unavailable");
         }
-        @Override public void requestInstall(final java.util.function.Consumer<OperationResult> completion) {
+
+        @Override
+        public void requestInstall(final java.util.function.Consumer<OperationResult> completion) {
             requests++;
             completion.accept(OperationResult.rejected("Cancelled"));
         }
-        @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
-        @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+
+        @Override
+        public OperationResult uninstall(final String id) {
             return OperationResult.rejected("Unavailable");
         }
-        @Override public void close() { closed = true; }
+
+        @Override
+        public OperationResult setEnabled(final String id, final boolean enabled) {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 
     private static final class PendingPluginManagement implements CorePluginManagement {
         private boolean disabled;
-        @Override public List<PluginInfo> plugins() {
+
+        @Override
+        public List<PluginInfo> plugins() {
             return List.of(new PluginInfo(
-                "example.plugin", "Example", "1.0.0", "", "ENABLED",
-                disabled ? "DISABLED" : "ENABLED", false,
-                disabled ? Optional.of("DISABLE") : Optional.empty(),
-                "other", List.of()
-            ));
+                    "example.plugin",
+                    "Example",
+                    "1.0.0",
+                    "",
+                    "ENABLED",
+                    disabled ? "DISABLED" : "ENABLED",
+                    false,
+                    disabled ? Optional.of("DISABLE") : Optional.empty(),
+                    "other",
+                    List.of()));
         }
-        @Override public OperationResult install() { return OperationResult.rejected("Unavailable"); }
-        @Override public OperationResult uninstall(final String id) { return OperationResult.rejected("Unavailable"); }
-        @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+
+        @Override
+        public OperationResult install() {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public OperationResult uninstall(final String id) {
+            return OperationResult.rejected("Unavailable");
+        }
+
+        @Override
+        public OperationResult setEnabled(final String id, final boolean enabled) {
             disabled = !enabled;
             return OperationResult.accepted(
-                enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
-                (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it."
-            );
+                    enabled ? "PLUGIN_ENABLE_PENDING" : "PLUGIN_DISABLE_PENDING",
+                    (enabled ? "Enable" : "Disable") + " is pending; restart Cubism to apply it.");
         }
     }
 
@@ -840,7 +886,7 @@ class CoreShellTest {
         private final ContextMenuRegistry contextMenu = new ContextMenuRegistry() {
             @Override
             public Registration contribute(final ContextMenuContribution contribution) {
-                return () -> { };
+                return () -> {};
             }
         };
         private final RecordingMainToolbarRegistry mainToolbar;
@@ -857,7 +903,9 @@ class CoreShellTest {
             this.mainToolbar = new RecordingMainToolbarRegistry(uiHost);
         }
 
-        NoopPluginLogger recordedLogger() { return (NoopPluginLogger) logger; }
+        NoopPluginLogger recordedLogger() {
+            return (NoopPluginLogger) logger;
+        }
 
         @Override
         public PluginDescriptor descriptor() {
@@ -904,19 +952,26 @@ class CoreShellTest {
             return menus;
         }
 
-        @Override
-        public RecordingMainToolbarRegistry mainToolbar() {
+        RecordingMainToolbarRegistry mainToolbar() {
             return mainToolbar;
         }
 
-        @Override
-        public ContextMenuRegistry contextMenu() {
+        ContextMenuRegistry contextMenu() {
             return contextMenu;
         }
 
-        @Override
-        public RecordingUiHost uiHost() {
+        RecordingUiHost uiHost() {
             return uiHost;
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .install(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, mainToolbar)
+                    .install(ContextMenuRegistry.class, contextMenu)
+                    .install(dev.turboism.sdk.ui.UiHostCapabilityService.class, uiHost)
+                    .install(dev.turboism.sdk.runtime.RuntimeSettingsService.class, runtimeSettings)
+                    .build();
         }
 
         @Override
@@ -934,6 +989,7 @@ class CoreShellTest {
                         case "main-toolbar.plugins-menu.label" -> "Plugin Management";
                         case "context-menu.panel-tab.float" -> "Float";
                         case "main-toolbar.logs-menu.label" -> "Logs";
+                        case "main-toolbar.keybindings-menu.label" -> "Keybindings";
                         case "main-toolbar.about-menu.label" -> "About";
                         default -> key;
                     };
@@ -947,10 +1003,11 @@ class CoreShellTest {
                 @Override
                 public boolean contains(final String key) {
                     return key.equals("main-toolbar.settings-menu.label")
-                        || key.equals("main-toolbar.plugins-menu.label")
-                        || key.equals("context-menu.panel-tab.float")
-                        || key.equals("main-toolbar.logs-menu.label")
-                        || key.equals("main-toolbar.about-menu.label");
+                            || key.equals("main-toolbar.plugins-menu.label")
+                            || key.equals("context-menu.panel-tab.float")
+                            || key.equals("main-toolbar.logs-menu.label")
+                            || key.equals("main-toolbar.keybindings-menu.label")
+                            || key.equals("main-toolbar.about-menu.label");
                 }
             };
         }
@@ -960,22 +1017,28 @@ class CoreShellTest {
             return null;
         }
 
+        private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings =
+                new dev.turboism.sdk.runtime.RuntimeSettingsService() {
+                    private dev.turboism.sdk.runtime.RuntimeSettings settings =
+                            new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
 
-        @Override
-        public dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings() {
-            return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
-                private dev.turboism.sdk.runtime.RuntimeSettings settings =
-                    new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
-                @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return settings; }
-                @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
-                    final dev.turboism.sdk.runtime.RuntimeSettings value
-                ) { settings = value; return settings; }
-                @Override public DockCleanupResult cleanEmptyDocks() {
-                    return new DockCleanupResult("Empty dock cleanup completed.");
-                }
-            };
-        }
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings read() {
+                        return settings;
+                    }
 
+                    @Override
+                    public dev.turboism.sdk.runtime.RuntimeSettings save(
+                            final dev.turboism.sdk.runtime.RuntimeSettings value) {
+                        settings = value;
+                        return settings;
+                    }
+
+                    @Override
+                    public DockCleanupResult cleanEmptyDocks() {
+                        return new DockCleanupResult("Empty dock cleanup completed.");
+                    }
+                };
 
         private UiScheduler uiScheduler;
         private final List<Runnable> delayed = new ArrayList<>();
@@ -990,7 +1053,7 @@ class CoreShellTest {
                 @Override
                 public Registration runOnUiThread(final Runnable work) {
                     work.run();
-                    return () -> { };
+                    return () -> {};
                 }
 
                 @Override
@@ -1043,12 +1106,11 @@ class CoreShellTest {
 
         void execute(String id) {
             actions.stream()
-                .filter(action -> action.id().equals(id))
-                .findFirst()
-                .orElseThrow()
-                .handler()
-                .accept(new ActionContext() {
-                });
+                    .filter(action -> action.id().equals(id))
+                    .findFirst()
+                    .orElseThrow()
+                    .handler()
+                    .accept(new ActionContext() {});
         }
     }
 
@@ -1097,11 +1159,9 @@ class CoreShellTest {
         final List<RecordedHint> dismissibleCanvasHints = new ArrayList<>();
         private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
-        private final List<dev.turboism.sdk.ui.settings.SettingsContribution> settingsContributions =
-            new ArrayList<>();
+        private final List<dev.turboism.sdk.ui.settings.SettingsContribution> settingsContributions = new ArrayList<>();
 
-        void requireMainToolbarPermission() {
-        }
+        void requireMainToolbarPermission() {}
 
         List<EmbeddedPanelContribution> panelContributions() {
             return panelContributions;
@@ -1126,8 +1186,7 @@ class CoreShellTest {
 
         @Override
         public Registration contributeBoundingBoxOverlayButton(
-            final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution
-        ) {
+                final dev.turboism.sdk.ui.BoundingBoxOverlayButton contribution) {
             throw new UnsupportedOperationException("bounding-box buttons are not used by this plugin test");
         }
 
@@ -1152,9 +1211,7 @@ class CoreShellTest {
         }
 
         @Override
-        public Registration contributeSettings(
-            final dev.turboism.sdk.ui.settings.SettingsContribution contribution
-        ) {
+        public Registration contributeSettings(final dev.turboism.sdk.ui.settings.SettingsContribution contribution) {
             settingsContributions.add(contribution);
             return () -> settingsContributions.remove(contribution);
         }
@@ -1183,8 +1240,7 @@ class CoreShellTest {
 
         @Override
         public dev.turboism.sdk.ui.CanvasHintHandle notifyCanvasHint(
-            final dev.turboism.sdk.ui.CanvasHintNotification notification
-        ) {
+                final dev.turboism.sdk.ui.CanvasHintNotification notification) {
             final RecordedHint recorded = new RecordedHint(notification);
             canvasHints.add(recorded);
             return recorded;
@@ -1192,9 +1248,8 @@ class CoreShellTest {
 
         @Override
         public dev.turboism.sdk.ui.CanvasHintHandle notifyDismissibleCanvasHint(
-            final dev.turboism.sdk.ui.CanvasHintNotification notification
-        ) {
-            final RecordedHint recorded = new RecordedHint(notification.withOnClick(() -> { }));
+                final dev.turboism.sdk.ui.CanvasHintNotification notification) {
+            final RecordedHint recorded = new RecordedHint(notification.withOnClick(() -> {}));
             dismissibleCanvasHints.add(recorded);
             return recorded;
         }
@@ -1205,7 +1260,8 @@ class CoreShellTest {
 
         RecordedHint lastDismissibleCanvasHint() {
             return dismissibleCanvasHints.isEmpty()
-                ? null : dismissibleCanvasHints.get(dismissibleCanvasHints.size() - 1);
+                    ? null
+                    : dismissibleCanvasHints.get(dismissibleCanvasHints.size() - 1);
         }
 
         @Override
@@ -1216,7 +1272,7 @@ class CoreShellTest {
         @Override
         public Registration contributeMainToolbar(MainToolbarRegistry.MainToolbarContribution contribution) {
             requireMainToolbarPermission();
-            return () -> { };
+            return () -> {};
         }
 
         @Override
@@ -1258,19 +1314,16 @@ class CoreShellTest {
         @Override
         void requireMainToolbarPermission() {
             if (!allowMainToolbar) {
-                throw new CubismPermissionException(
-                    "Missing required permission " + PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE
-                        + " for ui.main-toolbar.contribute"
-                );
+                throw new CubismPermissionException("Missing required permission "
+                        + PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE + " for ui.main-toolbar.contribute");
             }
         }
 
         @Override
         public Registration notifyStatus(StatusNotification notification) {
             if (!allowStatusNotify) {
-                throw new CubismPermissionException(
-                    "Missing required permission " + PermissionIds.TURBOISM_UI_STATUS_NOTIFY + " for ui.status.notify"
-                );
+                throw new CubismPermissionException("Missing required permission "
+                        + PermissionIds.TURBOISM_UI_STATUS_NOTIFY + " for ui.status.notify");
             }
             return super.notifyStatus(notification);
         }
@@ -1280,11 +1333,10 @@ class CoreShellTest {
         @Override
         public Optional<ProjectSnapshot> activeProject() {
             return Optional.of(new ProjectSnapshot(
-                "project-1",
-                "Demo Project",
-                Optional.of(Path.of("project/demo")),
-                List.of(new DocumentSnapshot("doc-1", "Model", "model.cmo3", Optional.empty(), Optional.empty()))
-            ));
+                    "project-1",
+                    "Demo Project",
+                    Optional.of(Path.of("project/demo")),
+                    List.of(new DocumentSnapshot("doc-1", "Model", "model.cmo3", Optional.empty(), Optional.empty()))));
         }
 
         @Override
@@ -1344,12 +1396,8 @@ class CoreShellTest {
 
         @Override
         public Optional<WorkspaceSnapshot> workspace() {
-            return Optional.of(new WorkspaceSnapshot(
-                "workspace-1",
-                "Modeling",
-                "layouts/workspace-1",
-                List.of("project-1")
-            ));
+            return Optional.of(
+                    new WorkspaceSnapshot("workspace-1", "Modeling", "layouts/workspace-1", List.of("project-1")));
         }
 
         @Override
@@ -1364,10 +1412,22 @@ class CoreShellTest {
 
     private static final class NoopPluginLogger implements PluginLogger {
         private final List<String> warnings = new ArrayList<>();
-        @Override public void debug(String message) { }
-        @Override public void info(String message) { }
-        @Override public void warn(String message) { warnings.add(message); }
-        @Override public void error(String message) { }
-        @Override public void error(String message, Throwable throwable) { }
+
+        @Override
+        public void debug(String message) {}
+
+        @Override
+        public void info(String message) {}
+
+        @Override
+        public void warn(String message) {
+            warnings.add(message);
+        }
+
+        @Override
+        public void error(String message) {}
+
+        @Override
+        public void error(String message, Throwable throwable) {}
     }
 }

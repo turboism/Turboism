@@ -13,6 +13,7 @@ import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
 import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
 import dev.turboism.sdk.cubism.mesh.MeshEditService;
@@ -28,7 +29,6 @@ import dev.turboism.sdk.cubism.recentpreview.RecentPreviewContributionService;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
 import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
-import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.warp.WarpAltMirrorParticipation;
@@ -58,33 +58,91 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.viewcontext.ViewContextMenuRegistry;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
  * Uniform unavailability contract: every optional {@link PluginContext} accessor returns the
- * service's {@code unavailable()} singleton, and {@code isAvailable()} is {@code false} exactly
- * on that sentinel.
+ * service's {@code unavailable()} singleton, {@code isAvailable()} is {@code false} exactly
+ * on that sentinel, and the service directory reports directory-resolved services as absent
+ * rather than surfacing a sentinel.
  */
 class PluginContextUnavailableContractTest {
 
+    /** {@link PluginService} members still backed by a {@link PluginContext} accessor. */
+    private static final Set<PluginService> ACCESSOR_BACKED = Set.of(
+            PluginService.LOCALIZATION,
+            PluginService.TASKS,
+            PluginService.HOST_READS,
+            PluginService.STORAGE,
+            PluginService.SCRIPTS,
+            PluginService.USER_FILES,
+            PluginService.SELECTION_QUERY,
+            PluginService.MODEL_HIERARCHY_QUERY,
+            PluginService.CUBISM_READ,
+            PluginService.MODEL_OBJECTS,
+            PluginService.CONFIG);
+
     private final PluginContext context = new PluginContext() {
-        @Override public PluginDescriptor descriptor() { return null; }
-        @Override public PluginLogger logger() { return null; }
-        @Override public PluginPaths paths() { return null; }
-        @Override public CubismFacade cubism() { return null; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public EventBus eventBus() { return null; }
-        @Override public ActionRegistry actions() { return null; }
-        @Override public MenuRegistry menus() { return null; }
-        @Override public UiScheduler uiScheduler() { return null; }
-        @Override public DiagnosticReport diagnostics() { return null; }
-        @Override public DisposableScope disposableScope() { return null; }
+        @Override
+        public PluginDescriptor descriptor() {
+            return null;
+        }
+
+        @Override
+        public PluginLogger logger() {
+            return null;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            return null;
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            return null;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public EventBus eventBus() {
+            return null;
+        }
+
+        @Override
+        public ActionRegistry actions() {
+            return null;
+        }
+
+        @Override
+        public MenuRegistry menus() {
+            return null;
+        }
+
+        @Override
+        public UiScheduler uiScheduler() {
+            return null;
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            return null;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return null;
+        }
     };
 
     @Test
@@ -96,48 +154,11 @@ class PluginContextUnavailableContractTest {
         assertSame(ScriptService.unavailable(), context.scripts());
         assertSame(UserFileAccessService.unavailable(), context.userFiles());
 
-        assertSame(ParameterQueryService.unavailable(), context.parameterQuery());
         assertSame(SelectionQueryService.unavailable(), context.selectionQuery());
         assertSame(ModelHierarchyQueryService.unavailable(), context.modelHierarchyQuery());
         assertSame(CubismReadCapabilityService.unavailable(), context.cubismRead());
         assertSame(ModelObjectService.unavailable(), context.modelObjects());
-        assertSame(CubismClipMaskService.unavailable(), context.cubismClipMasks());
-        assertSame(RecentFileService.unavailable(), context.recentFiles());
-        assertSame(ScreenshotCaptureService.unavailable(), context.screenshots());
-        assertSame(RecentPreviewContributionService.unavailable(), context.recentPreviews());
-        assertSame(PhysicsEditorService.unavailable(), context.physicsEditor());
-        assertSame(FileChooserHistoryService.unavailable(), context.fileChooserHistory());
-        assertSame(EditorCommandService.unavailable(), context.editorCommands());
-        assertSame(EditorAutoBackupService.unavailable(), context.backup());
-
-        assertSame(MeshMirrorAxisService.unavailable(), context.meshMirrorAxis());
-        assertSame(MeshEditService.unavailable(), context.meshEdit());
-        assertSame(MeshEditParticipation.unavailable(), context.meshEditParticipation());
-        assertSame(MeshMirrorCounterparts.unavailable(), context.meshMirrorCounterparts());
-        assertSame(MeshMirrorToolEligibility.unavailable(), context.meshMirrorToolEligibility());
-        assertSame(MeshMirrorMoveParticipation.unavailable(), context.meshMirrorMoveParticipation());
-        assertSame(WarpAltMirrorParticipation.unavailable(), context.warpAltMirrorParticipation());
-        assertSame(ViewContextMenuRegistry.unavailable(), context.viewContextMenu());
-        assertSame(MeshEditUiService.unavailable(), context.meshEditUi());
-
-        assertSame(MainToolbarRegistry.unavailable(), context.mainToolbar());
-        assertSame(PaletteToolbarRegistry.unavailable(), context.paletteToolbar());
-        assertSame(PaletteFilterRegistry.unavailable(), context.paletteFilter());
-        assertSame(SceneTableService.unavailable(), context.sceneTable());
-        assertSame(UiHostCapabilityService.unavailable(), context.uiHost());
-        assertSame(
-            dev.turboism.sdk.ui.resource.UiResourceService.unavailable(),
-            context.uiResources());
-        assertSame(HostDialogAutomationService.unavailable(), context.hostDialogs());
-        assertSame(AppearanceService.unavailable(), context.appearance());
-        assertSame(WorkspaceService.unavailable(), context.workspace());
-        assertSame(WorkspaceLayoutService.unavailable(), context.workspaceLayout());
-        assertSame(ContextMenuRegistry.unavailable(), context.contextMenu());
         assertSame(PluginConfigRegistry.unavailable(), context.config());
-        assertSame(CubismLogService.unavailable(), context.cubismLog());
-        assertSame(RuntimeSettingsService.unavailable(), context.runtimeSettings());
-        assertSame(McpConnectionService.unavailable(), context.mcpConnections());
-        assertSame(PerformanceProbeService.unavailable(), context.performanceStats());
     }
 
     @Test
@@ -148,98 +169,198 @@ class PluginContextUnavailableContractTest {
         assertFalse(context.storage().isAvailable());
         assertFalse(context.scripts().isAvailable());
         assertFalse(context.userFiles().isAvailable());
-        assertFalse(context.parameterQuery().isAvailable());
         assertFalse(context.selectionQuery().isAvailable());
         assertFalse(context.modelHierarchyQuery().isAvailable());
         assertFalse(context.cubismRead().isAvailable());
         assertFalse(context.modelObjects().isAvailable());
-        assertFalse(context.cubismClipMasks().isAvailable());
-        assertFalse(context.recentFiles().isAvailable());
-        assertFalse(context.screenshots().isAvailable());
-        assertFalse(context.recentPreviews().isAvailable());
-        assertFalse(context.physicsEditor().isAvailable());
-        assertFalse(context.fileChooserHistory().isAvailable());
-        assertFalse(context.editorCommands().isAvailable());
-        assertFalse(context.backup().isAvailable());
-        assertFalse(context.meshMirrorAxis().isAvailable());
-        assertFalse(context.meshEdit().isAvailable());
-        assertFalse(context.meshEditParticipation().isAvailable());
-        assertFalse(context.meshMirrorCounterparts().isAvailable());
-        assertFalse(context.meshMirrorToolEligibility().isAvailable());
-        assertFalse(context.meshMirrorMoveParticipation().isAvailable());
-        assertFalse(context.warpAltMirrorParticipation().isAvailable());
-        assertFalse(context.viewContextMenu().isAvailable());
-        assertFalse(context.meshEditUi().isAvailable());
-        assertFalse(context.mainToolbar().isAvailable());
-        assertFalse(context.paletteToolbar().isAvailable());
-        assertFalse(context.paletteFilter().isAvailable());
-        assertFalse(context.sceneTable().isAvailable());
-        assertFalse(context.uiHost().isAvailable());
-        assertFalse(context.hostDialogs().isAvailable());
-        assertFalse(context.appearance().isAvailable());
-        assertFalse(context.workspace().isAvailable());
-        assertFalse(context.workspaceLayout().isAvailable());
-        assertFalse(context.contextMenu().isAvailable());
         assertFalse(context.config().isAvailable());
-        assertFalse(context.cubismLog().isAvailable());
-        assertFalse(context.runtimeSettings().isAvailable());
-        assertFalse(context.mcpConnections().isAvailable());
-        assertFalse(context.performanceStats().isAvailable());
     }
 
     /**
-     * Permanent parity contract: every optional {@link PluginContext} service accessor maps to
-     * exactly one {@link PluginService} member and back. An optional service accessor is a
-     * {@code default} method whose return type exposes a {@code static unavailable()} sentinel
-     * factory; guaranteed members are abstract accessors and must never gain a member.
+     * Directory-resolved services that have no {@link PluginContext} accessor degrade through
+     * {@code find(...).orElse(Service.unavailable())}: on a bare context every one resolves to
+     * its own unavailable sentinel, so migrated call sites keep the pre-directory behavior.
+     */
+    @Test
+    void directoryOnlyServicesDegradeToTheirUnavailableSentinels() {
+        assertSame(
+                CubismClipMaskService.unavailable(),
+                context.services().find(CubismClipMaskService.class).orElse(CubismClipMaskService.unavailable()));
+        assertSame(
+                RecentFileService.unavailable(),
+                context.services().find(RecentFileService.class).orElse(RecentFileService.unavailable()));
+        assertSame(
+                ScreenshotCaptureService.unavailable(),
+                context.services().find(ScreenshotCaptureService.class).orElse(ScreenshotCaptureService.unavailable()));
+        assertSame(
+                RecentPreviewContributionService.unavailable(),
+                context.services()
+                        .find(RecentPreviewContributionService.class)
+                        .orElse(RecentPreviewContributionService.unavailable()));
+        assertSame(
+                PhysicsEditorService.unavailable(),
+                context.services().find(PhysicsEditorService.class).orElse(PhysicsEditorService.unavailable()));
+        assertSame(
+                FileChooserHistoryService.unavailable(),
+                context.services()
+                        .find(FileChooserHistoryService.class)
+                        .orElse(FileChooserHistoryService.unavailable()));
+        assertSame(
+                EditorCommandService.unavailable(),
+                context.services().find(EditorCommandService.class).orElse(EditorCommandService.unavailable()));
+        assertSame(
+                EditorAutoBackupService.unavailable(),
+                context.services().find(EditorAutoBackupService.class).orElse(EditorAutoBackupService.unavailable()));
+
+        assertSame(
+                MeshMirrorAxisService.unavailable(),
+                context.services().find(MeshMirrorAxisService.class).orElse(MeshMirrorAxisService.unavailable()));
+        assertSame(
+                MeshEditService.unavailable(),
+                context.services().find(MeshEditService.class).orElse(MeshEditService.unavailable()));
+        assertSame(
+                MeshEditParticipation.unavailable(),
+                context.services().find(MeshEditParticipation.class).orElse(MeshEditParticipation.unavailable()));
+        assertSame(
+                MeshMirrorCounterparts.unavailable(),
+                context.services().find(MeshMirrorCounterparts.class).orElse(MeshMirrorCounterparts.unavailable()));
+        assertSame(
+                MeshMirrorToolEligibility.unavailable(),
+                context.services()
+                        .find(MeshMirrorToolEligibility.class)
+                        .orElse(MeshMirrorToolEligibility.unavailable()));
+        assertSame(
+                MeshMirrorMoveParticipation.unavailable(),
+                context.services()
+                        .find(MeshMirrorMoveParticipation.class)
+                        .orElse(MeshMirrorMoveParticipation.unavailable()));
+        assertSame(
+                WarpAltMirrorParticipation.unavailable(),
+                context.services()
+                        .find(WarpAltMirrorParticipation.class)
+                        .orElse(WarpAltMirrorParticipation.unavailable()));
+        assertSame(
+                ViewContextMenuRegistry.unavailable(),
+                context.services().find(ViewContextMenuRegistry.class).orElse(ViewContextMenuRegistry.unavailable()));
+        assertSame(
+                MeshEditUiService.unavailable(),
+                context.services().find(MeshEditUiService.class).orElse(MeshEditUiService.unavailable()));
+
+        assertSame(
+                MainToolbarRegistry.unavailable(),
+                context.services().find(MainToolbarRegistry.class).orElse(MainToolbarRegistry.unavailable()));
+        assertSame(
+                PaletteToolbarRegistry.unavailable(),
+                context.services().find(PaletteToolbarRegistry.class).orElse(PaletteToolbarRegistry.unavailable()));
+        assertSame(
+                PaletteFilterRegistry.unavailable(),
+                context.services().find(PaletteFilterRegistry.class).orElse(PaletteFilterRegistry.unavailable()));
+        assertSame(
+                SceneTableService.unavailable(),
+                context.services().find(SceneTableService.class).orElse(SceneTableService.unavailable()));
+        assertSame(
+                UiHostCapabilityService.unavailable(),
+                context.services().find(UiHostCapabilityService.class).orElse(UiHostCapabilityService.unavailable()));
+        assertSame(
+                dev.turboism.sdk.ui.resource.UiResourceService.unavailable(),
+                context.services()
+                        .find(dev.turboism.sdk.ui.resource.UiResourceService.class)
+                        .orElse(dev.turboism.sdk.ui.resource.UiResourceService.unavailable()));
+        assertSame(
+                HostDialogAutomationService.unavailable(),
+                context.services()
+                        .find(HostDialogAutomationService.class)
+                        .orElse(HostDialogAutomationService.unavailable()));
+        assertSame(
+                AppearanceService.unavailable(),
+                context.services().find(AppearanceService.class).orElse(AppearanceService.unavailable()));
+        assertSame(
+                WorkspaceService.unavailable(),
+                context.services().find(WorkspaceService.class).orElse(WorkspaceService.unavailable()));
+        assertSame(
+                WorkspaceLayoutService.unavailable(),
+                context.services().find(WorkspaceLayoutService.class).orElse(WorkspaceLayoutService.unavailable()));
+        assertSame(
+                ContextMenuRegistry.unavailable(),
+                context.services().find(ContextMenuRegistry.class).orElse(ContextMenuRegistry.unavailable()));
+        assertSame(
+                CubismLogService.unavailable(),
+                context.services().find(CubismLogService.class).orElse(CubismLogService.unavailable()));
+        assertSame(
+                RuntimeSettingsService.unavailable(),
+                context.services().find(RuntimeSettingsService.class).orElse(RuntimeSettingsService.unavailable()));
+        assertSame(
+                McpConnectionService.unavailable(),
+                context.services().find(McpConnectionService.class).orElse(McpConnectionService.unavailable()));
+        assertSame(
+                PerformanceProbeService.unavailable(),
+                context.services().find(PerformanceProbeService.class).orElse(PerformanceProbeService.unavailable()));
+        assertSame(
+                ExportSettingsContributionService.unavailable(),
+                context.services()
+                        .find(ExportSettingsContributionService.class)
+                        .orElse(ExportSettingsContributionService.unavailable()));
+        assertSame(
+                dev.turboism.sdk.action.ActionCatalogService.unavailable(),
+                context.services()
+                        .find(dev.turboism.sdk.action.ActionCatalogService.class)
+                        .orElse(dev.turboism.sdk.action.ActionCatalogService.unavailable()));
+    }
+
+    /**
+     * Permanent parity contract: accessor-backed {@link PluginService} members map to exactly
+     * one optional {@link PluginContext} accessor and back; every other member is
+     * directory-only and must never gain a context accessor. An optional service accessor is
+     * a {@code default} method whose return type exposes a {@code static unavailable()}
+     * sentinel factory; guaranteed members are abstract accessors and must never gain a
+     * member.
      */
     @Test
     void everyOptionalServiceAccessorHasExactlyOnePluginServiceMember() {
         int optionalAccessors = 0;
         for (Method method : PluginContext.class.getDeclaredMethods()) {
-            if (!method.isDefault()
-                || !exposesUnavailableSentinel(method.getReturnType())) {
+            if (!method.isDefault() || !exposesUnavailableSentinel(method.getReturnType())) {
                 continue;
             }
             optionalAccessors++;
             final String memberName = toMemberName(method.getName());
             assertDoesNotThrow(
-                () -> PluginService.valueOf(memberName),
-                "optional accessor " + method.getName()
-                    + "() has no PluginService." + memberName + " member"
-            );
+                    () -> PluginService.valueOf(memberName),
+                    "optional accessor " + method.getName() + "() has no PluginService." + memberName + " member");
         }
         for (PluginService service : PluginService.values()) {
             final String accessorName = toAccessorName(service.name());
+            if (!ACCESSOR_BACKED.contains(service)) {
+                assertThrows(
+                        NoSuchMethodException.class,
+                        () -> PluginContext.class.getDeclaredMethod(accessorName),
+                        "directory-only " + service + " must not gain a PluginContext." + accessorName + "() accessor");
+                continue;
+            }
             final Method accessor = assertDoesNotThrow(
-                () -> PluginContext.class.getDeclaredMethod(accessorName),
-                "PluginService." + service.name()
-                    + " has no PluginContext." + accessorName + "() accessor"
-            );
+                    () -> PluginContext.class.getDeclaredMethod(accessorName),
+                    "PluginService." + service.name() + " has no PluginContext." + accessorName + "() accessor");
             assertTrue(
-                accessor.isDefault(),
-                "PluginService." + service.name() + " maps to guaranteed accessor "
-                    + accessorName + "(), which must not carry a member"
-            );
+                    accessor.isDefault(),
+                    "PluginService." + service.name() + " maps to guaranteed accessor " + accessorName
+                            + "(), which must not carry a member");
             assertTrue(
-                exposesUnavailableSentinel(accessor.getReturnType()),
-                "PluginService." + service.name() + " maps to accessor " + accessorName
-                    + "() whose return type exposes no unavailable() sentinel"
-            );
+                    exposesUnavailableSentinel(accessor.getReturnType()),
+                    "PluginService." + service.name() + " maps to accessor " + accessorName
+                            + "() whose return type exposes no unavailable() sentinel");
         }
         assertEquals(
-            optionalAccessors,
-            PluginService.values().length,
-            "optional accessors and PluginService members must be a bijection"
-        );
+                optionalAccessors,
+                ACCESSOR_BACKED.size(),
+                "optional accessors and accessor-backed PluginService members must be a bijection");
     }
 
     private static boolean exposesUnavailableSentinel(final Class<?> serviceType) {
         for (Method method : serviceType.getMethods()) {
             if (method.getName().equals("unavailable")
-                && Modifier.isStatic(method.getModifiers())
-                && method.getParameterCount() == 0
-                && serviceType.isAssignableFrom(method.getReturnType())) {
+                    && Modifier.isStatic(method.getModifiers())
+                    && method.getParameterCount() == 0
+                    && serviceType.isAssignableFrom(method.getReturnType())) {
                 return true;
             }
         }
@@ -247,9 +368,7 @@ class PluginContextUnavailableContractTest {
     }
 
     private static String toMemberName(final String accessorName) {
-        return accessorName
-            .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
-            .toUpperCase(Locale.ROOT);
+        return accessorName.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toUpperCase(Locale.ROOT);
     }
 
     private static String toAccessorName(final String memberName) {
@@ -266,20 +385,22 @@ class PluginContextUnavailableContractTest {
 
     @Test
     void unavailableSentinelsFailClosedOnDomainCalls() {
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().participate());
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().setArmedAxis(1));
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.warpAltMirrorParticipation().nativeMirrorActive());
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.viewContextMenu().contributeStateButtons(
-                new ViewContextMenuRegistry.StateButtonContribution(
-                    "id",
-                    Map.of(0, new UiRasterImage(1, 1, new int[1])),
-                    0,
-                    ignored -> { })));
-        assertThrows(UnsupportedOperationException.class,
-            () -> context.viewContextMenu().updateButtonState("id", 1));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> WarpAltMirrorParticipation.unavailable().participate());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> WarpAltMirrorParticipation.unavailable().setArmedAxis(1));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> WarpAltMirrorParticipation.unavailable().nativeMirrorActive());
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> ViewContextMenuRegistry.unavailable()
+                        .contributeStateButtons(new ViewContextMenuRegistry.StateButtonContribution(
+                                "id", Map.of(0, new UiRasterImage(1, 1, new int[1])), 0, ignored -> {})));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> ViewContextMenuRegistry.unavailable().updateButtonState("id", 1));
     }
 }

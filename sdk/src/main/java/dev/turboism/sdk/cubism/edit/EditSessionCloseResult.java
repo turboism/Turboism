@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -17,11 +18,10 @@ import java.util.Optional;
  * @param diagnosticId stable diagnostic id; present iff {@code outcome} is
  *     {@link EditSessionCloseOutcome#FAILED}
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public record EditSessionCloseResult(
-        EditSessionCloseOutcome outcome,
-        Optional<CancelSource> cancelSource,
-        Optional<String> diagnosticId) {
+        EditSessionCloseOutcome outcome, Optional<CancelSource> cancelSource, Optional<String> diagnosticId) {
 
     public EditSessionCloseResult {
         Objects.requireNonNull(outcome, "outcome");
@@ -31,19 +31,18 @@ public record EditSessionCloseResult(
             case COMMITTED -> {
                 if (cancelSource.isPresent() || diagnosticId.isPresent()) {
                     throw new IllegalArgumentException(
-                        "committed close must not carry a cancel source or diagnostic id");
+                            "committed close must not carry a cancel source or diagnostic id");
                 }
             }
             case CANCELLED -> {
                 if (cancelSource.isEmpty() || diagnosticId.isPresent()) {
-                    throw new IllegalArgumentException(
-                        "cancelled close requires a cancel source and no diagnostic id");
+                    throw new IllegalArgumentException("cancelled close requires a cancel source and no diagnostic id");
                 }
             }
             case FAILED -> {
                 if (diagnosticId.isEmpty() || diagnosticId.get().isBlank() || cancelSource.isPresent()) {
                     throw new IllegalArgumentException(
-                        "failed close requires a non-blank diagnostic id and no cancel source");
+                            "failed close requires a non-blank diagnostic id and no cancel source");
                 }
             }
         }
@@ -51,23 +50,22 @@ public record EditSessionCloseResult(
 
     /** Returns a committed close result. */
     public static EditSessionCloseResult committed() {
-        return new EditSessionCloseResult(
-            EditSessionCloseOutcome.COMMITTED, Optional.empty(), Optional.empty());
+        return new EditSessionCloseResult(EditSessionCloseOutcome.COMMITTED, Optional.empty(), Optional.empty());
     }
 
     /** Returns a cancelled close result recording who cancelled the session. */
     public static EditSessionCloseResult cancelled(final CancelSource source) {
         return new EditSessionCloseResult(
-            EditSessionCloseOutcome.CANCELLED,
-            Optional.of(Objects.requireNonNull(source, "source")),
-            Optional.empty());
+                EditSessionCloseOutcome.CANCELLED,
+                Optional.of(Objects.requireNonNull(source, "source")),
+                Optional.empty());
     }
 
     /** Returns a failed close result carrying a stable diagnostic id. */
     public static EditSessionCloseResult failed(final String diagnosticId) {
         return new EditSessionCloseResult(
-            EditSessionCloseOutcome.FAILED,
-            Optional.empty(),
-            Optional.of(Objects.requireNonNull(diagnosticId, "diagnosticId")));
+                EditSessionCloseOutcome.FAILED,
+                Optional.empty(),
+                Optional.of(Objects.requireNonNull(diagnosticId, "diagnosticId")));
     }
 }

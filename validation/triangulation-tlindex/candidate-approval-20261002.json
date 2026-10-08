@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-02",
+  "decision": "APPROVED_BOUNDED_CANDIDATE_WITH_DOCUMENTED_LIMITATIONS",
+  "userInstruction": "批准。提交。",
+  "reviewedCommit": "1b78f7675",
+  "productionBaseSha256": "ddb1ba0c66d953be81d4fe99047075d3c4905e4e225887f7a9c380ffe016d6f2",
+  "scope": {
+    "hosts": [
+      "5.2.03",
+      "5.3.02",
+      "5.3.03"
+    ],
+    "fixtureSha256": "029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c",
+    "resourceEnvelope": "Reviewed matched three-command protocol; extended ten-command evidence reviewed with its limitations"
+  },
+  "approvedThreeCommandCaps": {
+    "javaTotalCpuRegressionPercentMax": 0,
+    "absoluteOperationRssPeakGrowthPercentMax": 20,
+    "onPeakAboveOwnBaselineMiBMax": 80,
+    "onRetainedThirdMinusFirstMiBMax": 64
+  },
+  "laneCReviewed": true,
+  "retainedLimitations": [
+    "Long-run memory plateau and absence of leaks are not established.",
+    "Theoretical performance optimum is not established.",
+    "Ten-command backup counts/timing, baselines and queue policies differ; three-command caps do not apply to long runs.",
+    "Long off recording has no valid global affine clock mapping; its heap events remain whole-recording observations.",
+    "Failed seq2494 and all historical failures remain failures.",
+    "Atlas SC-02, other fixtures/hosts and native Windows readiness are outside this approval."
+  ],
+  "evidence": [
+    {
+      "path": "build/t050-lazy-edge-bytecode/final-owned-startup-ui-r2/final-candidate-review-r2.json",
+      "sha256": "09e735763771ff648efd84d94e96d9c5f879a92bb8169d608af05e2baf7adbe9"
+    },
+    {
+      "path": "build/t050-lazy-edge-bytecode/memory-stability-r2/closeout-review.json",
+      "sha256": "7fb10b7e09147e6c847fa6ead6b580013ff76a4b3149cf8c17dcb4b8d0b7b1d2"
+    }
+  ],
+  "authorization": "Record approval and commit to the current branch"
+}

@@ -6,35 +6,34 @@ import dev.turboism.mapping.verification.HostArtifactDigest;
 /** Declarative contributor for the verified Physics Settings editor hook. */
 final class PhysicsEditorHookContributor implements HookContributor {
 
-    @Override public String id() {
+    @Override
+    public String id() {
         return "TURBOISM_PHYSICS_EDITOR_HOOK";
     }
 
-    @Override public Phase phase() {
+    @Override
+    public Phase phase() {
         return Phase.RUNTIME_STARTED;
     }
 
-    @Override public boolean admitted(final HookEnvironment environment) {
+    @Override
+    public boolean admitted(final HookEnvironment environment) {
         return environment.hookRuntimeAdmitted();
     }
 
-    @Override public AutoCloseable install(final HookEnvironment environment) throws Exception {
+    @Override
+    public AutoCloseable install(final HookEnvironment environment) throws Exception {
         final var runtime = environment.runtime().orElseThrow();
         final var host = environment.host().orElseThrow();
         final PhysicsEditorHostProfile profile = PhysicsEditorHostProfile.forArtifact(
-            HostArtifactDigest.from(host.artifact())
-        ).or(() -> environment.admittedRuntimeGeneration()
-            .flatMap(PhysicsEditorHostProfile::forReviewedVersion)
-        ).orElseThrow(() -> new IllegalStateException(
-            "Unsupported Physics Settings host artifact"
-        ));
-        final VerifiedPhysicsEditorHookInstaller installer =
-            new VerifiedPhysicsEditorHookInstaller(
+                        HostArtifactDigest.from(host.artifact()))
+                .or(() -> environment.admittedRuntimeGeneration().flatMap(PhysicsEditorHostProfile::forReviewedVersion))
+                .orElseThrow(() -> new IllegalStateException("Unsupported Physics Settings host artifact"));
+        final VerifiedPhysicsEditorHookInstaller installer = new VerifiedPhysicsEditorHookInstaller(
                 environment.instrumentation(),
                 host.classLoader(),
                 runtime.hostAccess().physicsEditorCoordinator(),
-                profile
-            );
+                profile);
         installer.install();
         return installer;
     }

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.filechooser;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -57,7 +56,8 @@ public interface FileChooserHistoryService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -73,7 +73,7 @@ public interface FileChooserHistoryService {
      * must tolerate a missing or partially corrupt store (missing data loads
      * as {@link Optional#empty()}).
      */
-        interface Provider {
+    interface Provider {
 
         /** Loads the recent directory remembered for project saves, if any. */
         Optional<Path> loadProjectDirectory();
@@ -89,7 +89,7 @@ public interface FileChooserHistoryService {
     }
 
     /** Handle for a provider registration; {@link #unregister()} is idempotent. */
-        interface Registration extends AutoCloseable {
+    interface Registration extends AutoCloseable {
 
         /** Removes the registered provider; idempotent and safe to call more than once. */
         void unregister();
@@ -100,8 +100,8 @@ public interface FileChooserHistoryService {
         }
     }
 
-        /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
-        enum Unavailable implements FileChooserHistoryService {
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
+    enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
 
         @Override

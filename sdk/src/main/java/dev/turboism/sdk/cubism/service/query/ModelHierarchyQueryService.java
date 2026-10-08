@@ -38,7 +38,8 @@ public interface ModelHierarchyQueryService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -57,29 +58,29 @@ public interface ModelHierarchyQueryService {
     enum Unavailable implements ModelHierarchyQueryService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public Optional<ModelHierarchy> currentHierarchy() throws CubismServiceException {
+        @Override
+        public Optional<ModelHierarchy> currentHierarchy() throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public List<HierarchyNode> childrenOf(final ModelObjectId id)
-            throws CubismServiceException {
+        @Override
+        public List<HierarchyNode> childrenOf(final ModelObjectId id) throws CubismServiceException {
             throw unavailable();
         }
 
-        @Override public Optional<HierarchyNode> findNode(final ModelObjectId id)
-            throws CubismServiceException {
+        @Override
+        public Optional<HierarchyNode> findNode(final ModelObjectId id) throws CubismServiceException {
             throw unavailable();
         }
 
         private static CubismServiceException unavailable() {
             return new CubismServiceException(
-                "cubism.query.unavailable",
-                "modelHierarchyQuery service is not available"
-            );
+                    "cubism.query.unavailable", "modelHierarchyQuery service is not available");
         }
     }
 }

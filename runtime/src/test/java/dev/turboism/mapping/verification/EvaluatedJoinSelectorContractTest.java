@@ -1,15 +1,15 @@
 package dev.turboism.mapping.verification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelNameWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Pins the additive selector contracts of the Wave-1 evaluated join and the
@@ -69,13 +69,11 @@ class EvaluatedJoinSelectorContractTest {
     @Test
     void coreMocInfoContractRoutesOnlyProfilesWithTheVersionRead() {
         assertEquals(
-            java.util.Set.of(
-                CoreMocInfoSelectorContract.MODEL_GET_MOC,
-                CoreMocInfoSelectorContract.MOC_CLASS,
-                CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION
-            ),
-            CoreMocInfoSelectorContract.REQUIRED_ALIASES
-        );
+                java.util.Set.of(
+                        CoreMocInfoSelectorContract.MODEL_GET_MOC,
+                        CoreMocInfoSelectorContract.MOC_CLASS,
+                        CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION),
+                CoreMocInfoSelectorContract.REQUIRED_ALIASES);
         assertEquals("adapter.core-model.readonly", CoreMocInfoSelectorContract.ADAPTER_SLICE_ID);
     }
 }

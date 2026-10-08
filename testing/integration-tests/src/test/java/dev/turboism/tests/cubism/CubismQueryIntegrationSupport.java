@@ -3,13 +3,13 @@ package dev.turboism.tests.cubism;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.plugin.context.CorePluginContext;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.sdk.plugin.WorkBudget;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.test.fake.FakeCubismArtMesh;
 import dev.turboism.test.fake.FakeCubismDeformer;
 import dev.turboism.test.fake.FakeCubismDocument;
@@ -17,7 +17,6 @@ import dev.turboism.test.fake.FakeCubismHost;
 import dev.turboism.test.fake.FakeCubismModel;
 import dev.turboism.test.fake.FakeCubismParameter;
 import dev.turboism.test.fake.FakeCubismProject;
-
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -32,10 +31,8 @@ final class CubismQueryIntegrationSupport {
     static final String PLUGIN_ID = "plugin.query-tests";
     static final String MODEL_READ_PERMISSION = CubismFacadeImpl.MODEL_READ_PERMISSION;
     static final String MESH_READ_PERMISSION = CubismFacadeImpl.MESH_READ_PERMISSION;
-    static final String PARAMETER_READ_PERMISSION = "turboism.cubism.parameter.read";
 
-    private CubismQueryIntegrationSupport() {
-    }
+    private CubismQueryIntegrationSupport() {}
 
     static QueryEnvironment environment(final FakeCubismHost host, final String... permissionIds) {
         return environment(new FakeHostSnapshotSource(host), permissionIds);
@@ -45,17 +42,16 @@ final class CubismQueryIntegrationSupport {
         final List<CubismFacadeAuditEvent> auditEvents = new ArrayList<>();
         final DisposableScope disposableScope = new DisposableScope();
         final CorePluginContext context = new CorePluginContext(new CorePluginContext.Dependencies(
-            TestPluginDependencies.descriptor(permissionIds),
-            TestPluginDependencies.silentLogger(),
-            TestPluginDependencies.paths(),
-            TestPluginDependencies.directUiScheduler(),
-            directRuntimeScheduler(),
-            TestPluginDependencies.emptyDiagnostics(),
-            disposableScope,
-            source,
-            auditEvents::add,
-            FIXED_CLOCK
-        ));
+                TestPluginDependencies.descriptor(permissionIds),
+                TestPluginDependencies.silentLogger(),
+                TestPluginDependencies.paths(),
+                TestPluginDependencies.directUiScheduler(),
+                directRuntimeScheduler(),
+                TestPluginDependencies.emptyDiagnostics(),
+                disposableScope,
+                source,
+                auditEvents::add,
+                FIXED_CLOCK));
         return new QueryEnvironment(context, auditEvents, disposableScope);
     }
 
@@ -124,24 +120,23 @@ final class CubismQueryIntegrationSupport {
 
     static RuntimeScheduler directRuntimeScheduler() {
         return new RuntimeScheduler(
-            task -> "event.subscribe".equals(task.taskType())
-                ? WorkBudget.LIGHTWEIGHT
-                : WorkBudget.SIDECAR,
-            new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
-            (task, callback) -> {
-                callback.run();
-                return CompletableFuture.completedFuture(dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
-            },
-            event -> { }
-        );
+                task -> "event.subscribe".equals(task.taskType()) ? WorkBudget.LIGHTWEIGHT : WorkBudget.SIDECAR,
+                new PluginWorkExecutorRegistry(1, 2, event -> {}, FIXED_CLOCK),
+                (task, callback) -> {
+                    callback.run();
+                    return CompletableFuture.completedFuture(
+                            dev.turboism.core.runtime.sidecar.SidecarResult.success(""));
+                },
+                event -> {});
     }
 
-    record QueryEnvironment(CorePluginContext context, List<CubismFacadeAuditEvent> auditEvents, DisposableScope disposableScope) {
-    }
+    record QueryEnvironment(
+            CorePluginContext context, List<CubismFacadeAuditEvent> auditEvents, DisposableScope disposableScope) {}
 
     static final class VersionedSource implements HostSnapshotSource {
         private static final HostArtMesh MESH = new HostArtMesh("mesh-face", "Face Mesh", Optional.empty(), true, true);
-        private static final HostDeformer DEFORMER = new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
+        private static final HostDeformer DEFORMER =
+                new HostDeformer("deformer-root", "Root", DeformerType.ROOT, Optional.empty(), List.of("mesh-face"));
 
         private final boolean hasModel;
         private List<HostParameter> parameters;
@@ -193,5 +188,4 @@ final class CubismQueryIntegrationSupport {
             return invalidationToken;
         }
     }
-
 }

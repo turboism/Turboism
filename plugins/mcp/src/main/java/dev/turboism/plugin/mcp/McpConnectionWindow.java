@@ -3,20 +3,6 @@ package dev.turboism.plugin.mcp;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.window.TurboismWindowFactory;
-
-import javax.swing.BorderFactory;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
-import javax.swing.table.AbstractTableModel;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -34,13 +20,25 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.WindowConstants;
+import javax.swing.table.AbstractTableModel;
 
 /** User-controlled view of the current local MCP endpoint and connection history. */
 final class McpConnectionWindow {
 
-    private static final DateTimeFormatter TIME = DateTimeFormatter
-        .ofPattern("yyyy-MM-dd HH:mm:ss")
-        .withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter TIME =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
 
     private final PluginLocalization localization;
     private final PluginLogger logger;
@@ -52,15 +50,12 @@ final class McpConnectionWindow {
     private final JTable historyTable = new JTable(history);
     private final JButton refresh = new JButton();
     private java.util.function.Supplier<McpConnectionSnapshot> snapshot =
-        () -> new McpConnectionSnapshot(null, null, List.of());
+            () -> new McpConnectionSnapshot(null, null, List.of());
 
-    McpConnectionWindow(
-        final PluginLocalization localization,
-        final PluginLogger logger
-    ) {
+    McpConnectionWindow(final PluginLocalization localization, final PluginLogger logger) {
         this.localization = Objects.requireNonNull(localization, "localization");
         this.logger = Objects.requireNonNull(logger, "logger");
-        frame = TurboismWindowFactory.frame(text("window.connection-title", "MCP Connection"));
+        frame = TurboismWindowFactory.frame(localization.text("window.connection-title", "MCP Connection"));
         if (frame == null) throw new IllegalStateException("Swing is unavailable in a headless JVM");
         configure();
     }
@@ -97,12 +92,14 @@ final class McpConnectionWindow {
         agentPrompt.setEditable(false);
         agentPrompt.setLineWrap(true);
         agentPrompt.setWrapStyleWord(true);
-        endpoint.setFont(new Font(Font.MONOSPACED, Font.PLAIN, endpoint.getFont().getSize()));
-        stdioConfig.setFont(new Font(Font.MONOSPACED, Font.PLAIN, stdioConfig.getFont().getSize()));
+        endpoint.setFont(
+                new Font(Font.MONOSPACED, Font.PLAIN, endpoint.getFont().getSize()));
+        stdioConfig.setFont(
+                new Font(Font.MONOSPACED, Font.PLAIN, stdioConfig.getFont().getSize()));
         historyTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         historyTable.setFillsViewportHeight(true);
         historyTable.getTableHeader().setReorderingAllowed(false);
-        refresh.setText(text("button.refresh", "Refresh"));
+        refresh.setText(localization.text("button.refresh", "Refresh"));
         refresh.addActionListener(ignored -> refresh());
     }
 
@@ -110,57 +107,46 @@ final class McpConnectionWindow {
         final JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         final JPanel credentials = new JPanel(new GridBagLayout());
-        credentials.setBorder(BorderFactory.createTitledBorder(
-            text("section.connection", "Connection")
-        ));
+        credentials.setBorder(BorderFactory.createTitledBorder(localization.text("section.connection", "Connection")));
         final GridBagConstraints constraints = new GridBagConstraints();
         constraints.insets = new Insets(4, 4, 4, 4);
         constraints.anchor = GridBagConstraints.WEST;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.gridy = 0;
         addRow(
-            credentials,
-            constraints,
-            text("label.endpoint", "Address"),
-            endpoint,
-            text("button.copy-endpoint", "Copy address"),
-            () -> copy(endpoint.getText(), "status.endpoint-copied")
-        );
+                credentials,
+                constraints,
+                localization.text("label.endpoint", "Address"),
+                endpoint,
+                localization.text("button.copy-endpoint", "Copy address"),
+                () -> copy(endpoint.getText(), "status.endpoint-copied"));
         constraints.gridy++;
         addRow(
-            credentials,
-            constraints,
-            text("label.stdio-config", "Stdio client config"),
-            stdioConfig,
-            text("button.copy-stdio-config", "Copy stdio config"),
-            () -> copy(stdioConfig.getText(), "status.stdio-config-copied")
-        );
+                credentials,
+                constraints,
+                localization.text("label.stdio-config", "Stdio client config"),
+                stdioConfig,
+                localization.text("button.copy-stdio-config", "Copy stdio config"),
+                () -> copy(stdioConfig.getText(), "status.stdio-config-copied"));
         constraints.gridy++;
         constraints.gridx = 0;
         constraints.gridwidth = 1;
         constraints.weightx = 0;
-        credentials.add(new JLabel(text("label.agent-prompt", "Coding-agent prompt")), constraints);
+        credentials.add(new JLabel(localization.text("label.agent-prompt", "Coding-agent prompt")), constraints);
         constraints.gridx = 1;
         constraints.weightx = 1;
         final JScrollPane promptScroll = new JScrollPane(agentPrompt);
         promptScroll.setPreferredSize(new Dimension(480, 76));
         credentials.add(promptScroll, constraints);
-        final JButton copyPrompt = new JButton(text(
-            "button.copy-agent-prompt",
-            "Copy agent prompt"
-        ));
-        copyPrompt.addActionListener(ignored -> copy(
-            agentPrompt.getText(),
-            "status.agent-prompt-copied"
-        ));
+        final JButton copyPrompt = new JButton(localization.text("button.copy-agent-prompt", "Copy agent prompt"));
+        copyPrompt.addActionListener(ignored -> copy(agentPrompt.getText(), "status.agent-prompt-copied"));
         constraints.gridx = 2;
         constraints.weightx = 0;
         credentials.add(copyPrompt, constraints);
 
         final JPanel historyPanel = new JPanel(new BorderLayout(6, 6));
-        historyPanel.setBorder(BorderFactory.createTitledBorder(
-            text("section.history", "Connection history")
-        ));
+        historyPanel.setBorder(
+                BorderFactory.createTitledBorder(localization.text("section.history", "Connection history")));
         historyPanel.add(new JScrollPane(historyTable), BorderLayout.CENTER);
         final JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
         actions.add(refresh);
@@ -172,13 +158,12 @@ final class McpConnectionWindow {
     }
 
     private static void addRow(
-        final JPanel panel,
-        final GridBagConstraints constraints,
-        final String label,
-        final JTextField value,
-        final String buttonText,
-        final Runnable copy
-    ) {
+            final JPanel panel,
+            final GridBagConstraints constraints,
+            final String label,
+            final JTextField value,
+            final String buttonText,
+            final Runnable copy) {
         constraints.gridx = 0;
         constraints.gridwidth = 1;
         constraints.weightx = 0;
@@ -207,8 +192,7 @@ final class McpConnectionWindow {
     private void copy(final String value, final String statusKey) {
         if (value == null || value.isBlank()) return;
         try {
-            Toolkit.getDefaultToolkit().getSystemClipboard()
-                .setContents(new StringSelection(value), null);
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(value), null);
             logger.info(copyStatus(statusKey));
         } catch (RuntimeException failure) {
             logger.warn("MCP connection copy failed safely");
@@ -216,54 +200,37 @@ final class McpConnectionWindow {
     }
 
     private String copyStatus(final String key) {
-        return text(key, switch (key) {
-            case "status.agent-prompt-copied" -> "MCP coding-agent prompt copied by explicit user action";
-            case "status.endpoint-copied" -> "MCP address copied by explicit user action";
-            case "status.stdio-config-copied" -> "MCP stdio client config copied by explicit user action";
-            default -> "MCP connection value copied by explicit user action";
-        });
+        return localization.text(
+                key,
+                switch (key) {
+                    case "status.agent-prompt-copied" -> "MCP coding-agent prompt copied by explicit user action";
+                    case "status.endpoint-copied" -> "MCP address copied by explicit user action";
+                    case "status.stdio-config-copied" -> "MCP stdio client config copied by explicit user action";
+                    default -> "MCP connection value copied by explicit user action";
+                });
     }
 
-    static String codingAgentPrompt(
-        final PluginLocalization localization,
-        final McpConnectionSnapshot snapshot
-    ) {
+    static String codingAgentPrompt(final PluginLocalization localization, final McpConnectionSnapshot snapshot) {
         final PluginLocalization messages = Objects.requireNonNull(localization, "localization");
         final McpConnectionSnapshot current = Objects.requireNonNull(snapshot, "snapshot");
-        final String address = current.endpoint() == null ? "" : current.endpoint().toString();
+        final String address =
+                current.endpoint() == null ? "" : current.endpoint().toString();
         final String stdio = current.stdioConfig() == null ? "" : current.stdioConfig();
         final String key = "prompt.coding-agent";
-        try {
-            if (!messages.contains(key)) throw new IllegalStateException("missing localization key");
+        if (messages.isAvailable() && messages.contains(key)) {
             final String value = messages.format(key, address, stdio);
-            if (value != null && !value.isBlank()
-                && !key.equals(value) && !("⟦" + key + "⟧").equals(value)) return value;
-        } catch (RuntimeException unavailable) {
-            // Use the bundled English instruction below.
+            if (value != null && !value.isBlank() && !key.equals(value) && !("⟦" + key + "⟧").equals(value)) {
+                return value;
+            }
         }
         return MessageFormat.format(
-            "This is the Turboism MCP server. Recommended client config (stdio, token auto-supplied): "
-                + "{1}. Direct HTTP endpoint: {0} — mutating tools and session close require "
-                + "Authorization: Bearer <mcp.token contents>; read-only calls need no credentials.",
-            address,
-            stdio
-        );
+                "This is the Turboism MCP server. Recommended client config (stdio, token auto-supplied): "
+                        + "{1}. Direct HTTP endpoint: {0} — mutating tools and session close require "
+                        + "Authorization: Bearer <mcp.token contents>; read-only calls need no credentials.",
+                address, stdio);
     }
 
-    private String text(final String key, final String fallback) {
-        try {
-            final String value = localization.text(key);
-            return value == null || value.isBlank() || key.equals(value) ? fallback : value;
-        } catch (RuntimeException unavailable) {
-            return fallback;
-        }
-    }
-
-    record McpConnectionSnapshot(
-        URI endpoint,
-        String stdioConfig,
-        List<McpConnectionHistory.Entry> history
-    ) {
+    record McpConnectionSnapshot(URI endpoint, String stdioConfig, List<McpConnectionHistory.Entry> history) {
         McpConnectionSnapshot {
             history = List.copyOf(Objects.requireNonNull(history, "history"));
         }
@@ -280,17 +247,28 @@ final class McpConnectionWindow {
             fireTableDataChanged();
         }
 
-        @Override public int getRowCount() { return rows.size(); }
-        @Override public int getColumnCount() { return 4; }
-        @Override public String getColumnName(final int column) {
+        @Override
+        public int getRowCount() {
+            return rows.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return 4;
+        }
+
+        @Override
+        public String getColumnName(final int column) {
             return switch (column) {
-                case 0 -> text("history.time", "Time");
-                case 1 -> text("history.event", "Event");
-                case 2 -> text("history.client", "Client");
-                default -> text("history.detail", "Detail");
+                case 0 -> localization.text("history.time", "Time");
+                case 1 -> localization.text("history.event", "Event");
+                case 2 -> localization.text("history.client", "Client");
+                default -> localization.text("history.detail", "Detail");
             };
         }
-        @Override public Object getValueAt(final int row, final int column) {
+
+        @Override
+        public Object getValueAt(final int row, final int column) {
             final McpConnectionHistory.Entry entry = rows.get(row);
             return switch (column) {
                 case 0 -> TIME.format(entry.timestamp());
@@ -301,10 +279,10 @@ final class McpConnectionWindow {
         }
 
         private String eventText(final McpConnectionHistory.Event event) {
-            return text(
-                "history.event." + event.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'),
-                event.name().replace('_', ' ')
-            );
+            return localization.text(
+                    "history.event."
+                            + event.name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'),
+                    event.name().replace('_', ' '));
         }
     }
 }

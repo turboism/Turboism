@@ -1,7 +1,7 @@
 package dev.turboism.core.runtime.work;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
+import dev.turboism.core.runtime.PluginTask;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
@@ -54,26 +54,23 @@ public final class PluginWorkExecutor {
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public PluginWorkExecutor(
-        String pluginId,
-        int workerCount,
-        int queueCapacity,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink,
-        Clock clock
-    ) {
+            String pluginId,
+            int workerCount,
+            int queueCapacity,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock) {
         this(
-            pluginId,
-            PluginWorkExecutorConfiguration.of(500, workerCount, queueCapacity, 50.0f),
-            diagnosticSink,
-            clock
-        );
+                pluginId,
+                PluginWorkExecutorConfiguration.of(500, workerCount, queueCapacity, 50.0f),
+                diagnosticSink,
+                clock);
     }
 
     PluginWorkExecutor(
-        String pluginId,
-        PluginWorkExecutorConfiguration configuration,
-        Consumer<PluginWorkBudgetEvent> diagnosticSink,
-        Clock clock
-    ) {
+            String pluginId,
+            PluginWorkExecutorConfiguration configuration,
+            Consumer<PluginWorkBudgetEvent> diagnosticSink,
+            Clock clock) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
@@ -83,35 +80,30 @@ public final class PluginWorkExecutor {
         // named after the plugin, so a live executor can neither pin the JVM nor leak
         // unattributed threads.
         this.workerPool = new ThreadPoolExecutor(
-            configuration.bulkheadPoolSize(),
-            configuration.bulkheadPoolSize(),
-            0L,
-            TimeUnit.MILLISECONDS,
-            new ArrayBlockingQueue<>(configuration.queueCapacity()),
-            new PluginWorkThreadFactory(this.pluginId),
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+                configuration.bulkheadPoolSize(),
+                configuration.bulkheadPoolSize(),
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(configuration.queueCapacity()),
+                new PluginWorkThreadFactory(this.pluginId),
+                new ThreadPoolExecutor.AbortPolicy());
         this.workerPool.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
         this.workerPool.allowCoreThreadTimeOut(true);
         this.timeLimiter = TimeLimiter.of(
-            this.pluginId,
-            TimeLimiterConfig.custom()
-                .timeoutDuration(configuration.timeoutDuration())
-                .cancelRunningFuture(true)
-                .build()
-        );
+                this.pluginId,
+                TimeLimiterConfig.custom()
+                        .timeoutDuration(configuration.timeoutDuration())
+                        .cancelRunningFuture(true)
+                        .build());
         this.circuitBreaker = CircuitBreaker.of(
-            this.pluginId,
-            CircuitBreakerConfig.custom()
-                .failureRateThreshold(configuration.circuitBreakerFailureRateThreshold())
-                .minimumNumberOfCalls(4)
-                .slidingWindowSize(4)
-                .build()
-        );
-        this.timeoutScheduler = new ScheduledThreadPoolExecutor(
-            1,
-            new PluginWorkThreadFactory(this.pluginId + "-timeout")
-        );
+                this.pluginId,
+                CircuitBreakerConfig.custom()
+                        .failureRateThreshold(configuration.circuitBreakerFailureRateThreshold())
+                        .minimumNumberOfCalls(4)
+                        .slidingWindowSize(4)
+                        .build());
+        this.timeoutScheduler =
+                new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(this.pluginId + "-timeout"));
         this.timeoutScheduler.setRemoveOnCancelPolicy(true);
         this.timeoutScheduler.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
         this.timeoutScheduler.allowCoreThreadTimeOut(true);
@@ -145,7 +137,7 @@ public final class PluginWorkExecutor {
      * @throws NullPointerException if either argument is {@code null}
      */
     public PluginWorkSubmission submit(PluginTask task, Runnable work) {
-        return submit(task, work, () -> { });
+        return submit(task, work, () -> {});
     }
 
     /**
@@ -157,11 +149,7 @@ public final class PluginWorkExecutor {
      * @param timeoutAction idempotent cancellation for downstream work queued by the worker
      * @return the admission decision plus a stage completing with the work's terminal result
      */
-    public PluginWorkSubmission submit(
-        PluginTask task,
-        Runnable work,
-        Runnable timeoutAction
-    ) {
+    public PluginWorkSubmission submit(PluginTask task, Runnable work, Runnable timeoutAction) {
         return submitDecorated(task, work, timeoutAction, true);
     }
 
@@ -178,15 +166,11 @@ public final class PluginWorkExecutor {
      * @throws NullPointerException if either argument is {@code null}
      */
     public PluginWorkSubmission submitCompletion(PluginTask task, Runnable work) {
-        return submitDecorated(task, work, () -> { }, false);
+        return submitDecorated(task, work, () -> {}, false);
     }
 
     private PluginWorkSubmission submitDecorated(
-        PluginTask task,
-        Runnable work,
-        Runnable timeoutAction,
-        boolean circuitProtected
-    ) {
+            PluginTask task, Runnable work, Runnable timeoutAction, boolean circuitProtected) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(work, "work");
         Objects.requireNonNull(timeoutAction, "timeoutAction");
@@ -194,9 +178,8 @@ public final class PluginWorkExecutor {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
         PluginWorkItem workItem = new PluginWorkItem(task, work, timeoutAction);
-        Supplier<CompletionStage<Void>> decorated = circuitProtected
-            ? decorate(workItem)
-            : decorateCompletion(workItem);
+        Supplier<CompletionStage<Void>> decorated =
+                circuitProtected ? decorate(workItem) : decorateCompletion(workItem);
         final CompletableFuture<PluginWorkResult> completion = new CompletableFuture<>();
         try {
             final CompletionStage<Void> stage = decorated.get();
@@ -207,28 +190,26 @@ public final class PluginWorkExecutor {
                     return rejected(immediate.status(), immediate.failureCode());
                 }
                 completion.complete(immediate);
-                return new PluginWorkSubmission(
-                    true,
-                    PluginWorkStatus.SUCCEEDED,
-                    completion
-                );
+                return new PluginWorkSubmission(true, PluginWorkStatus.SUCCEEDED, completion);
             }
-            stage.whenComplete((result, failure) ->
-                completion.complete(executionResult(workItem, failure))
-            );
-            return new PluginWorkSubmission(
-                true,
-                PluginWorkStatus.SUCCEEDED,
-                completion
-            );
+            stage.whenComplete((result, failure) -> completion.complete(executionResult(workItem, failure)));
+            return new PluginWorkSubmission(true, PluginWorkStatus.SUCCEEDED, completion);
         } catch (CallNotPermittedException exception) {
-            emit(task, PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
+            emit(
+                    task,
+                    PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN,
+                    PluginWorkBudgetEvent.Decision.REJECTED,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return rejected(PluginWorkStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
         } catch (RejectedExecutionException exception) {
             reject(task);
             return rejected(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         } catch (RuntimeException exception) {
-            emit(task, PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.LIGHTWEIGHT, PluginWorkBudgetEvent.Severity.ERROR);
+            emit(
+                    task,
+                    PluginWorkBudgetEvent.Phase.FAILED,
+                    PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                    PluginWorkBudgetEvent.Severity.ERROR);
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
     }
@@ -267,26 +248,15 @@ public final class PluginWorkExecutor {
     }
 
     private Supplier<CompletionStage<Void>> decorate(PluginWorkItem workItem) {
-        return CircuitBreaker.decorateCompletionStage(
-            circuitBreaker,
-            decorateCompletion(workItem)
-        );
+        return CircuitBreaker.decorateCompletionStage(circuitBreaker, decorateCompletion(workItem));
     }
 
     private Supplier<CompletionStage<Void>> decorateCompletion(PluginWorkItem workItem) {
-        Supplier<CompletionStage<Void>> pooled =
-            () -> CompletableFuture.runAsync(workItem, workerPool);
-        return TimeLimiter.decorateCompletionStage(
-            timeLimiter,
-            timeoutScheduler,
-            pooled
-        );
+        Supplier<CompletionStage<Void>> pooled = () -> CompletableFuture.runAsync(workItem, workerPool);
+        return TimeLimiter.decorateCompletionStage(timeLimiter, timeoutScheduler, pooled);
     }
 
-    private PluginWorkResult immediateFailure(
-        PluginWorkItem workItem,
-        CompletableFuture<Void> future
-    ) {
+    private PluginWorkResult immediateFailure(PluginWorkItem workItem, CompletableFuture<Void> future) {
         try {
             future.join();
             return PluginWorkResult.succeeded();
@@ -302,46 +272,62 @@ public final class PluginWorkExecutor {
         Throwable cause = unwrap(failure);
         if (cause instanceof TimeoutException) {
             workItem.timeout();
-            emit(workItem.task(), PluginWorkBudgetEvent.Phase.TIMED_OUT, PluginWorkBudgetEvent.Decision.LIGHTWEIGHT, PluginWorkBudgetEvent.Severity.WARNING);
+            emit(
+                    workItem.task(),
+                    PluginWorkBudgetEvent.Phase.TIMED_OUT,
+                    PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.TIMED_OUT, "PLUGIN_WORK_TIMED_OUT");
         }
         if (cause instanceof CallNotPermittedException) {
-            emit(workItem.task(), PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
+            emit(
+                    workItem.task(),
+                    PluginWorkBudgetEvent.Phase.CIRCUIT_OPEN,
+                    PluginWorkBudgetEvent.Decision.REJECTED,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.REJECTED_CIRCUIT_OPEN, "CIRCUIT_OPEN");
         }
         if (cause instanceof RejectedExecutionException) {
-            emit(workItem.task(), PluginWorkBudgetEvent.Phase.REJECTED, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
+            emit(
+                    workItem.task(),
+                    PluginWorkBudgetEvent.Phase.REJECTED,
+                    PluginWorkBudgetEvent.Decision.REJECTED,
+                    PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.REJECTED_BACKPRESSURE, "BACKPRESSURE");
         }
-        emit(workItem.task(), PluginWorkBudgetEvent.Phase.FAILED, PluginWorkBudgetEvent.Decision.LIGHTWEIGHT, PluginWorkBudgetEvent.Severity.ERROR);
+        emit(
+                workItem.task(),
+                PluginWorkBudgetEvent.Phase.FAILED,
+                PluginWorkBudgetEvent.Decision.LIGHTWEIGHT,
+                PluginWorkBudgetEvent.Severity.ERROR);
         return new PluginWorkResult(PluginWorkStatus.FAILED, "PLUGIN_WORK_FAILED");
     }
 
     private static boolean isAdmissionRejection(final PluginWorkStatus status) {
         return status == PluginWorkStatus.REJECTED_BACKPRESSURE
-            || status == PluginWorkStatus.REJECTED_CIRCUIT_OPEN
-            || status == PluginWorkStatus.POLICY_REJECTED
-            || status == PluginWorkStatus.RUNTIME_UNAVAILABLE;
+                || status == PluginWorkStatus.REJECTED_CIRCUIT_OPEN
+                || status == PluginWorkStatus.POLICY_REJECTED
+                || status == PluginWorkStatus.RUNTIME_UNAVAILABLE;
     }
 
-    private static PluginWorkSubmission rejected(
-        PluginWorkStatus status,
-        String failureCode
-    ) {
+    private static PluginWorkSubmission rejected(PluginWorkStatus status, String failureCode) {
         PluginWorkResult result = new PluginWorkResult(status, failureCode);
         return new PluginWorkSubmission(false, status, CompletableFuture.completedFuture(result));
     }
 
     private void reject(PluginTask task) {
-        emit(task, PluginWorkBudgetEvent.Phase.REJECTED, PluginWorkBudgetEvent.Decision.REJECTED, PluginWorkBudgetEvent.Severity.WARNING);
+        emit(
+                task,
+                PluginWorkBudgetEvent.Phase.REJECTED,
+                PluginWorkBudgetEvent.Decision.REJECTED,
+                PluginWorkBudgetEvent.Severity.WARNING);
     }
 
     private void emit(
-        PluginTask task,
-        PluginWorkBudgetEvent.Phase phase,
-        PluginWorkBudgetEvent.Decision decision,
-        PluginWorkBudgetEvent.Severity severity
-    ) {
+            PluginTask task,
+            PluginWorkBudgetEvent.Phase phase,
+            PluginWorkBudgetEvent.Decision decision,
+            PluginWorkBudgetEvent.Severity severity) {
         diagnosticSink.accept(new PluginWorkBudgetEvent(pluginId, task.taskType(), phase, decision, severity));
     }
 
@@ -359,5 +345,4 @@ public final class PluginWorkExecutor {
         }
         return value;
     }
-
 }

@@ -1,5 +1,6 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -10,23 +11,29 @@ import java.util.Objects;
 final class McpToolCatalog {
 
     private static final Map<String, Object> DEFAULT_OUTPUT_SCHEMA = Map.of(
-        "$schema", "https://json-schema.org/draft/2020-12/schema",
-        "type", "object",
-        "properties", Map.of(
-            "ok", Map.of("type", "boolean"),
-            "error", Map.of(
-                "type", "object",
-                "properties", Map.of(
-                    "code", Map.of("type", "string"),
-                    "message", Map.of("type", "string")
-                ),
-                "required", List.of("code", "message"),
-                "additionalProperties", true
-            )
-        ),
-        "required", List.of("ok"),
-        "additionalProperties", true
-    );
+            "$schema",
+            "https://json-schema.org/draft/2020-12/schema",
+            "type",
+            "object",
+            "properties",
+            Map.of(
+                    "ok", Map.of("type", "boolean"),
+                    "error",
+                            Map.of(
+                                    "type",
+                                    "object",
+                                    "properties",
+                                    Map.of(
+                                            "code", Map.of("type", "string"),
+                                            "message", Map.of("type", "string")),
+                                    "required",
+                                    List.of("code", "message"),
+                                    "additionalProperties",
+                                    true)),
+            "required",
+            List.of("ok"),
+            "additionalProperties",
+            true);
 
     @FunctionalInterface
     interface Caller {
@@ -100,27 +107,19 @@ final class McpToolCatalog {
     private void validateArguments(final String name, final Map<String, Object> arguments) {
         Objects.requireNonNull(arguments, "arguments");
         final Object schema = registry.registration(name).publicDefinition().get("inputSchema");
-        if (schema instanceof Map<?, ?> raw
-            && !McpJsonSchema.validates(arguments, stringMap(raw, "inputSchema"))) {
+        if (schema instanceof Map<?, ?> raw && !McpJsonSchema.validates(arguments, stringMap(raw, "inputSchema"))) {
             throw new IllegalArgumentException(
-                "Arguments for " + name + " do not match its inputSchema; no operation was submitted"
-            );
+                    "Arguments for " + name + " do not match its inputSchema; no operation was submitted");
         }
     }
 
-    private Map<String, Object> validate(
-        final String name,
-        final Map<String, Object> envelope
-    ) {
+    private Map<String, Object> validate(final String name, final Map<String, Object> envelope) {
         final Map<String, Object> checked = Objects.requireNonNull(envelope, "MCP tool envelope");
         final String violation = validateEnvelope(checked, outputSchemas.get(name));
         return violation == null ? checked : invalidOutput(violation);
     }
 
-    private static String validateEnvelope(
-        final Map<String, Object> envelope,
-        final Map<String, Object> outputSchema
-    ) {
+    private static String validateEnvelope(final Map<String, Object> envelope, final Map<String, Object> outputSchema) {
         final Object structured = envelope.get("structuredContent");
         if (!(structured instanceof Map<?, ?> rawStructured)) {
             return "structuredContent must be an object";
@@ -132,8 +131,9 @@ final class McpToolCatalog {
             return failure.getMessage();
         }
         final Object contentValue = envelope.get("content");
-        if (!(contentValue instanceof List<?> content) || content.size() != 1
-            || !(content.get(0) instanceof Map<?, ?> rawBlock)) {
+        if (!(contentValue instanceof List<?> content)
+                || content.size() != 1
+                || !(content.get(0) instanceof Map<?, ?> rawBlock)) {
             return "content must contain one JSON text block";
         }
         final Map<String, Object> block;
@@ -146,10 +146,8 @@ final class McpToolCatalog {
             return "content[0] must be a text block";
         }
         try {
-            final Object parsed = Json.parse(
-                text.getBytes(java.nio.charset.StandardCharsets.UTF_8)
-            );
-            if (!Json.stringify(output).equals(Json.stringify(parsed))) {
+            final Map<String, ?> parsed = Json.parseObject(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            if (!McpJsonSupport.stringify(output).equals(Json.stringify(parsed))) {
                 return "content text must equal structuredContent";
             }
         } catch (IllegalArgumentException failure) {
@@ -160,34 +158,29 @@ final class McpToolCatalog {
 
     private static Map<String, Object> invalidOutput(final String detail) {
         final Map<String, Object> output = Map.of(
-            "ok", false,
-            "error", Map.of(
-                "code", "INTERNAL_OUTPUT_INVALID",
-                "message", "MCP tool produced output outside its declared contract",
-                "details", detail
-            )
-        );
+                "ok",
+                false,
+                "error",
+                Map.of(
+                        "code", "INTERNAL_OUTPUT_INVALID",
+                        "message", "MCP tool produced output outside its declared contract",
+                        "details", detail));
         return Map.of(
-            "content", List.of(Map.of(
-                "type", "text",
-                "text", Json.stringify(output)
-            )),
-            "structuredContent", output,
-            "isError", true
-        );
+                "content",
+                List.of(Map.of("type", "text", "text", Json.stringify(output))),
+                "structuredContent",
+                output,
+                "isError",
+                true);
     }
 
-    private static McpToolRegistry legacyRegistry(
-        final List<Map<String, Object>> definitions,
-        final Caller caller
-    ) {
+    private static McpToolRegistry legacyRegistry(final List<Map<String, Object>> definitions, final Caller caller) {
         Objects.requireNonNull(definitions, "definitions");
         final Caller checkedCaller = Objects.requireNonNull(caller, "caller");
         final ArrayList<McpRegisteredTool> registrations = new ArrayList<>(definitions.size());
         for (Map<String, Object> definition : definitions) {
-            final LinkedHashMap<String, Object> checked = new LinkedHashMap<>(
-                Objects.requireNonNull(definition, "definition")
-            );
+            final LinkedHashMap<String, Object> checked =
+                    new LinkedHashMap<>(Objects.requireNonNull(definition, "definition"));
             final Object nameValue = checked.get("name");
             if (!(nameValue instanceof String name) || name.isBlank()) {
                 throw new IllegalArgumentException("MCP tool definition requires a name");
@@ -198,18 +191,13 @@ final class McpToolCatalog {
                 throw new IllegalArgumentException("MCP tool outputSchema must be an object: " + name);
             }
             checked.put("outputSchema", Map.copyOf(stringMap(rawSchema, "outputSchema")));
-            registrations.add(McpRegisteredTool.legacy(
-                Map.copyOf(checked),
-                arguments -> checkedCaller.call(name, arguments)
-            ));
+            registrations.add(
+                    McpRegisteredTool.legacy(Map.copyOf(checked), arguments -> checkedCaller.call(name, arguments)));
         }
         return new McpToolRegistry(registrations);
     }
 
-    private static LinkedHashMap<String, Object> stringMap(
-        final Map<?, ?> raw,
-        final String label
-    ) {
+    private static LinkedHashMap<String, Object> stringMap(final Map<?, ?> raw, final String label) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<?, ?> entry : raw.entrySet()) {
             if (!(entry.getKey() instanceof String key)) {
@@ -221,26 +209,21 @@ final class McpToolCatalog {
     }
 
     private static final class JsonSchemaValidator {
-        private JsonSchemaValidator() {
-        }
+        private JsonSchemaValidator() {}
 
         static String validate(final Map<String, Object> schema, final Object value) {
             return validate(schema, value, "$", 0);
         }
 
         private static String validate(
-            final Map<String, Object> schema,
-            final Object value,
-            final String path,
-            final int depth
-        ) {
+                final Map<String, Object> schema, final Object value, final String path, final int depth) {
             if (depth > 64) return path + " schema nesting exceeds 64 levels";
             final Object oneOfValue = schema.get("oneOf");
             if (oneOfValue instanceof List<?> alternatives) {
                 int matches = 0;
                 for (Object alternative : alternatives) {
                     if (alternative instanceof Map<?, ?> raw
-                        && validate(stringMap(raw, "oneOf"), value, path, depth + 1) == null) {
+                            && validate(stringMap(raw, "oneOf"), value, path, depth + 1) == null) {
                         matches++;
                     }
                 }
@@ -267,7 +250,7 @@ final class McpToolCatalog {
                 return path + " must be " + type;
             }
             if (value instanceof Map<?, ?> rawObject
-                && ("object".equals(typeValue) || schema.containsKey("properties"))) {
+                    && ("object".equals(typeValue) || schema.containsKey("properties"))) {
                 final Map<String, Object> object;
                 try {
                     object = stringMap(rawObject, path);
@@ -281,8 +264,8 @@ final class McpToolCatalog {
                         }
                     }
                 }
-                final Map<String, Object> properties = schema.get("properties") instanceof Map<?, ?> raw
-                    ? stringMap(raw, "properties") : Map.of();
+                final Map<String, Object> properties =
+                        schema.get("properties") instanceof Map<?, ?> raw ? stringMap(raw, "properties") : Map.of();
                 if (Boolean.FALSE.equals(schema.get("additionalProperties"))) {
                     for (String key : object.keySet()) {
                         if (!properties.containsKey(key)) return path + " contains unknown field " + key;
@@ -290,51 +273,46 @@ final class McpToolCatalog {
                 }
                 for (Map.Entry<String, Object> property : properties.entrySet()) {
                     if (!object.containsKey(property.getKey())
-                        || !(property.getValue() instanceof Map<?, ?> rawProperty)) continue;
+                            || !(property.getValue() instanceof Map<?, ?> rawProperty)) continue;
                     final String violation = validate(
-                        stringMap(rawProperty, "property"),
-                        object.get(property.getKey()),
-                        path + "." + property.getKey(),
-                        depth + 1
-                    );
+                            stringMap(rawProperty, "property"),
+                            object.get(property.getKey()),
+                            path + "." + property.getKey(),
+                            depth + 1);
                     if (violation != null) return violation;
                 }
             }
-            if (value instanceof List<?> values
-                && ("array".equals(typeValue) || schema.containsKey("items"))) {
-                if (schema.get("minItems") instanceof Number minimum
-                    && values.size() < minimum.intValue()) {
+            if (value instanceof List<?> values && ("array".equals(typeValue) || schema.containsKey("items"))) {
+                if (schema.get("minItems") instanceof Number minimum && values.size() < minimum.intValue()) {
                     return path + " has too few items";
                 }
-                if (schema.get("maxItems") instanceof Number maximum
-                    && values.size() > maximum.intValue()) {
+                if (schema.get("maxItems") instanceof Number maximum && values.size() > maximum.intValue()) {
                     return path + " has too many items";
                 }
                 if (schema.get("items") instanceof Map<?, ?> rawItems) {
                     final Map<String, Object> itemSchema = stringMap(rawItems, "items");
                     for (int index = 0; index < values.size(); index++) {
-                        final String violation = validate(
-                            itemSchema, values.get(index), path + "[" + index + "]", depth + 1
-                        );
+                        final String violation =
+                                validate(itemSchema, values.get(index), path + "[" + index + "]", depth + 1);
                         if (violation != null) return violation;
                     }
                 }
             }
             if (value instanceof String text) {
                 final int length = text.codePointCount(0, text.length());
-                if (schema.get("minLength") instanceof Number minimum
-                    && length < minimum.intValue()) return path + " is too short";
-                if (schema.get("maxLength") instanceof Number maximum
-                    && length > maximum.intValue()) return path + " is too long";
+                if (schema.get("minLength") instanceof Number minimum && length < minimum.intValue())
+                    return path + " is too short";
+                if (schema.get("maxLength") instanceof Number maximum && length > maximum.intValue())
+                    return path + " is too long";
             }
             if (value instanceof Number number) {
                 final java.math.BigDecimal decimal = new java.math.BigDecimal(number.toString());
                 if (schema.get("minimum") instanceof Number minimum
-                    && decimal.compareTo(new java.math.BigDecimal(minimum.toString())) < 0) {
+                        && decimal.compareTo(new java.math.BigDecimal(minimum.toString())) < 0) {
                     return path + " is below the minimum";
                 }
                 if (schema.get("maximum") instanceof Number maximum
-                    && decimal.compareTo(new java.math.BigDecimal(maximum.toString())) > 0) {
+                        && decimal.compareTo(new java.math.BigDecimal(maximum.toString())) > 0) {
                     return path + " is above the maximum";
                 }
             }
@@ -349,11 +327,14 @@ final class McpToolCatalog {
                 case "string" -> value instanceof String;
                 case "boolean" -> value instanceof Boolean;
                 case "number" -> value instanceof Number;
-                case "integer" -> value instanceof Byte || value instanceof Short
-                    || value instanceof Integer || value instanceof Long
-                    || value instanceof java.math.BigInteger
-                    || value instanceof java.math.BigDecimal decimal
-                        && decimal.stripTrailingZeros().scale() <= 0;
+                case "integer" ->
+                    value instanceof Byte
+                            || value instanceof Short
+                            || value instanceof Integer
+                            || value instanceof Long
+                            || value instanceof java.math.BigInteger
+                            || value instanceof java.math.BigDecimal decimal
+                                    && decimal.stripTrailingZeros().scale() <= 0;
                 default -> true;
             };
         }

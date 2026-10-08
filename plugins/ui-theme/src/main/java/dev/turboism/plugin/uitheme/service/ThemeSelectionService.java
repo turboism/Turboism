@@ -1,11 +1,10 @@
 package dev.turboism.plugin.uitheme.service;
 
-import dev.turboism.plugin.uitheme.b1.domain.LegacyThemePaletteResolver;
-import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
+import dev.turboism.plugin.uitheme.domain.LegacyThemePaletteResolver;
+import dev.turboism.plugin.uitheme.domain.ThemePackageData;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
-import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
-
+import dev.turboism.sdk.appearance.AppearanceService;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -15,10 +14,7 @@ public final class ThemeSelectionService {
     private final AppearanceService appearance;
     private final SelectionStore selections;
 
-    public ThemeSelectionService(
-        final AppearanceService appearance,
-        final SelectionStore selections
-    ) {
+    public ThemeSelectionService(final AppearanceService appearance, final SelectionStore selections) {
         this.appearance = Objects.requireNonNull(appearance, "appearance");
         this.selections = Objects.requireNonNull(selections, "selections");
     }
@@ -38,11 +34,12 @@ public final class ThemeSelectionService {
     public SelectionResult select(final ThemePackageData theme) {
         Objects.requireNonNull(theme, "theme");
         final long revision = appearance.current().toCompletableFuture().join().revision();
-        final AppearanceApplyResult applied = appearance.apply(
-            LegacyThemePaletteResolver.resolve(theme, revision)
-        ).toCompletableFuture().join();
+        final AppearanceApplyResult applied = appearance
+                .apply(LegacyThemePaletteResolver.resolve(theme, revision))
+                .toCompletableFuture()
+                .join();
         if (applied.outcome() == AppearanceApplyResult.Outcome.APPLIED
-            || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
+                || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
             selections.saveSelectedThemeId(theme.metadata().id());
             return new SelectionResult(SelectionOutcome.SELECTED, applied.diagnosticId());
         }
@@ -51,15 +48,12 @@ public final class ThemeSelectionService {
 
     /** Restores the host's native appearance and clears the persisted selection. */
     public SelectionResult restoreNative() {
-        final AppearanceRestoreResult restored = appearance.restoreOwnedAppearance()
-            .toCompletableFuture().join();
+        final AppearanceRestoreResult restored =
+                appearance.restoreOwnedAppearance().toCompletableFuture().join();
         if (restored.outcome() == AppearanceRestoreResult.Outcome.RESTORED
-            || restored.outcome() == AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
+                || restored.outcome() == AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
             selections.clearSelectedThemeId();
-            return new SelectionResult(
-                SelectionOutcome.RESTORED_NATIVE,
-                restored.diagnosticId()
-            );
+            return new SelectionResult(SelectionOutcome.RESTORED_NATIVE, restored.diagnosticId());
         }
         return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
     }
@@ -82,15 +76,12 @@ public final class ThemeSelectionService {
         if (selectedId.isEmpty() || themes.find(selectedId.orElseThrow()).isPresent()) {
             return new SelectionResult(SelectionOutcome.NO_CHANGE, Optional.empty());
         }
-        final AppearanceRestoreResult restored = appearance.restoreOwnedAppearance()
-            .toCompletableFuture().join();
+        final AppearanceRestoreResult restored =
+                appearance.restoreOwnedAppearance().toCompletableFuture().join();
         if (restored.outcome() == AppearanceRestoreResult.Outcome.RESTORED
-            || restored.outcome() == AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
+                || restored.outcome() == AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
             selections.clearSelectedThemeId();
-            return new SelectionResult(
-                SelectionOutcome.INVALID_SELECTION_CLEARED,
-                restored.diagnosticId()
-            );
+            return new SelectionResult(SelectionOutcome.INVALID_SELECTION_CLEARED, restored.diagnosticId());
         }
         return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
     }
@@ -116,10 +107,10 @@ public final class ThemeSelectionService {
         }
         Objects.requireNonNull(delete, "delete");
         if (selections.selectedThemeId().filter(themeId::equals).isPresent()) {
-            final AppearanceRestoreResult restored = appearance.restoreOwnedAppearance()
-                .toCompletableFuture().join();
+            final AppearanceRestoreResult restored =
+                    appearance.restoreOwnedAppearance().toCompletableFuture().join();
             if (restored.outcome() != AppearanceRestoreResult.Outcome.RESTORED
-                && restored.outcome() != AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
+                    && restored.outcome() != AppearanceRestoreResult.Outcome.NO_OWNED_OVERRIDE) {
                 return new SelectionResult(SelectionOutcome.RESTORE_FAILED, restored.diagnosticId());
             }
             delete.delete(themeId);
@@ -155,10 +146,7 @@ public final class ThemeSelectionService {
      * @param outcome what happened, including the failure modes that changed nothing
      * @param diagnosticId the appearance host's diagnostic reference when it supplied one
      */
-    public record SelectionResult(
-        SelectionOutcome outcome,
-        Optional<String> diagnosticId
-    ) {
+    public record SelectionResult(SelectionOutcome outcome, Optional<String> diagnosticId) {
         public SelectionResult {
             outcome = Objects.requireNonNull(outcome, "outcome");
             diagnosticId = Objects.requireNonNull(diagnosticId, "diagnosticId");
@@ -205,7 +193,6 @@ public final class ThemeSelectionService {
          * @param themeId the theme to record as selected
          */
         void saveSelectedThemeId(String themeId);
-
 
         /** Removes the persisted selection, returning to the native-appearance state. */
         void clearSelectedThemeId();

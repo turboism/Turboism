@@ -24,5 +24,5 @@ public final class WorkspaceHostProviderFactory {
         return new VerifiedWorkspaceHostProvider(resolver);
     }
 
-    private WorkspaceHostProviderFactory() { }
+    private WorkspaceHostProviderFactory() {}
 }

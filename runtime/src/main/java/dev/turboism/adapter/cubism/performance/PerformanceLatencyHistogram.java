@@ -23,8 +23,8 @@ final class PerformanceLatencyHistogram {
             counts[index] = buckets.get(index);
             samples += counts[index];
         }
-        return new PerformanceProbeRecorder.LatencySnapshot(samples,
-            bound(counts, samples, 50), bound(counts, samples, 95), bound(counts, samples, 99));
+        return new PerformanceProbeRecorder.LatencySnapshot(
+                samples, bound(counts, samples, 50), bound(counts, samples, 95), bound(counts, samples, 99));
     }
 
     private static long bound(final long[] counts, final long samples, final int percentile) {

@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
-import dev.turboism.sdk.cubism.model.Parameter;
-import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.model.Parameter;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -14,16 +14,14 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Static bridge called by the verified native parameter method instrumentation. */
 public final class NativeParameterLifecycleBridge {
 
-    private static final AtomicReference<NativeParameterLifecycleBridge> INSTALLED =
-        new AtomicReference<>();
-    private static final ThreadLocal<ArrayDeque<NativeFrame>> NATIVE_FRAMES =
-        ThreadLocal.withInitial(ArrayDeque::new);
+    private static final AtomicReference<NativeParameterLifecycleBridge> INSTALLED = new AtomicReference<>();
+    private static final ThreadLocal<ArrayDeque<NativeFrame>> NATIVE_FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
 
     private final ParameterLifecycleCoordinator coordinator;
     private final CubismModelAccess modelAccess;
     private final AtomicLong sequence = new AtomicLong();
     private final ConcurrentMap<Long, ParameterLifecycleCoordinator.NativeInvocation> invocations =
-        new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
 
     public NativeParameterLifecycleBridge(final ParameterLifecycleCoordinator coordinator) {
         this(coordinator, () -> {
@@ -32,9 +30,7 @@ public final class NativeParameterLifecycleBridge {
     }
 
     public NativeParameterLifecycleBridge(
-        final ParameterLifecycleCoordinator coordinator,
-        final CubismModelAccess modelAccess
-    ) {
+            final ParameterLifecycleCoordinator coordinator, final CubismModelAccess modelAccess) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
         this.modelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
     }
@@ -67,12 +63,12 @@ public final class NativeParameterLifecycleBridge {
         float effectiveValue = requestedValue;
         if (bridge != null) {
             try {
-                final Parameter parameter = bridge.modelAccess.active().parameters().find(
-                    new ParameterId(parameterId)
-                );
+                final Parameter parameter =
+                        bridge.modelAccess.active().parameters().find(new ParameterId(parameterId));
                 invocation = bridge.coordinator.beginNative(parameter, requestedValue);
                 effectiveValue = invocation.effectiveValue();
             } catch (Throwable ignored) {
+                FatalErrors.rethrowIfFatal(ignored);
                 // Native ingress must fail open when model identity or lifecycle state is unavailable.
             }
         }
@@ -102,6 +98,7 @@ public final class NativeParameterLifecycleBridge {
         try {
             frame.bridge().coordinator.completeNative(frame.invocation(), succeeded);
         } catch (Throwable ignored) {
+            FatalErrors.rethrowIfFatal(ignored);
             // Native completion must never destabilize Cubism.
         }
     }
@@ -195,8 +192,5 @@ public final class NativeParameterLifecycleBridge {
     }
 
     private record NativeFrame(
-        NativeParameterLifecycleBridge bridge,
-        ParameterLifecycleCoordinator.NativeInvocation invocation
-    ) {
-    }
+            NativeParameterLifecycleBridge bridge, ParameterLifecycleCoordinator.NativeInvocation invocation) {}
 }

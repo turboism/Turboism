@@ -12,13 +12,12 @@ import java.util.Objects;
  * of plugin load order.</p>
  */
 public record CollapsibleSectionContribution(
-    EmbeddedPanelId targetPanelId,
-    String sectionId,
-    String title,
-    int order,
-    boolean expandedByDefault,
-    PanelView content
-) {
+        EmbeddedPanelId targetPanelId,
+        String sectionId,
+        String title,
+        int order,
+        boolean expandedByDefault,
+        PanelView content) {
 
     public CollapsibleSectionContribution {
         Objects.requireNonNull(targetPanelId, "targetPanelId");

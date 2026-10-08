@@ -1,12 +1,15 @@
 package dev.turboism.sdk.cubism.edit;
 
 import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.Incubating;
+
 /**
  * Color-blend modes understood by the editor, matching the official enumeration.
  *
  * <p>{@link #ADD_5_2} and {@link #MULTIPLY_5_2} are the pre-5.3 blend semantics retained for
  * compatibility; the editor converts them on load depending on model version.
  */
+@Incubating
 @CubismEditor(from = "5.2.03", to = "5.3.99")
 public enum EditColorBlend {
     NORMAL,

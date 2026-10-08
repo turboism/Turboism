@@ -14,10 +14,8 @@ import java.util.Objects;
  * baseline rather than native object-selection pushes; see {@code sdk/event-coverage.md}
  * for the supported-origins statement.</p>
  */
-public record SelectionChangedEvent(
-    SelectionSummary previousSelection,
-    SelectionSummary currentSelection
-) implements TurboismEvent {
+public record SelectionChangedEvent(SelectionSummary previousSelection, SelectionSummary currentSelection)
+        implements TurboismEvent {
     public SelectionChangedEvent {
         previousSelection = Objects.requireNonNull(previousSelection, "previousSelection");
         currentSelection = Objects.requireNonNull(currentSelection, "currentSelection");

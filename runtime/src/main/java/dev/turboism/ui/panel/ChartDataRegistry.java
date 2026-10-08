@@ -15,7 +15,7 @@ public final class ChartDataRegistry {
 
     private static final ConcurrentHashMap<String, ChartData> DATA = new ConcurrentHashMap<>();
 
-    private ChartDataRegistry() { }
+    private ChartDataRegistry() {}
 
     /**
      * Replaces the values currently published for a chart id. Callable from any thread; the

@@ -3,10 +3,7 @@ package dev.turboism.adapter.cubism.textureatlas;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
-
-import javax.swing.BoxLayout;
-import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
+import dev.turboism.ui.host.EdtDispatch;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
@@ -14,6 +11,8 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
 
 /**
  * Framework capability: attaches plugin-owned UI panels to the native texture-atlas
@@ -48,10 +47,15 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         final WeakReference<Object> previous = currentView;
         final Object previousView = previous == null ? null : previous.get();
         if (previousView != null && previousView != view) {
-            onEdt(() -> detachPanels(previousView));
+            onEdtEventually(() -> detachPanels(previousView));
         }
         currentView = new WeakReference<>(view);
         onEdt(() -> attachPanels(view));
+    }
+
+    @Override
+    public synchronized boolean isAvailable() {
+        return !closed;
     }
 
     @Override
@@ -95,9 +99,8 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
 
     private static JPanel pluginPanels(final Container container) {
         for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel && Boolean.TRUE.equals(
-                panel.getClientProperty(RuntimeTextureAtlasEditorUi.class)
-            )) {
+            if (component instanceof JPanel panel
+                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))) {
                 return panel;
             }
         }
@@ -119,9 +122,9 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
             }
         }
         for (Component component : container.getComponents()) {
-            if (component instanceof JPanel panel && Boolean.TRUE.equals(
-                panel.getClientProperty(RuntimeTextureAtlasEditorUi.class)
-            ) && panel.getComponentCount() == 0) {
+            if (component instanceof JPanel panel
+                    && Boolean.TRUE.equals(panel.getClientProperty(RuntimeTextureAtlasEditorUi.class))
+                    && panel.getComponentCount() == 0) {
                 container.remove(panel);
                 changed = true;
             }
@@ -142,7 +145,7 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         synchronized (this) {
             if (!panels.remove(panel)) return;
         }
-        onEdt(() -> {
+        onEdtEventually(() -> {
             final javax.swing.JLabel label = panel.label();
             final Container parent = label.getParent();
             if (parent != null) {
@@ -194,9 +197,9 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
     public synchronized RuntimeTextureAtlasEditorSession.GenerationBinding binding() {
         if (closed || boundResolver == null) return null;
         final Object view = currentView == null ? null : currentView.get();
-        return view == null ? null : new RuntimeTextureAtlasEditorSession.GenerationBinding(
-            boundGeneration, boundResolver, view
-        );
+        return view == null
+                ? null
+                : new RuntimeTextureAtlasEditorSession.GenerationBinding(boundGeneration, boundResolver, view);
     }
 
     /** Current host editor view, for callers that only need the native component. */
@@ -216,7 +219,7 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
         boundResolver = null;
         currentView = null;
         if (current != null) {
-            onEdt(() -> detachPanels(current));
+            onEdtEventually(() -> detachPanels(current));
         }
     }
 
@@ -233,21 +236,18 @@ public final class RuntimeTextureAtlasEditorUi implements TextureAtlasEditorUi, 
     }
 
     private static void onEdt(final Runnable task) {
-        if (SwingUtilities.isEventDispatchThread()) {
+        EdtDispatch.call("texture-atlas editor UI update", () -> {
             task.run();
-        } else {
-            try {
-                SwingUtilities.invokeAndWait(task);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("Interrupted while updating the texture-atlas editor UI.", exception);
-            } catch (java.lang.reflect.InvocationTargetException exception) {
-                final Throwable cause = exception.getCause();
-                if (cause instanceof RuntimeException runtime) throw runtime;
-                if (cause instanceof Error error) throw error;
-                throw new IllegalStateException("Texture-atlas editor UI update failed.", cause);
-            }
-        }
+            return null;
+        });
     }
 
+    /**
+     * Idempotent detach/removal work: on acceptance timeout the task stays queued and still runs
+     * exactly once when the EDT drains, so a detached or closed panel is never orphaned on a
+     * stale editor view.
+     */
+    private static void onEdtEventually(final Runnable task) {
+        EdtDispatch.runEventually("texture-atlas editor UI removal", task);
+    }
 }

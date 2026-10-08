@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.command;
 
 import dev.turboism.sdk.cubism.model.Color;
-
 import java.util.Objects;
 
 /** Configures the Editor grid using the observed spacing and color fields. */
@@ -26,10 +25,14 @@ public record EditorGridSettingsRequest(int spacingPixels, Color color) implemen
     }
 
     /** @return the parameterized command this request drives: the grid setting dialog */
-    public EditorParameterizedCommand command() { return EditorParameterizedCommand.GRID_SETTING; }
+    public EditorParameterizedCommand command() {
+        return EditorParameterizedCommand.GRID_SETTING;
+    }
 
     /** @return the host command identifier of {@link #command()}, for logging and dispatch */
-    public String commandId() { return command().id(); }
+    public String commandId() {
+        return command().id();
+    }
 
     private static void requireUnit(float value, String name) {
         if (value < 0.0f || value > 1.0f) throw new IllegalArgumentException(name + " must be between 0 and 1");

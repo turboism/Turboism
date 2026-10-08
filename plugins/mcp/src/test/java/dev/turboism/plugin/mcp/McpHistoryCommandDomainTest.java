@@ -1,36 +1,35 @@
 package dev.turboism.plugin.mcp;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.command.EditorCommand;
 import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.history.CubismHistory;
-import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryParameterCoordinate;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
-import dev.turboism.sdk.cubism.history.HistoryTarget;
-import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
-import org.junit.jupiter.api.Test;
-
-import java.math.BigDecimal;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
+import dev.turboism.sdk.json.Json;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 final class McpHistoryCommandDomainTest {
 
@@ -40,22 +39,21 @@ final class McpHistoryCommandDomainTest {
         final FakeCommands commands = new FakeCommands(Set.of(EditorCommand.SAVE, EditorCommand.UNDO));
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, commands);
 
-        final McpHistoryCommandDomain.ResourceReadResult historyResult = domain.read(
-            McpHistoryCommandDomain.HISTORY_RESOURCE
-        );
+        final McpHistoryCommandDomain.ResourceReadResult historyResult =
+                domain.read(McpHistoryCommandDomain.HISTORY_RESOURCE);
         assertEquals("AVAILABLE", historyResult.content().get("availability"));
         assertEquals(7L, historyResult.content().get("generation"));
         assertEquals(11L, historyResult.content().get("revision"));
         assertEquals(3, ((List<?>) historyResult.content().get("entries")).size());
-        assertThrows(UnsupportedOperationException.class, () -> historyResult.content().put("x", "y"));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> historyResult.content().put("x", "y"));
 
-        final McpHistoryCommandDomain.ResourceReadResult commandResult = domain.read(
-            McpHistoryCommandDomain.EDITOR_COMMANDS_RESOURCE
-        );
+        final McpHistoryCommandDomain.ResourceReadResult commandResult =
+                domain.read(McpHistoryCommandDomain.EDITOR_COMMANDS_RESOURCE);
         assertEquals(
-            List.of(EditorCommand.SAVE.id(), EditorCommand.UNDO.id()),
-            commandResult.content().get("availableDirectCommands")
-        );
+                List.of(EditorCommand.SAVE.id(), EditorCommand.UNDO.id()),
+                commandResult.content().get("availableDirectCommands"));
         final List<?> contracts = (List<?>) commandResult.content().get("typedContracts");
         assertEquals(5, contracts.size());
         assertFalse(Json.stringify(commandResult.content()).contains("EditorFileCommandRequest"));
@@ -64,15 +62,10 @@ final class McpHistoryCommandDomainTest {
 
     @Test
     void historyReadToolReturnsTheCurrentImmutableSnapshot() {
-        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(
-            new FakeHistory(snapshot(3, 4, 2, 5)),
-            EditorCommandService.unavailable()
-        );
+        final McpHistoryCommandDomain domain =
+                new McpHistoryCommandDomain(new FakeHistory(snapshot(3, 4, 2, 5)), EditorCommandService.unavailable());
 
-        final McpHistoryCommandDomain.ToolCallResult read = domain.call(
-            McpHistoryCommandDomain.HISTORY_READ,
-            Map.of()
-        );
+        final McpHistoryCommandDomain.ToolCallResult read = domain.call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
 
         assertFalse(read.isError());
         assertEquals(Boolean.TRUE, read.structuredContent().get("ok"));
@@ -92,54 +85,38 @@ final class McpHistoryCommandDomainTest {
     void historyReadSerializesEverySemanticDtoRecursively() {
         final HistoryEntryDetail child = HistoryEntryDetail.labelOnly("Child");
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            "Set angle",
-            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.PARTIAL,
-            HistoryOrigin.turboism("fixture-plugin", "operation-1"),
-            List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face shadow"))),
-            List.of(new HistoryChange(
-                HistoryChange.Operation.SET,
-                Optional.of(0),
-                Optional.of("multiplyColor"),
-                Optional.of("#ffffff"),
-                Optional.of("#66ccff"),
-                new HistoryEditContext(
-                    HistoryEditContext.Kind.KEYFORM,
-                    Optional.of("form-1"),
-                    List.of(new HistoryParameterCoordinate(
-                        new HistoryTarget(
-                            "PARAMETER",
-                            Optional.of("ParamAngleX"),
-                            Optional.of("Angle X")
-                        ),
-                        "30"
-                    ))
-                )
-            )),
-            Optional.of(new HistoryGroup(Optional.of("group-1"), 2, List.of(child), true)),
-            Optional.of("history.detail.fixture-partial")
-        );
+                "Set angle",
+                dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism("fixture-plugin", "operation-1"),
+                List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face shadow"))),
+                List.of(new HistoryChange(
+                        HistoryChange.Operation.SET,
+                        Optional.of(0),
+                        Optional.of("multiplyColor"),
+                        Optional.of("#ffffff"),
+                        Optional.of("#66ccff"),
+                        new HistoryEditContext(
+                                HistoryEditContext.Kind.KEYFORM,
+                                Optional.of("form-1"),
+                                List.of(new HistoryParameterCoordinate(
+                                        new HistoryTarget(
+                                                "PARAMETER", Optional.of("ParamAngleX"), Optional.of("Angle X")),
+                                        "30"))))),
+                Optional.of(new HistoryGroup(Optional.of("group-1"), 2, List.of(child), true)),
+                Optional.of("history.detail.fixture-partial"));
         final HistoryEntry entry = new HistoryEntry(
-            0,
-            "Set angle",
-            true,
-            Optional.empty(),
-            Optional.of(new HistoryEntryId("entry-semantic")),
-            Optional.of("transaction-semantic"),
-            detail
-        );
-        final HistorySnapshot snapshot = new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            3,
-            4,
-            1,
-            List.of(entry),
-            true,
-            false
-        );
+                0,
+                "Set angle",
+                true,
+                Optional.empty(),
+                Optional.of(new HistoryEntryId("entry-semantic")),
+                Optional.of("transaction-semantic"),
+                detail);
+        final HistorySnapshot snapshot =
+                new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 3, 4, 1, List.of(entry), true, false);
         final McpHistoryCommandDomain.ToolCallResult read = new McpHistoryCommandDomain(
-            new FakeHistory(snapshot),
-            EditorCommandService.unavailable()
-        ).call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
+                        new FakeHistory(snapshot), EditorCommandService.unavailable())
+                .call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
 
         final Map<String, Object> projected = object(read.structuredContent().get("snapshot"));
         final Map<String, Object> projectedEntry = object(((List<?>) projected.get("entries")).get(0));
@@ -147,8 +124,11 @@ final class McpHistoryCommandDomainTest {
         assertEquals("transaction-semantic", projectedEntry.get("transactionId"));
         assertEquals("Set angle", projectedDetail.get("summary"));
         assertEquals("TURBOISM", object(projectedDetail.get("origin")).get("kind"));
-        assertEquals("ArtMesh1", object(((List<?>) projectedDetail.get("targets")).get(0)).get("id"));
-        assertEquals("SET", object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation"));
+        assertEquals(
+                "ArtMesh1",
+                object(((List<?>) projectedDetail.get("targets")).get(0)).get("id"));
+        assertEquals(
+                "SET", object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation"));
         final Map<String, Object> projectedChange = object(((List<?>) projectedDetail.get("changes")).get(0));
         final Map<String, Object> context = object(projectedChange.get("context"));
         assertEquals("KEYFORM", context.get("kind"));
@@ -165,43 +145,33 @@ final class McpHistoryCommandDomainTest {
     @Test
     void historyReadToolSerializesMoveChangeAcceptedByOutputSchema() {
         final HistoryChange move = new HistoryChange(
-            HistoryChange.Operation.MOVE,
-            Optional.of(0),
-            Optional.of("vertexPositions"),
-            Optional.of("0,0"),
-            Optional.of("1,2"),
-            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
-        );
+                HistoryChange.Operation.MOVE,
+                Optional.of(0),
+                Optional.of("vertexPositions"),
+                Optional.of("0,0"),
+                Optional.of("1,2"),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()));
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            "Move face",
-            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
-            HistoryOrigin.turboism("fixture-plugin", "mesh.move"),
-            List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face"))),
-            List.of(move),
-            Optional.empty(),
-            Optional.empty()
-        );
+                "Move face",
+                dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.turboism("fixture-plugin", "mesh.move"),
+                List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face"))),
+                List.of(move),
+                Optional.empty(),
+                Optional.empty());
         final HistoryEntry entry = new HistoryEntry(
-            0,
-            "Move face",
-            true,
-            Optional.empty(),
-            Optional.of(new HistoryEntryId("move-entry")),
-            Optional.of("move-transaction"),
-            detail
-        );
-        final McpToolCatalog tools = new McpHistoryCommandDomain(
-            new FakeHistory(new HistorySnapshot(
-                HistorySnapshot.Availability.AVAILABLE,
-                3,
-                4,
-                1,
-                List.of(entry),
+                0,
+                "Move face",
                 true,
-                false
-            )),
-            EditorCommandService.unavailable()
-        ).tools();
+                Optional.empty(),
+                Optional.of(new HistoryEntryId("move-entry")),
+                Optional.of("move-transaction"),
+                detail);
+        final McpToolCatalog tools = new McpHistoryCommandDomain(
+                        new FakeHistory(new HistorySnapshot(
+                                HistorySnapshot.Availability.AVAILABLE, 3, 4, 1, List.of(entry), true, false)),
+                        EditorCommandService.unavailable())
+                .tools();
 
         final Map<String, Object> envelope = tools.call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
 
@@ -212,91 +182,63 @@ final class McpHistoryCommandDomainTest {
         final Map<String, Object> projectedEntry = object(((List<?>) snapshot.get("entries")).get(0));
         final Map<String, Object> projectedDetail = object(projectedEntry.get("detail"));
         assertEquals(
-            "MOVE",
-            object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation")
-        );
+                "MOVE",
+                object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation"));
     }
 
     @Test
     void historyReadSerializesTypedRelationEndpointsWithoutStringEncoding() {
-        final HistoryTarget child = new HistoryTarget(
-            "ART_MESH",
-            Optional.of("ArtMesh1"),
-            Optional.of("Face")
-        );
-        final HistoryTarget beforeParent = new HistoryTarget(
-            "PART",
-            Optional.of("PartA"),
-            Optional.of("Part A")
-        );
-        final HistoryTarget afterParent = new HistoryTarget(
-            "PART",
-            Optional.of("PartB"),
-            Optional.of("Part B")
-        );
+        final HistoryTarget child = new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face"));
+        final HistoryTarget beforeParent = new HistoryTarget("PART", Optional.of("PartA"), Optional.of("Part A"));
+        final HistoryTarget afterParent = new HistoryTarget("PART", Optional.of("PartB"), Optional.of("Part B"));
         final HistoryRelationChange relation = new HistoryRelationChange(
-            HistoryRelationChange.Kind.PART_MEMBERSHIP,
-            new HistoryRelationChange.Endpoint(
-                HistoryRelationChange.State.TARGET,
-                Optional.of(beforeParent)
-            ),
-            new HistoryRelationChange.Endpoint(
-                HistoryRelationChange.State.TARGET,
-                Optional.of(afterParent)
-            )
-        );
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(beforeParent)),
+                new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.of(afterParent)));
         final HistoryChange change = new HistoryChange(
-            HistoryChange.Operation.SET,
-            Optional.of(0),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
-            Optional.of(relation)
-        );
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+                Optional.of(relation));
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            "Move face to Part B",
-            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
-            HistoryOrigin.turboism("fixture-plugin", "relation.move"),
-            List.of(child),
-            List.of(change),
-            Optional.empty(),
-            Optional.empty()
-        );
+                "Move face to Part B",
+                dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.turboism("fixture-plugin", "relation.move"),
+                List.of(child),
+                List.of(change),
+                Optional.empty(),
+                Optional.empty());
         final HistoryEntry entry = new HistoryEntry(
-            0,
-            "Move face",
-            true,
-            Optional.empty(),
-            Optional.of(new HistoryEntryId("relation-entry")),
-            Optional.of("relation-transaction"),
-            detail
-        );
-        final HistorySnapshot snapshot = new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            3,
-            4,
-            1,
-            List.of(entry),
-            true,
-            false
-        );
+                0,
+                "Move face",
+                true,
+                Optional.empty(),
+                Optional.of(new HistoryEntryId("relation-entry")),
+                Optional.of("relation-transaction"),
+                detail);
+        final HistorySnapshot snapshot =
+                new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 3, 4, 1, List.of(entry), true, false);
 
         final McpHistoryCommandDomain.ToolCallResult read = new McpHistoryCommandDomain(
-            new FakeHistory(snapshot),
-            EditorCommandService.unavailable()
-        ).call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
+                        new FakeHistory(snapshot), EditorCommandService.unavailable())
+                .call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
         final Map<String, Object> projected = object(read.structuredContent().get("snapshot"));
         final Map<String, Object> projectedEntry = object(((List<?>) projected.get("entries")).get(0));
         final Map<String, Object> projectedDetail = object(projectedEntry.get("detail"));
-        final Map<String, Object> projectedChange =
-            object(((List<?>) projectedDetail.get("changes")).get(0));
+        final Map<String, Object> projectedChange = object(((List<?>) projectedDetail.get("changes")).get(0));
         final Map<String, Object> projectedRelation = object(projectedChange.get("relation"));
 
         assertEquals("PART_MEMBERSHIP", projectedRelation.get("kind"));
         assertEquals("TARGET", object(projectedRelation.get("before")).get("state"));
-        assertEquals("PartA", object(object(projectedRelation.get("before")).get("target")).get("id"));
-        assertEquals("PartB", object(object(projectedRelation.get("after")).get("target")).get("id"));
+        assertEquals(
+                "PartA",
+                object(object(projectedRelation.get("before")).get("target")).get("id"));
+        assertEquals(
+                "PartB",
+                object(object(projectedRelation.get("after")).get("target")).get("id"));
         assertEquals(null, projectedChange.get("property"));
         assertEquals(null, projectedChange.get("before"));
         assertEquals(null, projectedChange.get("after"));
@@ -309,26 +251,23 @@ final class McpHistoryCommandDomainTest {
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, EditorCommandService.unavailable());
 
         final McpHistoryCommandDomain.ToolCallResult stale = domain.call(
-            McpHistoryCommandDomain.HISTORY_UNDO,
-            Map.of("expectedGeneration", 2L, "expectedRevision", 4L, "steps", 1)
-        );
+                McpHistoryCommandDomain.HISTORY_UNDO,
+                Map.of("expectedGeneration", 2L, "expectedRevision", 4L, "steps", 1));
         assertFalse(stale.isError());
         assertEquals(Boolean.FALSE, stale.structuredContent().get("ok"));
         assertEquals("REJECTED_STALE", stale.structuredContent().get("outcome"));
         assertEquals(0, history.moves.size());
 
         final McpHistoryCommandDomain.ToolCallResult undo = domain.call(
-            McpHistoryCommandDomain.HISTORY_UNDO,
-            Map.of("expectedGeneration", 3L, "expectedRevision", 4L, "steps", 2)
-        );
+                McpHistoryCommandDomain.HISTORY_UNDO,
+                Map.of("expectedGeneration", 3L, "expectedRevision", 4L, "steps", 2));
         assertFalse(undo.isError());
         assertEquals(new Move(3, 4, 0), history.moves.get(0));
 
         history.current = snapshot(3, 5, 1, 5);
         final McpHistoryCommandDomain.ToolCallResult redo = domain.call(
-            McpHistoryCommandDomain.HISTORY_REDO,
-            Map.of("expectedGeneration", 3L, "expectedRevision", 5L, "steps", 9)
-        );
+                McpHistoryCommandDomain.HISTORY_REDO,
+                Map.of("expectedGeneration", 3L, "expectedRevision", 5L, "steps", 9));
         assertFalse(redo.isError());
         assertEquals(new Move(3, 5, 5), history.moves.get(1));
     }
@@ -338,10 +277,8 @@ final class McpHistoryCommandDomainTest {
         final FakeHistory history = new FakeHistory(snapshot(3, 4, 2, 5));
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, EditorCommandService.unavailable());
 
-        final McpHistoryCommandDomain.ToolCallResult result = domain.call(
-            McpHistoryCommandDomain.HISTORY_UNDO,
-            Map.of("expectedGeneration", 3L, "steps", 1)
-        );
+        final McpHistoryCommandDomain.ToolCallResult result =
+                domain.call(McpHistoryCommandDomain.HISTORY_UNDO, Map.of("expectedGeneration", 3L, "steps", 1));
 
         assertTrue(result.isError());
         assertEquals("INVALID_ARGUMENT", errorCode(result));
@@ -354,122 +291,101 @@ final class McpHistoryCommandDomainTest {
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(CubismHistory.unavailable(), commands);
 
         final McpHistoryCommandDomain.ToolCallResult unavailable = domain.call(
-            McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
-            Map.of("kind", "direct", "commandId", EditorCommand.UNDO.id())
-        );
+                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
+                Map.of("kind", "direct", "commandId", EditorCommand.UNDO.id()));
         assertFalse(unavailable.isError());
         assertEquals(Boolean.FALSE, unavailable.structuredContent().get("ok"));
         assertEquals("UNAVAILABLE", unavailable.structuredContent().get("status"));
         assertEquals(0, commands.directExecutions.size());
 
         final McpHistoryCommandDomain.ToolCallResult direct = domain.call(
-            McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
-            Map.of("kind", "direct", "commandId", EditorCommand.SAVE.id())
-        );
+                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
+                Map.of("kind", "direct", "commandId", EditorCommand.SAVE.id()));
         assertFalse(direct.isError());
         assertEquals("EXECUTED", direct.structuredContent().get("status"));
         assertEquals(List.of(EditorCommand.SAVE), commands.directExecutions);
 
         final McpHistoryCommandDomain.ToolCallResult grid = domain.call(
-            McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
-            Map.of(
-                "kind", "grid_settings",
-                "spacingPixels", 16,
-                "color", Map.of("red", 0.2, "green", 0.3, "blue", 0.4, "alpha", 1.0)
-            )
-        );
+                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
+                Map.of(
+                        "kind",
+                        "grid_settings",
+                        "spacingPixels",
+                        16,
+                        "color",
+                        Map.of("red", 0.2, "green", 0.3, "blue", 0.4, "alpha", 1.0)));
         assertFalse(grid.isError());
         assertEquals("EXECUTED", grid.structuredContent().get("status"));
         assertEquals("grid.setting", commands.lastParameterized.commandId());
 
         final McpHistoryCommandDomain.ToolCallResult rawPath = domain.call(
-            McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
-            Map.of("kind", "direct", "commandId", EditorCommand.SAVE.id(), "path", "/tmp/forbidden")
-        );
+                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE,
+                Map.of("kind", "direct", "commandId", EditorCommand.SAVE.id(), "path", "/tmp/forbidden"));
         assertTrue(rawPath.isError());
         assertEquals("INVALID_ARGUMENT", errorCode(rawPath));
     }
 
     @Test
     void exposesOnlyExactMcpDefinitions() {
-        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(
-            CubismHistory.unavailable(),
-            EditorCommandService.unavailable()
-        );
+        final McpHistoryCommandDomain domain =
+                new McpHistoryCommandDomain(CubismHistory.unavailable(), EditorCommandService.unavailable());
 
         assertEquals(
-            List.of(McpHistoryCommandDomain.HISTORY_RESOURCE, McpHistoryCommandDomain.EDITOR_COMMANDS_RESOURCE),
-            domain.resourceDefinitions().stream().map(McpHistoryCommandDomain.ResourceDefinition::uri).toList()
-        );
+                List.of(McpHistoryCommandDomain.HISTORY_RESOURCE, McpHistoryCommandDomain.EDITOR_COMMANDS_RESOURCE),
+                domain.resourceDefinitions().stream()
+                        .map(McpHistoryCommandDomain.ResourceDefinition::uri)
+                        .toList());
         assertEquals(
-            List.of(
-                McpHistoryCommandDomain.HISTORY_READ,
-                McpHistoryCommandDomain.HISTORY_UNDO,
-                McpHistoryCommandDomain.HISTORY_REDO,
-                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE
-            ),
-            domain.toolDefinitions().stream().map(McpHistoryCommandDomain.ToolDefinition::name).toList()
-        );
-        assertFalse(domain.tools().definitions().stream().anyMatch(definition ->
-            "turboism.history.move".equals(definition.get("name"))
-        ));
+                List.of(
+                        McpHistoryCommandDomain.HISTORY_READ,
+                        McpHistoryCommandDomain.HISTORY_UNDO,
+                        McpHistoryCommandDomain.HISTORY_REDO,
+                        McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE),
+                domain.toolDefinitions().stream()
+                        .map(McpHistoryCommandDomain.ToolDefinition::name)
+                        .toList());
+        assertFalse(domain.tools().definitions().stream()
+                .anyMatch(definition -> "turboism.history.move".equals(definition.get("name"))));
     }
 
     @Test
     void undoAndRedoOptionalEntryGuardsRejectMismatchesBeforeHostMutation() {
         final List<HistoryEntry> entries = List.of(
-            new HistoryEntry(
-                0,
-                "Transaction A",
-                true,
-                Optional.empty(),
-                Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-a")),
-                Optional.of("transaction-a")
-            ),
-            new HistoryEntry(
-                1,
-                "Transaction B",
-                true,
-                Optional.empty(),
-                Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-b")),
-                Optional.of("transaction-b")
-            )
-        );
-        final FakeHistory history = new FakeHistory(new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            7,
-            9,
-            1,
-            entries,
-            true,
-            true
-        ));
-        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(
-            history,
-            EditorCommandService.unavailable()
-        );
+                new HistoryEntry(
+                        0,
+                        "Transaction A",
+                        true,
+                        Optional.empty(),
+                        Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-a")),
+                        Optional.of("transaction-a")),
+                new HistoryEntry(
+                        1,
+                        "Transaction B",
+                        true,
+                        Optional.empty(),
+                        Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-b")),
+                        Optional.of("transaction-b")));
+        final FakeHistory history = new FakeHistory(
+                new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 7, 9, 1, entries, true, true));
+        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, EditorCommandService.unavailable());
 
         final McpHistoryCommandDomain.ToolCallResult undoMismatch = domain.call(
-            McpHistoryCommandDomain.HISTORY_UNDO,
-            Map.of(
-                "expectedGeneration", 7,
-                "expectedRevision", 9,
-                "steps", 1,
-                "expectedTopEntryId", "history-entry-b"
-            )
-        );
+                McpHistoryCommandDomain.HISTORY_UNDO,
+                Map.of(
+                        "expectedGeneration", 7,
+                        "expectedRevision", 9,
+                        "steps", 1,
+                        "expectedTopEntryId", "history-entry-b"));
         assertEquals("REJECTED_STALE", undoMismatch.structuredContent().get("outcome"));
         assertEquals(0, history.moves.size());
 
         final McpHistoryCommandDomain.ToolCallResult redoMismatch = domain.call(
-            McpHistoryCommandDomain.HISTORY_REDO,
-            Map.of(
-                "expectedGeneration", 7,
-                "expectedRevision", 9,
-                "steps", 1,
-                "expectedTransactionId", "transaction-a"
-            )
-        );
+                McpHistoryCommandDomain.HISTORY_REDO,
+                Map.of(
+                        "expectedGeneration", 7,
+                        "expectedRevision", 9,
+                        "steps", 1,
+                        "expectedTransactionId", "transaction-a"));
         assertEquals("REJECTED_STALE", redoMismatch.structuredContent().get("outcome"));
         assertEquals(0, history.moves.size());
     }
@@ -481,33 +397,28 @@ final class McpHistoryCommandDomainTest {
 
     private static String errorCode(final McpHistoryCommandDomain.ToolCallResult result) {
         @SuppressWarnings("unchecked")
-        final Map<String, Object> error = (Map<String, Object>) result.structuredContent().get("error");
+        final Map<String, Object> error =
+                (Map<String, Object>) result.structuredContent().get("error");
         return (String) error.get("code");
     }
 
     private static HistorySnapshot snapshot(
-        final long generation,
-        final long revision,
-        final int position,
-        final int size
-    ) {
+            final long generation, final long revision, final int position, final int size) {
         final List<HistoryEntry> entries = new ArrayList<>();
         for (int index = 0; index < size; index++) {
             entries.add(new HistoryEntry(index, "Action " + index, true));
         }
         return new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            generation,
-            revision,
-            position,
-            entries,
-            position > 0,
-            position < size
-        );
+                HistorySnapshot.Availability.AVAILABLE,
+                generation,
+                revision,
+                position,
+                entries,
+                position > 0,
+                position < size);
     }
 
-    private record Move(long generation, long revision, int position) {
-    }
+    private record Move(long generation, long revision, int position) {}
 
     private static final class FakeHistory implements CubismHistory {
         private HistorySnapshot current;
@@ -517,27 +428,27 @@ final class McpHistoryCommandDomainTest {
             current = initial;
         }
 
-        @Override public HistorySnapshot snapshot() {
+        @Override
+        public HistorySnapshot snapshot() {
             return current;
         }
 
-        @Override public HistoryMoveResult moveTo(
-            final long expectedGeneration,
-            final long expectedRevision,
-            final int position
-        ) {
+        @Override
+        public HistoryMoveResult moveTo(
+                final long expectedGeneration, final long expectedRevision, final int position) {
             moves.add(new Move(expectedGeneration, expectedRevision, position));
             if (expectedGeneration != current.generation() || expectedRevision != current.revision()) {
                 return new HistoryMoveResult(
-                    HistoryMoveResult.Outcome.REJECTED_STALE,
-                    current,
-                    Optional.of("fake.stale")
-                );
+                        HistoryMoveResult.Outcome.REJECTED_STALE, current, Optional.of("fake.stale"));
             }
             current = new HistorySnapshot(
-                current.availability(), current.generation(), current.revision() + 1,
-                position, current.entries(), position > 0, position < current.entries().size()
-            );
+                    current.availability(),
+                    current.generation(),
+                    current.revision() + 1,
+                    position,
+                    current.entries(),
+                    position > 0,
+                    position < current.entries().size());
             return new HistoryMoveResult(HistoryMoveResult.Outcome.MOVED, current, Optional.empty());
         }
     }
@@ -551,20 +462,24 @@ final class McpHistoryCommandDomainTest {
             this.available = available;
         }
 
-        @Override public Set<EditorCommand> available() {
+        @Override
+        public Set<EditorCommand> available() {
             return available;
         }
 
-        @Override public EditorCommandResult execute(final EditorCommand command) {
+        @Override
+        public EditorCommandResult execute(final EditorCommand command) {
             directExecutions.add(command);
             return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, command.id());
         }
 
-        @Override public EditorCommandResult execute(final EditorFileCommandRequest request) {
+        @Override
+        public EditorCommandResult execute(final EditorFileCommandRequest request) {
             return new EditorCommandResult(EditorCommandResult.Status.REJECTED, request.commandId());
         }
 
-        @Override public EditorCommandResult execute(final EditorParameterizedRequest request) {
+        @Override
+        public EditorCommandResult execute(final EditorParameterizedRequest request) {
             lastParameterized = request;
             return new EditorCommandResult(EditorCommandResult.Status.EXECUTED, request.commandId());
         }

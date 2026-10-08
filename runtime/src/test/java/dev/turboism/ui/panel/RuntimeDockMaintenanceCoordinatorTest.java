@@ -1,15 +1,14 @@
 package dev.turboism.ui.panel;
 
-import dev.turboism.sdk.plugin.Registration;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.Registration;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import org.junit.jupiter.api.Test;
 
 class RuntimeDockMaintenanceCoordinatorTest {
 
@@ -29,8 +28,7 @@ class RuntimeDockMaintenanceCoordinatorTest {
 
     @Test
     void unbindDoesNotWaitForAnInFlightHostCleanup() throws Exception {
-        final RuntimeDockMaintenanceCoordinator coordinator =
-            new RuntimeDockMaintenanceCoordinator();
+        final RuntimeDockMaintenanceCoordinator coordinator = new RuntimeDockMaintenanceCoordinator();
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final Registration registration = coordinator.bind(3, () -> {

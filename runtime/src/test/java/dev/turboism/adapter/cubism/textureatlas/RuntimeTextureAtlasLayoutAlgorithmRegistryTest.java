@@ -1,29 +1,18 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeTextureAtlasLayoutAlgorithmRegistryTest {
 
     @Test
     void closeRemovesOnlyTheExactRegistrationGeneration() {
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
-            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
-        final TextureAtlasLayoutAlgorithm first = new TextureAtlasLayoutAlgorithm(
-            "layout",
-            "First",
-            false,
-            null
-        );
-        final TextureAtlasLayoutAlgorithm second = new TextureAtlasLayoutAlgorithm(
-            "layout",
-            "Second",
-            false,
-            null
-        );
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final TextureAtlasLayoutAlgorithm first = new TextureAtlasLayoutAlgorithm("layout", "First", false, null);
+        final TextureAtlasLayoutAlgorithm second = new TextureAtlasLayoutAlgorithm("layout", "Second", false, null);
 
         final var firstRegistration = registry.register(first);
         final var secondRegistration = registry.register(second);
@@ -36,20 +25,16 @@ final class RuntimeTextureAtlasLayoutAlgorithmRegistryTest {
 
     @Test
     void registeringTheReservedNativeIdIsRejected() {
-        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
-            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry = new RuntimeTextureAtlasLayoutAlgorithmRegistry();
 
         org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> registry.register(new TextureAtlasLayoutAlgorithm(
-                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
-                "Native Impersonator",
-                false,
-                null
-            ))
-        );
-        assertTrue(registry.find(
-            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID
-        ).isEmpty());
+                IllegalArgumentException.class,
+                () -> registry.register(new TextureAtlasLayoutAlgorithm(
+                        dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID,
+                        "Native Impersonator",
+                        false,
+                        null)));
+        assertTrue(registry.find(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSelection.NATIVE_ALGORITHM_ID)
+                .isEmpty());
     }
 }

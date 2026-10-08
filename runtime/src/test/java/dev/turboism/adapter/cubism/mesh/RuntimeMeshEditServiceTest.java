@@ -1,20 +1,24 @@
 package dev.turboism.adapter.cubism.mesh;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.cubism.mesh.MeshEdgeKind;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditResult;
 import dev.turboism.sdk.cubism.mesh.MeshPointPosition;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import javax.swing.JPanel;
+import dev.turboism.ui.host.EdtDispatchException;
 import java.util.ArrayList;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 final class RuntimeMeshEditServiceTest {
 
@@ -70,9 +74,7 @@ final class RuntimeMeshEditServiceTest {
         mesh.edges.add(new Edge(0, 1, EdgeType.NORMAL));
         final Fixture fixture = new Fixture(mesh);
 
-        final MeshEditResult result = fixture.service().addEdges(List.of(
-            new MeshEdgeRef(0, 1, MeshEdgeKind.INNER)
-        ));
+        final MeshEditResult result = fixture.service().addEdges(List.of(new MeshEdgeRef(0, 1, MeshEdgeKind.INNER)));
 
         assertFalse(result.accepted());
         assertEquals(1, mesh.edges.size());
@@ -116,16 +118,10 @@ final class RuntimeMeshEditServiceTest {
         });
         NativeMeshMirrorBridge.mirrorForTesting(new MeshMirrorLinkedDeletionTest.Mirror(true));
         final MeshMirrorLinkedDeletionTest.Mesh sourceMesh = new MeshMirrorLinkedDeletionTest.Mesh(
-            new MeshMirrorLinkedDeletionTest.Point(
-                0, new MeshMirrorLinkedDeletionTest.Vector(-1.0f, 0.0f)
-            )
-        );
-        final MeshMirrorLinkedDeletionTest.Pack sourcePack =
-            new MeshMirrorLinkedDeletionTest.Pack(sourceMesh);
+                new MeshMirrorLinkedDeletionTest.Point(0, new MeshMirrorLinkedDeletionTest.Vector(-1.0f, 0.0f)));
+        final MeshMirrorLinkedDeletionTest.Pack sourcePack = new MeshMirrorLinkedDeletionTest.Pack(sourceMesh);
 
-        NativeMeshMirrorBridge.mirrorDeletePoints(
-            List.of(List.of(sourceMesh.point(0))), sourcePack.undo, sourcePack
-        );
+        NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(sourceMesh.point(0))), sourcePack.undo, sourcePack);
 
         assertFalse(nested[0].accepted());
         assertEquals(0, fixture.pack.beginCalls);
@@ -138,10 +134,8 @@ final class RuntimeMeshEditServiceTest {
         mesh.failAddPointCall = 2;
         final Fixture fixture = new Fixture(mesh);
 
-        final MeshEditResult result = fixture.service().addPoints(List.of(
-            new MeshPointPosition(1.0f, 2.0f),
-            new MeshPointPosition(3.0f, 4.0f)
-        ));
+        final MeshEditResult result = fixture.service()
+                .addPoints(List.of(new MeshPointPosition(1.0f, 2.0f), new MeshPointPosition(3.0f, 4.0f)));
 
         assertFalse(result.accepted());
         assertTrue(mesh.points.isEmpty());
@@ -162,6 +156,50 @@ final class RuntimeMeshEditServiceTest {
     }
 
     @Test
+    void interruptedDispatchAbandonsTheQueuedEditBeforeItCanRun() throws Exception {
+        final Fixture fixture = new Fixture(new Mesh());
+        final RuntimeMeshEditService service = fixture.service();
+        final CountDownLatch edtBlocked = new CountDownLatch(1);
+        final CountDownLatch releaseEdt = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await(5L, TimeUnit.SECONDS);
+            } catch (InterruptedException failure) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(5L, TimeUnit.SECONDS));
+        try {
+            final AtomicReference<Throwable> failure = new AtomicReference<>();
+            final Thread caller = new Thread(
+                    () -> {
+                        try {
+                            service.snapshot();
+                        } catch (Throwable thrown) {
+                            failure.set(thrown);
+                        }
+                    },
+                    "mesh-edit-dispatch-test");
+            caller.setDaemon(true);
+            caller.start();
+            caller.interrupt();
+            caller.join(5_000L);
+            releaseEdt.countDown();
+            SwingUtilities.invokeAndWait(() -> {});
+
+            assertFalse(caller.isAlive());
+            assertTrue(failure.get() instanceof EdtDispatchException);
+            assertEquals(
+                    0,
+                    fixture.editMode.editDataListCalls,
+                    "an interrupted dispatch must never run its queued host mutation");
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
     void movePointsEnumeratesTheLivePointListOncePerDispatch() {
         final Mesh mesh = new Mesh();
         mesh.points.add(new Point(0, 0.0f, 0.0f));
@@ -169,11 +207,11 @@ final class RuntimeMeshEditServiceTest {
         mesh.points.add(new Point(2, 2.0f, 2.0f));
         final Fixture fixture = new Fixture(mesh);
 
-        final MeshEditResult result = fixture.service().movePoints(List.of(
-            new MeshPointRef(0, 5.0f, 5.0f),
-            new MeshPointRef(1, 6.0f, 6.0f),
-            new MeshPointRef(2, 7.0f, 7.0f)
-        ));
+        final MeshEditResult result = fixture.service()
+                .movePoints(List.of(
+                        new MeshPointRef(0, 5.0f, 5.0f),
+                        new MeshPointRef(1, 6.0f, 6.0f),
+                        new MeshPointRef(2, 7.0f, 7.0f)));
 
         assertTrue(result.accepted());
         assertEquals(1, mesh.allPointRefCalls);
@@ -185,11 +223,11 @@ final class RuntimeMeshEditServiceTest {
         for (int id = 0; id < 4; id++) mesh.points.add(new Point(id, id, id));
         final Fixture fixture = new Fixture(mesh);
 
-        final MeshEditResult result = fixture.service().addEdges(List.of(
-            new MeshEdgeRef(0, 1, MeshEdgeKind.INNER),
-            new MeshEdgeRef(1, 2, MeshEdgeKind.INNER),
-            new MeshEdgeRef(2, 3, MeshEdgeKind.INNER)
-        ));
+        final MeshEditResult result = fixture.service()
+                .addEdges(List.of(
+                        new MeshEdgeRef(0, 1, MeshEdgeKind.INNER),
+                        new MeshEdgeRef(1, 2, MeshEdgeKind.INNER),
+                        new MeshEdgeRef(2, 3, MeshEdgeKind.INNER)));
 
         assertTrue(result.accepted());
         assertEquals(1, mesh.allPointRefCalls);
@@ -202,10 +240,8 @@ final class RuntimeMeshEditServiceTest {
         mesh.points.add(new Point(0, 0.0f, 0.0f));
         final Fixture fixture = new Fixture(mesh);
 
-        final MeshEditResult result = fixture.service().movePoints(List.of(
-            new MeshPointRef(0, 1.0f, 2.0f),
-            new MeshPointRef(0, 3.0f, 4.0f)
-        ));
+        final MeshEditResult result =
+                fixture.service().movePoints(List.of(new MeshPointRef(0, 1.0f, 2.0f), new MeshPointRef(0, 3.0f, 4.0f)));
 
         assertFalse(result.accepted());
         assertEquals(0.0f, mesh.points.get(0).position.x, 0.0001f);
@@ -215,16 +251,23 @@ final class RuntimeMeshEditServiceTest {
     public static final class RollbackEditMode {
         final UndoManager undoManager = new UndoManager();
         boolean cancelled;
+
         public boolean endEdit(final boolean cancelled, final Object callback) {
             this.cancelled = cancelled;
             return true;
         }
-        public UndoManager getUndoManager() { return undoManager; }
+
+        public UndoManager getUndoManager() {
+            return undoManager;
+        }
     }
 
     public static final class UndoManager {
         int revertCalls;
-        public void revert() { revertCalls++; }
+
+        public void revert() {
+            revertCalls++;
+        }
     }
 
     private static final class Fixture {
@@ -247,33 +290,52 @@ final class RuntimeMeshEditServiceTest {
 
     public static final class Panel {
         public final ToolMode toolMode;
-        Panel(final ActionPack pack) { toolMode = new ToolMode(pack); }
+
+        Panel(final ActionPack pack) {
+            toolMode = new ToolMode(pack);
+        }
     }
 
     public static final class ToolMode {
         private final Controller controller;
-        ToolMode(final ActionPack pack) { controller = new Controller(pack); }
-        public Controller getCtrl$cubism() { return controller; }
+
+        ToolMode(final ActionPack pack) {
+            controller = new Controller(pack);
+        }
+
+        public Controller getCtrl$cubism() {
+            return controller;
+        }
     }
 
     public static final class Controller {
         public final CompletePack completePack;
-        Controller(final ActionPack pack) { completePack = new CompletePack(pack); }
+
+        Controller(final ActionPack pack) {
+            completePack = new CompletePack(pack);
+        }
     }
 
     public static final class CompletePack {
         public final ViewContext currentViewContext;
-        CompletePack(final ActionPack pack) { currentViewContext = new ViewContext(pack); }
+
+        CompletePack(final ActionPack pack) {
+            currentViewContext = new ViewContext(pack);
+        }
     }
 
     public static final class ViewContext {
         public final EditMode currentEditMode;
         private final ActionPack lastActionPack;
+
         ViewContext(final ActionPack pack) {
             currentEditMode = pack.editMode;
             lastActionPack = pack;
         }
-        public ActionPack getLastActionPack() { return lastActionPack; }
+
+        public ActionPack getLastActionPack() {
+            return lastActionPack;
+        }
     }
 
     public static final class ActionPack {
@@ -297,7 +359,9 @@ final class RuntimeMeshEditServiceTest {
             return current;
         }
 
-        public EditMode aP() { return reportedEditMode; }
+        public EditMode aP() {
+            return reportedEditMode;
+        }
 
         public void d(final String label) {
             snapshotCalls++;
@@ -321,23 +385,42 @@ final class RuntimeMeshEditServiceTest {
             }
         }
 
-        void undo() { committed.restoreBefore(); }
-        void redo() { committed.restoreAfter(); }
-        boolean canUndo() { return committed != null; }
+        void undo() {
+            committed.restoreBefore();
+        }
+
+        void redo() {
+            committed.restoreAfter();
+        }
+
+        boolean canUndo() {
+            return committed != null;
+        }
     }
 
     public static final class EditMode {
         private final List<Entry> entries;
+        int editDataListCalls;
+
         EditMode(final Mesh... meshes) {
             entries = new ArrayList<>();
             for (Mesh mesh : meshes) entries.add(new Entry(mesh));
         }
-        public List<Entry> getEditDataList() { return entries; }
-        List<Mesh> meshes() { return entries.stream().map(Entry::b).toList(); }
+
+        public List<Entry> getEditDataList() {
+            editDataListCalls++;
+            return entries;
+        }
+
+        List<Mesh> meshes() {
+            return entries.stream().map(Entry::b).toList();
+        }
     }
 
     public record Entry(Mesh mesh) {
-        public Mesh b() { return mesh; }
+        public Mesh b() {
+            return mesh;
+        }
     }
 
     public static final class Group {
@@ -345,16 +428,31 @@ final class RuntimeMeshEditServiceTest {
         final List<Mesh> targets;
         List<Mesh> before;
         List<Mesh> after;
+
         Group(final String label, final List<Mesh> targets) {
             this.label = label;
             this.targets = targets;
         }
-        void captureBefore() { before = targets.stream().map(Mesh::copy).toList(); }
-        void captureAfter() { after = targets.stream().map(Mesh::copy).toList(); }
-        void restoreBefore() { restore(before); }
-        void restoreAfter() { restore(after); }
+
+        void captureBefore() {
+            before = targets.stream().map(Mesh::copy).toList();
+        }
+
+        void captureAfter() {
+            after = targets.stream().map(Mesh::copy).toList();
+        }
+
+        void restoreBefore() {
+            restore(before);
+        }
+
+        void restoreAfter() {
+            restore(after);
+        }
+
         private void restore(final List<Mesh> snapshots) {
-            for (int index = 0; index < targets.size(); index++) targets.get(index).restore(snapshots.get(index));
+            for (int index = 0; index < targets.size(); index++)
+                targets.get(index).restore(snapshots.get(index));
         }
     }
 
@@ -374,7 +472,10 @@ final class RuntimeMeshEditServiceTest {
             return refs;
         }
 
-        public List<Edge> getEdges() { edgesCalls++; return edges; }
+        public List<Edge> getEdges() {
+            edgesCalls++;
+            return edges;
+        }
 
         public int addPoint(final float x, final float y, final PointType type, final long uid) {
             addPointCalls++;
@@ -386,12 +487,11 @@ final class RuntimeMeshEditServiceTest {
         }
 
         public Integer addEdge(
-            final int first,
-            final int second,
-            final EdgeType type,
-            final boolean replace,
-            final boolean checkCross
-        ) {
+                final int first,
+                final int second,
+                final EdgeType type,
+                final boolean replace,
+                final boolean checkCross) {
             final Edge edge = new Edge(Math.min(first, second), Math.max(first, second), type);
             final int existing = edges.indexOf(edge);
             if (existing >= 0) return existing;
@@ -419,9 +519,20 @@ final class RuntimeMeshEditServiceTest {
     public static final class PointRef {
         private final Mesh mesh;
         private final int id;
-        PointRef(final Mesh mesh, final int id) { this.mesh = mesh; this.id = id; }
-        public int b() { return id; }
-        public Vector getPos() { return mesh.points.get(id).position; }
+
+        PointRef(final Mesh mesh, final int id) {
+            this.mesh = mesh;
+            this.id = id;
+        }
+
+        public int b() {
+            return id;
+        }
+
+        public Vector getPos() {
+            return mesh.points.get(id).position;
+        }
+
         public void moveToOnLocal(final Vector position, final float weight) {
             mesh.points.get(id).position = new Vector(position.x, position.y);
         }
@@ -430,27 +541,55 @@ final class RuntimeMeshEditServiceTest {
     public static final class Point {
         final int id;
         Vector position;
+
         Point(final int id, final float x, final float y) {
             this.id = id;
             position = new Vector(x, y);
         }
-        Point copy() { return new Point(id, position.x, position.y); }
+
+        Point copy() {
+            return new Point(id, position.x, position.y);
+        }
     }
 
     public static final class Vector {
         final float x;
         final float y;
-        public Vector(final float x, final float y) { this.x = x; this.y = y; }
-        public float getX() { return x; }
-        public float getY() { return y; }
+
+        public Vector(final float x, final float y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public float getX() {
+            return x;
+        }
+
+        public float getY() {
+            return y;
+        }
     }
 
-    public enum PointType { NORMAL }
-    public enum EdgeType { LOCKED, NORMAL }
+    public enum PointType {
+        NORMAL
+    }
+
+    public enum EdgeType {
+        LOCKED,
+        NORMAL
+    }
 
     public record Edge(int index1, int index2, EdgeType type) {
-        public int getIndex1() { return index1; }
-        public int getIndex2() { return index2; }
-        public EdgeType getType() { return type; }
+        public int getIndex1() {
+            return index1;
+        }
+
+        public int getIndex2() {
+            return index2;
+        }
+
+        public EdgeType getType() {
+            return type;
+        }
     }
 }

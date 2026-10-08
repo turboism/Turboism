@@ -1,7 +1,6 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
-
 import java.util.Objects;
 import java.util.Optional;
 
@@ -48,10 +47,7 @@ public interface ThemeStatusAdapter {
      * @param diagnostic why no value could be supplied, empty when the read succeeded; never null
      * @param <T> the observed value type
      */
-    record AdapterResult<T>(
-        Optional<T> value,
-        Optional<SafeModeDiagnostic> diagnostic
-    ) {
+    record AdapterResult<T>(Optional<T> value, Optional<SafeModeDiagnostic> diagnostic) {
         public AdapterResult {
             value = Objects.requireNonNull(value, "value");
             diagnostic = Objects.requireNonNull(diagnostic, "diagnostic");

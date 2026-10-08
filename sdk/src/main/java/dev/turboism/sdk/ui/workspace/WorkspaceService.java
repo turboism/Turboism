@@ -1,7 +1,6 @@
 package dev.turboism.sdk.ui.workspace;
 
 import dev.turboism.sdk.CubismEditor;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,7 +56,8 @@ public interface WorkspaceService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
@@ -82,36 +82,37 @@ public interface WorkspaceService {
         INSTANCE;
 
         private static final WorkspaceStatus STATUS = new WorkspaceStatus(
-            WorkspaceStatus.Availability.UNAVAILABLE,
-            Optional.empty(),
-            List.of(),
-            Optional.of("workspace.unavailable")
-        );
+                WorkspaceStatus.Availability.UNAVAILABLE,
+                Optional.empty(),
+                List.of(),
+                Optional.of("workspace.unavailable"));
 
         private static final WorkspaceOperationResult RESULT = new WorkspaceOperationResult(
-            WorkspaceOperationResult.Outcome.UNAVAILABLE,
-            STATUS,
-            Optional.of("workspace.unavailable")
-        );
+                WorkspaceOperationResult.Outcome.UNAVAILABLE, STATUS, Optional.of("workspace.unavailable"));
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public CompletionStage<WorkspaceStatus> current() {
+        @Override
+        public CompletionStage<WorkspaceStatus> current() {
             return CompletableFuture.completedFuture(STATUS);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> switchTo(final WorkspaceId workspaceId) {
             Objects.requireNonNull(workspaceId, "workspaceId");
             return CompletableFuture.completedFuture(RESULT);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> updateDefault() {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> updateDefault() {
             return CompletableFuture.completedFuture(RESULT);
         }
 
-        @Override public CompletionStage<WorkspaceOperationResult> resetToDefault() {
+        @Override
+        public CompletionStage<WorkspaceOperationResult> resetToDefault() {
             return CompletableFuture.completedFuture(RESULT);
         }
     }

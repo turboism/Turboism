@@ -32,7 +32,8 @@ public final class PluginVersion implements Comparable<PluginVersion> {
             throw new IllegalArgumentException("version must be MAJOR.MINOR.PATCH: " + value);
         }
         try {
-            return new PluginVersion(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+            return new PluginVersion(
+                    Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("version components must be integers: " + value, e);
         }

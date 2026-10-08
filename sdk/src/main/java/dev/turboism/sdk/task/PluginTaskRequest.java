@@ -11,12 +11,7 @@ import java.util.Objects;
  * @param priority relative ordering hint within that lane
  * @param action the work to run
  */
-public record PluginTaskRequest(
-    TaskId id,
-    PluginTaskKind kind,
-    PluginTaskPriority priority,
-    PluginTaskAction action
-) {
+public record PluginTaskRequest(TaskId id, PluginTaskKind kind, PluginTaskPriority priority, PluginTaskAction action) {
     /**
      * Validates the record components.
      *

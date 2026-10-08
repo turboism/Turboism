@@ -1,5 +1,9 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -8,10 +12,6 @@ import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.report.PreviewReportSnapshotFactory;
 import dev.turboism.preview.report.PreviewReportType;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import javax.tools.ToolProvider;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,10 +24,9 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class PreviewPluginReservedIdentityIntegrationTest {
     private static final String CORE_ID = "turboism.core";
@@ -69,46 +68,55 @@ class PreviewPluginReservedIdentityIntegrationTest {
 
         try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
             final LocalPluginRuntime runtime = new LocalPluginRuntime(
-                home, scheduler, host.adapterAccess(), log,
-                services -> new dev.turboism.internal.core.ShellHandle() {
-                    @Override
-                    public void start(final dev.turboism.sdk.plugin.PluginContext context) {
-                    }
+                    home,
+                    scheduler,
+                    host.adapterAccess(),
+                    log,
+                    services -> new dev.turboism.internal.core.ShellHandle() {
+                        @Override
+                        public void start(final dev.turboism.sdk.plugin.PluginContext context) {}
 
-                    @Override
-                    public void close() {
-                    }
-                }
-            );
+                        @Override
+                        public void close() {}
+                    });
             try {
                 final LocalPluginRuntime.LoadReport report = runtime.loadAll();
-                assertTrue(report.loaded().stream().noneMatch(plugin -> plugin.id().equals(CORE_ID)),
-                    "the framework shell is not a plugin and must not appear in the load report");
-                assertTrue(report.loaded().stream().anyMatch(plugin ->
-                    plugin.id().equals(NORMAL_ID) && plugin.state().name().equals("ENABLED")));
+                assertTrue(
+                        report.loaded().stream().noneMatch(plugin -> plugin.id().equals(CORE_ID)),
+                        "the framework shell is not a plugin and must not appear in the load report");
+                assertTrue(report.loaded().stream()
+                        .anyMatch(plugin -> plugin.id().equals(NORMAL_ID)
+                                && plugin.state().name().equals("ENABLED")));
                 assertEquals(1, report.failures().size());
                 assertEquals("PLUGIN_RESERVED_ID", report.failures().get(0).code());
                 assertFalse(Boolean.getBoolean(CORE_MARKER));
                 assertTrue(Boolean.getBoolean(NORMAL_MARKER));
 
                 final JsonNode pluginsReport = PreviewReportSnapshotFactory.create(
-                    "runtime-reserved-id-test",
-                    Instant.parse("2026-07-31T00:00:00Z"),
-                    home,
-                    HostSession.State.SAFE_MODE,
-                    null,
-                    null,
-                    report,
-                    report.loaded(),
-                    false
-                ).get(PreviewReportType.PLUGIN_LOAD).path("payload").path("plugins");
+                                "runtime-reserved-id-test",
+                                Instant.parse("2026-07-31T00:00:00Z"),
+                                home,
+                                HostSession.State.SAFE_MODE,
+                                null,
+                                null,
+                                report,
+                                report.loaded(),
+                                false)
+                        .get(PreviewReportType.PLUGIN_LOAD)
+                        .path("payload")
+                        .path("plugins");
                 final JsonNode spoof = java.util.stream.StreamSupport.stream(pluginsReport.spliterator(), false)
-                    .filter(plugin -> plugin.path("artifactRelativePath").asText().endsWith("spoof-core.jar"))
-                    .findFirst().orElseThrow();
+                        .filter(plugin ->
+                                plugin.path("artifactRelativePath").asText().endsWith("spoof-core.jar"))
+                        .findFirst()
+                        .orElseThrow();
                 assertEquals("NOT_DISCOVERED", spoof.path("discoveryState").textValue());
                 assertEquals("NOT_EVALUATED", spoof.path("dependencyState").textValue());
-                assertEquals("PLUGIN_RESERVED_ID", spoof.path("failures").get(0).path("code").textValue());
-                assertEquals("discovery", spoof.path("failures").get(0).path("phase").textValue());
+                assertEquals(
+                        "PLUGIN_RESERVED_ID",
+                        spoof.path("failures").get(0).path("code").textValue());
+                assertEquals(
+                        "discovery", spoof.path("failures").get(0).path("phase").textValue());
             } finally {
                 runtime.close();
             }
@@ -122,48 +130,57 @@ class PreviewPluginReservedIdentityIntegrationTest {
 
     private static RuntimeScheduler scheduler() {
         return new RuntimeScheduler(
-            new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 16, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                new DefaultWorkBudgetPolicy(),
+                new PluginWorkExecutorRegistry(1, 16, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private static void writePlugin(
-        final Path plugins,
-        final Path work,
-        final String filename,
-        final String id,
-        final String marker
-    ) throws Exception {
-        final String className = "dev.example.Fixture" + UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8))
-            .toString().replace("-", "");
+            final Path plugins, final Path work, final String filename, final String id, final String marker)
+            throws Exception {
+        final String className = "dev.example.Fixture"
+                + UUID.nameUUIDFromBytes(id.getBytes(StandardCharsets.UTF_8))
+                        .toString()
+                        .replace("-", "");
         final Path source = work.resolve("source/" + className.replace('.', '/') + ".java");
         final Path classes = work.resolve("classes");
         Files.createDirectories(source.getParent());
-        Files.writeString(source, """
+        Files.writeString(
+                source,
+                """
             package dev.example;
             import dev.turboism.sdk.plugin.TurboismPlugin;
             public final class %s implements TurboismPlugin {
                 static { System.setProperty("%s", "true"); }
             }
-            """.formatted(className.substring(className.lastIndexOf('.') + 1), marker), StandardCharsets.UTF_8);
+            """.formatted(className.substring(className.lastIndexOf('.') + 1), marker),
+                StandardCharsets.UTF_8);
         Files.createDirectories(classes);
-        final int compiled = ToolProvider.getSystemJavaCompiler().run(
-            null, null, null,
-            "-classpath", System.getProperty("java.class.path"),
-            "-d", classes.toString(),
-            source.toString()
-        );
+        final int compiled = ToolProvider.getSystemJavaCompiler()
+                .run(
+                        null,
+                        null,
+                        null,
+                        "-classpath",
+                        System.getProperty("java.class.path"),
+                        "-d",
+                        classes.toString(),
+                        source.toString());
         if (compiled != 0) throw new IllegalStateException("fixture compilation failed");
         Files.createDirectories(plugins);
         try (JarOutputStream output = new JarOutputStream(Files.newOutputStream(plugins.resolve(filename)))) {
             try (var files = Files.walk(classes)) {
-                for (Path file : files.filter(Files::isRegularFile).sorted(Comparator.naturalOrder()).toList()) {
+                for (Path file : files.filter(Files::isRegularFile)
+                        .sorted(Comparator.naturalOrder())
+                        .toList()) {
                     add(output, classes.relativize(file).toString().replace('\\', '/'), Files.readAllBytes(file));
                 }
             }
-            add(output, "META-INF/turboism/plugin.json", descriptor(id, className).getBytes(StandardCharsets.UTF_8));
+            add(
+                    output,
+                    "META-INF/turboism/plugin.json",
+                    descriptor(id, className).getBytes(StandardCharsets.UTF_8));
             add(output, "META-INF/turboism/i18n/messages.properties", new byte[0]);
         }
     }

@@ -5,11 +5,12 @@ import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
+import dev.turboism.core.runtime.UncheckedThrowableException;
+import dev.turboism.core.runtime.work.FatalErrors;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.resource.UiResourceService;
-
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
@@ -29,8 +30,7 @@ final class DynamicRuntimeHostAdapters {
     private final Object callGate = new Object();
     private final ThreadLocal<Integer> adapterCallDepth = ThreadLocal.withInitial(() -> 0);
     private final Set<TrackedRegistration> registrations = ConcurrentHashMap.newKeySet();
-    private final Set<RecentPreviewRegistration> recentPreviewRegistrations =
-        ConcurrentHashMap.newKeySet();
+    private final Set<RecentPreviewRegistration> recentPreviewRegistrations = ConcurrentHashMap.newKeySet();
     private final Set<String> emittedRecentPreviewDiagnostics = ConcurrentHashMap.newKeySet();
     private final RuntimeHostAdapters safeMode = RuntimeHostAdapters.safeMode();
     private final RuntimeHostAdapters view = createView();
@@ -38,7 +38,7 @@ final class DynamicRuntimeHostAdapters {
     private RuntimeHostAdapters current = safeMode;
     private boolean acceptingCalls;
     private int inFlight;
-    private Runnable onOutermostAdapterCallComplete = () -> { };
+    private Runnable onOutermostAdapterCallComplete = () -> {};
 
     RuntimeHostAdapters view() {
         return view;
@@ -57,7 +57,7 @@ final class DynamicRuntimeHostAdapters {
                 registration.connect(connected);
             } catch (RuntimeException failure) {
                 final String diagnostic =
-                    "adapter-diag:preview-rebind:" + failure.getClass().getSimpleName();
+                        "adapter-diag:preview-rebind:" + failure.getClass().getSimpleName();
                 if (emittedRecentPreviewDiagnostics.add(diagnostic)) {
                     dev.turboism.preview.RecentPreviewDiagnostics.emit(diagnostic);
                 }
@@ -100,6 +100,7 @@ final class DynamicRuntimeHostAdapters {
             try {
                 registration.closeFromSession();
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 first = accumulate(first, throwable);
             }
         }
@@ -107,6 +108,7 @@ final class DynamicRuntimeHostAdapters {
             try {
                 registration.deactivate();
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 first = accumulate(first, throwable);
             }
         }
@@ -115,153 +117,162 @@ final class DynamicRuntimeHostAdapters {
 
     private RuntimeHostAdapters createView() {
         return new RuntimeHostAdapters(
-            () -> call(adapters -> adapters.themeStatus().themeStatus()),
-            () -> call(adapters -> adapters.renderStatus().renderStatus()),
-            new ProjectWorkspaceAdapter() {
-                @Override
-                public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.ProjectSnapshot>> activeProject() {
-                    return call(adapters -> adapters.projectWorkspace().activeProject());
-                }
-
-                @Override
-                public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>> activeDocument() {
-                    return call(adapters -> adapters.projectWorkspace().activeDocument());
-                }
-
-                @Override
-                public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.WorkspaceSnapshot>> workspace() {
-                    return call(adapters -> adapters.projectWorkspace().workspace());
-                }
-
-                @Override
-                public AdapterResult<dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot>
-                    projectWorkspaceSnapshot() {
-                    return call(adapters -> adapters.projectWorkspace().projectWorkspaceSnapshot());
-                }
-            },
-            () -> call(adapters -> adapters.clipMaskRead().clipMasks()),
-            new StatusToolbarAdapter() {
-                @Override
-                public AdapterResult<Registration> notifyStatus(
-                    final dev.turboism.sdk.ui.StatusNotification notification
-                ) {
-                    return call(adapters -> track(adapters.statusToolbar().notifyStatus(notification)));
-                }
-
-                @Override
-                public AdapterResult<Registration> notifyCanvasHint(
-                    final dev.turboism.sdk.ui.CanvasHintNotification notification
-                ) {
-                    return call(adapters -> track(adapters.statusToolbar().notifyCanvasHint(notification)));
-                }
-            },
-            new UiSurfaceAdapter() {
-                @Override
-                public AdapterResult<Registration> openDialog(
-                    final dev.turboism.sdk.ui.DialogRequest request
-                ) {
-                    return call(adapters -> track(adapters.uiSurface().openDialog(request)));
-                }
-
-                @Override
-                public AdapterResult<Boolean> confirmDialog(
-                    final dev.turboism.sdk.ui.DialogRequest request
-                ) {
-                    return call(adapters -> adapters.uiSurface().confirmDialog(request));
-                }
-
-                @Override
-                public AdapterResult<java.util.Optional<String>> requestFile(
-                    final dev.turboism.sdk.ui.FileChooserRequest request
-                ) {
-                    return call(adapters -> adapters.uiSurface().requestFile(request));
-                }
-            },
-            dev.turboism.adapter.cubism.RecentFileAdapter.connected(
-                new dev.turboism.adapter.cubism.RecentFileAdapter.HostOperations() {
+                () -> call(adapters -> adapters.themeStatus().themeStatus()),
+                () -> call(adapters -> adapters.renderStatus().renderStatus()),
+                new ProjectWorkspaceAdapter() {
                     @Override
-                    public java.util.List<dev.turboism.sdk.cubism.recentfile.RecentFileSummary> list() {
-                        return call(adapters -> adapters.recentFiles().list());
+                    public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.ProjectSnapshot>> activeProject() {
+                        return call(adapters -> adapters.projectWorkspace().activeProject());
                     }
 
                     @Override
-                    public java.util.Optional<dev.turboism.sdk.cubism.recentfile.RecentFileId> current() {
-                        return call(adapters -> adapters.recentFiles().current());
-                    }
-                }
-            ),
-            request -> callAsync(adapters -> adapters.screenshots().capture(request)),
-            dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.connected(
-                new dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.HostOperations() {
-                    @Override
-                    public dev.turboism.sdk.plugin.Registration contribute(
-                        final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer
-                    ) {
-                        return call(adapters -> trackRecentPreview(renderer, adapters));
+                    public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.DocumentSnapshot>>
+                            activeDocument() {
+                        return call(adapters -> adapters.projectWorkspace().activeDocument());
                     }
 
                     @Override
-                    public void refresh() {
+                    public AdapterResult<java.util.Optional<dev.turboism.sdk.cubism.WorkspaceSnapshot>> workspace() {
+                        return call(adapters -> adapters.projectWorkspace().workspace());
+                    }
+
+                    @Override
+                    public AdapterResult<dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot>
+                            projectWorkspaceSnapshot() {
+                        return call(adapters -> adapters.projectWorkspace().projectWorkspaceSnapshot());
+                    }
+                },
+                () -> call(adapters -> adapters.clipMaskRead().clipMasks()),
+                new StatusToolbarAdapter() {
+                    @Override
+                    public AdapterResult<Registration> notifyStatus(
+                            final dev.turboism.sdk.ui.StatusNotification notification) {
+                        return call(adapters -> track(adapters.statusToolbar().notifyStatus(notification)));
+                    }
+
+                    @Override
+                    public AdapterResult<Registration> notifyCanvasHint(
+                            final dev.turboism.sdk.ui.CanvasHintNotification notification) {
+                        return call(adapters -> track(adapters.statusToolbar().notifyCanvasHint(notification)));
+                    }
+                },
+                new UiSurfaceAdapter() {
+                    @Override
+                    public AdapterResult<Registration> openDialog(final dev.turboism.sdk.ui.DialogRequest request) {
+                        return call(adapters -> track(adapters.uiSurface().openDialog(request)));
+                    }
+
+                    @Override
+                    public AdapterResult<Boolean> confirmDialog(final dev.turboism.sdk.ui.DialogRequest request) {
+                        return call(adapters -> adapters.uiSurface().confirmDialog(request));
+                    }
+
+                    @Override
+                    public AdapterResult<java.util.Optional<String>> requestFile(
+                            final dev.turboism.sdk.ui.FileChooserRequest request) {
+                        return call(adapters -> adapters.uiSurface().requestFile(request));
+                    }
+                },
+                dev.turboism.adapter.cubism.RecentFileAdapter.connected(
+                        new dev.turboism.adapter.cubism.RecentFileAdapter.HostOperations() {
+                            @Override
+                            public java.util.List<dev.turboism.sdk.cubism.recentfile.RecentFileSummary> list() {
+                                return call(adapters -> adapters.recentFiles().list());
+                            }
+
+                            @Override
+                            public java.util.Optional<dev.turboism.sdk.cubism.recentfile.RecentFileId> current() {
+                                return call(adapters -> adapters.recentFiles().current());
+                            }
+
+                            @Override
+                            public boolean available() {
+                                return call(adapters -> adapters.recentFiles().available());
+                            }
+                        }),
+                new dev.turboism.adapter.cubism.ScreenshotCaptureAdapter() {
+                    @Override
+                    public CompletionStage<dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult> capture(
+                            final dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest request) {
+                        return callAsync(adapters -> adapters.screenshots().capture(request));
+                    }
+
+                    @Override
+                    public boolean available() {
+                        return call(adapters -> adapters.screenshots().available());
+                    }
+                },
+                dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.connected(
+                        new dev.turboism.adapter.cubism.RecentPreviewContributionAdapter.HostOperations() {
+                            @Override
+                            public dev.turboism.sdk.plugin.Registration contribute(
+                                    final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer) {
+                                return call(adapters -> trackRecentPreview(renderer, adapters));
+                            }
+
+                            @Override
+                            public void refresh() {
+                                call(adapters -> {
+                                    adapters.recentPreviews().refresh();
+                                    return null;
+                                });
+                            }
+
+                            @Override
+                            public boolean available() {
+                                return call(
+                                        adapters -> adapters.recentPreviews().available());
+                            }
+                        }),
+                new AutoBackupAdapter() {
+                    @Override
+                    public AutoBackupAdapter.Snapshot settings() {
+                        return call(adapters -> adapters.autoBackup().settings());
+                    }
+
+                    @Override
+                    public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
+                        return call(adapters -> adapters.autoBackup().applySettings(target));
+                    }
+
+                    @Override
+                    public java.util.List<AutoBackupAdapter.Document> documents() {
+                        return call(adapters -> adapters.autoBackup().documents());
+                    }
+
+                    @Override
+                    public void triggerBackupNow() {
                         call(adapters -> {
-                            adapters.recentPreviews().refresh();
+                            adapters.autoBackup().triggerBackupNow();
                             return null;
                         });
                     }
-                }
-            ),
-            new AutoBackupAdapter() {
-                @Override
-                public AutoBackupAdapter.Snapshot settings() {
-                    return call(adapters -> adapters.autoBackup().settings());
-                }
 
-                @Override
-                public AutoBackupAdapter.Snapshot applySettings(final AutoBackupAdapter.Snapshot target) {
-                    return call(adapters -> adapters.autoBackup().applySettings(target));
-                }
+                    @Override
+                    public File saveDocumentFor(
+                            final File matchFile, final List<String> documentUids, final long timestampMillis) {
+                        return call(adapters ->
+                                adapters.autoBackup().saveDocumentFor(matchFile, documentUids, timestampMillis));
+                    }
 
-                @Override
-                public java.util.List<AutoBackupAdapter.Document> documents() {
-                    return call(adapters -> adapters.autoBackup().documents());
-                }
-
-                @Override
-                public void triggerBackupNow() {
-                    call(adapters -> {
-                        adapters.autoBackup().triggerBackupNow();
-                        return null;
-                    });
-                }
-
-                @Override
-                public File saveDocumentFor(
-                    final File matchFile, final List<String> documentUids, final long timestampMillis
-                ) {
-                    return call(adapters -> adapters.autoBackup()
-                        .saveDocumentFor(matchFile, documentUids, timestampMillis));
-                }
-            },
-            new UiResourceService() {
-                @Override
-                public UiIconAvailability availability(final UiIconRef reference) {
-                    return call(adapters -> adapters.uiResources().availability(reference));
-                }
-            }
-        );
+                    @Override
+                    public boolean available() {
+                        return call(adapters -> adapters.autoBackup().available());
+                    }
+                },
+                new UiResourceService() {
+                    @Override
+                    public UiIconAvailability availability(final UiIconRef reference) {
+                        return call(adapters -> adapters.uiResources().availability(reference));
+                    }
+                });
     }
 
-    private <T> T call(final Function<RuntimeHostAdapters, T> operation) {
-        final CallLease lease = acquireLease();
+    private void enterAdapterCall() {
         adapterCallDepth.set(adapterCallDepth.get() + 1);
-        T result = null;
-        Throwable primary = null;
-        try {
-            result = operation.apply(lease.adapters());
-        } catch (Throwable throwable) {
-            primary = throwable;
-        }
+    }
 
-        releaseLease(lease);
+    private boolean exitAdapterCall() {
         final int remainingDepth = adapterCallDepth.get() - 1;
         final boolean outermost = remainingDepth == 0;
         if (outermost) {
@@ -269,6 +280,23 @@ final class DynamicRuntimeHostAdapters {
         } else {
             adapterCallDepth.set(remainingDepth);
         }
+        return outermost;
+    }
+
+    private <T> T call(final Function<RuntimeHostAdapters, T> operation) {
+        final CallLease lease = acquireLease();
+        enterAdapterCall();
+        T result = null;
+        Throwable primary = null;
+        try {
+            result = operation.apply(lease.adapters());
+        } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
+            primary = throwable;
+        }
+
+        releaseLease(lease);
+        final boolean outermost = exitAdapterCall();
 
         final Throwable deferredCleanupFailure = runOutermostCallback(outermost, lease);
 
@@ -291,27 +319,20 @@ final class DynamicRuntimeHostAdapters {
      * flight. The outermost-call completion callback runs once per counted lease, when
      * the stage settles.
      */
-    private <T> CompletionStage<T> callAsync(
-        final Function<RuntimeHostAdapters, CompletionStage<T>> operation
-    ) {
+    private <T> CompletionStage<T> callAsync(final Function<RuntimeHostAdapters, CompletionStage<T>> operation) {
         final CallLease lease = acquireLease();
-        adapterCallDepth.set(adapterCallDepth.get() + 1);
+        enterAdapterCall();
         CompletionStage<T> stage;
         Throwable primary = null;
         try {
             stage = operation.apply(lease.adapters());
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             primary = throwable;
             stage = null;
         }
 
-        final int remainingDepth = adapterCallDepth.get() - 1;
-        final boolean outermost = remainingDepth == 0;
-        if (outermost) {
-            adapterCallDepth.remove();
-        } else {
-            adapterCallDepth.set(remainingDepth);
-        }
+        final boolean outermost = exitAdapterCall();
 
         if (primary != null) {
             releaseLease(lease);
@@ -342,6 +363,7 @@ final class DynamicRuntimeHostAdapters {
             callback.run();
             return null;
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             return throwable;
         }
     }
@@ -383,8 +405,7 @@ final class DynamicRuntimeHostAdapters {
     }
 
     private StatusToolbarAdapter.AdapterResult<Registration> track(
-        final StatusToolbarAdapter.AdapterResult<Registration> result
-    ) {
+            final StatusToolbarAdapter.AdapterResult<Registration> result) {
         if (!result.isAvailable()) {
             return result;
         }
@@ -392,8 +413,7 @@ final class DynamicRuntimeHostAdapters {
     }
 
     private UiSurfaceAdapter.AdapterResult<Registration> track(
-        final UiSurfaceAdapter.AdapterResult<Registration> result
-    ) {
+            final UiSurfaceAdapter.AdapterResult<Registration> result) {
         if (!result.isAvailable()) {
             return result;
         }
@@ -401,25 +421,23 @@ final class DynamicRuntimeHostAdapters {
     }
 
     private Registration track(final Registration registration) {
-        final TrackedRegistration tracked = new TrackedRegistration(
-            Objects.requireNonNull(registration, "registration")
-        );
+        final TrackedRegistration tracked =
+                new TrackedRegistration(Objects.requireNonNull(registration, "registration"));
         registrations.add(tracked);
         return tracked;
     }
 
     private Registration trackRecentPreview(
-        final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer,
-        final RuntimeHostAdapters adapters
-    ) {
-        final RecentPreviewRegistration tracked = new RecentPreviewRegistration(
-            Objects.requireNonNull(renderer, "renderer")
-        );
+            final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer,
+            final RuntimeHostAdapters adapters) {
+        final RecentPreviewRegistration tracked =
+                new RecentPreviewRegistration(Objects.requireNonNull(renderer, "renderer"));
         recentPreviewRegistrations.add(tracked);
         try {
             tracked.connect(adapters);
             return tracked;
         } catch (Throwable throwable) {
+            FatalErrors.rethrowIfFatal(throwable);
             recentPreviewRegistrations.remove(tracked);
             rethrowUnchecked(throwable);
             throw new AssertionError("unreachable");
@@ -439,9 +457,7 @@ final class DynamicRuntimeHostAdapters {
         private Registration delegate;
         private boolean closed;
 
-        private RecentPreviewRegistration(
-            final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer
-        ) {
+        private RecentPreviewRegistration(final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer) {
             this.renderer = renderer;
         }
 
@@ -450,9 +466,7 @@ final class DynamicRuntimeHostAdapters {
                 return;
             }
             delegate = Objects.requireNonNull(
-                adapters.recentPreviews().contribute(renderer),
-                "recent preview registration"
-            );
+                    adapters.recentPreviews().contribute(renderer), "recent preview registration");
         }
 
         private synchronized void deactivate() {
@@ -534,6 +548,7 @@ final class DynamicRuntimeHostAdapters {
                 registrations.remove(this);
                 completion.complete(null);
             } catch (Throwable throwable) {
+                FatalErrors.rethrowIfFatal(throwable);
                 synchronized (this) {
                     state = CloseState.OPEN;
                     closeOwner = null;
@@ -545,22 +560,22 @@ final class DynamicRuntimeHostAdapters {
         }
     }
 
-        /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
-        private static final long CLOSE_JOIN_TIMEOUT_MILLIS = 5_000L;
+    /** Bounded wait for a concurrent close owner; the EDT must never block indefinitely. */
+    private static final long CLOSE_JOIN_TIMEOUT_MILLIS = 5_000L;
 
-        private static void await(final CompletableFuture<Void> completion) {
-            try {
-                completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
-            } catch (TimeoutException timeout) {
-                throw new IllegalStateException(
+    private static void await(final CompletableFuture<Void> completion) {
+        try {
+            completion.get(CLOSE_JOIN_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException timeout) {
+            throw new IllegalStateException(
                     "registration close did not finish within " + CLOSE_JOIN_TIMEOUT_MILLIS + "ms", timeout);
-            } catch (ExecutionException exception) {
-                rethrowUnchecked(exception.getCause());
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException("interrupted while awaiting registration close", interrupted);
-            }
+        } catch (ExecutionException exception) {
+            rethrowUnchecked(exception.getCause());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while awaiting registration close", interrupted);
         }
+    }
 
     private static Throwable accumulate(final Throwable first, final Throwable next) {
         if (first == null) {
@@ -585,7 +600,7 @@ final class DynamicRuntimeHostAdapters {
         if (throwable instanceof Exception exception) {
             throw exception;
         }
-        throw new RuntimeException(throwable);
+        throw new UncheckedThrowableException(throwable);
     }
 
     private static void rethrowUnchecked(final Throwable throwable) {
@@ -607,9 +622,7 @@ final class DynamicRuntimeHostAdapters {
         CLOSED
     }
 
-    private record CallLease(RuntimeHostAdapters adapters, boolean counted) {
-    }
+    private record CallLease(RuntimeHostAdapters adapters, boolean counted) {}
 
-    private record CloseAttempt(boolean owner, CompletableFuture<Void> completion) {
-    }
+    private record CloseAttempt(boolean owner, CompletableFuture<Void> completion) {}
 }

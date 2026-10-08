@@ -1,12 +1,5 @@
 package dev.turboism.ui.panel;
 
-import javax.swing.BorderFactory;
-import javax.swing.BoxLayout;
-import javax.swing.JPanel;
-import javax.swing.UIManager;
-import javax.swing.border.AbstractBorder;
-import javax.swing.border.EmptyBorder;
-import javax.swing.border.TitledBorder;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
@@ -21,6 +14,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.JPanel;
+import javax.swing.UIManager;
+import javax.swing.border.AbstractBorder;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.TitledBorder;
 
 /**
  * 可折叠分区控件，忠实移植自 legacy
@@ -30,8 +30,7 @@ import java.util.ResourceBundle;
  */
 public final class CollapsibleSection {
 
-    private CollapsibleSection() {
-    }
+    private CollapsibleSection() {}
 
     /**
      * 构造一个带标题、可点击收起/展开的分区面板。
@@ -45,32 +44,19 @@ public final class CollapsibleSection {
     }
 
     /** Uses the caller's already-resolved effective locale; no global locale is changed. */
-    public static JPanel create(
-        String title,
-        JPanel content,
-        boolean expandedByDefault,
-        java.util.Locale locale
-    ) {
+    public static JPanel create(String title, JPanel content, boolean expandedByDefault, java.util.Locale locale) {
         ResourceBundle bundle = ResourceBundle.getBundle(
-            "dev.turboism.ui.panel.messages",
-            locale == null ? java.util.Locale.ENGLISH : locale
-        );
+                "dev.turboism.ui.panel.messages", locale == null ? java.util.Locale.ENGLISH : locale);
         return create(
-            title,
-            content,
-            expandedByDefault,
-            tr(bundle, "collapsible.section.expand", "Expand"),
-            tr(bundle, "collapsible.section.collapse", "Collapse")
-        );
+                title,
+                content,
+                expandedByDefault,
+                tr(bundle, "collapsible.section.expand", "Expand"),
+                tr(bundle, "collapsible.section.collapse", "Collapse"));
     }
 
     private static JPanel create(
-        String title,
-        JPanel content,
-        boolean expandedByDefault,
-        String expandLabel,
-        String collapseLabel
-    ) {
+            String title, JPanel content, boolean expandedByDefault, String expandLabel, String collapseLabel) {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -123,7 +109,6 @@ public final class CollapsibleSection {
         return ((JPanel) section.getComponent(0)).isVisible();
     }
 
-
     /**
      * 从 bundle 取 key 对应文案；key 缺失时回退 legacy 原值。
      */
@@ -134,8 +119,9 @@ public final class CollapsibleSection {
             return fallback;
         }
     }
-    private static void updateCollapsibleSection(JPanel panel, JPanel content,
-                                                 CollapsibleTitledBorder border, boolean expanded) {
+
+    private static void updateCollapsibleSection(
+            JPanel panel, JPanel content, CollapsibleTitledBorder border, boolean expanded) {
         border.setActionText(expanded ? border.collapseLabel : border.expandLabel);
         content.setVisible(expanded);
         panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, panel.getPreferredSize().height));
@@ -214,9 +200,10 @@ public final class CollapsibleSection {
 
             graphics.setColor(component.getBackground());
             graphics.fillRect(textX - 4, y, textWidth + 8, textHeight);
-            graphics.setColor(UIManager.getColor("Label.foreground") != null
-                    ? UIManager.getColor("Label.foreground")
-                    : new Color(120, 120, 120));
+            graphics.setColor(
+                    UIManager.getColor("Label.foreground") != null
+                            ? UIManager.getColor("Label.foreground")
+                            : new Color(120, 120, 120));
             graphics.setFont(font);
             graphics.drawString(actionText, textX, textY);
             actionBounds = new Rectangle(textX - 4, y, textWidth + 8, textHeight);

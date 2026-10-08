@@ -1,71 +1,44 @@
 package dev.turboism.ui.toolbar;
 
 import dev.turboism.sdk.plugin.Registration;
-
 import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Connection-safe lookup for resources owned by loaded UI-contributing plugins. */
+/** Exact plugin-generation lookup for resources owned by loaded UI contributors. */
 public final class EditorUiPluginResourceRegistry implements AutoCloseable {
-
-    private final ConcurrentHashMap<String, ClassLoader> loaders = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Key, ClassLoader> loaders = new ConcurrentHashMap<>();
     private volatile boolean closed;
 
-    /**
-     * Registers the class loader that owns one plugin's resources.
-     *
-     * <p>One loader per plugin id: re-registering the same loader is accepted, but a different
-     * loader for an id that is already taken is refused and the existing mapping is restored.
-     *
-     * @param pluginId non-blank id of the contributing plugin
-     * @param classLoader the loader whose classpath resources may be looked up for that id
-     * @return a registration that removes the mapping, and only this exact mapping
-     * @throws NullPointerException if either argument is {@code null}
-     * @throws IllegalArgumentException if {@code pluginId} is blank
-     * @throws IllegalStateException if the registry is closed, or a different loader is already
-     *     registered for {@code pluginId}
-     */
+    /** Compatibility generation-zero registration. */
     public Registration register(final String pluginId, final ClassLoader classLoader) {
-        final String id = requireText(pluginId, "pluginId");
-        final ClassLoader loader = Objects.requireNonNull(classLoader, "classLoader");
-        if (closed) {
-            throw new IllegalStateException("Editor UI plugin resource registry is closed");
-        }
-        final ClassLoader previous = loaders.put(id, loader);
-        if (previous != null && previous != loader) {
-            loaders.put(id, previous);
-            throw new IllegalStateException("Plugin resource loader is already registered");
-        }
-        return () -> loaders.remove(id, loader);
+        return register(pluginId, 0L, classLoader);
     }
 
-    /**
-     * Resolves a resource inside one plugin's own classpath, so a UI contribution cannot read
-     * another plugin's or the host's resources through this registry.
-     *
-     * <p>The path is required to be a normalized, relative classpath name: a leading {@code /},
-     * any {@code ..} segment, or a backslash is rejected rather than resolved.
-     *
-     * @param pluginId non-blank id of the owning plugin
-     * @param resourcePath non-blank normalized classpath resource name
-     * @return the resource URL, or empty when the plugin is not registered, the registry is
-     *     closed, or the loader has no such resource
-     * @throws NullPointerException if either argument is {@code null}
-     * @throws IllegalArgumentException if either argument is blank, or {@code resourcePath} is
-     *     absolute, contains {@code ..}, or contains a backslash
-     */
+    /** Registers a class loader for one exact plugin generation. */
+    public Registration register(final String pluginId, final long pluginGeneration, final ClassLoader classLoader) {
+        final Key key = new Key(text(pluginId, "pluginId"), generation(pluginGeneration));
+        final ClassLoader loader = Objects.requireNonNull(classLoader, "classLoader");
+        if (closed) throw new IllegalStateException("Editor UI plugin resource registry is closed");
+        final ClassLoader previous = loaders.putIfAbsent(key, loader);
+        if (previous != null && previous != loader) {
+            throw new IllegalStateException("Plugin generation resource loader is already registered");
+        }
+        return () -> loaders.remove(key, loader);
+    }
+
+    /** Compatibility generation-zero lookup. */
     public Optional<URL> resource(final String pluginId, final String resourcePath) {
-        final ClassLoader loader = loaders.get(requireText(pluginId, "pluginId"));
-        if (loader == null || closed) {
-            return Optional.empty();
-        }
-        final String normalized = requireText(resourcePath, "resourcePath");
-        if (normalized.startsWith("/") || normalized.contains("..") || normalized.contains("\\")) {
-            throw new IllegalArgumentException("resourcePath must be a normalized classpath resource");
-        }
-        return Optional.ofNullable(loader.getResource(normalized));
+        return resource(pluginId, 0L, resourcePath);
+    }
+
+    /** Resolves a resource owned by one exact plugin generation. */
+    public Optional<URL> resource(final String pluginId, final long pluginGeneration, final String resourcePath) {
+        final String path = resourcePath(resourcePath);
+        if (closed) return Optional.empty();
+        final ClassLoader loader = loaders.get(new Key(text(pluginId, "pluginId"), generation(pluginGeneration)));
+        return loader == null ? Optional.empty() : Optional.ofNullable(loader.getResource(path));
     }
 
     @Override
@@ -74,11 +47,24 @@ public final class EditorUiPluginResourceRegistry implements AutoCloseable {
         loaders.clear();
     }
 
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+    private static String resourcePath(final String value) {
+        final String path = text(value, "resourcePath");
+        if (path.startsWith("/") || path.contains("..") || path.contains("\\")) {
+            throw new IllegalArgumentException("resourcePath must be a normalized classpath resource");
         }
+        return path;
+    }
+
+    private static long generation(final long value) {
+        if (value < 0) throw new IllegalArgumentException("pluginGeneration must not be negative");
         return value;
     }
+
+    private static String text(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
+        return value;
+    }
+
+    private record Key(String pluginId, long generation) {}
 }

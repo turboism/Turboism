@@ -232,6 +232,16 @@ For each capability family admitted on `X.Y.Z`:
 - `Verified*ResolverFactory` classes and `TurboismAgent` wiring may carry
   version-scoped validation modes/tokens (e.g. `EXACT_5303_*`); mirror the
   existing pattern rather than widening silently.
+- Hook class pins: once the artifact JAR is at hand, regenerate the
+  `class-pins/*.json` tables in one pass instead of hand-editing hex columns —
+  `python3 scripts/generate_class_pins.py update --jar Live2D_Cubism.jar
+  --version X.Y.Z` writes an `X.Y.Z` block into every pin file whose class
+  keys resolve inside that JAR, and `check` mode verifies an existing block
+  without writing. A hook that only supports a subset of versions simply
+  omits the block; `checkVersionSetCompleteness` fails if any pin file names
+  an unadmitted version. A pin file whose classes are absent from the JAR is
+  skipped (fail-closed); review whether that hook needs new class keys for
+  the version.
 
 ## 7. Packaging
 
@@ -353,6 +363,7 @@ Release-side verification (CI is the authority; these are the local handles):
 | 6 | `mapping-packs/draft/cubism-X.Y.Z-*.json` + `profiles/draft/cubism-X.Y.Z.json` | DRAFT catalogues |
 | 7 | `*VerificationManifest.java` records + `selector/*Contract.java` + `CorePublicApiTrustRoots` | runtime trust roots |
 | 8 | `CubismEditorAvailabilityPolicy.REVIEWED_VERSIONS` + `@CubismEditor` surface audit | SDK availability |
+| 8a | `class-pins/*.json` via `scripts/generate_class_pins.py update|check` | hook class pins |
 | 9 | `bootstrap/build.gradle.kts` record list (+ `previewBundle` smoke check) | packaging |
 | 10 | `StaticVerificationRecordRepositoryTest`, `MappingPackDraftImportTest`, `ProfileDraftImportTest`, `check_editor_model_aliases.py` | test pins |
 | 11 | `host-validation-tasks.json`, `host_validation.py` versions, `run-*-host-validation.sh` arms, `.env.example`, `validate*Host*` tasks | host validation |
@@ -370,6 +381,7 @@ Release-side verification (CI is the authority; these are the local handles):
 - `python3 scripts/cubism_core_api.py extract|validate|render` (see `--help`)
 - `python3 scripts/cubism_core_policy.py bootstrap|validate|render-java|render`
 - `python3 scripts/cubism_core_selector_policy.py bootstrap|validate|render-java`
+- `python3 scripts/generate_class_pins.py update|check --jar <host.jar> --version X.Y.Z [--pin name] [--new name --class ...] [--allow-partial] [--dry-run]`
 - `python3 scripts/preview/host_validation.py list|plan|prepare|run|submit|status|wait|cancel|events|serve|recover`
 - `python3 scripts/release/verify-release.py --version ... --dist ... --release-plugins ...`
 - `python3 scripts/release/product.py inspect|info|candidate|promote`

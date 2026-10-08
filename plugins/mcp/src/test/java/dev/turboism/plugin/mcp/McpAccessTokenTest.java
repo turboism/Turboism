@@ -1,15 +1,14 @@
 package dev.turboism.plugin.mcp;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class McpAccessTokenTest {
 
@@ -27,11 +26,7 @@ final class McpAccessTokenTest {
 
     @Test
     void regeneratesAMalformedTokenFile() throws Exception {
-        Files.writeString(
-            stateDir.resolve(McpAccessToken.FILE_NAME),
-            "not-a-token",
-            StandardCharsets.UTF_8
-        );
+        Files.writeString(stateDir.resolve(McpAccessToken.FILE_NAME), "not-a-token", StandardCharsets.UTF_8);
 
         final McpAccessToken token = McpAccessToken.loadOrCreate(stateDir);
 
@@ -56,9 +51,7 @@ final class McpAccessTokenTest {
     }
 
     private String readToken() throws Exception {
-        return Files.readString(
-            stateDir.resolve(McpAccessToken.FILE_NAME),
-            StandardCharsets.UTF_8
-        ).strip();
+        return Files.readString(stateDir.resolve(McpAccessToken.FILE_NAME), StandardCharsets.UTF_8)
+                .strip();
     }
 }

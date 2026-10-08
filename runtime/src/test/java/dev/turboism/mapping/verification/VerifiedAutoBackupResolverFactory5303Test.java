@@ -1,34 +1,28 @@
 package dev.turboism.mapping.verification;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
 
 final class VerifiedAutoBackupResolverFactory5303Test {
 
     @Test
     void exact5303FactoryFailsClosedBeforeUsingUnreviewedArtifactMaterial() throws Exception {
         final VerifiedAutoBackupResolverFactory factory = new VerifiedAutoBackupResolverFactory();
-        final Path record = repositoryPath(
-            "compatibility/cubism/verification/cubism-5.3.03-autobackup.json"
-        );
+        final Path record = repositoryPath("compatibility/cubism/verification/cubism-5.3.03-autobackup.json");
 
-        assertThrows(java.nio.file.NoSuchFileException.class, () -> factory.create(
-            record,
-            Path.of("missing-cubism-5.3.03.jar"),
-            getClass().getClassLoader()
-        ));
+        assertThrows(
+                java.nio.file.NoSuchFileException.class,
+                () -> factory.create(
+                        record, Path.of("missing-cubism-5.3.03.jar"), getClass().getClassLoader()));
 
         final Path foreign = Files.createTempFile("autobackup-5303-foreign", ".jar");
         Files.writeString(foreign, "not the reviewed exact 5.3.03 artifact");
-        assertThrows(IllegalArgumentException.class, () -> factory.create(
-            record,
-            foreign,
-            getClass().getClassLoader()
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> factory.create(record, foreign, getClass().getClassLoader()));
     }
 
     private static Path repositoryPath(final String relative) {

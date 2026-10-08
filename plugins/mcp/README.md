@@ -34,6 +34,7 @@ Runs a token-gated MCP Streamable HTTP server on the local loopback interface, p
 - Provides workflow prompts for inspection, diagnostics, editing, recovery, and bounded Editor automation.
 - Serves only loopback clients and enforces origin, body-size, protocol, session, and rate limits.
 - Gates mutating tool calls and session close behind a per-user bearer token that the stdio bridge supplies automatically.
+- Publishes a credential-free stdio launch descriptor (the running JVM's launcher, the plugin classpath, the bridge main class, and the state directory) through the runtime connection boundary, so bundled consumers such as the ACP plugin attach agents to a precompiled bridge without handling the token.
 
 ## Requirements and compatibility
 
@@ -60,7 +61,7 @@ Connect a local MCP client with the configuration shown in **Turboism → MCP Co
 
 ### Common coding agents
 
-**stdio (recommended)** — the plugin publishes `TurboismMcpBridge.java` next to `mcp.token` in its state directory; the bridge relays stdio frames to the loopback endpoint with the bearer token attached. The connection window shows the exact, copyable line:
+**stdio (recommended)** — the plugin publishes `TurboismMcpBridge.java` next to `mcp.token` in its state directory; the bridge relays stdio frames to the loopback endpoint with the bearer token attached. Bundled in-process consumers such as the ACP plugin instead launch the precompiled bridge class shipped inside this plugin JAR with the state directory as an argument, which also works on JREs without `jdk.compiler`. The connection window shows the exact, copyable line:
 
 ```json
 {
@@ -251,11 +252,12 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | Permission | Scope | Why it is requested |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | Reads active model objects, Core metadata, statistics, and texture metadata. |
-| `turboism.cubism.parameter.read` | `application` | Reads active Cubism model parameters. |
+| `turboism.cubism.parameter.read` | `application` | Declares the parameter-read intent for tooling surfaces; parameter reads themselves are enforced at runtime by the model-read permission above. |
 | `turboism.cubism.project.read` | `application` | Reads active project, workspace, layout, and theme state. |
 | `turboism.cubism.model.write` | `application` | Applies typed model, parameter, binding, history, and model-setting writes. |
-| `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command. |
-| `turboism.network.fetch` | `application` | Allows the typed external-application settings command. |
+| `turboism.file.read` | `application` | Verifies MCP connection-file metadata (existence, ownership, symlink checks) before publishing the loopback endpoint. |
+| `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command and writes the owner-only loopback connection file under the MCP state directory. |
+| `turboism.network.fetch` | `application` | Allows the typed external-application settings command and binds the Origin-guarded loopback HTTP transport. |
 | `turboism.process.run` | `application` | Allows the typed external-application settings command. |
 | `turboism.mcp.connection.publish` | `application` | Publishes the active token-gated loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
 | `turboism.action.register` | `application` | Registers the local MCP Connection window action. |

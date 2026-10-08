@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -29,11 +28,10 @@ public final class UpdateDiscoveryParser {
     private static final String STATUS_READY = "ready";
     private static final String STATUS_NOT_PUBLISHED = "not_published";
     private static final String STATUS_UNAVAILABLE = "unavailable";
-    private static final ObjectMapper JSON = new ObjectMapper(
-        JsonFactory.builder()
-            .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
-            .build()
-    ).enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = new ObjectMapper(JsonFactory.builder()
+                    .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+                    .build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     /** Parses bounded UTF-8 discovery bytes into a validated discovery record. */
     public UpdateDiscovery parse(final byte[] bytes) {
@@ -41,17 +39,17 @@ public final class UpdateDiscoveryParser {
         if (bytes.length == 0 || bytes.length > MAX_BYTES) {
             throw invalid("discovery document size is outside the allowed bound");
         }
-        if (bytes.length >= 3 && (bytes[0] & 0xff) == 0xef && (bytes[1] & 0xff) == 0xbb
-            && (bytes[2] & 0xff) == 0xbf) {
+        if (bytes.length >= 3 && (bytes[0] & 0xff) == 0xef && (bytes[1] & 0xff) == 0xbb && (bytes[2] & 0xff) == 0xbf) {
             throw invalid("UTF-8 BOM is not accepted");
         }
         final String source;
         try {
-            source = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
+            source = StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
         } catch (CharacterCodingException invalidUtf8) {
             throw invalid("discovery document is not valid UTF-8", invalidUtf8);
         }
@@ -77,9 +75,8 @@ public final class UpdateDiscoveryParser {
         }
         final String statusName = text(object, "status");
         final UpdateDiscovery.Status status = statusFor(statusName);
-        final Optional<UpdateDiscovery.Candidate> candidate = status == UpdateDiscovery.Status.READY
-            ? Optional.of(candidate(object))
-            : Optional.empty();
+        final Optional<UpdateDiscovery.Candidate> candidate =
+                status == UpdateDiscovery.Status.READY ? Optional.of(candidate(object)) : Optional.empty();
         if (status != UpdateDiscovery.Status.READY) requireAbsentRelease(object);
         try {
             return new UpdateDiscovery(schemaVersion, channel, status, candidate);
@@ -109,10 +106,7 @@ public final class UpdateDiscoveryParser {
             throw invalid("release version is not canonical", invalidVersion);
         }
         return new UpdateDiscovery.Candidate(
-            version,
-            optionalPositiveLong(node, "buildNumber"),
-            optionalUtcInstant(node, "publishedAt")
-        );
+                version, optionalPositiveLong(node, "buildNumber"), optionalUtcInstant(node, "publishedAt"));
     }
 
     private static void requireAbsentRelease(final ObjectNode object) {

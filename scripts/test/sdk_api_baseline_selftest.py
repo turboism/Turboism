@@ -12,7 +12,7 @@ from sdk_api_baseline_selftest_fixtures import compile_fixture
 
 
 COMMIT = "0123456789abcdef0123456789abcdef01234567"
-VARIANTS = ("baseline", "additive", "reordered-fields", "changed-constant", "changed-default", "changed-descriptor", "forbidden")
+VARIANTS = ("baseline", "additive", "reordered-fields", "changed-constant", "changed-default", "changed-descriptor", "forbidden", "incubating")
 
 
 def main() -> None:
@@ -20,6 +20,7 @@ def main() -> None:
     for variant in VARIANTS:
         compile_fixture(args.tmp, variant)
     verify_deterministic_dump(args)
+    verify_incubating_exclusion(args)
     baseline = capture_baseline(args)
     verify_compatibility(args, baseline)
     verify_failures(args, baseline)
@@ -67,6 +68,17 @@ def assert_dump_features(dump: str) -> None:
             fail(message)
 
 
+def verify_incubating_exclusion(args: argparse.Namespace) -> None:
+    # The incubating variant adds only @Incubating declarations: an incubating
+    # package, an incubating class with a nested class, and an incubating member
+    # on a stable type. Its canonical dump must equal the baseline dump exactly.
+    baseline_dump, incubating_dump = args.tmp / "incubating-base.txt", args.tmp / "incubating.txt"
+    run(args.tool, "dump", "--input", str(args.tmp / "baseline" / "sdk.jar"), "--output", str(baseline_dump))
+    run(args.tool, "dump", "--input", str(args.tmp / "incubating" / "sdk.jar"), "--output", str(incubating_dump))
+    if baseline_dump.read_bytes() != incubating_dump.read_bytes():
+        fail("@Incubating declarations leaked into the canonical dump")
+
+
 def capture_baseline(args: argparse.Namespace) -> Path:
     baseline, output = args.tmp / "baseline" / "sdk.jar", args.tmp / "baseline.json"
     run(args.tool, "capture", "--input", str(baseline), "--role", "pre-phase", "--commit", COMMIT, "--output", str(output))
@@ -86,7 +98,7 @@ def verify_failures(args: argparse.Namespace, baseline: Path) -> None:
         output = run_failure(args.tool, command, "--input", str(args.tmp / variant / "sdk.jar"), "--reference-input", str(reference), "--baseline", str(baseline))
         if not output:
             continue
-    missing = run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(args.tmp / "missing.json"))
+    run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(args.tmp / "missing.json"))
     malformed = args.tmp / "malformed.json"
     malformed.write_text('{"format":"wrong"}\n', encoding="utf-8")
     run_failure(args.tool, "verify-compatible", "--input", str(reference), "--reference-input", str(reference), "--baseline", str(malformed))

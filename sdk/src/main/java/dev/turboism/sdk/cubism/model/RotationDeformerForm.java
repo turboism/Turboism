@@ -1,15 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
-
 /** Immutable Rotation Deformer keyform committed as one Editor operation. */
 public record RotationDeformerForm(
-    float angle,
-    float originX,
-    float originY,
-    float scale,
-    boolean reflectedX,
-    boolean reflectedY
-) {
+        float angle, float originX, float originY, float scale, boolean reflectedX, boolean reflectedY) {
 
     public RotationDeformerForm {
         requireFinite(angle, "angle");

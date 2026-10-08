@@ -2,7 +2,6 @@ package dev.turboism.adapter.cubism.service.read;
 
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.CubismPermissionException;
-
 import java.util.Objects;
 
 /**

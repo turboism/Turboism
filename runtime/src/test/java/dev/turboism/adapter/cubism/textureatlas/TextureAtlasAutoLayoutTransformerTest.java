@@ -1,19 +1,18 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
-import org.junit.jupiter.api.Test;
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 class TextureAtlasAutoLayoutTransformerTest {
 
@@ -24,36 +23,24 @@ class TextureAtlasAutoLayoutTransformerTest {
         final String nativeBodyEntryKey = "test.texture-atlas.auto-layout.native-body-entry";
         final String completionKey = "test.texture-atlas.auto-layout.native-completion";
         final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
-            "fixture/AutoLayout",
-            "a",
-            "(Ljava/lang/Object;)Z",
-            null,
-            callbackKey,
-            handledReturnKey,
-            nativeBodyEntryKey,
-            completionKey
-        );
-        final byte[] transformed = transformer.transform(
-            null, null, "fixture/AutoLayout", null, null, fixtureClass()
-        );
+                "fixture/AutoLayout",
+                "a",
+                "(Ljava/lang/Object;)Z",
+                null,
+                callbackKey,
+                handledReturnKey,
+                nativeBodyEntryKey,
+                completionKey);
+        final byte[] transformed = transformer.transform(null, null, "fixture/AutoLayout", null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader(null);
         final Class<?> type = loader.define("fixture.AutoLayout", transformed);
         final Object instance = type.getConstructor().newInstance();
         final AtomicInteger handledReturns = new AtomicInteger();
         final AtomicInteger entries = new AtomicInteger();
         final AtomicInteger completions = new AtomicInteger();
-        System.getProperties().put(
-            handledReturnKey,
-            (Consumer<Object>) target -> handledReturns.incrementAndGet()
-        );
-        System.getProperties().put(
-            nativeBodyEntryKey,
-            (Consumer<Object>) target -> entries.incrementAndGet()
-        );
-        System.getProperties().put(
-            completionKey,
-            (Consumer<Object>) target -> completions.incrementAndGet()
-        );
+        System.getProperties().put(handledReturnKey, (Consumer<Object>) target -> handledReturns.incrementAndGet());
+        System.getProperties().put(nativeBodyEntryKey, (Consumer<Object>) target -> entries.incrementAndGet());
+        System.getProperties().put(completionKey, (Consumer<Object>) target -> completions.incrementAndGet());
         try {
             assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
             assertEquals(0, handledReturns.get());
@@ -89,16 +76,8 @@ class TextureAtlasAutoLayoutTransformerTest {
         final String callbackKey = "test.texture-atlas.auto-layout.callback";
         final String completionKey = "test.texture-atlas.auto-layout.native-completion";
         final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
-            "fixture/AutoLayout",
-            "a",
-            "(Ljava/lang/Object;)Z",
-            null,
-            callbackKey,
-            completionKey
-        );
-        final byte[] transformed = transformer.transform(
-            null, null, "fixture/AutoLayout", null, null, fixtureClass()
-        );
+                "fixture/AutoLayout", "a", "(Ljava/lang/Object;)Z", null, callbackKey, completionKey);
+        final byte[] transformed = transformer.transform(null, null, "fixture/AutoLayout", null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader(null);
         final Class<?> type = loader.define("fixture.AutoLayout", transformed);
         final Object instance = type.getConstructor().newInstance();
@@ -127,16 +106,9 @@ class TextureAtlasAutoLayoutTransformerTest {
     @Test
     void passesTheReceiverToTheLoaderNeutralRuntimeIngressAndHandlesOnlyItsSuccess() throws Exception {
         final String key = "test.texture-atlas.auto-layout.callback";
-        final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
-            "fixture/AutoLayout",
-            "a",
-            "(Ljava/lang/Object;)Z",
-            null,
-            key
-        );
-        final byte[] transformed = transformer.transform(
-            null, null, "fixture/AutoLayout", null, null, fixtureClass()
-        );
+        final TextureAtlasAutoLayoutTransformer transformer =
+                new TextureAtlasAutoLayoutTransformer("fixture/AutoLayout", "a", "(Ljava/lang/Object;)Z", null, key);
+        final byte[] transformed = transformer.transform(null, null, "fixture/AutoLayout", null, null, fixtureClass());
         final FixtureLoader loader = new FixtureLoader(null);
         final Class<?> type = loader.define("fixture.AutoLayout", transformed);
         final Object instance = type.getConstructor().newInstance();
@@ -167,22 +139,15 @@ class TextureAtlasAutoLayoutTransformerTest {
             assertFalse(java.util.Arrays.toString(transformed).contains("dev/turboism"));
         } finally {
             System.getProperties().remove(key);
-    }
+        }
     }
 
     private static byte[] fixtureClass() {
         final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "fixture/AutoLayout", null, "java/lang/Object", null);
-        writer.visitField(
-            Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
-            "nativeCalls",
-            "I",
-            null,
-            null
-        ).visitEnd();
-        final MethodVisitor constructor = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "<init>", "()V", null, null
-        );
+        writer.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "nativeCalls", "I", null, null)
+                .visitEnd();
+        final MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
@@ -190,9 +155,7 @@ class TextureAtlasAutoLayoutTransformerTest {
         constructor.visitMaxs(0, 0);
         constructor.visitEnd();
 
-        final MethodVisitor method = writer.visitMethod(
-            Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)Z", null, null
-        );
+        final MethodVisitor method = writer.visitMethod(Opcodes.ACC_PUBLIC, "a", "(Ljava/lang/Object;)Z", null, null);
         method.visitCode();
         method.visitFieldInsn(Opcodes.GETSTATIC, "fixture/AutoLayout", "nativeCalls", "I");
         method.visitInsn(Opcodes.ICONST_1);

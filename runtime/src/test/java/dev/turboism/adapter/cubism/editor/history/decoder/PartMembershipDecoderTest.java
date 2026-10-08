@@ -1,19 +1,18 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * Verifies the native Part-membership decoder reports only what the admitted entry actually
@@ -23,10 +22,7 @@ class PartMembershipDecoderTest {
 
     @Test
     void oneSidedEntryReportsTheKnownSideAndLeavesTheOtherUnknown() {
-        final PartChildEntry entry = PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        );
+        final PartChildEntry entry = PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh"));
 
         final NativeHistoryDecodeResult result = decode(entry);
 
@@ -35,12 +31,10 @@ class PartMembershipDecoderTest {
         assertEquals("ART_MESH", detail.targets().get(0).type());
         assertEquals("mesh-1", detail.targets().get(0).id().orElseThrow());
         assertEquals("BodyMesh", detail.targets().get(0).displayName().orElseThrow());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.PART_MEMBERSHIP, relation.kind());
-        assertEquals(
-            HistoryRelationChange.State.UNKNOWN,
-            relation.before().state()
-        );
+        assertEquals(HistoryRelationChange.State.UNKNOWN, relation.before().state());
         assertEquals(HistoryRelationChange.State.TARGET, relation.after().state());
         assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
         assertEquals("PART", relation.after().target().orElseThrow().type());
@@ -50,14 +44,8 @@ class PartMembershipDecoderTest {
     @Test
     void aHostPartMoveIsCombinedIntoTheCompleteRelation() {
         final GroupEntry group = new GroupEntry("Add Part");
-        group.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
-        group.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        group.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
+        group.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh")));
 
         final NativeHistoryDecodeResult result = decode(group);
 
@@ -67,7 +55,8 @@ class PartMembershipDecoderTest {
         assertTrue(detail.group().isEmpty());
         assertEquals("Add Part", detail.summary());
         assertEquals("mesh-1", detail.targets().get(0).id().orElseThrow());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals("PartA", relation.before().target().orElseThrow().id().orElseThrow());
         assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
     }
@@ -79,15 +68,9 @@ class PartMembershipDecoderTest {
         // relation of its own, so the pair is only combinable if it is looked through.
         final GroupEntry outer = new GroupEntry("物体的移动");
         final GroupEntry leave = new GroupEntry("物体的移动");
-        leave.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        leave.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
         final GroupEntry join = new GroupEntry("物体的移动");
-        join.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        join.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh")));
         outer.children.add(leave);
         outer.children.add(join);
 
@@ -98,7 +81,8 @@ class PartMembershipDecoderTest {
         assertTrue(detail.degradationCode().isEmpty());
         assertTrue(detail.group().isEmpty());
         assertEquals("mesh-1", detail.targets().get(0).id().orElseThrow());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals("PartA", relation.before().target().orElseThrow().id().orElseThrow());
         assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
     }
@@ -108,16 +92,10 @@ class PartMembershipDecoderTest {
         // The wrapper is only transparent while it is provably a wrapper: a nested group holding a
         // second edit describes more than the relation, so it stays a real group.
         final GroupEntry inner = new GroupEntry("物体的移动");
-        inner.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        inner.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
         inner.children.add(new Entry("Rename part"));
         final GroupEntry join = new GroupEntry("物体的移动");
-        join.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        join.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh")));
         final GroupEntry outer = new GroupEntry("物体的移动");
         outer.children.add(inner);
         outer.children.add(join);
@@ -127,26 +105,16 @@ class PartMembershipDecoderTest {
         final HistoryEntryDetail detail = result.detail().orElseThrow();
         assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
         assertTrue(detail.group().isPresent());
-        assertEquals(
-            2,
-            detail.group().orElseThrow().children().size(),
-            "every observed child must remain projected"
-        );
+        assertEquals(2, detail.group().orElseThrow().children().size(), "every observed child must remain projected");
     }
 
     @Test
     void twoWrappedJoinsAreNotCombinedIntoAMove() {
         // Two joins with no leave are not a move; transparency must not manufacture one.
         final GroupEntry first = new GroupEntry("物体的移动");
-        first.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        first.children.add(PartChildEntry.join(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
         final GroupEntry second = new GroupEntry("物体的移动");
-        second.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        second.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh")));
         final GroupEntry outer = new GroupEntry("物体的移动");
         outer.children.add(first);
         outer.children.add(second);
@@ -161,14 +129,8 @@ class PartMembershipDecoderTest {
     @Test
     void aGroupWithAnExtraEditIsNotCoalescedIntoOneRelation() {
         final GroupEntry group = new GroupEntry("Add Part");
-        group.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
-        group.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        group.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
+        group.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh")));
         group.children.add(new Entry("Rename part"));
 
         final NativeHistoryDecodeResult result = decode(group);
@@ -181,14 +143,8 @@ class PartMembershipDecoderTest {
     @Test
     void reorderingInsideOnePartIsNotReportedAsAMove() {
         final GroupEntry group = new GroupEntry("Add Part");
-        group.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
-        group.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartA"),
-            new ArtMeshDouble("BodyMesh")
-        ));
+        group.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
+        group.children.add(PartChildEntry.join(new PartSourceDouble("PartA"), new ArtMeshDouble("BodyMesh")));
 
         final NativeHistoryDecodeResult result = decode(group);
 
@@ -199,18 +155,12 @@ class PartMembershipDecoderTest {
 
     @Test
     void aPartChildIsReadExactlyLikeAnyOtherAdmittedChild() {
-        final PartChildEntry entry = PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new PartSourceDouble("BodyPart")
-        );
+        final PartChildEntry entry =
+                PartChildEntry.join(new PartSourceDouble("PartB"), new PartSourceDouble("BodyPart"));
 
         final NativeHistoryDecodeResult result = decode(entry);
 
-        assertEquals(
-            NativeHistoryDecodeResult.Outcome.DECODED,
-            result.outcome(),
-            result.diagnosticId()
-        );
+        assertEquals(NativeHistoryDecodeResult.Outcome.DECODED, result.outcome(), result.diagnosticId());
         final HistoryEntryDetail detail = result.detail().orElseThrow();
         assertEquals("PART", detail.targets().get(0).type());
         assertEquals("BodyPart", detail.targets().get(0).id().orElseThrow());
@@ -223,15 +173,9 @@ class PartMembershipDecoderTest {
         // value of the admitted selector and needs no new admission to read.
         final GroupEntry outer = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
         final GroupEntry leave = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
-        leave.children.add(PartChildEntry.leave(
-            new PartSourceDouble("PartA"),
-            new PartSourceDouble("BodyPart")
-        ));
+        leave.children.add(PartChildEntry.leave(new PartSourceDouble("PartA"), new PartSourceDouble("BodyPart")));
         final GroupEntry join = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
-        join.children.add(PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new PartSourceDouble("BodyPart")
-        ));
+        join.children.add(PartChildEntry.join(new PartSourceDouble("PartB"), new PartSourceDouble("BodyPart")));
         outer.children.add(leave);
         outer.children.add(join);
 
@@ -243,34 +187,27 @@ class PartMembershipDecoderTest {
         assertTrue(detail.group().isEmpty());
         assertEquals("PART", detail.targets().get(0).type());
         assertEquals("BodyPart", detail.targets().get(0).id().orElseThrow());
-        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        final HistoryRelationChange relation =
+                detail.changes().get(0).relation().orElseThrow();
         assertEquals("PartA", relation.before().target().orElseThrow().id().orElseThrow());
         assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
     }
 
     @Test
     void anEntryWhoseChildTypeIsNotAdmittedProducesNoRelation() {
-        final PartChildEntry entry = PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new Controllable("Odd", "odd-1")
-        );
+        final PartChildEntry entry =
+                PartChildEntry.join(new PartSourceDouble("PartB"), new Controllable("Odd", "odd-1"));
 
         final NativeHistoryDecodeResult result = decode(entry);
 
         assertEquals(NativeHistoryDecodeResult.Outcome.FAILED, result.outcome());
-        assertEquals(
-            "history.detail.part-membership-target-unavailable",
-            result.diagnosticId()
-        );
+        assertEquals("history.detail.part-membership-target-unavailable", result.diagnosticId());
         assertTrue(result.detail().isEmpty());
     }
 
     @Test
     void aChildWithoutALocalNameStillCarriesTheExactRelation() {
-        final PartChildEntry entry = PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble(null)
-        );
+        final PartChildEntry entry = PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble(null));
 
         final NativeHistoryDecodeResult result = decode(entry);
 
@@ -282,158 +219,87 @@ class PartMembershipDecoderTest {
 
     @Test
     void theDecoderIsNotAdmittedWithoutItsOwnSelectorFamily() {
-        final PartChildEntry entry = PartChildEntry.join(
-            new PartSourceDouble("PartB"),
-            new ArtMeshDouble("BodyMesh")
-        );
+        final PartChildEntry entry = PartChildEntry.join(new PartSourceDouble("PartB"), new ArtMeshDouble("BodyMesh"));
 
-        final NativeHistoryDecodeResult result = new NativeHistoryDecoderRegistry().decode(
-            resolver(groupSelectors()),
-            entry,
-            "Add Part"
-        );
+        final NativeHistoryDecodeResult result =
+                new NativeHistoryDecoderRegistry().decode(resolver(groupSelectors()), entry, "Add Part");
 
         assertEquals(NativeHistoryDecodeResult.Outcome.UNSUPPORTED, result.outcome());
         assertEquals("history.detail.class-unsupported", result.diagnosticId());
     }
 
     private static NativeHistoryDecodeResult decode(final Object entry) {
-        return new NativeHistoryDecoderRegistry().decode(
-            resolver(selectors()),
-            entry,
-            entry instanceof GroupEntry group ? group.presentationName() : "Add Part"
-        );
+        return new NativeHistoryDecoderRegistry()
+                .decode(
+                        resolver(selectors()),
+                        entry,
+                        entry instanceof GroupEntry group ? group.presentationName() : "Add Part");
     }
 
     private static VerifiedMemberResolver resolver(final List<StaticSelector> selectors) {
         return TestVerifiedResolvers.create(
-            "5.3.02",
-            "adapter.editor-model.readwrite",
-            Set.of("cubism.editor-history.semantic-read"),
-            selectors,
-            PartMembershipDecoderTest.class.getClassLoader()
-        );
+                "5.3.02",
+                "adapter.editor-model.readwrite",
+                Set.of("cubism.editor-history.semantic-read"),
+                selectors,
+                PartMembershipDecoderTest.class.getClassLoader());
     }
 
     private static List<StaticSelector> selectors() {
         final ArrayList<StaticSelector> all = new ArrayList<>(groupSelectors());
         all.add(StaticSelector.classSelector(
-            "cubism.editor-history.semantic.part-membership.class",
-            internal(PartChildEntry.class)
-        ));
+                "cubism.editor-history.semantic.part-membership.class", internal(PartChildEntry.class)));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.part",
-            PartChildEntry.class,
-            "getPart",
-            desc(PartSourceDouble.class)
-        ));
+                "cubism.editor-history.semantic.part-membership.part",
+                PartChildEntry.class,
+                "getPart",
+                desc(PartSourceDouble.class)));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.child",
-            PartChildEntry.class,
-            "getChild",
-            desc(SourceBase.class)
-        ));
+                "cubism.editor-history.semantic.part-membership.child",
+                PartChildEntry.class,
+                "getChild",
+                desc(SourceBase.class)));
         all.add(method(
-            "cubism.editor-history.semantic.part-membership.index",
-            PartChildEntry.class,
-            "getInsertIndex",
-            "()I"
-        ));
-        all.add(method(
-            "cubism.editor-history.semantic.part-membership.is-add",
-            PartChildEntry.class,
-            "isAdd",
-            "()Z"
-        ));
+                "cubism.editor-history.semantic.part-membership.index", PartChildEntry.class, "getInsertIndex", "()I"));
+        all.add(method("cubism.editor-history.semantic.part-membership.is-add", PartChildEntry.class, "isAdd", "()Z"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.part-source.class",
-            internal(PartSourceDouble.class)
-        ));
-        all.add(method(
-            "cubism.editor-model.part-source.id",
-            PartSourceDouble.class,
-            "id",
-            desc(PartId.class)
-        ));
-        all.add(method(
-            "cubism.editor-model.part-id.value",
-            PartId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.part-source.class", internal(PartSourceDouble.class)));
+        all.add(method("cubism.editor-model.part-source.id", PartSourceDouble.class, "id", desc(PartId.class)));
+        all.add(method("cubism.editor-model.part-id.value", PartId.class, "value", "()Ljava/lang/String;"));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.art-mesh-source.class",
-            internal(ArtMeshDouble.class)
-        ));
+                "cubism.editor-model.art-mesh-source.class", internal(ArtMeshDouble.class)));
+        all.add(StaticSelector.classSelector("cubism.editor-model.warp-source.class", internal(WarpDouble.class)));
         all.add(StaticSelector.classSelector(
-            "cubism.editor-model.warp-source.class",
-            internal(WarpDouble.class)
-        ));
-        all.add(StaticSelector.classSelector(
-            "cubism.editor-model.rotation-source.class",
-            internal(RotationDouble.class)
-        ));
+                "cubism.editor-model.rotation-source.class", internal(RotationDouble.class)));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.id",
-            Controllable.class,
-            "id",
-            desc(SourceId.class)
-        ));
+                "cubism.editor-model.parameter-controllable-source.id",
+                Controllable.class,
+                "id",
+                desc(SourceId.class)));
         all.add(method(
-            "cubism.editor-model.parameter-controllable-source.local-name",
-            SourceBase.class,
-            "getLocalName",
-            "()Ljava/lang/String;"
-        ));
-        all.add(method(
-            "cubism.editor-model.id.value",
-            SourceId.class,
-            "value",
-            "()Ljava/lang/String;"
-        ));
+                "cubism.editor-model.parameter-controllable-source.local-name",
+                SourceBase.class,
+                "getLocalName",
+                "()Ljava/lang/String;"));
+        all.add(method("cubism.editor-model.id.value", SourceId.class, "value", "()Ljava/lang/String;"));
         return List.copyOf(all);
     }
 
     private static List<StaticSelector> groupSelectors() {
         return List.of(
-            StaticSelector.classSelector(
-                "cubism.editor-history.semantic.group.class",
-                internal(GroupEntry.class)
-            ),
-            method(
-                "cubism.editor-history.semantic.group.edits",
-                GroupEntry.class,
-                "edits",
-                "()Ljava/util/List;"
-            ),
-            method(
-                "cubism.editor-history.semantic.group.count",
-                GroupEntry.class,
-                "count",
-                "()I"
-            ),
-            method(
-                "cubism.editor-history.entry.presentation-name",
-                Entry.class,
-                "presentationName",
-                "()Ljava/lang/String;"
-            )
-        );
+                StaticSelector.classSelector("cubism.editor-history.semantic.group.class", internal(GroupEntry.class)),
+                method("cubism.editor-history.semantic.group.edits", GroupEntry.class, "edits", "()Ljava/util/List;"),
+                method("cubism.editor-history.semantic.group.count", GroupEntry.class, "count", "()I"),
+                method(
+                        "cubism.editor-history.entry.presentation-name",
+                        Entry.class,
+                        "presentationName",
+                        "()Ljava/lang/String;"));
     }
 
     private static StaticSelector method(
-        final String alias,
-        final Class<?> owner,
-        final String name,
-        final String descriptor
-    ) {
-        return StaticSelector.method(
-            alias,
-            internal(owner),
-            name,
-            descriptor,
-            StaticSelector.ACCESS_PUBLIC
-        );
+            final String alias, final Class<?> owner, final String name, final String descriptor) {
+        return StaticSelector.method(alias, internal(owner), name, descriptor, StaticSelector.ACCESS_PUBLIC);
     }
 
     private static String internal(final Class<?> type) {
@@ -499,11 +365,9 @@ class PartMembershipDecoderTest {
         }
     }
 
-    public record SourceId(String value) {
-    }
+    public record SourceId(String value) {}
 
-    public record PartId(String value) {
-    }
+    public record PartId(String value) {}
 
     /** Test double for {@code Editor_Part$Undo_AddOrRemovePartChild}. */
     public static final class PartChildEntry {
@@ -512,11 +376,7 @@ class PartMembershipDecoderTest {
         private final int insertIndex;
         private final boolean add;
 
-        private PartChildEntry(
-            final PartSourceDouble part,
-            final SourceBase child,
-            final boolean add
-        ) {
+        private PartChildEntry(final PartSourceDouble part, final SourceBase child, final boolean add) {
             this.part = part;
             this.child = child;
             this.insertIndex = 0;

@@ -1,16 +1,11 @@
 """Changed-only Nightly policy and publishing; stable promotion stays separate."""
 from __future__ import annotations
 
-import hashlib
-import json
-import os
 import re
 from pathlib import Path
 
-from .build_identity import identity, decode_file, verify_receipt
-from .promotion import GitHub, ensure_tag, tag_binding
+from .build_identity import decode_file
 from .versions import STRICT_VERSION, SOURCE_SHA
-from .candidate import _load_script
 
 WORKFLOW = '.github/workflows/release.yml'
 NIGHTLY = re.compile(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)-0\.nightly\.([1-9]\d*)$')

@@ -1,15 +1,8 @@
 package dev.turboism.plugin.atlasdalsoo;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.BooleanSupplier;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.sdk.config.ConfigKey;
 import dev.turboism.sdk.config.ConfigMigration;
@@ -31,20 +24,25 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonLayoutSnapshot;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasPolygonPlan;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasRotationMode;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
-import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.Registration;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Dialog bridge state: publish seeds the runtime properties from persisted
@@ -79,27 +77,15 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.init(context);
         plugin.enable();
         try {
-            assertEquals("dalsoo",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY));
-            assertEquals("QUARTER",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY));
-            assertEquals("NONE",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY));
-            assertEquals("true",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY));
-            assertEquals("100",
-                System.getProperty(
-                    TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY));
-            assertEquals("5",
-                System.getProperty(
-                    TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_TOLERANCE_KEY));
-            assertEquals("0",
-                System.getProperty(
-                    TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY));
-            assertEquals("abey",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY));
-            assertEquals("false",
-                System.getProperty(TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY));
+            assertEquals("dalsoo", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY));
+            assertEquals("QUARTER", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY));
+            assertEquals("NONE", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY));
+            assertEquals("true", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY));
+            assertEquals("100", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY));
+            assertEquals("5", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_TOLERANCE_KEY));
+            assertEquals("0", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY));
+            assertEquals("abey", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY));
+            assertEquals("false", System.getProperty(TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY));
         } finally {
             plugin.shutdown();
         }
@@ -112,29 +98,20 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.init(context);
         plugin.enable();
         try {
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY, "ANGLE_SCALE");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY, "false");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY, "150");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_TOLERANCE_KEY, "20");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY, "7");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY, "dalalah");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY, "true");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY, "ANGLE_SCALE");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_KEY, "false");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY, "150");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_TOLERANCE_KEY, "20");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY, "7");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY, "dalalah");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_PARALLEL_KEY, "true");
 
             invokeNativeCallback();
 
             final PolygonLayoutSettings confirmed = plugin.confirmedSettings();
             assertEquals(TextureAtlasRotationMode.FREE, confirmed.rotation());
-            assertEquals(PolygonLayoutLockPreset.ANGLE_SCALE,
-                confirmed.lockPreset());
+            assertEquals(PolygonLayoutLockPreset.ANGLE_SCALE, confirmed.lockPreset());
             assertFalse(confirmed.automaticScale());
             assertEquals(1.5, confirmed.fixedScale(), 1e-9);
             assertEquals(0.02, confirmed.autoScaleTolerance(), 1e-9);
@@ -160,16 +137,11 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.enable();
         try {
             final PolygonLayoutSettings before = plugin.confirmedSettings();
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "SIDEWAYS");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY, "EVERYTHING");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY, "9999");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY, "-3");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY, "bogus");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "SIDEWAYS");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_LOCK_PRESET_KEY, "EVERYTHING");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_FIXED_SCALE_PERCENT_KEY, "9999");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_AUTO_SCALE_MAX_TRY_KEY, "-3");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_KERNEL_KEY, "bogus");
 
             invokeNativeCallback();
 
@@ -187,10 +159,8 @@ class TextureAtlasDalsooPluginDialogStateTest {
         plugin.enable();
         try {
             final PolygonLayoutSettings before = plugin.confirmedSettings();
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY, "other");
-            System.getProperties().put(
-                TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_ALGORITHM_KEY, "other");
+            System.getProperties().put(TextureAtlasDalsooPlugin.DIALOG_ROTATION_KEY, "FREE");
 
             invokeNativeCallback();
 
@@ -201,8 +171,7 @@ class TextureAtlasDalsooPluginDialogStateTest {
     }
 
     private static void invokeNativeCallback() {
-        final Object callback = System.getProperties().get(
-            TextureAtlasDalsooPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
+        final Object callback = System.getProperties().get(TextureAtlasDalsooPlugin.NATIVE_AUTO_LAYOUT_CALLBACK_KEY);
         assertTrue(callback instanceof BooleanSupplier);
         ((BooleanSupplier) callback).getAsBoolean();
     }
@@ -210,105 +179,173 @@ class TextureAtlasDalsooPluginDialogStateTest {
     private static final class ShellPluginContext implements PluginContext {
         private final List<String> infoMessages = new ArrayList<>();
         private final PluginLogger logger = new PluginLogger() {
-            @Override public void debug(final String message) { }
-            @Override public void info(final String message) {
+            @Override
+            public void debug(final String message) {}
+
+            @Override
+            public void info(final String message) {
                 infoMessages.add(message);
             }
-            @Override public void warn(final String message) { }
-            @Override public void error(final String message) { }
-            @Override public void error(final String message,
-                final Throwable throwable) { }
+
+            @Override
+            public void warn(final String message) {}
+
+            @Override
+            public void error(final String message) {}
+
+            @Override
+            public void error(final String message, final Throwable throwable) {}
         };
         private final FakeRegistry config = new FakeRegistry();
-        private final TextureAtlasLayoutAlgorithmRegistry algorithms =
-            new TestAlgorithmRegistry();
+        private final TextureAtlasLayoutAlgorithmRegistry algorithms = new TestAlgorithmRegistry();
         private final DisposableScope scope = new DisposableScope();
 
-        @Override public PluginDescriptor descriptor() { throw unused(); }
-        @Override public PluginLogger logger() { return logger; }
-        @Override public PluginPaths paths() { throw unused(); }
-        @Override public PluginConfigRegistry config() { return config; }
-        @Override public DisposableScope disposableScope() { return scope; }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public dev.turboism.sdk.event.EventBus eventBus() {
-            throw unused();
-        }
-        @Override public dev.turboism.sdk.action.ActionRegistry actions() {
-            throw unused();
-        }
-        @Override public dev.turboism.sdk.menu.MenuRegistry menus() {
-            throw unused();
-        }
-        @Override public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
-            throw unused();
-        }
-        @Override public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
+        @Override
+        public PluginDescriptor descriptor() {
             throw unused();
         }
 
-        @Override public PluginLocalization localization() {
+        @Override
+        public PluginLogger logger() {
+            return logger;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            throw unused();
+        }
+
+        @Override
+        public PluginConfigRegistry config() {
+            return config;
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return scope;
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public dev.turboism.sdk.event.EventBus eventBus() {
+            throw unused();
+        }
+
+        @Override
+        public dev.turboism.sdk.action.ActionRegistry actions() {
+            throw unused();
+        }
+
+        @Override
+        public dev.turboism.sdk.menu.MenuRegistry menus() {
+            throw unused();
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.UiScheduler uiScheduler() {
+            throw unused();
+        }
+
+        @Override
+        public dev.turboism.sdk.diagnostics.DiagnosticReport diagnostics() {
+            throw unused();
+        }
+
+        @Override
+        public PluginLocalization localization() {
             return new PluginLocalization() {
-                @Override public Locale locale() { return Locale.ENGLISH; }
-                @Override public String text(final String key) { return key; }
-                @Override public String format(final String key,
-                    final Object... arguments) {
+                @Override
+                public Locale locale() {
+                    return Locale.ENGLISH;
+                }
+
+                @Override
+                public String text(final String key) {
                     return key;
                 }
-                @Override public boolean contains(final String key) {
+
+                @Override
+                public String format(final String key, final Object... arguments) {
+                    return key;
+                }
+
+                @Override
+                public boolean contains(final String key) {
                     return true;
                 }
             };
         }
 
-        @Override public CubismFacade cubism() {
+        @Override
+        public CubismFacade cubism() {
             return new CubismFacade() {
-                @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot
-                    runtime() { throw unused(); }
-                @Override public Optional<dev.turboism.sdk.cubism.ProjectSnapshot>
-                    activeProject() { return Optional.empty(); }
-                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot>
-                    activeDocument() { return Optional.empty(); }
-                @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot>
-                    activeModel() { return Optional.empty(); }
-                @Override public boolean isHostPresent() { return false; }
-                @Override public dev.turboism.sdk.cubism.transaction
-                    .TransactionManager transactionManager() { throw unused(); }
-                @Override public TextureAtlasLayoutService textureAtlasLayouts() {
+                @Override
+                public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
+                    throw unused();
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+                    return Optional.empty();
+                }
+
+                @Override
+                public boolean isHostPresent() {
+                    return false;
+                }
+
+                @Override
+                public TextureAtlasLayoutService textureAtlasLayouts() {
                     return new TextureAtlasLayoutService() {
-                        @Override public Optional<dev.turboism.sdk.cubism
-                            .textureatlas.TextureAtlasLayoutSnapshot> current() {
+                        @Override
+                        public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
                             return Optional.empty();
                         }
-                        @Override public TextureAtlasLayoutApplyResult apply(
-                            final dev.turboism.sdk.cubism.textureatlas
-                                .TextureAtlasLayoutTarget target,
-                            final dev.turboism.sdk.cubism.textureatlas
-                                .TextureAtlasLayoutPlan plan) {
+
+                        @Override
+                        public TextureAtlasLayoutApplyResult apply(
+                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan) {
                             return TextureAtlasLayoutApplyResult.failed(
-                                TextureAtlasLayoutFailureCode.PLAN_INVALID,
-                                "no snapshot");
+                                    TextureAtlasLayoutFailureCode.PLAN_INVALID, "no snapshot");
                         }
                     };
                 }
-                @Override public TextureAtlasPolygonLayoutService
-                    textureAtlasPolygonLayouts() {
+
+                @Override
+                public TextureAtlasPolygonLayoutService textureAtlasPolygonLayouts() {
                     return new TextureAtlasPolygonLayoutService() {
-                        @Override public Optional<TextureAtlasPolygonLayoutSnapshot>
-                            currentPolygon() {
+                        @Override
+                        public Optional<TextureAtlasPolygonLayoutSnapshot> currentPolygon() {
                             return Optional.empty();
                         }
-                        @Override public TextureAtlasLayoutApplyResult apply(
-                            final dev.turboism.sdk.cubism.textureatlas
-                                .TextureAtlasLayoutTarget target,
-                            final TextureAtlasPolygonPlan plan) {
+
+                        @Override
+                        public TextureAtlasLayoutApplyResult apply(
+                                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+                                final TextureAtlasPolygonPlan plan) {
                             return TextureAtlasLayoutApplyResult.failed(
-                                TextureAtlasLayoutFailureCode.PLAN_INVALID,
-                                "no snapshot");
+                                    TextureAtlasLayoutFailureCode.PLAN_INVALID, "no snapshot");
                         }
                     };
                 }
-                @Override public TextureAtlasLayoutAlgorithmRegistry
-                    textureAtlasAlgorithms() {
+
+                @Override
+                public TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
                     return algorithms;
                 }
             };
@@ -319,23 +356,22 @@ class TextureAtlasDalsooPluginDialogStateTest {
         }
     }
 
-    private static final class TestAlgorithmRegistry
-        implements TextureAtlasLayoutAlgorithmRegistry {
-        private final Map<String, TextureAtlasLayoutAlgorithm> algorithms =
-            new LinkedHashMap<>();
+    private static final class TestAlgorithmRegistry implements TextureAtlasLayoutAlgorithmRegistry {
+        private final Map<String, TextureAtlasLayoutAlgorithm> algorithms = new LinkedHashMap<>();
 
-        @Override public Registration register(
-            final TextureAtlasLayoutAlgorithm algorithm) {
+        @Override
+        public Registration register(final TextureAtlasLayoutAlgorithm algorithm) {
             algorithms.put(algorithm.id(), algorithm);
             return () -> algorithms.remove(algorithm.id(), algorithm);
         }
 
-        @Override public Optional<TextureAtlasLayoutAlgorithm> find(
-            final String id) {
+        @Override
+        public Optional<TextureAtlasLayoutAlgorithm> find(final String id) {
             return Optional.ofNullable(algorithms.get(id));
         }
 
-        @Override public List<TextureAtlasLayoutAlgorithm> algorithms() {
+        @Override
+        public List<TextureAtlasLayoutAlgorithm> algorithms() {
             return List.copyOf(algorithms.values());
         }
     }
@@ -344,49 +380,49 @@ class TextureAtlasDalsooPluginDialogStateTest {
         private final Map<ConfigKey<?>, Object> values = new HashMap<>();
         private long revision;
 
-        @Override public CompletionStage<Void> registerSchema(
-            final ConfigSchema schema, final List<ConfigMigration> migrations) {
+        @Override
+        public CompletionStage<Void> registerSchema(final ConfigSchema schema, final List<ConfigMigration> migrations) {
             return CompletableFuture.completedFuture(null);
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public <T> CompletionStage<ConfigReadResult<T>> read(
-            final ConfigKey<T> key) {
+        public <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
             final boolean stored = values.containsKey(key);
             final T current = stored ? (T) values.get(key) : key.defaultValue();
-            final ConfigValueSource source =
-                stored ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING;
-            return CompletableFuture.completedFuture(new ConfigReadResult<>(
-                new ConfigValue<>(current, source, revision), Optional.empty()));
+            final ConfigValueSource source = stored ? ConfigValueSource.STORED : ConfigValueSource.DEFAULT_MISSING;
+            return CompletableFuture.completedFuture(
+                    new ConfigReadResult<>(new ConfigValue<>(current, source, revision), Optional.empty()));
         }
 
-        @Override public <T> CompletionStage<ConfigWriteResult> write(
-            final ConfigKey<T> key, final T value, final long expectedRevision) {
+        @Override
+        public <T> CompletionStage<ConfigWriteResult> write(
+                final ConfigKey<T> key, final T value, final long expectedRevision) {
             if (expectedRevision != revision) {
-                return CompletableFuture.completedFuture(
-                    new ConfigWriteResult(false, revision, Optional.empty()));
+                return CompletableFuture.completedFuture(new ConfigWriteResult(false, revision, Optional.empty()));
             }
             values.put(key, value);
             revision++;
-            return CompletableFuture.completedFuture(
-                new ConfigWriteResult(true, revision, Optional.empty()));
+            return CompletableFuture.completedFuture(new ConfigWriteResult(true, revision, Optional.empty()));
         }
 
-        @Override public Registration readScope(final String relativePath) {
-            return () -> { };
+        @Override
+        public Registration readScope(final String relativePath) {
+            return () -> {};
         }
 
-        @Override public Registration writeScope(final String relativePath) {
-            return () -> { };
+        @Override
+        public Registration writeScope(final String relativePath) {
+            return () -> {};
         }
 
-        @Override public Optional<String> readString(final String relativePath,
-            final String key) {
+        @Override
+        public Optional<String> readString(final String relativePath, final String key) {
             return Optional.empty();
         }
 
-        @Override public void writeString(final String relativePath,
-            final String key, final String value) throws PluginConfigException { }
+        @Override
+        public void writeString(final String relativePath, final String key, final String value)
+                throws PluginConfigException {}
     }
 }

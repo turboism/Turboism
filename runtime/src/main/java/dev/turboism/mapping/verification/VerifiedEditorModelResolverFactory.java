@@ -6,145 +6,109 @@ import java.nio.file.Path;
 /** Pinned resolver factory for the verified Editor model read/write slice. */
 public final class VerifiedEditorModelResolverFactory implements SliceResolverFactory {
 
-    private static final String EDIT_LEVEL_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorModelEditLevelWrite";
-    private static final String EDIT_LEVEL_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE";
-    private static final String EDIT_LEVEL_WRITE_VALIDATION_MODE =
-        "edit-level-write-5303";
+    private static final String EDIT_LEVEL_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorModelEditLevelWrite";
+    private static final String EDIT_LEVEL_WRITE_VALIDATION_TOKEN = "EXACT_5303_EDIT_LEVEL_WRITE_CANDIDATE";
+    private static final String EDIT_LEVEL_WRITE_VALIDATION_MODE = "edit-level-write-5303";
     private static final String PARAMETER_VALUE_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterValueWrite";
-    private static final String PARAMETER_VALUE_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_VALUE_WRITE_CANDIDATE";
-    private static final String PARAMETER_VALUE_WRITE_VALIDATION_MODE =
-        "parameter-value-write-5303";
-    private static final String PARAMETER_LIFECYCLE_VALIDATION_PROPERTY =
-        "turboism.validation.parameterLifecycle";
-    private static final String PARAMETER_LIFECYCLE_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_LIFECYCLE_HOOK_CANDIDATE";
-    private static final String PARAMETER_LIFECYCLE_VALIDATION_MODE =
-        "parameter-lifecycle-hook-5303";
-    private static final String AUTO_BACKUP_VALIDATION_PROPERTY =
-        "turboism.validation.autoBackup";
-    private static final String AUTO_BACKUP_VALIDATION_TOKEN =
-        "EXACT_5303_AUTOBACKUP_CANDIDATE";
-    private static final String AUTO_BACKUP_VALIDATION_MODE_PROPERTY =
-        "turboism.validation.autoBackup.mode";
+            "turboism.validation.editorParameterValueWrite";
+    private static final String PARAMETER_VALUE_WRITE_VALIDATION_TOKEN = "EXACT_5303_PARAMETER_VALUE_WRITE_CANDIDATE";
+    private static final String PARAMETER_VALUE_WRITE_VALIDATION_MODE = "parameter-value-write-5303";
+    private static final String PARAMETER_LIFECYCLE_VALIDATION_PROPERTY = "turboism.validation.parameterLifecycle";
+    private static final String PARAMETER_LIFECYCLE_VALIDATION_TOKEN = "EXACT_5303_PARAMETER_LIFECYCLE_HOOK_CANDIDATE";
+    private static final String PARAMETER_LIFECYCLE_VALIDATION_MODE = "parameter-lifecycle-hook-5303";
+    private static final String AUTO_BACKUP_VALIDATION_PROPERTY = "turboism.validation.autoBackup";
+    private static final String AUTO_BACKUP_VALIDATION_TOKEN = "EXACT_5303_AUTOBACKUP_CANDIDATE";
+    private static final String AUTO_BACKUP_VALIDATION_MODE_PROPERTY = "turboism.validation.autoBackup.mode";
     private static final String AUTO_BACKUP_VALIDATION_MODE = "matrix";
     private static final String DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorDefaultKeyformLockWrite";
+            "turboism.validation.editorDefaultKeyformLockWrite";
     private static final String DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_DEFAULT_KEYFORM_LOCK_WRITE_CANDIDATE";
-    private static final String DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_MODE =
-        "default-keyform-lock-write-5303";
+            "EXACT_5303_DEFAULT_KEYFORM_LOCK_WRITE_CANDIDATE";
+    private static final String DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_MODE = "default-keyform-lock-write-5303";
     private static final String PARAMETER_DEFINITION_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterDefinitionWrite";
+            "turboism.validation.editorParameterDefinitionWrite";
     private static final String PARAMETER_DEFINITION_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_DEFINITION_WRITE_CANDIDATE";
-    private static final String PARAMETER_DEFINITION_WRITE_VALIDATION_MODE =
-        "parameter-definition-write-5303";
+            "EXACT_5303_PARAMETER_DEFINITION_WRITE_CANDIDATE";
+    private static final String PARAMETER_DEFINITION_WRITE_VALIDATION_MODE = "parameter-definition-write-5303";
     private static final String PARAMETER_COMBINED_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterCombinedWrite";
+            "turboism.validation.editorParameterCombinedWrite";
     private static final String PARAMETER_COMBINED_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_COMBINED_WRITE_CANDIDATE";
-    private static final String PARAMETER_COMBINED_WRITE_VALIDATION_MODE =
-        "parameter-combined-write-5303";
-    private static final String MODEL_NAME_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorModelNameWrite";
-    private static final String MODEL_NAME_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_MODEL_NAME_WRITE_CANDIDATE";
-    private static final String MODEL_NAME_WRITE_VALIDATION_MODE =
-        "model-name-write-5303";
+            "EXACT_5303_PARAMETER_COMBINED_WRITE_CANDIDATE";
+    private static final String PARAMETER_COMBINED_WRITE_VALIDATION_MODE = "parameter-combined-write-5303";
+    private static final String MODEL_NAME_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorModelNameWrite";
+    private static final String MODEL_NAME_WRITE_VALIDATION_TOKEN = "EXACT_5303_MODEL_NAME_WRITE_CANDIDATE";
+    private static final String MODEL_NAME_WRITE_VALIDATION_MODE = "model-name-write-5303";
     private static final String PARAMETER_STRUCTURE_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterStructureWrite";
+            "turboism.validation.editorParameterStructureWrite";
     private static final String PARAMETER_STRUCTURE_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_STRUCTURE_WRITE_CANDIDATE";
-    private static final String PARAMETER_STRUCTURE_WRITE_VALIDATION_MODE =
-        "parameter-structure-write-5303";
+            "EXACT_5303_PARAMETER_STRUCTURE_WRITE_CANDIDATE";
+    private static final String PARAMETER_STRUCTURE_WRITE_VALIDATION_MODE = "parameter-structure-write-5303";
     private static final String PART_STRUCTURE_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorPartStructureWrite";
-    private static final String PART_STRUCTURE_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_PART_STRUCTURE_WRITE_CANDIDATE";
-    private static final String PART_STRUCTURE_WRITE_VALIDATION_MODE =
-        "part-structure-write-5303";
+            "turboism.validation.editorPartStructureWrite";
+    private static final String PART_STRUCTURE_WRITE_VALIDATION_TOKEN = "EXACT_5303_PART_STRUCTURE_WRITE_CANDIDATE";
+    private static final String PART_STRUCTURE_WRITE_VALIDATION_MODE = "part-structure-write-5303";
     private static final String NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorNativeControlAppearanceWrite";
+            "turboism.validation.editorNativeControlAppearanceWrite";
     private static final String NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_NATIVE_CONTROL_APPEARANCE_WRITE_CANDIDATE";
+            "EXACT_5303_NATIVE_CONTROL_APPEARANCE_WRITE_CANDIDATE";
     private static final String NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_MODE =
-        "native-control-appearance-write-5303";
-    private static final String CLIP_MASK_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorClipMaskWrite";
-    private static final String CLIP_MASK_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_CLIP_MASK_WRITE_CANDIDATE";
-    private static final String CLIP_MASK_WRITE_VALIDATION_MODE =
-        "clip-mask-write-5303";
-    private static final String SEMANTIC_HISTORY_VALIDATION_PROPERTY =
-        "turboism.validation.editorSemanticHistory";
-    private static final String SEMANTIC_HISTORY_VALIDATION_TOKEN =
-        "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE";
-    private static final String SEMANTIC_HISTORY_VALIDATION_MODE =
-        "semantic-history-5303";
+            "native-control-appearance-write-5303";
+    private static final String CLIP_MASK_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorClipMaskWrite";
+    private static final String CLIP_MASK_WRITE_VALIDATION_TOKEN = "EXACT_5303_CLIP_MASK_WRITE_CANDIDATE";
+    private static final String CLIP_MASK_WRITE_VALIDATION_MODE = "clip-mask-write-5303";
+    private static final String SEMANTIC_HISTORY_VALIDATION_PROPERTY = "turboism.validation.editorSemanticHistory";
+    private static final String SEMANTIC_HISTORY_VALIDATION_TOKEN = "EXACT_5303_SEMANTIC_HISTORY_CANDIDATE";
+    private static final String SEMANTIC_HISTORY_VALIDATION_MODE = "semantic-history-5303";
     private static final String ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorArtMeshParameterBindingWrite";
+            "turboism.validation.editorArtMeshParameterBindingWrite";
     private static final String ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_ART_MESH_PARAMETER_BINDING_WRITE_CANDIDATE";
+            "EXACT_5303_ART_MESH_PARAMETER_BINDING_WRITE_CANDIDATE";
     private static final String ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_MODE =
-        "art-mesh-parameter-binding-write-5303";
+            "art-mesh-parameter-binding-write-5303";
     private static final String WARP_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorWarpParameterBindingWrite";
+            "turboism.validation.editorWarpParameterBindingWrite";
     private static final String WARP_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_WARP_PARAMETER_BINDING_WRITE_CANDIDATE";
-    private static final String WARP_PARAMETER_BINDING_WRITE_VALIDATION_MODE =
-        "warp-parameter-binding-write-5303";
+            "EXACT_5303_WARP_PARAMETER_BINDING_WRITE_CANDIDATE";
+    private static final String WARP_PARAMETER_BINDING_WRITE_VALIDATION_MODE = "warp-parameter-binding-write-5303";
     private static final String ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorRotationParameterBindingWrite";
+            "turboism.validation.editorRotationParameterBindingWrite";
     private static final String ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_ROTATION_PARAMETER_BINDING_WRITE_CANDIDATE";
+            "EXACT_5303_ROTATION_PARAMETER_BINDING_WRITE_CANDIDATE";
     private static final String ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_MODE =
-        "rotation-parameter-binding-write-5303";
+            "rotation-parameter-binding-write-5303";
     private static final String PARAMETER_BINDING_INVERT_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterBindingInvert";
+            "turboism.validation.editorParameterBindingInvert";
     private static final String PARAMETER_BINDING_INVERT_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_BINDING_INVERT_CANDIDATE";
-    private static final String PARAMETER_BINDING_INVERT_VALIDATION_MODE =
-        "parameter-binding-invert-5303";
+            "EXACT_5303_PARAMETER_BINDING_INVERT_CANDIDATE";
+    private static final String PARAMETER_BINDING_INVERT_VALIDATION_MODE = "parameter-binding-invert-5303";
     private static final String PARAMETER_BINDING_TRANSFER_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterBindingTransfer";
+            "turboism.validation.editorParameterBindingTransfer";
     private static final String PARAMETER_BINDING_TRANSFER_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_BINDING_TRANSFER_CANDIDATE";
-    private static final String PARAMETER_BINDING_TRANSFER_VALIDATION_MODE =
-        "parameter-binding-transfer-5303";
+            "EXACT_5303_PARAMETER_BINDING_TRANSFER_CANDIDATE";
+    private static final String PARAMETER_BINDING_TRANSFER_VALIDATION_MODE = "parameter-binding-transfer-5303";
     private static final String PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterBindingClampedTransfer";
+            "turboism.validation.editorParameterBindingClampedTransfer";
     private static final String PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_BINDING_CLAMPED_TRANSFER_CANDIDATE";
+            "EXACT_5303_PARAMETER_BINDING_CLAMPED_TRANSFER_CANDIDATE";
     private static final String PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_MODE =
-        "parameter-binding-clamped-transfer-5303";
+            "parameter-binding-clamped-transfer-5303";
     private static final String PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_PROPERTY =
-        "turboism.validation.editorParameterBindingMorphTransfer";
+            "turboism.validation.editorParameterBindingMorphTransfer";
     private static final String PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_TOKEN =
-        "EXACT_5303_PARAMETER_BINDING_MORPH_TRANSFER_CANDIDATE";
+            "EXACT_5303_PARAMETER_BINDING_MORPH_TRANSFER_CANDIDATE";
     private static final String PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_MODE =
-        "parameter-binding-morph-transfer-5303";
+            "parameter-binding-morph-transfer-5303";
     private static final String ART_MESH_GEOMETRY_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorArtMeshGeometryWrite";
+            "turboism.validation.editorArtMeshGeometryWrite";
     private static final String ART_MESH_GEOMETRY_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_ART_MESH_GEOMETRY_WRITE_CANDIDATE";
-    private static final String ART_MESH_GEOMETRY_WRITE_VALIDATION_MODE =
-        "art-mesh-geometry-write-5303";
-    private static final String WARP_GRID_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorWarpGridWrite";
-    private static final String WARP_GRID_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_WARP_GRID_WRITE_CANDIDATE";
-    private static final String WARP_GRID_WRITE_VALIDATION_MODE =
-        "warp-grid-write-5303";
-    private static final String ROTATION_FORM_WRITE_VALIDATION_PROPERTY =
-        "turboism.validation.editorRotationFormWrite";
-    private static final String ROTATION_FORM_WRITE_VALIDATION_TOKEN =
-        "EXACT_5303_ROTATION_FORM_WRITE_CANDIDATE";
-    private static final String ROTATION_FORM_WRITE_VALIDATION_MODE =
-        "rotation-form-write-5303";
+            "EXACT_5303_ART_MESH_GEOMETRY_WRITE_CANDIDATE";
+    private static final String ART_MESH_GEOMETRY_WRITE_VALIDATION_MODE = "art-mesh-geometry-write-5303";
+    private static final String WARP_GRID_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorWarpGridWrite";
+    private static final String WARP_GRID_WRITE_VALIDATION_TOKEN = "EXACT_5303_WARP_GRID_WRITE_CANDIDATE";
+    private static final String WARP_GRID_WRITE_VALIDATION_MODE = "warp-grid-write-5303";
+    private static final String ROTATION_FORM_WRITE_VALIDATION_PROPERTY = "turboism.validation.editorRotationFormWrite";
+    private static final String ROTATION_FORM_WRITE_VALIDATION_TOKEN = "EXACT_5303_ROTATION_FORM_WRITE_CANDIDATE";
+    private static final String ROTATION_FORM_WRITE_VALIDATION_MODE = "rotation-form-write-5303";
 
     private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();
 
@@ -167,20 +131,15 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver create(
-        final Path reviewedRecord,
-        final Path verifiedArtifact,
-        final ClassLoader hostClassLoader
-    ) throws IOException {
+            final Path reviewedRecord, final Path verifiedArtifact, final ClassLoader hostClassLoader)
+            throws IOException {
         final HostArtifactDigest artifact = HostArtifactDigest.from(verifiedArtifact);
         return workflow.create(
-            reviewedRecord,
-            verifiedArtifact,
-            hostClassLoader,
-            EditorModelVerificationManifest.forArtifact(artifact),
-            ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)
-                ? cubism5303RuntimeScope()
-                : null
-        );
+                reviewedRecord,
+                verifiedArtifact,
+                hostClassLoader,
+                EditorModelVerificationManifest.forArtifact(artifact),
+                ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact) ? cubism5303RuntimeScope() : null);
     }
 
     private static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
@@ -190,510 +149,291 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
             return EditorModelVerificationManifest.cubism5303TextureAtlasValidationScope();
         }
         if (admitsNativeControlAppearancePersistenceValidation(
-            System.getProperty(NativeControlAppearancePersistenceVerificationManifest.PROPERTY),
-            System.getProperty("turboism.validation.hostVersion"),
-            mode,
-            runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303NativeControlAppearanceWriteValidationScope();
+                System.getProperty(NativeControlAppearancePersistenceVerificationManifest.PROPERTY),
+                System.getProperty("turboism.validation.hostVersion"),
+                mode,
+                runId)) {
+            return EditorModelVerificationManifest.cubism5303NativeControlAppearanceWriteValidationScope();
         }
-        if (admitsEditLevelWriteValidation(
-            System.getProperty(EDIT_LEVEL_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+        if (admitsEditLevelWriteValidation(System.getProperty(EDIT_LEVEL_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303EditLevelWriteValidationScope();
         }
-        if (admitsSemanticHistoryValidation(
-            System.getProperty(SEMANTIC_HISTORY_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303SemanticHistoryValidationScope();
+        if (admitsSemanticHistoryValidation(System.getProperty(SEMANTIC_HISTORY_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303SemanticHistoryValidationScope();
         }
         if (admitsParameterValueWriteValidation(
-            System.getProperty(PARAMETER_VALUE_WRITE_VALIDATION_PROPERTY), mode, runId
-        ) || admitsParameterLifecycleValidation(
-            System.getProperty(PARAMETER_LIFECYCLE_VALIDATION_PROPERTY), mode, runId
-        )) {
+                        System.getProperty(PARAMETER_VALUE_WRITE_VALIDATION_PROPERTY), mode, runId)
+                || admitsParameterLifecycleValidation(
+                        System.getProperty(PARAMETER_LIFECYCLE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303ParameterValueWriteValidationScope();
         }
         if (admitsAutoBackupValidation(
-            System.getProperty(AUTO_BACKUP_VALIDATION_PROPERTY),
-            System.getProperty(AUTO_BACKUP_VALIDATION_MODE_PROPERTY),
-            runId
-        )) {
+                System.getProperty(AUTO_BACKUP_VALIDATION_PROPERTY),
+                System.getProperty(AUTO_BACKUP_VALIDATION_MODE_PROPERTY),
+                runId)) {
             // The backup probe's only Editor-model write is the previously proven parameter-value
             // mutation used to make the fixture eligible for native auto-backup. Auto-backup itself
             // remains a separately pinned adapter slice.
             return EditorModelVerificationManifest.cubism5303AutoBackupValidationScope();
         }
         if (admitsDefaultKeyformLockWriteValidation(
-            System.getProperty(DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303DefaultKeyformLockWriteValidationScope();
+                System.getProperty(DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303DefaultKeyformLockWriteValidationScope();
         }
         if (admitsParameterDefinitionWriteValidation(
-            System.getProperty(PARAMETER_DEFINITION_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterDefinitionWriteValidationScope();
+                System.getProperty(PARAMETER_DEFINITION_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterDefinitionWriteValidationScope();
         }
         if (admitsParameterCombinedWriteValidation(
-            System.getProperty(PARAMETER_COMBINED_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterCombinedWriteValidationScope();
+                System.getProperty(PARAMETER_COMBINED_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterCombinedWriteValidationScope();
         }
-        if (admitsModelNameWriteValidation(
-            System.getProperty(MODEL_NAME_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+        if (admitsModelNameWriteValidation(System.getProperty(MODEL_NAME_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303ModelNameWriteValidationScope();
         }
         if (admitsParameterStructureWriteValidation(
-            System.getProperty(PARAMETER_STRUCTURE_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterStructureWriteValidationScope();
+                System.getProperty(PARAMETER_STRUCTURE_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterStructureWriteValidationScope();
         }
         if (admitsPartStructureWriteValidation(
-            System.getProperty(PART_STRUCTURE_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303PartStructureWriteValidationScope();
+                System.getProperty(PART_STRUCTURE_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303PartStructureWriteValidationScope();
         }
         if (admitsNativeControlAppearanceWriteValidation(
-            System.getProperty(NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303NativeControlAppearanceWriteValidationScope();
+                System.getProperty(NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303NativeControlAppearanceWriteValidationScope();
         }
-        if (admitsClipMaskWriteValidation(
-            System.getProperty(CLIP_MASK_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+        if (admitsClipMaskWriteValidation(System.getProperty(CLIP_MASK_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303ClipMaskWriteValidationScope();
         }
         if (admitsArtMeshParameterBindingWriteValidation(
-            System.getProperty(ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY),
-            mode,
-            runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ArtMeshParameterBindingWriteValidationScope();
+                System.getProperty(ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ArtMeshParameterBindingWriteValidationScope();
         }
         if (admitsWarpParameterBindingWriteValidation(
-            System.getProperty(WARP_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303WarpParameterBindingWriteValidationScope();
+                System.getProperty(WARP_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303WarpParameterBindingWriteValidationScope();
         }
         if (admitsRotationParameterBindingWriteValidation(
-            System.getProperty(ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY),
-            mode,
-            runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303RotationParameterBindingWriteValidationScope();
+                System.getProperty(ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303RotationParameterBindingWriteValidationScope();
         }
         if (admitsParameterBindingInvertValidation(
-            System.getProperty(PARAMETER_BINDING_INVERT_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterBindingInvertValidationScope();
+                System.getProperty(PARAMETER_BINDING_INVERT_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterBindingInvertValidationScope();
         }
         if (admitsParameterBindingTransferValidation(
-            System.getProperty(PARAMETER_BINDING_TRANSFER_VALIDATION_PROPERTY), mode, runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterBindingTransferValidationScope();
+                System.getProperty(PARAMETER_BINDING_TRANSFER_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterBindingTransferValidationScope();
         }
         if (admitsParameterBindingClampedTransferValidation(
-            System.getProperty(PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_PROPERTY),
-            mode,
-            runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterBindingClampedTransferValidationScope();
+                System.getProperty(PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterBindingClampedTransferValidationScope();
         }
         if (admitsParameterBindingMorphTransferValidation(
-            System.getProperty(PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_PROPERTY),
-            mode,
-            runId
-        )) {
-            return EditorModelVerificationManifest
-                .cubism5303ParameterBindingMorphTransferValidationScope();
+                System.getProperty(PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_PROPERTY), mode, runId)) {
+            return EditorModelVerificationManifest.cubism5303ParameterBindingMorphTransferValidationScope();
         }
         if (admitsArtMeshGeometryWriteValidation(
-            System.getProperty(ART_MESH_GEOMETRY_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+                System.getProperty(ART_MESH_GEOMETRY_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303ArtMeshGeometryWriteValidationScope();
         }
-        if (admitsWarpGridWriteValidation(
-            System.getProperty(WARP_GRID_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+        if (admitsWarpGridWriteValidation(System.getProperty(WARP_GRID_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303WarpGridWriteValidationScope();
         }
         if (admitsRotationFormWriteValidation(
-            System.getProperty(ROTATION_FORM_WRITE_VALIDATION_PROPERTY), mode, runId
-        )) {
+                System.getProperty(ROTATION_FORM_WRITE_VALIDATION_PROPERTY), mode, runId)) {
             return EditorModelVerificationManifest.cubism5303RotationFormWriteValidationScope();
         }
         return EditorModelVerificationManifest.cubism5303RuntimeScope();
     }
 
     static boolean admitsTextureAtlasValidation(
-        final String token,
-        final String hostVersion,
-        final String mode,
-        final String runId
-    ) {
-        return TextureAtlasVerificationManifest.admits5303ValidationCandidate(
-            token, hostVersion, mode, runId
-        );
+            final String token, final String hostVersion, final String mode, final String runId) {
+        return TextureAtlasVerificationManifest.admits5303ValidationCandidate(token, hostVersion, mode, runId);
     }
 
     static boolean admitsNativeControlAppearancePersistenceValidation(
-        final String token,
-        final String hostVersion,
-        final String mode,
-        final String runId
-    ) {
-        return NativeControlAppearancePersistenceVerificationManifest
-            .admits5303ValidationCandidate(token, hostVersion, mode, runId);
+            final String token, final String hostVersion, final String mode, final String runId) {
+        return NativeControlAppearancePersistenceVerificationManifest.admits5303ValidationCandidate(
+                token, hostVersion, mode, runId);
     }
 
-    static boolean admitsEditLevelWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsEditLevelWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            EDIT_LEVEL_WRITE_VALIDATION_TOKEN,
-            EDIT_LEVEL_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, EDIT_LEVEL_WRITE_VALIDATION_TOKEN, EDIT_LEVEL_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsSemanticHistoryValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsSemanticHistoryValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            SEMANTIC_HISTORY_VALIDATION_TOKEN,
-            SEMANTIC_HISTORY_VALIDATION_MODE
-        );
+                token, mode, runId, SEMANTIC_HISTORY_VALIDATION_TOKEN, SEMANTIC_HISTORY_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterValueWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterValueWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_VALUE_WRITE_VALIDATION_TOKEN,
-            PARAMETER_VALUE_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, PARAMETER_VALUE_WRITE_VALIDATION_TOKEN, PARAMETER_VALUE_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterLifecycleValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterLifecycleValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_LIFECYCLE_VALIDATION_TOKEN,
-            PARAMETER_LIFECYCLE_VALIDATION_MODE
-        );
+                token, mode, runId, PARAMETER_LIFECYCLE_VALIDATION_TOKEN, PARAMETER_LIFECYCLE_VALIDATION_MODE);
     }
 
-    static boolean admitsAutoBackupValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
-        return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            AUTO_BACKUP_VALIDATION_TOKEN,
-            AUTO_BACKUP_VALIDATION_MODE
-        );
+    static boolean admitsAutoBackupValidation(final String token, final String mode, final String runId) {
+        return admitsValidationCandidate(token, mode, runId, AUTO_BACKUP_VALIDATION_TOKEN, AUTO_BACKUP_VALIDATION_MODE);
     }
 
-    static boolean admitsDefaultKeyformLockWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsDefaultKeyformLockWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_TOKEN,
-            DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_TOKEN,
+                DEFAULT_KEYFORM_LOCK_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterDefinitionWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterDefinitionWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_DEFINITION_WRITE_VALIDATION_TOKEN,
-            PARAMETER_DEFINITION_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_DEFINITION_WRITE_VALIDATION_TOKEN,
+                PARAMETER_DEFINITION_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterCombinedWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterCombinedWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_COMBINED_WRITE_VALIDATION_TOKEN,
-            PARAMETER_COMBINED_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_COMBINED_WRITE_VALIDATION_TOKEN,
+                PARAMETER_COMBINED_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsModelNameWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsModelNameWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            MODEL_NAME_WRITE_VALIDATION_TOKEN,
-            MODEL_NAME_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, MODEL_NAME_WRITE_VALIDATION_TOKEN, MODEL_NAME_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterStructureWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterStructureWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_STRUCTURE_WRITE_VALIDATION_TOKEN,
-            PARAMETER_STRUCTURE_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_STRUCTURE_WRITE_VALIDATION_TOKEN,
+                PARAMETER_STRUCTURE_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsPartStructureWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsPartStructureWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PART_STRUCTURE_WRITE_VALIDATION_TOKEN,
-            PART_STRUCTURE_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, PART_STRUCTURE_WRITE_VALIDATION_TOKEN, PART_STRUCTURE_WRITE_VALIDATION_MODE);
     }
 
     static boolean admitsNativeControlAppearanceWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_TOKEN,
-            NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_TOKEN,
+                NATIVE_CONTROL_APPEARANCE_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsClipMaskWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsClipMaskWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            CLIP_MASK_WRITE_VALIDATION_TOKEN,
-            CLIP_MASK_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, CLIP_MASK_WRITE_VALIDATION_TOKEN, CLIP_MASK_WRITE_VALIDATION_MODE);
     }
 
     static boolean admitsArtMeshParameterBindingWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
-            ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
+                ART_MESH_PARAMETER_BINDING_WRITE_VALIDATION_MODE);
     }
 
     static boolean admitsWarpParameterBindingWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            WARP_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
-            WARP_PARAMETER_BINDING_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                WARP_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
+                WARP_PARAMETER_BINDING_WRITE_VALIDATION_MODE);
     }
 
     static boolean admitsRotationParameterBindingWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
-            ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_TOKEN,
+                ROTATION_PARAMETER_BINDING_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterBindingInvertValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterBindingInvertValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_BINDING_INVERT_VALIDATION_TOKEN,
-            PARAMETER_BINDING_INVERT_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_BINDING_INVERT_VALIDATION_TOKEN,
+                PARAMETER_BINDING_INVERT_VALIDATION_MODE);
     }
 
-    static boolean admitsParameterBindingTransferValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsParameterBindingTransferValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_BINDING_TRANSFER_VALIDATION_TOKEN,
-            PARAMETER_BINDING_TRANSFER_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_BINDING_TRANSFER_VALIDATION_TOKEN,
+                PARAMETER_BINDING_TRANSFER_VALIDATION_MODE);
     }
 
     static boolean admitsParameterBindingClampedTransferValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_TOKEN,
-            PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_TOKEN,
+                PARAMETER_BINDING_CLAMPED_TRANSFER_VALIDATION_MODE);
     }
 
     static boolean admitsParameterBindingMorphTransferValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+            final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_TOKEN,
-            PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_MODE
-        );
+                token,
+                mode,
+                runId,
+                PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_TOKEN,
+                PARAMETER_BINDING_MORPH_TRANSFER_VALIDATION_MODE);
     }
 
-    static boolean admitsArtMeshGeometryWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsArtMeshGeometryWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            ART_MESH_GEOMETRY_WRITE_VALIDATION_TOKEN,
-            ART_MESH_GEOMETRY_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, ART_MESH_GEOMETRY_WRITE_VALIDATION_TOKEN, ART_MESH_GEOMETRY_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsWarpGridWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsWarpGridWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            WARP_GRID_WRITE_VALIDATION_TOKEN,
-            WARP_GRID_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, WARP_GRID_WRITE_VALIDATION_TOKEN, WARP_GRID_WRITE_VALIDATION_MODE);
     }
 
-    static boolean admitsRotationFormWriteValidation(
-        final String token,
-        final String mode,
-        final String runId
-    ) {
+    static boolean admitsRotationFormWriteValidation(final String token, final String mode, final String runId) {
         return admitsValidationCandidate(
-            token,
-            mode,
-            runId,
-            ROTATION_FORM_WRITE_VALIDATION_TOKEN,
-            ROTATION_FORM_WRITE_VALIDATION_MODE
-        );
+                token, mode, runId, ROTATION_FORM_WRITE_VALIDATION_TOKEN, ROTATION_FORM_WRITE_VALIDATION_MODE);
     }
 
     private static boolean admitsValidationCandidate(
-        final String token,
-        final String mode,
-        final String runId,
-        final String expectedToken,
-        final String expectedMode
-    ) {
-        return expectedToken.equals(token)
-            && expectedMode.equals(mode)
-            && runId != null
-            && !runId.isBlank();
+            final String token,
+            final String mode,
+            final String runId,
+            final String expectedToken,
+            final String expectedMode) {
+        return expectedToken.equals(token) && expectedMode.equals(mode) && runId != null && !runId.isBlank();
     }
     /**
      * Creates a resolver for a slice admitted by structural compatibility. The
@@ -710,17 +450,11 @@ public final class VerifiedEditorModelResolverFactory implements SliceResolverFa
      * @throws NullPointerException if any argument is {@code null}
      */
     public VerifiedMemberResolver createCompatible(
-        final Path reviewedRecord,
-        final Path hostArtifact,
-        final ClassLoader hostClassLoader,
-        final SliceContract contract
-    ) throws IOException {
-        return workflow.createCompatible(
-            reviewedRecord,
-            hostArtifact,
-            hostClassLoader,
-            contract
-        );
+            final Path reviewedRecord,
+            final Path hostArtifact,
+            final ClassLoader hostClassLoader,
+            final SliceContract contract)
+            throws IOException {
+        return workflow.createCompatible(reviewedRecord, hostArtifact, hostClassLoader, contract);
     }
-
 }

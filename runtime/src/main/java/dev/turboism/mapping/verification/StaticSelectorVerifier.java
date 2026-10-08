@@ -41,10 +41,10 @@ public final class StaticSelectorVerifier {
      * @throws IllegalArgumentException if {@code selectors} is empty
      */
     public StaticVerificationReport verify(
-        final Path artifact,
-        final HostArtifactFingerprint expectedFingerprint,
-        final List<StaticSelector> selectors
-    ) throws IOException {
+            final Path artifact,
+            final HostArtifactFingerprint expectedFingerprint,
+            final List<StaticSelector> selectors)
+            throws IOException {
         Objects.requireNonNull(artifact, "artifact");
         Objects.requireNonNull(expectedFingerprint, "expectedFingerprint");
         final List<StaticSelector> requested = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
@@ -53,25 +53,19 @@ public final class StaticSelectorVerifier {
         }
 
         final HostArtifactDigest actualDigest = HostArtifactDigest.from(artifact);
-        final HostArtifactFingerprint actual = new HostArtifactFingerprint(
-            "artifact-version-unattested",
-            actualDigest.size(),
-            actualDigest.sha256()
-        );
-        if (actual.size() != expectedFingerprint.size()
-            || !actual.sha256().equals(expectedFingerprint.sha256())) {
+        final HostArtifactFingerprint actual =
+                new HostArtifactFingerprint("artifact-version-unattested", actualDigest.size(), actualDigest.sha256());
+        if (actual.size() != expectedFingerprint.size() || !actual.sha256().equals(expectedFingerprint.sha256())) {
             return new StaticVerificationReport(
-                expectedFingerprint,
-                actual,
-                false,
-                requested.stream()
-                    .map(selector -> result(
-                        selector,
-                        StaticVerificationStatus.ARTIFACT_MISMATCH,
-                        "Host artifact fingerprint does not match the verified exact-version artifact."
-                    ))
-                    .toList()
-            );
+                    expectedFingerprint,
+                    actual,
+                    false,
+                    requested.stream()
+                            .map(selector -> result(
+                                    selector,
+                                    StaticVerificationStatus.ARTIFACT_MISMATCH,
+                                    "Host artifact fingerprint does not match the verified exact-version artifact."))
+                            .toList());
         }
 
         final Set<String> duplicateAliases = duplicateAliases(requested);
@@ -81,10 +75,9 @@ public final class StaticSelectorVerifier {
             for (StaticSelector selector : requested) {
                 if (duplicateAliases.contains(selector.alias())) {
                     results.add(result(
-                        selector,
-                        StaticVerificationStatus.DUPLICATE_ALIAS,
-                        "Selector alias is duplicated in the verification request."
-                    ));
+                            selector,
+                            StaticVerificationStatus.DUPLICATE_ALIAS,
+                            "Selector alias is duplicated in the verification request."));
                     continue;
                 }
                 results.add(verifySelector(jar, selector, cache));
@@ -110,10 +103,8 @@ public final class StaticSelectorVerifier {
      * @throws IOException if the artifact cannot be read or opened as a jar
      * @throws IllegalArgumentException if {@code selectors} is empty
      */
-    public StructureVerificationReport verifyStructure(
-        final Path artifact,
-        final List<StaticSelector> selectors
-    ) throws IOException {
+    public StructureVerificationReport verifyStructure(final Path artifact, final List<StaticSelector> selectors)
+            throws IOException {
         Objects.requireNonNull(artifact, "artifact");
         final List<StaticSelector> requested = List.copyOf(Objects.requireNonNull(selectors, "selectors"));
         if (requested.isEmpty()) {
@@ -127,10 +118,9 @@ public final class StaticSelectorVerifier {
             for (StaticSelector selector : requested) {
                 if (duplicateAliases.contains(selector.alias())) {
                     results.add(result(
-                        selector,
-                        StaticVerificationStatus.DUPLICATE_ALIAS,
-                        "Selector alias is duplicated in the verification request."
-                    ));
+                            selector,
+                            StaticVerificationStatus.DUPLICATE_ALIAS,
+                            "Selector alias is duplicated in the verification request."));
                     continue;
                 }
                 results.add(verifySelector(jar, selector, cache));
@@ -150,14 +140,17 @@ public final class StaticSelectorVerifier {
      * @throws IllegalArgumentException if runtime sources differ or the artifact changes
      */
     public StructureVerificationReport verifyRuntimeStructure(
-        final Path artifact,
-        final ClassLoader hostClassLoader,
-        final List<StaticSelector> selectors
-    ) throws IOException {
+            final Path artifact, final ClassLoader hostClassLoader, final List<StaticSelector> selectors)
+            throws IOException {
         final StructureVerificationReport report = verifyStructure(artifact, selectors);
         if (report.allVerified()) {
-            new HostClassSourceAttestor().attest(artifact, hostClassLoader,
-                report.results().stream().map(StaticSelectorResult::selector).toList());
+            new HostClassSourceAttestor()
+                    .attest(
+                            artifact,
+                            hostClassLoader,
+                            report.results().stream()
+                                    .map(StaticSelectorResult::selector)
+                                    .toList());
             if (!report.artifact().equals(HostArtifactDigest.from(artifact))) {
                 throw new IllegalArgumentException("host artifact changed during runtime attestation");
             }
@@ -172,10 +165,7 @@ public final class StaticSelectorVerifier {
      * @param artifact measured size/SHA-256 of the artifact actually examined
      * @param results one result per requested selector, in request order
      */
-    public record StructureVerificationReport(
-        HostArtifactDigest artifact,
-        List<StaticSelectorResult> results
-    ) {
+    public record StructureVerificationReport(HostArtifactDigest artifact, List<StaticSelectorResult> results) {
         public StructureVerificationReport {
             artifact = Objects.requireNonNull(artifact, "artifact");
             results = List.copyOf(Objects.requireNonNull(results, "results"));
@@ -186,42 +176,44 @@ public final class StaticSelectorVerifier {
          */
         public boolean allVerified() {
             return !results.isEmpty()
-                && results.stream().allMatch(
-                    result -> result.status() == StaticVerificationStatus.VERIFIED_STATIC
-                );
+                    && results.stream().allMatch(result -> result.status() == StaticVerificationStatus.VERIFIED_STATIC);
         }
     }
 
     private StaticSelectorResult verifySelector(
-        final JarFile jar,
-        final StaticSelector selector,
-        final Map<String, ClassMetadata> cache
-    ) {
+            final JarFile jar, final StaticSelector selector, final Map<String, ClassMetadata> cache) {
         final ClassMetadata metadata;
         try {
             metadata = metadata(jar, selector.ownerInternalName(), cache);
         } catch (MissingClassException exception) {
             return result(selector, StaticVerificationStatus.CLASS_MISSING, "Selector owner class is missing.");
         } catch (IOException | RuntimeException exception) {
-            return result(selector, StaticVerificationStatus.INVALID_CLASS_FILE, "Selector owner class metadata is invalid.");
+            return result(
+                    selector, StaticVerificationStatus.INVALID_CLASS_FILE, "Selector owner class metadata is invalid.");
         }
 
         if (selector.kind() == StaticSelector.Kind.CLASS) {
             return hasExpectedAccess(
-                metadata.accessFlags(),
-                selector.requiredAccessFlags(),
-                selector.forbiddenAccessFlags()
-            )
-                ? result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Class signature is verified statically.")
-                : result(selector, StaticVerificationStatus.ACCESS_MISMATCH, "Class access flags do not match.");
+                            metadata.accessFlags(), selector.requiredAccessFlags(), selector.forbiddenAccessFlags())
+                    ? result(
+                            selector,
+                            StaticVerificationStatus.VERIFIED_STATIC,
+                            "Class signature is verified statically.")
+                    : result(selector, StaticVerificationStatus.ACCESS_MISMATCH, "Class access flags do not match.");
         }
 
         if (selector.kind() == StaticSelector.Kind.INHERITS) {
             final String ancestor = selector.memberName();
             return ancestor.equals(metadata.superName())
-                || metadata.interfaces().contains(ancestor)
-                ? result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Declared ancestor is verified statically.")
-                : result(selector, StaticVerificationStatus.SUPERTYPE_MISMATCH, "Declared superclass/interface does not match.");
+                            || metadata.interfaces().contains(ancestor)
+                    ? result(
+                            selector,
+                            StaticVerificationStatus.VERIFIED_STATIC,
+                            "Declared ancestor is verified statically.")
+                    : result(
+                            selector,
+                            StaticVerificationStatus.SUPERTYPE_MISMATCH,
+                            "Declared superclass/interface does not match.");
         }
 
         final List<MemberMetadata> sameName = metadata.members(selector.kind(), selector.memberName());
@@ -229,26 +221,26 @@ public final class StaticSelectorVerifier {
             return result(selector, StaticVerificationStatus.MEMBER_MISSING, "Selector member is missing.");
         }
         final List<MemberMetadata> sameDescriptor = sameName.stream()
-            .filter(member -> member.descriptor().equals(selector.descriptor()))
-            .toList();
+                .filter(member -> member.descriptor().equals(selector.descriptor()))
+                .toList();
         if (sameDescriptor.isEmpty()) {
-            return result(selector, StaticVerificationStatus.DESCRIPTOR_MISMATCH, "Selector member descriptor does not match.");
+            return result(
+                    selector,
+                    StaticVerificationStatus.DESCRIPTOR_MISMATCH,
+                    "Selector member descriptor does not match.");
         }
-        if (sameDescriptor.stream().noneMatch(member -> hasExpectedAccess(
-            member.accessFlags(),
-            selector.requiredAccessFlags(),
-            selector.forbiddenAccessFlags()
-        ))) {
-            return result(selector, StaticVerificationStatus.ACCESS_MISMATCH, "Selector member access flags do not match.");
+        if (sameDescriptor.stream()
+                .noneMatch(member -> hasExpectedAccess(
+                        member.accessFlags(), selector.requiredAccessFlags(), selector.forbiddenAccessFlags()))) {
+            return result(
+                    selector, StaticVerificationStatus.ACCESS_MISMATCH, "Selector member access flags do not match.");
         }
         return result(selector, StaticVerificationStatus.VERIFIED_STATIC, "Member signature is verified statically.");
     }
 
     private ClassMetadata metadata(
-        final JarFile jar,
-        final String ownerInternalName,
-        final Map<String, ClassMetadata> cache
-    ) throws IOException, MissingClassException {
+            final JarFile jar, final String ownerInternalName, final Map<String, ClassMetadata> cache)
+            throws IOException, MissingClassException {
         final ClassMetadata existing = cache.get(ownerInternalName);
         if (existing != null) {
             return existing;
@@ -283,15 +275,12 @@ public final class StaticSelectorVerifier {
             final List<MemberMetadata> methods = readMembers(data, constantPool.utf8());
             skipAttributes(data);
             return new ClassMetadata(
-                classAccess,
-                constantPool.classInternalName(thisClassIndex),
-                superClassIndex == 0
-                    ? null
-                    : constantPool.classInternalName(superClassIndex),
-                interfaces,
-                fields,
-                methods
-            );
+                    classAccess,
+                    constantPool.classInternalName(thisClassIndex),
+                    superClassIndex == 0 ? null : constantPool.classInternalName(superClassIndex),
+                    interfaces,
+                    fields,
+                    methods);
         } catch (EOFException exception) {
             throw new IOException("Truncated class metadata", exception);
         }
@@ -320,10 +309,8 @@ public final class StaticSelectorVerifier {
         return new ConstantPool(utf8, classNameIndexes);
     }
 
-    private List<String> readInterfaces(
-        final DataInputStream data,
-        final ConstantPool constantPool
-    ) throws IOException {
+    private List<String> readInterfaces(final DataInputStream data, final ConstantPool constantPool)
+            throws IOException {
         final int count = data.readUnsignedShort();
         final List<String> names = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
@@ -377,10 +364,7 @@ public final class StaticSelectorVerifier {
     }
 
     private static StaticSelectorResult result(
-        final StaticSelector selector,
-        final StaticVerificationStatus status,
-        final String message
-    ) {
+            final StaticSelector selector, final StaticVerificationStatus status, final String message) {
         return new StaticSelectorResult(selector, status, message);
     }
 
@@ -398,22 +382,19 @@ public final class StaticSelectorVerifier {
     }
 
     private record ClassMetadata(
-        int accessFlags,
-        String internalName,
-        String superName,
-        List<String> interfaces,
-        List<MemberMetadata> fields,
-        List<MemberMetadata> methods
-    ) {
+            int accessFlags,
+            String internalName,
+            String superName,
+            List<String> interfaces,
+            List<MemberMetadata> fields,
+            List<MemberMetadata> methods) {
         private List<MemberMetadata> members(final StaticSelector.Kind kind, final String name) {
             final List<MemberMetadata> source = kind == StaticSelector.Kind.FIELD ? fields : methods;
             return source.stream().filter(member -> member.name().equals(name)).toList();
         }
     }
 
-    private record MemberMetadata(String name, String descriptor, int accessFlags) {
-    }
+    private record MemberMetadata(String name, String descriptor, int accessFlags) {}
 
-    private static final class MissingClassException extends Exception {
-    }
+    private static final class MissingClassException extends Exception {}
 }

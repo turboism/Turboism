@@ -1,16 +1,17 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismFacade;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 class TextureAtlasLayoutServiceContractTests {
 
@@ -21,58 +22,55 @@ class TextureAtlasLayoutServiceContractTests {
         assertEquals(TextureAtlasLayoutService.class, accessor.getReturnType());
         assertTrue(java.lang.reflect.Modifier.isPublic(accessor.getModifiers()));
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
-            List.of(accessor.getAnnotation(CubismEditor.class).value())
-        );
+                List.of("5.2.03", "5.3.02", "5.3.03"),
+                List.of(accessor.getAnnotation(CubismEditor.class).value()));
         assertEquals(
-            List.of("5.2.03", "5.3.02", "5.3.03"),
-            List.of(TextureAtlasLayoutService.class.getAnnotation(CubismEditor.class).value())
-        );
-        assertThrows(UnsupportedOperationException.class, () -> new NoOpFacade().textureAtlasLayouts());
+                List.of("5.2.03", "5.3.02", "5.3.03"),
+                List.of(TextureAtlasLayoutService.class
+                        .getAnnotation(CubismEditor.class)
+                        .value()));
+        final TextureAtlasLayoutService service = new NoOpFacade().textureAtlasLayouts();
+        assertSame(TextureAtlasLayoutService.unavailable(), service);
+        assertFalse(service.isAvailable());
+        assertEquals(Optional.empty(), service.current());
+        final TextureAtlasLayoutPlan emptyPlan = new TextureAtlasLayoutPlan(1, 1, 1, List.of());
+        assertEquals(
+                Optional.of(TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE),
+                service.apply(new TextureAtlasLayoutTarget() {}, emptyPlan).failureCode());
     }
 
     @Test
     void snapshotIsImmutableAndCarriesCompletePlanningInput() {
-        final TextureAtlasLayoutTarget target = new TextureAtlasLayoutTarget() { };
+        final TextureAtlasLayoutTarget target = new TextureAtlasLayoutTarget() {};
         final TextureAtlasLayoutConstraints constraints =
-            new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false);
-        final List<TextureAtlasLayoutItem> items = List.of(
-            new TextureAtlasLayoutItem("texture-a", 4, 3),
-            new TextureAtlasLayoutItem("texture-b", 2, 2)
-        );
+                new TextureAtlasLayoutConstraints(16, 8, 1, 1, 1, false, false);
+        final List<TextureAtlasLayoutItem> items =
+                List.of(new TextureAtlasLayoutItem("texture-a", 4, 3), new TextureAtlasLayoutItem("texture-b", 2, 2));
         final TextureAtlasLayoutPlan current = new TextureAtlasLayoutPlan(
-            16,
-            8,
-            1,
-            List.of(
-                new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
-                new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)
-            )
-        );
+                16,
+                8,
+                1,
+                List.of(
+                        new TextureAtlasPlacement("texture-a", 0, 1, 1, 4, 3, false),
+                        new TextureAtlasPlacement("texture-b", 0, 6, 1, 2, 2, false)));
 
-        final TextureAtlasLayoutSnapshot snapshot = new TextureAtlasLayoutSnapshot(
-            target,
-            "document-a",
-            "model-a",
-            "atlas-a",
-            constraints,
-            items,
-            current
-        );
+        final TextureAtlasLayoutSnapshot snapshot =
+                new TextureAtlasLayoutSnapshot(target, "document-a", "model-a", "atlas-a", constraints, items, current);
 
         assertEquals(target, snapshot.target());
         assertEquals(items, snapshot.items());
         assertEquals(current, snapshot.currentPlan());
         assertThrows(UnsupportedOperationException.class, () -> snapshot.items().clear());
-        assertThrows(IllegalArgumentException.class, () -> new TextureAtlasLayoutSnapshot(
-            target,
-            "document-a",
-            "model-a",
-            "atlas-a",
-            constraints,
-            List.of(items.get(0), new TextureAtlasLayoutItem("texture-a", 1, 1)),
-            current
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new TextureAtlasLayoutSnapshot(
+                        target,
+                        "document-a",
+                        "model-a",
+                        "atlas-a",
+                        constraints,
+                        List.of(items.get(0), new TextureAtlasLayoutItem("texture-a", 1, 1)),
+                        current));
     }
 
     @Test
@@ -80,40 +78,54 @@ class TextureAtlasLayoutServiceContractTests {
         final TextureAtlasLayoutApplyResult applied = TextureAtlasLayoutApplyResult.applied();
         final TextureAtlasLayoutApplyResult unchanged = TextureAtlasLayoutApplyResult.noChange();
         final TextureAtlasLayoutApplyResult failed = TextureAtlasLayoutApplyResult.failed(
-            TextureAtlasLayoutFailureCode.TARGET_STALE,
-            "The atlas target is stale."
-        );
+                TextureAtlasLayoutFailureCode.TARGET_STALE, "The atlas target is stale.");
 
         assertEquals(Optional.of(TextureAtlasLayoutApplyStatus.APPLIED), applied.status());
         assertEquals(Optional.of(TextureAtlasLayoutApplyStatus.NO_CHANGE), unchanged.status());
         assertEquals(Optional.empty(), failed.status());
         assertEquals(Optional.of(TextureAtlasLayoutFailureCode.TARGET_STALE), failed.failureCode());
         assertTrue(failed.message().isPresent());
-        assertThrows(IllegalArgumentException.class, () -> new TextureAtlasLayoutApplyResult(
-            Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
-            Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
-            Optional.of("invalid")
-        ));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new TextureAtlasLayoutApplyResult(
+                        Optional.of(TextureAtlasLayoutApplyStatus.APPLIED),
+                        Optional.of(TextureAtlasLayoutFailureCode.PLAN_INVALID),
+                        Optional.of("invalid")));
     }
 
     private static final class NoOpFacade implements CubismFacade {
-        @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
+        @Override
+        public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
             return new dev.turboism.sdk.cubism.CubismRuntimeSnapshot(
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                new dev.turboism.sdk.cubism.SelectionSnapshot(
-                    List.of(), Optional.empty(), Optional.empty(), Optional.empty()
-                ),
-                List.of(), List.of(), List.of(), List.of()
-            );
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    new dev.turboism.sdk.cubism.SelectionSnapshot(
+                            List.of(), Optional.empty(), Optional.empty(), Optional.empty()),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of());
         }
-        @Override public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() { return Optional.empty(); }
-        @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() { return Optional.empty(); }
-        @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() { return Optional.empty(); }
-        @Override public boolean isHostPresent() { return false; }
-        @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
-            throw new UnsupportedOperationException();
+
+        @Override
+        public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isHostPresent() {
+            return false;
         }
     }
 }

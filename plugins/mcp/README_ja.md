@@ -33,6 +33,7 @@ interface: swing
 - アクティブなドキュメント、モデル、ワークスペース、Cubism Core、およびサニタイズ済みランタイム診断を JSON リソースとして公開します。
 - 検査、診断、編集、復旧、および範囲を限定した Editor 自動化のためのワークフロープロンプトを提供します。
 - ループバッククライアントのみを処理し、オリジン、本文サイズ、プロトコル、セッション、レートの制限を適用します。
+- 認証情報を持たない stdio 起動記述子（実行中 JVM のランチャー、プラグインクラスパス、ブリッジメインクラス、状態ディレクトリ）をランタイム接続境界を通じて公開し、ACP プラグインなどの同梱コンシューマーがトークンを扱わずにエージェントをプリコンパイル済みブリッジへ接続できるようにします。
 
 ## 要件と互換性
 
@@ -223,11 +224,12 @@ url = "http://127.0.0.1:43123/mcp"
 | 権限 | スコープ | 要求する理由 |
 |---|---|---|
 | `turboism.cubism.model.read` | `application` | アクティブなモデルオブジェクト、Core メタデータ、統計、テクスチャメタデータを読み取ります。 |
-| `turboism.cubism.parameter.read` | `application` | アクティブな Cubism モデルパラメーターを読み取ります。 |
+| `turboism.cubism.parameter.read` | `application` | ツール面でのパラメーター読み取り意図を宣言します。実際のパラメーター読み取りは実行時に上記のモデル読み取り権限によって強制されます。 |
 | `turboism.cubism.project.read` | `application` | アクティブなプロジェクト、ワークスペース、レイアウト、テーマ状態を読み取ります。 |
 | `turboism.cubism.model.write` | `application` | 型付きのモデル、パラメーター、バインディング、履歴、モデル設定の書き込みを適用します。 |
-| `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可します。 |
-| `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
+| `turboism.file.read` | `application` | loopback エンドポイントを公開する前に MCP 接続ファイルのメタデータ（存在、所有者、シンボリックリンク検査）を検証します。 |
+| `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可し、MCP 状態ディレクトリに所有者専用の loopback 接続ファイルを書き込みます。 |
+| `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可し、Origin 保護付きの loopback HTTP トランスポートをバインドします。 |
 | `turboism.process.run` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
 | `turboism.mcp.connection.publish` | `application` | 権限が承認された自動化プラグインに、ループバックエンドポイントをプロセス内ランタイム交換経由で公開します。 |
 | `turboism.action.register` | `application` | ローカルの MCP 接続ウィンドウを開くアクションを登録します。 |

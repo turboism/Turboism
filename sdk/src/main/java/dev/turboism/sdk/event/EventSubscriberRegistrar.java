@@ -1,7 +1,9 @@
 package dev.turboism.sdk.event;
 
+import dev.turboism.sdk.Incubating;
 
 /** Runtime-owned registration sink used by generated subscriber catalogs. */
+@Incubating
 public interface EventSubscriberRegistrar {
 
     /**
@@ -14,10 +16,9 @@ public interface EventSubscriberRegistrar {
      * @param handler direct generated method binding
      */
     <T extends EventBus.TurboismEvent> void register(
-        Class<T> eventType,
-        EventPriority priority,
-        int methodOrdinal,
-        String canonicalSignature,
-        EventSubscriberHandler<T> handler
-    );
+            Class<T> eventType,
+            EventPriority priority,
+            int methodOrdinal,
+            String canonicalSignature,
+            EventSubscriberHandler<T> handler);
 }

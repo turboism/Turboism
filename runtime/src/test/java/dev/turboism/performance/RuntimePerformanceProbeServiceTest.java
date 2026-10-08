@@ -1,33 +1,29 @@
 package dev.turboism.performance;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import com.sun.management.OperatingSystemMXBean;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHook;
 import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.panel.ChartDataRegistry;
-
-import com.sun.management.OperatingSystemMXBean;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
 import javax.management.ObjectName;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class RuntimePerformanceProbeServiceTest {
 
@@ -68,22 +64,78 @@ class RuntimePerformanceProbeServiceTest {
             this.load = load;
         }
 
-        @Override public double getProcessCpuLoad() { loadQueries++; return load; }
-        @Override public long getProcessCpuTime() { cpuTimeQueries++; cpuTimeNanos += 1_000L; return cpuTimeNanos; }
-        @Override public long getCommittedVirtualMemorySize() { return 0L; }
-        @Override public double getCpuLoad() { return Double.NaN; }
-        @Override public long getFreeMemorySize() { return 0L; }
+        @Override
+        public double getProcessCpuLoad() {
+            loadQueries++;
+            return load;
+        }
 
-        @Override public long getFreeSwapSpaceSize() { return 0L; }
-        @Override public long getTotalMemorySize() { return 0L; }
-        @Override public long getTotalSwapSpaceSize() { return 0L; }
-        @Override public String getArch() { return ""; }
-        @Override public int getAvailableProcessors() { return 1; }
-        @Override public String getName() { return ""; }
-        @Override public double getSystemLoadAverage() { return 0.0; }
+        @Override
+        public long getProcessCpuTime() {
+            cpuTimeQueries++;
+            cpuTimeNanos += 1_000L;
+            return cpuTimeNanos;
+        }
 
-        @Override public String getVersion() { return ""; }
-        @Override public ObjectName getObjectName() { return null; }
+        @Override
+        public long getCommittedVirtualMemorySize() {
+            return 0L;
+        }
+
+        @Override
+        public double getCpuLoad() {
+            return Double.NaN;
+        }
+
+        @Override
+        public long getFreeMemorySize() {
+            return 0L;
+        }
+
+        @Override
+        public long getFreeSwapSpaceSize() {
+            return 0L;
+        }
+
+        @Override
+        public long getTotalMemorySize() {
+            return 0L;
+        }
+
+        @Override
+        public long getTotalSwapSpaceSize() {
+            return 0L;
+        }
+
+        @Override
+        public String getArch() {
+            return "";
+        }
+
+        @Override
+        public int getAvailableProcessors() {
+            return 1;
+        }
+
+        @Override
+        public String getName() {
+            return "";
+        }
+
+        @Override
+        public double getSystemLoadAverage() {
+            return 0.0;
+        }
+
+        @Override
+        public String getVersion() {
+            return "";
+        }
+
+        @Override
+        public ObjectName getObjectName() {
+            return null;
+        }
     }
 
     @BeforeEach
@@ -98,14 +150,35 @@ class RuntimePerformanceProbeServiceTest {
         hookClosed.set(false);
         calls.set(0L);
         for (String id : List.of(
-            RuntimePerformanceProbeService.CHART_CPU,
-            RuntimePerformanceProbeService.CHART_FPS,
-            RuntimePerformanceProbeService.CHART_HEAP,
-            RuntimePerformanceProbeService.CHART_NONHEAP,
-            RuntimePerformanceProbeService.CHART_FRAMES
-        )) {
+                RuntimePerformanceProbeService.CHART_CPU,
+                RuntimePerformanceProbeService.CHART_FPS,
+                RuntimePerformanceProbeService.CHART_HEAP,
+                RuntimePerformanceProbeService.CHART_NONHEAP,
+                RuntimePerformanceProbeService.CHART_FRAMES)) {
             ChartDataRegistry.unpublish(id);
         }
+    }
+
+    @Test
+    void permissionCheckedViewForwardsDelegateAvailability() {
+        final dev.turboism.performance.PermissionCheckedPerformanceProbeService unavailable =
+                new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
+                        dev.turboism.sdk.performance.PerformanceProbeService.unavailable(),
+                        PermissionChecker.allowAll());
+        assertFalse(unavailable.isAvailable(), "a checked view of the sentinel reports unavailable");
+
+        final dev.turboism.performance.PermissionCheckedPerformanceProbeService available =
+                new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
+                        service(granted()), PermissionChecker.allowAll());
+        assertTrue(available.isAvailable(), "a checked view of the live service reports available");
+    }
+
+    @Test
+    void availabilityReportsTheClosedState() {
+        final RuntimePerformanceProbeService service = service(granted());
+        assertTrue(service.isAvailable());
+        service.close();
+        assertFalse(service.isAvailable(), "a closed service must report unavailable");
     }
 
     private static RuntimePerformanceProbeService service(final PermissionChecker checker) {
@@ -117,21 +190,24 @@ class RuntimePerformanceProbeServiceTest {
     }
 
     private static RuntimePerformanceProbeService service(
-        final PermissionChecker checker,
-        final OperatingSystemMXBean osBean
-    ) {
+            final PermissionChecker checker, final OperatingSystemMXBean osBean) {
         return new RuntimePerformanceProbeService("perf-stats", checker, Clock.systemUTC(), osBean);
     }
 
     private static PluginPermission permission() {
         return new PluginPermission() {
-            @Override public String id() {
+            @Override
+            public String id() {
                 return "turboism.performance.stats.read";
             }
-            @Override public String scope() {
+
+            @Override
+            public String scope() {
                 return "application";
             }
-            @Override public String reason() {
+
+            @Override
+            public String reason() {
                 return "test";
             }
         };
@@ -190,9 +266,9 @@ class RuntimePerformanceProbeServiceTest {
             // The new session re-baselines: its first sample must not include
             // CPU time consumed before the session restart.
             assertTrue(
-                second.get(0).cpuPercent() < 1.0,
-                "stale CPU baseline leaked into the restarted session, was " + second.get(0).cpuPercent()
-            );
+                    second.get(0).cpuPercent() < 1.0,
+                    "stale CPU baseline leaked into the restarted session, was "
+                            + second.get(0).cpuPercent());
         } finally {
             secondRegistration.close();
         }
@@ -201,8 +277,10 @@ class RuntimePerformanceProbeServiceTest {
     @Test
     void cpuPercentFromDeltasComputesProcessCpuPercent() {
         assertEquals(0.05, RuntimePerformanceProbeService.cpuPercentFromDeltas(2_000_000L, 1_000_000_000L, 4), 0.0);
-        assertEquals(100.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(1_000_000_000L, 1_000_000_000L, 1), 0.0);
-        assertEquals(100.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(2_000_000_000L, 1_000_000_000L, 1), 0.0);
+        assertEquals(
+                100.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(1_000_000_000L, 1_000_000_000L, 1), 0.0);
+        assertEquals(
+                100.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(2_000_000_000L, 1_000_000_000L, 1), 0.0);
         assertEquals(0.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(0L, 1_000_000_000L, 1), 0.0);
         assertEquals(0.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(1_000L, 0L, 1), 0.0);
         assertEquals(0.0, RuntimePerformanceProbeService.cpuPercentFromDeltas(-1L, 1_000L, 1), 0.0);
@@ -219,16 +297,16 @@ class RuntimePerformanceProbeServiceTest {
     void sampleDeliversSnapshotsAndCloseStopsAndUnmounts() throws Exception {
         final RuntimePerformanceProbeService service = service(granted());
         final CopyOnWriteArrayList<PerformanceSnapshot> received = new CopyOnWriteArrayList<>();
-        final Registration registration = service.sample(
-            Duration.ofMillis(50),
-            received::add
-        );
+        final Registration registration = service.sample(Duration.ofMillis(50), received::add);
         try {
             await(() -> received.size() >= 2);
             assertTrue(hookInstalled.get(), "FPS hook must be mounted while sampling");
-            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU).isPresent());
-            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_FPS).isPresent());
-            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_HEAP).isPresent());
+            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU)
+                    .isPresent());
+            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_FPS)
+                    .isPresent());
+            assertTrue(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_HEAP)
+                    .isPresent());
         } finally {
             registration.close();
         }
@@ -236,8 +314,10 @@ class RuntimePerformanceProbeServiceTest {
         Thread.sleep(150L);
         assertEquals(settled, received.size(), "callbacks must stop after close");
         assertTrue(hookClosed.get(), "FPS hook must be unmounted when sampling stops");
-        assertFalse(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU).isPresent());
-        assertFalse(ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC).isPresent());
+        assertFalse(
+                ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_CPU).isPresent());
+        assertFalse(
+                ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC).isPresent());
     }
 
     @Test
@@ -266,7 +346,6 @@ class RuntimePerformanceProbeServiceTest {
         assertEquals(0L, snapshot.renderedFrames());
     }
 
-
     @Test
     void gcCountersAreCumulativeAndMonotonic() throws Exception {
         final RuntimePerformanceProbeService service = service(granted());
@@ -279,10 +358,12 @@ class RuntimePerformanceProbeServiceTest {
                 assertTrue(snapshot.gcPauseMillis() >= 0L);
             }
             for (int i = 1; i < received.size(); i++) {
-                assertTrue(received.get(i).gcCollections() >= received.get(i - 1).gcCollections(),
-                    "gcCollections must never decrease");
-                assertTrue(received.get(i).gcPauseMillis() >= received.get(i - 1).gcPauseMillis(),
-                    "gcPauseMillis must never decrease");
+                assertTrue(
+                        received.get(i).gcCollections() >= received.get(i - 1).gcCollections(),
+                        "gcCollections must never decrease");
+                assertTrue(
+                        received.get(i).gcPauseMillis() >= received.get(i - 1).gcPauseMillis(),
+                        "gcPauseMillis must never decrease");
             }
         } finally {
             registration.close();
@@ -297,16 +378,19 @@ class RuntimePerformanceProbeServiceTest {
         try {
             await(() -> received.size() >= 3);
             final List<Double> values = ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC)
-                .orElseThrow(() -> new AssertionError("GC Pause chart must be published while sampling"))
-                .series().get(0).values();
+                    .orElseThrow(() -> new AssertionError("GC Pause chart must be published while sampling"))
+                    .series()
+                    .get(0)
+                    .values();
             assertFalse(values.isEmpty());
             final int comparable = Math.min(values.size(), received.size());
             for (int i = 1; i < comparable; i++) {
                 assertEquals(
-                    (double) (received.get(i).gcPauseMillis() - received.get(i - 1).gcPauseMillis()),
-                    values.get(i),
-                    0.0,
-                    "window pause must equal the cumulative delta between consecutive ticks");
+                        (double) (received.get(i).gcPauseMillis()
+                                - received.get(i - 1).gcPauseMillis()),
+                        values.get(i),
+                        0.0,
+                        "window pause must equal the cumulative delta between consecutive ticks");
             }
             for (double value : values) {
                 assertTrue(value >= 0.0, "window pause must never be negative");
@@ -340,11 +424,15 @@ class RuntimePerformanceProbeServiceTest {
         try {
             await(() -> second.size() >= 2);
             final double firstWindow = ChartDataRegistry.find(RuntimePerformanceProbeService.CHART_GC)
-                .orElseThrow(() -> new AssertionError("GC Pause chart must be published while sampling"))
-                .series().get(0).values().get(0);
+                    .orElseThrow(() -> new AssertionError("GC Pause chart must be published while sampling"))
+                    .series()
+                    .get(0)
+                    .values()
+                    .get(0);
             final double withoutReset = second.get(0).gcPauseMillis() - sessionEndPauseMillis;
-            assertTrue(firstWindow < withoutReset,
-                "first window pause must exclude pauses before the new session baseline, was " + firstWindow);
+            assertTrue(
+                    firstWindow < withoutReset,
+                    "first window pause must exclude pauses before the new session baseline, was " + firstWindow);
         } finally {
             secondRegistration.close();
         }
@@ -357,8 +445,7 @@ class RuntimePerformanceProbeServiceTest {
         Thread.sleep(100L);
     }
 
-    private static void await(final java.util.function.BooleanSupplier condition)
-        throws InterruptedException {
+    private static void await(final java.util.function.BooleanSupplier condition) throws InterruptedException {
         final long deadline = System.currentTimeMillis() + 5_000L;
         while (System.currentTimeMillis() < deadline && !condition.getAsBoolean()) {
             Thread.sleep(20L);

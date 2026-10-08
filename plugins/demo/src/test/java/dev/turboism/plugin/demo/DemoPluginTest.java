@@ -1,5 +1,8 @@
 package dev.turboism.plugin.demo;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.cubism.CubismFacade;
@@ -19,16 +22,12 @@ import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /**
  * plugins:demo previously had no tests (NO-SOURCE); this is the one focused entry-path
@@ -46,10 +45,11 @@ class DemoPluginTest {
         plugin.enable();
 
         assertEquals(
-            List.of("demo.hello"),
-            context.actions().actions().stream().map(ActionRegistry.Action::id).toList(),
-            "the stable semantic action ID is unchanged"
-        );
+                List.of("demo.hello"),
+                context.actions().actions().stream()
+                        .map(ActionRegistry.Action::id)
+                        .toList(),
+                "the stable semantic action ID is unchanged");
         assertEquals("demo.hello.label", context.actions().actions().get(0).label());
         assertEquals(1, context.menus().contributions().size());
         assertEquals(1, context.mainToolbar().contributions().size());
@@ -85,8 +85,13 @@ class DemoPluginTest {
         private final RecordingEventBus eventBus = new RecordingEventBus();
         private final PluginLogger logger = new NoopPluginLogger();
         private final PluginLocalization localization = new PluginLocalization() {
-            @Override public Locale locale() { return Locale.ENGLISH; }
-            @Override public String text(final String key) {
+            @Override
+            public Locale locale() {
+                return Locale.ENGLISH;
+            }
+
+            @Override
+            public String text(final String key) {
                 return switch (key) {
                     case "demo.hello.label" -> "demo.hello.label";
                     case "demo.menu" -> "demo.menu";
@@ -96,61 +101,160 @@ class DemoPluginTest {
                     default -> key;
                 };
             }
-            @Override public String format(final String key, final Object... args) { return text(key); }
-            @Override public boolean contains(final String key) { return true; }
+
+            @Override
+            public String format(final String key, final Object... args) {
+                return text(key);
+            }
+
+            @Override
+            public boolean contains(final String key) {
+                return true;
+            }
         };
 
-        @Override public PluginDescriptor descriptor() { throw unsupported(); }
-        @Override public PluginLogger logger() { return logger; }
-        @Override public PluginPaths paths() { throw unsupported(); }
-        @Override public CubismFacade cubism() { throw unsupported(); }
-        @Override public List<PluginPermission> permissions() { return List.of(); }
-        @Override public PluginLocalization localization() { return localization; }
-        @Override public RecordingEventBus eventBus() { return eventBus; }
-        @Override public RecordingActionRegistry actions() { return actions; }
-        @Override public RecordingMenuRegistry menus() { return menus; }
-        @Override public UiHostCapabilityService uiHost() { throw unsupported(); }
-        @Override public PluginConfigRegistry config() {
+        @Override
+        public PluginDescriptor descriptor() {
+            throw unsupported();
+        }
+
+        @Override
+        public PluginLogger logger() {
+            return logger;
+        }
+
+        @Override
+        public PluginPaths paths() {
+            throw unsupported();
+        }
+
+        @Override
+        public CubismFacade cubism() {
+            throw unsupported();
+        }
+
+        @Override
+        public List<PluginPermission> permissions() {
+            return List.of();
+        }
+
+        @Override
+        public PluginLocalization localization() {
+            return localization;
+        }
+
+        @Override
+        public RecordingEventBus eventBus() {
+            return eventBus;
+        }
+
+        @Override
+        public RecordingActionRegistry actions() {
+            return actions;
+        }
+
+        @Override
+        public RecordingMenuRegistry menus() {
+            return menus;
+        }
+
+        public UiHostCapabilityService uiHost() {
+            throw unsupported();
+        }
+
+        @Override
+        public PluginConfigRegistry config() {
             return new PluginConfigRegistry() {
-                @Override public Registration readScope(final String relativePath) {
-                    return () -> { };
+                @Override
+                public Registration readScope(final String relativePath) {
+                    return () -> {};
                 }
-                @Override public Registration writeScope(final String relativePath) { return () -> { }; }
-                @Override public Optional<String> readString(final String relativePath, final String key) {
+
+                @Override
+                public Registration writeScope(final String relativePath) {
+                    return () -> {};
+                }
+
+                @Override
+                public Optional<String> readString(final String relativePath, final String key) {
                     return Optional.empty();
                 }
-                @Override public void writeString(final String relativePath, final String key, final String value) { }
-                @Override public java.util.concurrent.CompletionStage<Void> registerSchema(
-                    final dev.turboism.sdk.config.ConfigSchema schema,
-                    final List<dev.turboism.sdk.config.ConfigMigration> migrations
-                ) { return java.util.concurrent.CompletableFuture.completedFuture(null); }
-                @Override public <T> java.util.concurrent.CompletionStage<dev.turboism.sdk.config.ConfigReadResult<T>> read(
-                    final dev.turboism.sdk.config.ConfigKey<T> key
-                ) { throw unsupported(); }
-                @Override public <T> java.util.concurrent.CompletionStage<dev.turboism.sdk.config.ConfigWriteResult> write(
-                    final dev.turboism.sdk.config.ConfigKey<T> key,
-                    final T value,
-                    final long expectedRevision
-                ) { throw unsupported(); }
+
+                @Override
+                public void writeString(final String relativePath, final String key, final String value) {}
+
+                @Override
+                public java.util.concurrent.CompletionStage<Void> registerSchema(
+                        final dev.turboism.sdk.config.ConfigSchema schema,
+                        final List<dev.turboism.sdk.config.ConfigMigration> migrations) {
+                    return java.util.concurrent.CompletableFuture.completedFuture(null);
+                }
+
+                @Override
+                public <T> java.util.concurrent.CompletionStage<dev.turboism.sdk.config.ConfigReadResult<T>> read(
+                        final dev.turboism.sdk.config.ConfigKey<T> key) {
+                    throw unsupported();
+                }
+
+                @Override
+                public <T> java.util.concurrent.CompletionStage<dev.turboism.sdk.config.ConfigWriteResult> write(
+                        final dev.turboism.sdk.config.ConfigKey<T> key, final T value, final long expectedRevision) {
+                    throw unsupported();
+                }
             };
         }
-        @Override public UiScheduler uiScheduler() { throw unsupported(); }
-        @Override public DiagnosticReport diagnostics() { throw unsupported(); }
-        @Override public DisposableScope disposableScope() { return disposableScope; }
-        @Override public RecordingMainToolbar mainToolbar() { return mainToolbar; }
-        @Override public RecordingPaletteToolbar paletteToolbar() { return paletteToolbar; }
-        @Override public RecordingContextMenu contextMenu() { return contextMenu; }
 
+        @Override
+        public UiScheduler uiScheduler() {
+            throw unsupported();
+        }
+
+        @Override
+        public DiagnosticReport diagnostics() {
+            throw unsupported();
+        }
+
+        @Override
+        public DisposableScope disposableScope() {
+            return disposableScope;
+        }
+
+        public RecordingMainToolbar mainToolbar() {
+            return mainToolbar;
+        }
+
+        public RecordingPaletteToolbar paletteToolbar() {
+            return paletteToolbar;
+        }
+
+        public RecordingContextMenu contextMenu() {
+            return contextMenu;
+        }
 
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used by the demo plugin entry-path test");
+        }
+
+        @Override
+        public dev.turboism.sdk.plugin.PluginServiceDirectory services() {
+            return dev.turboism.sdk.plugin.PluginServices.builder()
+                    .supply(dev.turboism.sdk.ui.toolbar.MainToolbarRegistry.class, () -> this.mainToolbar())
+                    .supply(dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry.class, () -> this.paletteToolbar())
+                    .supply(dev.turboism.sdk.ui.context.ContextMenuRegistry.class, () -> this.contextMenu())
+                    .fallback(dev.turboism.sdk.plugin.PluginServices.of(this))
+                    .build();
         }
     }
 
     private static final class RecordingActionRegistry implements ActionRegistry {
         private final List<Action> actions = new ArrayList<>();
-        List<Action> actions() { return actions; }
-        @Override public Registration register(final String id, final Action action) {
+
+        List<Action> actions() {
+            return actions;
+        }
+
+        @Override
+        public Registration register(final String id, final Action action) {
             actions.add(action);
             return () -> actions.remove(action);
         }
@@ -158,8 +262,13 @@ class DemoPluginTest {
 
     private static final class RecordingMenuRegistry implements MenuRegistry {
         private final List<MenuContribution> contributions = new ArrayList<>();
-        List<MenuContribution> contributions() { return contributions; }
-        @Override public Registration contribute(final MenuContribution contribution) {
+
+        List<MenuContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final MenuContribution contribution) {
             contributions.add(contribution);
             return () -> contributions.remove(contribution);
         }
@@ -167,20 +276,32 @@ class DemoPluginTest {
 
     private static final class RecordingMainToolbar implements MainToolbarRegistry {
         private final List<MainToolbarContribution> contributions = new ArrayList<>();
-        List<MainToolbarContribution> contributions() { return contributions; }
-        @Override public Registration contribute(final MainToolbarContribution contribution) {
+
+        List<MainToolbarContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final MainToolbarContribution contribution) {
             contributions.add(contribution);
             return () -> contributions.remove(contribution);
         }
-        @Override public Registration contributeButton(final MainToolbarButtonContribution contribution) {
+
+        @Override
+        public Registration contributeButton(final MainToolbarButtonContribution contribution) {
             throw new UnsupportedOperationException("not used by the demo plugin");
         }
     }
 
     private static final class RecordingPaletteToolbar implements PaletteToolbarRegistry {
         private final List<PaletteToolbarContribution> contributions = new ArrayList<>();
-        List<PaletteToolbarContribution> contributions() { return contributions; }
-        @Override public Registration contribute(final PaletteToolbarContribution contribution) {
+
+        List<PaletteToolbarContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final PaletteToolbarContribution contribution) {
             contributions.add(contribution);
             return () -> contributions.remove(contribution);
         }
@@ -188,8 +309,13 @@ class DemoPluginTest {
 
     private static final class RecordingContextMenu implements ContextMenuRegistry {
         private final List<ContextMenuContribution> contributions = new ArrayList<>();
-        List<ContextMenuContribution> contributions() { return contributions; }
-        @Override public Registration contribute(final ContextMenuContribution contribution) {
+
+        List<ContextMenuContribution> contributions() {
+            return contributions;
+        }
+
+        @Override
+        public Registration contribute(final ContextMenuContribution contribution) {
             contributions.add(contribution);
             return () -> contributions.remove(contribution);
         }
@@ -197,22 +323,37 @@ class DemoPluginTest {
 
     private static final class RecordingEventBus implements EventBus {
         private final List<Object> published = new ArrayList<>();
-        List<Object> published() { return published; }
-        @Override public <T extends EventBus.TurboismEvent> Registration subscribe(
-            final Class<T> type, final Consumer<T> listener
-        ) {
-            return () -> { };
+
+        List<Object> published() {
+            return published;
         }
-        @Override public void publish(final TurboismEvent event) {
+
+        @Override
+        public <T extends EventBus.TurboismEvent> Registration subscribe(
+                final Class<T> type, final Consumer<T> listener) {
+            return () -> {};
+        }
+
+        @Override
+        public void publish(final TurboismEvent event) {
             published.add(event);
         }
     }
 
     private static final class NoopPluginLogger implements PluginLogger {
-        @Override public void debug(String message) { }
-        @Override public void info(String message) { }
-        @Override public void warn(String message) { }
-        @Override public void error(String message) { }
-        @Override public void error(String message, Throwable throwable) { }
+        @Override
+        public void debug(String message) {}
+
+        @Override
+        public void info(String message) {}
+
+        @Override
+        public void warn(String message) {}
+
+        @Override
+        public void error(String message) {}
+
+        @Override
+        public void error(String message, Throwable throwable) {}
     }
 }

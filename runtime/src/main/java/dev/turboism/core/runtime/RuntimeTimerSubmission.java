@@ -13,10 +13,7 @@ import java.util.Objects;
  * @param handle handle for the timer; never {@code null}, inert when {@code accepted} is false
  * @throws NullPointerException if {@code handle} is {@code null}
  */
-public record RuntimeTimerSubmission(
-    boolean accepted,
-    RuntimeTimerHandle handle
-) {
+public record RuntimeTimerSubmission(boolean accepted, RuntimeTimerHandle handle) {
     public RuntimeTimerSubmission {
         handle = Objects.requireNonNull(handle, "handle");
     }

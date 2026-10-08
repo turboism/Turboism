@@ -1,9 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
-
+import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
 import java.util.List;
 import java.util.Optional;
 
@@ -14,13 +13,19 @@ public interface Deformer {
     DeformerId id();
 
     /** Returns this Deformer's Cubism palette UI projection. */
-    default DeformerAppearance ui() { return DeformerAppearance.unavailable(); }
+    default DeformerAppearance ui() {
+        return DeformerAppearance.unavailable();
+    }
 
     /** Returns this Deformer's position within its owner's child list. */
-    default int index() { throw unavailable("Deformer index"); }
+    default int index() {
+        throw unavailable("Deformer index");
+    }
 
     /** Returns the parent Part identity, or empty when this Deformer is not under a Part. */
-    default Optional<PartId> parentPartId() { throw unavailable("Deformer parent Part"); }
+    default Optional<PartId> parentPartId() {
+        throw unavailable("Deformer parent Part");
+    }
 
     /** Returns the parent Deformer identity, or empty when this Deformer is at the model root. */
     default Optional<DeformerId> parentDeformerId() {
@@ -28,7 +33,9 @@ public interface Deformer {
     }
 
     /** Returns the identities of the parameters bound to this Deformer. */
-    default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
+    default List<ParameterId> parameterIds() {
+        throw unavailable("Deformer parameters");
+    }
 
     /** Editor display name, or the ID text when no authoring name is available. */
     default String name() {
@@ -181,8 +188,8 @@ public interface Deformer {
     /** Returns this Deformer's morph-target (BLEND_SHAPE) bindings only. */
     default List<ParameterBinding> getMorphParameterBindings() {
         return getParameterBindings().stream()
-            .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
-            .toList();
+                .filter(binding -> binding.family() == ParameterBindingFamily.BLEND_SHAPE)
+                .toList();
     }
 
     /**
@@ -203,7 +210,6 @@ public interface Deformer {
     default List<ParameterBinding> getCombinedParameterBindings() {
         throw unavailable("Combined Deformer parameter binding projection");
     }
-
 
     private static UnsupportedOperationException unavailable(final String feature) {
         return new UnsupportedOperationException(feature + " is unavailable.");

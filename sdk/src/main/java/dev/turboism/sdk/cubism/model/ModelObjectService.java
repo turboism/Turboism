@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-
 import java.util.List;
 import java.util.Objects;
 
@@ -8,7 +7,12 @@ import java.util.Objects;
  * Typed model-object automation surface shared by plugins, MCP, and other frontends.
  *
  * <p>Implementations use the active Editor authoring model as the write source of truth and fail
- * before mutation when the current host route is unavailable.</p>
+ * before mutation when the current host route is unavailable.
+ *
+ * <p>This service covers structural operations on model objects (rename, reparent, create,
+ * delete). It is not the parameter value-write path — use {@link Parameter#setValue(float)},
+ * optionally grouped through {@link
+ * dev.turboism.sdk.cubism.CubismFacade#authoringTransactions()}.
  */
 public interface ModelObjectService {
 
@@ -32,11 +36,7 @@ public interface ModelObjectService {
      * @param index position within the new parent's children; negative appends
      * @return the descriptor observed after the move
      */
-    ModelObjectDescriptor reparent(
-        ModelObjectReference target,
-        ModelObjectReference parent,
-        int index
-    );
+    ModelObjectDescriptor reparent(ModelObjectReference target, ModelObjectReference parent, int index);
 
     /**
      * Creates one model object described by {@code request}.
@@ -56,12 +56,12 @@ public interface ModelObjectService {
     /**
      * Reports whether a live runtime surface backs this instance.
      *
-     * @return {@code false} only for the {@link #unavailable()} sentinel
+     * @return {@code false} when the backend backing this instance is
+     *         unavailable, including the {@link #unavailable()} sentinel
      */
     default boolean isAvailable() {
         return true;
     }
-
 
     /** Returns the fail-closed service whose calls all report {@code UNAVAILABLE}. */
     static ModelObjectService unavailable() {
@@ -72,42 +72,39 @@ public interface ModelObjectService {
     enum Unavailable implements ModelObjectService {
         INSTANCE;
 
-        @Override public boolean isAvailable() {
+        @Override
+        public boolean isAvailable() {
             return false;
         }
 
-        @Override public List<ModelObjectDescriptor> list() {
+        @Override
+        public List<ModelObjectDescriptor> list() {
             throw unavailable();
         }
 
-        @Override public ModelObjectDescriptor rename(
-            final ModelObjectReference target,
-            final String name
-        ) {
+        @Override
+        public ModelObjectDescriptor rename(final ModelObjectReference target, final String name) {
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(name, "name");
             throw unavailable();
         }
 
-        @Override public ModelObjectDescriptor reparent(
-            final ModelObjectReference target,
-            final ModelObjectReference parent,
-            final int index
-        ) {
+        @Override
+        public ModelObjectDescriptor reparent(
+                final ModelObjectReference target, final ModelObjectReference parent, final int index) {
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(parent, "parent");
             throw unavailable();
         }
 
-        @Override public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
+        @Override
+        public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
             Objects.requireNonNull(request, "request");
             throw unavailable();
         }
 
-        @Override public void delete(
-            final ModelObjectReference target,
-            final ModelObjectDeletePolicy policy
-        ) {
+        @Override
+        public void delete(final ModelObjectReference target, final ModelObjectDeletePolicy policy) {
             Objects.requireNonNull(target, "target");
             Objects.requireNonNull(policy, "policy");
             throw unavailable();
@@ -115,9 +112,7 @@ public interface ModelObjectService {
 
         private static ModelObjectOperationException unavailable() {
             return new ModelObjectOperationException(
-                ModelObjectOperationException.Code.UNAVAILABLE,
-                "Model-object automation is unavailable"
-            );
+                    ModelObjectOperationException.Code.UNAVAILABLE, "Model-object automation is unavailable");
         }
     }
 }

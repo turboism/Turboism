@@ -1,24 +1,23 @@
 package dev.turboism.preview;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.bootstrap.HostRuntimeIngress;
-import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.preview.report.PreviewReportType;
 import dev.turboism.preview.report.PreviewReportValidator;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class LocalPluginRuntimeFailureReportIntegrationTest {
 
@@ -34,12 +33,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         final PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"));
         final RuntimeScheduler scheduler = rejectedScheduler();
         final HostRuntimeIngress ingress = new HostRuntimeIngress();
-        final LocalPluginRuntime plugins = new LocalPluginRuntime(
-            home,
-            scheduler,
-            ingress.adapterAccess(),
-            log
-        );
+        final LocalPluginRuntime plugins = new LocalPluginRuntime(home, scheduler, ingress.adapterAccess(), log);
         final LocalPluginRuntime.LoadReport loadReport = plugins.loadAll();
         final PreviewRuntime runtime = runtime(home, log, scheduler, ingress, plugins, loadReport);
         try {
@@ -47,7 +41,8 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
             assertTrue(Files.isRegularFile(home.resolve("plugins/preview-failure-plugin.jar")));
             assertEquals(List.of(), loadReport.failures());
             assertEquals(1, loadReport.loaded().size());
-            assertTrue(loadReport.loaded().stream().anyMatch(plugin -> plugin.id().equals(PreviewFailurePluginJarFixture.PLUGIN_ID)));
+            assertTrue(loadReport.loaded().stream()
+                    .anyMatch(plugin -> plugin.id().equals(PreviewFailurePluginJarFixture.PLUGIN_ID)));
             assertInitialReport(home);
             assertSafeLog(home);
 
@@ -64,33 +59,30 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
 
     private static RuntimeScheduler rejectedScheduler() {
         return new RuntimeScheduler(
-            task -> dev.turboism.sdk.plugin.WorkBudget.REJECTED,
-            new PluginWorkExecutorRegistry(1, 4, ignored -> { }, Clock.systemUTC()),
-            SidecarDispatcher.noop(),
-            ignored -> { }
-        );
+                task -> dev.turboism.sdk.plugin.WorkBudget.REJECTED,
+                new PluginWorkExecutorRegistry(1, 4, ignored -> {}, Clock.systemUTC()),
+                SidecarDispatcher.noop(),
+                ignored -> {});
     }
 
     private static PreviewRuntime runtime(
-        final Path home,
-        final PreviewLog log,
-        final RuntimeScheduler scheduler,
-        final HostRuntimeIngress ingress,
-        final LocalPluginRuntime plugins,
-        final LocalPluginRuntime.LoadReport loadReport
-    ) {
+            final Path home,
+            final PreviewLog log,
+            final RuntimeScheduler scheduler,
+            final HostRuntimeIngress ingress,
+            final LocalPluginRuntime plugins,
+            final LocalPluginRuntime.LoadReport loadReport) {
         return new PreviewRuntime(
-            home,
-            log,
-            scheduler,
-            ingress,
-            plugins,
-            loadReport,
-            new dev.turboism.preview.report.PreviewReportWriter(home.resolve("state"), ignored -> { }),
-            "real-plugin-failure-runtime",
-            null,
-            null
-        );
+                home,
+                log,
+                scheduler,
+                ingress,
+                plugins,
+                loadReport,
+                new dev.turboism.preview.report.PreviewReportWriter(home.resolve("state"), ignored -> {}),
+                "real-plugin-failure-runtime",
+                null,
+                null);
     }
 
     private static void assertInitialReport(final Path home) throws Exception {
@@ -110,36 +102,34 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
     }
 
     private static JsonNode report(final Path home) throws Exception {
-        return PreviewReportValidator.validate(Files.readAllBytes(
-            home.resolve("state").resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())
-        )).document();
+        return PreviewReportValidator.validate(
+                        Files.readAllBytes(home.resolve("state").resolve(PreviewReportType.PREVIEW_RUNTIME.fileName())))
+                .document();
     }
 
     private static void assertFailures(
-        final JsonNode payload,
-        final long taskCount,
-        final long storageCount,
-        final long configCount
-    ) {
+            final JsonNode payload, final long taskCount, final long storageCount, final long configCount) {
         assertFailureArray(payload.path("taskFailures"), taskCount);
         assertFailureArray(payload.path("storageFailures"), storageCount);
         assertFailureArray(payload.path("configFailures"), configCount);
-        assertEquals("TASK_REJECTED_POLICY_REJECTED", payload.path("taskFailures").get(0)
-            .path("code").textValue());
+        assertEquals(
+                "TASK_REJECTED_POLICY_REJECTED",
+                payload.path("taskFailures").get(0).path("code").textValue());
         assertTrue(payload.path("storageFailures").toString().contains("PERMISSION_DENIED"));
-        assertEquals(1, payload.path("configFailures").findValuesAsText("code").stream()
-            .filter("SCHEMA_NOT_REGISTERED"::equals)
-            .count());
+        assertEquals(
+                1,
+                payload.path("configFailures").findValuesAsText("code").stream()
+                        .filter("SCHEMA_NOT_REGISTERED"::equals)
+                        .count());
         assertFalse(payload.path("configFailures").toString().contains("CONFIG_READ_REJECTED"));
     }
 
     private static void assertFailureArray(final JsonNode failures, final long expectedCount) {
         assertEquals(
-            expectedCount,
-            java.util.stream.StreamSupport.stream(failures.spliterator(), false)
-                .mapToLong(value -> value.path("count").longValue())
-                .sum()
-        );
+                expectedCount,
+                java.util.stream.StreamSupport.stream(failures.spliterator(), false)
+                        .mapToLong(value -> value.path("count").longValue())
+                        .sum());
     }
 
     private static void assertSafe(final JsonNode payload) {

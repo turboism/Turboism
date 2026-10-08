@@ -4,7 +4,6 @@ import dev.turboism.ui.contribution.EditorUiContributionAuthority;
 import dev.turboism.ui.contribution.EditorUiContributionProvider;
 import dev.turboism.ui.contribution.EditorUiProviderAdmission;
 import dev.turboism.ui.host.EditorUiFamily;
-
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -14,8 +13,7 @@ import java.util.Set;
 /** Installs one connection's independently admitted Editor UI providers. */
 public final class EditorUiProviderInstaller {
 
-    private EditorUiProviderInstaller() {
-    }
+    private EditorUiProviderInstaller() {}
 
     /**
      * Installs the subset of providers that are admitted for this exact host generation.
@@ -37,39 +35,28 @@ public final class EditorUiProviderInstaller {
      *     {@code null}
      */
     public static Installation install(
-        final long hostGeneration,
-        final EditorUiContributionAuthority authority,
-        final List<? extends EditorUiContributionProvider> providers
-    ) {
+            final long hostGeneration,
+            final EditorUiContributionAuthority authority,
+            final List<? extends EditorUiContributionProvider> providers) {
         if (hostGeneration <= 0) {
             throw new IllegalArgumentException("hostGeneration must be positive");
         }
         final EditorUiContributionAuthority target = Objects.requireNonNull(authority, "authority");
-        final List<? extends EditorUiContributionProvider> requested = List.copyOf(
-            Objects.requireNonNull(providers, "providers")
-        );
+        final List<? extends EditorUiContributionProvider> requested =
+                List.copyOf(Objects.requireNonNull(providers, "providers"));
         final EnumSet<EditorUiFamily> seenFamilies = EnumSet.noneOf(EditorUiFamily.class);
         final List<EditorUiContributionProvider> installed = new ArrayList<>();
         final EnumSet<EditorUiFamily> readyFamilies = EnumSet.noneOf(EditorUiFamily.class);
         try {
             for (EditorUiContributionProvider provider : requested) {
-                final EditorUiContributionProvider candidate = Objects.requireNonNull(
-                    provider,
-                    "provider"
-                );
-                final EditorUiProviderAdmission admission = Objects.requireNonNull(
-                    candidate.admission(),
-                    "provider.admission()"
-                );
+                final EditorUiContributionProvider candidate = Objects.requireNonNull(provider, "provider");
+                final EditorUiProviderAdmission admission =
+                        Objects.requireNonNull(candidate.admission(), "provider.admission()");
                 if (admission.family() != candidate.family()) {
-                    throw new IllegalArgumentException(
-                        "Editor UI provider admission family does not match"
-                    );
+                    throw new IllegalArgumentException("Editor UI provider admission family does not match");
                 }
                 if (!seenFamilies.add(candidate.family())) {
-                    throw new IllegalArgumentException(
-                        "Duplicate Editor UI provider family: " + candidate.family()
-                    );
+                    throw new IllegalArgumentException("Duplicate Editor UI provider family: " + candidate.family());
                 }
                 if (!admission.isAdmittedTo(hostGeneration)) {
                     continue;
@@ -86,10 +73,9 @@ public final class EditorUiProviderInstaller {
     }
 
     private static void closeInstalled(
-        final EditorUiContributionAuthority authority,
-        final List<EditorUiContributionProvider> installed,
-        final Throwable failure
-    ) {
+            final EditorUiContributionAuthority authority,
+            final List<EditorUiContributionProvider> installed,
+            final Throwable failure) {
         for (int index = installed.size() - 1; index >= 0; index--) {
             try {
                 authority.removeProvider(installed.get(index));
@@ -109,15 +95,12 @@ public final class EditorUiProviderInstaller {
         private boolean closed;
 
         private Installation(
-            final EditorUiContributionAuthority authority,
-            final List<EditorUiContributionProvider> installed,
-            final Set<EditorUiFamily> readyFamilies
-        ) {
+                final EditorUiContributionAuthority authority,
+                final List<EditorUiContributionProvider> installed,
+                final Set<EditorUiFamily> readyFamilies) {
             this.authority = authority;
             this.installed = List.copyOf(installed);
-            this.readyFamilies = readyFamilies.isEmpty()
-                ? Set.of()
-                : Set.copyOf(EnumSet.copyOf(readyFamilies));
+            this.readyFamilies = readyFamilies.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(readyFamilies));
         }
 
         /**

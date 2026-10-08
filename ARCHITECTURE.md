@@ -94,19 +94,19 @@ dev.turboism.core.runtime.sidecar
 ```
 
 Deprecated package shapes such as `sdk.event.cubism`, `sdk.cubism.callback`, feature-local
-`DocumentId`, and callback-named plugin work executors are not compatibility
-surfaces and must not be reintroduced.
+`DocumentId`, callback-named plugin work executors, the `dev.turboism.protocol.json`
+codec (superseded by `dev.turboism.sdk.json`), and the retired queued-write path —
+the `sdk.cubism.write` package and the `sdk.cubism.transaction` queue types
+(`TransactionManager`, `ModelTransaction`, queue exceptions; `AuthoringTransaction*`
+stays) — are not compatibility surfaces and must not be reintroduced.
 
-Several plugins also keep a `b1/` package tree (`b1/domain`, sometimes
-`b1/application`). `b1` marks a legacy-plugin migration wave, not a
-host-adaptation or compatibility surface: `b1/domain` holds pure, deterministic
-behavior and state declarations salvaged from the pre-SDK codebase (value
-objects, enums, reducers), while `b1/application` is reserved for typed config
-and lifecycle orchestration. B1 code may depend only on the JDK,
-`dev.turboism.sdk.*`, and same-plugin classes — never on
-runtime/core/hook/mapping/adapter/preview packages, `com.live2d.*`, or host
-I/O. When a behavior graduates out of the migration wave, move it to a stable
-plugin-owned package name rather than treating `b1` as permanent structure.
+The `b1/` migration-wave package tree has fully graduated: former `b1/domain`
+and `b1/application` code now lives in stable plugin-owned `domain/` and
+`application/` packages. `b1` was never a host-adaptation or compatibility
+surface and must not be reintroduced; plugin code keeps the same purity rule
+under its stable name — only the JDK, `dev.turboism.sdk.*`, and same-plugin
+classes, never runtime/core/hook/mapping/adapter/preview packages,
+`com.live2d.*`, or host I/O.
 
 ## 3. Public API model
 
@@ -354,6 +354,12 @@ Only bound-cgroup empty/destruction proof permits finalization. A snapshot final
 then rechecks official files, runtime dependencies, fixture and staged artifacts,
 archives evidence and removes only a successful task prefix. Preliminary Runner
 results cannot claim final cleanup. Unsupported containment fails closed.
+
+A separate administrative `abandoned` state exists solely to register proven
+cross-boot orphan attempts that can never produce a final verdict. It is not a
+validation terminal state: it never counts as PASS, never releases the host and
+never proves cleanup safe, and the record plus its evidence stay permanently
+protected. The normal recovery and cleanup gates above are unchanged.
 See `scripts/preview/README-host-validation-scheduling.md` for local-only CLI,
 recovery, service lifecycle and Agent adoption. The service is opt-in and is not
 installed or started by Gradle. Actual exact-host acceptance is a separate gate,
