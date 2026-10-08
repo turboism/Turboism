@@ -324,6 +324,35 @@ class RuntimeUserFileAccessServiceTest {
     }
 
     @Test
+    void binaryImportBudgetReadsSmallFilesAndPreservesExactLimit() throws Exception {
+        final int limit = 16 * 1024 * 1024;
+        final Path selected = temporary.resolve("input.csv");
+        final byte[] header = {0x67, 0x6c, 0x54, 0x46};
+        Files.write(selected, header);
+        final RuntimeUserFileAccessService service = service(
+            permissions(UserFileMode.READ), UserFileGrantSource.fixedSelection(selected));
+        final UserFileHandle handle = service.request(request(UserFileMode.READ,
+            UserFileLifetime.UNTIL_DISABLE)).toCompletableFuture().get(2, TimeUnit.SECONDS)
+            .handle().orElseThrow();
+        final var small = service.readBytes(handle, limit).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(small.error().isEmpty(), "16 MiB request must accept a small authorized GLB");
+        assertArrayEquals(header, small.value().orElseThrow());
+        assertFalse(small.truncated());
+        final byte[] exact = new byte[limit];
+        exact[0] = 7; exact[limit - 1] = 11;
+        Files.write(selected, exact);
+        final var full = service.readBytes(handle, limit).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        assertArrayEquals(exact, full.value().orElseThrow());
+        assertFalse(full.truncated());
+        Files.write(selected, new byte[] {13}, java.nio.file.StandardOpenOption.APPEND);
+        final var overflow = service.readBytes(handle, limit).toCompletableFuture().get(5, TimeUnit.SECONDS);
+        assertTrue(overflow.truncated());
+        assertArrayEquals(exact, overflow.value().orElseThrow());
+        final var text = service.readUtf8(handle, 9 * 1024 * 1024).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(UserFileErrorCode.SIZE_LIMIT_EXCEEDED, text.error().orElseThrow().code());
+    }
+
+    @Test
     void oversizedAndZeroByteReadsAreStructured() throws Exception {
         final Path selected = temporary.resolve("input.csv");
         Files.writeString(selected, "x");
@@ -343,7 +372,7 @@ class RuntimeUserFileAccessServiceTest {
                 .get(2, TimeUnit.SECONDS)
                 .handle()
                 .orElseThrow();
-        final var oversizedResult = service.readBytes(oversized, 9 * 1024 * 1024)
+        final var oversizedResult = service.readBytes(oversized, 17 * 1024 * 1024)
                 .toCompletableFuture()
                 .get(2, TimeUnit.SECONDS);
         assertEquals(

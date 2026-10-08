@@ -29,13 +29,14 @@ final class TextureAuthoringManifestTest {
             assertTrue(aliases.containsAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES));
             final Set<String> sharedAliases = new HashSet<>(aliases);
             sharedAliases.retainAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_5203_ALIASES);
-            // 5.3.02 relation reads share these two reads with the 5.2 removal route,
-            // but must not admit its mutation factories or force-redo entry point.
+            // 5.3.02 relation reads share these two reads with the 5.2 removal route, and 5.3.03
+            // shares the input-filter-env read; neither admits its mutation factories or the
+            // force-redo entry point.
             final Set<String> expectedReads = aliases.equals(EditorModelVerificationManifest.cubism5302Aliases())
                     ? Set.of(
                             "cubism.editor-model.model-image.input-filter-env",
                             "cubism.editor-model.model-image-filter-env.layer-input-data")
-                    : Set.of();
+                    : Set.of("cubism.editor-model.model-image.input-filter-env");
             assertEquals(expectedReads, sharedAliases);
             assertTrue(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES.containsAll(sharedAliases));
         }

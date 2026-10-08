@@ -129,6 +129,36 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism texture-library access is unavailable.");
     }
 
+    /**
+     * Renders the current model document state into an offscreen raster of
+     * {@code width}x{@code height} pixels using the Editor's own renderer, and
+     * returns an owned immutable copy of the pixels.
+     *
+     * <p>This is a read of document state: the current parameter set of the
+     * active model instance is rendered, never a stored or synthetic frame. The
+     * call fails when the host cannot produce the raster, when the raster does
+     * not match the requested dimensions, or when the temporary render instance
+     * cannot be observed to leave the model unchanged — no cached, cropped,
+     * rescaled or fallback image is ever substituted.</p>
+     */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default CubismRenderedPixels renderPixels(final int width, final int height) {
+        throw new UnsupportedOperationException(
+            "Cubism native model rendering is unavailable."
+        );
+    }
+
+    /**
+     * Exports MOC 5.3 bytes and atlas textures through the official Editor exporter.
+     * The model must already have a valid atlas. The exporter works on its own copy;
+     * it does not save files or add an Undo entry to the current document.
+     * All settings are explicit and the returned data is bounded and owned by the caller.
+     */
+    @CubismEditor({"5.3.02"})
+    default CubismMocExport exportMoc(final CubismMocExportSettings settings) {
+        throw new UnsupportedOperationException("Cubism official MOC export is unavailable.");
+    }
+
     /** Returns the model's structural and render-resource statistics. */
     default ModelStatistics statistics() {
         return ModelStatisticsCalculator.calculate(this);

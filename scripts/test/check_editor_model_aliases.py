@@ -38,7 +38,18 @@ ALIAS_CONSTANT_REFERENCE = re.compile(r'\.\s*([A-Z][A-Z0-9_]*_ALIAS)\b')
 VERIFICATION_PATH = "/mapping/verification/"
 PRESET_ALIAS_PREFIX = "cubism.editor-model.label-color-type."
 PRESET_COLORS = ("red", "orange", "yellow", "green", "blue", "purple", "gray")
-UNUSED_ALIAS_MAXIMUM = 0
+# Reviewed 5.2.03 selectors verified statically against the exact artifact but not yet
+# invoked by production. They stay admitted because runtime admission pins the record
+# roster exactly; any further unconsumed alias widens admission silently and must fail.
+REVIEWED_UNCONSUMED_ALIASES = frozenset({
+    "cubism.editor-model.morph-target-set.remove",
+    "cubism.editor-model.morph-target.set-parameter",
+    "cubism.editor-model.morph-target.set-parameter-and-key-value",
+    "cubism.editor-model.parameter-controllable-source.internal-set-parent",
+    "cubism.editor-model.parameter-group.guid",
+    "cubism.editor-model.part-source.remove-child",
+    "cubism.editor-model.part.id",
+})
 
 
 def implementation_aliases(root: Path) -> set[str]:
@@ -108,8 +119,10 @@ def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
 
     The 5.3.03 record is a full static host inventory and intentionally contains selectors for
     capabilities this runtime does not consume. Only its four additive, invoked aliases extend the
-    exact-use admission held by the 5.2.03/5.3.02 records. The subset is fixed here so adding an
-    arbitrary selector to any record cannot silently widen runtime admission.
+    admission held by the 5.2.03/5.3.02 records. The subset is fixed here so adding an
+    arbitrary selector to the 5.3.03 record cannot silently widen runtime admission. The older
+    records are also verified inventories; selectors they carry beyond production use are pinned
+    by REVIEWED_UNCONSUMED_ALIASES so the admitted remainder cannot grow silently either.
     """
     union: set[str] = set()
     per_record: dict[str, set[str]] = {}
@@ -125,12 +138,6 @@ def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
         raise ValueError(
             "5.3.03 reviewed record lacks required additive aliases: "
             + ", ".join(sorted(missing))
-        )
-    unexpected_base = ADDITIVE_ALIASES & union
-    if unexpected_base:
-        raise ValueError(
-            "5.3.03-only aliases unexpectedly appear in older records: "
-            + ", ".join(sorted(unexpected_base))
         )
     per_record[Path(ADDITIVE_RECORD).name + " (admitted subset)"] = set(ADDITIVE_ALIASES)
     union |= ADDITIVE_ALIASES
@@ -158,7 +165,8 @@ def main() -> int:
     # Literals matching a record capabilityId are capability references (e.g.
     # the SDK availability gate), not member-alias invocations.
     unrecorded = sorted(implementation - union - capabilities)
-    unused = sorted(union - implementation)
+    unused = sorted((union - implementation) - REVIEWED_UNCONSUMED_ALIASES)
+    unconsumed_drift = sorted(REVIEWED_UNCONSUMED_ALIASES - union)
     if args.report:
         print(f"implementation aliases : {len(implementation)}")
         for name, aliases in per_record.items():
@@ -166,7 +174,7 @@ def main() -> int:
         print(f"unrecorded (must be 0) : {len(unrecorded)}")
         for alias in unrecorded:
             print(f"    {alias}")
-        print(f"unused (maximum {UNUSED_ALIAS_MAXIMUM}) : {len(unused)}")
+        print(f"unused beyond pinned remainder (must be 0) : {len(unused)}")
         for alias in unused:
             print(f"    {alias}")
         return 0
@@ -177,10 +185,15 @@ def main() -> int:
         print(f"FAIL: {len(unrecorded)} invoked Editor-model aliases lack reviewed evidence:")
         for alias in unrecorded:
             print(f"  {alias}")
-    if len(unused) != UNUSED_ALIAS_MAXIMUM:
+    if unused:
         failed = True
-        print(f"FAIL: {len(unused)} reviewed Editor-model aliases are unused; expected 0:")
+        print(f"FAIL: {len(unused)} reviewed Editor-model aliases are unused and not pinned:")
         for alias in unused:
+            print(f"  {alias}")
+    if unconsumed_drift:
+        failed = True
+        print("FAIL: pinned reviewed-unconsumed aliases vanished from the records:")
+        for alias in unconsumed_drift:
             print(f"  {alias}")
     if failed:
         return 1

@@ -54,6 +54,7 @@ public final class RuntimeUserFileAccessService
         implements UserFileAccessService, EditorFileCommandResolver, AutoCloseable {
 
     private static final int MAX_OPERATION_BYTES = 8 * 1024 * 1024;
+    private static final int MAX_BINARY_READ_BYTES = 16 * 1024 * 1024;
 
     private final String pluginId;
     private final Object ownerToken = new Object();
@@ -182,7 +183,7 @@ public final class RuntimeUserFileAccessService
                     "user-file.readBytes",
                     permissionFor(authorization.error, PermissionIds.TURBOISM_FILE_READ)));
         }
-        if (maxBytes > MAX_OPERATION_BYTES) {
+        if (maxBytes > MAX_BINARY_READ_BYTES) {
             return immediate(observe(readFailure(UserFileErrorCode.SIZE_LIMIT_EXCEEDED), "user-file.readBytes", null));
         }
         return io.submit(
