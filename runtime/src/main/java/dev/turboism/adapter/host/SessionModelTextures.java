@@ -136,4 +136,22 @@ final class SessionModelTextures
     public void removeRawImage(final dev.turboism.sdk.cubism.id.RawImageId id) {
         host.guardedVoid(generation, () -> delegate.removeRawImage(id));
     }
+
+    @Override public dev.turboism.sdk.cubism.model.ModelImageBinding registerImageAndBind(
+                final dev.turboism.sdk.cubism.model.AuthorizedImageContent image,
+                final dev.turboism.sdk.cubism.id.ArtMeshId target
+            ) {
+                return host.guarded(generation, () -> delegate.registerImageAndBind(image, target));
+            }
+    @Override public dev.turboism.sdk.cubism.model.ModelImageBinding bindModelImage(
+                final dev.turboism.sdk.cubism.id.ModelImageId image,
+                final dev.turboism.sdk.cubism.id.ArtMeshId target
+            ) {
+                return host.guarded(generation, () -> delegate.bindModelImage(image, target));
+            }
+    @Override public java.util.Optional<dev.turboism.sdk.cubism.model.ArtMeshTextureInput> textureInput(
+                final dev.turboism.sdk.cubism.id.ArtMeshId target
+            ) {
+                return host.guarded(generation, () -> delegate.textureInput(target));
+            }
 }

@@ -273,6 +273,174 @@ final class PermissionCheckedDrawable implements dev.turboism.sdk.cubism.model.D
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot authoringSnapshot() {
+        facade.requireModelRead("artMesh.authoringSnapshot");
+        return delegate.authoringSnapshot();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshEvaluationSnapshot evaluationSnapshot() {
+        facade.requireModelRead("artMesh.evaluationSnapshot");
+        return delegate.evaluationSnapshot();
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshKeyform ordinaryKeyform(
+            final List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates) {
+        facade.requireModelRead("artMesh.ordinaryKeyform");
+        final var target = delegate.ordinaryKeyform(coordinates);
+        return new dev.turboism.sdk.cubism.model.ArtMeshKeyform() {
+            @Override
+            public List<dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Coordinate> coordinates() {
+                facade.requireModelRead("artMesh.keyform.coordinates");
+                return target.coordinates();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                facade.requireModelRead("artMesh.keyform.snapshot");
+                return target.snapshot();
+            }
+
+            @Override
+            public boolean defaultKeyform() {
+                facade.requireModelRead("artMesh.keyform.defaultKeyform");
+                return target.defaultKeyform();
+            }
+
+            @Override
+            public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                facade.requireModelWrite("artMesh.keyform.setPositions");
+                final var input = List.copyOf(positions);
+                facade.runSemantic(
+                        CubismOperation.SET_DRAWABLE_KEYFORM_POSITIONS,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(),
+                        target::snapshot,
+                        () -> target.setPositions(input));
+            }
+
+            @Override
+            public void setDrawOrder(final int drawOrder) {
+                facade.requireModelWrite("artMesh.keyform.setDrawOrder");
+                if (drawOrder < 0 || drawOrder > 1000) {
+                    throw new IllegalArgumentException("keyform draw order must be between 0 and 1000");
+                }
+                facade.runSemantic(
+                        CubismOperation.SET_DRAWABLE_KEYFORM_DRAW_ORDER,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(),
+                        target::snapshot,
+                        () -> target.setDrawOrder(drawOrder));
+            }
+        };
+    }
+
+    @Override
+    public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformPositions> edits) {
+        facade.requireModelWrite("artMesh.setOrdinaryKeyformPositions");
+        final var input = List.copyOf(edits);
+        facade.runSemantic(
+                CubismOperation.SET_DRAWABLE_KEYFORM_POSITIONS_BATCH,
+                delegate.id().value(),
+                delegate::authoringSnapshot,
+                () -> delegate.setOrdinaryKeyformPositions(expected, input));
+    }
+
+    @Override
+    public void setOrdinaryKeyformDrawOrders(
+            final dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.ArtMeshKeyformDrawOrder> edits) {
+        facade.requireModelWrite("artMesh.setOrdinaryKeyformDrawOrders");
+        final var input = List.copyOf(edits);
+        facade.runSemantic(
+                CubismOperation.SET_DRAWABLE_KEYFORM_DRAW_ORDERS_BATCH,
+                delegate.id().value(),
+                delegate::authoringSnapshot,
+                () -> delegate.setOrdinaryKeyformDrawOrders(expected, input));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform morphKeyform(
+            final String parameterGuid, final float keyValue) {
+        facade.requireModelRead("artMesh.morphKeyform");
+        return permissionCheckedMorphKeyform(delegate.morphKeyform(parameterGuid, keyValue));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform createMorphKeyform(
+            final String parameterGuid, final float keyValue) {
+        facade.requireModelWrite("artMesh.createMorphKeyform");
+        if (Objects.requireNonNull(parameterGuid, "parameterGuid").isBlank()
+                || !Float.isFinite(keyValue)
+                || keyValue <= 0f
+                || keyValue > 1f) {
+            throw new IllegalArgumentException(
+                    "a native parameter GUID and positive morph key are required");
+        }
+        final var created = new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform[1];
+        facade.runSemantic(
+                CubismOperation.CREATE_DRAWABLE_MORPH_KEYFORM,
+                delegate.id().value() + ":" + parameterGuid + ":" + Float.toString(keyValue),
+                delegate::authoringSnapshot,
+                () -> created[0] = delegate.createMorphKeyform(parameterGuid, keyValue));
+        return permissionCheckedMorphKeyform(Objects.requireNonNull(created[0], "created morph keyform"));
+    }
+
+    private dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform permissionCheckedMorphKeyform(
+            final dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform target) {
+        return new dev.turboism.sdk.cubism.model.ArtMeshMorphKeyform() {
+            @Override
+            public String parameterGuid() {
+                facade.requireModelRead("artMesh.morphKeyform.parameterGuid");
+                return target.parameterGuid();
+            }
+
+            @Override
+            public float keyValue() {
+                facade.requireModelRead("artMesh.morphKeyform.keyValue");
+                return target.keyValue();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form snapshot() {
+                facade.requireModelRead("artMesh.morphKeyform.snapshot");
+                return target.snapshot();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.model.ArtMeshAuthoringSnapshot.Form baseSnapshot() {
+                facade.requireModelRead("artMesh.morphKeyform.baseSnapshot");
+                return target.baseSnapshot();
+            }
+
+            @Override
+            public void setPositions(final List<dev.turboism.sdk.cubism.model.Point2> positions) {
+                facade.requireModelWrite("artMesh.morphKeyform.setPositions");
+                final var input = List.copyOf(positions);
+                facade.runSemantic(
+                        CubismOperation.SET_DRAWABLE_MORPH_KEYFORM_POSITIONS,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(),
+                        target::snapshot,
+                        () -> target.setPositions(input));
+            }
+
+            @Override
+            public void setDrawOrder(final int drawOrder) {
+                facade.requireModelWrite("artMesh.morphKeyform.setDrawOrder");
+                if (drawOrder < 0 || drawOrder > 1000) {
+                    throw new IllegalArgumentException("keyform draw order must be between 0 and 1000");
+                }
+                facade.runSemantic(
+                        CubismOperation.SET_DRAWABLE_MORPH_KEYFORM_DRAW_ORDER,
+                        delegate.id().value() + ":" + target.snapshot().formGuid(),
+                        target::snapshot,
+                        () -> target.setDrawOrder(drawOrder));
+            }
+        };
+    }
+
+    @Override
     public void replaceGeometry(final dev.turboism.sdk.cubism.model.ArtMeshGeometry geometry) {
         facade.requireModelWrite("artMesh.replaceGeometry");
         facade.runSemantic(

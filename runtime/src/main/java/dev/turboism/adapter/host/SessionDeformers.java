@@ -445,6 +445,15 @@ final class SessionWarpDeformer implements WarpDeformer {
     public void replaceGrid(final WarpGrid grid) {
         host.guardedVoid(generation, () -> delegate.replaceGrid(grid));
     }
+
+    @Override public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+                return host.guarded(generation, delegate::authoringSnapshot);
+            }
+
+    @Override public void setOrdinaryKeyformPositions(
+                dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+                List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits
+            ) { host.guardedVoid(generation, () -> delegate.setOrdinaryKeyformPositions(expected, edits)); }
 }
 
 final class SessionRotationDeformers implements RotationDeformers {
@@ -650,4 +659,13 @@ final class SessionRotationDeformer implements RotationDeformer {
     public void replaceForm(final RotationDeformerForm form) {
         host.guardedVoid(generation, () -> delegate.replaceForm(form));
     }
+
+    @Override public dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot authoringSnapshot() {
+                return host.guarded(generation, delegate::authoringSnapshot);
+            }
+
+    @Override public void setOrdinaryKeyformForms(dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot expected,
+                    List<dev.turboism.sdk.cubism.model.RotationKeyformForm> edits) {
+                host.guardedVoid(generation, () -> delegate.setOrdinaryKeyformForms(expected, List.copyOf(edits)));
+            }
 }

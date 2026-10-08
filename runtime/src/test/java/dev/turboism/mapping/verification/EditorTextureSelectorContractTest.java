@@ -38,6 +38,10 @@ class EditorTextureSelectorContractTest {
                 EditorTextureSelectorContract.ADAPTER_SLICE_ID,
                 EditorTextureSelectorContract.WRITE_CAPABILITY_ID,
                 EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES));
+        assertTrue(resolver.authorizesFeature(
+                EditorTextureSelectorContract.ADAPTER_SLICE_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_CAPABILITY_ID,
+                EditorTextureSelectorContract.REGISTER_BIND_REQUIRED_ALIASES));
         if (evidenceDirectory.equals("Cubism-5.3.02")) {
             assertTrue(resolver.authorizesFeature(
                     EditorTextureSelectorContract.ADAPTER_SLICE_ID,

@@ -278,16 +278,39 @@ class VerifiedHostAdapterConnectorBorrowedModelPublishTest {
             }
         }
 
-        static final class Model {
-            public Moc getMoc() {
-                return new Moc();
-            }
-        }
-
-        /** Minimal MOC stand-in for the verified Core MOC-version read (constant 6 = V5_3). */
-        static final class Moc {
-            public int getMocVersion() {
-                return 6;
+        /**
+         * The Editor document-model stand-in also plays the Core model role: it extends
+         * the shared Core fixture type so the bound {@code MODEL_GET_CANVAS_INFO} call
+         * site's declaring class accepts it, mirroring the borrowed-publish intent.
+         */
+        static final class Model extends TestCoreApiFixture.Model {
+            Model() {
+                super(
+                    new TestCoreApiFixture.CanvasInfo(
+                        new float[]{256F, 256F}, new float[]{0F, 0F}, 96F
+                    ),
+                    new TestCoreApiFixture.Parameters(
+                        new String[0], new TestCoreApiFixture.ParameterType[0],
+                        new float[0], new float[0], new float[0], new float[0],
+                        new int[0], new float[0][0], new boolean[0]
+                    ),
+                    new TestCoreApiFixture.Parts(new String[0], new float[0], new int[0]),
+                    new TestCoreApiFixture.Drawables(
+                        new String[0], new byte[0], new byte[0], new int[0], new int[0],
+                        new int[0], new int[0], new float[0], new int[0], new int[0][0],
+                        new int[0], new float[0][0], new float[0][0], new int[0],
+                        new short[0][0], new float[0][0], new float[0][0], new int[0],
+                        new int[0], new int[0], new int[0][0]
+                    ),
+                    new TestCoreApiFixture.Deformers(
+                        new String[0], new int[0], new int[0], new int[0][0]
+                    ),
+                    new TestCoreApiFixture.Glues(
+                        new String[0], new int[0], new int[0], new int[0], new int[0][0]
+                    ),
+                    new TestCoreApiFixture.Moc(6),
+                    () -> { }
+                );
             }
         }
 
