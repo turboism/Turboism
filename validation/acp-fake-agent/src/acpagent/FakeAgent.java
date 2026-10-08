@@ -257,7 +257,7 @@ public final class FakeAgent {
                 failRenameChain("rename_call_failed");
                 return;
             }
-            if (!Boolean.TRUE.equals(rename.get("ok")) || !"APPLIED".equals(rename.get("outcome"))) {
+            if (!applied(rename)) {
                 failRenameChain(sanitize("rename_not_applied_" + Json.stringify(rename)));
                 return;
             }
@@ -415,6 +415,18 @@ public final class FakeAgent {
             }
         }
         return new LinkedHashMap<>();
+    }
+
+    /**
+     * Whether the batch-apply envelope reports one applied rename: the batch-level {@code ok}
+     * flag plus the single operation's {@code outcome} nested under {@code results[0].result}.
+     */
+    private static boolean applied(final Map<String, Object> rename) {
+        if (!Boolean.TRUE.equals(rename.get("ok"))) return false;
+        final List<Object> results = listValue(rename.get("results"));
+        if (results.isEmpty()) return false;
+        final Map<String, Object> first = objectValue(objectValue(results.get(0)).get("result"));
+        return "APPLIED".equals(first.get("outcome"));
     }
 
     /** Unwraps the {@code snapshot} member the history domain nests inside its tool envelope. */
