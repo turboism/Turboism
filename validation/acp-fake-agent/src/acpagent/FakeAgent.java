@@ -213,7 +213,8 @@ public final class FakeAgent {
 
             final Map<String, Object> historyBefore;
             try {
-                historyBefore = structured(bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout));
+                historyBefore =
+                        snapshotOf(structured(bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout)));
             } catch (IOException failure) {
                 failRenameChain("history_read_before_failed");
                 return;
@@ -271,8 +272,8 @@ public final class FakeAgent {
 
             final Map<String, Object> historyAfterRename;
             try {
-                historyAfterRename = structured(
-                        bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout));
+                historyAfterRename = snapshotOf(structured(
+                        bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout)));
             } catch (IOException failure) {
                 ledger.fail("undoRestored", "history_read_after_rename_failed");
                 return;
@@ -307,8 +308,8 @@ public final class FakeAgent {
 
             final Map<String, Object> historyAfterUndo;
             try {
-                historyAfterUndo = structured(
-                        bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout));
+                historyAfterUndo = snapshotOf(structured(
+                        bridge.request("tools/call", toolCall("turboism.history.read", Map.of()), timeout)));
             } catch (IOException failure) {
                 ledger.fail("historyPositionBalanced", "history_read_after_undo_failed");
                 return;
@@ -414,6 +415,12 @@ public final class FakeAgent {
             }
         }
         return new LinkedHashMap<>();
+    }
+
+    /** Unwraps the {@code snapshot} member the history domain nests inside its tool envelope. */
+    private static Map<String, Object> snapshotOf(final Map<String, Object> structured) {
+        final Object snapshot = structured.get("snapshot");
+        return snapshot instanceof Map<?, ?> map ? objectValue(snapshot) : structured;
     }
 
     private static long number(final Object value, final long fallback) {
