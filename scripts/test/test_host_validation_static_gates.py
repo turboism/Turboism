@@ -45,11 +45,22 @@ class StaticGateTest(unittest.TestCase):
             self.assertIn("assisted", request.variant)
 
     def test_free_license_refusal(self):
+        # The observed-FREE table is empty today (every install runs FREE-start
+        # mode and the parameter limit is non-blocking); inject a tier to prove
+        # the gate still refuses when populated.
         environment = self._fixture_environment()
-        with self.assertRaises(gates.StaticGateRefusal) as caught:
-            self.evaluate("parameter-batch-transfer:5100@assisted", environment)
+        with mock.patch.dict(gates.INSTALL_LICENSE_TIER, {"5100": "free"}):
+            with self.assertRaises(gates.StaticGateRefusal) as caught:
+                self.evaluate("parameter-batch-transfer:5100@assisted", environment)
         self.assertEqual("SKIP_LICENSE", caught.exception.skip)
         self.assertEqual("license", caught.exception.reason)
+
+    def test_free_start_is_universal_not_a_refusal(self):
+        # 5100 hit the FREE param-limit dialog on earlier runs yet the model
+        # still loads — license must not refuse. Admission still does (writes).
+        with self.assertRaises(gates.StaticGateRefusal) as caught:
+            self.evaluate("parameter-batch-transfer:5100@assisted")
+        self.assertEqual("admission", caught.exception.reason)
 
     def test_unknown_license_falls_through_to_other_gates(self):
         # 5101 is not in the observed-FREE table, so the license gate stays
