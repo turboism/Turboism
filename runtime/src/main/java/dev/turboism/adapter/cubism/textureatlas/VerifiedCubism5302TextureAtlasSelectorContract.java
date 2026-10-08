@@ -25,6 +25,7 @@ public final class VerifiedCubism5302TextureAtlasSelectorContract {
         "cubism.texture-atlas.texture-input-relink.rebuild",
         "cubism.editor-model.model-source.verify",
         "cubism.texture-atlas.texture-manager.change-input-to-atlas",
+        "cubism.texture-atlas.texture-manager.reinit-input",
         "cubism.texture-atlas.atlas.class",
         "cubism.texture-atlas.atlas.create",
         "cubism.texture-atlas.atlas.name",

@@ -12,8 +12,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 class CubismEditorModelAvailabilityContractTest {
 
     private static final String[] ALL_DECLARED = {"5.2.03", "5.3.02", "5.3.03"};
-    private static final String[] ESTABLISHED = {"5.2.03", "5.3.02"};
-    private static final String[] ONLY_5_3_02 = {"5.3.02"};
     private static final String[] EXACT_5_3 = {"5.3.02", "5.3.03"};
 
     @Test
@@ -33,19 +31,19 @@ class CubismEditorModelAvailabilityContractTest {
         );
         assertArrayEquals(ALL_DECLARED, Part.class.getMethod("ui")
             .getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, Part.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, Drawable.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ESTABLISHED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
-        assertArrayEquals(ONLY_5_3_02, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, Part.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, Drawable.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, ModelTextures.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(EXACT_5_3, AlphaComposition.class.getAnnotation(CubismEditor.class).value());
     }
 
     @Test
     void partOverridesMatchReviewedHostDifferences() throws Exception {
-        assertOnly5302(Part.class.getMethod("maskIds"));
-        assertOnly5302(Part.class.getMethod("setMaskIds", List.class));
-        assertOnly5302(Part.class.getMethod("alphaComposition"));
-        assertOnly5302(Part.class.getMethod("setAlphaComposition", AlphaComposition.class));
-        assertOnly5302(Part.class.getMethod("setOpacity", float.class));
+        assertReviewed53(Part.class.getMethod("maskIds"));
+        assertReviewed53(Part.class.getMethod("setMaskIds", List.class));
+        assertReviewed53(Part.class.getMethod("alphaComposition"));
+        assertReviewed53(Part.class.getMethod("setAlphaComposition", AlphaComposition.class));
+        assertReviewed53(Part.class.getMethod("setOpacity", float.class));
     }
 
     @Test
@@ -72,7 +70,7 @@ class CubismEditorModelAvailabilityContractTest {
         );
     }
 
-    private static void assertOnly5302(final Method method) {
-        assertArrayEquals(ONLY_5_3_02, method.getAnnotation(CubismEditor.class).value());
+    private static void assertReviewed53(final Method method) {
+        assertArrayEquals(EXACT_5_3, method.getAnnotation(CubismEditor.class).value());
     }
 }

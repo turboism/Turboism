@@ -489,7 +489,8 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-source", DeformerSource.class, "getTargetDeformerSource", desc(DeformerSource.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter-controllable-handler.class", internal(ParamHandler.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit", ParamHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-handler.change-target-deformer", ParamHandler.class, "changeTargetDeformer", "(" + type(Model.class) + type(DeformerGuid.class) + "Z)" + type(Undo.class)));
+        // Match the reviewed native overload: GUID + boolean belongs to the GUID alias.
+        selectors.add(method("cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid", ParamHandler.class, "changeTargetDeformer", "(" + type(Model.class) + type(DeformerGuid.class) + "Z)" + type(Undo.class)));
         selectors.add(StaticSelector.field(
             "cubism.editor-model.deformer-guid.companion", internal(DeformerGuid.class), "Companion",
             "L" + internal(DeformerGuidCompanion.class) + ";",

@@ -32,8 +32,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
-            "dialog-automation", "fps", "host-locale", "parameter",
+            "animation-timeline", "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
+            "dialog-automation", "fps", "host-locale", "model-import-3d", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
             "startup-suppression", "status-bar", "theme", "update-check", "workspace",

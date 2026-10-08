@@ -19,13 +19,22 @@ import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,6 +55,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * command and never re-implemented by the adapter.</p>
  */
 class EditorObjectHierarchyEditAccessTest {
+
+    @Test
+    void creates5302DefaultPartInRootTreeAndRestoresSiblingOrder() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var siblings = List.copyOf(fixture.rootPart.children);
+        final var created = model.parts().create("Default Parent", null, 0);
+        final var id = created.id();
+        final var source = fixture.partSet.sources.stream()
+            .filter(value -> value.id.value().equals(created.id().value())).findFirst().orElseThrow();
+        assertEquals("Root", created.parentId().orElseThrow().value());
+        assertNull(fixture.rootPart.currentUndo, "native insertion must not snapshot the entire parent");
+        assertNull(source.currentUndo, "native insertion owns registry and tree together");
+        assertEquals(source, fixture.rootPart.children.get(0));
+        assertEquals(siblings, fixture.rootPart.children.subList(1, fixture.rootPart.children.size()));
+        assertEquals(1, fixture.editMode.edits.size());
+        fixture.editMode.edits.get(0).undo();
+        assertEquals(siblings, fixture.rootPart.children);
+        assertFalse(fixture.partSet.sources.contains(source));
+        fixture.editMode.edits.get(0).redo();
+        assertEquals(source, fixture.rootPart.children.get(0));
+        assertEquals("Root", model.parts().find(id).parentId().orElseThrow().value());
+    }
+
+    @Test
+    void rejects5302DefaultPartWhenRootIsMissingBeforeAnyWrite() {
+        final Fixture fixture = new Fixture();
+        fixture.source.rootPart = null;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var original = List.copyOf(fixture.partSet.sources);
+        assertThrows(IllegalStateException.class, () -> model.parts().create("Missing root", null, -1));
+        assertEquals(original, fixture.partSet.sources);
+        assertTrue(fixture.editMode.edits.isEmpty());
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02"})
@@ -89,14 +134,17 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(4, warp.grid().rows());
         assertEquals(3, warp.grid().columns());
         assertEquals(2, model.warpDeformers().all().size());
-        assertEquals(1, fixture.deformerSet.addCount);
+        // Both reviewed versions attach through the native Part composition undo
+        // (no registry add-source).
+        final int registryAddsAfterWarp = 0;
+        assertEquals(registryAddsAfterWarp, fixture.deformerSet.addCount);
         final WarpDeformerSource createdWarp = (WarpDeformerSource) fixture.source.deformerSet.sources.get(2);
         assertEquals(List.of(4, 3), createdWarp.rowColLog);
 
         final var rotation = model.deformers().createRotation("New Rotation", null, -1);
         assertEquals("New Rotation", rotation.name());
         assertEquals(2, model.rotationDeformers().all().size());
-        assertEquals(2, fixture.deformerSet.addCount);
+        assertEquals(registryAddsAfterWarp * 2, fixture.deformerSet.addCount);
         assertEquals(2, fixture.editMode.edits.size());
 
         // Undo removes the created Rotation; redo re-creates it.
@@ -140,6 +188,208 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, model.drawables().all().size());
         fixture.editMode.edits.get(0).redo();
         assertEquals(2, model.drawables().all().size());
+    }
+
+    /** 5.3.02 rebuilds instances from the Part tree, not from the source registry. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void creates5302ArtMeshThroughPartTreeWithSingleUndo(final boolean explicitPart) {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var siblings = List.copyOf(fixture.rootPart.children);
+        final var geometry = nativeGeometry();
+        final var created = model.drawables().create("Native Mesh",
+            explicitPart ? model.parts().find(new PartId("Root")) : null, 0, geometry);
+        final var id = created.id();
+        final var source = fixture.drawableSet.sources.stream()
+            .filter(value -> value.id.value().equals(id.value())).findFirst().orElseThrow();
+        assertEquals(geometry, created.geometry());
+        assertEquals(source, fixture.rootPart.children.get(0));
+        assertEquals(fixture.rootPart, source.parent);
+        assertEquals(siblings, fixture.rootPart.children.subList(1, fixture.rootPart.children.size()));
+        assertEquals(1, fixture.editMode.edits.size());
+        // Native attachment owns BOTH membership changes. A separate add-source undo double-deletes.
+        assertEquals(1, fixture.editMode.edits.get(0).children.size());
+        for (int round = 0; round < 3; round++) {
+            fixture.editMode.edits.get(0).undo();
+            assertEquals(siblings, fixture.rootPart.children);
+            assertFalse(fixture.drawableSet.sources.contains(source));
+            assertEquals(null, source.parent);
+            assertEquals(1, model.drawables().all().size());
+            fixture.editMode.edits.get(0).redo();
+            assertEquals(source, fixture.rootPart.children.get(0));
+            assertEquals(fixture.rootPart, source.parent);
+            assertEquals(2, model.drawables().all().size());
+            assertEquals(geometry, model.drawables().find(id).geometry());
+        }
+        assertEquals(7, fixture.source.updateCount);
+        assertTrue(fixture.document.dirty);
+    }
+
+    @Test
+    void selectsExactMeshWithoutChangingDataOrHistoryAndRejectsInvalidIds() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var mesh = model.drawables().all().get(0);
+        model.drawables().select(List.of(mesh.id()));
+        assertEquals(List.of(fixture.meshSource), fixture.document.selector.selected());
+        assertEquals(1, fixture.updateManager.selectionCalls.size());
+        assertEquals(fixture.document, fixture.updateManager.selectionCalls.get(0).source());
+        assertEquals(List.of(fixture.meshSource.guid), fixture.updateManager.selectionCalls.get(0).guids());
+        assertTrue(fixture.updateManager.selectionCalls.get(0).notifyListeners(), "native selector listeners must receive the new GUIDs");
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertFalse(fixture.document.dirty);
+        assertThrows(IllegalArgumentException.class, () -> model.drawables().select(List.of(mesh.id(), mesh.id())));
+        assertThrows(java.util.NoSuchElementException.class, () -> model.drawables().select(List.of(new ArtMeshId("absent"))));
+        assertEquals(1, fixture.updateManager.selectionCalls.size());
+        model.drawables().select(List.of());
+        assertTrue(fixture.updateManager.selectionCalls.get(1).guids().isEmpty());
+        assertTrue(fixture.document.selector.selected().isEmpty());
+    }
+
+    @Test
+    void keepsUnfoldedSourceSeparateFromCollapsedDefaultAcrossUndoRedo() {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var geometry = nativeGeometry();
+        final var neutral = geometry.positions().stream().map(p -> new Point2(0, p.y())).toList();
+        final var created = model.drawables().createWithSourceGeometry(
+            "Edge-on Face", null, -1, geometry, neutral);
+        final var id = created.id();
+        final var source = fixture.drawableSet.sources.stream()
+            .filter(value -> value.id.value().equals(id.value())).findFirst().orElseThrow();
+        final var form = (ArtMeshForm) source.keyforms.first();
+        final float[] sourceBefore = source.positions();
+        final float[] formBefore = form.positions();
+        assertFalse(java.util.Arrays.equals(sourceBefore, formBefore));
+        final var editable = source.extensions.get(0);
+        assertEquals(source, editable.owner());
+        assertFalse(editable.locked());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(sourceBefore, editable.mesh().positions);
+        org.junit.jupiter.api.Assertions.assertArrayEquals(source.indices(), editable.mesh().indices);
+
+        assertEquals(neutral, created.geometry().positions());
+        assertEquals(1, fixture.editMode.edits.size());
+        for (int round = 0; round < 3; round++) {
+            fixture.editMode.edits.get(0).undo();
+            assertFalse(fixture.drawableSet.sources.contains(source));
+            fixture.editMode.edits.get(0).redo();
+            assertTrue(fixture.drawableSet.sources.contains(source));
+            org.junit.jupiter.api.Assertions.assertArrayEquals(sourceBefore, source.positions());
+            org.junit.jupiter.api.Assertions.assertArrayEquals(formBefore, form.positions());
+            assertEquals(neutral, model.drawables().find(id).geometry().positions());
+            assertEquals(List.of(editable), source.extensions);
+            org.junit.jupiter.api.Assertions.assertArrayEquals(sourceBefore, editable.mesh().positions);
+        }
+    }
+
+    @Test
+    void rejectsMismatchedCoordinateDomainsBeforeCreatingOrRecordingUndo() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var sources = List.copyOf(fixture.drawableSet.sources);
+        assertThrows(IllegalArgumentException.class, () -> model.drawables().createWithSourceGeometry(
+            "Bad Face", null, -1, nativeGeometry(), List.of(new Point2(0, 0))));
+        assertEquals(sources, fixture.drawableSet.sources);
+        assertTrue(fixture.editMode.edits.isEmpty());
+        assertFalse(fixture.document.dirty);
+    }
+
+    /** 5.3.02 Warp creation attaches through the Part tree with a single native Undo member. */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void creates5302WarpThroughPartTreeWithSingleUndo(final boolean explicitPart) {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        final var siblings = List.copyOf(fixture.rootPart.children);
+        final var created = model.deformers().createWarp("Native Warp",
+            explicitPart ? model.parts().find(new PartId("Root")) : null, 0, 4, 3);
+        final var id = created.id();
+        final ACDeformerSource source = fixture.deformerSet.sources.stream()
+            .filter(value -> value.id.value().equals(id.value())).findFirst().orElseThrow();
+        assertEquals(List.of(4, 3), ((WarpDeformerSource) source).rowColLog);
+        assertEquals(source, fixture.rootPart.children.get(0));
+        assertEquals(fixture.rootPart, source.parent);
+        assertEquals(siblings, fixture.rootPart.children.subList(1, fixture.rootPart.children.size()));
+        assertEquals(1, fixture.editMode.edits.size());
+        // Native attachment owns BOTH membership changes. A separate add-source undo double-deletes.
+        assertEquals(1, fixture.editMode.edits.get(0).children.size());
+        for (int round = 0; round < 3; round++) {
+            fixture.editMode.edits.get(0).undo();
+            assertEquals(siblings, fixture.rootPart.children);
+            assertFalse(fixture.deformerSet.sources.contains(source));
+            assertEquals(null, source.parent);
+            assertEquals(1, model.warpDeformers().all().size());
+            fixture.editMode.edits.get(0).redo();
+            assertEquals(source, fixture.rootPart.children.get(0));
+            assertEquals(fixture.rootPart, source.parent);
+            assertEquals(2, model.warpDeformers().all().size());
+            assertEquals(List.of(4, 3), ((WarpDeformerSource) source).rowColLog);
+        }
+        assertEquals(7, fixture.source.updateCount);
+        assertTrue(fixture.document.dirty);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"root", "handler"})
+    void rejectsMissing5302RootBeforeBeginningEdit(final String missing) {
+        final Fixture fixture = new Fixture();
+        fixture.source.treeMaterialization = true;
+        if (missing.equals("root")) fixture.source.rootPart = null;
+        else fixture.rootPart.handlerUnavailable = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(resolver("5.3.02"), "session-a").active();
+        assertThrows(IllegalStateException.class,
+            () -> model.drawables().create("Native Mesh", null, -1, nativeGeometry()));
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertEquals(1, fixture.drawableSet.sources.size());
+        assertFalse(fixture.document.dirty);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"model-source.root-part", "part-handler.class", "part-handler.add-part-child",
+        "editable-mesh-extension.class", "editable-mesh-extension.create", "editable-mesh-extension.mesh",
+        "editable-mesh-extension.owner", "editable-mesh-extension.locked", "editable-mesh.init-by-indices",
+        "parameter-controllable-source.add-extension"})
+    void rejectsMissing5302AttachmentAliasBeforeBeginningEdit(final String missing) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02", "cubism.editor-model." + missing), "session-a").active();
+        assertThrows(UnsupportedOperationException.class,
+            () -> model.drawables().create("Native Mesh", null, -1, nativeGeometry()));
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertEquals(1, fixture.drawableSet.sources.size());
+        assertFalse(fixture.document.dirty);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"model-source.root-part", "part-handler.class", "part-handler.add-part-child", "undo.execute-undo"})
+    void rejectsMissing5302PartInsertionAliasBeforeBeginningEdit(final String missing) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02", "cubism.editor-model." + missing), "session-a").active();
+        final var original = List.copyOf(fixture.partSet.sources);
+        assertThrows(IllegalStateException.class, () -> model.parts().create("Native Part", null, -1));
+        assertEquals(original, fixture.partSet.sources);
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertFalse(fixture.document.dirty);
+    }
+
+    private static ArtMeshGeometry nativeGeometry() {
+        return new ArtMeshGeometry(
+            List.of(new Point2(16, 24), new Point2(272, 24), new Point2(272, 152), new Point2(16, 152)),
+            List.of(new Point2(0, 0), new Point2(1, 0), new Point2(1, 1), new Point2(0, 1)),
+            List.of(0, 1, 2, 0, 2, 3));
     }
 
     @ParameterizedTest
@@ -233,6 +483,7 @@ class EditorObjectHierarchyEditAccessTest {
     @ValueSource(strings = {"5.2.03", "5.3.02"})
     void deletesPartDeformerDrawableThroughNativeSelectionAndDeleteCommand(final String cubismVersion) {
         final Fixture fixture = new Fixture();
+        fixture.document.requireNativeDeleteSelection = "5.3.02".equals(cubismVersion);
         Host.document = fixture.document;
         final var model = new EditorBackedCubismModelAccess(resolver(cubismVersion), "session-a").active();
 
@@ -243,7 +494,7 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, fixture.updateManager.selectionCalls.size());
         assertEquals(fixture.document, fixture.updateManager.selectionCalls.get(0).source());
         assertEquals(List.of(fixture.childPart.guid), fixture.updateManager.selectionCalls.get(0).guids());
-        assertFalse(fixture.updateManager.selectionCalls.get(0).append());
+        assertTrue(fixture.updateManager.selectionCalls.get(0).notifyListeners());
         assertEquals(1, fixture.document.deleteCount);
         assertEquals(0, fixture.partSet.removedDirectly);
         assertEquals(1, fixture.partSet.removedByCommand);
@@ -261,6 +512,12 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, fixture.drawableSet.removedByCommand);
 
         assertEquals(3, fixture.editMode.edits.size());
+        assertEquals(3, fixture.editMode.beginCalls, "only the native commands begin edits");
+        assertFalse(fixture.editMode.active);
+        fixture.editMode.edits.get(2).undo();
+        assertTrue(fixture.drawableSet.sources.contains(fixture.meshSource));
+        fixture.editMode.edits.get(2).redo();
+        assertFalse(fixture.drawableSet.sources.contains(fixture.meshSource));
     }
 
     @ParameterizedTest
@@ -441,10 +698,408 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     // ------------------------------------------------------------------
+    // ambient authoring participation: two ArtMesh creates join one root
+    // transaction. The fixture's edit bank IS the native history — a create
+    // that bypasses the ambient scope still mutates it and is detected.
+    // ------------------------------------------------------------------
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void artMeshCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
+        final var scoped = new ScopedFixture(cubismVersion);
+        final var geometry = triangle();
+        final var result = scoped.coordinator.execute(
+            scoped.binding,
+            AuthoringTransactionOptions.of("import two surfaces"),
+            () -> {
+                scoped.access.createArtMeshSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "B0_TRI", null, false, -1, geometry);
+                scoped.access.createArtMeshSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "B0_QUAD", null, false, -1, geometry);
+                return null;
+            });
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        // Both creates were admitted through ONE native root edit.
+        assertEquals(1, scoped.host.begins);
+        assertEquals(1, scoped.host.commits);
+        assertEquals(0, scoped.host.aborts);
+        assertEquals(1, scoped.fixture.editMode.edits.size());
+        assertEquals(3, scoped.fixture.source.drawableSet.sources.size());
+        // One native Undo removes both created surfaces; Redo restores them.
+        scoped.fixture.editMode.edits.get(0).undo();
+        assertEquals(1, scoped.fixture.source.drawableSet.sources.size());
+        scoped.fixture.editMode.edits.get(0).redo();
+        assertEquals(3, scoped.fixture.source.drawableSet.sources.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void standaloneArtMeshCreateCommitsThroughItsOwnTransaction(final String cubismVersion) {
+        final var scoped = new ScopedFixture(cubismVersion);
+        scoped.access.createArtMeshSource(
+            "model", scoped.fixture.source, scoped.fixture.source.model,
+            "STANDALONE", null, false, -1, triangle());
+        assertEquals(1, scoped.host.begins);
+        assertEquals(1, scoped.host.commits);
+        assertEquals(1, scoped.fixture.editMode.edits.size());
+        assertEquals(2, scoped.fixture.source.drawableSet.sources.size());
+        scoped.fixture.editMode.edits.get(0).undo();
+        assertEquals(1, scoped.fixture.source.drawableSet.sources.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void warpCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
+        final var scoped = new ScopedFixture(cubismVersion);
+        final WarpGrid grid = new WarpGrid(
+            1,
+            2,
+            true,
+            List.of(
+                new Point2(-2F, -1F), new Point2(0F, -1F), new Point2(2F, -1F),
+                new Point2(-2F, 1F), new Point2(0F, 1F), new Point2(2F, 1F)
+            )
+        );
+        final var result = scoped.coordinator.execute(
+            scoped.binding,
+            AuthoringTransactionOptions.of("create two warps"),
+            () -> {
+                scoped.access.createWarpSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "WARP_A", null, false, -1, grid);
+                scoped.access.createWarpSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "WARP_B", null, false, -1, grid);
+                return null;
+            });
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(1, scoped.host.begins);
+        assertEquals(1, scoped.host.commits);
+        assertEquals(0, scoped.host.aborts);
+        assertEquals(1, scoped.fixture.editMode.edits.size());
+        final int created = scoped.fixture.source.deformerSet.sources.size() - 2;
+        assertEquals(2, created);
+        scoped.fixture.editMode.edits.get(0).undo();
+        assertEquals(2, scoped.fixture.source.deformerSet.sources.size());
+        scoped.fixture.editMode.edits.get(0).redo();
+        assertEquals(4, scoped.fixture.source.deformerSet.sources.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void rotationCreatesJoinOneAmbientRootTransaction(final String cubismVersion) {
+        final var scoped = new ScopedFixture(cubismVersion);
+        final RotationDeformerForm form = new RotationDeformerForm(0F, 512F, 512F, 1F, false, false);
+        final var result = scoped.coordinator.execute(
+            scoped.binding,
+            AuthoringTransactionOptions.of("create two rotations"),
+            () -> {
+                scoped.access.createRotationSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "ROTATION_A", null, false, -1, form);
+                scoped.access.createRotationSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "ROTATION_B", null, false, -1, form);
+                return null;
+            });
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(1, scoped.host.begins);
+        assertEquals(1, scoped.host.commits);
+        assertEquals(0, scoped.host.aborts);
+        assertEquals(1, scoped.fixture.editMode.edits.size());
+        final int created = scoped.fixture.source.deformerSet.sources.size() - 2;
+        assertEquals(2, created);
+        scoped.fixture.editMode.edits.get(0).undo();
+        assertEquals(2, scoped.fixture.source.deformerSet.sources.size());
+        scoped.fixture.editMode.edits.get(0).redo();
+        assertEquals(4, scoped.fixture.source.deformerSet.sources.size());
+    }
+
+    /**
+     * Full ownership matrix: first/second create admission rejection x Part-root
+     * vs deformer parent x native abort behaviour x Cubism version. The native
+     * Undo factories attach/register eagerly, so a rejected admission leaves a
+     * real side effect — the transaction must either revert it (the reviewed
+     * versions have a verified self-revert primitive) or honestly report
+     * RECOVERY_FAILED. A ROLLED_BACK result with residue still registered is a
+     * false clean rollback and must never happen.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void rejectedArtMeshCreateNeverReportsFalseRollback(final String cubismVersion) {
+        for (final boolean deformerParent : List.of(false, true))
+        for (final boolean nativeAbort : List.of(false, true))
+        for (final boolean rejectFirst : List.of(false, true)) {
+            final var scoped = new ScopedFixture(cubismVersion);
+            scoped.host.nativeAbort = nativeAbort;
+            final var geometry = triangle();
+            final Object parent = deformerParent
+                ? scoped.fixture.source.deformerSet.sources.get(0) : null;
+            if (rejectFirst) scoped.fixture.editMode.rejectNextAdmission = 1;
+            final var result = scoped.coordinator.execute(
+                scoped.binding,
+                AuthoringTransactionOptions.of("import two surfaces"),
+                () -> {
+                    scoped.access.createArtMeshSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "B0_TRI", parent, deformerParent, -1, geometry);
+                    // The native host rejects the second surface's Undo admission.
+                    scoped.fixture.editMode.rejectNextAdmission = 1;
+                    scoped.access.createArtMeshSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "B0_QUAD", parent, deformerParent, -1, geometry);
+                    return null;
+                });
+            final String tag = cubismVersion + " parent=" + (deformerParent ? "deformer" : "part")
+                + " abort=" + nativeAbort + " rejected=" + (rejectFirst ? "first" : "second");
+            // undo.execute-undo is verified on both versions and compensates
+            // every eager side effect.
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), tag);
+            assertEquals(1, scoped.fixture.source.drawableSet.sources.size(), tag);
+            assertEquals(0, scoped.fixture.editMode.edits.size(), tag);
+            assertEquals(0, scoped.host.commits, tag);
+        }
+    }
+
+    /** Same false-rollback contract for the Warp creation path. */
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void rejectedWarpCreateNeverReportsFalseRollback(final String cubismVersion) {
+        final WarpGrid grid = new WarpGrid(
+            1,
+            2,
+            true,
+            List.of(
+                new Point2(-2F, -1F), new Point2(0F, -1F), new Point2(2F, -1F),
+                new Point2(-2F, 1F), new Point2(0F, 1F), new Point2(2F, 1F)
+            )
+        );
+        for (final boolean deformerParent : List.of(false, true))
+        for (final boolean nativeAbort : List.of(false, true))
+        for (final boolean rejectFirst : List.of(false, true)) {
+            final var scoped = new ScopedFixture(cubismVersion);
+            scoped.host.nativeAbort = nativeAbort;
+            final Object parent = deformerParent
+                ? scoped.fixture.source.deformerSet.sources.get(0) : null;
+            if (rejectFirst) scoped.fixture.editMode.rejectNextAdmission = 1;
+            final var result = scoped.coordinator.execute(
+                scoped.binding,
+                AuthoringTransactionOptions.of("create two warps"),
+                () -> {
+                    scoped.access.createWarpSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "WARP_A", parent, deformerParent, -1, grid);
+                    scoped.fixture.editMode.rejectNextAdmission = 1;
+                    scoped.access.createWarpSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "WARP_B", parent, deformerParent, -1, grid);
+                    return null;
+                });
+            final String tag = cubismVersion + " parent=" + (deformerParent ? "deformer" : "part")
+                + " abort=" + nativeAbort + " rejected=" + (rejectFirst ? "first" : "second");
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome(), tag);
+            assertEquals(2, scoped.fixture.source.deformerSet.sources.size(), tag);
+            assertEquals(0, scoped.fixture.editMode.edits.size(), tag);
+            assertEquals(0, scoped.host.commits, tag);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void partAndMeshCreateJoinOneAmbientRoot(final String cubismVersion) {
+        final var scoped = new ScopedFixture(cubismVersion);
+        final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
+        final var originalMeshes = List.copyOf(scoped.fixture.source.drawableSet.sources);
+        final var result = scoped.coordinator.execute(
+            scoped.binding, AuthoringTransactionOptions.of("import grouped surface"), () -> {
+                final var part = scoped.access.createPartSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "Imported", scoped.fixture.rootPart, -1);
+                scoped.access.createArtMeshSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "Surface", part.source(), false, -1, triangle());
+                return part;
+            });
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(1, scoped.host.begins);
+        assertEquals(1, scoped.fixture.editMode.edits.size());
+        assertEquals(originalParts.size() + 1, scoped.fixture.partSet.sources.size());
+        assertEquals(originalMeshes.size() + 1, scoped.fixture.source.drawableSet.sources.size());
+        scoped.fixture.editMode.edits.get(0).undo();
+        assertEquals(originalParts, scoped.fixture.partSet.sources);
+        assertEquals(originalMeshes, scoped.fixture.source.drawableSet.sources);
+        scoped.fixture.editMode.edits.get(0).redo();
+        assertEquals(originalParts.size() + 1, scoped.fixture.partSet.sources.size());
+        assertEquals(originalMeshes.size() + 1, scoped.fixture.source.drawableSet.sources.size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void rejectedPartCreateOwnsEagerMutation(final String cubismVersion) {
+        for (final boolean nativeAbort : List.of(false, true))
+        for (final boolean rejectFirst : List.of(false, true)) {
+            final var scoped = new ScopedFixture(cubismVersion);
+            final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
+            final var originalChildren = List.copyOf(scoped.fixture.rootPart.children);
+            scoped.host.nativeAbort = nativeAbort;
+            if (rejectFirst) scoped.fixture.editMode.rejectNextAdmission = 1;
+            final var result = scoped.coordinator.execute(
+                scoped.binding, AuthoringTransactionOptions.of("import groups"), () -> {
+                    scoped.access.createPartSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "First", scoped.fixture.rootPart, -1);
+                    scoped.fixture.editMode.rejectNextAdmission = 1;
+                    scoped.access.createPartSource(
+                        "model", scoped.fixture.source, scoped.fixture.source.model,
+                        "Second", scoped.fixture.rootPart, -1);
+                    return null;
+                });
+            assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+            assertEquals(originalParts, scoped.fixture.partSet.sources);
+            assertEquals(originalChildren, scoped.fixture.rootPart.children);
+            assertEquals(0, scoped.fixture.editMode.edits.size());
+            assertEquals(0, scoped.host.commits);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void failedGroupedSurfaceImportRestoresSourcesAndTree(final boolean nativeAbort) {
+        final var scoped = new ScopedFixture("5.3.02");
+        scoped.host.nativeAbort = nativeAbort;
+        final var originalParts = List.copyOf(scoped.fixture.partSet.sources);
+        final var originalChildren = List.copyOf(scoped.fixture.rootPart.children);
+        final var originalMeshes = List.copyOf(scoped.fixture.source.drawableSet.sources);
+        final var result = scoped.coordinator.execute(
+            scoped.binding, AuthoringTransactionOptions.of("failing grouped import"), () -> {
+                final var part = scoped.access.createPartSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "Imported", scoped.fixture.rootPart, -1);
+                scoped.access.createArtMeshSource(
+                    "model", scoped.fixture.source, scoped.fixture.source.model,
+                    "Surface", part.source(), false, -1, triangle());
+                throw new IllegalStateException("failure after geometry");
+            });
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(originalParts, scoped.fixture.partSet.sources);
+        assertEquals(originalChildren, scoped.fixture.rootPart.children);
+        assertEquals(originalMeshes, scoped.fixture.source.drawableSet.sources);
+        assertEquals(0, scoped.fixture.editMode.edits.size());
+        assertEquals(1, scoped.host.begins);
+        assertEquals(0, scoped.host.commits);
+    }
+
+    private static ArtMeshGeometry triangle() {
+        return new ArtMeshGeometry(
+            List.of(new Point2(-1F, -1F), new Point2(1F, -1F), new Point2(0F, 1F)),
+            List.of(new Point2(0F, 0F), new Point2(1F, 0F), new Point2(0.5F, 1F)),
+            List.of(0, 1, 2)
+        );
+    }
+
+    private static final class ScopedFixture {
+        final Fixture fixture = new Fixture();
+        final ScopedHost host = new ScopedHost(fixture);
+        final EditorAuthoringTransactionCoordinator.Binding binding =
+            new EditorAuthoringTransactionCoordinator.Binding(
+                "hierarchy-test", "document", 1, "model", 1, Thread.currentThread());
+        final EditorAuthoringTransactionCoordinator coordinator =
+            new EditorAuthoringTransactionCoordinator(host);
+        final EditorObjectHierarchyEditAccess access;
+
+        ScopedFixture(final String cubismVersion) {
+            Host.document = fixture.document;
+            final EditorParameterCombinedAccess.ModelGuard guard = (identity, model) -> { };
+            access = new EditorObjectHierarchyEditAccess(
+                resolver(cubismVersion), guard, coordinator, () -> binding);
+        }
+    }
+
+    /** Coordinator host whose history bank is the fixture's native edit list. */
+    private static final class ScopedHost implements EditorAuthoringTransactionCoordinator.Host {
+        private final Fixture fixture;
+        boolean nativeAbort = true;
+        int begins, commits, aborts, refreshes;
+
+        ScopedHost(final Fixture fixture) { this.fixture = fixture; }
+
+        @Override public boolean isCurrent(
+            final EditorAuthoringTransactionCoordinator.Binding binding
+        ) {
+            return binding.hostThread() == Thread.currentThread();
+        }
+
+        @Override public HistorySnapshot history(
+            final EditorAuthoringTransactionCoordinator.Binding binding
+        ) {
+            final var edits = fixture.editMode.edits;
+            final var entries = new ArrayList<HistoryEntry>();
+            for (int index = 0; index < edits.size(); index++) {
+                entries.add(new HistoryEntry(index, "edit-" + index, true));
+            }
+            return new HistorySnapshot(
+                HistorySnapshot.Availability.AVAILABLE, 1, edits.size(), edits.size(),
+                List.copyOf(entries), !entries.isEmpty(), false,
+                "document-binding", "manager-binding");
+        }
+
+        @Override public Object beginEdit(
+            final EditorAuthoringTransactionCoordinator.Binding binding, final String label
+        ) {
+            begins++;
+            return fixture.editMode.begin(label);
+        }
+
+        @Override public void endEdit(
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final Object edit,
+            final boolean abort
+        ) {
+            final var group = (Undo) edit;
+            if (!abort) {
+                commits++;
+                return;
+            }
+            aborts++;
+            if (nativeAbort) group.undo();
+            fixture.editMode.edits.remove(group);
+        }
+
+        @Override public void refresh(
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final Set<EditorRefreshRequirement> requirements
+        ) {
+            refreshes++;
+        }
+
+        @Override public Optional<String> committedHistoryEntryId(
+            final EditorAuthoringTransactionCoordinator.Binding binding,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label
+        ) {
+            return after.position() == before.position() + 1
+                ? Optional.of("entry-" + after.position())
+                : Optional.empty();
+        }
+
+        @Override public String diagnosticId(final String code, final Throwable failure) {
+            return code;
+        }
+    }
+
+    // ------------------------------------------------------------------
     // resolver + selectors
     // ------------------------------------------------------------------
 
     private static VerifiedMemberResolver resolver(final String cubismVersion) {
+        return resolver(cubismVersion, "");
+    }
+
+    private static VerifiedMemberResolver resolver(final String cubismVersion, final String excludedAlias) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorPartNameSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
@@ -452,11 +1107,12 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract.CAPABILITY_ID);
         return TestVerifiedResolvers.create(
             cubismVersion,
             EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
             capabilities,
-            selectors(),
+            selectors().stream().filter(selector -> !selector.alias().equals(excludedAlias)).toList(),
             Host.class.getClassLoader()
         );
     }
@@ -486,6 +1142,10 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.app-controller.update-manager", Host.class, "updateManager", desc(UpdateManager.class)));
         selectors.add(method("cubism.editor-model.app-controller.command-delete", Host.class, "commandDelete", "()V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.update-manager.class", internal(UpdateManager.class)));
+        selectors.add(method("cubism.editor-model.modeling-document.selector", Document.class, "selector", desc(NativeSelector.class)));
+        selectors.add(method("cubism.editor-model.parameter-controllable-source.selection", ObjectSource.class, "selection", desc(ObjectSource.class)));
+        selectors.add(method("cubism.editor-model.selector.replace-selected", NativeSelector.class, "replace", "(Ljava/util/List;I)V"));
+        selectors.add(method("cubism.editor-model.selector.selected", NativeSelector.class, "selected", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.update-manager.set-selection", UpdateManager.class, "setSelection", "(Ljava/lang/Object;Ljava/util/List;ZZ)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
         selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
@@ -494,6 +1154,16 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", "(Ljava/lang/String;)" + type(GroupUndo.class)));
         selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
+        selectors.add(method("cubism.editor-model.undo.execute-undo", Undo.class, "executeUndo", "()V"));
+        selectors.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
+        selectors.add(method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
+        selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
+        selectors.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Ljava/lang/Boolean;"));
+        selectors.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Ljava/lang/Boolean;"));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(GroupUndo.class)));
+        selectors.add(method("cubism.editor-history.entry.presentation-name", GroupUndo.class, "presentationName", "()Ljava/lang/String;"));
+        selectors.add(method("cubism.editor-history.entry.significant", GroupUndo.class, "significant", "()Ljava/lang/Boolean;"));
         selectors.add(method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(" + type(Listener.class) + ")Z"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
@@ -510,6 +1180,9 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.model-source.all-objects", ModelSource.class, "allObjects", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.model-source.handler", ModelSource.class, "handler", desc(ModelHandler.class)));
+        selectors.add(method("cubism.editor-model.model-source.root-part", ModelSource.class, "rootPart", desc(PartSource.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
+        selectors.add(method("cubism.editor-model.part-handler.add-part-child", PartHandler.class, "addPartChild", "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
         selectors.add(method("cubism.editor-model.model-handler.add-source-undo", ModelHandler.class, "addSourceUndo", "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
         selectors.add(method("cubism.editor-model.model-source.part-source-set", ModelSource.class, "partSourceSet", desc(PartSourceSet.class)));
         selectors.add(method("cubism.editor-model.model-source.deformer-source-set", ModelSource.class, "deformerSourceSet", desc(DeformerSourceSet.class)));
@@ -550,6 +1223,7 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.part-source.id", PartSource.class, "id", desc(Id.class)));
         selectors.add(method("cubism.editor-model.part-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.part-source.parent", ObjectSource.class, "parent", desc(PartSource.class)));
+        selectors.add(method("cubism.editor-model.part-source.children", PartSource.class, "children", "()Ljava/util/List;"));
         selectors.add(method("cubism.editor-model.part-source.add-child", PartSource.class, "addChild", "(" + type(ObjectSource.class) + "I)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
         selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
@@ -568,6 +1242,13 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.art-mesh-source.set-positions", ACDrawableSource.class, "setPositions", "([F)V"));
         selectors.add(method("cubism.editor-model.art-mesh-source.set-uvs", ACDrawableSource.class, "setUvs", "([F)V"));
         selectors.add(method("cubism.editor-model.art-mesh-source.set-indices", ACDrawableSource.class, "setIndices", "([I)V"));
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.editable-mesh-extension.class", internal(EditableExtension.class)));
+        selectors.add(StaticSelector.constructor("cubism.editor-model.editable-mesh-extension.create", internal(EditableExtension.class), "(" + type(ACDrawableSource.class) + ")V", StaticSelector.ACCESS_PUBLIC));
+        selectors.add(method("cubism.editor-model.editable-mesh-extension.mesh", EditableExtension.class, "mesh", desc(EditableMesh.class)));
+        selectors.add(method("cubism.editor-model.editable-mesh-extension.owner", EditableExtension.class, "owner", desc(ACDrawableSource.class)));
+        selectors.add(method("cubism.editor-model.editable-mesh-extension.locked", EditableExtension.class, "locked", "()Z"));
+        selectors.add(method("cubism.editor-model.editable-mesh.init-by-indices", EditableMesh.class, "init", "([F[I" + type(CoordType.class) + ")V"));
+        selectors.add(method("cubism.editor-model.parameter-controllable-source.add-extension", ACDrawableSource.class, "addExtension", "(" + type(EditableExtension.class) + "I)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.art-mesh.class", internal(ArtMesh.class)));
         selectors.add(method("cubism.editor-model.deformer.source", Deformer.class, "source", desc(ObjectSource.class)));
         selectors.add(method("cubism.editor-model.art-mesh.source", ArtMesh.class, "source", desc(ACDrawableSource.class)));
@@ -655,22 +1336,48 @@ class EditorObjectHierarchyEditAccessTest {
         public CompletePack completePack() { return document.pack; }
         public UpdateManager updateManager() { return document.updateManager; }
         public void commandDelete() {
-            document.deleteCount++;
-            document.source.commandDelete();
+            // The native command consumes selector objects, not update-manager GUIDs.
+            if (document.requireNativeDeleteSelection &&
+                    !document.selector.selected().equals(List.of(document.source.pendingDeleteSource))) {
+                throw new IllegalStateException("native delete target not selected");
+            }
+            // Native DELETE owns its edit lifecycle; a generic SDK edit cannot surround it.
+            if (document.editMode.active) throw new IllegalStateException("previous edit not finished");
+            final var edit = document.editMode.begin("Native Delete");
+            try {
+                edit.add(document.source.pendingDeleteSource.handler().undo("Native Delete"), true);
+                document.deleteCount++;
+                document.source.commandDelete();
+            } finally {
+                document.editMode.end(false, null);
+            }
         }
     }
 
     public static final class Document {
         final ModelSource source;
+        final NativeSelector selector = new NativeSelector();
+        public NativeSelector selector() { return selector; }
         final EditMode editMode = new EditMode();
+        final UndoManager undoManager = new UndoManager(editMode);
         final CompletePack pack = new CompletePack();
         final UpdateManager updateManager = new UpdateManager();
         int deleteCount;
+        boolean requireNativeDeleteSelection;
         boolean dirty;
         Document(final ModelSource source) { this.source = source; }
         public ModelSource modelSource() { return source; }
         public EditMode editMode() { return editMode; }
+        public UndoManager undoManager() { return undoManager; }
         public void markDirty() { dirty = true; }
+    }
+
+    public static final class NativeSelector {
+        final List<ObjectSource> values = new ArrayList<>();
+        public List<ObjectSource> selected() { return List.copyOf(values); }
+        public void replace(List<ObjectSource> sources,int level) {
+            assertEquals(-1,level);values.clear();values.addAll(sources);
+        }
     }
 
     public static final class ModelSource {
@@ -684,6 +1391,9 @@ class EditorObjectHierarchyEditAccessTest {
         final Model model = new Model(this);
         int updateCount;
         int hierarchyUpdateCount;
+        PartSource rootPart;
+        boolean treeMaterialization;
+        public PartSource rootPart() { return rootPart; }
 
         public String name() { return "Fixture Model"; }
         public Id guid() { return guid; }
@@ -697,7 +1407,42 @@ class EditorObjectHierarchyEditAccessTest {
         public DeformerSourceSet deformerSourceSet() { return deformerSet; }
         public List<Object> allGlues() { return List.of(); }
         public void updateVisibleAndLockHierarchy() { hierarchyUpdateCount++; }
-        public void updateInstances() { updateCount++; }
+        public void updateInstances() {
+            updateCount++;
+            if (!treeMaterialization) return;
+            final var existing = new java.util.IdentityHashMap<ACDrawableSource, ArtMesh>();
+            model.meshes.forEach(mesh -> existing.put(mesh.source, mesh));
+            model.meshes.clear();
+            model.deformers.clear();
+            materialize(rootPart, existing);
+        }
+        private void materialize(final PartSource part,
+                                 final java.util.Map<ACDrawableSource, ArtMesh> existing) {
+            if (part == null) return;
+            for (ObjectSource child : part.children) {
+                if (!allObjects.contains(child)) continue;
+                if (child instanceof ACDrawableSource mesh && drawableSet.sources.contains(mesh)) {
+                    model.meshes.add(existing.getOrDefault(mesh, new ArtMesh(mesh)));
+                } else if (child instanceof ACDeformerSource deformer
+                        && deformerSet.sources.contains(deformer)) {
+                    materializeDeformer(deformer);
+                } else if (child instanceof PartSource nested) {
+                    materialize(nested, existing);
+                }
+            }
+        }
+        private void materializeDeformer(final ACDeformerSource source) {
+            if (model.deformers.stream().anyMatch(d -> d.source == source)) return;
+            model.deformers.add(source instanceof WarpDeformerSource
+                ? new Warp((WarpDeformerSource) source)
+                : new Rotation((RotationDeformerSource) source));
+            // Deformer children attach through the target-deformer relation, not part children.
+            for (ACDeformerSource candidate : deformerSet.sources) {
+                if (allObjects.contains(candidate) && candidate.targetDeformerSource() == source) {
+                    materializeDeformer(candidate);
+                }
+            }
+        }
 
         ObjectSource findByGuid(final Guid target) {
             for (ObjectSource candidate : allObjects) {
@@ -755,6 +1500,7 @@ class EditorObjectHierarchyEditAccessTest {
 
     /** Base source: mirrors ACParameterControllableSource. */
     public static class ObjectSource {
+        public ObjectSource selection() { return this; }
         Id id;
         final ModelSource modelSource;
         final Guid guid = new Guid();
@@ -803,7 +1549,8 @@ class EditorObjectHierarchyEditAccessTest {
             return ancestors;
         }
         public ACParameterControllableHandler handler() {
-            return handlerUnavailable ? null : new ACParameterControllableHandler(this);
+            if (handlerUnavailable) return null;
+            return this instanceof PartSource part ? new PartHandler(part) : new ACParameterControllableHandler(this);
         }
         public boolean visible() { return true; }
         public boolean locked() { return false; }
@@ -828,6 +1575,10 @@ class EditorObjectHierarchyEditAccessTest {
     /** Drawable source: mirrors ACDrawableSource. */
     public static class ACDrawableSource extends ObjectSource {
         final ObjectList keyforms = new ObjectList();
+        final List<EditableExtension> extensions = new ArrayList<>();
+        public void addExtension(final EditableExtension extension, final int index) {
+            if (index < 0) extensions.add(extension); else extensions.add(index, extension);
+        }
         float[] sourcePositions = new float[0];
         float[] sourceUvs = new float[0];
         int[] sourceIndices = new int[0];
@@ -848,6 +1599,23 @@ class EditorObjectHierarchyEditAccessTest {
         public boolean culling() { return false; }
         public String userData() { return ""; }
         public boolean invertedMask() { return false; }
+    }
+
+    public static final class EditableExtension {
+        final ACDrawableSource owner;
+        final EditableMesh mesh = new EditableMesh();
+        public EditableExtension(final ACDrawableSource owner) { this.owner = owner; }
+        public ACDrawableSource owner() { return owner; }
+        public EditableMesh mesh() { return mesh; }
+        public boolean locked() { return false; }
+    }
+
+    public static final class EditableMesh {
+        float[] positions;
+        int[] indices;
+        public void init(final float[] positions, final int[] indices, final CoordType coord) {
+            this.positions = positions.clone(); this.indices = indices.clone();
+        }
     }
 
     public static final class PartSource extends ObjectSource {
@@ -872,7 +1640,8 @@ class EditorObjectHierarchyEditAccessTest {
         public void addChild(final ObjectSource child, final int index) {
             addChildCalls++;
             final PartSource oldParent = child.parent;
-            recordInto(child, "add-child", () -> {
+            // Part attachment belongs to the parent's separately admitted Undo.
+            recordInto(child instanceof PartSource && oldParent == null ? this : child, "add-child", () -> {
                 children.remove(child);
                 if (oldParent != null) {
                     oldParent.children.add(child);
@@ -1012,9 +1781,13 @@ class EditorObjectHierarchyEditAccessTest {
             addCount++;
             if (index < 0) sources.add(source); else sources.add(Math.min(index, sources.size()), source);
             source.modelSource.allObjects.add(source);
-            source.modelSource.model.deformers.add(source instanceof WarpDeformerSource
-                ? new Warp((WarpDeformerSource) source)
-                : new Rotation((RotationDeformerSource) source));
+            // The real host materializes instances from the tree at updateInstances, never
+            // from source-set membership alone — a registered-but-unattached source has none.
+            if (!source.modelSource.treeMaterialization) {
+                source.modelSource.model.deformers.add(source instanceof WarpDeformerSource
+                    ? new Warp((WarpDeformerSource) source)
+                    : new Rotation((RotationDeformerSource) source));
+            }
             source.record("deformer-add", () -> {
                 sources.remove(source);
                 source.modelSource.allObjects.remove(source);
@@ -1049,7 +1822,7 @@ class EditorObjectHierarchyEditAccessTest {
         public void add(final ACDrawableSource source, final int index) {
             if (index < 0) sources.add(source); else sources.add(Math.min(index, sources.size()), source);
             source.modelSource.allObjects.add(source);
-            source.modelSource.model.meshes.add(new ArtMesh(source));
+            if (!source.modelSource.treeMaterialization) source.modelSource.model.meshes.add(new ArtMesh(source));
             source.record("drawable-add", () -> {
                 sources.remove(source);
                 source.modelSource.allObjects.remove(source);
@@ -1083,16 +1856,16 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class UpdateManager {
         final List<SelectionCall> selectionCalls = new ArrayList<>();
-        public void setSelection(final Object source, final List<?> guids, final boolean append, final boolean sendEvent) {
-            selectionCalls.add(new SelectionCall(source, new ArrayList<>(guids), append, sendEvent));
+        public void setSelection(final Object source, final List<?> guids, final boolean notifyListeners, final boolean updateInspector) {
+            selectionCalls.add(new SelectionCall(source, new ArrayList<>(guids), notifyListeners, updateInspector));
             if (source instanceof Document document && !guids.isEmpty()) {
                 document.source.pendingDeleteSource = document.source.findByGuid((Guid) guids.get(0));
             }
         }
-        public record SelectionCall(Object source, List<Object> guids, boolean append, boolean sendEvent) { }
+        public record SelectionCall(Object source, List<Object> guids, boolean notifyListeners, boolean updateInspector) { }
     }
 
-    public static final class ACParameterControllableHandler {
+    public static class ACParameterControllableHandler {
         final ObjectSource source;
         ACParameterControllableHandler(final ObjectSource source) { this.source = source; }
         public Undo undo(final String name) {
@@ -1102,28 +1875,124 @@ class EditorObjectHierarchyEditAccessTest {
         }
     }
 
+    /** Mirrors PartHandler's dedicated tree undo, independent of the registry-only undo. */
+    public static final class PartHandler extends ACParameterControllableHandler {
+        PartHandler(final PartSource part) { super(part); }
+        public Undo addPartChild(final ObjectSource child, final int index) {
+            final PartSource part = (PartSource) source;
+            final ModelSource model = source.modelSource;
+            final Undo undo = new Undo();
+            final Runnable add = () -> {
+                if (part.children.contains(child)
+                    || (child instanceof ACDrawableSource mesh && model.drawableSet.sources.contains(mesh))
+                    || (child instanceof ACDeformerSource deformer && model.deformerSet.sources.contains(deformer))
+                    || (child instanceof PartSource nested && model.partSet.sources.contains(nested))
+                    || !(child instanceof ACDrawableSource || child instanceof ACDeformerSource || child instanceof PartSource)) {
+                    throw new IllegalStateException("duplicate native attachment");
+                }
+                final int at = index < 0 ? part.children.size() : Math.min(index, part.children.size());
+                part.children.add(at, child);
+                child.internalSetParent(part);
+                part.addChildCalls++;
+                model.allObjects.add(child);
+                if (child instanceof ACDrawableSource mesh) {
+                    model.drawableSet.sources.add(mesh);
+                    if (!model.treeMaterialization) model.model.meshes.add(new ArtMesh(mesh));
+                } else if (child instanceof PartSource nested) {
+                    model.partSet.sources.add(nested);
+                    model.partSet.addLog.add(nested.localName);
+                    model.model.parts.add(new HostPart(nested));
+                } else {
+                    final ACDeformerSource deformer = (ACDeformerSource) child;
+                    model.deformerSet.sources.add(deformer);
+                    if (!model.treeMaterialization) {
+                        model.model.deformers.add(deformer instanceof WarpDeformerSource
+                            ? new Warp((WarpDeformerSource) deformer)
+                            : new Rotation((RotationDeformerSource) deformer));
+                    }
+                }
+            };
+            final Runnable remove = () -> {
+                if (!part.children.remove(child)) {
+                    throw new IllegalStateException("duplicate native removal");
+                }
+                child.internalSetParent(null);
+                model.allObjects.remove(child);
+                if (child instanceof ACDrawableSource mesh) {
+                    if (!model.drawableSet.sources.remove(mesh)) {
+                        throw new IllegalStateException("duplicate native removal");
+                    }
+                    model.model.meshes.removeIf(value -> value.source == mesh);
+                } else if (child instanceof PartSource nested) {
+                    if (!model.partSet.sources.remove(nested)) {
+                        throw new IllegalStateException("duplicate native removal");
+                    }
+                    model.model.parts.removeIf(value -> value.source == nested);
+                } else {
+                    final ACDeformerSource deformer = (ACDeformerSource) child;
+                    if (!model.deformerSet.sources.remove(deformer)) {
+                        throw new IllegalStateException("duplicate native removal");
+                    }
+                    model.model.deformers.removeIf(value -> value.source == deformer);
+                }
+            };
+            undo.record("native-part-attachment", remove, add);
+            add.run();
+            return undo;
+        }
+    }
+
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
         int beginCalls;
+        boolean active;
+        int rejectNextAdmission;
         public GroupUndo begin(final String name) {
             beginCalls++;
-            return new GroupUndo(edits);
+            active = true;
+            return new GroupUndo(name, edits, this);
         }
         public void end(final boolean abort, final Object ignored) {
+            active = false;
             if (abort && !edits.isEmpty()) edits.remove(edits.size() - 1);
         }
     }
 
-    public static final class GroupUndo {
-        final Undo composite = new Undo();
-        GroupUndo(final List<Undo> edits) { edits.add(composite); }
-        public boolean add(final Undo undo, final boolean significant) {
-            composite.children.add(undo);
-            return true;
-        }
+    /** Native undo-manager projection over the edit bank (one history entry per edit). */
+    public static final class UndoManager {
+        private final EditMode editMode;
+        UndoManager(final EditMode editMode) { this.editMode = editMode; }
+        public List<Undo> entries() { return new ArrayList<>(editMode.edits); }
+        public int position() { return editMode.edits.size(); }
+        public Boolean canUndo() { return !editMode.edits.isEmpty(); }
+        public Boolean canRedo() { return false; }
     }
 
-    public static final class Undo {
+    public static final class GroupUndo extends Undo {
+        private final EditMode owner;
+        GroupUndo(final String label, final List<Undo> edits, final EditMode owner) {
+            this.owner = owner;
+            this.label = label;
+            edits.add(this);
+        }
+        public boolean add(final Undo undo, final boolean significant) {
+            if (owner.rejectNextAdmission > 0) {
+                owner.rejectNextAdmission--;
+                return false;
+            }
+            children.add(undo);
+            return true;
+        }
+        public String presentationName() { return label; }
+        public Boolean significant() { return Boolean.TRUE; }
+    }
+
+    public static class Undo {
+        // Native history replay does not author new commands. Suppress recording
+        // across different Undo objects too (a newly created Part can later be a parent).
+        private static final ThreadLocal<Boolean> REPLAYING =
+            ThreadLocal.withInitial(() -> false);
+        String label;
         final List<Undo> children = new ArrayList<>();
         final List<Runnable> undoSteps = new ArrayList<>();
         final List<Runnable> redoSteps = new ArrayList<>();
@@ -1131,18 +2000,34 @@ class EditorObjectHierarchyEditAccessTest {
 
         public boolean addListener(final Listener listener) { listeners.add(listener); return true; }
         void record(final String label, final Runnable undo, final Runnable redo) {
-            undoSteps.add(undo);
-            redoSteps.add(redo);
+            if (!REPLAYING.get()) {
+                undoSteps.add(undo);
+                redoSteps.add(redo);
+            }
         }
+        public void executeUndo() { undo(); }
         public void undo() {
-            for (int i = children.size() - 1; i >= 0; i--) children.get(i).undo();
-            for (int i = undoSteps.size() - 1; i >= 0; i--) undoSteps.get(i).run();
-            listeners.forEach(listener -> listener.changed(null));
+            replay(() -> {
+                for (int i = children.size() - 1; i >= 0; i--) children.get(i).undo();
+                for (int i = undoSteps.size() - 1; i >= 0; i--) undoSteps.get(i).run();
+                listeners.forEach(listener -> listener.changed(null));
+            });
         }
         public void redo() {
-            new ArrayList<>(redoSteps).forEach(Runnable::run);
-            new ArrayList<>(children).forEach(Undo::redo);
-            listeners.forEach(listener -> listener.changed(null));
+            replay(() -> {
+                new ArrayList<>(redoSteps).forEach(Runnable::run);
+                new ArrayList<>(children).forEach(Undo::redo);
+                listeners.forEach(listener -> listener.changed(null));
+            });
+        }
+        private static void replay(final Runnable action) {
+            final boolean previous = REPLAYING.get();
+            REPLAYING.set(true);
+            try {
+                action.run();
+            } finally {
+                if (previous) REPLAYING.set(true); else REPLAYING.remove();
+            }
         }
     }
 
@@ -1330,6 +2215,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Host host = Host.instance();
 
         Fixture() {
+            source.rootPart = rootPart;
             // Part tree: Root → Parent → Child.
             source.partSet.add(rootPart, -1);
             source.partSet.add(parentPart, -1);

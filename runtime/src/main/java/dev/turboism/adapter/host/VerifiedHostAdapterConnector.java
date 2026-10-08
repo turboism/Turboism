@@ -762,7 +762,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             public dev.turboism.adapter.cubism.command.EditorCommandAdapter editorCommands() {
                 return topMenu == null
                     ? dev.turboism.adapter.cubism.command.EditorCommandAdapter.unavailable()
-                    : new dev.turboism.adapter.cubism.command.VerifiedEditorCommandAdapter(topMenu.resolver());
+                    : new dev.turboism.adapter.cubism.command.VerifiedEditorCommandAdapter(topMenu.resolver(), resolver);
             }
 
             @Override

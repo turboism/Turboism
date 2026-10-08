@@ -19,7 +19,8 @@ class TextureUploadPreparationTransformerTest {
         compileFixture();
         Path owner = root.resolve(TextureUploadPreparationTransformer.TARGET + ".class");
         byte[] original = Files.readAllBytes(owner);
-        try (var loader = new URLClassLoader(new java.net.URL[]{root.toUri().toURL()}, getClass().getClassLoader())) {
+        // Share JDK types, but never resolve these host stand-ins from the test classpath.
+        try (var loader = new URLClassLoader(new java.net.URL[]{root.toUri().toURL()}, ClassLoader.getPlatformClassLoader())) {
             var transformer = new TextureUploadPreparationTransformer(loader, null, original);
             byte[] changed = transformer.transform(null, loader, TextureUploadPreparationTransformer.TARGET, null, null, original);
             assertNotNull(changed, transformer.failure());
@@ -29,6 +30,7 @@ class TextureUploadPreparationTransformerTest {
             Class<?> graphicsType = loader.loadClass("com.live2d.graphics3d.a");
             Object graphics = graphicsType.getConstructor(profileType).newInstance(profile);
             Class<?> imageType = loader.loadClass("com.live2d.graphics.CWritableImage");
+            assertSame(loader, imageType.getClassLoader(), "the image must come from this compiled fixture");
             BufferedImage source = new BufferedImage(256,256,BufferedImage.TYPE_INT_ARGB);
             source.setRGB(0,0,0x80ff8040);
             Object image = imageType.getConstructor(BufferedImage.class).newInstance(source);

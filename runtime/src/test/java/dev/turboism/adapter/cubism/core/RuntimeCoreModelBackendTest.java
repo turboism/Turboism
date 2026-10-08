@@ -118,6 +118,44 @@ class RuntimeCoreModelBackendTest {
     }
 
     @Test
+    void refusedBackendPublicationPoisonsThatIdentityForEverySharedReader() {
+        final RuntimeCoreModelBackend backend = RuntimeCoreModelBackend.admit(
+            TestCoreApiFixture.resolver("5.3.02"),
+            CoreVersionExpectation.exact(11, 12, 13)
+        ).value().orElseThrow();
+        try {
+            backend.publishBorrowedModel(coreModel(new float[]{10.0F}), "session:model-a");
+            final CoreEvaluatedJoin first = backend.evaluatedJoin();
+            assertEquals(1, first.evaluated("session:model-a:1").generation());
+
+            // A receiver outside the verified Core model type is refused at the backend
+            // entry; the refusal is shared, not per-join.
+            backend.publishBorrowedModel(new Object(), "session:editor-b");
+            for (final CoreEvaluatedJoin reader : new CoreEvaluatedJoin[]{first, backend.evaluatedJoin()}) {
+                final IllegalStateException failure = assertThrows(
+                    IllegalStateException.class,
+                    () -> reader.evaluated("session:editor-b:2")
+                );
+                assertTrue(failure.getMessage().contains("could not be published"));
+            }
+            // Derived identities of the refused publication are poisoned too, while the
+            // still-published model keeps serving its own binding identities.
+            assertThrows(IllegalStateException.class,
+                () -> first.evaluated("session:editor-b:99"));
+            // Identity-scoped MOC reads fail closed for the refused binding instead of
+            // silently reporting the still-published model's metadata.
+            assertThrows(IllegalStateException.class,
+                () -> first.mocInfo("session:editor-b:2"));
+            assertEquals(1, first.evaluated("session:model-a:1").generation());
+            // A later accepted publication under the refused identity clears the refusal.
+            backend.publishBorrowedModel(coreModel(new float[]{20.0F}), "session:editor-b");
+            assertEquals(2, backend.evaluatedJoin().evaluated("session:editor-b:2").generation());
+        } finally {
+            backend.close();
+        }
+    }
+
+    @Test
     void rejectedProviderDoesNotPublishPartialBackend() {
         final CoreProviderResult<RuntimeCoreModelBackend> result =
             RuntimeCoreModelBackend.admit(

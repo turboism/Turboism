@@ -524,6 +524,20 @@ class PreparedStore:
         if request.get("environment", {}) != {}:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
+        core_dispatch = any(flag == "--name" and value == "official-core"
+                            for flag, value in zip(argv, argv[1:]))
+        if task_spec == "official-core:5302" or core_dispatch:
+            if task_spec != "official-core:5302":
+                raise QueueError("standalone Core dispatch requires its exact registered task")
+            from host_validation_official_core import options
+            options(argv)
+        viewer_dispatch = any(flag == "--name" and value == "official-viewer"
+                              for flag, value in zip(argv, argv[1:]))
+        if task_spec == "official-viewer:5302" or viewer_dispatch:
+            if task_spec != "official-viewer:5302":
+                raise QueueError("official Viewer dispatch requires its exact registered task")
+            from host_validation_official_viewer import options
+            options(argv)
         memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
         with tempfile.TemporaryDirectory(dir=self.store.root / "staging") as temporary:
             stage = Path(temporary)
@@ -540,6 +554,9 @@ class PreparedStore:
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
             host_dependencies: list[dict[str, str]] = [memory_dependency] if memory_dependency else []
+            if task_spec in ("official-viewer:5302", "official-core:5302"):
+                host_dependencies.append({"option": "private-display-server", "path": "/usr/bin/Xvfb",
+                                          "sha256": runtime_digest(Path("/usr/bin/Xvfb"))})
             index = 0
             while index < len(argv):
                 flag = argv[index]

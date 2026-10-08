@@ -54,6 +54,13 @@ public final class EditorParameterStructureSelectorContract {
         "cubism.editor-model.id.value"
     );
 
+    /** Additional verified members required before joining an authoring root. */
+    public static final Set<String> TRANSACTION_CREATE_REQUIRED_ALIASES = Set.of(
+        "cubism.editor-model.model-source.parameter-source-set",
+        "cubism.editor-model.parameter-source-set.get-by-id",
+        "cubism.editor-model.undo.execute-undo"
+    );
+
     /** Narrow exact-host candidate contract for creating one empty root Parameter folder. */
     public static final Set<String> FOLDER_CREATE_REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",

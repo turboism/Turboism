@@ -380,6 +380,20 @@ final class CoreCallSiteTable implements AutoCloseable {
         closeReverse(new ArrayList<>(callSites.values()));
     }
 
+    /**
+     * Returns whether {@code model} is a receiver the bound Core model call sites accept —
+     * an instance of the verified {@code cubism.core.model.get-canvas-info} declaring class.
+     * Used at borrowed-model publish time so a non-Core object is never admitted as the
+     * active Core model.
+     */
+    boolean acceptsModel(final Object model) {
+        if (closed) {
+            return false;
+        }
+        return callSite(CorePublicApiSelectorContract.MODEL_GET_CANVAS_INFO)
+            .acceptsReceiver(model);
+    }
+
     private VerifiedMethodCallSite callSite(final String alias) {
         final VerifiedMethodCallSite callSite = callSites.get(alias);
         if (callSite == null) {

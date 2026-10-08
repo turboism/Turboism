@@ -11,6 +11,10 @@ import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.AlphaComposition;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.ColorComposition;
+import dev.turboism.adapter.cubism.editor.transaction.*;
+import dev.turboism.sdk.cubism.history.*;
+import dev.turboism.sdk.cubism.transaction.*;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -26,6 +30,73 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Mock-resolver tests for the Editor Inspector Drawable/ArtMesh family write surface. */
 public class EditorInspectorDrawableWriteTest {
+
+    @Test
+    void cullingParticipatesInRootAndRestoresAfterCallbackFailure() {
+        for (boolean fail : List.of(false, true)) EditorHostThread.dispatch("culling root", () -> {
+            final var fixture = new Fixture(); Host.document = fixture.document;
+            final var host = new ScopeHost();
+            final var coordinator = new EditorAuthoringTransactionCoordinator(host);
+            final var binding = new EditorAuthoringTransactionCoordinator.Binding(
+                "test", "doc", 1, "model", 1, Thread.currentThread());
+            final var selectors = selectors("5.3.02");
+            final var aliases = selectors.stream().map(StaticSelector::alias).collect(java.util.stream.Collectors.toSet());
+            for (var alias : EditorHistoryReadSelectorContract.REQUIRED_ALIASES) {
+                if (!aliases.contains(alias)) selectors.add(method(alias, UnusedHistory.class, "fail", "()Ljava/lang/Object;"));
+            }
+            final var resolver = TestVerifiedResolvers.create("5.3.02", EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+                java.util.Set.of(EditorObjectReadSelectorContract.CAPABILITY_ID,
+                    EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID, "cubism.editor-history.read"),
+                selectors, Host.class.getClassLoader());
+            final EditorObjectReadAccess.CurrentGuard guard = (id, model) -> { };
+            final var access = new EditorObjectReadAccess(resolver, guard,
+                new EditorMorphTargetAccess(resolver, guard::requireCurrent), null, null, null, coordinator, () -> binding);
+            final var mesh = access.drawables("model", fixture.source, fixture.source.model).find(new ArtMeshId("ArtMeshFace"));
+            final var before = host.history(binding);
+            final var result = coordinator.execute(binding, AuthoringTransactionOptions.of("import visibility"), () -> {
+                mesh.setCulling(false);
+                assertFalse(mesh.culling());
+                if (fail) throw new IllegalStateException("after visibility");
+                return null;
+            });
+            assertEquals(fail ? AuthoringTransactionOutcome.ROLLED_BACK : AuthoringTransactionOutcome.COMMITTED, result.outcome());
+            assertEquals(1, host.begins);
+            assertEquals(0, fixture.document.editMode.edits.size(), "must not open an independent Inspector edit");
+            if (fail) { assertTrue(mesh.culling()); assertEquals(before, host.history(binding)); }
+            else { assertFalse(mesh.culling()); assertEquals(1, host.entries.size()); }
+            final int begins = host.begins;
+            final var noop = coordinator.execute(binding, AuthoringTransactionOptions.of("same visibility"), () -> {
+                mesh.setCulling(mesh.culling()); return null;
+            });
+            assertEquals(AuthoringTransactionOutcome.NO_CHANGE, noop.outcome());
+            assertEquals(begins, host.begins);
+            return null;
+        });
+    }
+
+    public static final class UnusedHistory {
+        public Object fail() { throw new AssertionError("unexpected history selector invocation"); }
+    }
+
+    private static final class ScopeHost implements EditorAuthoringTransactionCoordinator.Host {
+        int begins;
+        final List<HistoryEntry> entries = new ArrayList<>();
+        public boolean isCurrent(EditorAuthoringTransactionCoordinator.Binding binding) { return binding.hostThread() == Thread.currentThread(); }
+        public HistorySnapshot history(EditorAuthoringTransactionCoordinator.Binding binding) {
+            return new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 1, entries.size(), entries.size(),
+                List.copyOf(entries), !entries.isEmpty(), false, "doc", "manager");
+        }
+        public Object beginEdit(EditorAuthoringTransactionCoordinator.Binding binding, String label) { begins++; return new GroupUndo(); }
+        public void endEdit(EditorAuthoringTransactionCoordinator.Binding binding, Object edit, boolean abort) {
+            if (!abort) entries.add(new HistoryEntry(entries.size(), "visibility", true));
+        }
+        public void refresh(EditorAuthoringTransactionCoordinator.Binding binding, java.util.Set<EditorRefreshRequirement> requirements) { }
+        public Optional<String> prepareHistoryMetadata(EditorAuthoringTransactionCoordinator.Binding binding, Object edit,
+                String id, HistoryEntryDetail detail, Optional<HistoryAction> action) { return Optional.empty(); }
+        public Optional<String> committedHistoryEntryId(EditorAuthoringTransactionCoordinator.Binding binding,
+                HistorySnapshot before, HistorySnapshot after, String id, String label) { return Optional.of("visibility"); }
+        public String diagnosticId(String code, Throwable failure) { return code + ": " + failure; }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"5.2.03", "5.3.02"})
