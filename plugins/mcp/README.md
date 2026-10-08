@@ -269,7 +269,7 @@ The diagnostic expansion adds no `host.unsafe`, performance, file-read, config, 
 
 ### Network
 
-The server listens only on `127.0.0.1`. Requests require an accepted loopback origin, a body no larger than 1 MiB, the negotiated MCP session/protocol headers, and the configured rate limit. Mutating tool calls and session close additionally require `Authorization: Bearer <token>` (contents of `mcp.token`); read-only methods need no credential. It is not designed for remote access.
+The server listens only on `127.0.0.1`. Requests require a loopback `Host` header (`127.0.0.1`, `localhost`, or `[::1]`, with an optional `:port`), an accepted loopback origin, a body no larger than 1 MiB, the negotiated MCP session/protocol headers, and the configured rate limit. Mutating tool calls and session close additionally require `Authorization: Bearer <token>` (contents of `mcp.token`); read-only methods need no credential. Set the system property `turboism.mcp.requireAuthForRead=true` to extend the bearer requirement to every `tools/call`, including read-effect tools. It is not designed for remote access.
 
 ### Local data
 
@@ -284,7 +284,7 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 ## Status and limitations
 
 - **Status:** Preview.
-- The stable default port is `43123`. Set `turboism.mcp.port=0` explicitly for an ephemeral port. `turboism.mcp.requestsPerMinute` is the advanced rate-limit system-property override.
+- The stable default port is `43123`. Set `turboism.mcp.port=0` explicitly for an ephemeral port. `turboism.mcp.requestsPerMinute` is the advanced rate-limit system-property override. `turboism.mcp.requireAuthForRead` (`true`/`false`, default `false`) gates read-effect `tools/call` methods behind the bearer token as well.
 - GET SSE, resource subscriptions, list-changed notifications, progress notifications, and MCP Tasks are not implemented.
 - Workspace switching and default-layout mutation are intentionally unavailable because the runtime currently gates them with `turboism.host.unsafe`.
 - `EditorFileCommandRequest`, import/export, save-as, backup, and other handle-based file workflows remain unavailable until an MCP session can receive a real `UserFileHandle` authorization without accepting raw paths.

@@ -27,6 +27,7 @@ backup.dialog.timeout-label
 backup.dialog.title
 backup.dialog.username-label
 backup.dialog.verify-tls-checkbox
+backup.dialog.verify-tls-tooltip
 backup.menu.settings-label
 backup.remote-trigger.auto-backup-sync
 backup.remote-trigger.save-triggered

@@ -3,6 +3,7 @@ package dev.turboism.core.schema.permission;
 import com.fasterxml.jackson.databind.JsonNode;
 import dev.turboism.core.schema.AbstractJsonValidator;
 import dev.turboism.core.schema.SchemaValidationError;
+import dev.turboism.sdk.permission.PermissionIds;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -13,59 +14,6 @@ import java.util.Set;
 public final class PermissionValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of("id", "scope", "reason");
-    private static final Set<String> KNOWN_IDS = Set.of(
-            "turboism.ui.menu",
-            "turboism.ui.toolbar",
-            "turboism.ui.palette",
-            "turboism.cubism.project.read",
-            "turboism.cubism.model.read",
-            "turboism.cubism.model.write",
-            "turboism.cubism.model.observe",
-            "turboism.cubism.model.intercept",
-            "turboism.cubism.edit",
-            "turboism.cubism.parameter.read",
-            "turboism.cubism.mesh.read",
-            "turboism.cubism.recent-file.read",
-            "turboism.file.read",
-            "turboism.file.write",
-            "turboism.network.fetch",
-            "turboism.process.run",
-            "turboism.mcp.connection.read",
-            "turboism.mcp.connection.publish",
-            "turboism.action.register",
-            "turboism.action.invoke",
-            "turboism.ui.menu.contribute",
-            "turboism.ui.toolbar.mesh.contribute",
-            "turboism.ui.toolbar.main.contribute",
-            "turboism.ui.toolbar.palette.contribute",
-            "turboism.ui.context-menu.contribute",
-            "turboism.ui.context-source.read",
-            "turboism.ui.overlay.contribute",
-            "turboism.ui.viewport.read",
-            "turboism.ui.recent-preview.contribute",
-            "turboism.ui.dialog.contribute",
-            "turboism.ui.dialog.automate",
-            "turboism.ui.panel.contribute",
-            "turboism.ui.settings.contribute",
-            "turboism.ui.file-chooser.request",
-            "turboism.ui.status.notify",
-            "turboism.ui.canvas.hint",
-            "turboism.ui.appearance.modify",
-            "turboism.ui.toolbar.contribute",
-            "turboism.config.plugin.read",
-            "turboism.config.plugin.write",
-            "turboism.event.subscribe",
-            "turboism.event.publish",
-            "turboism.ui.appearance.observe",
-            "turboism.cubism.backup.observe",
-            "turboism.cubism.selection.observe",
-            "turboism.ui.scene-table.observe",
-            "turboism.cubism.log.observe",
-            "turboism.performance.sample.observe",
-            "turboism.action.invocation.observe",
-            "turboism.plugin.lifecycle.observe",
-            "turboism.performance.stats.read",
-            "turboism.host.unsafe");
 
     public PermissionValidator() {
         super("turboism.permission", "PERMISSION", 1, ALLOWED_FIELDS);
@@ -83,7 +31,7 @@ public final class PermissionValidator extends AbstractJsonValidator {
 
         if (node.has("id") && !node.get("id").isNull()) {
             String id = node.get("id").asText("");
-            if (!KNOWN_IDS.contains(id)) {
+            if (!PermissionIds.KNOWN_IDS.contains(id)) {
                 errors.add(error("PERMISSION_UNKNOWN_ID", "Unknown permission id: " + id, "id", source));
             }
         }

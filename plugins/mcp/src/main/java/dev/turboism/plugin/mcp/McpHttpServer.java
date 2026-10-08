@@ -62,6 +62,7 @@ final class McpHttpServer implements AutoCloseable {
     private final URI endpoint;
     private final Optional<McpStdioLaunch> stdioLaunch;
     private final WindowRateLimiter rateLimiter;
+    private final boolean requireAuthForRead;
     private final McpSessionRegistry sessions;
     private final McpConnectionHistory history;
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -78,6 +79,7 @@ final class McpHttpServer implements AutoCloseable {
             final URI endpoint,
             final Optional<McpStdioLaunch> stdioLaunch,
             final WindowRateLimiter rateLimiter,
+            final boolean requireAuthForRead,
             final McpSessionRegistry sessions,
             final McpConnectionHistory history) {
         this.server = server;
@@ -91,6 +93,7 @@ final class McpHttpServer implements AutoCloseable {
         this.endpoint = endpoint;
         this.stdioLaunch = Objects.requireNonNull(stdioLaunch, "stdioLaunch");
         this.rateLimiter = rateLimiter;
+        this.requireAuthForRead = requireAuthForRead;
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.history = Objects.requireNonNull(history, "history");
     }
@@ -136,6 +139,8 @@ final class McpHttpServer implements AutoCloseable {
             final int port = integerProperty("turboism.mcp.port", DEFAULT_PORT, 0, 65535);
             stage.enter("requests-per-minute property");
             final int requestsPerMinute = integerProperty("turboism.mcp.requestsPerMinute", 120, 10, 6000);
+            stage.enter("require-auth-for-read property");
+            final boolean requireAuthForRead = booleanProperty("turboism.mcp.requireAuthForRead", false);
             stage.enter("context dependency extraction");
             return start(
                     new Dependencies(
@@ -154,7 +159,8 @@ final class McpHttpServer implements AutoCloseable {
                             uiScheduler,
                             stateDir,
                             port,
-                            requestsPerMinute),
+                            requestsPerMinute,
+                            requireAuthForRead),
                     stage);
         } catch (McpStartupFailure failure) {
             throw failure;
@@ -231,9 +237,9 @@ final class McpHttpServer implements AutoCloseable {
                     parameterResources,
                     historyCommands.resources()));
             stage.enter("access-token publication");
-            final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir());
+            final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir(), logger::warn);
             stage.enter("stdio bridge publication");
-            final Path bridgeFile = McpStdioBridge.publish(checked.stateDir());
+            final Path bridgeFile = McpStdioBridge.publish(checked.stateDir(), logger::warn);
             stage.enter("stdio launch descriptor");
             final Optional<McpStdioLaunch> stdioLaunch = McpStdioBridge.launch(checked.stateDir(), logger);
 
@@ -250,6 +256,7 @@ final class McpHttpServer implements AutoCloseable {
                     endpoint,
                     stdioLaunch,
                     new WindowRateLimiter(checked.requestsPerMinute()),
+                    checked.requireAuthForRead(),
                     new McpSessionRegistry(
                             java.time.Duration.ofMinutes(30),
                             java.time.Clock.systemUTC(),
@@ -345,6 +352,13 @@ final class McpHttpServer implements AutoCloseable {
             responseHeaders.set("Cache-Control", "no-store");
             responseHeaders.set("X-Content-Type-Options", "nosniff");
 
+            // DNS-rebinding surface: the socket only binds 127.0.0.1, but a
+            // browser sandboxed to a hostile origin can still reach it. The Host
+            // header must therefore name the loopback listener itself.
+            if (!hostAllowed(exchange.getRequestHeaders().getFirst("Host"))) {
+                sendEmpty(exchange, 403);
+                return;
+            }
             if (!originAllowed(exchange.getRequestHeaders().getFirst("Origin"))) {
                 sendEmpty(exchange, 403);
                 return;
@@ -521,18 +535,22 @@ final class McpHttpServer implements AutoCloseable {
         content.put("stdio", McpStdioBridge.clientConfig(connectionFile.getParent()));
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
-        McpStateFiles.publish(connectionFile, ".mcp-connection-", Json.bytes(content));
+        McpStateFiles.publish(connectionFile, ".mcp-connection-", Json.bytes(content), logger::warn);
     }
 
     /**
+     * /**
      * Mutating operations require {@code Authorization: Bearer <mcp.token>}:
      * session close plus every {@code tools/call} whose registered tool is not
      * effect {@code READ}. Read-only tools, lifecycle methods, and discovery stay
      * credential-free behind the existing loopback + Origin + session checks.
+     * Setting {@code turboism.mcp.requireAuthForRead=true} additionally gates
+     * every read-effect {@code tools/call} behind the same bearer token.
      */
     private boolean requiresBearer(final Object request) {
         if (!(request instanceof Map<?, ?> values)) return false;
         if (!"tools/call".equals(values.get("method"))) return false;
+        if (requireAuthForRead) return true;
         final Object params = values.get("params");
         if (!(params instanceof Map<?, ?> paramValues)) return false;
         final Object name = paramValues.get("name");
@@ -551,6 +569,51 @@ final class McpHttpServer implements AutoCloseable {
     private static void unauthorized(final HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().set("WWW-Authenticate", "Bearer realm=\"turboism-mcp\"");
         sendEmpty(exchange, 401);
+    }
+
+    /**
+     * Accepts only {@code 127.0.0.1}, {@code localhost}, and {@code [::1]} — each
+     * with an optional {@code :port} suffix — as the {@code Host} header of an
+     * incoming request. A missing or foreign value fails closed.
+     */
+    static boolean hostAllowed(final String host) {
+        if (host == null) {
+            return false;
+        }
+        final String value = host.strip();
+        if (value.isEmpty()) {
+            return false;
+        }
+        if (value.startsWith("[")) {
+            final int close = value.indexOf(']');
+            if (close < 0 || !"::1".equals(value.substring(1, close))) {
+                return false;
+            }
+            final String suffix = value.substring(close + 1);
+            return suffix.isEmpty() || (suffix.startsWith(":") && isPort(suffix.substring(1)));
+        }
+        final int colon = value.indexOf(':');
+        if (colon >= 0 && !isPort(value.substring(colon + 1))) {
+            return false;
+        }
+        final String name = colon < 0 ? value : value.substring(0, colon);
+        return "127.0.0.1".equals(name) || "localhost".equalsIgnoreCase(name);
+    }
+
+    private static boolean isPort(final String text) {
+        if (text.isEmpty() || text.length() > 5) {
+            return false;
+        }
+        for (int index = 0; index < text.length(); index++) {
+            if (!Character.isDigit(text.charAt(index))) {
+                return false;
+            }
+        }
+        try {
+            return Integer.parseInt(text) <= 65535;
+        } catch (NumberFormatException overflow) {
+            return false;
+        }
     }
 
     private static boolean originAllowed(final String origin) {
@@ -626,6 +689,15 @@ final class McpHttpServer implements AutoCloseable {
 
     private static void sendEmpty(final HttpExchange exchange, final int status) throws IOException {
         exchange.sendResponseHeaders(status, -1);
+    }
+
+    private static boolean booleanProperty(final String name, final boolean defaultValue) {
+        final String configured = System.getProperty(name);
+        if (configured == null || configured.isBlank()) return defaultValue;
+        final String normalized = configured.strip().toLowerCase(Locale.ROOT);
+        if ("true".equals(normalized)) return true;
+        if ("false".equals(normalized)) return false;
+        throw new IllegalArgumentException(name + " must be true or false");
     }
 
     private static int integerProperty(
@@ -735,7 +807,8 @@ final class McpHttpServer implements AutoCloseable {
             UiScheduler uiScheduler,
             Path stateDir,
             int port,
-            int requestsPerMinute) {
+            int requestsPerMinute,
+            boolean requireAuthForRead) {
         Dependencies(
                 final PluginLogger logger,
                 final ModelObjectService modelObjects,
@@ -763,7 +836,8 @@ final class McpHttpServer implements AutoCloseable {
                     uiScheduler,
                     stateDir,
                     port,
-                    requestsPerMinute);
+                    requestsPerMinute,
+                    false);
         }
 
         static DiagnosticReport emptyDiagnostics() {
