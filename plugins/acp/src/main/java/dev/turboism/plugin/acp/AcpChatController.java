@@ -330,7 +330,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                     connected.agentInfo(),
                     created.configOptions(),
                     created.durableSessionsAvailable(),
-                    connection != null && capabilities.mcpHttp()));
+                    AcpClient.mcpAttachment(connection, capabilities)));
             refreshSessionsNow();
             return;
         }
@@ -347,7 +347,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                                 connected.agentInfo(),
                                 restored.configOptions(),
                                 restored.durableSessionsAvailable(),
-                                connection != null && capabilities.mcpHttp()))) {
+                                AcpClient.mcpAttachment(connection, capabilities)))) {
                     return;
                 }
                 context.logger().info("ACP connection: session ready");
@@ -373,7 +373,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                             connected.agentInfo(),
                             restored.configOptions(),
                             restored.durableSessionsAvailable(),
-                            connection != null && capabilities.mcpHttp());
+                            AcpClient.mcpAttachment(connection, capabilities));
                 });
                 refreshSessionsNow();
                 return;
@@ -391,7 +391,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 connected.agentInfo(),
                 created.configOptions(),
                 created.durableSessionsAvailable(),
-                connection != null && capabilities.mcpHttp()));
+                AcpClient.mcpAttachment(connection, capabilities)));
         refreshSessionsNow();
     }
 
@@ -1176,9 +1176,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
     private void applyMcpConnectionChange(final McpHttpConnection latest) {
         if (closed.get()) return;
         final AcpSession current = session;
-        final boolean liveMcpSession = client.get() != null
-                && current != null
-                && current.capabilities().mcpHttp();
+        final boolean liveMcpSession = client.get() != null && current != null && mcpAttached(current);
         final java.net.URI boundEndpoint = mcpConnection == null ? null : mcpConnection.endpoint();
         final java.net.URI latestEndpoint = latest == null ? null : latest.endpoint();
         if (!liveMcpSession || Objects.equals(boundEndpoint, latestEndpoint)) {
@@ -1196,11 +1194,19 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         }
     }
 
+    /**
+     * Whether the live session carries any MCP attachment — stdio or HTTP — so an endpoint
+     * change must rebuild it. Sessions without an attachment are untouched by drift.
+     */
+    private boolean mcpAttached(final AcpSession current) {
+        return AcpClient.mcpAttachment(mcpConnection, current.capabilities()) != AcpClient.McpAttachment.NONE;
+    }
+
     private void reconnectForMcpDrift() {
         mcpReconnectQueued.set(false);
         if (closed.get()) return;
         final AcpSession current = session;
-        if (client.get() == null || current == null || !current.capabilities().mcpHttp()) return;
+        if (client.get() == null || current == null || !mcpAttached(current)) return;
         final java.net.URI boundEndpoint = mcpConnection == null ? null : mcpConnection.endpoint();
         final java.net.URI latestEndpoint =
                 lastMcpSnapshot.get().map(McpHttpConnection::endpoint).orElse(null);
@@ -1317,7 +1323,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 AcpClient.AcpAgentInfo agentInfo,
                 List<AcpConfigOption> options,
                 boolean durableSessionsAvailable,
-                boolean mcpAttached);
+                AcpClient.McpAttachment mcpAttachment);
 
         /** The agent refused session creation until one advertised authentication method completes. */
         void showAuthRequired(List<AcpAuthMethod> methods);
