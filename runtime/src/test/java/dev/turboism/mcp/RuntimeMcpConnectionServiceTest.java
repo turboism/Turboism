@@ -28,19 +28,16 @@ final class RuntimeMcpConnectionServiceTest {
 
         service.publish(connection());
         assertThrows(CubismPermissionException.class, service::current);
-        assertThrows(
-                CubismPermissionException.class,
-                () -> service.subscribe(snapshot -> {}));
+        assertThrows(CubismPermissionException.class, () -> service.subscribe(snapshot -> {}));
         assertEquals(43123, registry.current().orElseThrow().endpoint().getPort());
     }
 
     @Test
     void subscribeReplaysThenRelaysChangesUnderReadPermission() {
         final McpConnectionRegistry registry = new McpConnectionRegistry();
-        final RuntimeMcpConnectionService service = new RuntimeMcpConnectionService(
-                "mcp", (permission, operation) -> {}, registry);
-        final java.util.List<Optional<dev.turboism.sdk.mcp.McpHttpConnection>> seen =
-                new java.util.ArrayList<>();
+        final RuntimeMcpConnectionService service =
+                new RuntimeMcpConnectionService("mcp", (permission, operation) -> {}, registry);
+        final java.util.List<Optional<dev.turboism.sdk.mcp.McpHttpConnection>> seen = new java.util.ArrayList<>();
 
         final dev.turboism.sdk.plugin.Registration subscription = service.subscribe(seen::add);
         assertEquals(1, seen.size());

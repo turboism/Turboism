@@ -92,8 +92,7 @@ final class TurboismAcpPluginLifecycleTest {
         plugin.enable();
         final java.lang.reflect.Method showWindow = plugin.getClass()
                 .getDeclaredMethod(
-                        "showWindow",
-                        Class.forName("dev.turboism.plugin.acp.TurboismAcpPlugin$WindowTarget"));
+                        "showWindow", Class.forName("dev.turboism.plugin.acp.TurboismAcpPlugin$WindowTarget"));
         showWindow.setAccessible(true);
         final Object agentTarget = java.util.Arrays.stream(showWindow.getParameterTypes()[0].getEnumConstants())
                 .filter(value -> "AGENT".equals(value.toString()))

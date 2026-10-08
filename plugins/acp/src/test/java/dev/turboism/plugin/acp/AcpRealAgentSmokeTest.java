@@ -2,7 +2,6 @@ package dev.turboism.plugin.acp;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.nio.file.Path;
@@ -36,10 +35,8 @@ final class AcpRealAgentSmokeTest {
         assumeTrue(
                 "1".equals(System.getenv("TURBOISM_ACP_SMOKE")),
                 "set TURBOISM_ACP_SMOKE=1 to run real agent smoke tests");
-        final AgentProfile profile =
-                AgentCatalog.profile(agentId).orElseThrow(() -> new AssertionError(agentId));
-        final Path executable = AgentLocator.locate(profile)
-                .orElse(null);
+        final AgentProfile profile = AgentCatalog.profile(agentId).orElseThrow(() -> new AssertionError(agentId));
+        final Path executable = AgentLocator.locate(profile).orElse(null);
         assumeTrue(executable != null, agentId + " executable is not installed");
 
         final java.util.List<String> argv = new java.util.ArrayList<>();
@@ -49,8 +46,7 @@ final class AcpRealAgentSmokeTest {
         try (AcpClient client = AcpClient.start(spec, new AcpListener() {})) {
             assertNotNull(client.agentInfo());
             assertFalse(client.agentInfo().name().isBlank());
-            final AcpSession session = client.newSession(
-                    temporaryDirectory, null, Duration.ofSeconds(30));
+            final AcpSession session = client.newSession(temporaryDirectory, null, Duration.ofSeconds(30));
             assertNotNull(session.sessionId());
             assertFalse(session.sessionId().isBlank());
         }

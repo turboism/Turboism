@@ -25,8 +25,7 @@ interface AcpListener {
             final String content) {}
 
     /** Agent-pushed replacement of the session configuration catalog. */
-    default void configOptions(
-            final AcpClient source, final String sessionId, final List<AcpConfigOption> options) {}
+    default void configOptions(final AcpClient source, final String sessionId, final List<AcpConfigOption> options) {}
 
     /** Agent-pushed list of slash commands available for the session. */
     default void availableCommands(final AcpClient source, final String sessionId, final List<String> commands) {}

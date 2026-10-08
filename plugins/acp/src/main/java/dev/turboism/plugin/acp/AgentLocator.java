@@ -3,7 +3,6 @@ package dev.turboism.plugin.acp;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -61,8 +60,8 @@ final class AgentLocator {
         if (asPath.isAbsolute() || text.indexOf(File.separatorChar) >= 0 || text.indexOf('/') >= 0) {
             return validate(asPath.toAbsolutePath().normalize());
         }
-        return findExecutable(text).orElseThrow(() -> new IllegalArgumentException(
-                "executable not found on PATH: " + text));
+        return findExecutable(text)
+                .orElseThrow(() -> new IllegalArgumentException("executable not found on PATH: " + text));
     }
 
     /** Finds a bare executable name on the inherited PATH and in common per-user directories. */
@@ -151,8 +150,7 @@ final class AgentLocator {
         addGlobbed(directories, home, ".local", "share", "mise", "installs", "node");
     }
 
-    private static void add(
-            final LinkedHashSet<Path> directories, final String base, final String... segments) {
+    private static void add(final LinkedHashSet<Path> directories, final String base, final String... segments) {
         if (base == null || base.isBlank()) return;
         try {
             Path path = Path.of(base);
@@ -167,8 +165,7 @@ final class AgentLocator {
         }
     }
 
-    private static void addGlobbed(
-            final LinkedHashSet<Path> directories, final String base, final String... segments) {
+    private static void addGlobbed(final LinkedHashSet<Path> directories, final String base, final String... segments) {
         if (base == null || base.isBlank()) return;
         try {
             Path root = Path.of(base);

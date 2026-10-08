@@ -90,8 +90,7 @@ final class AcpPluginSettings implements AutoCloseable {
 
     /** Returns the session-level standing instruction prompt, when configured. */
     synchronized Optional<String> initialPrompt() {
-        return Optional.ofNullable(initialPromptSnapshot)
-                .filter(text -> !text.isBlank());
+        return Optional.ofNullable(initialPromptSnapshot).filter(text -> !text.isBlank());
     }
 
     /**
@@ -185,9 +184,7 @@ final class AcpPluginSettings implements AutoCloseable {
 
     private static String boundedPrompt(final String value) {
         if (value == null) return "";
-        return value.length() > MAX_INITIAL_PROMPT_CHARS
-                ? value.substring(0, MAX_INITIAL_PROMPT_CHARS)
-                : value;
+        return value.length() > MAX_INITIAL_PROMPT_CHARS ? value.substring(0, MAX_INITIAL_PROMPT_CHARS) : value;
     }
 
     /**

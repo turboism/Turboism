@@ -12,7 +12,8 @@ import java.util.Objects;
  * overrides in {@code env}) launched in a visible terminal; the client must not call {@code
  * authenticate} for those.</p>
  */
-record AcpAuthMethod(String id, String name, String description, Kind kind, List<String> args, Map<String, String> env) {
+record AcpAuthMethod(
+        String id, String name, String description, Kind kind, List<String> args, Map<String, String> env) {
 
     enum Kind {
         AGENT,
