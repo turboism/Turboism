@@ -2819,9 +2819,12 @@
       "preparedDigest": "43d94ad81603b57cc69a2653385f43c2141f92ca70d476f3a6e58a61eddbd5ff",
       "evidenceDirectory": "jobs/3f6910dd-dad5-4650-9b73-526890a2795e/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "lifecycleSha256": "fe6bc2c3804451ea9cb17939ca5fdb2e56b1e24cbc05fc278134b826552ea589"
     },
     {
       "version": "5.2.03",
@@ -2832,9 +2835,12 @@
       "preparedDigest": "f8e9867bb05e6ebe3f7a7c7268a43adc1c2ae8b8a2c67aa4da72fc5af75f3562",
       "evidenceDirectory": "jobs/26b44a08-5c38-4b65-a22d-0d0e81fcca4d/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "ddbd7a948ceddf89a23f0961efc5e1ae8c4b307ad85d5baedb72745466c5c366"
     },
     {
       "version": "5.3.00",
@@ -2845,9 +2851,12 @@
       "preparedDigest": "deef64450069cda0f35269cbd169d6013fc2c8fcce690436db06b29f05e8e65e",
       "evidenceDirectory": "jobs/547fce40-8d25-4520-8fc7-18a35067af72/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "3acdaf7ded9ee0c50ff1fa834b7a7c5494e0747bde481841b81350a43f8a8a2d"
     },
     {
       "version": "5.3.02",
@@ -2858,9 +2867,12 @@
       "preparedDigest": "1b1eeb337829a712a802eb5c404b62a9914512eb36f6f32c377114bc4b1ecd15",
       "evidenceDirectory": "jobs/9b3cd576-8055-411a-8d1f-bf03131f91c3/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "99d980f94a9d3f8be81f349e2f3c74d0bf338ac9e4d2fc5f7f3f7421d561d051"
     },
     {
       "version": "5.3.03",
@@ -2871,9 +2883,12 @@
       "preparedDigest": "d9dd852858f40776812cb4191aeac4520b4c485b8ec2683e77327b05d25f7852",
       "evidenceDirectory": "jobs/3804627f-fbd6-4cf6-8d98-b03f2a56339d/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "748310b475d4cb4031dd3eb7138791121f948f1c1ce14386472a3d08490f30ba"
     },
     {
       "version": "5.3.04",
@@ -2884,9 +2899,12 @@
       "preparedDigest": "3971466253c35caa73ddd4a6b86b666dd2c1d7437201a0e929fa24170647ee06",
       "evidenceDirectory": "jobs/bfa2cc04-f560-4b94-b609-2fabdb06f65c/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "52046c128ada6f4fba5f6838e70230f2c5a21e39e4cb8ffcf3996dbbb3f7dbb3"
     },
     {
       "version": "5.0.01",
@@ -2897,9 +2915,12 @@
       "preparedDigest": "b1a845643cfc36d37245d3c76182e17944fc4e8be22fa2bf1eb57c8f1119b48a",
       "evidenceDirectory": "jobs/73af5548-b343-4970-a58a-e74990239016/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "8a2d59407edb0c3627ff9fe9dd8c0555563bf3d173062b8fd026e6076802cf1a"
     },
     {
       "version": "5.0.02",
@@ -2910,9 +2931,12 @@
       "preparedDigest": "d64968b0f5b394a9f3de8c98164ac928b9a09d986e48b22f1fc9ca145ebc43b3",
       "evidenceDirectory": "jobs/ac9290b0-42a4-4d42-bd40-a75ac26cbaf4/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "eeebbf3573a7e7c5e3ef6c5a3684085780fb2d1c601171e9fab96bdf96353d6d"
     },
     {
       "version": "5.0.03",
@@ -2923,9 +2947,12 @@
       "preparedDigest": "6caf5ced2c88f07c39fc2e821db5fe5cb90051ec1b0d803c53f85fd348ce6a97",
       "evidenceDirectory": "jobs/048af8fd-fa7b-40b1-ae5f-2e8251b95e48/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "lifecycleSha256": "826688788fc7f0d715841b4f59771437284538331985d69264bc936b5bde45e8"
     },
     {
       "version": "5.0.04",
@@ -2936,9 +2963,12 @@
       "preparedDigest": "6ba3f24038c450d05caa50cae112a64d5f6c80c970237fc89320bb53a9ea2aa7",
       "evidenceDirectory": "jobs/15d54904-341b-4cc2-af60-06b77837fe95/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "4d2726bf1851a4d197381eff768bab900412bdd9f8a633d77b4b182016ddcdf9"
     },
     {
       "version": "5.0.05",
@@ -2949,9 +2979,12 @@
       "preparedDigest": "83eb64e9bbf06e20afacd24aa79312e26001c51622672c850c5a324203c5a05e",
       "evidenceDirectory": "jobs/d380fc87-bf45-4b18-abf8-7c68c69126e8/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "d35a2eb6f9fe98702f844473988910bca9b3b50baac002fee8a1f962faffd61f"
     },
     {
       "version": "5.0.06",
@@ -2962,9 +2995,12 @@
       "preparedDigest": "6fcb74e70bfe91eec13ae39ffb780e90b5a96c16361f1c7fc98389504e5c0613",
       "evidenceDirectory": "jobs/9add6849-52da-4b40-82ed-0778113bc252/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "32807c057fc50c2a031cd4937524f862f6e2d4909930bd9b20f9b5bf06551c50"
     },
     {
       "version": "5.1.00",
@@ -2975,9 +3011,12 @@
       "preparedDigest": "e004d101b959efd89a6b01837e93240a91b232946edfed26974b9ce16c283609",
       "evidenceDirectory": "jobs/f618e3b9-47c3-4657-8359-591c71789d15/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "9d32e96251e20b1659179c38d75c38da0e81517d74915884faca386bf83dffc4"
     },
     {
       "version": "5.1.01",
@@ -2988,9 +3027,12 @@
       "preparedDigest": "b0e7eb34fd682667820e97e529a04cb4256cc7f4b61e74bf778449ad050b9742",
       "evidenceDirectory": "jobs/4b7e458a-dc01-43eb-b649-004844e224d9/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "051dbfc54c75880471f51eee1e8ede517db963994d8ddcf6a495b175bc6c3b51"
     },
     {
       "version": "5.1.02",
@@ -3001,9 +3043,12 @@
       "preparedDigest": "dc80062e5d3779628670b8ac032bd6b480ecd8218497ecc1af555151b0442a37",
       "evidenceDirectory": "jobs/77b7297f-2bc1-476d-beb3-c43f7a8c075b/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "bf2c6fa619b394fbde77468f7ca794af33c946bf9515d5a096f16e8fe859c512"
     },
     {
       "version": "5.1.03",
@@ -3014,9 +3059,12 @@
       "preparedDigest": "5dcdaef768e4ab8feba5d81a68e82d61ef5d91487c066cb9f3e10aac17b24740",
       "evidenceDirectory": "jobs/ad861207-968a-4362-a2ca-aba27ce75dac/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "20dbf292347bb4e6eeacd8568ba984457528c27caf780d22fce152e186ebb541"
     },
     {
       "version": "5.2.00",
@@ -3027,9 +3075,12 @@
       "preparedDigest": "3b53a228cbffe0f1d14c864d52f7fa263bfcf0a06be8d3a75e8c0830c908c87d",
       "evidenceDirectory": "jobs/a1aab1ba-8b42-4beb-a481-a6d501c37b6d/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "2351c072ef05408da2e905a657a57c4070e6069afa5646af570fc35dffe529a2"
     },
     {
       "version": "5.2.01",
@@ -3040,9 +3091,12 @@
       "preparedDigest": "31de8b8cd61fb00a08de8c47ba4f1970c7ecd94f5a05d4ec65f9ee90da67c661",
       "evidenceDirectory": "jobs/4e3f248d-b0b3-40e6-930a-b2398552631d/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "d39e700a494b9b2f084d00f3e335cacf82691cd66735afbdb822630032a0ef58"
     },
     {
       "version": "5.2.03",
@@ -3053,9 +3107,12 @@
       "preparedDigest": "f582065160e16c9ba61eb2655cb26ffedbb39b0b613bb04725f68b2b90fb02dd",
       "evidenceDirectory": "jobs/9bd1ab93-2f5a-4410-acf8-83f2a7458e80/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "414cc0e6d26cdd6e285df2c7a38bde8c0ecd53490c88fd54de6cdc18250a19a8"
     },
     {
       "version": "5.3.00",
@@ -3066,9 +3123,12 @@
       "preparedDigest": "74a1c5daf6a22f74e09b78b0f9e92c1a7975212651003e8236258c9fc3f82c31",
       "evidenceDirectory": "jobs/83739e2e-35e6-4b22-a2f6-757620ecb3bf/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "526943c2ee45815db03e3593e17a4f91e4870d008e69d6ef0814ae7fbee066ac"
     },
     {
       "version": "5.3.01",
@@ -3079,9 +3139,12 @@
       "preparedDigest": "5ad2f439206f694778ae086b29f111bff51917aa8e814c2d341d03f992467bbb",
       "evidenceDirectory": "jobs/70dc4994-a444-4d76-923a-52a9855e6045/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "eaf0c47dd44e0ce40f09359ab98c7bc27641d64b12eb675b57aad769faf9a5ed"
     },
     {
       "version": "5.3.02",
@@ -3092,9 +3155,12 @@
       "preparedDigest": "2746289dea6e48c962aaeab3226b59684e814e5b8cb284766cff7b66b5c4a261",
       "evidenceDirectory": "jobs/02d4c097-2abf-41d1-a840-8e28d35da049/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "3bdabc5e4290c5b09b8bce705c8733f29c7d75942c996a98856ac4874b740adb"
     },
     {
       "version": "5.3.03",
@@ -3105,9 +3171,12 @@
       "preparedDigest": "13a8532fadbd0e134e40099c088f27550faf7153d3ba76e181daa05c72410036",
       "evidenceDirectory": "jobs/07c16c88-90e2-4eaa-be4d-097ff82f70f0/evidence",
       "scope": "Production SDK coherent nonempty texture relation graph; shared/multiple inputs and PSD writes not tested",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "a770b133982693a7dc854b34bcfaf3e47077d2f7544c5411dd019b16174b74da"
     },
     {
       "version": "5.3.04",
@@ -3118,9 +3187,12 @@
       "preparedDigest": "421753a753e9a50bba829fcf60d5771d4ddbad514be60dc2b1d3cec5f7ceae02",
       "evidenceDirectory": "jobs/22184b9b-f61e-4075-aa99-129aecd3b2f4/evidence",
       "scope": "Production parameter-batch-transfer plugin session and public whole-binding transfer SDK assertions; no all-SDK verdict",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "lifecycleSha256": "eada9773d0aff71a6c124c3ee2e4ca579fdb17845a6674b3599eeb96f40ba0e0"
     },
     {
       "version": "5.3.04",
@@ -3131,9 +3203,12 @@
       "preparedDigest": "2d8194ce9cb1b4c5a3b04c3d3105abb330ef179532446d9a55179c404256fc7d",
       "evidenceDirectory": "jobs/85cedadf-55bc-4f7e-ad5d-ad2bcdbb6d71/evidence",
       "scope": "Production animation workspace/timeline/read/scene/keyframe/evaluation SDK matrix on task-native fixture; no all-animation or all-SDK verdict",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "3f093f7e25dfed249589a9a0b66e61ec48e56a2c0bf4ae2ae89f34445e0123c0"
     },
     {
       "version": "5.3.04",
@@ -3144,9 +3219,12 @@
       "preparedDigest": "36a5fc9682b94dc08168f686ffeb2115cc2501655dfb4a55d9b663655069fdd5",
       "evidenceDirectory": "jobs/f05ef34e-4f99-47b0-87df-cbd43afead37/evidence",
       "scope": "Production workspace switching and reconnect matrix; availability and failures retained, no all-SDK verdict",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "46287dad806f9e7e0d94ba342c4d3d3305866047938467a4aaa04d6a46404ebd"
     },
     {
       "version": "5.3.00",
@@ -3157,9 +3235,12 @@
       "preparedDigest": "fc34ece9d051340f78e48006819722f827120fb7bbefc2d05cd6f072081c9b07",
       "evidenceDirectory": "jobs/771f009b-3745-4f1a-9ac7-fd49cba1fa25/evidence",
       "scope": "Explicit save-only observation: production native save result, issued edit handle and baseline, successful stop; no independent PSD content readability, structure, fidelity, replace or external editor acceptance",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "77026b1ca42ff2d78c72c1a77f2fd1422c46513576c486ede38616def1c09376"
     },
     {
       "version": "5.3.01",
@@ -3170,9 +3251,12 @@
       "preparedDigest": "2d2f012995e587936ce27e3e18ef7dd763bccab5724d1357d4b8af4552e5e0ec",
       "evidenceDirectory": "jobs/fc2ffa2b-9bd5-49d0-8385-15796d6782e0/evidence",
       "scope": "Explicit save-only observation: production native save result, issued edit handle and baseline, successful stop; no independent PSD content readability, structure, fidelity, replace or external editor acceptance",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "ea68414def7ca97f63f091816348db12de0282e73ca3ed079280ab5cae245789"
     },
     {
       "version": "5.3.02",
@@ -3183,9 +3267,12 @@
       "preparedDigest": "89ae42396807642fbceeb7f6f8b4177e64a820e5a613e923d7e21b4f7aea8825",
       "evidenceDirectory": "jobs/062ac41a-3a8f-4f22-a207-0d60fffd4c42/evidence",
       "scope": "Explicit save-only observation: production native save result, issued edit handle and baseline, successful stop; no independent PSD content readability, structure, fidelity, replace or external editor acceptance",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "f00c66b1d368b0e308900ca6773835c34c54f3c36d743ee5f1a338cb4e995abd"
     },
     {
       "version": "5.3.03",
@@ -3196,9 +3283,12 @@
       "preparedDigest": "25234f2ea6687e1a23aba411bdfcfa338e9e52cd5c34b4c75aa0e23c05f71688",
       "evidenceDirectory": "jobs/8f53994e-254f-4a99-b793-1d537a9b5139/evidence",
       "scope": "Explicit save-only observation: production native save result, issued edit handle and baseline, successful stop; no independent PSD content readability, structure, fidelity, replace or external editor acceptance",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "1d65f6d58fee8b2a420aa0170223a9f65f12ad99e135ff86ee8c9ee3128ef5fe"
     },
     {
       "version": "5.2.02",
@@ -3209,9 +3299,12 @@
       "preparedDigest": "f27b4f85a613631f774727f35ab6daf93476f7e60114037bea97be93dd18d567",
       "evidenceDirectory": "jobs/8a41778c-b9e3-4b9f-8ae1-f68dfae820a5/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "543033d1bb51a7f73170187b231cce67b667314adff4dde51ed925a6079f5ec0"
     },
     {
       "version": "5.0.02",
@@ -3222,9 +3315,12 @@
       "preparedDigest": "1ea3534afc429aabb0fed9e30579478dd0f7ce8be0a22549d4b3302d7c9f19c4",
       "evidenceDirectory": "jobs/6d700ca0-6d27-4f81-958a-1054ecc519e6/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "lifecycleSha256": "bf49096cd7082acb85a0becaaffc779f1de2746b78296395f37375910f4b3f5e"
     },
     {
       "version": "5.1.03",
@@ -3235,9 +3331,12 @@
       "preparedDigest": "d86d8a2d91fa9200dbb62b6a6021f13e596f5597543231c9d19a65ec28088307",
       "evidenceDirectory": "jobs/9ee1e5eb-a278-4804-9b15-34e8727845f6/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "failed",
+      "validationStatus": "FAIL",
+      "lifecycleSha256": "2b9518b904c40d36e27543f31d93360eedd0e0090816a7a626808581054e5184"
     },
     {
       "version": "5.2.00",
@@ -3248,9 +3347,12 @@
       "preparedDigest": "1a1056c8151c7ced016c736a67777eb5e8a271cebab9e6161e193e109c889e04",
       "evidenceDirectory": "jobs/60665b58-e24f-4caa-ae8c-fc0c0ac416a0/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "0ba92cd27beb42f5b1cf531b36a14572abd5b2a756fc3ba3d69ae0be76113996"
     },
     {
       "version": "5.2.01",
@@ -3261,9 +3363,12 @@
       "preparedDigest": "3128e31a50cdfdb5cfeeb39dca1419f3d29353cad5bfaad7fd99df1cc2d032c0",
       "evidenceDirectory": "jobs/872690e3-c706-4e67-891e-0f0e99aa8253/evidence",
       "scope": "Complete MCP client scenario with nonempty Editor Glue, authoring restoration and native five-kind texture persistence; Screen and Multiply Color preparation; Workspace availability recorded, Core diagnostics only",
-      "status": "SUBMITTED",
+      "status": "FINAL",
       "assistance": "FREE selection or existing active Trial welcome ACK; newer model Load/Yes; update Cancel; no license activation",
-      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict"
+      "renderConfiguration": "mesaGlThread=false; mesa_glthread=false; no Mesa optimization verdict",
+      "terminalState": "succeeded",
+      "validationStatus": "PASS",
+      "lifecycleSha256": "c02cd606fc7402a90d29906eba80a492a51bf25bf70328078d2fcf9077971efd"
     }
   ]
 }
