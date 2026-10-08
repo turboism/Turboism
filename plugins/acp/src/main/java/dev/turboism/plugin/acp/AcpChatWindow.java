@@ -239,7 +239,7 @@ final class AcpChatWindow implements AcpChatController.View {
             final AcpClient.AcpAgentInfo agentInfo,
             final List<AcpConfigOption> options,
             final boolean durableSessions,
-            final boolean mcpAttached) {
+            final AcpClient.McpAttachment mcpAttachment) {
         if (!acceptingEvents.get()) return;
         connected = true;
         connecting = false;
@@ -257,8 +257,10 @@ final class AcpChatWindow implements AcpChatController.View {
         if (!display.isBlank() || !version.isBlank()) {
             appendSystem(localization.format("transcript.agent-info", display, version.isBlank() ? "?" : version));
         }
-        if (!mcpAttached) {
-            appendSystem(localization.text("transcript.mcp-unavailable"));
+        switch (mcpAttachment) {
+            case STDIO -> appendSystem(localization.text("transcript.mcp-writable"));
+            case HTTP_READ_ONLY -> appendSystem(localization.text("transcript.mcp-read-only"));
+            case NONE -> appendSystem(localization.text("transcript.mcp-unavailable"));
         }
         prompt.requestFocusInWindow();
     }

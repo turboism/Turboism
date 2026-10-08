@@ -1216,6 +1216,76 @@ final class AcpChatControllerTest {
         assertEquals(2, launches.get());
     }
 
+    @Test
+    void stdioAttachedSessionReconnectsOnMcpEndpointDrift() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.mcpConnection = Optional.of(stdioMcpConnection());
+        final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
+        try (AcpClient source = inactiveClient();
+                AcpChatController controller = fixture.controller((configuration, listener) -> {
+                    launches.incrementAndGet();
+                    throw new java.io.IOException("no agent in test");
+                })) {
+            controller.connect("custom", temporaryExecutable().toString(), "");
+            fixture.view.awaitFailure("status.executable-start-failed");
+            assertEquals(1, launches.get());
+
+            set(controller, "client", source);
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "sess-1",
+                            List.of(),
+                            // No HTTP MCP capability: this session attaches through the
+                            // stdio bridge alone, so endpoint drift must still reconnect.
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, false, false)));
+            set(controller, "mcpConnection", stdioMcpConnection());
+
+            fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
+                    java.net.URI.create("http://127.0.0.1:49998/mcp"), "2025-06-18", stdioLaunch())));
+
+            fixture.view.awaitFailure("status.mcp-endpoint-changed");
+            awaitSerial(controller);
+            assertEquals(2, launches.get());
+        }
+    }
+
+    @Test
+    void sessionWithoutMcpAttachmentDoesNotReconnectOnEndpointDrift() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final java.util.concurrent.atomic.AtomicInteger launches = new java.util.concurrent.atomic.AtomicInteger();
+        try (AcpClient source = inactiveClient();
+                AcpChatController controller = fixture.controller((configuration, listener) -> {
+                    launches.incrementAndGet();
+                    throw new java.io.IOException("no agent in test");
+                })) {
+            controller.connect("custom", temporaryExecutable().toString(), "");
+            fixture.view.awaitFailure("status.executable-start-failed");
+            assertEquals(1, launches.get());
+
+            set(controller, "client", source);
+            set(
+                    controller,
+                    "session",
+                    new AcpSession(
+                            "sess-1",
+                            List.of(),
+                            // No stdio launch on the bound connection and no HTTP MCP
+                            // capability: this session was never MCP-attached.
+                            new AcpClient.AcpCapabilities(true, false, false, false, false, false, false)));
+            set(controller, "mcpConnection", testMcpConnection());
+
+            fixture.pushMcpConnection(Optional.of(new dev.turboism.sdk.mcp.McpHttpConnection(
+                    java.net.URI.create("http://127.0.0.1:49998/mcp"), "2025-06-18", stdioLaunch())));
+
+            awaitSerial(controller);
+            assertEquals(1, launches.get());
+            assertFalse(fixture.view.failures.contains("status.mcp-endpoint-changed"));
+        }
+    }
+
     private static AcpSession configuredSession(final String sessionId) {
         return new AcpSession(
                 sessionId,
@@ -1333,6 +1403,19 @@ final class AcpChatControllerTest {
     private static dev.turboism.sdk.mcp.McpHttpConnection testMcpConnection() {
         return new dev.turboism.sdk.mcp.McpHttpConnection(
                 java.net.URI.create("http://127.0.0.1:41234/mcp"), "2025-06-18");
+    }
+
+    private static dev.turboism.sdk.mcp.McpStdioLaunch stdioLaunch() {
+        return new dev.turboism.sdk.mcp.McpStdioLaunch(
+                java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java")
+                        .toAbsolutePath()
+                        .toString(),
+                List.of("-cp", "/plugins dir/mcp.jar", "dev.turboism.plugin.mcp.TurboismMcpBridge", "/state dir"));
+    }
+
+    private static dev.turboism.sdk.mcp.McpHttpConnection stdioMcpConnection() {
+        return new dev.turboism.sdk.mcp.McpHttpConnection(
+                java.net.URI.create("http://127.0.0.1:41234/mcp"), "2025-06-18", stdioLaunch());
     }
 
     private static void setCapabilities(final AcpClient client, final AcpClient.AcpCapabilities capabilities)
@@ -1528,6 +1611,7 @@ final class AcpChatControllerTest {
         private volatile java.util.concurrent.CountDownLatch permissionEntered;
         private volatile java.util.concurrent.CountDownLatch releasePermission;
         private volatile AcpListener.PermissionDecision permissionDecision = AcpListener.PermissionDecision.CANCELLED;
+        private volatile AcpClient.McpAttachment lastMcpAttachment;
 
         private void record(final String event) {
             timeline.add(event);
@@ -1541,7 +1625,8 @@ final class AcpChatControllerTest {
                 final AcpClient.AcpAgentInfo agentInfo,
                 final List<AcpConfigOption> options,
                 final boolean durableSessionsAvailable,
-                final boolean mcpAttached) {
+                final AcpClient.McpAttachment mcpAttachment) {
+            lastMcpAttachment = mcpAttachment;
             record("connected");
         }
 

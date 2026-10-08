@@ -14,72 +14,84 @@ interface: swing
 
 # Turboism ACP
 
-> **Official Turboism plugin** · **Status: development — unreleased**
+> **Turboism official plugin** · **Status: Development — not released**
 
-Opens Agent and Settings windows and connects a user-installed ACP-compatible agent to the authenticated Turboism MCP server through Agent Client Protocol (ACP) v1.
-
-| Field | Value |
-|---|---|
-| Plugin ID | `dev.turboism.plugin.acp` |
-| Display name | Turboism ACP |
-| Category | Integration |
-| Tags | automation, acp, agent |
-| Delivery | Development builds only — the plugin ships in no release package |
+Opens an Agent conversation window and a Settings window. Drives a user-installed, ACP v1 compatible agent through the Agent Client Protocol and attaches the local Turboism MCP server through a credential-free stdio bridge.
 
 ## What it does
 
-- Detects and launches a user-installed agent executable — from `PATH` or a custom command — and speaks ACP v1 over supervised stdio without a shell.
-- Ships no agent runtime: Turboism never downloads, bundles, verifies, or manages a third-party agent binary.
-- Passes the current authenticated Turboism MCP endpoint to agents that advertise HTTP MCP support, so the agent can call typed Cubism automation tools.
-- Provides a dedicated Agent conversation window with a durable-session sidebar, compact color-coded bounded live transcript, IME-aware prompt submission, cancellation, permission review, and ACP-driven authentication.
-- Lists, creates, loads, resumes, and closes durable sessions when the selected agent advertises the matching session capabilities.
+- Opens two Swing windows: **Agent** (chat conversation) and **Agent Settings**.
+- Launches a user-installed ACP agent over stdin/stdout JSON-RPC: Claude Agent ACP, Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI, or a custom command.
+- Drives `initialize`, `authenticate`, `session/new`, `session/load`, `session/resume`, `session/prompt`, `session/cancel`, `session/close`, `session/list`, `session/update`, `session/request_permission`, `session/set_config_option`, and `logout` per the ACP v1 contract.
+- Attaches the Turboism MCP server as an ACP stdio MCP server so the agent can use the Cubism tools. The HTTP endpoint remains a read-only fallback for agents that only advertise HTTP MCP support.
+- Detects the agent executable on PATH and in common install locations, and persists a small amount of plugin-owned state (selected agent, custom command, durable session id, initial instructions).
 
-## Agent selection
+## Requirements and compatibility
 
-Settings → Agent offers the built-in catalog plus a custom command:
+- Turboism SDK API range `[0.1.0,0.2.0)`.
+- A user-installed ACP v1 compatible agent executable, reachable from PATH or configured as a custom command in **Agent Settings**.
+- The bundled `dev.turboism.plugin.mcp` plugin provides the Turboism MCP server when MCP tool access is wanted.
+- Requires an installed Cubism Editor host; the plugin does not run inside the standalone preview.
 
-| Agent | Executable | ACP launch |
+## Install and enable
+
+- The plugin is bundled with Turboism and is enabled by default.
+- Open **Agent Settings** to pick an agent or enter a custom command.
+
+## How to use
+
+1. Click the ACP Agent icon on the main toolbar, or open the Agent window from the Turboism menu.
+2. Pick an agent in **Agent Settings**, or type a custom command and save.
+3. Press **Connect**. When the agent requires authentication, press **Sign in…** and complete the advertised method.
+4. Type prompts in the conversation field. The agent may call Turboism MCP tools; permission prompts appear as dialogs inside the window.
+5. Use the session options tab to switch provider, model, or mode when the agent advertises config options.
+
+### MCP attachment
+
+- When the MCP server publishes a stdio launch descriptor, the session attaches `{name:"turboism", command, args, env:[]}` and the bridge adds the persisted bearer token itself. The agent can use read and write tools.
+- When only the HTTP endpoint is usable and the agent advertises HTTP MCP support, the session attaches the endpoint in read-only form; mutating calls stay gated by the bearer token that never leaves the MCP state directory.
+- When neither form is usable, the session runs without MCP tools.
+
+## Capabilities
+
+| Capability | User effect |
+|---|---|
+| `automation.agent.acp` | Connects user-installed ACP-compatible agents over Agent Client Protocol v1. |
+| `mcp.client` | Attaches the local Turboism MCP server to agent sessions over a credential-free stdio bridge, with the HTTP endpoint as a read-only fallback. |
+| `ui.window` | Opens the Agent conversation window and the Agent Settings window. |
+
+## Permissions
+
+| Permission | Scope | Why it is requested |
 |---|---|---|
-| Claude Agent (ACP) | `claude-agent-acp` | direct |
-| Codex (ACP) | `codex-acp` | direct |
-| Google Antigravity | `agy-acp` | direct |
-| Gemini CLI | `gemini` | `--experimental-acp` |
-| OpenCode | `opencode` | `acp` subcommand |
-| Pi (ACP) | `pi-acp` | direct |
-| Devin CLI | `devin` | `acp` subcommand |
-| Custom command | user argv | as entered |
+| `turboism.action.register` | `application` | Registers the action that opens the Agent window. |
+| `turboism.ui.menu.contribute` | `application` | Adds the Agent Settings entry to the Turboism menu. |
+| `turboism.ui.toolbar.main.contribute` | `application` | Adds the Agent button beside Turboism Home on the main toolbar. |
+| `turboism.config.plugin.read` | `application` | Restores the selected agent id, custom command, durable session id, and initial instructions. |
+| `turboism.config.plugin.write` | `application` | Persists that plugin-owned state; agent credentials and MCP authorization are never stored. |
+| `turboism.file.read` | `application` | Detects user-installed agent executables on PATH and in common install directories. |
+| `turboism.process.run` | `application` | Launches and supervises the selected agent executable. |
+| `turboism.mcp.connection.read` | `application` | Reads the current MCP connection snapshot, including the credential-free stdio launch descriptor, and subscribes to endpoint changes so attached sessions reconnect. |
 
-**Detect** searches `PATH` and common per-user install directories. Agent authentication, provider, and model stay with the agent: agents that expose ACP `authMethods` are signed in from the Settings page, and agents with a documented terminal login open it through **Open login terminal**. Turboism stores no agent credential.
+## Privacy and data
 
-## Runtime and security model
+- The plugin stores only plugin-owned configuration under its own scope: selected agent, custom command, durable session id, and initial instructions.
+- The MCP bearer token never enters an ACP payload, a command-line argument, an environment variable, UI text, or a log message; the stdio bridge reads it inside the MCP plugin state directory.
+- Prompts and transcript content go only to the locally launched agent process.
 
-- **Process boundary:** the selected agent runs as a child process supervised by Turboism; teardown kills the whole process tree.
-- **MCP attachment:** the session receives the authenticated loopback MCP endpoint only when the agent advertises HTTP MCP support. The endpoint carries no token in the URL; the trust boundary is the agent binary the user installed and selected.
-- **Permissions:** every agent tool call is confirmed through the ACP `session/request_permission` dialog before it runs.
-- **Standing instructions:** the fixed boundary prompt asks the agent to use only Turboism MCP tools. It is advisory, not a sandbox — agents with native file/terminal tools are governed by their own configuration.
+## Status and limitations
 
-## Getting started
+- Development plugin: the surface and persisted state format may change between releases.
+- Agent-side features (durable sessions, model selectors, modes) depend on the capabilities each agent advertises.
 
-1. Install one supported agent and sign it in with its own CLI if it requires terminal login.
-2. Enable **Turboism MCP Server** and **Turboism ACP** in Plugin Management.
-3. Open **Turboism → ACP Settings**, pick the agent (or enter a custom command), and run **Detect** or sign in.
-4. Choose the **ACP** main-toolbar icon to open the Agent window and start a session.
+## Troubleshooting
 
-## Granted permissions
+- **Connect fails with "Executable not found"**: set a custom command in **Agent Settings**, or install one of the detected agents so it is on PATH.
+- **"The agent requires sign-in"**: press **Sign in…** and complete the agent's authentication method, then reconnect.
+- **Cubism tools unavailable in the session**: the Agent transcript reports whether MCP attached writable (stdio bridge), read-only (HTTP), or not at all. Check that the `dev.turboism.plugin.mcp` plugin is enabled and started.
+- **Session could not be loaded**: the stored durable session may be stale; the plugin automatically falls back to a new session.
 
-| Permission | Scope | Purpose |
-|---|---|---|
-| `turboism.action.register` | application | Registers the Agent window and Settings actions. |
-| `turboism.ui.menu.contribute` | application | Adds the **ACP Settings** entry to the Turboism menu. |
-| `turboism.ui.toolbar.main.contribute` | application | Adds the ACP Agent icon beside Turboism Home on the main toolbar. |
-| `turboism.config.plugin.read` | application | Restores the selected agent id, custom command, durable session id, and initial instructions. |
-| `turboism.config.plugin.write` | application | Persists that Turboism-owned state; agent credentials and transcript data are never stored. |
-| `turboism.file.read` | application | Detects user-installed agent executables on PATH and common install directories. |
-| `turboism.process.run` | application | Launches and supervises the selected agent executable. |
-| `turboism.mcp.connection.read` | application | Reads the current authenticated MCP endpoint and subscribes to its changes, to attach it to ACP sessions. |
+## Support and license
 
-## Known limitations
-
-- ACP v1 only; protocol v2 (`auth/login`, `session/resume` equivalents) is not negotiated yet.
-- If the MCP server is disabled or restarted while a session is open, the plugin detects the endpoint change and reconnects automatically, rebinding the new endpoint — durable sessions are restored through the agent's load/resume capability (ACP cannot rebind `mcpServers` on an existing session).
-- Host-level validation against real agent binaries is manual until a scripted ACP agent fixture replaces the retired fx probe.
+- Report issues through the Turboism support channels.
+- Distributed under the same license as Turboism.

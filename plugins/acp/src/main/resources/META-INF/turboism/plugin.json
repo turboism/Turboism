@@ -67,7 +67,7 @@
     {
       "id": "turboism.mcp.connection.read",
       "scope": "application",
-      "reason": "Reads the current authenticated loopback MCP endpoint through the runtime's non-persistent connection boundary."
+      "reason": "Reads the current authenticated loopback MCP endpoint and its credential-free stdio launch descriptor through the runtime's non-persistent connection boundary."
     }
   ],
   "capabilities": [

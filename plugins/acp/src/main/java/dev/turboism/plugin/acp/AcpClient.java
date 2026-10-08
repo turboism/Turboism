@@ -3,6 +3,7 @@ package dev.turboism.plugin.acp;
 import dev.turboism.sdk.io.BoundedLineReader;
 import dev.turboism.sdk.json.Json;
 import dev.turboism.sdk.mcp.McpHttpConnection;
+import dev.turboism.sdk.mcp.McpStdioLaunch;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -677,13 +678,47 @@ final class AcpClient implements AutoCloseable {
     }
 
     private List<Object> mcpServers(final McpHttpConnection connection) {
-        if (connection == null || !capabilities.mcpHttp()) {
-            return List.of();
-        }
-        return List.of(mcpServer(connection));
+        return switch (mcpAttachment(connection, capabilities)) {
+            case STDIO -> List.of(stdioMcpServer(connection.stdioLaunch().orElseThrow()));
+            case HTTP_READ_ONLY -> List.of(httpMcpServer(connection));
+            case NONE -> List.of();
+        };
     }
 
-    private static Map<String, Object> mcpServer(final McpHttpConnection connection) {
+    /**
+     * Picks the MCP attachment form the agent can actually use: a credential-free stdio
+     * bridge whenever the connection publishes a launch descriptor — ACP v1 requires every
+     * agent to support stdio MCP servers — else the credential-free HTTP form when the
+     * agent advertises HTTP MCP support, which stays read-only because the bearer token is
+     * never put into the session payload.
+     */
+    static McpAttachment mcpAttachment(final McpHttpConnection connection, final AcpCapabilities capabilities) {
+        if (connection == null) {
+            return McpAttachment.NONE;
+        }
+        if (connection.stdioLaunch().isPresent()) {
+            return McpAttachment.STDIO;
+        }
+        return capabilities.mcpHttp() ? McpAttachment.HTTP_READ_ONLY : McpAttachment.NONE;
+    }
+
+    /** How the Turboism MCP server is attached to an ACP session. */
+    enum McpAttachment {
+        NONE,
+        STDIO,
+        HTTP_READ_ONLY
+    }
+
+    private static Map<String, Object> stdioMcpServer(final McpStdioLaunch launch) {
+        final LinkedHashMap<String, Object> server = new LinkedHashMap<>();
+        server.put("name", "turboism");
+        server.put("command", launch.command());
+        server.put("args", new ArrayList<>(launch.args()));
+        server.put("env", List.of());
+        return server;
+    }
+
+    private static Map<String, Object> httpMcpServer(final McpHttpConnection connection) {
         final LinkedHashMap<String, Object> server = new LinkedHashMap<>();
         server.put("type", "http");
         server.put("name", "turboism");

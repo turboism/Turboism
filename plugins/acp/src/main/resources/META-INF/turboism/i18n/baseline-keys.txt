@@ -87,6 +87,8 @@ toolbar.acp.label
 toolbar.acp.tooltip
 transcript.agent-info
 transcript.auth-required
+transcript.mcp-read-only
 transcript.mcp-unavailable
+transcript.mcp-writable
 window.agent-title
 window.settings-title
