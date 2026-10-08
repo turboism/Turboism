@@ -1171,7 +1171,7 @@ final class AcpChatControllerTest {
                     java.net.URI.create("http://127.0.0.1:49999/mcp"), "2025-06-18")));
 
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
-            awaitSerial(controller);
+            awaitLaunches(controller, launches, 2);
             assertEquals(2, launches.get(), "failures=" + fixture.view.failures + " infos=" + fixture.logger.infos);
             assertTrue(atomicClient(controller) == null);
             assertTrue(session(controller) == null);
@@ -1207,7 +1207,7 @@ final class AcpChatControllerTest {
 
             fixture.pushMcpConnection(Optional.empty());
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
-            awaitSerial(controller);
+            awaitLaunches(controller, launches, 2);
             assertEquals(2, launches.get());
         }
         controller.close();
@@ -1247,7 +1247,7 @@ final class AcpChatControllerTest {
                     java.net.URI.create("http://127.0.0.1:49998/mcp"), "2025-06-18", stdioLaunch())));
 
             fixture.view.awaitFailure("status.mcp-endpoint-changed");
-            awaitSerial(controller);
+            awaitLaunches(controller, launches, 2);
             assertEquals(2, launches.get());
         }
     }
@@ -1377,6 +1377,19 @@ final class AcpChatControllerTest {
             reference.set(value);
         } else {
             field.set(target, value);
+        }
+    }
+
+    private static void awaitLaunches(
+            final AcpChatController controller,
+            final java.util.concurrent.atomic.AtomicInteger launches,
+            final int expected)
+            throws Exception {
+        // The reconnect launch is enqueued on the serial lane after the drift failure is
+        // published, so a single drain can complete before the second launch runs.
+        for (int attempt = 0; launches.get() < expected && attempt < 2000; attempt++) {
+            awaitSerial(controller);
+            Thread.sleep(5);
         }
     }
 
