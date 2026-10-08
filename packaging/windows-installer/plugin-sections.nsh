@@ -619,3 +619,4 @@ Function un.DeleteInstallerPluginJars
   Delete "$INSTDIR\plugins\ui-theme.jar"
   Delete "$INSTDIR\plugins\webdav-backup.jar"
 FunctionEnd
+
