@@ -43,13 +43,13 @@ P=turboism.validation.triWeave
 DP=turboism.validation.dmWeave
 LP=turboism.validation.tlWeave
 SP=turboism.validation.triweave.shadow
-LOADER=dev.turboism.validation.triweave.fixture.FixtureLoader
+LOADER=dev.turboism.validation.shared.fixture.FixtureLoader
 
 # Expectation derived from the real CodeSource.toExternalForm of the fixture dir URL.
-fx_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$fx")"
-noh_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$noh")"
-bs_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$bs")"
-br_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$br")"
+fx_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$fx")"
+noh_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$noh")"
+bs_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$bs")"
+br_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$br")"
 
 # scenario jar mode expectSha expectCodeSource primaryFxDir outDir [extraFxDir] [extra -D...]
 run_scenario() {
@@ -258,7 +258,7 @@ run_dm_scenario dmMissingHelperWeave "$agent_jar" dm-dump+weave "$shadow_h_sha" 
 mbs="$work/badsite-merged"; mkdir -p "$mbs"; cp -a "$fx/." "$mbs/"
 cp "$badsite/dev/turboism/validation/triweave/shadow/ShadowH.class" \
   "$mbs/dev/turboism/validation/triweave/shadow/ShadowH.class"
-mbs_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$mbs")"
+mbs_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$mbs")"
 run_dm_scenario dmShapeRejectWeave "$agent_jar" dm-dump+weave "$badsite_sha" \
   "$shadow_sha" "$mbs_url" "$mbs" "$work/out-dm-badsite-weave" \
    && note dmShapeRejectWeave || fail "scenario dmShapeRejectWeave failed"
@@ -270,7 +270,7 @@ run_dm_scenario dmShapeRejectDump "$agent_jar" dm-dump-only "$badsite_sha" \
 mbr="$work/badreturn-merged"; mkdir -p "$mbr"; cp -a "$fx/." "$mbr/"
 cp "$br/dev/turboism/validation/triweave/shadow/ShadowTriangleList.class" \
   "$mbr/dev/turboism/validation/triweave/shadow/ShadowTriangleList.class"
-mbr_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$mbr")"
+mbr_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$mbr")"
 run_dm_scenario dmBadReturnWeave "$agent_jar" dm-dump+weave "$shadow_h_sha" \
   "$badreturn_sha" "$mbr_url" "$mbr" "$work/out-dm-badreturn" \
    && note dmBadReturnWeave || fail "scenario dmBadReturnWeave failed"
@@ -367,7 +367,7 @@ run_tl_scenario tlMissingHelperWeave "$noh_jar" tl-dump+weave "$tl_own_sha" "$fx
 mtlb="$work/tlbadshape-merged"; mkdir -p "$mtlb"; cp -a "$fx/." "$mtlb/"
 cp "$tlbs/dev/turboism/validation/tlindex/own/OwnTri\$TList.class" \
   "$mtlb/dev/turboism/validation/tlindex/own/OwnTri\$TList.class"
-mtlb_url="$(java -cp "$sc" dev.turboism.validation.triweave.CodeSourceUrl "$mtlb")"
+mtlb_url="$(java -cp "$sc" dev.turboism.validation.shared.fixture.CodeSourceUrl "$mtlb")"
 run_tl_scenario tlShapeRejectWeave "$agent_jar" tl-dump+weave "$tl_bad_sha" "$mtlb_url" \
   "$mtlb" "$tlfx" "$work/out-tl-badshape"  && note tlShapeRejectWeave || fail "scenario tlShapeRejectWeave failed"
 

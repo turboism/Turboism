@@ -14,7 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 import dev.turboism.validation.kmembership.Weave;
-import dev.turboism.validation.triweave.fixture.FixtureLoader;
+import dev.turboism.validation.shared.fixture.FixtureLoader;
 
 /**
  * Scenario driver. Each scenario runs in a fresh JVM launched by run.sh with
