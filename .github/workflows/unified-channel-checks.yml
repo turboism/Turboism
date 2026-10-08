@@ -68,6 +68,8 @@ jobs:
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
           ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+      - name: Install the pinned scripts lint tool
+        run: python3 -m pip install 'ruff==0.16.9'
       - name: Install Windows installer compiler
         run: |
           sudo apt-get update
