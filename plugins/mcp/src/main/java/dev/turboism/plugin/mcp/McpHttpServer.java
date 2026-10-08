@@ -13,6 +13,7 @@ import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.json.Json;
+import dev.turboism.sdk.mcp.McpStdioLaunch;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -58,6 +60,7 @@ final class McpHttpServer implements AutoCloseable {
     private final Path connectionFile;
     private final Path bridgeFile;
     private final URI endpoint;
+    private final Optional<McpStdioLaunch> stdioLaunch;
     private final WindowRateLimiter rateLimiter;
     private final McpSessionRegistry sessions;
     private final McpConnectionHistory history;
@@ -73,6 +76,7 @@ final class McpHttpServer implements AutoCloseable {
             final Path connectionFile,
             final Path bridgeFile,
             final URI endpoint,
+            final Optional<McpStdioLaunch> stdioLaunch,
             final WindowRateLimiter rateLimiter,
             final McpSessionRegistry sessions,
             final McpConnectionHistory history) {
@@ -85,6 +89,7 @@ final class McpHttpServer implements AutoCloseable {
         this.connectionFile = connectionFile;
         this.bridgeFile = bridgeFile;
         this.endpoint = endpoint;
+        this.stdioLaunch = Objects.requireNonNull(stdioLaunch, "stdioLaunch");
         this.rateLimiter = rateLimiter;
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.history = Objects.requireNonNull(history, "history");
@@ -229,6 +234,8 @@ final class McpHttpServer implements AutoCloseable {
             final McpAccessToken accessToken = McpAccessToken.loadOrCreate(checked.stateDir());
             stage.enter("stdio bridge publication");
             final Path bridgeFile = McpStdioBridge.publish(checked.stateDir());
+            stage.enter("stdio launch descriptor");
+            final Optional<McpStdioLaunch> stdioLaunch = McpStdioBridge.launch(checked.stateDir(), logger);
 
             final McpConnectionHistory history = new McpConnectionHistory();
             transport = new McpHttpServer(
@@ -241,6 +248,7 @@ final class McpHttpServer implements AutoCloseable {
                     connectionFile,
                     bridgeFile,
                     endpoint,
+                    stdioLaunch,
                     new WindowRateLimiter(checked.requestsPerMinute()),
                     new McpSessionRegistry(
                             java.time.Duration.ofMinutes(30),
@@ -317,6 +325,10 @@ final class McpHttpServer implements AutoCloseable {
 
     Path connectionFile() {
         return connectionFile;
+    }
+
+    Optional<McpStdioLaunch> stdioLaunch() {
+        return stdioLaunch;
     }
 
     String stdioClientConfig() {

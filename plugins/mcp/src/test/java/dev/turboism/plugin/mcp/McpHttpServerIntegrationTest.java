@@ -1406,6 +1406,229 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void stdioLaunchDescriptorSpawnsTheCompiledBridgeForMutatingCalls() throws Exception {
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+                new ModelObjectReference(ModelObjectKind.PART, "PartHead"), "Head", Optional.empty()));
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices()));
+        try {
+            final dev.turboism.sdk.mcp.McpStdioLaunch launch =
+                    server.stdioLaunch().orElseThrow();
+            assertLaunchDescriptor(launch, temporaryDirectory);
+            final String token = bearer();
+            assertFalse(launch.command().contains(token));
+            launch.args().forEach(arg -> assertFalse(arg.contains(token)));
+
+            try (BridgeProcess bridge = spawnBridge(launch)) {
+                final Map<String, Object> initialized = bridge.call(initializeMessage(1));
+                assertEquals(
+                        McpProtocol.VERSION, object(initialized.get("result")).get("protocolVersion"));
+                bridge.notify(initializedNotification());
+                final Map<String, Object> renamed = bridge.call(renameCall(2));
+                assertEquals(Boolean.FALSE, object(renamed.get("result")).get("isError"));
+                assertEquals(
+                        "Renamed via stdio",
+                        objects.find(ModelObjectKind.PART, "PartHead").name());
+            }
+
+            // The same mutating call over plain HTTP without the token is refused.
+            ensureSession(server.endpoint());
+            final HttpResponse<byte[]> denied =
+                    request(server.endpoint(), null, null, true, SESSIONS.get(server.endpoint()), renameCall(9));
+            assertEquals(401, denied.statusCode());
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void stdioLaunchDescriptorSurvivesAStateDirectoryContainingSpaces() throws Exception {
+        final Path spacedState = Files.createDirectory(temporaryDirectory.resolve("spaced state dir"));
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+                new ModelObjectReference(ModelObjectKind.PART, "PartArm"), "Arm", Optional.empty()));
+        final McpHttpServer server =
+                McpHttpServer.start(dependencies(new CapturingLogger(), objects, new FakeReadServices(), spacedState));
+        try {
+            final dev.turboism.sdk.mcp.McpStdioLaunch launch =
+                    server.stdioLaunch().orElseThrow();
+            assertEquals(
+                    spacedState.toAbsolutePath().normalize().toString(),
+                    launch.args().get(launch.args().size() - 1));
+
+            try (BridgeProcess bridge = spawnBridge(launch)) {
+                bridge.call(initializeMessage(1));
+                bridge.notify(initializedNotification());
+                final Map<String, Object> renamed = bridge.call(renameCall(2, "PartArm", "Arm Moved"));
+                assertEquals(Boolean.FALSE, object(renamed.get("result")).get("isError"));
+                assertEquals(
+                        "Arm Moved",
+                        objects.find(ModelObjectKind.PART, "PartArm").name());
+            }
+        } finally {
+            server.close();
+        }
+    }
+
+    private void assertLaunchDescriptor(final dev.turboism.sdk.mcp.McpStdioLaunch launch, final Path stateDir) {
+        final Path expectedLauncher = Path.of(System.getProperty("java.home"), "bin", javaExecutable());
+        assertEquals(expectedLauncher.toAbsolutePath().normalize().toString(), launch.command());
+        assertTrue(Files.isRegularFile(Path.of(launch.command())));
+        assertEquals(4, launch.args().size());
+        assertEquals("-cp", launch.args().get(0));
+        assertTrue(Files.exists(Path.of(launch.args().get(1))));
+        assertEquals(McpStdioBridge.MAIN_CLASS, launch.args().get(2));
+        assertEquals(
+                stateDir.toAbsolutePath().normalize().toString(), launch.args().get(3));
+    }
+
+    private static String javaExecutable() {
+        return System.getProperty("os.name", "")
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .contains("win")
+                ? "java.exe"
+                : "java";
+    }
+
+    /**
+     * Launches the compiled bridge exactly the way the published descriptor prescribes, plus the
+     * {@code --limit-modules} profile a bundled JRE without {@code jdk.compiler} can run.
+     */
+    private static BridgeProcess spawnBridge(final dev.turboism.sdk.mcp.McpStdioLaunch launch) throws IOException {
+        final List<String> argv = new ArrayList<>();
+        argv.add(launch.command());
+        argv.add("--limit-modules");
+        argv.add("java.base,java.net.http");
+        argv.addAll(launch.args());
+        return new BridgeProcess(new ProcessBuilder(argv).start());
+    }
+
+    private static Map<String, Object> initializeMessage(final int id) {
+        return Map.of(
+                "jsonrpc",
+                "2.0",
+                "id",
+                id,
+                "method",
+                "initialize",
+                "params",
+                Map.of(
+                        "protocolVersion", McpProtocol.VERSION,
+                        "capabilities", Map.of(),
+                        "clientInfo", Map.of("name", "stdio-bridge-test", "version", "1.0")));
+    }
+
+    private static Map<String, Object> initializedNotification() {
+        return Map.of("jsonrpc", "2.0", "method", "notifications/initialized");
+    }
+
+    private static Map<String, Object> renameCall(final int id) {
+        return renameCall(id, "PartHead", "Renamed via stdio");
+    }
+
+    private static Map<String, Object> renameCall(final int id, final String objectId, final String name) {
+        return Map.of(
+                "jsonrpc",
+                "2.0",
+                "id",
+                id,
+                "method",
+                "tools/call",
+                "params",
+                Map.of(
+                        "name",
+                        McpProductionDomainCatalog.APPLY,
+                        "arguments",
+                        Map.of(
+                                "operations",
+                                List.of(Map.of("operation", "rename", "kind", "part", "id", objectId, "name", name)))));
+    }
+
+    /** Line-delimited JSON-RPC conversation with one bridge subprocess on a background reader. */
+    private static final class BridgeProcess implements AutoCloseable {
+        private final Process process;
+        private final java.io.BufferedWriter stdin;
+        private final java.util.concurrent.BlockingQueue<String> lines =
+                new java.util.concurrent.LinkedBlockingQueue<>();
+        private final java.io.ByteArrayOutputStream stderr = new java.io.ByteArrayOutputStream();
+        private final Thread stdoutReader;
+        private final Thread stderrReader;
+
+        private BridgeProcess(final Process process) {
+            this.process = process;
+            this.stdin = new java.io.BufferedWriter(
+                    new java.io.OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
+            stdoutReader = drain(process.getInputStream(), lines);
+            stderrReader = new Thread(() -> {
+                try {
+                    process.getErrorStream().transferTo(stderr);
+                } catch (IOException ignored) {
+                    // Process exit closes the stream mid-copy.
+                }
+            });
+            stderrReader.setDaemon(true);
+            stderrReader.start();
+        }
+
+        private static Thread drain(
+                final java.io.InputStream stream, final java.util.concurrent.BlockingQueue<String> sink) {
+            final Thread reader = new Thread(() -> {
+                try (java.io.BufferedReader buffered =
+                        new java.io.BufferedReader(new java.io.InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                    for (String line; (line = buffered.readLine()) != null; ) {
+                        sink.add(line);
+                    }
+                } catch (IOException ignored) {
+                    // Process exit closes the stream mid-read.
+                }
+            });
+            reader.setDaemon(true);
+            reader.start();
+            return reader;
+        }
+
+        private void write(final Map<String, Object> message) throws IOException {
+            stdin.write(new String(Json.bytes(message), StandardCharsets.UTF_8));
+            stdin.newLine();
+            stdin.flush();
+        }
+
+        /** Sends a request and waits up to 30 seconds for its response line. */
+        private Map<String, Object> call(final Map<String, Object> message) throws Exception {
+            write(message);
+            final String line = pollLine();
+            assertNotNull(line, "bridge produced no response line");
+            return object(Json.parseObject(line.getBytes(StandardCharsets.UTF_8)));
+        }
+
+        private void notify(final Map<String, Object> message) throws IOException {
+            write(message);
+        }
+
+        private String pollLine() throws InterruptedException {
+            final long deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+            String line;
+            while ((line = lines.poll(50, java.util.concurrent.TimeUnit.MILLISECONDS)) == null) {
+                if (System.nanoTime() > deadline || !process.isAlive()) {
+                    return null;
+                }
+            }
+            return line;
+        }
+
+        @Override
+        public void close() throws Exception {
+            stdin.close();
+            assertTrue(process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS), "bridge did not exit");
+            final String errors = stderr.toString(StandardCharsets.UTF_8);
+            assertTrue(errors.isBlank(), "bridge stderr: " + errors);
+            stdoutReader.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5));
+            stderrReader.join(java.util.concurrent.TimeUnit.SECONDS.toMillis(5));
+        }
+    }
+
+    @Test
     void rejectsSymlinkedTokenFileWithoutTouchingItsTarget() throws Exception {
         final Path outside = temporaryDirectory.resolveSibling(temporaryDirectory.getFileName() + "-token-outside");
         Files.writeString(outside, "sentinel", StandardCharsets.UTF_8);
@@ -1614,6 +1837,14 @@ final class McpHttpServerIntegrationTest {
 
     private McpHttpServer.Dependencies dependencies(
             final PluginLogger logger, final ModelObjectService objects, final FakeReadServices reads) {
+        return dependencies(logger, objects, reads, temporaryDirectory);
+    }
+
+    private McpHttpServer.Dependencies dependencies(
+            final PluginLogger logger,
+            final ModelObjectService objects,
+            final FakeReadServices reads,
+            final Path stateDir) {
         return new McpHttpServer.Dependencies(
                 logger,
                 objects,
@@ -1622,7 +1853,7 @@ final class McpHttpServerIntegrationTest {
                 reads.read,
                 reads.clipMasks,
                 immediateUi(),
-                temporaryDirectory,
+                stateDir,
                 0,
                 120);
     }
