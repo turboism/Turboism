@@ -215,17 +215,64 @@ public final class AcpHostValidationPlugin implements TurboismPlugin {
             return;
         }
         logger.info("ACP_HOST_VALIDATION_RESULT observed=" + resultFile.getFileName());
-        try {
-            final String outcome = McpValidationHostClose.request(
-                    Boolean.getBoolean("turboism.validation.exitOnComplete"),
-                    enabled,
-                    Files.isRegularFile(resultFile),
-                    System.getProperty("turboism.validation.runId"),
-                    System.getProperty("turboism.validation.hostVersion"));
-            logger.info("ACP_HOST_CLOSE " + outcome);
-        } catch (Exception failure) {
-            logger.error("Automated ACP host close request failed", failure);
+        Exception firstFailure = null;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                final String outcome = McpValidationHostClose.request(
+                        Boolean.getBoolean("turboism.validation.exitOnComplete"),
+                        enabled,
+                        Files.isRegularFile(resultFile),
+                        System.getProperty("turboism.validation.runId"),
+                        System.getProperty("turboism.validation.hostVersion"));
+                logger.info("ACP_HOST_CLOSE attempt=" + attempt + " " + outcome);
+                return;
+            } catch (Exception failure) {
+                logger.error("Automated ACP host close attempt " + attempt + " failed", failure);
+                if (firstFailure == null) firstFailure = failure;
+                try {
+                    Thread.sleep(3_000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
+        appendWindowDump(resultFile, firstFailure);
+    }
+
+    /** Appends every visible window to the result file so a blocking modal can be identified. */
+    private void appendWindowDump(final Path resultFile, final Exception failure) {
+        try {
+            final StringBuilder dump = new StringBuilder();
+            dump.append("closeFailure=").append(sanitize(String.valueOf(failure))).append('\n');
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                if (!window.isVisible()) continue;
+                final java.awt.Window ownedBy = window.getOwner();
+                final String title = window instanceof java.awt.Frame frame
+                        ? frame.getTitle()
+                        : window instanceof java.awt.Dialog dialog ? dialog.getTitle() : window.getName();
+                dump.append("window.")
+                        .append(window.getClass().getSimpleName())
+                        .append('.')
+                        .append(System.identityHashCode(window) & 0xffff)
+                        .append('=')
+                        .append(sanitize(String.valueOf(title)))
+                        .append(" owner=")
+                        .append(ownedBy == null
+                                ? "none"
+                                : sanitize(String.valueOf(ownedBy.getName())))
+                        .append('\n');
+            }
+            Files.writeString(resultFile, dump.toString(), java.nio.charset.StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.APPEND);
+        } catch (IOException dumpFailure) {
+            logger.error("ACP host validation probe could not append the window dump", dumpFailure);
+        }
+    }
+
+    private static String sanitize(final String text) {
+        final String truncated = text.substring(0, Math.min(300, text.length()));
+        return truncated.replaceAll("[\s\"]+", "_");
     }
 
     private Path validationStateRoot() {
