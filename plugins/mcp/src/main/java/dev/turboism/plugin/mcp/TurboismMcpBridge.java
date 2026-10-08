@@ -59,13 +59,14 @@ public final class TurboismMcpBridge {
         } catch (Throwable failure) {
             // @containment-exempt: a bridge process must report every failure to stderr and
             // exit non-zero; there is no framework logger or fatal-error policy to delegate to.
+            failure.printStackTrace(System.err);
             System.err.println("turboism-mcp-bridge: " + failure);
             System.exit(1);
         }
     }
 
     private static Path stateDirOf(final String[] arguments) {
-        if (arguments != null && arguments.length > 0 && !arguments[0].isBlank()) {
+        if (arguments != null && arguments.length > 0 && arguments[0] != null && !arguments[0].isBlank()) {
             return Path.of(arguments[0]);
         }
         return EMBEDDED_STATE_DIR;
