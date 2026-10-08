@@ -666,8 +666,7 @@ public final class MappingReviewService {
     }
 
     private static byte[] readBytes(final Path path, final String code) {
-        return FileSafety.readAllBytesNoFollow(
-                path.toAbsolutePath().normalize(), code, StrictJson.MAX_DOCUMENT_BYTES);
+        return FileSafety.readAllBytesNoFollow(path.toAbsolutePath().normalize(), code, StrictJson.MAX_DOCUMENT_BYTES);
     }
 
     private static FileAttribute<?>[] privateDirectoryAttributes() {

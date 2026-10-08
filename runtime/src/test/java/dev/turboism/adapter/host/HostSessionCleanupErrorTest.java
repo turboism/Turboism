@@ -135,8 +135,7 @@ class HostSessionCleanupErrorTest {
         HostSession session = new HostSession(
                 () -> Optional.ofNullable(current.get()),
                 ignored -> HostAdapterConnection.of(HostSessionTest.adapters("session-a")));
-        session.coordinatorCleanupStepsForTest = java.util.List.of(
-                () -> failFirst(first), second::incrementAndGet);
+        session.coordinatorCleanupStepsForTest = java.util.List.of(() -> failFirst(first), second::incrementAndGet);
         session.refresh();
 
         assertThrows(AssertionError.class, session::close);
