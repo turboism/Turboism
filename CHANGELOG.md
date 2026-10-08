@@ -190,6 +190,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- ACP-attached agents can use Turboism MCP write tools again: the MCP plugin publishes a
+  credential-free stdio launch descriptor on the connection snapshot, and the ACP plugin
+  attaches it as a stdio MCP server — the precompiled bridge inside the MCP plugin JAR reads
+  the bearer token itself, so it also works on JREs without `jdk.compiler`. The HTTP endpoint
+  remains a read-only fallback, endpoint drift now reconnects any MCP-attached session, and
+  the Agent transcript reports whether tools attached writable or read-only.
 - `ClassPinTable.load` now falls back to the system class loader when the agent classes have no
   defining loader: the distributed agent's `Boot-Class-Path` manifest entry bootstrap-loads them,
   so the pin-table lookup dereferenced `null` during premain and the whole runtime failed safely

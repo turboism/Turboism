@@ -125,6 +125,11 @@ Turboism 的所有重要变更都记录在本文件中。
 
 ### 修复
 
+- ACP 接入的 Agent 恢复使用 Turboism MCP 写工具：MCP 插件在连接快照上发布免凭据 stdio
+  启动描述符，ACP 插件将其作为 stdio MCP 服务器接入——MCP 插件 JAR 内的预编译桥接自行
+  读取 bearer token，因此在缺少 `jdk.compiler` 的 JRE 上同样可用。HTTP 端点保留为只读
+  回退；端点变化现在会重连任何已挂载 MCP 的会话；Agent 转录会报告工具以可写还是只读
+  形式接入。
 - `ClassPinTable.load` 现在在代理类没有定义类加载器时回退到系统类加载器：发行版 agent 的
   `Boot-Class-Path` 清单项使这些类由引导类加载器加载，pin 表查找在 premain 期间解引用 null，
   导致整个运行时在真实宿主上以安全方式失败而非正常启动。
