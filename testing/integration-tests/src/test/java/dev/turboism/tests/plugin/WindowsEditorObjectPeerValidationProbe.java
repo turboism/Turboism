@@ -27,7 +27,7 @@ public final class WindowsEditorObjectPeerValidationProbe implements CubismPlugi
      * example {@code perf-observe}) no marker ever appears, so running the bounded wait could
      * only produce a phantom FAIL artifact that masks the primary verdict.
      */
-    private static boolean peerHandshakeMode(final String mode) {
+    static boolean peerHandshakeMode(final String mode) {
         return "plugin-scope-close".equals(mode)
                 || "document-close".equals(mode)
                 || "native-control-background-document-close".equals(mode);
