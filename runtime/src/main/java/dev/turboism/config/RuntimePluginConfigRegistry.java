@@ -130,8 +130,11 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         this.beforePublication = Objects.requireNonNull(beforePublication, "beforePublication");
     }
 
+    /** Idle I/O worker retires after this delay; the next submission respawns it. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
+
     private static ThreadPoolExecutor newIoExecutor(final String pluginId) {
-        return new ThreadPoolExecutor(
+        final ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 1,
                 1,
                 0L,
@@ -143,6 +146,9 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
                     return thread;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
+        executor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        executor.allowCoreThreadTimeOut(true);
+        return executor;
     }
 
     @Override

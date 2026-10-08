@@ -155,6 +155,14 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
   한 줄과 contributor 클래스 하나입니다. 검증됨/페일 클로즈 허용, 원자적 레코드 추출,
   mesh-mirror premain/bind 수명 주기, `installation=`/`cleanup=` 보고 라인은 변경되지
   않습니다.
+- 편집 핫 패스의 상주 에이전트 오버헤드를 줄였습니다. 실행 취소 히스토리 스냅샷은 이제
+  네이티브 undo-ingress 변경 스탬프로 게이트되어, 변경이 없을 때 1 Hz 히스토리 폴링이
+  `invokeAndWait` EDT 왕복과 전체 실행 취소 항목 프로젝션 비용을 지불하지 않습니다.
+  플러그인 work/event/long 레인, storage/config I/O 레인, legacy-config 레인, 플러그인별
+  UI 타이머의 유휴 스레드는 60초 후 종료되고 다음 제출 시 다시 생성됩니다 — 검토된
+  5.3.02 호스트와 29개 플러그인에서 유휴 turboism 스레드 수는 46 → 13, 유휴 CPU 중앙값은
+  0.8% → 0.0%로 감소했습니다. texture-atlas-stats 패널도 표시 줄이 바뀔 때만 EDT에
+  게시합니다.
 
 ### 수정
 

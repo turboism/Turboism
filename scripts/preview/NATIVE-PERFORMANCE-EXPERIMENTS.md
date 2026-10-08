@@ -1766,3 +1766,99 @@ Merge preparation: main remains e5424ce5027d049f12be6613f7690550f9984500 and is 
 ### User disposition (2026-09-26)
 
 After disclosure of the pan p99 increase (78.14→84.97ms, about8.7%) and clarification of the pan workload, the user explicitly instructed “合并到main”. The deviation is accepted for this integration; its measured values and all other limitations remain recorded. This authorizes the local main merge, not a push, and does not turn the tail non-regression target into PASS.
+
+
+## PERF-053 Native-Windows resident-overhead pass (2026-10-07)
+
+Scope: native Windows host, reviewed official Cubism 5.3.02 (bundled OpenJDK
+17.0.3.1), Mesa3D system software GL — the box has no GL3.3 GPU. Fixture:
+official `hiyori_free_t08` (SDK3.0/3.2). Agent jar built from this change; 29
+plugin jars plus a measurement probe. Priority order honored: frame rate >
+memory > CPU.
+
+Implementation (all behind existing fail-closed admission; nothing blocks host
+startup):
+
+- `EditorHistorySnapshotProvider` change-stamp skip gate (frame rate): while
+  the native undo-ingress observer is attached, `snapshot()` skips the
+  `invokeAndWait` EDT round trip and the full undo-entry projection whenever
+  `notificationCount() + drainCount()` is unchanged since the last available
+  snapshot. An unattached observer reports a negative stamp and keeps the
+  previous always-project behavior. Generation binding is unchanged — a
+  lifecycle generation bump forces a rebuild. The stamp is sampled before the
+  EDT trip, so a mutation landing mid-projection records a stale (lower) stamp
+  and the next poll rebuilds rather than skipping a real change. Cache reuse is
+  bounded to 10 consecutive polls per unchanged stamp
+  (`MAX_UNCHANGED_STAMP_POLLS`): mutable entry fields (labels, significance,
+  open-group details) can drift without an undo notification, so one
+  re-projection every ~10 s keeps silently stale content converging.
+- Idle-thread retirement (memory): `PluginWorkExecutor` worker pool and
+  timeout scheduler, `PluginEventLane` worker, `PluginLongLane` worker and
+  monitor, `StorageIoExecutor`, `TypedConfigIoExecutor`,
+  `RuntimePluginConfigRegistry` legacy-config lane and `RuntimeUiScheduler`
+  per-plugin timer now allow core-thread timeout at 60 s idle; pool and queue
+  bounds are unchanged and the next submission respawns the lane. Scheduled
+  executors also set `removeOnCancelPolicy(true)`.
+- texture-atlas-stats posts `setText` on the EDT only when the rendered line
+  changes (removes an unconditional 1 Hz EDT post per attached panel).
+
+Harness (unchanged fixture/host): probe plugin
+`dev.turboism.validation.perf-metrics` writing 1 Hz
+`epoch_ms,phase,cpu_percent,fps,rendered_frames,heap_used_bytes,nonheap_bytes,gc_collections,gc_pause_millis`;
+tracked drivers `scripts/preview/windows-perf-proc-sampler.ps1` (500 ms
+RSS/private/handles/threads/CPU-s) and
+`scripts/preview/windows-perf-resize-driver.ps1` (~29 Hz 1 px MoveWindow);
+`jcmd Thread.print`. Evidence in `build/manual-test/turboism/windows-perf/`
+(`*-baseline.csv`, `*-on2.csv`, `threads-agent-on{,2}.txt`), outside /tmp.
+Re-run: `powershell -File scripts/preview/windows-perf-proc-sampler.ps1
+-FixtureToken fixture.cmo3 -OutFile <out.csv>` and `powershell -File
+scripts/preview/windows-perf-resize-driver.ps1 -DurationSeconds 60` against
+the editor launched with the agent jar.
+
+Results, agent-ON new build vs the same-fixture agent-ON baseline:
+
+- turboism-named threads at idle: 46 → 13 (-72%); process thread median
+  118 → 81 (max 120 → 110 transient while lanes respawn).
+- Idle CPU (probe `cpu_percent`): median 0.8% → 0.0%; resize-phase median
+  14.8% → 11.4%.
+- Viewport render fps during 1 px resize oscillation under Mesa software GL:
+  median 12.07 → 12.00 — unchanged. The viewport is rasterizer-bound on this
+  box, so the EDT-work removal cannot move the Mesa fps number; the only claim
+  made is the mechanism-level removal of a guaranteed 1 Hz EDT-blocked wait.
+- Private bytes are not claimed as a win: baseline median 1547 MB vs new
+  1012 MB is confounded by sample-window/startup mix (last samples 1382 vs
+  1449 MB). The robust claim is ~33 fewer resident threads (~33 MB+ of stack
+  and commit).
+- Not measured on a hardware GPU; `incrementalUpdate` remains default-off by
+  existing policy; `DEFERRED_GL_ERROR_CHECK` remains preference-disabled.
+
+Verification: `:runtime:test` filtered to the touched classes (5 test classes)
+PASS including a new stamp-gate unit test; the wider `:runtime:test` suite
+shows ~61 pre-existing Windows platform failures (FIFO/symlink/POSIX-path
+assumptions, same class as the plugin failures split out in PR #21) that are
+unrelated to this change and unreproduced on CI. Real-host run: agent loaded,
+all perf hooks COMPLETE, model rendered, resize driver completed 850 steps,
+runtime log shows no new ERROR/WARN beyond the known demo enable failure and
+single recent-preview capture-diag line.
+
+Review follow-up (same change set):
+
+- The stamp now also covers bound-document drift: `changeStamp()` re-resolves
+  the active document's undo manager off-EDT (the same verified selector path
+  `attemptBind` uses). A different manager — or an unresolvable active document
+  — bumps a binding epoch so a cached projection from a previous document can
+  never be served, and posts one coalesced rebind so the listener follows the
+  active document. Verified by a new unit test that switches the active
+  document without any edit and asserts the stamp moves and the listener
+  re-attaches.
+- texture-atlas-stats cache is generation-tied under one lock: a poll that
+  finishes after `disable()` cannot fill `lastText` for the next enable, so a
+  re-enabled panel can no longer sit on its placeholder until the counts
+  change.
+
+Re-verified on the reviewed 5.3.02 host at 917998ad: two documents open
+(fixture + a duplicate), repeated tab switches, clean agent log (no new
+ERROR/WARN beyond the pre-existing demo-plugin and recent-preview
+environmental entries), probe CSV flowing, ~15 turboism-named threads
+with workers inside the 60 s retire window, probe idle CPU ~0.5 %
+(idle and docswitch phases alike).

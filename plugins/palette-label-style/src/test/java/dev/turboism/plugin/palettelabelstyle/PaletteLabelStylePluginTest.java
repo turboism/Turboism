@@ -68,6 +68,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 
 class PaletteLabelStylePluginTest {
@@ -420,8 +421,9 @@ class PaletteLabelStylePluginTest {
 
         context.storage().awaitOperations(1);
 
-        assertEquals(
-                List.of("text:#E53935"), context.model().parameter("p1").entry.textEvents());
+        // The read is recorded before the persistence lane applies the replay, so the
+        // event assertion must poll until the continuation has run (CI flakes otherwise).
+        awaitEvents(() -> context.model().parameter("p1").entry.textEvents(), List.of("text:#E53935"));
     }
 
     @Test
@@ -437,9 +439,9 @@ class PaletteLabelStylePluginTest {
         plugin.onModelOpened(null);
         context.storage().awaitOperations(2);
 
-        assertEquals(
-                List.of("text:#E53935", "text:closed", "text:#E53935"),
-                context.model().parameter("p1").entry.events());
+        awaitEvents(
+                () -> context.model().parameter("p1").entry.events(),
+                List.of("text:#E53935", "text:closed", "text:#E53935"));
     }
 
     @Test
@@ -454,17 +456,17 @@ class PaletteLabelStylePluginTest {
 
         context.actions().execute("palette-label-style.text.blue", parameterSelection("p1"));
         context.storage().awaitOperations(2);
-        assertEquals(
-                List.of("text:#E53935", "text:closed", "text:#2196F3"),
-                context.model().parameter("p1").entry.events());
+        awaitEvents(
+                () -> context.model().parameter("p1").entry.events(),
+                List.of("text:#E53935", "text:closed", "text:#2196F3"));
 
         plugin.onModelOpened(null);
         context.storage().awaitOperations(3);
 
         // Replay reads the persisted file, which now stores the blue override.
-        assertEquals(
-                List.of("text:#E53935", "text:closed", "text:#2196F3", "text:closed", "text:#2196F3"),
-                context.model().parameter("p1").entry.events());
+        awaitEvents(
+                () -> context.model().parameter("p1").entry.events(),
+                List.of("text:#E53935", "text:closed", "text:#2196F3", "text:closed", "text:#2196F3"));
     }
 
     @Test
@@ -528,6 +530,25 @@ class PaletteLabelStylePluginTest {
 
         assertTrue(context.actions().ids().isEmpty());
         assertTrue(context.contextMenu().contributions().isEmpty());
+    }
+
+    /** Polls {@code events} until it equals {@code expected}; fails after 10 s. */
+    private static void awaitEvents(final Supplier<List<String>> events, final List<String> expected) {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        List<String> actual = events.get();
+        while (!expected.equals(actual)) {
+            if (System.nanoTime() >= deadline) {
+                break;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError("interrupted while awaiting events");
+            }
+            actual = events.get();
+        }
+        assertEquals(expected, actual);
     }
 
     private static ContextMenuSelection parameterSelection(final String id) {

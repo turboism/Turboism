@@ -11,9 +11,9 @@ import dev.turboism.ui.host.HostReadEpoch;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -36,6 +36,8 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     private static final String UI_TASK_TYPE = "ui.schedule";
     private static final String DEFAULT_CAPABILITY = "none";
+    /** Idle UI timer retires after this delay; the next delayed schedule respawns it. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final RuntimeScheduler scheduler;
     private final String pluginId;
@@ -44,7 +46,12 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     public RuntimeUiScheduler(RuntimeScheduler scheduler, String pluginId) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
-        this.timer = Executors.newSingleThreadScheduledExecutor(new UiTimerThreadFactory(pluginId));
+        final ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(1, new UiTimerThreadFactory(pluginId));
+        executor.setRemoveOnCancelPolicy(true);
+        executor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        executor.allowCoreThreadTimeOut(true);
+        this.timer = executor;
     }
 
     @Override

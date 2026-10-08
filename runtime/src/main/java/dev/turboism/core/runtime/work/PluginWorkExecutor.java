@@ -14,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +35,13 @@ import java.util.function.Supplier;
 public final class PluginWorkExecutor {
 
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
+    /**
+     * Idle bulkhead and timeout threads retire after this many milliseconds and
+     * respawn on the next submission, so a plugin that finishes its work does not
+     * pin a live thread (and its stack) inside the host process forever. Pool and
+     * queue bounds are unchanged — retirement only affects idle core threads.
+     */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final String pluginId;
     private final PluginWorkExecutorConfiguration configuration;
@@ -43,7 +49,7 @@ public final class PluginWorkExecutor {
     private final ThreadPoolExecutor workerPool;
     private final TimeLimiter timeLimiter;
     private final CircuitBreaker circuitBreaker;
-    private final ScheduledExecutorService timeoutScheduler;
+    private final ScheduledThreadPoolExecutor timeoutScheduler;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public PluginWorkExecutor(
@@ -80,6 +86,8 @@ public final class PluginWorkExecutor {
                 new ArrayBlockingQueue<>(configuration.queueCapacity()),
                 new PluginWorkThreadFactory(this.pluginId),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.workerPool.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.workerPool.allowCoreThreadTimeOut(true);
         this.timeLimiter = TimeLimiter.of(
                 this.pluginId,
                 TimeLimiterConfig.custom()
@@ -95,6 +103,9 @@ public final class PluginWorkExecutor {
                         .build());
         this.timeoutScheduler =
                 new ScheduledThreadPoolExecutor(1, new PluginWorkThreadFactory(this.pluginId + "-timeout"));
+        this.timeoutScheduler.setRemoveOnCancelPolicy(true);
+        this.timeoutScheduler.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.timeoutScheduler.allowCoreThreadTimeOut(true);
     }
 
     /**

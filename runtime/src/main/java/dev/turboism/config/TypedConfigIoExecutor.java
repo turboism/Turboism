@@ -19,6 +19,8 @@ import java.util.function.Supplier;
 final class TypedConfigIoExecutor implements AutoCloseable {
 
     private static final long CLOSE_TIMEOUT_SECONDS = 5L;
+    /** Idle I/O worker retires after this delay; the next submission respawns it. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final RuntimePluginTaskScheduler tasks;
     private final ThreadPoolExecutor executor;
@@ -40,6 +42,8 @@ final class TypedConfigIoExecutor implements AutoCloseable {
                     return thread;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
+        this.executor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.executor.allowCoreThreadTimeOut(true);
     }
 
     <T> CompletionStage<T> submit(final Supplier<T> action, final Supplier<T> unavailable) {

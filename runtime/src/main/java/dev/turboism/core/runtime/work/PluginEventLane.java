@@ -25,6 +25,8 @@ import java.util.function.Consumer;
 public final class PluginEventLane {
 
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 5L;
+    /** Idle delivery worker retires after this delay; the next drain respawns it. */
+    private static final long IDLE_THREAD_RETIRE_MILLIS = 60_000L;
 
     private final String pluginId;
     private final Consumer<PluginWorkBudgetEvent> diagnosticSink;
@@ -42,6 +44,8 @@ public final class PluginEventLane {
                 new ArrayBlockingQueue<>(queueCapacity),
                 new PluginWorkThreadFactory(this.pluginId + "-event"),
                 new ThreadPoolExecutor.AbortPolicy());
+        this.worker.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
+        this.worker.allowCoreThreadTimeOut(true);
     }
 
     /**

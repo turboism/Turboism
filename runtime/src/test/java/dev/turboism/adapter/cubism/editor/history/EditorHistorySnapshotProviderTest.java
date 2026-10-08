@@ -57,6 +57,52 @@ class EditorHistorySnapshotProviderTest {
     }
 
     @Test
+    void unchangedChangeStampSkipsTheEdtProjectionAndAStampBumpRebuilds() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Set Parameter", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        final AtomicLong stamp = new AtomicLong(10);
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver()), () -> 4, stamp::get);
+
+        final HistorySnapshot first = provider.snapshot();
+        entry.label = "Mutated without an undo notification";
+        final HistorySnapshot skipped = provider.snapshot();
+        assertSame(first, skipped, "an unchanged stamp must not pay for another projection");
+        assertEquals("Set Parameter", skipped.entries().get(0).label());
+
+        stamp.incrementAndGet();
+        assertEquals(
+                "Mutated without an undo notification",
+                provider.snapshot().entries().get(0).label());
+    }
+
+    @Test
+    void unchangedChangeStampStillRevalidatesMutableFieldsAfterABoundedRun() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Set Parameter", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        final AtomicLong stamp = new AtomicLong(10);
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver()), () -> 4, stamp::get);
+
+        final HistorySnapshot first = provider.snapshot();
+        for (int poll = 0; poll < 10; poll++) {
+            assertSame(first, provider.snapshot(), "poll " + poll + " should reuse the cache");
+        }
+
+        entry.label = "Mutated without an undo notification";
+        assertEquals(
+                "Mutated without an undo notification",
+                provider.snapshot().entries().get(0).label(),
+                "after the bounded run the gate must re-project even with an unchanged stamp");
+    }
+
+    @Test
     void enrichesOnlyEntriesRegisteredByTurboism() {
         final Manager manager = new Manager();
         final Entry nativeEntry = new Entry("Native edit", true);

@@ -113,13 +113,12 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         final PendingSettings pending = new PendingSettings(agentId, customCommand, initialPrompt);
         pendingSettings.set(pending);
         submit(() -> {
-            try {
-                if (!saveSettingsNow(agentId, customCommand, initialPrompt)) return;
-                ui(() -> view.showConnecting(agentLabel(settings.agentId())));
-                connectNow();
-            } finally {
-                pendingSettings.compareAndSet(pending, null);
-            }
+            // Consume the pending entry once this task starts so a close() racing the
+            // failure status cannot re-save values a failed write just rolled back.
+            pendingSettings.compareAndSet(pending, null);
+            if (!saveSettingsNow(agentId, customCommand, initialPrompt)) return;
+            ui(() -> view.showConnecting(agentLabel(settings.agentId())));
+            connectNow();
         });
     }
 
@@ -128,12 +127,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
         final PendingSettings pending = new PendingSettings(agentId, customCommand, initialPrompt);
         pendingSettings.set(pending);
         submit(() -> {
-            try {
-                if (saveSettingsNow(agentId, customCommand, initialPrompt)) {
-                    ui(view::showSettingsSaved);
-                }
-            } finally {
-                pendingSettings.compareAndSet(pending, null);
+            pendingSettings.compareAndSet(pending, null);
+            if (saveSettingsNow(agentId, customCommand, initialPrompt)) {
+                ui(view::showSettingsSaved);
             }
         });
     }
@@ -1183,8 +1179,9 @@ final class AcpChatController implements AutoCloseable, AcpListener {
             mcpConnection = latest;
             return;
         }
-        ui(() -> view.showSessionFailure("status.mcp-endpoint-changed"));
-        // Coalesce restart bursts (publish→revoke→publish) into one reconnect to the final endpoint.
+        // Coalesce restart bursts (publish→revoke→publish) into one reconnect to the final
+        // endpoint. Queue the reconnect before publishing the failure so observers that react
+        // to the signal always find the reconnect already scheduled on the serial executor.
         if (mcpReconnectQueued.compareAndSet(false, true)) {
             try {
                 serial.execute(this::reconnectForMcpDrift);
@@ -1192,6 +1189,7 @@ final class AcpChatController implements AutoCloseable, AcpListener {
                 mcpReconnectQueued.set(false);
             }
         }
+        ui(() -> view.showSessionFailure("status.mcp-endpoint-changed"));
     }
 
     /**

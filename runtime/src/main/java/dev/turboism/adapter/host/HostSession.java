@@ -93,7 +93,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.sdk.cubism.history.CubismHistory history =
             new dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider(
                     this::optionalEditorModelResolver,
-                    () -> editorUiLifecycle.snapshot().generation());
+                    () -> editorUiLifecycle.snapshot().generation(),
+                    this::historyChangeStamp);
     private final EditorUiContributionAuthority editorUiContributions =
             new EditorUiContributionAuthority(editorUiLifecycle);
     private final RuntimeEmbeddedPanelActivationCoordinator embeddedPanelActivation =
@@ -777,6 +778,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                             + unavailable.getClass().getName()
                             + (unavailable.getMessage() == null ? "" : ": " + unavailable.getMessage()));
         }
+    }
+
+    /**
+     * Off-EDT signal for the history snapshot skip gate: listener notifications,
+     * executed drains and the bound undo-manager epoch together cover undo
+     * admissions, the deferred metadata they publish and active-document
+     * switches, so any of those moves the stamp. A detached ingress reports -1
+     * and the snapshot falls back to the full EDT projection.
+     */
+    private long historyChangeStamp() {
+        return nativeEditIngress.changeStamp();
     }
 
     private void bindTextureAtlasEditorSession(final long generation, final HostAdapterConnection connection) {
