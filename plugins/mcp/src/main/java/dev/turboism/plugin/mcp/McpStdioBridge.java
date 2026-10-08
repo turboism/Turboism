@@ -37,14 +37,22 @@ final class McpStdioBridge {
 
     private McpStdioBridge() {}
 
-    /** Writes the bridge source unless an identical file is already present. */
+    /**
+     * Writes the bridge source unless an identical file is already present.
+     * {@code warning} is invoked when the filesystem cannot express owner-only
+     * permissions for the published file.
+     */
     static Path publish(final Path stateDir) throws IOException {
+        return publish(stateDir, warning -> {});
+    }
+
+    static Path publish(final Path stateDir, final java.util.function.Consumer<String> warning) throws IOException {
         final Path file = Objects.requireNonNull(stateDir, "stateDir").resolve(FILE_NAME);
         final byte[] content = sourceFor(stateDir).getBytes(StandardCharsets.UTF_8);
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) && Arrays.equals(Files.readAllBytes(file), content)) {
             return file;
         }
-        McpStateFiles.publish(file, ".mcp-bridge-", content);
+        McpStateFiles.publish(file, ".mcp-bridge-", content, warning);
         return file;
     }
 
@@ -144,12 +152,48 @@ final class McpStdioBridge {
             if (!source.contains(STATE_DIR_PLACEHOLDER)) {
                 throw new IOException("MCP stdio bridge resource is malformed");
             }
+            // The absolute path lands inside a Java string literal in the published
+            // bridge source, so every character that could escape the literal or
+            // confuse the single-file launcher is mapped to a standard escape.
             return source.replace(
                     STATE_DIR_PLACEHOLDER, javaLiteral(stateDir.toAbsolutePath().toString()));
         }
     }
 
     private static String javaLiteral(final String value) {
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+        final StringBuilder out = new StringBuilder(value.length() + 8);
+        for (int index = 0; index < value.length(); index++) {
+            final char c = value.charAt(index);
+            switch (c) {
+                case '\\':
+                    out.append("\\\\");
+                    break;
+                case '"':
+                    out.append("\\\"");
+                    break;
+                case '\b':
+                    out.append("\\b");
+                    break;
+                case '\f':
+                    out.append("\\f");
+                    break;
+                case '\n':
+                    out.append("\\n");
+                    break;
+                case '\r':
+                    out.append("\\r");
+                    break;
+                case '\t':
+                    out.append("\\t");
+                    break;
+                default:
+                    if (c < 0x20 || c == 0x7F || !Character.isDefined(c)) {
+                        out.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        out.append(c);
+                    }
+            }
+        }
+        return out.toString();
     }
 }
