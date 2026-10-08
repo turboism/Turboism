@@ -1,14 +1,18 @@
 # Security Policy
 
-## Supported state
+## Supported versions
 
-Turboism is under active private development. There is no publicly released
-installer or plugin yet. Because nothing is released, there are no released
-versions entitled to security support at this time; the framework tracks
-security issues on its development branch until a public release is made.
+Turboism publishes installers and plugin packages through GitHub Releases.
+Security fixes are handled on a best-effort basis and land on the current
+development line, shipping with the next tagged release.
 
-Security fixes are handled on a best-effort basis and are incorporated into
-the next development revision.
+- **Latest stable release** — supported (currently the `0.44.x` line; see the
+  tagged releases on the
+  [Releases page](https://github.com/turboism/Turboism/releases)).
+- **Nightly builds** (`v*-0.nightly.*`) — development snapshots; not
+  separately supported, update to the latest build.
+- **Older release lines** (0.43.x and earlier) — no backports; please
+  upgrade.
 
 ## Reporting a vulnerability
 

@@ -133,9 +133,8 @@ public final class SettingsPageProbePlugin implements TurboismPlugin {
         boolean pass = false;
         try {
             // Readiness = the Turboism > Settings menu item rendered and enabled.
-            // The preview runtime report is deliberately NOT a gate: a known main
-            // regression (strict preview-report validator rejects
-            // localeSource=STARTUP) can leave the report unwritten until shutdown.
+            // The preview runtime report is deliberately not a gate for this
+            // probe: readiness here is menu rendering, not runtime state.
             // Host identity is already pinned by the runner's exact-JAR gate.
             if (PERFORMANCE && EDGE_INDEX) throw new IllegalArgumentException("settings modes are mutually exclusive");
             if (STARTUP_ONLY && (!EDGE_INDEX || PERFORMANCE)) {
