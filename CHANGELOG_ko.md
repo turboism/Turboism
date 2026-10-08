@@ -10,6 +10,12 @@ Turboism의 모든 주요 변경 사항은 이 파일에 기록됩니다.
 
 ### 추가
 
+- `acp` 정밀 실기 검증 기능이 로컬 검증 큐에 합류: test-only 프로브가 실제 Cubism 세션 안에서
+  공개 action catalog 을 통해 ACP 에이전트 창을 열고, 스크립트화된 페이크 에이전트(디폴트 패키지
+  `acp` 엔트리)가 자격 증명 없는 stdio MCP 부착을 단언하며 토큰 게이트 `TurboismMcpBridge` 를
+  통한 한 번의 rename 쓰기와 가드된 undo 를 수행. SDK 교차 재독이 문서 복원을 재확인하고
+  5.2.03·5.3.02·5.3.03 에서 호스트가 정상 종료됩니다.
+
 - 개발 전용이던 에이전트 채팅 플러그인을 범용 `Turboism ACP` 플러그인
   (`dev.turboism.plugin.acp`)으로 재작성했습니다. 사용자가 설치한 ACP 호환 에이전트
   (Claude Agent ACP, Codex ACP, Antigravity, Gemini CLI, OpenCode, Pi, Devin CLI 또는
