@@ -61,20 +61,27 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @Test
-    void compatibleTextureContractEnablesReadsAndWrites() {
+    void unreviewedTextureVersionsRejectAllReadsAndWrites() {
         for (String version : List.of("5.3.04", "5.4.00")) {
             final RecordingTextures delegate = new RecordingTextures();
             final ModelTextures textures = wrapped(version, delegate);
-            textures.addModelImageGroup("group");
-            textures.removeModelImage(new ModelImageId("image"));
-            textures.addTextureAtlas("atlas", 64, 64);
-            textures.removeTextureAtlas(new TextureAtlasId("atlas"));
-            textures.removeRawImage(new RawImageId("raw"));
-            assertEquals(List.of(), textures.rawImages());
-            assertEquals(List.of(), textures.modelImageGroups());
-            assertEquals(List.of(), textures.textureAtlases());
-            assertEquals(5, delegate.writes);
-            assertEquals(3, delegate.reads);
+            assertThrows(
+                    CubismEditorApiUnavailableException.class, () -> textures.addModelImageGroup("group"));
+            assertThrows(
+                    CubismEditorApiUnavailableException.class,
+                    () -> textures.removeModelImage(new ModelImageId("image")));
+            assertThrows(
+                    CubismEditorApiUnavailableException.class, () -> textures.addTextureAtlas("atlas", 64, 64));
+            assertThrows(
+                    CubismEditorApiUnavailableException.class,
+                    () -> textures.removeTextureAtlas(new TextureAtlasId("atlas")));
+            assertThrows(
+                    CubismEditorApiUnavailableException.class, () -> textures.removeRawImage(new RawImageId("raw")));
+            assertThrows(CubismEditorApiUnavailableException.class, textures::rawImages);
+            assertThrows(CubismEditorApiUnavailableException.class, textures::modelImageGroups);
+            assertThrows(CubismEditorApiUnavailableException.class, textures::textureAtlases);
+            assertEquals(0, delegate.writes);
+            assertEquals(0, delegate.reads);
         }
     }
 
@@ -93,7 +100,7 @@ final class TextureMetadataAvailabilityRegressionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"5.3.02", "5.3.99"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"5.3.02", "5.3.03"})
     void matchingVersionWithOnlyReadCapabilityCannotWriteTextures(final String version) {
         final RecordingTextures delegate = new RecordingTextures();
         final ModelTextures textures = new CubismEditorApiAvailabilityInterceptor(

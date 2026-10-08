@@ -236,6 +236,25 @@ final class PermissionCheckedWarpDeformer extends PermissionCheckedDeformer
     }
 
     @Override
+    public dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot authoringSnapshot() {
+        facade.requireModelRead("warpDeformer.authoringSnapshot");
+        return warp.authoringSnapshot();
+    }
+
+    @Override
+    public void setOrdinaryKeyformPositions(
+            final dev.turboism.sdk.cubism.model.WarpAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.WarpKeyformPositions> edits) {
+        facade.requireModelWrite("warpDeformer.setOrdinaryKeyformPositions");
+        final var input = List.copyOf(edits);
+        facade.runSemantic(
+                CubismOperation.SET_WARP_KEYFORM_POSITIONS_BATCH,
+                warp.id().value(),
+                warp::authoringSnapshot,
+                () -> warp.setOrdinaryKeyformPositions(expected, input));
+    }
+
+    @Override
     public void replaceGrid(final dev.turboism.sdk.cubism.model.WarpGrid grid) {
         facade.requireModelWrite("warpDeformer.replaceGrid");
         facade.runSemantic(
@@ -272,6 +291,25 @@ final class PermissionCheckedRotationDeformer extends PermissionCheckedDeformer
                 id().value(),
                 rotation::baseAngle,
                 () -> facade.editorObjectLifecycle.deformer().setBaseAngle(this, angle, rotation::setBaseAngle));
+    }
+
+    @Override
+    public dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot authoringSnapshot() {
+        facade.requireModelRead("rotationDeformer.authoringSnapshot");
+        return rotation.authoringSnapshot();
+    }
+
+    @Override
+    public void setOrdinaryKeyformForms(
+            final dev.turboism.sdk.cubism.model.RotationAuthoringSnapshot expected,
+            final List<dev.turboism.sdk.cubism.model.RotationKeyformForm> edits) {
+        facade.requireModelWrite("rotationDeformer.setOrdinaryKeyformForms");
+        final var input = List.copyOf(edits);
+        facade.runSemantic(
+                CubismOperation.SET_ROTATION_KEYFORM_FORMS_BATCH,
+                rotation.id().value(),
+                rotation::authoringSnapshot,
+                () -> rotation.setOrdinaryKeyformForms(expected, input));
     }
 
     @Override

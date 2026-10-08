@@ -66,6 +66,20 @@ final class CoreStructuralTracer implements AutoCloseable {
         }
     }
 
+    /**
+     * Whether {@code model} is a receiver the bound Core call sites accept — i.e. an
+     * instance of the verified public {@code CubismModel} declaring class. Publish gates
+     * use it to refuse non-Core objects (for example the Editor's document {@code CModel}).
+     */
+    boolean acceptsCoreModel(final Object model) {
+        lifecycle.readLock().lock();
+        try {
+            return !closed && callSites.acceptsModel(model);
+        } finally {
+            lifecycle.readLock().unlock();
+        }
+    }
+
     @Override
     public void close() {
         lifecycle.writeLock().lock();

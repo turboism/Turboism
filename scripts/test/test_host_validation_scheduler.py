@@ -32,8 +32,9 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "animation-timeline", "atlas", "backup", "backup-interactive", "backup-webdav", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition",
-            "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-update-skip", "parameter",
+            "acp", "animation-timeline", "atlas", "backup", "backup-interactive", "backup-webdav", "boundingbox-warp-mirror", "clipmask-viewer", "core-acquisition",
+            "dialog-automation", "edit", "edit-protocol", "fps", "host-locale", "incremental-update", "mcp", "model-import-3d",
+            "model-import-3d-user-entry", "model-update-skip", "official-core", "official-viewer", "parameter",
             "parameter-batch-transfer", "protected-export", "psd-clip-mask",
             "recent-preview", "selection-brush", "selection-lag", "separate-save-path",
             "startup-suppression", "status-bar", "theme", "update-check", "warp-deformer-alt-symmetry", "workspace",

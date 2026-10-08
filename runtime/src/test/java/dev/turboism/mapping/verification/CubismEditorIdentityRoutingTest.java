@@ -15,12 +15,12 @@ class CubismEditorIdentityRoutingTest {
 
         assertEquals("5.3.03", EditorModelVerificationManifest.resourceProfileForArtifact(artifact));
         assertManifest(
-                EditorModelVerificationManifest.forArtifact(artifact),
-                "cubism-5.3.03.editor-model.static",
-                "8b4d407970b539afd51923ecbd48aa7da47c0cb076f02ffffbe3f391804ea447",
-                EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-                EditorModelVerificationManifest.cubism5303Capabilities(),
-                EditorModelVerificationManifest.cubism5303StaticAliases());
+            EditorModelVerificationManifest.forArtifact(artifact),
+            "cubism-5.3.03.editor-model.static",
+            "d42838630285f674821542f5fd718bd2831bd10bc4fa2c295644e3bdc068a5c2",
+            EditorModelVerificationManifest.ADAPTER_SLICE_ID,
+            EditorModelVerificationManifest.cubism5303Capabilities(),
+            EditorModelVerificationManifest.cubism5303Aliases());
         assertManifest(
                 ProjectWorkspaceVerificationManifest.forArtifact(artifact),
                 "m15.cubism-5.3.03.project-workspace.static",

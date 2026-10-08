@@ -20,6 +20,23 @@ interface ActiveCoreModelSource extends AutoCloseable {
     }
 
     /**
+     * Records that publication under {@code identity} was refused, so reads derived from that
+     * identity fail closed for every reader sharing this source instead of falling through to
+     * a previously published model belonging to a different binding. The default ignores it;
+     * sources that can hold a borrowed model override this (see {@link BorrowedCoreModelSource}).
+     */
+    default void refusePublication(String identity) {
+    }
+
+    /**
+     * Reports whether {@code identity} equals or derives from ({@code refused + ":"}) a publish
+     * identity whose publication was refused. The default reports no refusal.
+     */
+    default boolean isRefusedPublication(String identity) {
+        return false;
+    }
+
+    /**
      * Requests a non-blocking release of the borrowed model: it is forgotten as soon as no lease
      * is outstanding; a later publication cancels the pending release. The default does nothing;
      * sources holding a borrowed model override this (see {@link BorrowedCoreModelSource}).

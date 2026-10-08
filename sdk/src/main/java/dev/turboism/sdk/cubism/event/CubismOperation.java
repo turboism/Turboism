@@ -54,6 +54,19 @@ public enum CubismOperation {
     SET_DRAWABLE_LOCKED("cubism.model.art-mesh.set-locked"),
     /** Replaces ArtMesh authoring geometry. */
     REPLACE_DRAWABLE_GEOMETRY("cubism.model.art-mesh.replace-geometry"),
+    /** Changes only an explicitly selected stored ArtMesh keyform's positions. */
+    SET_DRAWABLE_KEYFORM_POSITIONS("cubism.model.art-mesh.keyform.set-positions"),
+    /** Replaces multiple ordinary keyform positions in one protected authoring contribution. */
+    SET_DRAWABLE_KEYFORM_POSITIONS_BATCH("cubism.model.art-mesh.keyforms.set-positions"),
+    /** Changes only an explicitly selected stored ArtMesh keyform's draw order. */
+    SET_DRAWABLE_KEYFORM_DRAW_ORDER("cubism.model.art-mesh.keyform.set-draw-order"),
+    SET_DRAWABLE_KEYFORM_DRAW_ORDERS_BATCH("cubism.model.art-mesh.keyform.set-draw-orders-batch"),
+    /** Creates one non-basic ArtMesh morph member with an absolute stored form. */
+    CREATE_DRAWABLE_MORPH_KEYFORM("cubism.model.art-mesh.morph-keyform.create"),
+    /** Changes only the absolute positions of an existing ArtMesh morph member. */
+    SET_DRAWABLE_MORPH_KEYFORM_POSITIONS("cubism.model.art-mesh.morph-keyform.set-positions"),
+    /** Changes only the absolute stored draw order of an existing ArtMesh morph member. */
+    SET_DRAWABLE_MORPH_KEYFORM_DRAW_ORDER("cubism.model.art-mesh.morph-keyform.set-draw-order"),
     /** Changes Deformer opacity. */
     SET_DEFORMER_OPACITY("cubism.model.deformer.set-opacity"),
     /** Changes Deformer visibility. */
@@ -62,6 +75,10 @@ public enum CubismOperation {
     SET_DEFORMER_LOCKED("cubism.model.deformer.set-locked"),
     /** Replaces a Warp Deformer grid. */
     REPLACE_WARP_DEFORMER_GRID("cubism.model.warp-deformer.replace-grid"),
+    /** Replaces independently stored Rotation forms in one compare-and-set batch. */
+    SET_ROTATION_KEYFORM_FORMS_BATCH("cubism.model.rotation-deformer.keyforms.set-forms"),
+    /** Writes absolute controls in existing non-default ordinary Warp forms. */
+    SET_WARP_KEYFORM_POSITIONS_BATCH("cubism.model.warp-deformer.keyforms.set-positions"),
     /** Changes a Rotation Deformer base angle. */
     SET_ROTATION_DEFORMER_BASE_ANGLE("cubism.model.rotation-deformer.set-base-angle"),
     /** Replaces a Rotation Deformer form. */
@@ -101,6 +118,10 @@ public enum CubismOperation {
     REINITIALIZE_MODEL("cubism.editor.model.reinitialize"),
     /** Reinitializes a texture atlas. */
     REINITIALIZE_TEXTURE_ATLAS("cubism.editor.texture-atlas.reinitialize"),
+    /** Registers one authorized image as a raw layered image and model image. */
+    REGISTER_MODEL_IMAGE("cubism.editor.texture.register-model-image"),
+    /** Binds a registered model image to an ArtMesh through the texture-input extension. */
+    BIND_MODEL_IMAGE("cubism.editor.texture.bind-model-image"),
     /** Executes a typed semantic Editor command identified by the event subject. */
     EXECUTE_EDITOR_COMMAND("cubism.editor.command.execute"),
     /** Opens a semantic object context menu. */
