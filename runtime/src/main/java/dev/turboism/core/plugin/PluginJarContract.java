@@ -1,14 +1,20 @@
 package dev.turboism.core.plugin;
 
 import dev.turboism.sdk.plugin.PluginDescriptor;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /** Shared descriptor-to-JAR content contract used by all plugin loaders. */
 public final class PluginJarContract {
 
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
+    private static final String RETIRED_PLUGINS_RESOURCE = "/META-INF/turboism/retired-plugins.txt";
 
     /**
      * Retired or superseded plugin ids: every valid JAR descriptor carrying one of these ids is
@@ -22,15 +28,44 @@ public final class PluginJarContract {
      * upgraded install can hold both a stale {@code backup.jar} and the new
      * {@code webdav-backup.jar}. Denying the old id guarantees a single WebDAV entry even when the
      * stale file survives a failed deletion or a manual copy.</p>
+     *
+     * <p>The set is loaded from the single manifest shared with the installers
+     * ({@code packaging/retired-plugins.txt}), bundled into the runtime JAR at build time. A missing
+     * or malformed manifest fails class initialization closed rather than guessing ids.</p>
      */
-    public static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
-            "dev.turboism.plugin.logfilter",
-            "dev.turboism.plugin.clipmask",
-            "dev.turboism.plugin.perfopt",
-            "dev.turboism.plugin.renderopt",
-            "dev.turboism.plugin.backup");
+    public static final Set<String> RETIRED_PLUGIN_IDS = loadRetiredPluginIds();
 
     private PluginJarContract() {}
+
+    /**
+     * Loads the bundled retired-plugin manifest shared with the installers. Entries must be exact
+     * {@code dev.turboism.plugin.<name>} ids, non-empty, unique and ASCII-sorted; any deviation
+     * fails class initialization closed.
+     */
+    private static Set<String> loadRetiredPluginIds() {
+        try (InputStream in = PluginJarContract.class.getResourceAsStream(RETIRED_PLUGINS_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException("bundled retired plugin manifest is missing");
+            }
+            final List<String> ids = new ArrayList<>();
+            for (String line : new String(in.readAllBytes(), StandardCharsets.UTF_8).split("\n")) {
+                final String entry = line.strip();
+                if (!entry.matches("dev\\.turboism\\.plugin\\.[a-z0-9-]+")) {
+                    throw new IllegalStateException("retired plugin manifest contains an invalid entry");
+                }
+                if (!ids.isEmpty() && ids.get(ids.size() - 1).compareTo(entry) >= 0) {
+                    throw new IllegalStateException("retired plugin manifest is not ASCII-sorted and unique");
+                }
+                ids.add(entry);
+            }
+            if (ids.isEmpty()) {
+                throw new IllegalStateException("retired plugin manifest is empty");
+            }
+            return Set.copyOf(ids);
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read bundled retired plugin manifest", e);
+        }
+    }
 
     /**
      * Checks a plugin descriptor against the actual contents of its JAR.

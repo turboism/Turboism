@@ -1,0 +1,16 @@
+# Normalize text checkouts to LF; Windows-script payloads keep CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary payloads are never line-ending converted.
+*.jar binary
+*.zip binary
+*.exe binary
+*.dll binary
+*.png binary
+*.ico binary
+*.icns binary
+*.jfr binary
+*.class binary

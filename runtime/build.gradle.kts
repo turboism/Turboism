@@ -179,6 +179,14 @@ tasks.named<ProcessResources>("processResources") {
     from(frameworkVersionResource) {
         into("META-INF/turboism")
     }
+    // Single-source manifests shared with the packaging/installer lanes; bundled
+    // so the runtime reads byte-identical pins and retired ids at runtime.
+    from(rootProject.file("packaging/retired-plugins.txt")) {
+        into("META-INF/turboism")
+    }
+    from(rootProject.file("packaging/managed-graal.json")) {
+        into("META-INF/turboism")
+    }
 }
 
 tasks.named("compileJava") {
