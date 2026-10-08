@@ -9,25 +9,25 @@
 
 | 版本 | 精确静态记录能力数 | 无精确记录能力数 | 支持能力集 | 不支持能力集 | 状态 |
 | --- | ---: | ---: | --- | --- | --- |
-| 5.0.00 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.01 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.02 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple）；MCP除authoring事务外场景（参数/绑定/纹理写入、五类保存重开、FREE夹具准备恢复） | 完整Drawable／Glue／Deformer；MCP authoring事务execute返回UNAVAILABLE；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.03 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.04 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.05 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.0.06 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.1.00 | 97 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.1.01 | 97 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.1.02 | 104 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.1.03 | 104 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple）；MCP除authoring事务外场景（含五类纹理保存重开） | 完整Drawable／Glue／Deformer；MCP authoring事务execute返回UNAVAILABLE；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
-| 5.2.00 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景（含Glue/参数/绑定/纹理保存重开/恢复） | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.2.01 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.2.02 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.2.03 | 126 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.3.00 | 129 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.3.01 | 129 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；完整MCP场景含非空Editor Glue／参数／绑定恢复、五类纹理保存重开及Screen／Multiply Color准备恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.3.02 | 128 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
-| 5.3.03 | 127 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | 其他能力待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.0.00 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数批量迁移r1模型加载超时（基础设施）、工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.01 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数批量迁移r1模型加载超时（基础设施）、工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.02 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple）；MCP除authoring事务外场景（参数/绑定/纹理写入、五类保存重开、FREE夹具准备恢复） | 完整Drawable／Glue／Deformer；MCP authoring事务execute返回UNAVAILABLE；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径morph行BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.03 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.04 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.05 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.0.06 | 90 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区项目就绪超时待复测；其他待证 | 部分场景通过；全能力进行中 |
+| 5.1.00 | 97 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple）；工作区切换/重连 | 完整Drawable／Glue／Deformer；PBT夹具超FREE每对象2参数上限被取消（许可边界，非API拒绝）；其他待证；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
+| 5.1.01 | 97 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
+| 5.1.02 | 104 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple） | 完整Drawable／Glue／Deformer；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；工作区宿主就绪超时待复测；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
+| 5.1.03 | 104 | owned-MOC Canvas／参数／部件及生命周期（限Haru）；非空纹理关系图（限Simple）；MCP除authoring事务外场景（含五类纹理保存重开）；工作区切换/重连 | 完整Drawable／Glue／Deformer；MCP authoring事务execute返回UNAVAILABLE；参数值编辑无验证证据被准入拒绝（PBT写路径BLOCKED）；其他待证 | 当前owned provider明确拒绝完整Drawable／Glue／Deformer；其他待证 | 部分场景通过；全能力进行中 |
+| 5.2.00 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景（含Glue/参数/绑定/纹理保存重开/恢复）；动画时间线全场景 | PBT夹具超FREE参数上限被取消（许可边界）；工作区宿主就绪超时待复测；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.2.01 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；参数批量迁移全场景（含morph scaffold三行）；动画时间线全场景；工作区切换/重连 | 其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.2.02 | 123 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；参数批量迁移全场景（含morph scaffold三行）；动画时间线全场景 | 工作区宿主就绪超时待复测；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.2.03 | 126 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；参数批量迁移全场景（含morph scaffold三行）；动画时间线全场景；工作区切换/重连 | 其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.3.00 | 129 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察 | PBT/动画时间线夹具超FREE参数上限被取消（许可边界）；工作区宿主就绪超时待复测；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.3.01 | 129 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；完整MCP场景含非空Editor Glue／参数／绑定恢复、五类纹理保存重开及Screen／Multiply Color准备恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察；参数批量迁移全场景（含morph scaffold三行）；工作区切换/重连 | 动画时间线夹具超FREE参数上限被取消（许可边界）；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.3.02 | 128 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察；动画时间线全场景；工作区切换/重连 | 参数批量迁移待专属夹具（TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302未配置）；其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
+| 5.3.03 | 127 | owned-MOC结构getter／生命周期（限Haru；非空Glue待证）；非空纹理关系图（限夹具）；完整MCP场景；PSD原生仅保存观察；参数批量迁移全场景（含morph scaffold三行）；动画时间线全场景；工作区切换/重连 | 其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
 | 5.3.04 | 131 | owned-MOC结构getter／生命周期（限Haru；Core非空Glue待证）；完整MCP场景含Editor非空Glue、参数／绑定／纹理写入恢复与保存重开、命令执行恢复；非空纹理关系图（限夹具）；PSD原生仅保存观察；参数批量迁移全场景（keyform行含真实重映射、morph行含scaffold夹具wide/narrow/invert三行迁移+撤销/重做+存储态form关联+还原，narrow行实证morph按契约"原样搬移不clamp"）；动画时间线；工作区 | 其他待证 | 其他能力待证 | 部分场景通过；全能力进行中 |
 
 5.3.04 MCP free-r6通过范围见[mcp-texture-coverage.json](mcp-texture-coverage.json)及原始client结果；Workspace control为UNAVAILABLE，Core诊断与验证专用native保存不能折算为对应完整生产能力。5.3.01 free-r2也已完整场景PASS（含Multiply Color）。5.2.02 free-r2停在现有Trial欢迎modal，复测待终态；旧owned-MOC通过仅对其当时冻结产物有效。
