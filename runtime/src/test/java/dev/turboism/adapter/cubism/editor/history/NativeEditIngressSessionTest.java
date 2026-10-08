@@ -106,16 +106,16 @@ public class NativeEditIngressSessionTest {
         fixture.replaceManager();
         new App(fixture.manager);
 
-        assertNotEquals(bound, fixture.session.changeStamp(),
-            "a document switch must move the stamp even without an edit");
+        assertNotEquals(
+                bound, fixture.session.changeStamp(), "a document switch must move the stamp even without an edit");
         fixture.runPosted();
         assertEquals(0, previous.listenerCount(), "the stale listener must be detached");
         assertEquals(1, fixture.manager.listenerCount(), "the listener followed the active document");
 
         final long rebound = fixture.session.changeStamp();
         App.current = null;
-        assertNotEquals(rebound, fixture.session.changeStamp(),
-            "an unresolvable active document must also move the stamp");
+        assertNotEquals(
+                rebound, fixture.session.changeStamp(), "an unresolvable active document must also move the stamp");
         fixture.session.close();
     }
 
@@ -135,8 +135,10 @@ public class NativeEditIngressSessionTest {
         assertNotEquals(cached, fixture.session.changeStamp());
         fixture.runPosted(); // the rebind replaces the ingress and resets its notification count
 
-        assertNotEquals(cached, fixture.session.changeStamp(),
-            "notifications reset by a rebind must not reproduce a stamp a reader already cached");
+        assertNotEquals(
+                cached,
+                fixture.session.changeStamp(),
+                "notifications reset by a rebind must not reproduce a stamp a reader already cached");
         fixture.session.close();
     }
 

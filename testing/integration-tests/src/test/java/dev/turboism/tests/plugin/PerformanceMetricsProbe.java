@@ -5,7 +5,6 @@ import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.performance.PerformanceSnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +13,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Exact-host performance evidence probe: a manual-test-only SDK plugin that
@@ -42,8 +40,7 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
     static final String INTERVAL_PROPERTY = "turboism.perfMetrics.intervalMillis";
     static final int MAX_PHASE_BYTES = 64;
     private static final Duration DEFAULT_INTERVAL = Duration.ofSeconds(1);
-    private static final String HEADER =
-        "epoch_ms,phase,cpu_percent,fps,rendered_frames,"
+    private static final String HEADER = "epoch_ms,phase,cpu_percent,fps,rendered_frames,"
             + "heap_used_bytes,nonheap_bytes,gc_collections,gc_pause_millis";
 
     private final Object lifecycle = new Object();
@@ -76,24 +73,24 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
             phasePath = stateDir.resolve(PHASE_FILE);
             final boolean writeHeader = !Files.exists(metricsPath) || Files.size(metricsPath) == 0L;
             writer = Files.newBufferedWriter(
-                metricsPath,
-                StandardCharsets.UTF_8,
-                java.nio.file.StandardOpenOption.CREATE,
-                java.nio.file.StandardOpenOption.APPEND
-            );
+                    metricsPath,
+                    StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
             if (writeHeader) {
                 writer.write(HEADER);
                 writer.newLine();
                 writer.flush();
             }
             final PerformanceProbeService stats = current.services()
-                .find(PerformanceProbeService.class)
-                .orElseGet(PerformanceProbeService::unavailable);
+                    .find(PerformanceProbeService.class)
+                    .orElseGet(PerformanceProbeService::unavailable);
             sampling = stats.sample(interval(), this::append);
             current.logger().info("Performance metrics sampling -> " + metricsPath);
         } catch (RuntimeException | IOException failure) {
-            current.logger().warn("Performance metrics probe failed to enable: "
-                + failure.getClass().getSimpleName() + " " + failure.getMessage());
+            current.logger()
+                    .warn("Performance metrics probe failed to enable: "
+                            + failure.getClass().getSimpleName() + " " + failure.getMessage());
             synchronized (lifecycle) {
                 enabled = false;
             }
@@ -161,8 +158,7 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
             return;
         }
         try {
-            open.write(
-                String.format(
+            open.write(String.format(
                     Locale.ROOT,
                     "%d,%s,%.3f,%.3f,%d,%d,%d,%d,%d",
                     snapshot.timestampEpochMs(),
@@ -173,15 +169,14 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
                     snapshot.jvmHeapBytes(),
                     snapshot.jvmNonHeapBytes(),
                     snapshot.gcCollections(),
-                    snapshot.gcPauseMillis()
-                )
-            );
+                    snapshot.gcPauseMillis()));
             open.newLine();
             open.flush();
         } catch (IOException failure) {
             if (context != null) {
-                context.logger().warn("Performance metrics write failed: "
-                    + failure.getClass().getSimpleName());
+                context.logger()
+                        .warn("Performance metrics write failed: "
+                                + failure.getClass().getSimpleName());
             }
         }
     }
@@ -196,9 +191,9 @@ public final class PerformanceMetricsProbe implements CubismPlugin {
                 return "";
             }
             final String raw = Files.readString(marker, StandardCharsets.UTF_8)
-                .lines()
-                .findFirst()
-                .orElse("");
+                    .lines()
+                    .findFirst()
+                    .orElse("");
             final StringBuilder clean = new StringBuilder(raw.length());
             for (int i = 0; i < raw.length(); i++) {
                 final char c = raw.charAt(i);

@@ -64,11 +64,8 @@ class EditorHistorySnapshotProviderTest {
         manager.position = 1;
         Host.document = new Document(manager);
         final AtomicLong stamp = new AtomicLong(10);
-        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
-            () -> Optional.of(resolver()),
-            () -> 4,
-            stamp::get
-        );
+        final EditorHistorySnapshotProvider provider =
+                new EditorHistorySnapshotProvider(() -> Optional.of(resolver()), () -> 4, stamp::get);
 
         final HistorySnapshot first = provider.snapshot();
         entry.label = "Mutated without an undo notification";
@@ -77,8 +74,9 @@ class EditorHistorySnapshotProviderTest {
         assertEquals("Set Parameter", skipped.entries().get(0).label());
 
         stamp.incrementAndGet();
-        assertEquals("Mutated without an undo notification",
-            provider.snapshot().entries().get(0).label());
+        assertEquals(
+                "Mutated without an undo notification",
+                provider.snapshot().entries().get(0).label());
     }
 
     @Test

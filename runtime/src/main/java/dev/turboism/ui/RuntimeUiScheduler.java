@@ -12,8 +12,8 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -47,10 +47,7 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.pluginId = requireText(pluginId, "pluginId");
         final ScheduledThreadPoolExecutor executor =
-            new ScheduledThreadPoolExecutor(
-                1,
-                new UiTimerThreadFactory(pluginId)
-            );
+                new ScheduledThreadPoolExecutor(1, new UiTimerThreadFactory(pluginId));
         executor.setRemoveOnCancelPolicy(true);
         executor.setKeepAliveTime(IDLE_THREAD_RETIRE_MILLIS, TimeUnit.MILLISECONDS);
         executor.allowCoreThreadTimeOut(true);

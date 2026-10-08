@@ -351,8 +351,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
         }
         if (rebind) retryBinding();
         synchronized (bindLock) {
-            final long notifications = retiredNotificationCount
-                + (ingress == null ? 0 : ingress.notificationCount());
+            final long notifications = retiredNotificationCount + (ingress == null ? 0 : ingress.notificationCount());
             return notifications + drainCount + bindingEpoch;
         }
     }

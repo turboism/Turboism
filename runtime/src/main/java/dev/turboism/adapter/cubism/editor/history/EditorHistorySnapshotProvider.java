@@ -36,6 +36,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
      * which case the snapshot never skips the EDT projection.
      */
     private final LongSupplier changeStamp;
+
     private final Object revisionLock = new Object();
     private final BindingIdentityTracker documentIdentities;
     private final NativeHistoryDecoderRegistry nativeDecoders = new NativeHistoryDecoderRegistry();
@@ -115,8 +116,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             }
         }
         try {
-            final HistorySnapshot snapshot =
-                onEdt(() -> project(available.orElseThrow(), expectedGeneration));
+            final HistorySnapshot snapshot = onEdt(() -> project(available.orElseThrow(), expectedGeneration));
             synchronized (revisionLock) {
                 if (snapshot.availability() == HistorySnapshot.Availability.AVAILABLE) {
                     stampGeneration = expectedGeneration;

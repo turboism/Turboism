@@ -26,6 +26,7 @@ public final class TextureAtlasStatisticsPlugin implements TurboismPlugin {
     private String lastText = "";
     /** Guards generation and lastText together so a late poll can never fill a stale cache. */
     private final Object textLock = new Object();
+
     private int generation;
     private boolean enabled;
 
