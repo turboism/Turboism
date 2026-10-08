@@ -345,7 +345,8 @@ public final class FakeAgent {
     }
 
     private static String sanitize(final String text) {
-        return text.replaceAll("[\s\"]+", "_").substring(0, Math.min(400, text.length()));
+        final String truncated = text.substring(0, Math.min(400, text.length()));
+        return truncated.replaceAll("[\\s\"]+", "_");
     }
 
     private Map<String, Object> readOverview(final BridgeClient bridge, final long timeout) throws IOException {
